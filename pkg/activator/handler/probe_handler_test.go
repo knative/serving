@@ -13,6 +13,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -109,4 +110,43 @@ func mapToHeader(m map[string]string) http.Header {
 		h.Add(k, v)
 	}
 	return h
+}
+
+func BenchmarkProbeHandler(b *testing.B) {
+	tests := []struct {
+		label   string
+		headers http.Header
+	}{{
+		label:   "valid header name",
+		headers: mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
+	}, {
+		label:   "invalid header name",
+		headers: mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
+	}, {
+		label:   "empty header name",
+		headers: http.Header{},
+	}}
+
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := ProbeHandler{NextHandler: baseHandler}
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	for _, test := range tests {
+		req.Header = test.headers
+		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
+			for j := 0; j < b.N; j++ {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+
+		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					handler.ServeHTTP(resp, req)
+				}
+			})
+		})
+	}
 }

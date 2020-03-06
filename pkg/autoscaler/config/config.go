@@ -71,6 +71,8 @@ type Config struct {
 	TickInterval             time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
+
+	PodAutoscalerClass string
 }
 
 // NewConfigFromMap creates a Config from the supplied map
@@ -186,6 +188,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
+	lc.PodAutoscalerClass = autoscaling.KPA
+	if pac, ok := data["pod-autoscaler-class"]; ok {
+		lc.PodAutoscalerClass = pac
+	}
+
 	return validate(lc)
 }
 
@@ -202,7 +209,7 @@ func validate(lc *Config) (*Config, error) {
 	}
 
 	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < autoscaling.TargetMin {
-		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less than 1", x)
+		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %v, can't be less than %v", x, autoscaling.TargetMin)
 	}
 
 	if lc.RPSTargetDefault < autoscaling.TargetMin {

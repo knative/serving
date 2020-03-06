@@ -27,7 +27,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
@@ -77,7 +77,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 			Type: autoscalingv2beta1.ObjectMetricSourceType,
 			Object: &autoscalingv2beta1.ObjectMetricSource{
 				Target: autoscalingv2beta1.CrossVersionObjectReference{
-					APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+					APIVersion: servingv1.SchemeGroupVersion.String(),
 					Kind:       "revision",
 					Name:       pa.Name,
 				},

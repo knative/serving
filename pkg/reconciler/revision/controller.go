@@ -20,11 +20,13 @@ import (
 	"context"
 	"net/http"
 
+	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -38,13 +40,11 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
-const (
-	controllerAgentName = "revision-controller"
-)
+const controllerAgentName = "revision-controller"
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
@@ -69,6 +69,8 @@ func newControllerWithOptions(
 		transport = rt
 	}
 
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
+	logger := logging.FromContext(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	configMapInformer := configmapinformer.Get(ctx)
@@ -77,12 +79,14 @@ func newControllerWithOptions(
 	paInformer := painformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+		kubeclient:    kubeclient.Get(ctx),
+		client:        servingclient.Get(ctx),
+		cachingclient: cachingclient.Get(ctx),
+
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
-		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),
 			transport: transport,
@@ -102,13 +106,13 @@ func newControllerWithOptions(
 			impl.GlobalResync(revisionInformer.Informer())
 		})
 
-		configStore := config.NewStore(c.Logger.Named("config-store"), resync)
-		configStore.WatchConfigs(c.ConfigMapWatcher)
+		configStore := config.NewStore(logger.Named("config-store"), resync)
+		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 
 	// Set up an event handler for when the resource types of interest change
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

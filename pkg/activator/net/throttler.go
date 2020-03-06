@@ -41,11 +41,10 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/resources"
 )
 
 type podTracker struct {
@@ -91,24 +90,22 @@ type revisionThrottler struct {
 	// therefore need to recalculate capacity
 	backendCount int
 
-	// This is a breaker for the revision as a whole. try calls first pass through
-	// this breaker and are either called with clusterIPDest or go through selecting
-	// a podIPTracker and are then called.
+	// This is a breaker for the revision as a whole.
 	breaker breaker
 
-	// This will be non empty when we're able to use pod addressing.
+	// This will be non-empty when we're able to use pod addressing.
 	podTrackers []*podTracker
 
 	// Effective trackers that are assigned to this Activator.
 	// This is a subset of podIPTrackers.
 	assignedTrackers []*podTracker
 
-	// If we dont have a healthy clusterIPTracker this is set to nil, otherwise
+	// If we don't have a healthy clusterIPTracker this is set to nil, otherwise
 	// it is the l4dest for this revision's private clusterIP.
 	clusterIPTracker *podTracker
 
-	// mux guards "throttle state" which is the state we use during the request path. This
-	// is trackers, clusterIPDest.
+	// mux guards the "throttler state" which is the state we use during the
+	//request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
 	// used to atomically calculate and set capacity
@@ -202,7 +199,7 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 }
 
 // This makes sure we reset the capacity to the CC, since the pod
-// might be reassiged to be exclusively used.
+// might be reassigned to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
 	if rt.containerConcurrency <= 0 {
 		return
@@ -225,7 +222,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		if rt.clusterIPTracker != nil {
 			return 0
 		}
-		// Infifnite capacity, assign all.
+		// Infinite capacity, assign all.
 		if rt.containerConcurrency == 0 {
 			rt.assignedTrackers = rt.podTrackers
 		} else {
@@ -295,7 +292,7 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 	}
 
 	// 2. distribute equally and share the remnants
-	// among all the activatos, but with reduced capacity, if finite.
+	// among all the activators, but with reduced capacity, if finite.
 	sliceSize := numTrackers / numActivators
 	remnants = numTrackers % numActivators
 	beginIndex = selfIndex * sliceSize
@@ -488,25 +485,24 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 // revisionUpdated is used to ensure we have a backlog set up for a revision as soon as it is created
 // rather than erroring with revision not found until a networking probe succeeds
 func (t *Throttler) revisionUpdated(obj interface{}) {
-	rev := obj.(*v1alpha1.Revision)
+	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
 
 	logger.Debug("Revision update")
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
-		logger.Errorw("Failed to get revision throttler for revision "+revID.String(), zap.Error(err))
+		logger.Errorw("Failed to get revision throttler for revision", zap.Error(err))
 	}
 }
 
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
 // memory growth
 func (t *Throttler) revisionDeleted(obj interface{}) {
-	rev := obj.(*v1alpha1.Revision)
+	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
-	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
 
-	logger.Debug("Revision delete")
+	t.logger.Debugw("Revision delete", zap.String(logkey.Key, revID.String()))
 
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
@@ -519,7 +515,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 		if k8serrors.IsNotFound(err) {
 			logger.Debug("Revision not found. It was probably removed")
 		} else {
-			logger.With(zap.Error(err)).Error("Failed to get revision throttler")
+			logger.Errorw("Failed to get revision throttler", zap.Error(err))
 		}
 	} else {
 		rt.handleUpdate(t, update)
@@ -527,7 +523,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 }
 
 // inferIndex returns the index of this activator slice.
-// If inferIndex returns -1, it means that this activator will not recive
+// If inferIndex returns -1, it means that this activator will not receive
 // any traffic just yet so, do not participate in slicing, this happens after
 // startup, but before this activator is threaded into the endpoints
 // (which is up to 10s after reporting healthy).
@@ -561,7 +557,7 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	eps := epSet.List()
 	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
 	idx := inferIndex(eps, t.ipAddress)
-	activatorCount := resources.ReadyAddressCount(endpoints)
+	activatorCount := len(eps)
 	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
 	atomic.StoreInt32(&t.activatorIndex, int32(idx))

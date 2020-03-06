@@ -24,8 +24,11 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/logging"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -37,9 +40,8 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-	rpkg "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -51,7 +53,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -88,7 +90,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}, {
 		// This is the case for once we are scaled to zero.
-		// It also exersises the retry logic.
+		// It also exercises the retry logic.
 		Name: "steady switch to proxy mode, with retry",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
@@ -107,7 +109,7 @@ func TestReconcile(t *testing.T) {
 					return false, nil, nil
 				}
 				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -644,13 +646,14 @@ func TestReconcile(t *testing.T) {
 		ctx = podscalable.WithDuck(ctx)
 
 		r := &reconciler{
-			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:        kubeclient.Get(ctx),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
 			psInformerFactory: podscalable.Get(ctx),
 		}
 
-		return sksreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetServerlessServiceLister(), r.Recorder, r)
+		return sksreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetServerlessServiceLister(), controller.GetEventRecorder(ctx), r)
 	}))
 }
 

@@ -25,11 +25,14 @@ import (
 	"time"
 
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/logging"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1alpha2/challenge/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha2/certificate/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha2/clusterissuer/fake"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	"knative.dev/serving/pkg/network"
 
 	acmev1alpha2 "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2"
 	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
@@ -45,14 +48,14 @@ import (
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	certreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 const generation = 23132
@@ -348,7 +351,6 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
@@ -356,22 +358,23 @@ func TestReconcile(t *testing.T) {
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
 			tracker:             &NullTracker{},
 		}
-		return certreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetCertificateLister(), r.Recorder, r, controller.Options{
-			ConfigStore: &testConfigStore{
-				config: &config.Config{
-					CertManager: certmanagerConfig(),
+		return certreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,
+			network.CertManagerCertificateClassName, controller.Options{
+				ConfigStore: &testConfigStore{
+					config: &config.Config{
+						CertManager: certmanagerConfig(),
+					},
 				},
-			},
-		})
+			})
 	}))
 }
 
 func TestReconcile_HTTP01Challenges(t *testing.T) {
 	table := TableTest{{
-		Name:                    "fail to set status.HTTP01Challenges",
-		Key:                     "foo/knCert",
-		SkipNamespaceValidation: true,
-		WantErr:                 true,
+		Name:    "fail to set status.HTTP01Challenges",
+		Key:     "foo/knCert",
+		WantErr: true,
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
 			http01Issuer,
@@ -493,7 +496,6 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
@@ -501,13 +503,15 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
 			tracker:             &NullTracker{},
 		}
-		return certreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetCertificateLister(), r.Recorder, r, controller.Options{
-			ConfigStore: &testConfigStore{
-				config: &config.Config{
-					CertManager: certmanagerConfig(),
+		return certreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,
+			network.CertManagerCertificateClassName, controller.Options{
+				ConfigStore: &testConfigStore{
+					config: &config.Config{
+						CertManager: certmanagerConfig(),
+					},
 				},
-			},
-		})
+			})
 	}))
 }
 
@@ -544,6 +548,9 @@ func knCertWithStatusAndGeneration(name, namespace string, status *v1alpha1.Cert
 			Name:       name,
 			Namespace:  namespace,
 			Generation: int64(gen),
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+			},
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   correctDNSNames,

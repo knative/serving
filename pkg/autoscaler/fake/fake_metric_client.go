@@ -41,6 +41,8 @@ const (
 	TestService = "test-revision-metrics"
 	// TestNamespace is the name used for the namespace.
 	TestNamespace = "test-namespace"
+	// TestConfig is the name used for the config.
+	TestConfig = "test-config"
 )
 
 // MetricClient is a fake implementation of autoscaler.MetricClient for testing.

@@ -23,7 +23,6 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -94,16 +93,7 @@ func NewRequestMetricsHandler(next http.Handler,
 		return nil, err
 	}
 
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Upsert(metrics.PodTagKey, pod),
-		tag.Upsert(metrics.ContainerTagKey, "queue-proxy"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, err = metrics.AugmentWithRevision(ctx, ns, service, config, rev)
+	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev)
 	if err != nil {
 		return nil, err
 	}
@@ -165,16 +155,7 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 		return nil, err
 	}
 
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Upsert(metrics.PodTagKey, pod),
-		tag.Upsert(metrics.ContainerTagKey, "queue-proxy"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, err = metrics.AugmentWithRevision(ctx, ns, service, config, rev)
+	ctx, err := metrics.PodRevisionContext(pod, "queue-proxy", ns, service, config, rev)
 	if err != nil {
 		return nil, err
 	}

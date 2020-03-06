@@ -27,12 +27,12 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -275,11 +275,11 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 
 func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
-		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
+		service.Annotations = kmeta.UnionMaps(service.Annotations, annotations)
 	}
 }
 
-// WithContainerConcurrency setss the container concurrency on the resource.
+// WithContainerConcurrency sets the container concurrency on the resource.
 func WithContainerConcurrency(cc int) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		if s.Spec.DeprecatedRunLatest != nil {
@@ -296,10 +296,10 @@ func WithContainerConcurrency(cc int) ServiceOption {
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = resources.UnionMaps(
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = kmeta.UnionMaps(
 				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations, annotations)
 		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = resources.UnionMaps(
+			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = kmeta.UnionMaps(
 				service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
 		}
 	}
@@ -435,6 +435,17 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 		}
 		r.Status.Traffic = targets
+	}
+}
+
+// WithRouteStatus sets the Service's status's route status field traffic block to the specified traffic targets.
+func WithRouteStatus(targets ...v1alpha1.TrafficTarget) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
+		}
+		s.Status.RouteStatusFields.Traffic = targets
 	}
 }
 

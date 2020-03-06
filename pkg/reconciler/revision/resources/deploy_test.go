@@ -821,10 +821,9 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-
 			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -834,16 +833,14 @@ func TestMakePodSpec(t *testing.T) {
 }
 
 func TestMissingProbeError(t *testing.T) {
-	_, err := MakeDeployment(defaultRevision,
+	if _, err := MakeDeployment(defaultRevision,
 		&logging.Config{},
 		&tracingconfig.Config{},
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
 		&autoscalerconfig.Config{},
 		&deployment.Config{},
-	)
-
-	if err == nil {
+	); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -937,7 +934,7 @@ func TestMakeDeployment(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.ac, test.cc)

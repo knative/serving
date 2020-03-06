@@ -28,30 +28,35 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakensinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
 	_ "knative.dev/pkg/system/testing"
+
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
+
+const testCertClass = "dns-01.rocks"
 
 var (
 	wildcardDNSNames      = []string{"*.foo.example.com"}
@@ -107,7 +112,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	certEvents := make(chan *v1alpha1.Certificate)
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(corev1.SchemeGroupVersion.WithKind("Namespace")),
+		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
 			certEvents <- obj.(*v1alpha1.Certificate)
 		}),
@@ -207,11 +212,35 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Knative certificate %s/%s: inducing failure for create certificates", "foo", defaultCertName),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create namespace certificate: inducing failure for create certificates"),
 		},
+	}, {
+		Name: "disabling namespace cert feature deletes the cert",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			knCert(kubeNamespace("foo")),
+		},
+		SkipNamespaceValidation: true,
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "networking.internal.knative.dev",
+					Version:  "v1alpha1",
+					Resource: "certificates",
+				},
+			},
+			Name: "foo.example.com",
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted Knative Certificate %s/%s", "foo", defaultCertName),
+		},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
-			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+			client:              servingclient.Get(ctx),
+			recorder:            controller.GetEventRecorder(ctx),
 			knCertificateLister: listers.GetKnCertificateLister(),
 			nsLister:            listers.GetNamespaceLister(),
 			configStore: &testConfigStore{
@@ -415,7 +444,8 @@ func TestDomainConfigDomain(t *testing.T) {
 			configStore.WatchConfigs(cmw)
 
 			r := &reconciler{
-				Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+				client:              servingclient.Get(ctx),
+				recorder:            controller.GetEventRecorder(ctx),
 				configStore:         configStore,
 				nsLister:            fakensinformer.Get(ctx).Lister(),
 				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
@@ -446,9 +476,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
 func knCert(namespace *corev1.Namespace) *v1alpha1.Certificate {
 	return knCertWithStatus(namespace, &v1alpha1.CertificateStatus{})
@@ -460,6 +488,9 @@ func knCertWithStatus(namespace *corev1.Namespace, status *v1alpha1.CertificateS
 			Name:            defaultCertName,
 			Namespace:       namespace.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: testCertClass,
+			},
 			Labels: map[string]string{
 				networking.WildcardCertDomainLabelKey: defaultDomain,
 			},
@@ -493,8 +524,9 @@ func kubeNamespaceWithDisableLabelValue(name, value string) *corev1.Namespace {
 
 func networkConfig() *network.Config {
 	return &network.Config{
-		DomainTemplate: defaultDomainTemplate,
-		AutoTLS:        true,
+		DomainTemplate:          defaultDomainTemplate,
+		AutoTLS:                 true,
+		DefaultCertificateClass: testCertClass,
 	}
 }
 

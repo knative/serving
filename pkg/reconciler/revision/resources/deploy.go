@@ -31,7 +31,6 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -109,7 +108,7 @@ func MakeDeployment(rev *v1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
 
-	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+	podTemplateAnnotations := kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 
@@ -127,7 +126,7 @@ func MakeDeployment(rev *v1.Revision,
 			Name:      names.Deployment(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Exclude the heartbeat label, which can have high variance.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),

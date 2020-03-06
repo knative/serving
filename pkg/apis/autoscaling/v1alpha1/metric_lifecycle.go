@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
@@ -65,9 +64,5 @@ func (ms *MetricStatus) MarkMetricFailed(reason, message string) {
 // IsReady looks at the conditions and if the condition MetricConditionReady
 // is true
 func (ms *MetricStatus) IsReady() bool {
-	return condSet.Manage(ms.duck()).IsHappy()
-}
-
-func (ms *MetricStatus) duck() *duckv1.Status {
-	return (*duckv1.Status)(&ms.Status)
+	return condSet.Manage(ms).IsHappy()
 }

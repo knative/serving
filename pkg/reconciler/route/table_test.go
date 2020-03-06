@@ -30,9 +30,11 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/apis"
+	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -41,10 +43,10 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -1764,7 +1766,8 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:          kubeclient.Get(ctx),
+			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -1773,8 +1776,9 @@ func TestReconcile(t *testing.T) {
 			clock:               FakeClock{Time: fakeCurTime},
 		}
 
-		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
-
+		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
 	}))
 }
 
@@ -2120,8 +2124,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithURL,
 			),
 		}},
-		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
+		Key: "default/becomes-ready",
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
 		WantErr: true,
@@ -2316,7 +2319,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:          kubeclient.Get(ctx),
+			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -2326,7 +2330,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			clock:               FakeClock{Time: fakeCurTime},
 		}
 
-		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(true)}})
+		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(true)}})
 	}))
 }
 
@@ -2432,7 +2438,8 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 		cfg := ReconcilerTestConfig(true)
 		cfg.Network.HTTPProtocol = network.HTTPDisabled
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:          kubeclient.Get(ctx),
+			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -2442,7 +2449,9 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 			clock:               FakeClock{Time: fakeCurTime},
 		}
 
-		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: cfg}})
+		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: cfg}})
 	}))
 }
 

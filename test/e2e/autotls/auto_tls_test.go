@@ -18,24 +18,21 @@ limitations under the License.
 package autotls
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net/http"
-	"strings"
 	"testing"
-	"time"
+
+	"github.com/kelseyhightower/envconfig"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/pkg/system"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
 	testingress "knative.dev/serving/test/conformance/ingress"
@@ -43,17 +40,38 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// To run this test locally with cert-manager, you need to
-// 1. Install cert-manager from `third_party/` directory.
-// 2. Run the command below to do the configuration:
-//    kubectl apply -f test/config/autotls/certmanager/selfsigned/
-func TestPerKsvcCertLocalCA(t *testing.T) {
+type dnsRecord struct {
+	ip     string
+	domain string
+}
+
+type config struct {
+	// ServiceName is the name of testing Knative Service.
+	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
+	// is mapped to the Ingress IP.
+	TLSServiceName string `envconfig:"tls_service_name" required: "false"`
+	// AutoTLSTestName is the name of the auto tls. It is not required for local test.
+	AutoTLSTestName string `envconfig:"auto_tls_test_name" required: "false" default:"TestAutoTLS"`
+}
+
+var env config
+
+func TestAutoTLS(t *testing.T) {
+	if err := envconfig.Process("", &env); err != nil {
+		t.Fatalf("Failed to process environment variable: %v.", err)
+	}
+	t.Run(env.AutoTLSTestName, testAutoTLS)
+}
+
+func testAutoTLS(t *testing.T) {
 	clients := e2e.Setup(t)
-	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "runtime",
+	}
+	if len(env.TLSServiceName) != 0 {
+		names.Service = env.TLSServiceName
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
@@ -63,74 +81,111 @@ func TestPerKsvcCertLocalCA(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	cancel := turnOnAutoTLS(t, clients)
-	test.CleanupOnInterrupt(cancel)
-	defer cancel()
-
-	// Wait for certificate to be ready.
-	if err := waitForCertificateReady(t, clients, routenames.Certificate(objects.Route)); err != nil {
-		t.Fatalf("Error waiting for certificate to become ready: %v", err)
-	}
-
-	// curl HTTPS
-	secretName := routenames.Certificate(objects.Route)
-	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, secretName)
-
 	// The TLS info is added to the ingress after the service is created, that's
-	// why we need to wait again.
-	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady")
+	// why we need to wait again
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, httpsReady, "HTTPSIsReady")
 	if err != nil {
-		t.Fatalf("Service %s did not become ready: %v", names.Service, err)
-	}
-
-	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
-}
-
-// To run this test locally with cert-manager, you need to
-// 1. Install cert-manager from `third_party/` directory.
-// 2. Run the command below to do the configuration:
-//    kubectl apply -f test/config/autotls/certmanager/selfsigned/
-func TestPerNamespaceCertLocalCA(t *testing.T) {
-	clients := e2e.Setup(t)
-	disableNamespaceCertWithWhiteList(t, clients, sets.NewString(test.ServingNamespace))
-	defer disableNamespaceCertWithWhiteList(t, clients, sets.String{})
-
-	cancel := turnOnAutoTLS(t, clients)
-	test.CleanupOnInterrupt(cancel)
-	defer cancel()
-
-	// Wait for certificate to be ready.
-	certName, err := waitForNamespaceCertReady(clients)
-	if err != nil {
-		t.Fatalf("Namespace Cert failed to become ready: %v", err)
-	}
-
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   "runtime",
-	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
-	objects, err := v1test.CreateServiceReady(t, clients, &names)
-	if err != nil {
-		t.Fatalf("Failed to create initial Service: %s: %v", names.Service, err)
+		t.Fatalf("Service %s did not become ready or have HTTPS URL: %v", names.Service, err)
 	}
 
 	// curl HTTPS
-	rootCAs := createRootCAs(t, clients, test.ServingNamespace, certName)
+	certName := getCertificateName(t, clients, objects)
+	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+
+	t.Run("Tag route", func(t *testing.T) {
+		// Probe main URL while we update the route
+		var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
+			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+			return transport
+		}
+		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+		defer test.AssertProberDefault(t, prober)
+
+		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
+			Traffic: []servingv1.TrafficTarget{{
+				Tag:            "tag1",
+				Percent:        ptr.Int64(50),
+				LatestRevision: ptr.Bool(true),
+			}, {
+				Tag:            "tag2",
+				Percent:        ptr.Int64(50),
+				LatestRevision: ptr.Bool(true),
+			}},
+		}); err != nil {
+			t.Fatalf("Failed to update Service route spec: %v", err)
+		}
+		if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTPS, "RouteTrafficIsHTTPS"); err != nil {
+			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
+		}
+
+		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get ingress: %v", err)
+		}
+		for _, tls := range ing.Spec.TLS {
+			// Each new cert has to be added to the root pool so we can make requests.
+			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+				t.Fatal("Failed to add the certificate to the root CA")
+			}
+		}
+
+		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get route: %v", err)
+		}
+		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+		for _, traffic := range route.Status.Traffic {
+			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+		}
+	})
 }
 
-func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
+	t.Helper()
+	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
+	}
+	if len(ing.Spec.TLS) == 0 {
+		t.Fatalf("IngressTLS field in Ingress %s does not exist.", ing.Name)
+	}
+	return ing.Spec.TLS[0].SecretName
+}
+
+func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
+	for _, tt := range route.Status.Traffic {
+		if tt.URL.URL().Scheme != "https" {
+			return false, nil
+		}
+	}
+	return route.Status.IsReady() && true, nil
+}
+
+func httpsReady(svc *servingv1.Service) (bool, error) {
+	if ready, err := v1test.IsServiceReady(svc); err != nil {
+		return ready, err
+	} else if !ready {
+		return false, nil
+	} else {
+		return svc.Status.URL.Scheme == "https", nil
+	}
+}
+
+func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
 	t.Helper()
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
+	return secret.Data[corev1.TLSCertKey]
+}
+
+func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+	t.Helper()
+	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -139,7 +194,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		}
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
+	if !rootCAs.AppendCertsFromPEM(pemData) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
@@ -181,73 +236,4 @@ func disableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whit
 			t.Errorf("Fail to disable namespace cert: %v", err)
 		}
 	}
-}
-
-func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
-	t.Helper()
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get config-network ConfigMap: %v", err)
-	}
-	configNetworkCM.Data["autoTLS"] = "Enabled"
-	test.CleanupOnInterrupt(func() {
-		turnOffAutoTLS(t, clients)
-	})
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(configNetworkCM); err != nil {
-		t.Fatalf("Failed to update config-network ConfigMap: %v", err)
-	}
-	return func() {
-		turnOffAutoTLS(t, clients)
-	}
-}
-
-func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get config-network ConfigMap: %v", err)
-		return
-	}
-	delete(configNetworkCM.Data, "autoTLS")
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(configNetworkCM.Namespace).Update(configNetworkCM); err != nil {
-		t.Errorf("Failed to turn off Auto TLS: %v", err)
-	}
-}
-
-func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) error {
-	return wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("Certificate %s has not been created: %v", certName, err)
-				return false, nil
-			}
-			return false, err
-		}
-		if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
-			return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
-		}
-		return cert.Status.IsReady(), nil
-	})
-}
-
-func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
-	var certName string
-	err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
-		if err != nil {
-			return false, err
-		}
-		for _, cert := range certs.Items {
-			if strings.Contains(cert.Name, test.ServingNamespace) {
-				certName = cert.Name
-				if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
-					return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
-				}
-				return cert.Status.IsReady(), nil
-			}
-		}
-		// Namespace certificate has not been created.
-		return false, nil
-	})
-	return certName, err
 }

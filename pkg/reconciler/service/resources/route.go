@@ -22,24 +22,23 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 // MakeRoute creates a Route from a Service object.
-func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	c := &v1alpha1.Route{
+func MakeRoute(service *v1.Service) (*v1.Route, error) {
+	c := &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Route(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
+			Annotations: kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
-			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
+			Labels: kmeta.UnionMaps(service.GetLabels(), map[string]string{
 				// Add this service's name to the route annotations.
 				serving.ServiceLabelKey: service.Name,
 			}),

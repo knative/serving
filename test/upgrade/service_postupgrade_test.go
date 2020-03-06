@@ -26,18 +26,33 @@ import (
 	ptest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-func TestRunLatestServicePostUpgrade(t *testing.T) {
+func TestServicePostUpgrade(t *testing.T) {
 	t.Parallel()
+	clients := e2e.Setup(t)
+
+	// Before updating the service, the route and configuration objects should
+	// not be updated just because there has been an upgrade.
+	if hasGeneration, err := configHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Configuration generation: %v", err)
+	} else if !hasGeneration {
+		t.Fatal("Configuration is updated after an upgrade.")
+	}
+	// TODO(https://github.com/knative/serving/issues/6984): Re-enable this after 0.13 cuts.
+	// if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+	// 	t.Fatalf("Error comparing Route generation: %v", err)
+	// } else if !hasGeneration {
+	// 	t.Fatal("Route is updated after an upgrade.")
+	// }
 	updateService(serviceName, t)
 }
 
-func TestRunLatestServicePostUpgradeFromScaleToZero(t *testing.T) {
+func TestServicePostUpgradeFromScaleToZero(t *testing.T) {
 	t.Parallel()
 	updateService(scaleToZeroServiceName, t)
 }
@@ -62,6 +77,22 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}
 }
 
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return configObj.Generation == int64(generation), nil
+}
+
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return routeObj.Generation == int64(generation), nil
+}
+
 func updateService(serviceName string, t *testing.T) {
 	t.Helper()
 	clients := e2e.Setup(t)
@@ -70,7 +101,7 @@ func updateService(serviceName string, t *testing.T) {
 	}
 
 	t.Logf("Getting service %q", names.Service)
-	svc, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Service: %v", err)
 	}
@@ -85,19 +116,19 @@ func updateService(serviceName string, t *testing.T) {
 
 	t.Log("Updating the Service to use a different image")
 	newImage := ptest.ImagePath(test.PizzaPlanet2)
-	if _, err := v1a1test.PatchServiceImage(t, clients, svc, newImage); err != nil {
+	if _, err := v1test.PatchService(t, clients, svc, rtesting.WithServiceImage(newImage)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, newImage, err)
 	}
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
-	revisionName, err := v1a1test.WaitForServiceLatestRevision(clients, names)
+	revisionName, err := v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, test.PizzaPlanet2, err)
 	}
 	names.Revision = revisionName
 
 	t.Log("When the Service reports as Ready, everything should be ready.")
-	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText2)

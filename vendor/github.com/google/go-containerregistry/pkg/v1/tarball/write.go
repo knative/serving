@@ -89,8 +89,9 @@ func MultiRefWrite(refToImage map[name.Reference]v1.Image, w io.Writer) error {
 	defer tf.Close()
 
 	imageToTags := dedupRefToImage(refToImage)
-	var td tarDescriptor
+	var m Manifest
 
+	seenLayerDigests := make(map[string]struct{})
 	for img, tags := range imageToTags {
 		// Write the config.
 		cfgName, err := img.ConfigName()
@@ -119,6 +120,21 @@ func MultiRefWrite(refToImage map[name.Reference]v1.Image, w io.Writer) error {
 			if err != nil {
 				return err
 			}
+			// Munge the file name to appease ancient technology.
+			//
+			// tar assumes anything with a colon is a remote tape drive:
+			// https://www.gnu.org/software/tar/manual/html_section/tar_45.html
+			// Drop the algorithm prefix, e.g. "sha256:"
+			hex := d.Hex
+
+			// gunzip expects certain file extensions:
+			// https://www.gnu.org/software/gzip/manual/html_node/Overview.html
+			layerFiles[i] = fmt.Sprintf("%s.tar.gz", hex)
+
+			if _, ok := seenLayerDigests[hex]; ok {
+				continue
+			}
+			seenLayerDigests[hex] = struct{}{}
 
 			// Add to LayerSources if it's a foreign layer.
 			desc, err := partial.BlobDescriptor(img, d)
@@ -132,17 +148,6 @@ func MultiRefWrite(refToImage map[name.Reference]v1.Image, w io.Writer) error {
 				}
 				layerSources[diffid] = desc
 			}
-
-			// Munge the file name to appease ancient technology.
-			//
-			// tar assumes anything with a colon is a remote tape drive:
-			// https://www.gnu.org/software/tar/manual/html_section/tar_45.html
-			// Drop the algorithm prefix, e.g. "sha256:"
-			hex := d.Hex
-
-			// gunzip expects certain file extensions:
-			// https://www.gnu.org/software/gzip/manual/html_node/Overview.html
-			layerFiles[i] = fmt.Sprintf("%s.tar.gz", hex)
 
 			r, err := l.Compressed()
 			if err != nil {
@@ -159,21 +164,19 @@ func MultiRefWrite(refToImage map[name.Reference]v1.Image, w io.Writer) error {
 		}
 
 		// Generate the tar descriptor and write it.
-		sitd := singleImageTarDescriptor{
+		m = append(m, Descriptor{
 			Config:       cfgName.String(),
 			RepoTags:     tags,
 			Layers:       layerFiles,
 			LayerSources: layerSources,
-		}
-
-		td = append(td, sitd)
+		})
 	}
 
-	tdBytes, err := json.Marshal(td)
+	mBytes, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	return writeTarEntry(tf, "manifest.json", bytes.NewReader(tdBytes), int64(len(tdBytes)))
+	return writeTarEntry(tf, "manifest.json", bytes.NewReader(mBytes), int64(len(mBytes)))
 }
 
 func dedupRefToImage(refToImage map[name.Reference]v1.Image) map[v1.Image][]string {
@@ -196,7 +199,7 @@ func dedupRefToImage(refToImage map[name.Reference]v1.Image) map[v1.Image][]stri
 	return imageToTags
 }
 
-// write a file to the provided writer with a corresponding tar header
+// Writes a file to the provided writer with a corresponding tar header
 func writeTarEntry(tf *tar.Writer, path string, r io.Reader, size int64) error {
 	hdr := &tar.Header{
 		Mode:     0644,

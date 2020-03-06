@@ -250,14 +250,6 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	return rev, deployment, pa
 }
 
-type fixedResolver struct {
-	digest string
-}
-
-func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
-	return r.digest, nil
-}
-
 type errorResolver struct {
 	err error
 }
@@ -348,18 +340,16 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	var fakeRecorder *record.FakeRecorder
-	ctx, cancel, _, controller, _ := newTestController(t, func(r *Reconciler) {
-		// Grab the recorder that we are set up with.
-		fakeRecorder = r.Base.Recorder.(*record.FakeRecorder)
-	})
+	ctx, cancel, _, ctl, _ := newTestController(t)
 	defer cancel()
 	rev := testRevision()
+
+	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
 
-	deployingRev := createRevision(t, ctx, controller, rev)
+	deployingRev := createRevision(t, ctx, ctl, rev)
 
 	// The revision is not marked ready until an endpoint is created.
 	for _, ct := range []apis.ConditionType{"Ready"} {
@@ -380,9 +370,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(endpoints)
 	pa := testReadyPA(rev)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
-	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
+	f := ctl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
@@ -439,84 +429,6 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
-}
-
-// This covers *error* paths in receiveNetworkConfig, since "" is not a valid value.
-func TestIstioOutboundIPRangesInjection(t *testing.T) {
-	var annotations map[string]string
-
-	// A valid IP range
-	in := "  10.10.10.0/24\r,,\t,\n,,"
-	want := "10.10.10.0/24"
-	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-
-	// Multiple valid ranges with whitespaces
-	in = " \t\t10.10.10.0/24,  ,,\t\n\r\n,10.240.10.0/14\n,   192.192.10.0/16"
-	want = "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16"
-	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-
-	// An invalid IP range
-	in = "10.10.10.10/33"
-	annotations = getPodAnnotationsForConfig(t, in, "")
-	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; !ok {
-		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-
-	// Configuration has an annotation override - its value must be preserved
-	want = "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want)
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
-	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
-	}
-}
-
-func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
-	controllerConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig, nil, func(r *Reconciler) {
-		// Resolve image references to this "digest"
-		digest := "foo@sha256:deadbeef"
-
-		r.resolver = &fixedResolver{digest}
-	})
-
-	watcher.OnChange(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			network.IstioOutboundIPRangesKey: configMapValue,
-		}})
-
-	rev := testRevision()
-	config := testConfiguration()
-	if len(configAnnotationOverride) > 0 {
-		rev.ObjectMeta.Annotations = map[string]string{resources.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
-	}
-
-	rev.OwnerReferences = append(
-		rev.OwnerReferences,
-		*kmeta.NewControllerRef(config),
-	)
-
-	createRevision(t, ctx, controller, rev)
-
-	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get serving deployment: %v", err)
-	}
-	return deployment.Spec.Template.ObjectMeta.Annotations
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
@@ -635,34 +547,6 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate *corev1.ConfigMap
 		callback          func(*testing.T) func(runtime.Object) HookResult
 	}{{
-		name: "Update Istio Outbound IP Ranges", // Should update metadata on Deployment
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      network.ConfigName,
-				Namespace: system.Namespace(),
-			},
-			Data: map[string]string{
-				"istio.sidecar.includeOutboundIPRanges": "10.0.0.1/24",
-			},
-		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
-
-				expected := "10.0.0.1/24"
-				annotations := deployment.Spec.Template.ObjectMeta.Annotations
-				got := annotations[resources.IstioOutboundIPRangeAnnotation]
-
-				if got != expected {
-					t.Logf("No update occurred; expected: %s got: %s", expected, got)
-					return HookIncomplete
-				}
-
-				return HookComplete
-			}
-		},
-	}, {
 		name: "Disable /var/log Collection", // Should set ENABLE_VAR_LOG_COLLECTION to false
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

@@ -46,7 +46,7 @@ func ForwardedShimHandler(h http.Handler) http.Handler {
 		// X-Forwarded-Host: <host>
 		xfh := r.Header.Get("X-Forwarded-Host")
 
-		// Nothing to do if we don't have any x-fowarded-* headers
+		// Nothing to do if we don't have any X-Forwarded-* headers
 		if xff == "" && xfp == "" && xfh == "" {
 			return
 		}

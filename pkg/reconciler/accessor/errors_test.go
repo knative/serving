@@ -17,7 +17,6 @@ package accessor
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 )
 
@@ -29,7 +28,7 @@ func TestIsNotOwned(t *testing.T) {
 	}{{
 		name: "IsNotOwned error",
 		err: Error{
-			err:         fmt.Errorf("test error"),
+			err:         errors.New("test error"),
 			errorReason: NotOwnResource,
 		},
 		want: true,
@@ -50,7 +49,7 @@ func TestIsNotOwned(t *testing.T) {
 
 func TestError(t *testing.T) {
 	err := Error{
-		err:         fmt.Errorf("test error"),
+		err:         errors.New("test error"),
 		errorReason: NotOwnResource,
 	}
 	if got, want := err.Error(), "notowned: test error"; got != want {

@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	apistest "knative.dev/pkg/apis/testing"
 )
 
 func TestIngressDuckTypes(t *testing.T) {
@@ -75,21 +75,21 @@ func TestIngressTypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
-	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionOngoing(r, IngressConditionReady, t)
 
 	// Then network is configured.
 	r.MarkNetworkConfigured()
-	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionNetworkConfigured, t)
-	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionSucceeded(r, IngressConditionNetworkConfigured, t)
+	apistest.CheckConditionOngoing(r, IngressConditionReady, t)
 
 	// Then ingress is pending.
 	r.MarkLoadBalancerNotReady()
-	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionLoadBalancerReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionOngoing(r, IngressConditionLoadBalancerReady, t)
+	apistest.CheckConditionOngoing(r, IngressConditionReady, t)
 
 	r.MarkLoadBalancerFailed("some reason", "some message")
-	apitestv1.CheckConditionFailed(r.duck(), IngressConditionLoadBalancerReady, t)
-	apitestv1.CheckConditionFailed(r.duck(), IngressConditionLoadBalancerReady, t)
+	apistest.CheckConditionFailed(r, IngressConditionLoadBalancerReady, t)
+	apistest.CheckConditionFailed(r, IngressConditionLoadBalancerReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady(
@@ -97,26 +97,26 @@ func TestIngressTypicalFlow(t *testing.T) {
 		[]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}},
 		[]LoadBalancerIngressStatus{{DomainInternal: "private.gateway.default.svc"}},
 	)
-	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionLoadBalancerReady, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionSucceeded(r, IngressConditionLoadBalancerReady, t)
+	apistest.CheckConditionSucceeded(r, IngressConditionReady, t)
 	if !r.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 
 	// Mark not owned.
 	r.MarkResourceNotOwned("i own", "you")
-	apitestv1.CheckConditionFailed(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionFailed(r, IngressConditionReady, t)
 
 	// Mark network configured, and check that ingress is ready again
 	r.MarkNetworkConfigured()
-	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionSucceeded(r, IngressConditionReady, t)
 	if !r.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 
 	// Mark ingress not ready
 	r.MarkIngressNotReady("", "")
-	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apistest.CheckConditionOngoing(r, IngressConditionReady, t)
 }
 
 func TestIngressGetCondition(t *testing.T) {

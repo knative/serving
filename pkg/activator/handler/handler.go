@@ -42,7 +42,7 @@ type Throttler interface {
 }
 
 // activationHandler will wait for an active endpoint for a revision
-// to be available before proxing the request
+// to be available before proxying the request
 type activationHandler struct {
 	transport        http.RoundTripper
 	tracingTransport http.RoundTripper

@@ -35,7 +35,7 @@ func TestVolumeMask(t *testing.T) {
 	got := VolumeMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -63,7 +63,7 @@ func TestVolumeSourceMask(t *testing.T) {
 	got := VolumeSourceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -120,7 +120,7 @@ func TestPodSpecMask(t *testing.T) {
 	got := PodSpecMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -176,7 +176,7 @@ func TestContainerMask(t *testing.T) {
 	got := ContainerMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -210,7 +210,7 @@ func TestVolumeMountMask(t *testing.T) {
 	got := VolumeMountMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -238,7 +238,7 @@ func TestProbeMask(t *testing.T) {
 	got := ProbeMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -263,7 +263,7 @@ func TestHandlerMask(t *testing.T) {
 	got := HandlerMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -286,7 +286,7 @@ func TestExecActionMask(t *testing.T) {
 	got := ExecActionMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -318,7 +318,7 @@ func TestHTTPGetActionMask(t *testing.T) {
 	got := HTTPGetActionMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -344,7 +344,7 @@ func TestTCPSocketActionMask(t *testing.T) {
 	got := TCPSocketActionMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -375,7 +375,7 @@ func TestContainerPortMask(t *testing.T) {
 	got := ContainerPortMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -400,7 +400,7 @@ func TestEnvVarMask(t *testing.T) {
 	got := EnvVarMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -429,7 +429,7 @@ func TestEnvVarSourceMask(t *testing.T) {
 	got := EnvVarSourceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -452,7 +452,7 @@ func TestLocalObjectReferenceMask(t *testing.T) {
 	got := LocalObjectReferenceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -477,7 +477,7 @@ func TestConfigMapKeySelectorMask(t *testing.T) {
 	got := ConfigMapKeySelectorMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -502,7 +502,7 @@ func TestSecretKeySelectorMask(t *testing.T) {
 	got := SecretKeySelectorMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -526,7 +526,7 @@ func TestConfigMapEnvSourceMask(t *testing.T) {
 	got := ConfigMapEnvSourceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -550,7 +550,7 @@ func TestSecretEnvSourceMask(t *testing.T) {
 	got := SecretEnvSourceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -575,7 +575,7 @@ func TestEnvFromSourceMask(t *testing.T) {
 	got := EnvFromSourceMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -599,7 +599,7 @@ func TestResourceRequirementsMask(t *testing.T) {
 	got := ResourceRequirementsMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
@@ -633,7 +633,7 @@ func TestSecurityContextMask(t *testing.T) {
 	got := SecurityContextMask(in)
 
 	if &want == &got {
-		t.Errorf("Input and output share addresses. Want different addresses")
+		t.Error("Input and output share addresses. Want different addresses")
 	}
 
 	if diff, err := kmp.SafeDiff(want, got); err != nil {

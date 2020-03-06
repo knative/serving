@@ -36,7 +36,7 @@ import (
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -211,9 +211,7 @@ func main() {
 	go statReporter(statSink, ctx.Done(), statCh, logger)
 
 	// Create and run our concurrency reporter
-	reportTicker := time.NewTicker(time.Second)
-	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, reportTicker.C, statCh)
+	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
 	go cr.Run(ctx.Done())
 
 	// Create activation handler chain
@@ -231,7 +229,7 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(ah)
+	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
 	ah = activatorhandler.NewContextHandler(ctx, ah)
 
 	// Network probe handlers.

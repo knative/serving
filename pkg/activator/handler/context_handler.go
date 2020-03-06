@@ -28,8 +28,8 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 // NewContextHandler creates a handler that extracts the necessary context from the request

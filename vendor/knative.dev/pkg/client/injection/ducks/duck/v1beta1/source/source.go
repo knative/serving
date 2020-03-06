@@ -19,7 +19,7 @@ limitations under the License.
 package source
 
 import (
-	"context"
+	context "context"
 
 	duck "knative.dev/pkg/apis/duck"
 	v1beta1 "knative.dev/pkg/apis/duck/v1beta1"

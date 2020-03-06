@@ -61,16 +61,16 @@ func TestDestroyPodInflight(t *testing.T) {
 		Route:  svcName,
 		Image:  "timeout",
 	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
 
+	t.Log("Creating a new Route and Configuration")
 	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
-
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
 	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {

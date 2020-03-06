@@ -35,7 +35,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-	"knative.dev/serving/pkg/resources"
 )
 
 // MakeIngressTLS creates IngressTLS to configure the ingress TLS.
@@ -65,11 +64,11 @@ func MakeIngress(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
-			Labels: resources.UnionMaps(r.ObjectMeta.Labels, map[string]string{
+			Labels: kmeta.UnionMaps(r.ObjectMeta.Labels, map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			}),
-			Annotations: resources.FilterMap(resources.UnionMaps(map[string]string{
+			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 			}, r.GetAnnotations()), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation

@@ -18,19 +18,19 @@ package resources
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/resources"
 )
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1.Revision) map[string]string {
-	labels := resources.FilterMap(revision.GetLabels(), func(k string) bool {
+	labels := kmeta.FilterMap(revision.GetLabels(), func(k string) bool {
 		// Exclude the Route label so that a Revision becoming routable
 		// doesn't trigger deployment updates.
 		return k == serving.RouteLabelKey
 	})
-	labels = resources.UnionMaps(labels, map[string]string{
+	labels = kmeta.UnionMaps(labels, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
 	})

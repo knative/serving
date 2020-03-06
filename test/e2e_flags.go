@@ -25,28 +25,6 @@ import (
 	"knative.dev/serving/pkg/network"
 )
 
-const (
-	// ServingNamespace is the default namespace for serving e2e tests
-	ServingNamespace = "serving-tests"
-
-	// AlternativeServingNamespace is a different namepace to run cross-
-	// namespace tests in.
-	AlternativeServingNamespace = "serving-tests-alt"
-
-	// ServingNamespaceforSecurityTesting is the namespace for security tests.
-	ServingNamespaceforSecurityTesting = "serving-tests-security"
-	// Environment propagation conformance test objects
-
-	// ConformanceConfigMap is the name of the configmap to propagate env variables from
-	ConformanceConfigMap = "conformance-test-configmap"
-	// ConformanceSecret is the name of the secret to propagate env variables from
-	ConformanceSecret = "conformance-test-secret"
-	// EnvKey is the configmap/secret key which contains test value
-	EnvKey = "testKey"
-	// EnvValue is the configmap/secret test value to match env variable with
-	EnvValue = "testValue"
-)
-
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
 var ServingFlags = initializeServingFlags()
 

@@ -37,6 +37,7 @@ import (
 	certreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
@@ -44,7 +45,6 @@ import (
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1alpha2"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha2"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )
@@ -64,8 +64,6 @@ var notReadyReasons = sets.NewString("InProgress", "Pending", "TemporaryCertific
 
 // Reconciler implements controller.Reconciler for Certificate resources.
 type Reconciler struct {
-	*reconciler.Base
-
 	// listers index properties about resources
 	cmCertificateLister certmanagerlisters.CertificateLister
 	cmChallengeLister   acmelisters.ChallengeLister
@@ -132,15 +130,17 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 }
 
 func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha1.Certificate, desired *cmv1alpha2.Certificate) (*cmv1alpha2.Certificate, error) {
+	recorder := controller.GetEventRecorder(ctx)
+
 	cmCert, err := c.cmCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
 		cmCert, err = c.certManagerClient.CertmanagerV1alpha2().Certificates(desired.Namespace).Create(desired)
 		if err != nil {
-			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
+			recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
 			return nil, fmt.Errorf("failed to create Cert-Manager Certificate: %w", err)
 		}
-		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
+		recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
 			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get Cert-Manager Certificate: %w", err)
@@ -152,11 +152,11 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		copy.Spec = desired.Spec
 		updated, err := c.certManagerClient.CertmanagerV1alpha2().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
+			recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, fmt.Errorf("failed to update Cert-Manager Certificate: %w", err)
 		}
-		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
+		recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 		return updated, nil
 	}

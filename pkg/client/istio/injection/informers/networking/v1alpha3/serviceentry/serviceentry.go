@@ -19,7 +19,7 @@ limitations under the License.
 package serviceentry
 
 import (
-	"context"
+	context "context"
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"

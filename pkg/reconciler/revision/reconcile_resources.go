@@ -75,7 +75,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
-		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
+		pods, err := c.kubeclient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
 		if err != nil {
 			logger.Errorw("Error getting pods", zap.Error(err))
 		} else if len(pods.Items) > 0 {
@@ -158,7 +158,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
+		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
 			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
 	}

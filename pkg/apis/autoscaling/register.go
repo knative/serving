@@ -60,9 +60,11 @@ const (
 	//   autoscaling.knative.dev/metric: cpu
 	//   autoscaling.knative.dev/target: "75"   # target 75% cpu utilization
 	TargetAnnotationKey = GroupName + "/target"
-	// TargetMin is the minimum allowable target. Values less than
-	// zero don't make sense.
-	TargetMin = 1
+	// TargetMin is the minimum allowable target.
+	// This can be less than 1 due to the fact that with small container
+	// concurrencies and small target utilization values this can get
+	// below 1.
+	TargetMin = 0.01
 
 	// WindowAnnotationKey is the annotation to specify the time
 	// interval over which to calculate the average metric.  Larger
@@ -81,7 +83,7 @@ const (
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
 	// WindowMax is the maximum permitted stable autoscaling window.
-	// This keeps the event horizon to a resonable enough limit.
+	// This keeps the event horizon to a reasonable enough limit.
 	WindowMax = 1 * time.Hour
 
 	// TargetUtilizationPercentageKey is the annotation which specifies the

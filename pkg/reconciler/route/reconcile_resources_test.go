@@ -41,13 +41,12 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
-	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
 func TestReconcileIngressInsert(t *testing.T) {
 	var reconciler *Reconciler
-	_, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
 		reconciler = r
 	})
 	defer cancel()
@@ -55,7 +54,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
 
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }
@@ -70,7 +69,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	r := Route("test-ns", "test-route")
 
 	ci := newTestIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -86,7 +85,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -238,7 +237,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"*.default.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	created := getCertificateFromClient(t, ctx, certificate)
@@ -256,7 +255,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"old.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -264,7 +263,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
 
 	newCertificate := newCerts([]string{"new.example.com"}, r)
-	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, newCertificate); err != nil {
+	if _, err := reconciler.reconcileCertificate(ctx, r, newCertificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -288,7 +287,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -299,7 +298,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	// Add ingress.class annotation.
 	ci2.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = expClass
 
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 

@@ -100,9 +100,9 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	}
 
 	if period == nil {
-		t.Errorf("Can't find the 'cpu.cfs_period_us' from cgroups")
+		t.Error("Can't find the 'cpu.cfs_period_us' from cgroups")
 	} else if quota == nil {
-		t.Errorf("Can't find the 'cpu.cfs_quota_us' from cgroups")
+		t.Error("Can't find the 'cpu.cfs_quota_us' from cgroups")
 	} else {
 		percent := (100 * (*period)) / (*quota)
 		if percent != cpuLimit*100 {

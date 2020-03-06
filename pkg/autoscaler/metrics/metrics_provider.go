@@ -21,7 +21,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,17 +28,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
 	concurrencyMetricInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
+		GroupResource: v1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.Concurrency,
 	}
+
 	rpsMetricInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
+		GroupResource: v1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.RPS,
 	}
@@ -66,15 +66,19 @@ func NewMetricProvider(metricClient MetricClient) *MetricProvider {
 func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo,
 	metricSelector labels.Selector) (*cmetrics.MetricValue, error) {
 	now := time.Now()
+
 	var data float64
 	var err error
-	if cmp.Equal(info, concurrencyMetricInfo) {
+
+	switch info {
+	case concurrencyMetricInfo:
 		data, _, err = p.metricClient.StableAndPanicConcurrency(name, now)
-	} else if cmp.Equal(info, rpsMetricInfo) {
+	case rpsMetricInfo:
 		data, _, err = p.metricClient.StableAndPanicRPS(name, now)
-	} else {
+	default:
 		return nil, errMetricNotSupported
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -95,5 +99,8 @@ func (p *MetricProvider) GetMetricBySelector(string, labels.Selector, provider.C
 
 // ListAllMetrics implements the interface.
 func (p *MetricProvider) ListAllMetrics() []provider.CustomMetricInfo {
-	return []provider.CustomMetricInfo{concurrencyMetricInfo, rpsMetricInfo}
+	return []provider.CustomMetricInfo{
+		concurrencyMetricInfo,
+		rpsMetricInfo,
+	}
 }

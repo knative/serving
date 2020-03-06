@@ -21,11 +21,12 @@ import (
 	"io/ioutil"
 	"path"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
+
 	"knative.dev/test-infra/shared/common"
 )
 
-const configPath = "config/prow/testgrid.yaml"
+const configPath = "config/prow/testgrid/testgrid.yaml"
 
 // Config is entire testgrid config
 type Config struct {

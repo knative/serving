@@ -158,8 +158,9 @@ type manager struct {
 	clients   *Clients
 	minProbes int64
 
-	m      sync.RWMutex
-	probes map[*url.URL]Prober
+	m                sync.RWMutex
+	probes           map[*url.URL]Prober
+	transportOptions []spoof.TransportOption
 }
 
 var _ ProberManager = (*manager)(nil)
@@ -183,7 +184,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	}
 	m.probes[url] = p
 	go func() {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain)
+		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
 			m.logf("NewSpoofingClient() = %v", err)
 			p.errCh <- err
@@ -250,19 +251,20 @@ func (m *manager) Foreach(f func(url *url.URL, p Prober)) {
 }
 
 // NewProberManager creates a new manager for probes.
-func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int64) ProberManager {
+func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int64, opts ...spoof.TransportOption) ProberManager {
 	return &manager{
-		logf:      logf,
-		clients:   clients,
-		minProbes: minProbes,
-		probes:    make(map[*url.URL]Prober),
+		logf:             logf,
+		clients:          clients,
+		minProbes:        minProbes,
+		probes:           make(map[*url.URL]Prober),
+		transportOptions: opts,
 	}
 }
 
 // RunRouteProber starts a single Prober of the given domain.
-func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL) Prober {
+func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL, opts ...spoof.TransportOption) Prober {
 	// Default to 10 probes
-	pm := NewProberManager(logf, clients, 10)
+	pm := NewProberManager(logf, clients, 10, opts...)
 	pm.Spawn(url)
 	return pm
 }

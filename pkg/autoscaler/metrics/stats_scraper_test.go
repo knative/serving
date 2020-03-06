@@ -130,7 +130,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 					t.Errorf("Got error message: %v. Want: %v", got, want)
 				}
 			} else {
-				t.Errorf("Expected error from CreateNewServiceScraper, got nil")
+				t.Error("Expected error from CreateNewServiceScraper, got nil")
 			}
 		})
 	}
@@ -293,7 +293,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
-		t.Errorf("scrape.Scrape() = nil, expected an error")
+		t.Error("scrape.Scrape() = nil, expected an error")
 	}
 }
 

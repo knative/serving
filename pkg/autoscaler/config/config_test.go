@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 var defaultConfig = Config{
@@ -41,6 +42,7 @@ var defaultConfig = Config{
 	TickInterval:                       2 * time.Second,
 	PanicWindowPercentage:              10.0,
 	PanicThresholdPercentage:           200.0,
+	PodAutoscalerClass:                 autoscaling.KPA,
 }
 
 func TestNewConfig(t *testing.T) {
@@ -106,6 +108,7 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
+			"pod-autoscaler-class":                    "some.class",
 		},
 		want: func(c Config) *Config {
 			c.TargetBurstCapacity = 12345
@@ -115,6 +118,7 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
+			c.PodAutoscalerClass = "some.class"
 			return &c
 		}(defaultConfig),
 	}, {
@@ -183,13 +187,6 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "target capacity less than 1",
-		input: map[string]string{
-			"container-concurrency-target-percentage": "30.0",
-			"container-concurrency-target-default":    "2",
-		},
-		wantErr: true,
-	}, {
 		name: "max scale up rate 1.0",
 		input: map[string]string{
 			"max-scale-up-rate": "1",
@@ -235,10 +232,10 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "TU*CC < 1",
+		name: "TU*CC < 0.01",
 		input: map[string]string{
-			"container-concurrency-target-percentage": "5",
-			"container-concurrency-target-default":    "10.0",
+			"container-concurrency-target-percentage": "1",
+			"container-concurrency-target-default":    "0.001",
 		},
 		wantErr: true,
 	}, {

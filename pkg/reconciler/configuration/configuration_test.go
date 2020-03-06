@@ -34,10 +34,11 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -467,16 +468,47 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "revnotready-00002"),
 		},
 		Key: "foo/revnotready",
+	}, {
+		Name: "current LRR doesn't exist, LCR is ready",
+		Objects: []runtime.Object{
+			cfg("lrrnotexist", "foo", 2,
+				WithLatestCreated("lrrnotexist-00002"),
+				WithLatestReady("lrrnotexist-00001"), WithObservedGen, func(cfg *v1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
+				},
+			),
+			rev("lrrnotexist", "foo", 1,
+				WithRevName("lrrnotexist-00000"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("lrrnotexist", "foo", 2,
+				WithRevName("lrrnotexist-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("lrrnotexist", "foo", 2,
+				WithLatestCreated("lrrnotexist-00002"),
+				WithLatestReady("lrrnotexist-00002"),
+				WithObservedGen, func(cfg *v1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "lrrnotexist-00002"),
+		},
+		Key: "foo/lrrnotexist",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
-			Base:           reconciler.NewBase(ctx, controllerAgentName, cmw),
+			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
 		}
 
-		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r)
 
 	}))
 }

@@ -34,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/network/ingress"
 	"knative.dev/serving/pkg/reconciler/ingress/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 var retriableConditions = strings.Join([]string{
@@ -68,7 +67,7 @@ func MakeIngressVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.Ingr
 	}
 
 	// Populate the Ingress labels.
-	vs.Labels = resources.FilterMap(ing.GetLabels(), func(k string) bool {
+	vs.Labels = kmeta.FilterMap(ing.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
 	vs.Labels[networking.IngressLabelKey] = ing.Name
@@ -99,14 +98,14 @@ func MakeMeshVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.Ingress
 		}, hosts),
 	}
 	// Populate the Ingress labels.
-	vs.Labels = resources.FilterMap(ing.GetLabels(), func(k string) bool {
+	vs.Labels = kmeta.FilterMap(ing.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
 	vs.Labels[networking.IngressLabelKey] = ing.Name
 	return vs
 }
 
-// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
+// MakeVirtualServices creates a mesh VirtualService and a virtual service for each gateway
 func MakeVirtualServices(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	// Insert probe header
 	ing = ing.DeepCopy()

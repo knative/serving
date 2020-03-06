@@ -19,7 +19,7 @@ limitations under the License.
 package client
 
 import (
-	"context"
+	context "context"
 
 	rest "k8s.io/client-go/rest"
 	injection "knative.dev/pkg/injection"

@@ -24,7 +24,6 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/resources"
 )
 
 // StableWindow returns the stable window for the revision from PA, if set, or
@@ -56,8 +55,8 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       pa.Namespace,
 			Name:            pa.Name,
-			Annotations:     resources.CopyMap(pa.Annotations),
-			Labels:          resources.CopyMap(pa.Labels),
+			Annotations:     kmeta.CopyMap(pa.Annotations),
+			Labels:          kmeta.CopyMap(pa.Labels),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: v1alpha1.MetricSpec{

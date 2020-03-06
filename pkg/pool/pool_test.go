@@ -71,7 +71,7 @@ func TestParallelismNoErrors(t *testing.T) {
 					}
 				}()
 
-				// Sleep a small amount to simulate work.  This should be
+				// Sleep a small amount to simulate work. This should be
 				// sufficient to saturate the threadpool before the first
 				// one wakes up.
 				time.Sleep(10 * time.Millisecond)
@@ -120,11 +120,7 @@ func TestParallelismWithErrors(t *testing.T) {
 	}, {
 		name: "ten workers",
 		size: 10,
-		// This is the number of errors that we can buffer before
-		// the test kernel below will deadlock because we need the
-		// pool's Wait call to drain the buffered errors before more
-		// than this can be sent.
-		work: defaultCapacity + 10, /* size */
+		work: defaultCapacity + 10,
 	}}
 
 	for _, tc := range tests {
@@ -141,6 +137,10 @@ func TestParallelismWithErrors(t *testing.T) {
 			// result.
 			wg := &sync.WaitGroup{}
 
+			// The barrier holds all requests we don't expect to
+			// finish until we validate the condition.
+			barrier := make(chan struct{})
+
 			errExpected := errors.New("this is what I expect")
 			workerFactory := func(err error) func() error {
 				return func() error {
@@ -156,29 +156,36 @@ func TestParallelismWithErrors(t *testing.T) {
 						}
 					}()
 
-					// Make the first piece of work finish quickly.
+					// Sleep a small amount to simulate work. This should be
+					// sufficient to saturate the threadpool before the first
+					// one wakes up.
+					time.Sleep(10 * time.Millisecond)
+
+					// Make all unexpected errors wait.
 					if err != errExpected {
-						// Sleep a small amount to simulate work.  This should be
-						// sufficient to saturate the threadpool before the first
-						// one wakes up.
-						time.Sleep(10 * time.Millisecond)
+						<-barrier
 					}
 					return err
 				}
 			}
 
-			p := New(tc.size)
+			p, ctx := NewWithContext(context.Background(), tc.size, defaultCapacity)
 
-			// Let the work complete.
-			wg.Add(1)
-			p.Go(workerFactory(errExpected))
-			time.Sleep(10 * time.Millisecond)
+			for i := 0; i < tc.work; i++ {
+				err := errors.New("this is not what I expect")
+				if i == tc.size-1 {
+					// Just fit in a request with the error we expect.
+					err = errExpected
+				}
 
-			// Change the error we return and queue the remaining work.
-			for idx := 1; idx < tc.work; idx++ {
 				wg.Add(1)
-				p.Go(workerFactory(errors.New("this is not what I expect")))
+				p.Go(workerFactory(err))
 			}
+
+			// Wait for the error to propagate.
+			<-ctx.Done()
+			// Allow all remaining requests to finish.
+			close(barrier)
 
 			// First wait for the waitgroup to finish, so that
 			// we are sure it isn't the Wait call that flushes

@@ -27,6 +27,7 @@ import (
 
 // Validate inspects and validates Ingress object.
 func (i *Ingress) Validate(ctx context.Context) *apis.FieldError {
+	ctx = apis.WithinParent(ctx, i.ObjectMeta)
 	return i.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
 }
 
@@ -102,7 +103,7 @@ func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 		if (len(h.Splits) != 1 || totalPct != 0) && totalPct != 100 {
 			// Total traffic split percentage must sum up to 100%.
 			all = all.Also(&apis.FieldError{
-				Message: "Traffic split percentage must total to 100, but was " + strconv.Itoa(totalPct),
+				Message: "traffic split percentage must total to 100, but was " + strconv.Itoa(totalPct),
 				Paths:   []string{"splits"},
 			})
 		}
@@ -137,6 +138,11 @@ func (b IngressBackend) Validate(ctx context.Context) *apis.FieldError {
 	var all *apis.FieldError
 	if b.ServiceNamespace == "" {
 		all = all.Also(apis.ErrMissingField("serviceNamespace"))
+	} else if b.ServiceNamespace != apis.ParentMeta(ctx).Namespace {
+		all = all.Also(&apis.FieldError{
+			Message: "service namespace must match ingress namespace",
+			Paths:   []string{"serviceNamespace"},
+		})
 	}
 	if b.ServiceName == "" {
 		all = all.Also(apis.ErrMissingField("serviceName"))

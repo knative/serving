@@ -40,9 +40,9 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
 		v := v1.ConfigurationSpec{}
-		if cs.ConvertUp(ctx, &v) == nil {
+		if cs.ConvertTo(ctx, &v) == nil {
 			alpha := ConfigurationSpec{}
-			if alpha.ConvertDown(ctx, v) == nil {
+			if alpha.ConvertFrom(ctx, v) == nil {
 				*cs = alpha
 			}
 		}

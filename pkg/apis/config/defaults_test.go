@@ -55,9 +55,10 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "defaults configuration",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:    DefaultRevisionTimeoutSeconds,
-			MaxRevisionTimeoutSeconds: DefaultMaxRevisionTimeoutSeconds,
-			UserContainerNameTemplate: DefaultUserContainerName,
+			RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:    DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -70,10 +71,11 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:    123,
-			MaxRevisionTimeoutSeconds: 456,
-			RevisionCPURequest:        &oneTwoThree,
-			UserContainerNameTemplate: "{{.Name}}",
+			RevisionTimeoutSeconds:       123,
+			MaxRevisionTimeoutSeconds:    456,
+			ContainerConcurrencyMaxLimit: 1984,
+			RevisionCPURequest:           &oneTwoThree,
+			UserContainerNameTemplate:    "{{.Name}}",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -81,10 +83,11 @@ func TestDefaultsConfiguration(t *testing.T) {
 				Name:      DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"revision-timeout-seconds":     "123",
-				"max-revision-timeout-seconds": "456",
-				"revision-cpu-request":         "123m",
-				"container-name-template":      "{{.Name}}",
+				"revision-timeout-seconds":        "123",
+				"max-revision-timeout-seconds":    "456",
+				"revision-cpu-request":            "123m",
+				"container-concurrency-max-limit": "1984",
+				"container-name-template":         "{{.Name}}",
 			},
 		},
 	}, {
@@ -154,7 +157,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 		},
 	}, {
-		name:         "containerConcurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
+		name:         "container-concurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
 		wantErr:      true,
 		wantDefaults: (*Defaults)(nil),
 		config: &corev1.ConfigMap{
@@ -164,6 +167,33 @@ func TestDefaultsConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"container-concurrency": "2000",
+			},
+		},
+	}, {
+		name:         "container-concurrency is bigger than specified DefaultMaxRevisionContainerConcurrency",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency":           "11",
+				"container-concurrency-max-limit": "10",
+			},
+		},
+	}, {
+		name:         "container-concurrency-max-limit is invalid",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency-max-limit": "0",
 			},
 		},
 	}}
@@ -176,8 +206,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 				t.Fatalf("Test: %q; NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 			}
 
-			if diff := cmp.Diff(actualDefaults, tt.wantDefaults, ignoreStuff); diff != "" {
-				t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantDefaults, actualDefaults)
+			if got, want := actualDefaults, tt.wantDefaults; !cmp.Equal(got, want) {
+				t.Errorf("Config mismatch: diff:\n%s", cmp.Diff(want, got))
 			}
 		})
 	}

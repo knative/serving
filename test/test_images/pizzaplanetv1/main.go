@@ -25,7 +25,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "What a spaceport!")
+	fmt.Fprint(w, "What a spaceport!")
 }
 
 func main() {

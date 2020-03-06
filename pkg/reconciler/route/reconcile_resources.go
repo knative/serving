@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -39,15 +40,16 @@ import (
 )
 
 func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
+	recorder := controller.GetEventRecorder(ctx)
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
+		ingress, err = c.client.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
 		if err != nil {
-			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
+			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
 		}
 
-		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
+		recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
@@ -62,7 +64,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 			origin := ingress.DeepCopy()
 			origin.Spec = desired.Spec
 			origin.Annotations = desired.Annotations
-			updated, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
+			updated, err := c.client.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update Ingress: %w", err)
 			}
@@ -75,7 +77,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 
 func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
 	for _, serviceName := range serviceNames.List() {
-		if err := c.KubeClientSet.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
+		if err := c.kubeclient.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
 			return fmt.Errorf("failed to delete Service: %w", err)
 		}
 	}
@@ -85,6 +87,8 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 
 func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
+	recorder := controller.GetEventRecorder(ctx)
+
 	existingServices, err := c.getServices(route)
 	if err != nil {
 		return nil, err
@@ -111,14 +115,14 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		service, err := c.serviceLister.Services(ns).Get(desiredService.Name)
 		if apierrs.IsNotFound(err) {
 			// Doesn't exist, create it.
-			service, err = c.KubeClientSet.CoreV1().Services(ns).Create(desiredService)
+			service, err = c.kubeclient.CoreV1().Services(ns).Create(desiredService)
 			if err != nil {
-				c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
+				recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
 				return nil, fmt.Errorf("failed to create placeholder service: %w", err)
 			}
 			logger.Infof("Created service %s", desiredService.Name)
-			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
+			recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
 		} else if err != nil {
 			return nil, err
 		} else if !metav1.IsControlledBy(service, route) {
@@ -161,7 +165,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				// Don't modify the informers copy
 				existing := service.DeepCopy()
 				existing.Spec = desiredService.Spec
-				_, err = c.KubeClientSet.CoreV1().Services(ns).Update(existing)
+				_, err = c.kubeclient.CoreV1().Services(ns).Update(existing)
 				if err != nil {
 					return err
 				}
@@ -216,7 +220,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					return err
 				}
 
-				if _, err := c.ServingClientSet.ServingV1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
+				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
 					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
@@ -227,14 +231,16 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 }
 
 func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+	recorder := controller.GetEventRecorder(ctx)
+
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
-		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		cert, err = c.client.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
 		if err != nil {
-			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
+			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
 			return nil, fmt.Errorf("failed to create Certificate: %w", err)
 		}
-		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
+		recorder.Eventf(r, corev1.EventTypeNormal, "Created",
 			"Created Certificate %s/%s", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
@@ -248,13 +254,13 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 			// Don't modify the informers copy
 			existing := cert.DeepCopy()
 			existing.Spec = desiredCert.Spec
-			cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+			cert, err := c.client.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
 			if err != nil {
-				c.Recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
+				recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
 					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
 				return nil, err
 			}
-			c.Recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
+			recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
 				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
 			return cert, nil
 		}

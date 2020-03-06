@@ -46,6 +46,47 @@ import (
 	certresources "knative.dev/pkg/webhook/certificates/resources"
 )
 
+// ReconcilerOptions is a function to modify the Reconciler.
+type ReconcilerOption func(*Reconciler)
+
+// WithSelector specifies the selector for the webhook.
+func WithSelector(s metav1.LabelSelector) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.selector = s
+	}
+}
+
+func NewReconciler(
+	name, path, secretName string,
+	client kubernetes.Interface,
+	mwhLister admissionlisters.MutatingWebhookConfigurationLister,
+	secretLister corelisters.SecretLister,
+	withContext BindableContext,
+	options ...ReconcilerOption,
+) *Reconciler {
+	r := &Reconciler{
+		Name:        name,
+		HandlerPath: path,
+		SecretName:  secretName,
+
+		// This is the user-provided context-decorator, which allows
+		// them to infuse the context passed to Do/Undo.
+		WithContext: withContext,
+
+		Client:       client,
+		MWHLister:    mwhLister,
+		SecretLister: secretLister,
+		selector:     ExclusionSelector, // Use ExclusionSelector by default.
+	}
+
+	// Apply options.
+	for _, opt := range options {
+		opt(r)
+	}
+
+	return r
+}
+
 // Reconciler implements an AdmissionController for altering PodSpecable
 // resources that are the subject of a particular type of Binding.
 // The two key methods are:
@@ -69,6 +110,8 @@ type Reconciler struct {
 	// Do/Undo with additional context to enable them to complete their
 	// respective tasks.
 	WithContext BindableContext
+
+	selector metav1.LabelSelector
 
 	// lock protects access to exact and inexact
 	lock    sync.RWMutex
@@ -298,20 +341,14 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	// This is only supported by 1.15+ clusters.
 	matchPolicy := admissionregistrationv1beta1.Equivalent
 
-	// See if the opt-out behaviour has been specified and specify the Inclusion Selector.
-	selector := ExclusionSelector
-	if HasOptOutSelector(ctx) {
-		selector = InclusionSelector
-	}
-
 	for i, wh := range webhook.Webhooks {
 		if wh.Name != webhook.Name {
 			continue
 		}
 		webhook.Webhooks[i].MatchPolicy = &matchPolicy
 		webhook.Webhooks[i].Rules = rules
-		webhook.Webhooks[i].NamespaceSelector = &selector
-		webhook.Webhooks[i].ObjectSelector = &selector // 1.15+ only
+		webhook.Webhooks[i].NamespaceSelector = &ac.selector
+		webhook.Webhooks[i].ObjectSelector = &ac.selector // 1.15+ only
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)

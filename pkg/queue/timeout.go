@@ -58,23 +58,19 @@ type timeoutHandler struct {
 }
 
 func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx, cancelCtx := context.WithCancel(r.Context())
-	defer cancelCtx()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
-	done := make(chan struct{})
-	// The recovery value of a panic is written to this channel to be
-	// propagated (panicked with) again.
-	panicChan := make(chan interface{})
-	defer close(panicChan)
+	// done is closed when h.handler.ServeHTTP completes and contains
+	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
+	done := make(chan interface{})
 
 	tw := &timeoutWriter{w: w}
 	go func() {
-		// The defer statements are executed in LIFO order,
-		// so recover will execute first, then only, the channel will be closed.
-		defer close(done)
 		defer func() {
+			defer close(done)
 			if p := recover(); p != nil {
-				panicChan <- p
+				done <- p
 			}
 		}()
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
@@ -84,9 +80,10 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer timeout.Stop()
 	for {
 		select {
-		case p := <-panicChan:
-			panic(p)
-		case <-done:
+		case p, ok := <-done:
+			if ok {
+				panic(p)
+			}
 			return
 		case <-timeout.C:
 			if tw.TimeoutAndWriteError(h.body) {
@@ -116,6 +113,15 @@ var _ http.Flusher = (*timeoutWriter)(nil)
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Flush() {
+	// The inner handler of timeoutHandler can call Flush at any time including after
+	// timeoutHandler.ServeHTTP has returned. Forwarding this call to the inner
+	// http.ResponseWriter would lead to a panic in HTTP2. See http2/server.go line 2556.
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	if tw.timedOut {
+		return
+	}
+
 	tw.w.(http.Flusher).Flush()
 }
 

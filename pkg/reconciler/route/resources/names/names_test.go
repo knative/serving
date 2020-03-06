@@ -23,13 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestNamer(t *testing.T) {
 	tests := []struct {
 		name  string
-		route *v1alpha1.Route
+		route *v1.Route
 		f     func(kmeta.Accessor) string
 		want  string
 	}{{
@@ -64,8 +64,8 @@ func TestNamer(t *testing.T) {
 	}
 }
 
-func getRoute(name, ns string, uid types.UID) *v1alpha1.Route {
-	return &v1alpha1.Route{
+func getRoute(name, ns string, uid types.UID) *v1.Route {
+	return &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,

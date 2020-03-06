@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -170,8 +169,4 @@ func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
 	case corev1.ConditionUnknown:
 		m.MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
-}
-
-func (rs *RouteStatus) duck() *duckv1.Status {
-	return &rs.Status
 }

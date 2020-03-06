@@ -12,3 +12,6 @@ bazel-*
 
 # Emacs files
 *~
+
+# Generated Test Code
+test/genclient

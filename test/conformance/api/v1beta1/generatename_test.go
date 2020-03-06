@@ -167,7 +167,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	// Ensure the associated revision is created. This also checks that the configuration becomes ready.
 	t.Log("The configuration will be updated with the name of the associated Revision once it is created.")
-	names.Revision, err = v1b1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1b1test.WaitForConfigLatestUnpinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}

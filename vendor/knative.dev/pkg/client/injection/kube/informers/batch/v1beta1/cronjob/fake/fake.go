@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	cronjob "knative.dev/pkg/client/injection/kube/informers/batch/v1beta1/cronjob"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

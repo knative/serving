@@ -21,7 +21,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -150,8 +149,4 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 // RevisionLastPinnedString returns a string representation of the specified time
 func RevisionLastPinnedString(t time.Time) string {
 	return fmt.Sprintf("%d", t.Unix())
-}
-
-func (rs *RevisionStatus) duck() *duckv1.Status {
-	return &rs.Status
 }

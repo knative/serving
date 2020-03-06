@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	externalversions "knative.dev/caching/pkg/client/informers/externalversions"
 	fake "knative.dev/caching/pkg/client/injection/client/fake"

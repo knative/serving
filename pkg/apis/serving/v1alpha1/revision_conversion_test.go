@@ -34,12 +34,12 @@ import (
 func TestRevisionConversionBadType(t *testing.T) {
 	good, bad := &Revision{}, &Service{}
 
-	if err := good.ConvertUp(context.Background(), bad); err == nil {
-		t.Errorf("ConvertUp() = %#v, wanted error", bad)
+	if err := good.ConvertTo(context.Background(), bad); err == nil {
+		t.Errorf("ConvertTo() = %#v, wanted error", bad)
 	}
 
-	if err := good.ConvertDown(context.Background(), bad); err == nil {
-		t.Errorf("ConvertDown() = %#v, wanted error", good)
+	if err := good.ConvertFrom(context.Background(), bad); err == nil {
+		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
 
@@ -154,22 +154,22 @@ func TestRevisionConversion(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Revision{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
+			if err := test.in.ConvertTo(context.Background(), beta); err != nil {
 				if test.badField != "" {
 					cce, ok := err.(*CannotConvertError)
 					if ok && cce.Field == test.badField {
 						return
 					}
 				}
-				t.Errorf("ConvertUp() = %v", err)
+				t.Errorf("ConvertTo() = %v", err)
 			} else if test.badField != "" {
 				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
 					test.badField)
 				return
 			}
 			got := &Revision{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
@@ -181,22 +181,22 @@ func TestRevisionConversion(t *testing.T) {
 		t.Run(test.name+" (deprecated)", func(t *testing.T) {
 			start := toDeprecated(test.in)
 			beta := &v1beta1.Revision{}
-			if err := start.ConvertUp(context.Background(), beta); err != nil {
+			if err := start.ConvertTo(context.Background(), beta); err != nil {
 				if test.badField != "" {
 					cce, ok := err.(*CannotConvertError)
 					if ok && cce.Field == test.badField {
 						return
 					}
 				}
-				t.Errorf("ConvertUp() = %v", err)
+				t.Errorf("ConvertTo() = %v", err)
 			} else if test.badField != "" {
 				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
 					test.badField)
 				return
 			}
 			got := &Revision{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
@@ -281,9 +281,9 @@ func TestRevisionConversionError(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Revision{}
-			got := test.in.ConvertUp(context.Background(), beta)
+			got := test.in.ConvertTo(context.Background(), beta)
 			if got == nil {
-				t.Errorf("ConvertUp() = %#v, wanted %v", beta, test.want)
+				t.Errorf("ConvertTo() = %#v, wanted %v", beta, test.want)
 			}
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)

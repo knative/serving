@@ -54,7 +54,7 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				if r := recover(); r == nil {
-					t.Errorf("Expected a panic but the code didn't panic.")
+					t.Error("Expected a panic but the code didn't panic.")
 				}
 			}()
 

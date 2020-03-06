@@ -165,11 +165,29 @@ func MustParseClientGenTags(lines []string) Tags {
 	}
 
 	values := types.ExtractCommentTags("+", lines)
-	// log.Printf("GOT values %v", values)
+
 	_, ret.GenerateDuck = values["genduck"]
-	_, ret.GenerateReconciler = values["genreconciler"]
+
+	_, genRec := values["genreconciler"]
+	_, genRecClass := values["genreconciler:class"]
+	// Generate Reconciler code if genreconciler OR genreconciler:class exist.
+	if genRec || genRecClass {
+		ret.GenerateReconciler = true
+	}
 
 	return ret
+}
+
+func extractReconcilerClassTag(t *types.Type) (string, bool) {
+	comments := append(append([]string{}, t.SecondClosestCommentLines...), t.CommentLines...)
+	values := types.ExtractCommentTags("+", comments)["genreconciler:class"]
+	for _, v := range values {
+		if len(v) == 0 {
+			continue
+		}
+		return v, true
+	}
+	return "", false
 }
 
 // isInternal returns true if the tags for a member do not contain a json tag
@@ -387,6 +405,8 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 		// Fix for golang iterator bug.
 		t := t
 
+		reconcilerClass, hasReconcilerClass := extractReconcilerClassTag(t)
+
 		packagePath := filepath.Join(packagePath, strings.ToLower(t.Name.Name))
 
 		clientPackagePath := filepath.Join(basePackage, "client")
@@ -412,6 +432,8 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					clientPkg:           clientPackagePath,
 					informerPackagePath: informerPackagePath,
 					schemePkg:           filepath.Join(customArgs.VersionedClientSetPackage, "scheme"),
+					reconcilerClass:     reconcilerClass,
+					hasReconcilerClass:  hasReconcilerClass,
 				})
 
 				return generators
@@ -438,6 +460,8 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					outputPackage:       filepath.Join(packagePath, "stub"),
 					imports:             generator.NewImportTracker(),
 					informerPackagePath: informerPackagePath,
+					reconcilerClass:     reconcilerClass,
+					hasReconcilerClass:  hasReconcilerClass,
 				})
 
 				return generators
@@ -459,12 +483,16 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "reconciler",
 					},
-					typeToGenerate: t,
-					outputPackage:  packagePath,
-					imports:        generator.NewImportTracker(),
-					clientsetPkg:   customArgs.VersionedClientSetPackage,
-					listerName:     t.Name.Name + "Lister",
-					listerPkg:      listerPackagePath,
+					typeToGenerate:     t,
+					outputPackage:      packagePath,
+					imports:            generator.NewImportTracker(),
+					clientsetPkg:       customArgs.VersionedClientSetPackage,
+					listerName:         t.Name.Name + "Lister",
+					listerPkg:          listerPackagePath,
+					groupGoName:        groupGoName,
+					groupVersion:       gv,
+					reconcilerClass:    reconcilerClass,
+					hasReconcilerClass: hasReconcilerClass,
 				})
 
 				return generators

@@ -81,3 +81,10 @@ data:
     # disables this throttling and lets through as many requests as
     # the pod receives.
     container-concurrency: "0"
+
+    # The container concurrency max limit is an operator setting ensuring that
+    # the individual revisions cannot have arbitrary large concurrency
+    # values, or autoscaling targets. `container-concurrency` default setting
+    # must be at or below this value.
+    # Must be greater than 1.
+    container-concurrency-max-limit: "1000"
