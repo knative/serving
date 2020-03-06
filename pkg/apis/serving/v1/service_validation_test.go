@@ -1,12 +1,9 @@
 /*
 Copyright 2019 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,7 +20,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -230,7 +229,8 @@ func TestServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _ := fakekubeclient.With(context.Background())
+			got := test.r.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -475,7 +475,7 @@ func TestImmutableServiceFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -658,7 +658,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
 			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
@@ -773,9 +773,10 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		},
 		want: nil,
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.prev)
 			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)

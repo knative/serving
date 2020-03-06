@@ -1,12 +1,9 @@
 /*
 Copyright 2019 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -77,10 +75,10 @@ func TestRevisionValidation(t *testing.T) {
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _ := fakekubeclient.With(context.Background())
+			got := test.r.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -233,9 +231,11 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _ := fakekubeclient.With(context.Background())
+			got := test.r.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
 			}
@@ -438,7 +438,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			if test.wc != nil {
 				ctx = test.wc(ctx)
 			}
@@ -896,7 +896,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+			ctx, _ := fakekubeclient.With(context.Background())
+			ctx = apis.WithinParent(ctx, metav1.ObjectMeta{
 				Name: "parent",
 			})
 
