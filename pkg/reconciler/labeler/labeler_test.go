@@ -78,14 +78,15 @@ func TestReconcile(t *testing.T) {
 		Name: "label pinned revision",
 		Objects: []runtime.Object{
 			simpleRoute("default", "pinned-revision", "the-revision"),
-			simpleConfig("default", "red-herring", WithLatestCreated("red-herring-ecoge")),
-			rev("default", "red-herring"),
-			rev("default", "red-herring", WithRevName("red-herring-ecoge")),
-			rev("default", "red-herring", WithRevName("the-revision")),
+			simpleConfig("default", "the-config"),
+			rev("default", "the-config"),
+			rev("default", "the-config", WithRevName("the-revision")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "pinned-revision"),
 			patchAddLabel("default", "the-revision",
+				"serving.knative.dev/route", "pinned-revision"),
+			patchAddLabel("default", "the-config",
 				"serving.knative.dev/route", "pinned-revision"),
 		},
 		WantEvents: []string{

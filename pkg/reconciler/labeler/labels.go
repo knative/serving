@@ -54,10 +54,10 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		}
 		revisions.Insert(tt.RevisionName)
 
-		// If the .traffic is a RunLatest and the revision's owner is a configuration,
-		// add the configuration to the list along with its LatestCreatedRevisionName
+		// If the owner reference is a configuration, add it to the list of configurations
+		// and add its LatestCreatedRevision to the list of revisions
 		owner := metav1.GetControllerOf(rev)
-		if owner != nil && owner.Kind == "Configuration" && tt.LatestRevision != nil && *tt.LatestRevision {
+		if owner != nil && owner.Kind == "Configuration" {
 			configs.Insert(owner.Name)
 
 			config, err := c.configurationLister.Configurations(r.Namespace).Get(owner.Name)
@@ -65,10 +65,11 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 				return err
 			}
 
-			// If the configuration is being updated, the route's .status.traffic will
-			// only incude the latest ready revision. We need to label the latest created revision
+			// If we are tracking the latest revision, we need to label the latest created revision
 			// as well so that there is a smooth transition when the new revision becomes ready.
-			revisions.Insert(config.Status.LatestCreatedRevisionName)
+			if tt.LatestRevision != nil && *tt.LatestRevision {
+				revisions.Insert(config.Status.LatestCreatedRevisionName)
+			}
 		}
 	}
 
