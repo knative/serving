@@ -127,9 +127,8 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 			*rsrc.field = nil
 		} else if val, err := resource.ParseQuantity(raw); err != nil {
 			return nil, err
-		} else {
-			*rsrc.field = &val
 		}
+		*rsrc.field = &val
 	}
 
 	if raw, ok := data["container-name-template"]; !ok {
