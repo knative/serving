@@ -70,22 +70,16 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
 
 	// Process bool fields.
-	for _, b := range []struct {
+	b := struct {
 		key          string
 		field        *bool
 		defaultValue bool
 	}{
-		{
-			key:          "enable-multi-container",
-			field:        &nc.EnableMultiContainer,
-			defaultValue: false,
-		}} {
-		if raw, ok := data[b.key]; !ok {
-			*b.field = b.defaultValue
-		} else {
-			*b.field = strings.EqualFold(raw, "true")
-		}
+		key:          "enable-multi-container",
+		field:        &nc.EnableMultiContainer,
+		defaultValue: false,
 	}
+	nc.EnableMultiContainer = strings.EqualFold(data[b.key], "true")
 
 	// Process int64 fields
 	for _, i64 := range []struct {
@@ -177,6 +171,7 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
+	// Feature flag to enable multi container support
 	EnableMultiContainer bool
 
 	RevisionTimeoutSeconds int64

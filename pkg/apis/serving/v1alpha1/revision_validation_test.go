@@ -69,7 +69,7 @@ func TestConcurrencyModelValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got) = %s", diff)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestServingStateType(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -346,7 +346,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			}
 			got := test.rs.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -506,7 +506,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 			got := test.rts.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -862,7 +862,7 @@ func TestImmutableFields(t *testing.T) {
 			}
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -974,7 +974,7 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
 		},
 	}, {
-		name: "flag enabled: too many containers with no port",
+		name: "flag enabled: multiple containers with no port",
 		rs: &RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -989,7 +989,7 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 		wc:   enableMultiContainer(context.Background(), t),
 		want: apis.ErrMissingField("containers.ports"),
 	}, {
-		name: "flag enabled: too many containers with too many port",
+		name: "flag enabled: multiple containers with multiple port",
 		rs: &RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -1007,14 +1007,10 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 				},
 			},
 		},
-		wc: enableMultiContainer(context.Background(), t),
-		want: &apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"containers.ports"},
-			Details: "Only a single port is allowed",
-		},
+		wc:   enableMultiContainer(context.Background(), t),
+		want: apis.ErrMultipleOneOf("containers.ports"),
 	}, {
-		name: "flag enabled: too many containers with too many port for a single container",
+		name: "flag enabled: multiple containers with multiple port for each container",
 		rs: &RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -1035,11 +1031,35 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 			},
 		},
 		wc: enableMultiContainer(context.Background(), t),
-		want: &apis.FieldError{
+		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
-			Paths:   []string{"containers.ports, containers[0].ports"},
+			Paths:   []string{"containers[0].ports"},
 			Details: "Only a single port is allowed",
+		}),
+	}, {
+		name: "flag enabled: multiple containers with multiple port for a single container",
+		rs: &RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}, {
+						Image: "helloworld",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}, {
+							ContainerPort: 9999,
+						}},
+					}},
+				},
+			},
 		},
+		wc: enableMultiContainer(context.Background(), t),
+		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers[1].ports"},
+			Details: "Only a single port is allowed",
+		}),
 	}}
 
 	for _, test := range tests {
@@ -1051,7 +1071,7 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 
 			got := test.rs.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}

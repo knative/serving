@@ -60,6 +60,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
+			EnableMultiContainer:         true,
 			RevisionTimeoutSeconds:       123,
 			MaxRevisionTimeoutSeconds:    456,
 			ContainerConcurrencyMaxLimit: 1984,
@@ -67,6 +68,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:    "{{.Name}}",
 		},
 		data: map[string]string{
+			"enable-multi-container":          "true",
 			"revision-timeout-seconds":        "123",
 			"max-revision-timeout-seconds":    "456",
 			"revision-cpu-request":            "123m",
@@ -83,14 +85,8 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:    DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"enable-multi-container": "invalid",
-			},
+		data: map[string]string{
+			"enable-multi-container": "invalid",
 		},
 	}, {
 		name:         "bad revision timeout",

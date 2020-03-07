@@ -205,9 +205,8 @@ func TestPodSpecValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidatePodSpec(context.Background(), test.ps)
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("ValidatePodSpec (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -270,7 +269,7 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
 		},
 	}, {
-		name: "flag enabled: too many containers with no port",
+		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -281,7 +280,7 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 		wc:   enableMultiContainer(context.Background(), t),
 		want: apis.ErrMissingField("containers.ports"),
 	}, {
-		name: "flag enabled: too many containers with too many port",
+		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -295,14 +294,10 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 				}},
 			}},
 		},
-		wc: enableMultiContainer(context.Background(), t),
-		want: &apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{"containers.ports"},
-			Details: "Only a single port is allowed",
-		},
+		wc:   enableMultiContainer(context.Background(), t),
+		want: apis.ErrMultipleOneOf("containers.ports"),
 	}, {
-		name: "flag enabled: too many containers with too many port for a single container",
+		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -319,11 +314,31 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 			}},
 		},
 		wc: enableMultiContainer(context.Background(), t),
-		want: &apis.FieldError{
+		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
-			Paths:   []string{"containers.ports, containers[0].ports"},
+			Paths:   []string{"containers[0].ports"},
 			Details: "Only a single port is allowed",
+		}),
+	}, {
+		name: "flag enabled: multiple containers with multiple port for a single container",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}, {
+					ContainerPort: 9999,
+				}},
+			}, {
+				Image: "helloworld",
+			}},
 		},
+		wc: enableMultiContainer(context.Background(), t),
+		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers[0].ports"},
+			Details: "Only a single port is allowed",
+		}),
 	}}
 
 	for _, test := range tests {
@@ -333,9 +348,8 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 				ctx = test.wc
 			}
 			got := ValidatePodSpec(ctx, test.ps)
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("ValidatePodSpec (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -969,7 +983,7 @@ func TestContainerValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidateContainer(test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("ValidateContainer (-want, +got) = %v", diff)
+				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -1201,7 +1215,7 @@ func TestVolumeValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := validateVolume(test.v)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("validateVolume (-want, +got) = %v", diff)
+				t.Errorf("validateVolume (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -1295,7 +1309,7 @@ func TestObjectReferenceValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := ValidateNamespacedObjectReference(test.r)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("ValidateNamespacedObjectReference (-want, +got) = %v", diff)
+				t.Errorf("ValidateNamespacedObjectReference (-want, +got): \n%s", diff)
 			}
 		})
 	}

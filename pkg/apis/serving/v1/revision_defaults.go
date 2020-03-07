@@ -91,14 +91,10 @@ func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Co
 		}
 	}
 
-	if len(rs.PodSpec.Containers) == 1 {
+	// If there are multiple containers then default probes will be applied to the container where user specified PORT
+	// default probes will not be applied for non serving containers
+	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
 		rs.applyProbes(container)
-	} else {
-		// If there are multiple containers then default probes will be applied to the container where user specified PORT
-		// default probes will not be applied for non serving containers
-		if len(container.Ports) != 0 {
-			rs.applyProbes(container)
-		}
 	}
 
 	vms := container.VolumeMounts
