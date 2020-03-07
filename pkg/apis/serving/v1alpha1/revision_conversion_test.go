@@ -231,6 +231,9 @@ func TestRevisionConversionError(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(18),
 					ContainerConcurrency: ptr.Int64(53),
 				},
+				DeprecatedContainer: &corev1.Container{
+					Image: "busybox",
+				},
 			},
 			Status: RevisionStatus{
 				Status: duckv1.Status{
@@ -244,7 +247,7 @@ func TestRevisionConversionError(t *testing.T) {
 				LogURL:      "http://logger.io",
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: apis.ErrMultipleOneOf("container, containers"),
 	}, {
 		name: "no containers in podspec",
 		in: &Revision{

@@ -192,6 +192,12 @@ type RevisionStatus struct {
 	// may be empty if the image comes from a registry listed to skip resolution.
 	// +optional
 	ImageDigest string `json:"imageDigest,omitempty"`
+	// ImageDigests holds the resolved digest for the image specified
+	// within .Spec.Container.Image. The digest is resolved during the creation
+	// of Revision. ImageDigests holds the digest for all the .Spec.Container.Image both serving and non serving.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	ImageDigests map[string]string `json:"imageDigests,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

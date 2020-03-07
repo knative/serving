@@ -110,9 +110,32 @@ func testRevision() *v1.Revision {
 	rev.SetDefaults(context.Background())
 	return rev
 }
+func testRevisionForMultipleContainer() *v1.Revision {
+	return &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-rev-multi-container",
+			Namespace: testNamespace,
+		},
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "gcr.io/repo/image",
+				}, {
+					Image: "docker.io/repo/image",
+				}},
+			},
+		},
+	}
+}
 
 func getTestDeploymentConfig() *deployment.Config {
 	c, _ := deployment.NewConfigFromConfigMap(getTestDeploymentConfigMap())
+	// ignoring error as test controller is generated
+	return c
+}
+
+func getTestDefaultConfig() *config.Defaults {
+	c, _ := config.NewDefaultsConfigFromConfigMap(getTestDefaultsConfigMap())
 	// ignoring error as test controller is generated
 	return c
 }

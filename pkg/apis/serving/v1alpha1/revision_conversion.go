@@ -62,10 +62,8 @@ func (source *RevisionSpec) ConvertTo(ctx context.Context, sink *v1.RevisionSpec
 			Volumes:            source.Volumes,
 			ImagePullSecrets:   source.ImagePullSecrets,
 		}
-	case len(source.Containers) == 1:
+	case len(source.Containers) != 0:
 		sink.PodSpec = source.PodSpec
-	case len(source.Containers) > 1:
-		return apis.ErrMultipleOneOf("containers")
 	default:
 		return apis.ErrMissingOneOf("container", "containers")
 	}
@@ -82,6 +80,7 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.ImageDigest = source.ImageDigest
+	sink.ImageDigests = source.ImageDigests
 }
 
 // ConvertFrom implements apis.Convertible
@@ -114,4 +113,5 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.ImageDigest = source.ImageDigest
+	sink.ImageDigests = source.ImageDigests
 }

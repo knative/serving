@@ -747,5 +747,6 @@ func ReconcilerTestConfig() *config.Config {
 		Logging:    &logging.Config{},
 		Tracing:    &tracingconfig.Config{},
 		Autoscaler: &autoscalerconfig.Config{},
+		Defaults:   getTestDefaultConfig(),
 	}
 }

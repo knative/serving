@@ -64,7 +64,7 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	// The image digest has already been resolved.
-	if rev.Status.ImageDigest != "" {
+	if rev.Status.ImageDigest != "" && len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
 		return nil
 	}
 
@@ -78,17 +78,31 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 		ImagePullSecrets:   imagePullSecrets,
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
-		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
-	if err != nil {
-		err = fmt.Errorf("failed to resolve image to digest: %w", err)
-		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-			v1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, err.Error()))
-		return err
+	if rev.Status.ImageDigests == nil {
+		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
 	}
+	for _, container := range rev.Spec.Containers {
+		digest, err := c.resolver.Resolve(container.Image,
+			opt, cfgs.Deployment.RegistriesSkippingTagResolving)
+		if err != nil {
+			err = fmt.Errorf("failed to resolve image to digest: %w", err)
+			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+				v1.RevisionContainerMissingMessage(
+					container.Image, err.Error()))
+			return err
+		}
+		if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
+			rev.Status.ImageDigest = digest
+		}
 
-	rev.Status.ImageDigest = digest
+		// In order to keep consistency with original behavior of single container handled below scenario
+		// revision status should not contains imageDigests field in these scenario
+		// 1. If flag is disabled
+		// 2. If flag enabled but applied revision has single container
+		if cfgs.Defaults.EnableMultiContainer && len(rev.Spec.Containers) > 1 {
+			rev.Status.ImageDigests[container.Name] = digest
+		}
+	}
 
 	return nil
 }
