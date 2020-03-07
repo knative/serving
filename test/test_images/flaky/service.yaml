@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/flaky
+      - image: ko://knative.dev/serving/test/test_images/flaky
         env:
         # Succeed every Nth request.
         - name: PERIOD
