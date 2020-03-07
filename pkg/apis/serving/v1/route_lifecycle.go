@@ -123,10 +123,16 @@ func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 		"There is an existing certificate %s that we don't own.", name)
 }
 
-// MarkCertificateNotEnabled sets RouteConditionCertificateProvisioned to true when
+// MarkAutoTLSNotEnabled sets RouteConditionCertificateProvisioned to true when
 // certificate config such as autoTLS is not enabled.
-func (rs *RouteStatus) MarkCertificateNotEnabled() {
-	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
+func (rs *RouteStatus) MarkAutoTLSNotEnabled() {
+	routeCondSet.Manage(rs).SetCondition(apis.Condition{
+		Type:     RouteConditionCertificateProvisioned,
+		Status:   corev1.ConditionTrue,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   "CertificateReady",
+		Message:  "autoTLS is not enabled",
+	})
 }
 
 // PropagateIngressStatus update RouteConditionIngressReady condition
