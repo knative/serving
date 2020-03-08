@@ -69,6 +69,10 @@ type podTracker struct {
 	b    breaker
 }
 
+func (p *podTracker) String() string {
+	return p.dest
+}
+
 func (p *podTracker) Capacity() int {
 	if p.b == nil {
 		return 1
