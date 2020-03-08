@@ -47,6 +47,23 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
+const (
+
+	// The number of requests that are queued on the breaker before the 503s are sent.
+	// The value must be adjusted depending on the actual production requirements.
+	breakerQueueDepth = 10000
+
+	// The upper bound for concurrent requests sent to the revision.
+	// As new endpoints show up, the Breakers concurrency increases up to this value.
+	breakerMaxConcurrency = 1000
+)
+
+var breakerParams = queue.BreakerParams{
+	QueueDepth:      breakerQueueDepth,
+	MaxConcurrency:  breakerMaxConcurrency,
+	InitialCapacity: 0,
+}
+
 type podTracker struct {
 	dest string
 	b    breaker
@@ -237,11 +254,11 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, throttler.breakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, breakerParams.MaxConcurrency)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		capacity = rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(backendCount, ac, breakerParams.MaxConcurrency)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, throttler.index(), ac)
@@ -364,7 +381,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 					tracker = &podTracker{
 						dest: newDest,
 						b: queue.NewBreaker(queue.BreakerParams{
-							QueueDepth:      throttler.breakerParams.QueueDepth,
+							QueueDepth:      breakerParams.QueueDepth,
 							MaxConcurrency:  rt.containerConcurrency,
 							InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
 						}),
@@ -388,7 +405,6 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 type Throttler struct {
 	revisionThrottlers      map[types.NamespacedName]*revisionThrottler
 	revisionThrottlersMutex sync.RWMutex
-	breakerParams           queue.BreakerParams
 	revisionLister          servinglisters.RevisionLister
 	numActivators           int32  // Total number of activators.
 	activatorIndex          int32  // The assigned index of this activator, -1 is Activator is not expected to receive traffic.
@@ -398,12 +414,10 @@ type Throttler struct {
 
 // NewThrottler creates a new Throttler
 func NewThrottler(ctx context.Context,
-	breakerParams queue.BreakerParams,
 	ipAddr string) *Throttler {
 	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
-		breakerParams:      breakerParams,
 		revisionLister:     revisionInformer.Lister(),
 		ipAddress:          ipAddr,
 		activatorIndex:     -1, // Unset yet.
@@ -476,7 +490,8 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
-		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()), t.breakerParams, t.logger)
+		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()),
+			breakerParams, t.logger)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil

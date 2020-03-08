@@ -62,7 +62,6 @@ import (
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/queue"
 )
 
 const (
@@ -70,14 +69,6 @@ const (
 
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
-
-	// The number of requests that are queued on the breaker before the 503s are sent.
-	// The value must be adjusted depending on the actual production requirements.
-	breakerQueueDepth = 10000
-
-	// The upper bound for concurrent requests sent to the revision.
-	// As new endpoints show up, the Breakers concurrency increases up to this value.
-	breakerMaxConcurrency = 1000
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
@@ -181,10 +172,8 @@ func main() {
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
-	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-
 	// Start throttler.
-	throttler := activatornet.NewThrottler(ctx, params,
+	throttler := activatornet.NewThrottler(ctx,
 		// We want to join host port since that will be our search space in the Throttler.
 		net.JoinHostPort(env.PodIP, strconv.Itoa(networking.BackendHTTPPort)))
 	go throttler.Run(ctx)
