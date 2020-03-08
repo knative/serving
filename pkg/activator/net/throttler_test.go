@@ -63,23 +63,26 @@ type tryResult struct {
 	err  error
 }
 
-func newTestThrottler(ctx context.Context, numA int32) *Throttler {
-	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
+func newTestThrottler(ctx context.Context, numA int32) (*Throttler, func()) {
+	// Use different values for the test.
+	bp := breakerParams
+	breakerParams = defaultParams
+
+	throttler := NewThrottler(ctx, "10.10.10.10:8012")
 	atomic.StoreInt32(&throttler.numActivators, numA)
 	atomic.StoreInt32(&throttler.activatorIndex, 0)
-	return throttler
+	return throttler, func() {
+		breakerParams = bp
+	}
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
-	logger := TestLogger(t)
-	throttler := &Throttler{
-		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
-		breakerParams:      defaultParams,
-		numActivators:      1,
-		logger:             logger,
-	}
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+	throttler, cleanup := newTestThrottler(ctx, 1)
+	defer cleanup()
 	rt := &revisionThrottler{
-		logger:               logger,
+		logger:               throttler.logger,
 		breaker:              queue.NewBreaker(defaultParams),
 		containerConcurrency: 10,
 	}
@@ -217,7 +220,8 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler := newTestThrottler(ctx, 1)
+	throttler, cleanup := newTestThrottler(ctx, 1)
+	defer cleanup()
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
 		Dests: sets.NewString("128.0.0.1:1234"),
@@ -268,7 +272,8 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler := newTestThrottler(ctx, 1)
+	throttler, cleanup := newTestThrottler(ctx, 1)
+	defer cleanup()
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:           revID,
 		ClusterIPDest: "129.0.0.1:1234",
@@ -394,7 +399,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := newTestThrottler(ctx, 1)
+			throttler, cleanup := newTestThrottler(ctx, 1)
+			defer cleanup()
 			for _, update := range tc.initUpdates {
 				throttler.handleUpdate(update)
 			}
@@ -437,7 +443,8 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler := newTestThrottler(ctx, 4 /*num activators*/)
+	throttler, cleanup := newTestThrottler(ctx, 4 /*num activators*/)
+	defer cleanup()
 	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
@@ -489,7 +496,8 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler := newTestThrottler(ctx, 2)
+	throttler, cleanup := newTestThrottler(ctx, 2)
+	defer cleanup()
 	rt := newRevisionThrottler(revName, 0 /*cc*/, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
@@ -550,7 +558,7 @@ func TestMultipleActivators(t *testing.T) {
 	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
 
-	throttler := NewThrottler(ctx, defaultParams, "130.0.0.2:8012")
+	throttler := NewThrottler(ctx, "130.0.0.2:8012")
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
