@@ -7,6 +7,6 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/runtime
+      - image: ko://knative.dev/serving/test/test_images/runtime
         securityContext:
           runAsUser: 65532

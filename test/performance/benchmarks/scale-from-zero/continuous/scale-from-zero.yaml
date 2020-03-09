@@ -44,7 +44,7 @@ spec:
           serviceAccountName: scale-from-zero
           containers:
             - name: scale-from-zero
-              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
               args:
                 - "-parallel=1"
               env:
@@ -91,7 +91,7 @@ spec:
           serviceAccountName: scale-from-zero
           containers:
             - name: scale-from-zero
-              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
               args:
                 - "-parallel=5"
               env:
@@ -138,7 +138,7 @@ spec:
           serviceAccountName: scale-from-zero
           containers:
             - name: scale-from-zero
-              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
               args:
                 - "-parallel=25"
               env:
