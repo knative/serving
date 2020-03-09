@@ -17,11 +17,9 @@ properties:
 - Multitenancy is highly desirable to allow cost sharing for bursty applications
   on relatively stable underlying hardware resources.
 
-This contract does not define the control surfaces over the runtime environment
-except by [reference to the Knative Kubernetes resources](spec/spec.md).
+This contract does not define the control surfaces over the runtime environment except by [reference to the Knative Kubernetes resources](spec/spec.md).
 Similarly, this contract does not define the implementation of metrics or
-logging aggregation, except to provide a contract for the collection of logging
-data. It is expected that access to the aggregated telemetry will be provided by
+logging aggregation, except to provide a contract for the collection of logging data. It is expected that access to the aggregated telemetry will be provided by
 the platform operator.
 
 ## Background
