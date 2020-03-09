@@ -30,9 +30,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -41,6 +43,7 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -67,6 +70,10 @@ var breakerParams = queue.BreakerParams{
 type podTracker struct {
 	dest string
 	b    breaker
+}
+
+func (p *podTracker) String() string {
+	return p.dest
 }
 
 func (p *podTracker) Capacity() int {
@@ -103,7 +110,17 @@ type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
 
-	// Holds the current number of backends. This is used for when we get an activatorCount update and
+	// These are used in slicing to infer which pods to assign
+	// to this activator.
+	activatorCount int
+	// If -1, it is presumed that this activator should not receive requests
+	// for the revision. But due to the system being distributed it might take
+	// time for everything to propagate. Thus when this is -1 we assign all the
+	// pod trackers.
+	activatorIndex int
+	proto          networking.ProtocolType
+
+	// eolds the current number of backends. This is used for when we get an activatorCount update and
 	// therefore need to recalculate capacity
 	backendCount int
 
@@ -132,7 +149,7 @@ type revisionThrottler struct {
 }
 
 func newRevisionThrottler(revID types.NamespacedName,
-	containerConcurrency int,
+	containerConcurrency int, proto networking.ProtocolType,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
@@ -147,6 +164,8 @@ func newRevisionThrottler(revID types.NamespacedName,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
 		logger:               logger,
+		proto:                proto,
+		activatorIndex:       -1, // Start with unknown.
 	}
 }
 
@@ -227,26 +246,32 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 }
 
-func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount int) {
-	ac := throttler.activatorCount()
-
+func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
+
+	// Activator index and count are set under the lock below.
+	// TODO(vagababov): once we remove `updateAllThrottlerCapacity`,
+	// this will no longer require to be set under lock.
+	var ac, ai int
 	numTrackers := func() int {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
+		ac, ai = rt.activatorCount, rt.activatorIndex
 		// We're using cluster IP.
 		if rt.clusterIPTracker != nil {
 			return 0
 		}
-		// Infinite capacity, assign all.
+		// Infinite capacity or unassigned revision, assign all.
 		if rt.containerConcurrency == 0 {
 			rt.assignedTrackers = rt.podTrackers
 		} else {
 			rt.resetTrackers()
-			rt.assignedTrackers = assignSlice(rt.podTrackers, throttler.index(), ac, rt.containerConcurrency)
+			// TODO(vagababov): pull assign slice into RT.
+			rt.assignedTrackers = assignSlice(rt.podTrackers,
+				ai, ac, rt.containerConcurrency)
 		}
-		rt.logger.Debugf("Trackers %d/%d  %v", throttler.index(), ac, rt.assignedTrackers)
+		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
 		return len(rt.assignedTrackers)
 	}()
 
@@ -261,7 +286,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		capacity = rt.calculateCapacity(backendCount, ac, breakerParams.MaxConcurrency)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
-		capacity, backendCount, throttler.index(), ac)
+		capacity, backendCount, ai, ac)
 
 	// TODO(vagababov): analyze to see if we need this mutex at all?
 	rt.capacityMux.Lock()
@@ -289,11 +314,11 @@ func (rt *revisionThrottler) updateThrottlerState(
 	}() {
 		// If we have an address to target, then pass through an accurate
 		// accounting of the number of backends.
-		rt.updateCapacity(throttler, backendCount)
+		rt.updateCapacity(backendCount)
 	} else {
 		// If we do not have an address to target, then we should treat it
 		// as though we have zero backends.
-		rt.updateCapacity(throttler, 0)
+		rt.updateCapacity(0)
 	}
 }
 
@@ -406,22 +431,25 @@ type Throttler struct {
 	revisionThrottlers      map[types.NamespacedName]*revisionThrottler
 	revisionThrottlersMutex sync.RWMutex
 	revisionLister          servinglisters.RevisionLister
+	serviceLister           corev1listers.ServiceLister
 	numActivators           int32  // Total number of activators.
 	activatorIndex          int32  // The assigned index of this activator, -1 is Activator is not expected to receive traffic.
 	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
+	epsUpdateCh             chan *corev1.Endpoints
 }
 
 // NewThrottler creates a new Throttler
-func NewThrottler(ctx context.Context,
-	ipAddr string) *Throttler {
+func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		revisionLister:     revisionInformer.Lister(),
+		serviceLister:      serviceinformer.Get(ctx).Lister(),
 		ipAddress:          ipAddr,
 		activatorIndex:     -1, // Unset yet.
 		logger:             logging.FromContext(ctx),
+		epsUpdateCh:        make(chan *corev1.Endpoints),
 	}
 
 	// Watch revisions to create throttler with backlog immediately and delete
@@ -434,6 +462,7 @@ func NewThrottler(ctx context.Context,
 
 	// Watch activator endpoint to maintain activator count
 	endpointsInformer := endpointsinformer.Get(ctx)
+	// Handles activator service updates.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.NameFilterFunc(networking.ActivatorServiceName),
@@ -445,6 +474,15 @@ func NewThrottler(ctx context.Context,
 		},
 	})
 
+	// Handles public service updates.
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey,
+			string(networking.ServiceTypePublic), false),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    t.publicEndspointsUpdated,
+			UpdateFunc: controller.PassNew(t.publicEndspointsUpdated),
+		},
+	})
 	return t
 }
 
@@ -456,10 +494,18 @@ func (t *Throttler) Run(ctx context.Context) {
 }
 
 func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
-	for update := range updateCh {
-		t.handleUpdate(update)
+	for {
+		select {
+		case update, ok := <-updateCh:
+			if !ok {
+				t.logger.Info("The Throttler has stopped.")
+				return
+			}
+			t.handleUpdate(update)
+		case eps := <-t.epsUpdateCh:
+			t.handlePubEpsUpdate(eps)
+		}
 	}
-	t.logger.Info("The Throttler has stopped.")
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
@@ -491,7 +537,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 			return nil, err
 		}
 		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()),
-			breakerParams, t.logger)
+			rev.GetProtocol(), breakerParams, t.logger)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil
@@ -537,6 +583,39 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	}
 }
 
+func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
+	t.logger.Infof("Public EPS updates: %#v", eps)
+
+	revN := eps.Labels[serving.RevisionLabelKey]
+	if revN == "" {
+		// Perhops, we're not the only ones using the same selector label.
+		t.logger.Infof("Ignoring update for PublicService %s/%s", eps.Namespace, eps.Name)
+		return
+	}
+	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
+	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
+		logger := t.logger.With(zap.Any(logkey.Key, rev))
+		if k8serrors.IsNotFound(err) {
+			logger.Debug("Revision not found. It was probably removed")
+		} else {
+			logger.Errorw("Failed to get revision throttler", zap.Error(err))
+		}
+	} else {
+		rt.handlePubEpsUpdate(eps, t.ipAddress)
+	}
+
+}
+
+func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
+	// NB: this is guaranteed to be executed on a single thread.
+	epSet, _ := endpointsToDests(eps, networking.ServicePortNameHTTP1)
+	// We are using List to have the IP addresses sorted for consistent results.
+	epsL := epSet.List()
+	rt.activatorCount, rt.activatorIndex = len(epsL), inferIndex(epsL, selfIP)
+	rt.logger.Infof("This activator index is %d/%d", rt.activatorIndex, rt.activatorCount)
+	rt.updateCapacity(rt.backendCount)
+}
+
 // inferIndex returns the index of this activator slice.
 // If inferIndex returns -1, it means that this activator will not receive
 // any traffic just yet so, do not participate in slicing, this happens after
@@ -560,8 +639,14 @@ func (t *Throttler) updateAllThrottlerCapacity() {
 	defer t.revisionThrottlersMutex.RUnlock()
 
 	for _, rt := range t.revisionThrottlers {
-		rt.updateCapacity(t, rt.backendCount)
+		rt.updateCapacity(rt.backendCount)
 	}
+}
+
+func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
+	endpoints := newObj.(*corev1.Endpoints)
+	t.logger.Infof("Public Endpoints %s updated", endpoints.Name)
+	t.epsUpdateCh <- endpoints
 }
 
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {

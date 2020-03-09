@@ -1,4 +1,5 @@
 /*
+/*
 Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,48 +88,48 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		containerConcurrency: 10,
 	}
 
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 100; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, defaultMaxConcurrency) // So in theory should be 10x.
+	rt.updateCapacity(defaultMaxConcurrency) // So in theory should be 10x.
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	throttler.numActivators = 10
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	throttler.numActivators = 200
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 0)
+	rt.updateCapacity(0)
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	rt.containerConcurrency = 0
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	throttler.numActivators = 200
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 0)
+	rt.updateCapacity(0)
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
@@ -139,35 +140,35 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	throttler.activatorIndex = 0
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
-	rt.updateCapacity(throttler, 0 /* doesn't matter here*/)
+	rt.updateCapacity(0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 2 backends.
 	rt.podTrackers = makeTrackers(2, 10)
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 20; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 2 activators.
 	throttler.numActivators = 2
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 0.
 	rt.podTrackers = makeTrackers(3, 10)
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 1.
 	throttler.activatorIndex = 1
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
@@ -176,7 +177,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	throttler.activatorIndex = 1
 	rt.containerConcurrency = 0
 	rt.podTrackers = makeTrackers(3, 0)
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
@@ -445,7 +446,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 
 	throttler, cleanup := newTestThrottler(ctx, 4 /*num activators*/)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ProtocolHTTP1, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -498,7 +499,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 
 	throttler, cleanup := newTestThrottler(ctx, 2)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 0 /*cc*/, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ProtocolHTTP1, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -611,7 +612,7 @@ func TestMultipleActivators(t *testing.T) {
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
-		queue.BreakerParams{}, TestLogger(t))
+		networking.ProtocolHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
