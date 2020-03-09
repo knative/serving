@@ -239,7 +239,7 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 	}
 
 	// Copy the admission controller's client to the request's context.
-	ctx = apis.WithKubeClient(ctx, &ac.client)
+	ctx = apis.WithKubeClient(ctx, ac.client)
 
 	if err := validate(ctx, newObj); err != nil {
 		logger.Errorw("Failed the resource specific validation", zap.Error(err))

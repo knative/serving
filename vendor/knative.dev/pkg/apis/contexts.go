@@ -203,6 +203,6 @@ func IsDifferentNamespaceAllowed(ctx context.Context) bool {
 
 // WithKubeClient is used to attach a kubernetes go client to context. This is used
 // to allow k8s validation within Validatable.
-func WithKubeClient(ctx context.Context, client *kubernetes.Interface) context.Context {
+func WithKubeClient(ctx context.Context, client kubernetes.Interface) context.Context {
 	return context.WithValue(ctx, kubeclient.Key{}, client)
 }
