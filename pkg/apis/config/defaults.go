@@ -69,17 +69,8 @@ func defaultConfig() *Defaults {
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
 
-	// Process bool fields.
-	b := struct {
-		key          string
-		field        *bool
-		defaultValue bool
-	}{
-		key:          "enable-multi-container",
-		field:        &nc.EnableMultiContainer,
-		defaultValue: false,
-	}
-	nc.EnableMultiContainer = strings.EqualFold(data[b.key], "true")
+	// Process bool field.
+	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
 
 	// Process int64 fields
 	for _, i64 := range []struct {
