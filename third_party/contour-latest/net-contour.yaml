@@ -33,7 +33,7 @@ metadata:
   name: config-contour
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200306-b01f7ac"
+    serving.knative.dev/release: "v20200309-b01f7ac"
 data:
   _example: |
     ################################
