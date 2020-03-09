@@ -34,7 +34,6 @@ import (
 	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -240,7 +239,7 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 	}
 
 	// Copy the admission controller's client to the request's context.
-	ctx = context.WithValue(ctx, kubeclient.Key{}, ac.client)
+	ctx = apis.WithKubeClient(ctx, &ac.client)
 
 	if err := validate(ctx, newObj); err != nil {
 		logger.Errorw("Failed the resource specific validation", zap.Error(err))

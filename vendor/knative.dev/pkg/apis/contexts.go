@@ -21,6 +21,8 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 // This is attached to contexts passed to webhook interfaces when
@@ -197,4 +199,10 @@ func AllowDifferentNamespace(ctx context.Context) context.Context {
 // namespace is allowed from the encapsulating object.
 func IsDifferentNamespaceAllowed(ctx context.Context) bool {
 	return ctx.Value(allowDifferentNamespace{}) != nil
+}
+
+// WithKubeClient is used to attach a kubernetes go client to context. This is used
+// to allow k8s validation within Validatable.
+func WithKubeClient(ctx context.Context, client *kubernetes.Interface) context.Context {
+	return context.WithValue(ctx, kubeclient.Key{}, client)
 }
