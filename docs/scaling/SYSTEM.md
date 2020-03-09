@@ -63,19 +63,20 @@ The **activator** is a globally shared deployment, that is very scalable. Its
 main purposes are **buffering requests** and **reporting metrics** to the
 autoscaler.
 
-The activator is mainly involved around scale to/from zero. When a revision is
-scaled to zero instances, the activator will be put into the data path instead
-of revision's instances. If requests would hit this revision, the activator
-buffers these requests, pokes the autoscaler with metrics and holds the requests
-until instances of the application appear. As soon as that is the case, the
-activator will forward the requests it buffered to the new instances while
-carefully avoiding to overload the existing instances of the application. The
-activator effectively acts as a loadbalancer here. It distributes the load
-across all the pods as they become available in a way that doesn't overload
-them. The activator is put on or taken off the data-path as the system sees fit
-to allow it to act as a loadbalancer as described above. If the current
-deployment has enough headroom to make it not too prone to overload, the
-activator will be taken off the data-path for minimal network overhead.
+The activator is mainly involved around scale to/from zero and in capacity aware
+loadbalancing. When a revision is scaled to zero instances, the activator will
+be put into the data path instead of revision's instances. If requests would hit
+this revision, the activator buffers these requests, pokes the autoscaler with
+metrics and holds the requests until instances of the application appear. As
+soon as that is the case, the activator will forward the requests it buffered to
+the new instances while carefully avoiding to overload the existing instances of
+the application. The activator effectively acts as a loadbalancer here. It
+distributes the load across all the pods as they become available in a way that
+doesn't overload them with regards to their concurrency settings. The activator
+is put on or taken off the data-path as the system sees fit to allow it to act
+as a loadbalancer as described above. If the current deployment has enough
+headroom to make it not too prone to overload, the activator will be taken off
+the data-path for minimal network overhead.
 
 Unlike the queue-proxy, the activator actively sends metrics to the autoscaler
 via a websocket connection to minimize scale-from-zero latencies as much as
