@@ -19,6 +19,7 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -53,12 +54,12 @@ type prober struct {
 	requests *int64
 	failures *int64
 
-	// This channel receives potential errors. It's closed when the probing goroutine is done.
-	errCh chan error
 	// This channel is simply closed when minimumProbes has been satisfied.
 	minDoneCh chan struct{}
-	// This channel is closed when the probers are supposed to stop.
-	doneCh chan struct{}
+
+	errGrp *errgroup.Group
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // prober implements Prober
@@ -71,21 +72,16 @@ func (p *prober) SLI() (int64, int64) {
 
 // Stop implements Prober
 func (p *prober) Stop() error {
-	var errToReturn error
-
 	// Wait for either an error to happen or the minimumProbes we want.
 	select {
-	case errToReturn = <-p.errCh:
+	case <-p.ctx.Done():
 	case <-p.minDoneCh:
 	}
 
-	// Stop all probes.
-	close(p.doneCh)
+	// Stop all probing.
+	p.cancel()
 
-	// Wait for the errCh to close, which signals that the prober is done.
-	for range p.errCh {
-	}
-	return errToReturn
+	return p.errGrp.Wait()
 }
 
 func (p *prober) handleResponse(response *spoof.Response) {
@@ -146,37 +142,39 @@ func (m *manager) Spawn(url *url.URL) Prober {
 
 	m.logf("Starting Route prober for %s.", url)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	errGrp, ctx := errgroup.WithContext(ctx)
+
 	p := &prober{
 		logf:          m.logf,
 		url:           url,
 		minimumProbes: m.minProbes,
 
-		errCh:     make(chan error),
 		minDoneCh: make(chan struct{}),
-		doneCh:    make(chan struct{}),
+
+		errGrp: errGrp,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	m.probes[url] = p
 
-	go func() {
-		defer close(p.errCh)
+	errGrp.Go(func() error {
 		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
-			p.errCh <- fmt.Errorf("failed to generate client: %w", err)
-			return
+			return fmt.Errorf("failed to generate client: %w", err)
 		}
 
 		req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 		if err != nil {
-			p.errCh <- fmt.Errorf("failed to generate request: %w", err)
-			return
+			return fmt.Errorf("failed to generate request: %w", err)
 		}
 
 		// We keep polling the domain and accumulate success rates
 		// to ultimately establish the SLI and compare to the SLO.
 		for {
 			select {
-			case <-p.doneCh:
-				return
+			case <-ctx.Done():
+				return nil
 			default:
 				res, err := client.Do(req)
 				if err != nil {
@@ -186,7 +184,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 				}
 			}
 		}
-	}()
+	})
 	return p
 }
 
