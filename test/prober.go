@@ -27,6 +27,7 @@ import (
 	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
@@ -149,6 +150,9 @@ func (m *manager) Spawn(url *url.URL) Prober {
 		logf:          m.logf,
 		url:           url,
 		minimumProbes: m.minProbes,
+
+		requests: ptr.Int64(0),
+		failures: ptr.Int64(0),
 
 		minDoneCh: make(chan struct{}),
 
