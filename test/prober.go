@@ -19,10 +19,12 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
@@ -49,16 +51,15 @@ type prober struct {
 	url           *url.URL
 	minimumProbes int64
 
-	// m guards access to these fields
-	m        sync.RWMutex
 	requests int64
 	failures int64
-	stopped  bool
 
-	// This channel is used to send errors encountered probing the domain.
-	errCh chan error
 	// This channel is simply closed when minimumProbes has been satisfied.
 	minDoneCh chan struct{}
+
+	errGrp *errgroup.Group
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // prober implements Prober
@@ -66,77 +67,21 @@ var _ Prober = (*prober)(nil)
 
 // SLI implements Prober
 func (p *prober) SLI() (int64, int64) {
-	p.m.RLock()
-	defer p.m.RUnlock()
-
-	return p.requests, p.failures
+	return atomic.LoadInt64(&p.requests), atomic.LoadInt64(&p.failures)
 }
 
 // Stop implements Prober
 func (p *prober) Stop() error {
-	// When we're done stop sending requests.
-	defer func() {
-		p.m.Lock()
-		defer p.m.Unlock()
-		p.stopped = true
-	}()
-
-	// Check for any immediately available errors
+	// Wait for either an error to happen or the minimumProbes we want.
 	select {
-	case err := <-p.errCh:
-		return err
-	default:
-		// Don't block if there are no errors immediately available.
-	}
-
-	// If there aren't any immediately available errors, then
-	// wait for either an error or the minimum number of probes
-	// to be satisfied.
-	select {
-	case err := <-p.errCh:
-		return err
+	case <-p.ctx.Done():
 	case <-p.minDoneCh:
-		return nil
-	}
-}
-
-func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	if p.stopped {
-		return p.stopped, nil
 	}
 
-	p.logRequestNoLock()
-	if response.StatusCode != http.StatusOK {
-		p.logf("%q status = %d, want: %d", p.url, response.StatusCode, http.StatusOK)
-		p.logf("response: %s", response)
-		p.failures++
-	}
+	// Stop all probing.
+	p.cancel()
 
-	// Returning (false, nil) causes SpoofingClient.Poll to retry.
-	return false, nil
-}
-
-func (p *prober) handleErrorRetry(err error) (bool, error) {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	p.logRequestNoLock()
-	p.failures++
-
-	// Returning true causes SpoofingClient.Poll to retry.
-	return true, fmt.Errorf("retry on all errors: %v", err)
-}
-
-// logRequestNoLock should always be called after obtaining p.m.Lock(),
-// thus it doesn't try to get the lock here again.
-func (p *prober) logRequestNoLock() {
-	p.requests++
-	if p.requests == p.minimumProbes {
-		close(p.minDoneCh)
-	}
+	return p.errGrp.Wait()
 }
 
 // ProberManager is the interface for spawning probers, and checking their results.
@@ -175,42 +120,55 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	}
 
 	m.logf("Starting Route prober for %s.", url)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errGrp, ctx := errgroup.WithContext(ctx)
+
 	p := &prober{
 		logf:          m.logf,
 		url:           url,
 		minimumProbes: m.minProbes,
-		errCh:         make(chan error, 1),
-		minDoneCh:     make(chan struct{}),
+
+		minDoneCh: make(chan struct{}),
+
+		errGrp: errGrp,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	m.probes[url] = p
-	go func() {
+
+	errGrp.Go(func() error {
 		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
-			m.logf("NewSpoofingClient() = %v", err)
-			p.errCh <- err
-			return
+			return fmt.Errorf("failed to generate client: %w", err)
 		}
 
-		// RequestTimeout is set to 0 to make the polling infinite.
-		client.RequestTimeout = 0
 		req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 		if err != nil {
-			m.logf("NewRequest() = %v", err)
-			p.errCh <- err
-			return
+			return fmt.Errorf("failed to generate request: %w", err)
 		}
 
 		// We keep polling the domain and accumulate success rates
 		// to ultimately establish the SLI and compare to the SLO.
-		_, err = client.Poll(req, p.handleResponse, p.handleErrorRetry)
-		if err != nil {
-			// SLO violations are not reflected as errors. They are
-			// captured and calculated internally.
-			m.logf("Poll() = %v", err)
-			p.errCh <- err
-			return
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				res, err := client.Do(req)
+				if atomic.AddInt64(&p.requests, 1) == p.minimumProbes {
+					close(p.minDoneCh)
+				}
+				if err != nil {
+					atomic.AddInt64(&p.failures, 1)
+				} else if res.StatusCode != http.StatusOK {
+					p.logf("%q status = %d, want: %d", p.url, res.StatusCode, http.StatusOK)
+					p.logf("response: %s", res)
+					atomic.AddInt64(&p.failures, 1)
+				}
+			}
 		}
-	}()
+	})
 	return p
 }
 
