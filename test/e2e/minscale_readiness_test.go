@@ -193,10 +193,7 @@ func privateServceName(t *testing.T, clients *test.Clients, revisionName string)
 			return false, nil
 		}
 		privateServiceName = sks.Status.PrivateServiceName
-		if privateServiceName == "" {
-			return false, nil
-		}
-		return true, nil
+		return privateServceName != "", nil
 	}); err != nil {
 		t.Fatalf("Error retrieving sks %q: %v", revisionName, err)
 	}
