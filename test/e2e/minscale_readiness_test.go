@@ -61,7 +61,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
-	serviceName := privateServceName(t, clients, revName)
+	serviceName := privateServiceName(t, clients, revName)
 
 	// Before becoming ready, observe minScale
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
@@ -109,7 +109,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
-	newServiceName := privateServceName(t, clients, newRevName)
+	newServiceName := privateServiceName(t, clients, newRevName)
 
 	// After update, observe minScale in new revision
 	t.Log("Waiting for latest revision to scale to minScale after update")
@@ -184,7 +184,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 	return config.Status.LatestCreatedRevisionName
 }
 
-func privateServceName(t *testing.T, clients *test.Clients, revisionName string) string {
+func privateServiceName(t *testing.T, clients *test.Clients, revisionName string) string {
 	var privateServiceName string
 
 	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
@@ -193,7 +193,7 @@ func privateServceName(t *testing.T, clients *test.Clients, revisionName string)
 			return false, nil
 		}
 		privateServiceName = sks.Status.PrivateServiceName
-		return privateServceName != "", nil
+		return privateServiceName != "", nil
 	}); err != nil {
 		t.Fatalf("Error retrieving sks %q: %v", revisionName, err)
 	}
