@@ -274,11 +274,12 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 	var errs *apis.FieldError
 	cfg := config.FromContextOrDefaults(ctx).Defaults
 	if !cfg.EnableMultiContainer {
-		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("enable-multi-container is off, "+
+			"but found %d containers", len(containers))})
 	} else {
 		errs = errs.Also(validateContainersPorts(containers).ViaField("containers"))
 		for i := range containers {
-			// Probes are not allowed other than serving container,
+			// Probes are not allowed on other than serving container,
 			// ref: http://bit.ly/probes-condition
 			if len(containers[i].Ports) == 0 {
 				errs = errs.Also(validateSidecarContainer(containers[i], volumes).ViaFieldIndex("containers", i))
@@ -299,11 +300,11 @@ func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
 	for i := range containers {
 		count += len(containers[i].Ports)
 	}
-	// When no container ports are specified
+	// When no container ports are specified.
 	if count == 0 {
 		errs = errs.Also(apis.ErrMissingField("ports"))
 	}
-	// Each container section have ports
+	// More than one container sections have ports.
 	if count > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf("ports"))
 	}

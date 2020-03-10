@@ -384,7 +384,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &v1.RevisionSpec{
@@ -900,7 +900,7 @@ func TestRevpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMultipleOneOf("spec.containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "flag enabled: more than one container with one container port",
 		r: &Revision{

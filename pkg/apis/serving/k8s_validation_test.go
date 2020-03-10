@@ -179,7 +179,7 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{
@@ -230,7 +230,7 @@ func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
