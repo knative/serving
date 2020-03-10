@@ -63,7 +63,6 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -191,21 +190,6 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.MarkResourceNotOwned(rType, name)
-	}
-}
-
-// TODO(5900): Remove after 0.12 is cut.
-func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pa.Name + "-bogus",
-			Namespace: pa.Namespace,
-			Labels: map[string]string{
-				autoscaling.KPALabelKey:   pa.Name,
-				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
-			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
-		},
 	}
 }
 
@@ -954,24 +938,6 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
 				WithDeployRef(deployName)),
-		}},
-	}, {
-		Name: "remove metric service",
-		Key:  key,
-		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc),
-				withScales(1, defaultScale), WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metric(testNamespace, testRevision),
-			defaultDeployment, defaultEndpoints,
-			metricService(kpa(testNamespace, testRevision)),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			Name: testRevision + "-bogus",
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: testNamespace,
-				Verb:      "delete",
-			},
 		}},
 	}}
 

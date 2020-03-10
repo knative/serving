@@ -22,9 +22,7 @@ import (
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -36,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -82,30 +79,6 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	}
 	logger.Debug("Done reconciling SKS ", sksName)
 	return sks, nil
-}
-
-// DeleteMetricsServices removes all metrics services for the current PA.
-// TODO(5900): Remove after 0.12 is cut.
-func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	logger := logging.FromContext(ctx)
-
-	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(labels.Set{
-		autoscaling.KPALabelKey:   pa.Name,
-		networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
-	}))
-	if err != nil {
-		return err
-	}
-	for _, s := range svcs {
-		if metav1.IsControlledBy(s, pa) {
-			logger.Infof("Removing redundant metric service %s", s.Name)
-			if err := c.KubeClient.CoreV1().Services(
-				s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
