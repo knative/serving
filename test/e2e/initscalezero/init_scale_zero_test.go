@@ -51,7 +51,7 @@ func TestInitScaleZeroClusterLevel(t *testing.T) {
 		configAutoscalerFlag: false,
 	}}
 	for _, tc := range tests {
-		func() {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Setting flag to %v on config-autoscaler ConfigMap.", tc.configAutoscalerFlag)
 			if tc.configAutoscalerFlag {
 				updatedConfigAutoscalerCM := setScaleToZeroOnDeployOnCluster(t, clients, "config-autoscaler")
@@ -63,8 +63,8 @@ func TestInitScaleZeroClusterLevel(t *testing.T) {
 			}
 			defer test.TearDown(clients, names)
 			t.Logf("Creating a new Service and verifying that scale to zero is %v.", tc.configAutoscalerFlag)
-			createServiceAndCheckPods(t, clients, &names, tc.configAutoscalerFlag /* scaledToZero */)
-		}()
+			createServiceAndCheckPods(t, clients, names, tc.configAutoscalerFlag /* scaledToZero */)
+		})
 	}
 }
 
@@ -85,7 +85,7 @@ func TestInitScaleZeroMinScaleClusterLevel(t *testing.T) {
 	defer restoreCM(t, clients, updatedConfigAutoscalerCM)
 
 	t.Log("Creating a new Service with minScale greater than 0 and verifying that pods are created.")
-	createServiceAndCheckPods(t, clients, &names, false,
+	createServiceAndCheckPods(t, clients, names, false,
 		v1a1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey: "1",
 		}))
@@ -117,12 +117,12 @@ func setScaleToZeroOnDeployOnCluster(t *testing.T, clients *test.Clients, config
 }
 
 // Returns true if no pods are created; false if otherwise.
-func createServiceAndCheckPods(t *testing.T, clients *test.Clients, names *test.ResourceNames, scaledToZero bool, fopt ...v1a1testing.ServiceOption) {
+func createServiceAndCheckPods(t *testing.T, clients *test.Clients, names test.ResourceNames, scaledToZero bool, fopt ...v1a1testing.ServiceOption) {
 	t.Helper()
 	test.CleanupOnInterrupt(func() {
-		test.TearDown(clients, *names)
+		test.TearDown(clients, names)
 	})
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, test.ServingFlags.Https, fopt...)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https, fopt...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

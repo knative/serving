@@ -550,7 +550,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/image-pull-secrets",
 	}, {
 		Name: "scale to zero on deploy true",
-		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(true)),
+		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, true),
 		Objects: []runtime.Object{
 			rev("foo", "scale-to-zero-on-deploy-true"),
 			pa("foo", "scale-to-zero-on-deploy-true"),
@@ -568,7 +568,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/scale-to-zero-on-deploy-true",
 	}, {
 		Name: "scale to zero on deploy false",
-		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(false)),
+		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, false),
 		Objects: []runtime.Object{
 			rev("foo", "scale-to-zero-on-deploy-false"),
 			pa("foo", "scale-to-zero-on-deploy-false"),
@@ -588,8 +588,8 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		testConfigs := ReconcilerTestConfig()
-		if scaleToZeroVal := ctx.Value(scaleToZeroKey); scaleToZeroVal != nil {
-			testConfigs.Autoscaler.ScaleToZeroOnDeploy = *(scaleToZeroVal.(*bool))
+		if ctx.Value(scaleToZeroKey) != nil && ctx.Value(scaleToZeroKey).(bool) {
+			testConfigs.Autoscaler.ScaleToZeroOnDeploy = true
 		}
 		r := &Reconciler{
 			kubeclient:    kubeclient.Get(ctx),
