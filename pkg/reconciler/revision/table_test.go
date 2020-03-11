@@ -73,7 +73,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we exect it to create them and initialize the Revision's status.
+		// and we expect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile"),
 		},
