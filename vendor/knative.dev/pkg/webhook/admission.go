@@ -82,7 +82,7 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 		response.Response.UID = review.Request.UID
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
-			http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 			return
 		}
 
