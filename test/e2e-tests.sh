@@ -86,6 +86,10 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
 
+# Run init scale zero tests separately because they mutate the autoscaler config
+go_test_e2e -timeout=10m \
+  ./test/e2e/initscalezero || failed=1
+
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
 (( failed )) && fail_test

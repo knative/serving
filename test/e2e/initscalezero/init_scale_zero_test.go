@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package initscalezero
 
 import (
 	"fmt"
@@ -29,6 +29,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1a1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -36,7 +37,7 @@ func TestInitScaleZeroClusterLevel(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 	tests := []struct {
 		name string
 		// configAutoscalerFlag indicates if the scale to zero on deploy flag is set to true
@@ -73,7 +74,7 @@ func TestInitScaleZeroMinScaleClusterLevel(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
+	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
@@ -91,7 +92,7 @@ func TestInitScaleZeroMinScaleClusterLevel(t *testing.T) {
 }
 
 func restoreCM(t *testing.T, clients *test.Clients, oldCM *v1.ConfigMap) {
-	if _, err := patchCM(clients, oldCM); err != nil {
+	if _, err := e2e.PatchCM(clients, oldCM); err != nil {
 		t.Fatalf("Error restoring ConfigMap %q: %v", oldCM.Name, err)
 	}
 	t.Logf("Successfully restored ConfigMap %s", oldCM.Name)
@@ -99,13 +100,13 @@ func restoreCM(t *testing.T, clients *test.Clients, oldCM *v1.ConfigMap) {
 
 func setScaleToZeroOnDeployOnCluster(t *testing.T, clients *test.Clients, configMapName string) *v1.ConfigMap {
 	t.Logf("Fetch %s ConfigMap", configMapName)
-	original, err := rawCM(clients, configMapName)
+	original, err := e2e.RawCM(clients, configMapName)
 	if err != nil || original == nil {
 		t.Fatalf("Error fetching %s: %v", configMapName, err)
 	}
 	var newCM *v1.ConfigMap
 	original.Data["scale-to-zero-on-deploy"] = "true"
-	if newCM, err = patchCM(clients, original); err != nil {
+	if newCM, err = e2e.PatchCM(clients, original); err != nil {
 		t.Fatalf("Failed to update %s: %v", configMapName, err)
 	}
 	t.Logf("Successfully updated %s configMap.", configMapName)
