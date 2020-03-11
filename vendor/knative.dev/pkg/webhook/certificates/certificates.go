@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	// Time used for updating a certificate before it expires. Default 1 week.
+	// Time used for updating a certificate before it expires.
 	oneWeek = 7 * 24 * time.Hour
 )
 
@@ -64,7 +64,7 @@ func (r *reconciler) reconcileCertificate(ctx context.Context) error {
 			return err
 		}
 	} else if err != nil {
-		logger.Errorf("error accessing certificate secret %q: %v", r.secretName, err)
+		logger.Errorf("Error accessing certificate secret %q: %v", r.secretName, err)
 		return err
 	}
 

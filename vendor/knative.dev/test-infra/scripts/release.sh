@@ -498,9 +498,24 @@ function publish_artifacts() {
 
 # Entry point for a release script.
 function main() {
+  parse_flags "$@"
+
+  # Checkout specific branch, if necessary
+  local current_branch
+  current_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ -n "${RELEASE_BRANCH}" && -z "${FROM_NIGHTLY_RELEASE}" && "${current_branch}" != "${RELEASE_BRANCH}" ]]; then
+    setup_upstream
+    setup_branch
+    git checkout upstream/"${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    # HACK HACK HACK
+    # Rerun the release script from the release branch. Fixes https://github.com/knative/test-infra/issues/1262
+    ./hack/release.sh "$@"
+    exit "$?"
+  fi
+
   function_exists build_release || abort "function 'build_release()' not defined"
   [[ -x ${VALIDATION_TESTS} ]] || abort "test script '${VALIDATION_TESTS}' doesn't exist"
-  parse_flags "$@"
+
   # Log what will be done and where.
   banner "Release configuration"
   if which gcloud &>/dev/null ; then
@@ -532,13 +547,6 @@ function main() {
     [[ -n "${RELEASE_BRANCH}" ]] && echo "- Release will be built from branch '${RELEASE_BRANCH}'"
   fi
   [[ -n "${RELEASE_NOTES}" ]] && echo "- Release notes are generated from '${RELEASE_NOTES}'"
-
-  # Checkout specific branch, if necessary
-  if [[ -n "${RELEASE_BRANCH}" && -z "${FROM_NIGHTLY_RELEASE}" ]]; then
-    setup_upstream
-    setup_branch
-    git checkout upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
-  fi
 
   if [[ -n "${FROM_NIGHTLY_RELEASE}" ]]; then
     build_from_nightly_release
