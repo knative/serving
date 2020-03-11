@@ -54,6 +54,11 @@ func TestMinScale(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
+	t.Log("Creating route")
+	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
 	t.Log("Creating configuration")
 	cfg, err := v1a1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
 	if err != nil {
@@ -63,13 +68,11 @@ func TestMinScale(t *testing.T) {
 	revName := latestRevisionName(t, clients, names.Config, "")
 	serviceName := privateServiceName(t, clients, revName)
 
-	// Before becoming ready, observe minScale
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
 	if err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q did not scale >= %d before becoming ready: %v", revName, minScale, err)
 	}
 
-	// Revision becomes ready
 	t.Log("Waiting for revision to become ready")
 	if err := v1a1test.WaitForRevisionState(
 		clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady",
@@ -77,30 +80,9 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 	}
 
-	// Without a route, ignore minScale
-	t.Log("Waiting for revision to scale below minScale after becoming ready")
-	if err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale < minScale after becoming ready: %v", revName, err)
-	}
-
-	// Create route
-	t.Log("Creating route")
-	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
-	// Route becomes ready
-	t.Log("Waiting for route to become ready")
-	if err := v1a1test.WaitForRouteState(
-		clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady",
-	); err != nil {
-		t.Fatalf("The Route %q is not ready: %v", names.Route, err)
-	}
-
-	// With a route, observe minScale
-	t.Log("Waiting for revision to scale to minScale after creating route")
-	if err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale >= %d after creating route: %v", revName, minScale, err)
+	t.Log("Holding revision at minScale after becoming ready")
+	if !ensureDesiredScale(clients, serviceName, gte(minScale)) {
+		t.Fatalf("The revision %q did not stay at scale >= %d after becoming ready", revName, minScale)
 	}
 
 	t.Log("Updating configuration")
@@ -111,30 +93,36 @@ func TestMinScale(t *testing.T) {
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
 	newServiceName := privateServiceName(t, clients, newRevName)
 
-	// After update, observe minScale in new revision
-	t.Log("Waiting for latest revision to scale to minScale after update")
+	t.Log("Waiting for new revision to scale to minScale after update")
 	if err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q did not scale >= %d after creating route: %v", newRevName, minScale, err)
 	}
 
-	// Revision becomes ready
-	t.Log("Waiting for revision to become ready")
+	t.Log("Waiting for new revision to become ready")
 	if err := v1a1test.WaitForRevisionState(
 		clients.ServingAlphaClient, newRevName, v1a1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
 		t.Fatalf("The Revision %q did not become ready: %v", newRevName, err)
 	}
 
-	// After update, ensure new revision holds minScale
-	t.Log("Hold minScale after update")
+	t.Log("Holding new revision at minScale after becoming ready")
 	if !ensureDesiredScale(clients, newServiceName, gte(minScale)) {
-		t.Fatalf("The revision %q did not stay at scale >= %d after creating route", newRevName, minScale)
+		t.Fatalf("The new revision %q did not stay at scale >= %d after becoming ready", newRevName, minScale)
 	}
 
-	// After update, ensure old revision ignores minScale
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
 	if err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", revName, err)
+	}
+
+	t.Log("Deleting route")
+	if err := clients.ServingAlphaClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
+	}
+
+	t.Log("Waiting for new revision to scale below minScale when there is no route")
+	if err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
+		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", newRevName, err)
 	}
 }
 
