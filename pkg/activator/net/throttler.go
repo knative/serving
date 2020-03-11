@@ -591,7 +591,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 
 func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
 	// NB: this is guaranteed to be executed on a single thread.
-	epSet, _ := endpointsToDests(eps, networking.ServicePortNameHTTP1)
+	epSet, _ := endpointsToDests(eps, string(rt.proto))
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := epSet.List()
 	atomic.StoreInt32(&rt.numActivators, int32(len(epsL)))
