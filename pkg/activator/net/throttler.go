@@ -40,7 +40,6 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -112,12 +111,12 @@ type revisionThrottler struct {
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
-	activatorCount int
+	numActivators int32
 	// If -1, it is presumed that this activator should not receive requests
 	// for the revision. But due to the system being distributed it might take
 	// time for everything to propagate. Thus when this is -1 we assign all the
 	// pod trackers.
-	activatorIndex int
+	activatorIndex int32
 	proto          networking.ProtocolType
 
 	// eolds the current number of backends. This is used for when we get an activatorCount update and
@@ -142,7 +141,7 @@ type revisionThrottler struct {
 	//request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
-	// used to atomically calculate and set capacity
+	// Used to atomically calculate and set capacity.
 	capacityMux sync.Mutex
 
 	logger *zap.SugaredLogger
@@ -251,13 +250,11 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// of activators changes, then we need to rebalance the assignedTrackers.
 
 	// Activator index and count are set under the lock below.
-	// TODO(vagababov): once we remove `updateAllThrottlerCapacity`,
-	// this will no longer require to be set under lock.
 	var ac, ai int
 	numTrackers := func() int {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
-		ac, ai = rt.activatorCount, rt.activatorIndex
+		ac, ai = int(rt.numActivators), int(rt.activatorIndex)
 		// We're using cluster IP.
 		if rt.clusterIPTracker != nil {
 			return 0
@@ -299,8 +296,8 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 func (rt *revisionThrottler) updateThrottlerState(
 	throttler *Throttler, backendCount int,
 	trackers []*podTracker, clusterIPDest *podTracker) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d activator pos %d/%d",
-		clusterIPDest, len(trackers), backendCount, throttler.index(), throttler.activatorCount())
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
+		clusterIPDest, len(trackers), backendCount)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
@@ -432,8 +429,6 @@ type Throttler struct {
 	revisionThrottlersMutex sync.RWMutex
 	revisionLister          servinglisters.RevisionLister
 	serviceLister           corev1listers.ServiceLister
-	numActivators           int32  // Total number of activators.
-	activatorIndex          int32  // The assigned index of this activator, -1 is Activator is not expected to receive traffic.
 	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
 	epsUpdateCh             chan *corev1.Endpoints
@@ -447,7 +442,6 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		revisionLister:     revisionInformer.Lister(),
 		serviceLister:      serviceinformer.Get(ctx).Lister(),
 		ipAddress:          ipAddr,
-		activatorIndex:     -1, // Unset yet.
 		logger:             logging.FromContext(ctx),
 		epsUpdateCh:        make(chan *corev1.Endpoints),
 	}
@@ -462,17 +456,6 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 
 	// Watch activator endpoint to maintain activator count
 	endpointsInformer := endpointsinformer.Get(ctx)
-	// Handles activator service updates.
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.ChainFilterFuncs(
-			reconciler.NameFilterFunc(networking.ActivatorServiceName),
-			reconciler.NamespaceFilterFunc(system.Namespace()),
-		),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    t.activatorEndpointsUpdated,
-			UpdateFunc: controller.PassNew(t.activatorEndpointsUpdated),
-		},
-	})
 
 	// Handles public service updates.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -611,8 +594,9 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	epSet, _ := endpointsToDests(eps, networking.ServicePortNameHTTP1)
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := epSet.List()
-	rt.activatorCount, rt.activatorIndex = len(epsL), inferIndex(epsL, selfIP)
-	rt.logger.Infof("This activator index is %d/%d", rt.activatorIndex, rt.activatorCount)
+	atomic.StoreInt32(&rt.numActivators, int32(len(epsL)))
+	atomic.StoreInt32(&rt.activatorIndex, int32(inferIndex(epsL, selfIP)))
+	rt.logger.Infof("This activator index is %d/%d", rt.activatorIndex, rt.numActivators)
 	rt.updateCapacity(rt.backendCount)
 }
 
@@ -634,42 +618,10 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) updateAllThrottlerCapacity() {
-	t.revisionThrottlersMutex.RLock()
-	defer t.revisionThrottlersMutex.RUnlock()
-
-	for _, rt := range t.revisionThrottlers {
-		rt.updateCapacity(rt.backendCount)
-	}
-}
-
 func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	t.logger.Infof("Public Endpoints %s updated", endpoints.Name)
 	t.epsUpdateCh <- endpoints
-}
-
-func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
-	endpoints := newObj.(*corev1.Endpoints)
-
-	// We want to pass sorted list, so that we get _some_ stability in the results.
-	epSet, _ := endpointsToDests(endpoints, networking.ServicePortNameHTTP1)
-	eps := epSet.List()
-	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
-	idx := inferIndex(eps, t.ipAddress)
-	activatorCount := len(eps)
-	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)
-	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
-	atomic.StoreInt32(&t.activatorIndex, int32(idx))
-	t.updateAllThrottlerCapacity()
-}
-
-func (t *Throttler) index() int {
-	return int(atomic.LoadInt32(&t.activatorIndex))
-}
-
-func (t *Throttler) activatorCount() int {
-	return int(atomic.LoadInt32(&t.numActivators))
 }
 
 // minOneOrValue function returns num if its greater than 1
