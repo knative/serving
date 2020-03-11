@@ -22,6 +22,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -117,9 +118,9 @@ type revisionThrottler struct {
 	// time for everything to propagate. Thus when this is -1 we assign all the
 	// pod trackers.
 	activatorIndex int32
-	proto          networking.ProtocolType
+	protocol       string
 
-	// eolds the current number of backends. This is used for when we get an activatorCount update and
+	// Holds the current number of backends. This is used for when we get an activatorCount update and
 	// therefore need to recalculate capacity
 	backendCount int
 
@@ -148,7 +149,7 @@ type revisionThrottler struct {
 }
 
 func newRevisionThrottler(revID types.NamespacedName,
-	containerConcurrency int, proto networking.ProtocolType,
+	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
@@ -163,7 +164,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
 		logger:               logger,
-		proto:                proto,
+		protocol:             proto,
 		activatorIndex:       -1, // Start with unknown.
 	}
 }
@@ -520,7 +521,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 			return nil, err
 		}
 		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()),
-			rev.GetProtocol(), breakerParams, t.logger)
+			networking.ServicePortName(rev.GetProtocol()), breakerParams, t.logger)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil
@@ -571,7 +572,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 
 	revN := eps.Labels[serving.RevisionLabelKey]
 	if revN == "" {
-		// Perhops, we're not the only ones using the same selector label.
+		// Perhaps, we're not the only ones using the same selector label.
 		t.logger.Infof("Ignoring update for PublicService %s/%s", eps.Namespace, eps.Name)
 		return
 	}
@@ -586,16 +587,18 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	} else {
 		rt.handlePubEpsUpdate(eps, t.ipAddress)
 	}
-
 }
 
 func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
 	// NB: this is guaranteed to be executed on a single thread.
-	epSet, _ := endpointsToDests(eps, string(rt.proto))
+	epSet, _ := endpointsToDests(eps, rt.protocol)
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := epSet.List()
 	atomic.StoreInt32(&rt.numActivators, int32(len(epsL)))
 	atomic.StoreInt32(&rt.activatorIndex, int32(inferIndex(epsL, selfIP)))
+	// Note that if the revision is served directly or this activator is not
+	// part of the subset it will be `-1/X`. And that's OK, since this activator
+	// should not be receiving requests for the revision.
 	rt.logger.Infof("This activator index is %d/%d", rt.activatorIndex, rt.numActivators)
 	rt.updateCapacity(rt.backendCount)
 }
@@ -612,7 +615,7 @@ func inferIndex(eps []string, ipAddress string) int {
 	idx := sort.SearchStrings(eps, ipAddress)
 
 	// Check if this activator is part of the endpoints slice?
-	if idx == len(eps) || eps[idx] != ipAddress {
+	if idx == len(eps) || !strings.HasPrefix(eps[idx], ipAddress) {
 		idx = -1
 	}
 	return idx

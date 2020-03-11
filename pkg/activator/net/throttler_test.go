@@ -1,5 +1,4 @@
 /*
-/*
 Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -479,7 +478,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 
 	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ProtocolHTTP1, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
 	rt.numActivators = 4
 	rt.activatorIndex = 0
 	throttler.revisionThrottlers[revName] = rt
@@ -534,7 +533,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 
 	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ProtocolHTTP1, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -590,7 +589,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	rev := revisionCC1(revID, networking.ProtocolHTTP1)
+	rev := revisionCC1(revID, networking.ProtocolH2C)
 	// Add the revision we're testing.
 	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
@@ -598,7 +597,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	updateCh := make(chan revisionDestsUpdate)
 	defer close(updateCh)
 
-	throttler := NewThrottler(ctx, "130.0.0.2:8012")
+	throttler := NewThrottler(ctx, "130.0.0.2:")
 	go throttler.run(updateCh)
 
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
@@ -618,7 +617,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
-			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"}, nil),
+			*epSubset(8013, "http2", []string{"130.0.0.1", "130.0.0.2"}, nil),
 		},
 	}
 	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
@@ -642,7 +641,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	}
 
 	publicEp.Subsets = []corev1.EndpointSubset{
-		*epSubset(8012, "http", []string{"130.0.0.2"}, nil),
+		*epSubset(8013, "http2", []string{"130.0.0.2"}, nil),
 	}
 
 	fake.CoreV1().Endpoints(testNamespace).Update(publicEp)
@@ -748,7 +747,7 @@ func TestMultipleActivators(t *testing.T) {
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
-		networking.ProtocolHTTP1, queue.BreakerParams{}, TestLogger(t))
+		networking.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
@@ -861,7 +860,7 @@ func TestInferIndex(t *testing.T) {
 	}, {
 		"first",
 		[]string{"10.10.10.3:1234,11.11.11.11:1234"},
-		-1,
+		0,
 	}, {
 		"middle",
 		[]string{"10.10.10.1:1212", "10.10.10.2:1234", "10.10.10.3:1234", "11.11.11.11:1234"},
@@ -874,7 +873,7 @@ func TestInferIndex(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
 			if got, want := inferIndex(test.ips, myIP), test.want; got != want {
-				t.Errorf("Index = %d, wand: %d", got, want)
+				t.Errorf("Index = %d, want: %d", got, want)
 			}
 		})
 	}
