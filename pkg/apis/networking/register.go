@@ -44,7 +44,7 @@ const (
 	SKSLabelKey = GroupName + "/serverlessservice"
 
 	// ServiceTypeKey is the label key attached to a service specifying the type of service.
-	// e.g. Public, Metrics
+	// e.g. Public, Private.
 	ServiceTypeKey = GroupName + "/serviceType"
 
 	// OriginSecretNameLabelKey is the label key attached to the TLS secret to indicate
