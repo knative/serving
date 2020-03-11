@@ -18,10 +18,12 @@ package v1
 
 import (
 	"context"
-	"strconv"
+
+	"github.com/google/uuid"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 )
@@ -53,7 +55,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	for idx := range rs.PodSpec.Containers {
 		if rs.PodSpec.Containers[idx].Name == "" {
 			if len(rs.PodSpec.Containers) > 1 {
-				rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx) + "-" + strconv.Itoa(idx)
+				rs.PodSpec.Containers[idx].Name = kmeta.ChildName(cfg.Defaults.UserContainerName(ctx), "-"+uuid.New().String())
 			} else {
 				rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
 			}
@@ -62,6 +64,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.applyDefault(&rs.PodSpec.Containers[idx], cfg)
 	}
 }
+
 func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Config) {
 	if container.Resources.Requests == nil {
 		container.Resources.Requests = corev1.ResourceList{}

@@ -287,30 +287,6 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
-	}, {
-		name: "multiple containers without container name",
-		in: &Revision{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{}, {}},
-				},
-			},
-		},
-		want: &Revision{
-			Spec: v1.RevisionSpec{
-				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:      "user-container-0",
-						Resources: defaultResources,
-					}, {
-						Name:      "user-container-1",
-						Resources: defaultResources,
-					}},
-				},
-			},
-		},
 	}}
 
 	for _, test := range tests {
@@ -326,5 +302,19 @@ func TestRevisionDefaulting(t *testing.T) {
 					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
+	}
+}
+
+func TestRevisionDefaultingContainerName(t *testing.T) {
+	got := &Revision{
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{}, {}},
+			},
+		},
+	}
+	got.SetDefaults(context.Background())
+	if got.Spec.Containers[0].Name == "" && got.Spec.Containers[1].Name == "" {
+		t.Errorf("Failed to set default values for container name")
 	}
 }
