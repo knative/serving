@@ -16,6 +16,7 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.opencensus.io/stats/view"
@@ -74,7 +75,7 @@ func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) fu
 	return func(configMap *corev1.ConfigMap) {
 		UpdateExporter(ExporterOptions{
 			Domain:    domain,
-			Component: component,
+			Component: strings.ReplaceAll(component, "-", "_"),
 			ConfigMap: configMap.Data,
 		}, logger)
 	}
