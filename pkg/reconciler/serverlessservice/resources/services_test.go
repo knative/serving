@@ -62,6 +62,33 @@ func sks(mod func(*v1alpha1.ServerlessService)) *v1alpha1.ServerlessService {
 	return base
 }
 
+func eps(mod func(*corev1.Endpoints)) *corev1.Endpoints {
+	base := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "melon",
+			Name:      "collie",
+			Labels: map[string]string{
+				serving.RevisionLabelKey:  "collie",
+				serving.RevisionUID:       "1982",
+				networking.SKSLabelKey:    "collie",
+				networking.ServiceTypeKey: "Public",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+				Kind:               "ServerlessService",
+				Name:               "collie",
+				UID:                "1982",
+				Controller:         ptr.Bool(true),
+				BlockOwnerDeletion: ptr.Bool(true),
+			}},
+		},
+	}
+	if mod != nil {
+		mod(base)
+	}
+	return base
+}
+
 func svc(t networking.ServiceType, mods ...func(*corev1.Service)) *corev1.Service {
 	base := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -207,32 +234,12 @@ func TestMakeEndpoints(t *testing.T) {
 	}{{
 		name: "empty source",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
-			s.Annotations["cherub"] = "rock"
+			s.Annotations["tonight"] = "tonight"
 		}),
 		eps: &corev1.Endpoints{},
-		want: &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "melon",
-				Name:      "collie",
-				Labels: map[string]string{
-					serving.RevisionLabelKey:  "collie",
-					serving.RevisionUID:       "1982",
-					networking.SKSLabelKey:    "collie",
-					networking.ServiceTypeKey: "Public",
-				},
-				Annotations: map[string]string{
-					"cherub": "rock",
-				},
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "ServerlessService",
-					Name:               "collie",
-					UID:                "1982",
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
-			},
-		},
+		want: eps(func(e *corev1.Endpoints) {
+			e.Annotations = map[string]string{"tonight": "tonight"}
+		}),
 	}, {
 		name: "some endpoints, many ports",
 		sks: sks(func(s *v1alpha1.ServerlessService) {
@@ -241,11 +248,9 @@ func TestMakeEndpoints(t *testing.T) {
 		eps: &corev1.Endpoints{
 			Subsets: []corev1.EndpointSubset{{
 				Addresses: []corev1.EndpointAddress{{
-					IP:       "192.168.1.1",
-					NodeName: &goodPod,
+					IP: "192.168.1.1",
 				}, {
-					IP:       "10.5.6.21",
-					NodeName: &badPod,
+					IP: "10.5.6.21",
 				}},
 				Ports: []corev1.EndpointPort{{
 					Name:     "http",
@@ -262,41 +267,21 @@ func TestMakeEndpoints(t *testing.T) {
 				}},
 			}},
 		},
-		want: &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "melon",
-				Name:      "collie",
-				Labels: map[string]string{
-					"ava":                     "adore",
-					serving.RevisionLabelKey:  "collie",
-					serving.RevisionUID:       "1982",
-					networking.SKSLabelKey:    "collie",
-					networking.ServiceTypeKey: "Public",
-				},
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-					Kind:               "ServerlessService",
-					Name:               "collie",
-					UID:                "1982",
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
-			},
-			Subsets: []corev1.EndpointSubset{{
+		want: eps(func(e *corev1.Endpoints) {
+			e.Labels["ava"] = "adore"
+			e.Subsets = []corev1.EndpointSubset{{
 				Addresses: []corev1.EndpointAddress{{
-					IP:       "192.168.1.1",
-					NodeName: &goodPod,
+					IP: "192.168.1.1",
 				}, {
-					IP:       "10.5.6.21",
-					NodeName: &badPod,
+					IP: "10.5.6.21",
 				}},
 				Ports: []corev1.EndpointPort{{
 					Name:     "http",
 					Port:     8012,
 					Protocol: "TCP",
 				}},
-			}},
-		},
+			}}
+		}),
 	}}
 
 	for _, test := range tests {
