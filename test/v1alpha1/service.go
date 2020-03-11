@@ -125,7 +125,25 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 	if names.Image == "" {
 		return nil, nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
-
+	var httpsTransportOption *spoof.TransportOption
+	var err error
+	if https {
+		tlsOptions := &istiov1alpha3.Server_TLSOptions{
+			Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
+			PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
+			ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
+		}
+		servers := []*istiov1alpha3.Server{{
+			Hosts: []string{"*"},
+			Port: &istiov1alpha3.Port{
+				Name:     "standard-https",
+				Number:   443,
+				Protocol: "HTTPS",
+			},
+			Tls: tlsOptions,
+		}}
+		setupGateway(t, clients, servers)
+	}
 	t.Log("Creating a new Service.", "service", names.Service)
 	svc, err := CreateLatestService(t, clients, *names, fopt...)
 	if err != nil {
@@ -152,29 +170,11 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 		return nil, nil, err
 	}
 
-	var httpsTransportOption *spoof.TransportOption
 	if https {
-		tlsOptions := &istiov1alpha3.Server_TLSOptions{
-			Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
-			PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
-			ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
-		}
-		servers := []*istiov1alpha3.Server{{
-			Hosts: []string{"*"},
-			Port: &istiov1alpha3.Port{
-				Name:     "standard-https",
-				Number:   443,
-				Protocol: "HTTPS",
-			},
-			Tls: tlsOptions,
-		}}
-		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host)
-		if err != nil {
+		if httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host); err != nil {
 			return nil, nil, err
 		}
-		setupGateway(t, clients, servers)
 	}
-
 	t.Log("Getting latest objects Created by Service")
 	resources, err := GetResourceObjects(clients, *names)
 	if err == nil {
