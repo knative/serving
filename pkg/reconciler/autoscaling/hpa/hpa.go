@@ -104,11 +104,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		pa.Status.MarkActive()
 	}
 
-	// Metrics services are no longer needed as we use the private services now.
-	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
-		return err
-	}
-
 	pa.Status.ObservedGeneration = pa.Generation
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)

@@ -24,7 +24,7 @@ spec:
         autoscaling.knative.dev/targetBurstCapacity: "-1"
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/autoscale
+      - image: ko://knative.dev/serving/test/test_images/autoscale
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -38,7 +38,7 @@ spec:
         autoscaling.knative.dev/targetBurstCapacity: "0"
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/autoscale
+      - image: ko://knative.dev/serving/test/test_images/autoscale
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -52,4 +52,4 @@ spec:
         autoscaling.knative.dev/targetBurstCapacity: "200"
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/autoscale
+      - image: ko://knative.dev/serving/test/test_images/autoscale

@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/helloworld
+      - image: ko://knative.dev/serving/test/test_images/helloworld
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -18,7 +18,7 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/httpproxy
+      - image: ko://knative.dev/serving/test/test_images/httpproxy
         env:
         - name: TARGET_HOST
           value: "helloworld-test-image.default.svc.cluster.local"

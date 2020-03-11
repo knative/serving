@@ -44,7 +44,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=deployment", "--duration=3m"]
             resources:
               requests:
@@ -87,7 +87,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=istio", "--duration=3m"]
             resources:
               requests:
@@ -129,7 +129,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=queue", "--duration=3m"]
             resources:
               requests:
@@ -171,7 +171,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=activator", "--duration=3m"]
             resources:
               requests:
@@ -213,7 +213,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=activator-with-cc", "--duration=3m"]
             resources:
               requests:
@@ -255,7 +255,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=queue-with-cc", "--duration=3m"]
             resources:
               requests:
@@ -297,7 +297,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=queue-with-cc-10", "--duration=3m"]
             resources:
               requests:
@@ -339,7 +339,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=queue-with-cc-1", "--duration=3m"]
             resources:
               requests:
@@ -381,7 +381,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=activator-with-cc-10", "--duration=3m"]
             resources:
               requests:
@@ -423,7 +423,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: dataplane-probe
-            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
             args: ["-target=activator-with-cc-1", "--duration=3m"]
             resources:
               requests:

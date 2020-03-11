@@ -101,6 +101,7 @@ func testAutoTLS(t *testing.T) {
 			return transport
 		}
 		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+		defer test.AssertProberDefault(t, prober)
 
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
@@ -138,7 +139,6 @@ func testAutoTLS(t *testing.T) {
 		for _, traffic := range route.Status.Traffic {
 			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
 		}
-		test.AssertProberDefault(t, prober)
 	})
 }
 

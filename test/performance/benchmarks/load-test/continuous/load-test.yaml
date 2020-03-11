@@ -44,7 +44,7 @@ spec:
           serviceAccountName: loader
           containers:
           - name: load-test
-            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/load-test/continuous
             args:
             - "-flavor=zero"
             resources:
@@ -88,7 +88,7 @@ spec:
           serviceAccountName: loader
           containers:
           - name: load-test
-            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/load-test/continuous
             args:
             - "-flavor=always"
             resources:
@@ -132,7 +132,7 @@ spec:
           serviceAccountName: loader
           containers:
           - name: load-test
-            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/load-test/continuous
             args:
             - "-flavor=200"
             resources:

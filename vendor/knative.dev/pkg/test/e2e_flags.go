@@ -27,6 +27,7 @@ import (
 	"path"
 	"sync"
 	"text/template"
+	"time"
 
 	"knative.dev/pkg/test/logging"
 )
@@ -46,13 +47,15 @@ var (
 
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
 type EnvironmentFlags struct {
-	Cluster         string // K8s cluster (defaults to cluster in kubeconfig)
-	Kubeconfig      string // Path to kubeconfig (defaults to ./kube/config)
-	Namespace       string // K8s namespace (blank by default, to be overwritten by test suite)
-	IngressEndpoint string // Host to use for ingress endpoint
-	ImageTemplate   string // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
-	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
-	Tag             string // Tag for test images
+	Cluster              string        // K8s cluster (defaults to cluster in kubeconfig)
+	Kubeconfig           string        // Path to kubeconfig (defaults to ./kube/config)
+	Namespace            string        // K8s namespace (blank by default, to be overwritten by test suite)
+	IngressEndpoint      string        // Host to use for ingress endpoint
+	ImageTemplate        string        // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
+	DockerRepo           string        // Docker repo (defaults to $KO_DOCKER_REPO)
+	Tag                  string        // Tag for test images
+	SpoofRequestInterval time.Duration // SpoofRequestInterval is the interval between requests in SpoofingClient
+	SpoofRequestTimeout  time.Duration // SpoofRequestTimeout is the timeout for polling requests in SpoofingClient
 }
 
 func initializeFlags() *EnvironmentFlags {
@@ -81,6 +84,12 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
 		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
+
+	flag.DurationVar(&f.SpoofRequestInterval, "spoofinterval", 1*time.Second,
+		"Provide an interval between requests for the SpoofingClient")
+
+	flag.DurationVar(&f.SpoofRequestTimeout, "spooftimeout", 5*time.Minute,
+		"Provide a request timeout for the SpoofingClient")
 
 	defaultRepo := os.Getenv("KO_DOCKER_REPO")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
