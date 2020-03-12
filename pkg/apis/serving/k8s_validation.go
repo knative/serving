@@ -293,22 +293,19 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 
 // validateContainersPorts validates port when specified multiple containers
 func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
-	var (
-		count int
-		errs  *apis.FieldError
-	)
+	var count int
 	for i := range containers {
 		count += len(containers[i].Ports)
 	}
 	// When no container ports are specified.
 	if count == 0 {
-		errs = errs.Also(apis.ErrMissingField("ports"))
+		return apis.ErrMissingField("ports")
 	}
 	// More than one container sections have ports.
 	if count > 1 {
-		errs = errs.Also(apis.ErrMultipleOneOf("ports"))
+		return apis.ErrMultipleOneOf("ports")
 	}
-	return errs
+	return nil
 }
 
 // validateSidecarContainer validate fields for non serving containers
@@ -329,7 +326,7 @@ func validateSidecarContainer(container corev1.Container, volumes sets.String) *
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	// Single container have multiple ports
-	errs = errs.Also(portValidation(len(container.Ports))).ViaField("ports")
+	errs = errs.Also(portValidation(container.Ports).ViaField("ports"))
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Readiness Probes
@@ -337,8 +334,8 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	return errs.Also(validate(container, volumes))
 }
 
-func portValidation(count int) *apis.FieldError {
-	if count > 1 {
+func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
+	if len(containerPorts) > 1 {
 		return &apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{apis.CurrentField},
