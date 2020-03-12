@@ -126,7 +126,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(err)
 	} else {
 		if rs.ContainerConcurrency != nil {
-			errs = errs.Also(serving.ValidateContainerConcurrency(rs.ContainerConcurrency).ViaField("containerConcurrency"))
+			errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 		}
 	}
 
