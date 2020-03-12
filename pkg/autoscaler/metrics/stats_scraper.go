@@ -17,17 +17,22 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"golang.org/x/sync/errgroup"
 
+	pkgmetrics "knative.dev/pkg/metrics"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -55,6 +60,15 @@ var (
 	// ErrDidNotReceiveStat specifies the error returned by scraper when it does not receive
 	// stat from an unscraped pod
 	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
+
+	scrapeTimeDistribution = view.Distribution(
+		5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600,
+		700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+
+	scrapeTimeM = stats.Float64(
+		"scrape_time",
+		"Time to scrape metrics in milliseconds",
+		stats.UnitMilliseconds)
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -86,9 +100,10 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	sClient scrapeClient
-	counter resources.EndpointsCounter
-	url     string
+	sClient  scrapeClient
+	counter  resources.EndpointsCounter
+	url      string
+	statsCtx context.Context
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -118,11 +133,29 @@ func newServiceScraperWithClient(
 	if revName == "" {
 		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
 	}
+	svcName := metric.Labels[serving.ServiceLabelKey]
+	cfgName := metric.Labels[serving.ConfigurationLabelKey]
+
+	if err := view.Register(
+		&view.View{
+			Description: "The time to scrape metrics in milliseconds",
+			Measure:     scrapeTimeM,
+			Aggregation: scrapeTimeDistribution,
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+	); err != nil {
+		return nil, err
+	}
+	ctx, err := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ServiceScraper{
-		sClient: sClient,
-		counter: counter,
-		url:     urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		sClient:  sClient,
+		counter:  counter,
+		url:      urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		statsCtx: ctx,
 	}, nil
 }
 
@@ -151,6 +184,7 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 
 	grp := errgroup.Group{}
 	youngPodCutOffSecs := window.Seconds()
+	startTime := time.Now()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
@@ -201,6 +235,9 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	}
 	close(oldStatCh)
 	close(youngStatCh)
+
+	scrapeTime := time.Since(startTime)
+	pkgmetrics.RecordBatch(s.statsCtx, scrapeTimeM.M(float64(scrapeTime.Milliseconds())))
 
 	var (
 		avgConcurrency        float64
