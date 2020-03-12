@@ -22,11 +22,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	pkgleaderelection "knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/configmaps"
@@ -220,6 +222,7 @@ func main() {
 		Port:        8443,
 		SecretName:  "webhook-certs",
 	})
+	ctx = injection.WithNamespaceScope(ctx, system.Namespace())
 
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
 		certificates.NewController,
