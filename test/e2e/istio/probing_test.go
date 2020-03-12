@@ -49,7 +49,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 var (
@@ -89,7 +89,7 @@ func TestIstioProbing(t *testing.T) {
 		}
 		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 		defer test.TearDown(clients, names)
-		objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+		objects, err := v1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 		}
@@ -264,7 +264,7 @@ func TestIstioProbing(t *testing.T) {
 			// Create the service and wait for it to be ready
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 			defer test.TearDown(clients, names)
-			_, err = v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+			_, err = v1test.CreateServiceReady(t, clients, &names)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 			}
@@ -282,7 +282,7 @@ func TestIstioProbing(t *testing.T) {
 						clients.KubeClient,
 						t.Logf,
 						u,
-						v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+						v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 						"HelloWorldServesText",
 						test.ServingFlags.ResolvableDomain,
 						1*time.Minute,
