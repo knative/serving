@@ -379,10 +379,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -391,10 +391,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -484,9 +484,8 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["deployments/finalizers"]
-  resourceNames: ["istio-galley"]
+- apiGroups: [""]
+  resources: ["namespaces/finalizers"]
   verbs: ["update"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
@@ -683,7 +682,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.4
+    chart: istio-1.4.6
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -886,7 +885,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: galley
-          image: "docker.io/istio/galley:1.4.4"
+          image: "docker.io/istio/galley:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -1018,7 +1017,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.4.4"
+          image: "docker.io/istio/node-agent-k8s:1.4.6"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -1041,7 +1040,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.4"
+          image: "docker.io/istio/proxyv2:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -1244,7 +1243,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.4"
+          image: "docker.io/istio/proxyv2:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -1434,7 +1433,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.4.4"
+          image: "docker.io/istio/pilot:1.4.6"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -1564,7 +1563,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.4.4"
+          image: "docker.io/istio/citadel:1.4.6"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
@@ -1667,7 +1666,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install-1.4.4
+  name: istio-security-post-install-1.4.6
   namespace: istio-system
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -1692,7 +1691,7 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: kubectl
-          image: "docker.io/istio/kubectl:1.4.4"
+          image: "docker.io/istio/kubectl:1.4.6"
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
