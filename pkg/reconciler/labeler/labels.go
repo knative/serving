@@ -51,8 +51,6 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		revName := tt.RevisionName
 		configName := tt.ConfigurationName
 
-		latest := tt.LatestRevision != nil && *tt.LatestRevision
-
 		if revName != "" {
 			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
@@ -78,7 +76,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 
 			// If the target is for the latest revision, add the latest created revision to the list
 			// so that there is a smooth transition when the new revision becomes ready.
-			if latest && config.Status.LatestCreatedRevisionName != "" {
+			if config.Status.LatestCreatedRevisionName != "" && tt.LatestRevision != nil && *tt.LatestRevision {
 				revisions.Insert(config.Status.LatestCreatedRevisionName)
 			}
 		}
