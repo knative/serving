@@ -56,15 +56,15 @@ aliases:
   networking-approvers:
   - markusthoemmes
   - mdemirhan
+  - nak3
   - tcnghia
   - vagababov
-  - nak3
   networking-reviewers:
   - JRBANCEL
-  - ZhiminXiang
   - markusthoemmes
   - mdemirhan
   - nak3
   - tcnghia
   - vagababov
   - yanweiguo
+  - ZhiminXiang
