@@ -250,12 +250,10 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
 
-	// Activator index and count are set under the lock below.
-	var ac, ai int
+	ac, ai := int(atomic.LoadInt32(&rt.numActivators)), int(atomic.LoadInt32(&rt.activatorIndex))
 	numTrackers := func() int {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
-		ac, ai = int(rt.numActivators), int(rt.activatorIndex)
 		// We're using cluster IP.
 		if rt.clusterIPTracker != nil {
 			return 0
