@@ -60,8 +60,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 			revisions.Insert(revName)
 
 			// If the owner reference is a configuration, treat it like a configuration target
-			owner := metav1.GetControllerOf(rev)
-			if owner != nil && owner.Kind == "Configuration" {
+			if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 				configName = owner.Name
 			}
 		}
