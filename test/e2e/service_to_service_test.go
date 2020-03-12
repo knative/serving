@@ -24,17 +24,16 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
-	v1alph1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	corev1 "k8s.io/api/core/v1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -118,9 +117,9 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1alph1testing.WithEnv(envVars...),
-		v1alph1testing.WithConfigAnnotations(map[string]string{
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithEnv(envVars...),
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
 		}))
@@ -133,7 +132,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
@@ -195,11 +194,11 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	withInternalVisibility := v1alph1testing.WithServiceLabel(
+	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		withInternalVisibility,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		}))
 	if err != nil {
@@ -241,14 +240,14 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		Image:   "helloworld",
 	}
 
-	withInternalVisibility := v1alph1testing.WithServiceLabel(
+	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
+	resources, err := v1test.CreateServiceReady(t, clients, &testNames,
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
@@ -302,8 +301,8 @@ func TestCallToPublicService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		}))
 	if err != nil {

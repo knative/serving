@@ -29,9 +29,9 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestHelloWorld(t *testing.T) {
@@ -50,7 +50,8 @@ func TestHelloWorld(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -60,7 +61,7 @@ func TestHelloWorld(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
@@ -101,8 +102,8 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
 				corev1.ResourceName("memory"): resource.MustParse("128Mi"),
@@ -111,7 +112,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 				corev1.ResourceName("cpu"):    resource.MustParse("100m"),
 				corev1.ResourceName("memory"): resource.MustParse("258Mi"),
 			},
-		}), v1a1opts.WithConfigAnnotations(map[string]string{
+		}), rtesting.WithConfigAnnotations(map[string]string{
 			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 		}))
 	if err != nil {
@@ -123,7 +124,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),

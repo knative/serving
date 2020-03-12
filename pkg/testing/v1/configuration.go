@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -109,4 +110,18 @@ func WithConfigLabel(key, value string) ConfigOption {
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
 func WithConfigOwnersRemoved(cfg *v1.Configuration) {
 	cfg.OwnerReferences = nil
+}
+
+// WithConfigEnv configures the Service to use the provided environment variables.
+func WithConfigEnv(evs ...corev1.EnvVar) ConfigOption {
+	return func(c *v1.Configuration) {
+		c.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}
+
+// WithConfigRevisionTimeoutSeconds sets revision timeout.
+func WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+	}
 }
