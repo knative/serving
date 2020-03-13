@@ -153,7 +153,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		pkgmetrics.RecordBatch(a.reporterCtx, stableRPSM.M(observedStableValue), panicRPSM.M(observedStableValue),
 			targetRPSM.M(spec.TargetValue))
 	default:
-		logger.Errorf("Expected metricName to be one of '%s' or '%s', but got '%s'", autoscaling.Concurrency, autoscaling.RPS, metricName)
+		logger.Errorf("Expected metricName to be one of %q or %q, but got %q", autoscaling.Concurrency, autoscaling.RPS, metricName)
 		return 0, 0, false
 	}
 
@@ -244,7 +244,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, int32(excessBCF), true
 }
 
-func clampInclusiveRange(valueToClamp float64, lowerBound float64, upperBound float64) float64 {
+func clampInclusiveRange(valueToClamp, lowerBound, upperBound float64) float64 {
 	return math.Min(math.Max(valueToClamp, lowerBound), upperBound)
 }
 
@@ -274,19 +274,13 @@ func (a *Autoscaler) updatePanic(panicTime time.Time, maxPanicPods int32) {
 }
 
 func (a *Autoscaler) startPanicking(now time.Time, logger *zap.SugaredLogger) {
-	// Begin panicking when we cross the threshold in the panic window.
 	logger.Info("PANICKING.")
-
 	a.updatePanic(now, 0)
-
 	pkgmetrics.Record(a.reporterCtx, panicM.M(1))
 }
 
 func (a *Autoscaler) stopPanicking(logger *zap.SugaredLogger) {
-	// Stop panicking after the surge has made its way into the stable metric.
 	logger.Info("Un-panicking.")
-
 	a.updatePanic(time.Time{}, 0)
-
 	pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 }
