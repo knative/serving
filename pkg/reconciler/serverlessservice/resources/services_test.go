@@ -33,11 +33,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var (
-	goodPod = "good-pod"
-	badPod  = "bad-pod"
-)
-
 func sks(mod func(*v1alpha1.ServerlessService)) *v1alpha1.ServerlessService {
 	base := &v1alpha1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
