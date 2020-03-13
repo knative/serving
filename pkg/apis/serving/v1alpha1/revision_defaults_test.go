@@ -296,6 +296,48 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple containers",
+		wc:   v1.WithUpgradeViaDefaulting,
+		in: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+						}, {
+							Name: "helloworld",
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
+						}, {
+							Name:      "helloworld",
+							Resources: defaultResources,
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
@@ -310,5 +352,23 @@ func TestRevisionDefaulting(t *testing.T) {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
 		})
+	}
+}
+
+func TestRevisionDefaultingContainerName(t *testing.T) {
+	got := &Revision{
+		Spec: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{}, {}},
+				},
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+			},
+		},
+	}
+	got.SetDefaults(context.Background())
+	if got.Spec.Containers[0].Name == "" && got.Spec.Containers[1].Name == "" {
+		t.Errorf("Failed to set default values for container name")
 	}
 }

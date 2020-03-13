@@ -81,9 +81,8 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -237,7 +236,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -276,7 +275,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -383,7 +382,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
@@ -444,7 +443,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			}
 			got := test.rs.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -902,7 +901,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 			got := test.rts.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}

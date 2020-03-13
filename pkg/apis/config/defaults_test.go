@@ -60,6 +60,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
+			EnableMultiContainer:         true,
 			RevisionTimeoutSeconds:       123,
 			MaxRevisionTimeoutSeconds:    456,
 			ContainerConcurrencyMaxLimit: 1984,
@@ -67,11 +68,25 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:    "{{.Name}}",
 		},
 		data: map[string]string{
+			"enable-multi-container":          "true",
 			"revision-timeout-seconds":        "123",
 			"max-revision-timeout-seconds":    "456",
 			"revision-cpu-request":            "123m",
 			"container-concurrency-max-limit": "1984",
 			"container-name-template":         "{{.Name}}",
+		},
+	}, {
+		name:    "invalid multi container flag value",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			EnableMultiContainer:         false,
+			RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:    DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
+		},
+		data: map[string]string{
+			"enable-multi-container": "invalid",
 		},
 	}, {
 		name:         "bad revision timeout",

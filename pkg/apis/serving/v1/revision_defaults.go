@@ -19,8 +19,11 @@ package v1
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 )
@@ -51,52 +54,70 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	for idx := range rs.PodSpec.Containers {
 		if rs.PodSpec.Containers[idx].Name == "" {
-			rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
-		}
-
-		if rs.PodSpec.Containers[idx].Resources.Requests == nil {
-			rs.PodSpec.Containers[idx].Resources.Requests = corev1.ResourceList{}
-		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU]; !ok {
-			if rsrc := cfg.Defaults.RevisionCPURequest; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU] = *rsrc
-			}
-		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory]; !ok {
-			if rsrc := cfg.Defaults.RevisionMemoryRequest; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory] = *rsrc
+			if len(rs.PodSpec.Containers) > 1 {
+				rs.PodSpec.Containers[idx].Name = kmeta.ChildName(cfg.Defaults.UserContainerName(ctx), "-"+uuid.New().String())
+			} else {
+				rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
 			}
 		}
 
-		if rs.PodSpec.Containers[idx].Resources.Limits == nil {
-			rs.PodSpec.Containers[idx].Resources.Limits = corev1.ResourceList{}
-		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU]; !ok {
-			if rsrc := cfg.Defaults.RevisionCPULimit; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU] = *rsrc
-			}
-		}
-		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory]; !ok {
-			if rsrc := cfg.Defaults.RevisionMemoryLimit; rsrc != nil {
-				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory] = *rsrc
-			}
-		}
-		if rs.PodSpec.Containers[idx].ReadinessProbe == nil {
-			rs.PodSpec.Containers[idx].ReadinessProbe = &corev1.Probe{}
-		}
-		if rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket == nil &&
-			rs.PodSpec.Containers[idx].ReadinessProbe.HTTPGet == nil &&
-			rs.PodSpec.Containers[idx].ReadinessProbe.Exec == nil {
-			rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
-		}
+		rs.applyDefault(&rs.PodSpec.Containers[idx], cfg)
+	}
+}
 
-		if rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold == 0 {
-			rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold = 1
-		}
-
-		vms := rs.PodSpec.Containers[idx].VolumeMounts
-		for i := range vms {
-			vms[i].ReadOnly = true
+func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Config) {
+	if container.Resources.Requests == nil {
+		container.Resources.Requests = corev1.ResourceList{}
+	}
+	if _, ok := container.Resources.Requests[corev1.ResourceCPU]; !ok {
+		if rc := cfg.Defaults.RevisionCPURequest; rc != nil {
+			container.Resources.Requests[corev1.ResourceCPU] = *rc
 		}
 	}
+	if _, ok := container.Resources.Requests[corev1.ResourceMemory]; !ok {
+		if rm := cfg.Defaults.RevisionMemoryRequest; rm != nil {
+			container.Resources.Requests[corev1.ResourceMemory] = *rm
+		}
+	}
+
+	if container.Resources.Limits == nil {
+		container.Resources.Limits = corev1.ResourceList{}
+	}
+	if _, ok := container.Resources.Limits[corev1.ResourceCPU]; !ok {
+		if rc := cfg.Defaults.RevisionCPULimit; rc != nil {
+			container.Resources.Limits[corev1.ResourceCPU] = *rc
+		}
+	}
+	if _, ok := container.Resources.Limits[corev1.ResourceMemory]; !ok {
+		if rm := cfg.Defaults.RevisionMemoryLimit; rm != nil {
+			container.Resources.Limits[corev1.ResourceMemory] = *rm
+		}
+	}
+
+	// If there are multiple containers then default probes will be applied to the container where user specified PORT
+	// default probes will not be applied for non serving containers
+	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
+		rs.applyProbes(container)
+	}
+
+	vms := container.VolumeMounts
+	for i := range vms {
+		vms[i].ReadOnly = true
+	}
+}
+
+func (*RevisionSpec) applyProbes(container *corev1.Container) {
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{}
+	}
+	if container.ReadinessProbe.TCPSocket == nil &&
+		container.ReadinessProbe.HTTPGet == nil &&
+		container.ReadinessProbe.Exec == nil {
+		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
+	}
+
+	if container.ReadinessProbe.SuccessThreshold == 0 {
+		container.ReadinessProbe.SuccessThreshold = 1
+	}
+
 }
