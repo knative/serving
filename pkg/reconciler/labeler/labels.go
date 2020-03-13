@@ -45,28 +45,37 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
-	// Walk the revisions in Route's .status.traffic and build a list
-	// of Configurations to label from their OwnerReferences.
-	for _, tt := range r.Status.Traffic {
-		rev, err := c.revisionLister.Revisions(r.Namespace).Get(tt.RevisionName)
-		if err != nil {
-			return err
+	// Walk the Route's .status.traffic and .spec.traffic and build a list
+	// of revisions and configurations to label
+	for _, tt := range append(r.Status.Traffic, r.Spec.Traffic...) {
+		revName := tt.RevisionName
+		configName := tt.ConfigurationName
+
+		if revName != "" {
+			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
+			if err != nil {
+				return err
+			}
+
+			revisions.Insert(revName)
+
+			// If the owner reference is a configuration, treat it like a configuration target
+			if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+				configName = owner.Name
+			}
 		}
-		revisions.Insert(tt.RevisionName)
 
-		// If the owner reference is a configuration, add it to the list of configurations
-		owner := metav1.GetControllerOf(rev)
-		if owner != nil && owner.Kind == "Configuration" {
-			configs.Insert(owner.Name)
+		if configName != "" {
+			config, err := c.configurationLister.Configurations(r.Namespace).Get(configName)
+			if err != nil {
+				return err
+			}
 
-			// If we are tracking the latest revision, add the latest created revision as well
+			configs.Insert(configName)
+
+			// If the target is for the latest revision, add the latest created revision to the list
 			// so that there is a smooth transition when the new revision becomes ready.
-			if tt.LatestRevision != nil && *tt.LatestRevision {
-				config, err := c.configurationLister.Configurations(r.Namespace).Get(owner.Name)
-				if err != nil {
-					return err
-				}
-
+			if config.Status.LatestCreatedRevisionName != "" && tt.LatestRevision != nil && *tt.LatestRevision {
 				revisions.Insert(config.Status.LatestCreatedRevisionName)
 			}
 		}
