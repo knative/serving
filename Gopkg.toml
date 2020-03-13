@@ -46,8 +46,12 @@ required = [
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2019-09-10
-  revision = "b02d448a3705facf11018efff34f1d2830be5724"
+  # HEAD as of 2020-03-13
+  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
+
+[[override]]
+  name = "github.com/vdemeester/k8s-pkg-credentialprovider"
+  revision = "v1.17.4"
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
