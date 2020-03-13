@@ -325,7 +325,7 @@ func validateSidecarContainer(container corev1.Container, volumes sets.String) *
 // ValidateContainer validate fields for serving containers
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
-	// Single container have multiple ports
+	// Single container cannot have multiple ports
 	errs = errs.Also(portValidation(container.Ports).ViaField("ports"))
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))

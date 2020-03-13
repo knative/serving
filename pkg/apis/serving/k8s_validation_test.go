@@ -25,30 +25,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/apis"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func enableMultiContainer(ctx context.Context, t *testing.T) context.Context {
-	logger := logtesting.TestLogger(t)
-	s := config.NewStore(logger)
-	s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-	s.OnConfigChanged(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: config.DefaultsConfigName,
-		},
-		Data: map[string]string{
-			"enable-multi-container": "true",
+	return config.ToContext(ctx, &config.Config{
+		Defaults: &config.Defaults{
+			EnableMultiContainer: true,
 		},
 	})
-
-	return s.ToContext(ctx)
 }
 
 func TestPodSpecValidation(t *testing.T) {
@@ -212,7 +201,7 @@ func TestPodSpecValidation(t *testing.T) {
 	}
 }
 
-func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
+func TestPodSpecMultiContainerValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		ps   corev1.PodSpec
