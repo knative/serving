@@ -39,8 +39,8 @@ const (
 // jobNameTestgridURLMap contains harded coded mapping of job name: Testgrid tab URL relative to base URL
 var jobNameTestgridURLMap = map[string]string{
 	"ci-knative-serving-continuous":        "serving#continuous",
-	"ci-knative-serving-istio-1.3-mesh":    "serving#istio-1.3-mesh",
-	"ci-knative-serving-istio-1.3-no-mesh": "serving#istio-1.3-no-mesh",
+	"ci-knative-serving-istio-1.5-mesh":    "serving#istio-1.5-mesh",
+	"ci-knative-serving-istio-1.5-no-mesh": "serving#istio-1.5-no-mesh",
 	"ci-knative-serving-istio-1.4-mesh":    "serving#istio-1.4-mesh",
 	"ci-knative-serving-istio-1.4-no-mesh": "serving#istio-1.4-no-mesh",
 	"ci-knative-serving-gloo-0.17.1":       "serving#gloo-0.17.1",

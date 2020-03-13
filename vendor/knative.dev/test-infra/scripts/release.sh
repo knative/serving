@@ -506,7 +506,13 @@ function main() {
   if [[ -n "${RELEASE_BRANCH}" && -z "${FROM_NIGHTLY_RELEASE}" && "${current_branch}" != "${RELEASE_BRANCH}" ]]; then
     setup_upstream
     setup_branch
-    git checkout upstream/"${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    # When it runs in Prow, the origin is identical with upstream, and previous
+    # fetch already fetched release-* branches, so no need to `checkout -b`
+    if (( IS_PROW )); then
+      git checkout "${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    else
+      git checkout -b "${RELEASE_BRANCH}" upstream/"${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    fi
     # HACK HACK HACK
     # Rerun the release script from the release branch. Fixes https://github.com/knative/test-infra/issues/1262
     ./hack/release.sh "$@"

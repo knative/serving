@@ -25,7 +25,7 @@ import (
 
 	// Injection stuff
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	kubeinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory"
+	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
