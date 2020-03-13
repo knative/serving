@@ -39,10 +39,10 @@ import (
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -63,120 +63,115 @@ type tryResult struct {
 	err  error
 }
 
-func newTestThrottler(ctx context.Context, numA int32) (*Throttler, func()) {
+func newTestThrottler(ctx context.Context) (*Throttler, func()) {
 	// Use different values for the test.
 	bp := breakerParams
 	breakerParams = defaultParams
 
 	throttler := NewThrottler(ctx, "10.10.10.10:8012")
-	atomic.StoreInt32(&throttler.numActivators, numA)
-	atomic.StoreInt32(&throttler.activatorIndex, 0)
 	return throttler, func() {
 		breakerParams = bp
 	}
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-	throttler, cleanup := newTestThrottler(ctx, 1)
-	defer cleanup()
+	logger := TestLogger(t)
 	rt := &revisionThrottler{
-		logger:               throttler.logger,
+		logger:               logger,
 		breaker:              queue.NewBreaker(defaultParams),
 		containerConcurrency: 10,
 	}
 
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 100; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, defaultMaxConcurrency) // So in theory should be 10x.
+	rt.updateCapacity(defaultMaxConcurrency) // So in theory should be 10x.
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	throttler.numActivators = 10
-	rt.updateCapacity(throttler, 10)
+	rt.numActivators = 10
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	throttler.numActivators = 200
-	rt.updateCapacity(throttler, 10)
+	rt.numActivators = 200
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 0)
+	rt.updateCapacity(0)
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	rt.containerConcurrency = 0
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 10)
+	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	throttler.numActivators = 200
-	rt.updateCapacity(throttler, 1)
+	rt.numActivators = 200
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(throttler, 0)
+	rt.updateCapacity(0)
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// Now test with podIP trackers in tow.
 	// Simple case.
-	throttler.numActivators = 1
-	throttler.activatorIndex = 0
+	rt.numActivators = 1
+	rt.activatorIndex = 0
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
-	rt.updateCapacity(throttler, 0 /* doesn't matter here*/)
+	rt.updateCapacity(0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 2 backends.
 	rt.podTrackers = makeTrackers(2, 10)
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 20; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 2 activators.
-	throttler.numActivators = 2
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.numActivators = 2
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 0.
 	rt.podTrackers = makeTrackers(3, 10)
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 1.
-	throttler.activatorIndex = 1
-	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	rt.activatorIndex = 1
+	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// Infinite capacity.
-	throttler.activatorIndex = 1
+	rt.activatorIndex = 1
 	rt.containerConcurrency = 0
 	rt.podTrackers = makeTrackers(3, 0)
-	rt.updateCapacity(throttler, 1)
+	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
@@ -220,7 +215,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx, 1)
+	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
@@ -272,7 +267,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx, 1)
+	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:           revID,
@@ -384,9 +379,12 @@ func TestThrottlerSuccesses(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			servfake := fakeservingclient.Get(ctx)
+			fake := fakekubeclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
+			endpoints := fakeendpointsinformer.Get(ctx)
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(),
+				revisions.Informer())
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
@@ -399,11 +397,46 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler, cleanup := newTestThrottler(ctx, 1)
-			defer cleanup()
+			updateCh := make(chan revisionDestsUpdate)
+			defer close(updateCh)
+
+			throttler := NewThrottler(ctx, "130.0.0.2:8012")
+			go throttler.run(updateCh)
+
 			for _, update := range tc.initUpdates {
-				throttler.handleUpdate(update)
+				updateCh <- update
 			}
+
+			publicEp := &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testRevision,
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						networking.ServiceTypeKey: string(networking.ServiceTypePublic),
+						serving.RevisionLabelKey:  testRevision,
+					},
+				},
+				Subsets: []corev1.EndpointSubset{
+					*epSubset(8012, "http", []string{"130.0.0.2"}, nil),
+				},
+			}
+
+			fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+			endpoints.Informer().GetIndexer().Add(publicEp)
+
+			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
+			rt, err := throttler.getOrCreateRevisionThrottler(revID)
+			if err != nil {
+				t.Fatalf("RevisionThrottler can't be found: %v", err)
+			}
+
+			// Make sure our informer event has fired.
+			if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+				return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
+			}); err != nil {
+				t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+			}
+			t.Logf("This activator idx = %d", rt.activatorIndex)
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
@@ -443,9 +476,11 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx, 4 /*num activators*/)
+	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
+	rt.numActivators = 4
+	rt.activatorIndex = 0
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -496,9 +531,9 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx, 2)
+	throttler, cleanup := newTestThrottler(ctx)
 	defer cleanup()
-	rt := newRevisionThrottler(revName, 0 /*cc*/, defaultParams, logger)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -536,6 +571,91 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	}
 }
 
+func TestActivatorsIndexUpdate(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	fake := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	servfake := fakeservingclient.Get(ctx)
+	revisions := revisioninformer.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
+	rev := revisionCC1(revID, networking.ProtocolH2C)
+	// Add the revision we're testing.
+	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
+	revisions.Informer().GetIndexer().Add(rev)
+
+	updateCh := make(chan revisionDestsUpdate)
+	defer close(updateCh)
+
+	throttler := NewThrottler(ctx, "130.0.0.2:")
+	go throttler.run(updateCh)
+
+	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
+	updateCh <- (revisionDestsUpdate{
+		Rev:   revID,
+		Dests: possibleDests,
+	})
+
+	// Add activator endpoint with 2 activators.
+	publicEp := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testRevision,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
+				serving.RevisionLabelKey:  testRevision,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			*epSubset(8013, "http2", []string{"130.0.0.1", "130.0.0.2"}, nil),
+		},
+	}
+	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	endpoints.Informer().GetIndexer().Add(publicEp)
+
+	rt, err := throttler.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		t.Fatalf("RevisionThrottler can't be found: %v", err)
+	}
+
+	// Verify the index was computed.
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return atomic.LoadInt32(&rt.numActivators) == 2 &&
+			atomic.LoadInt32(&rt.activatorIndex) == 1, nil
+	}); err != nil {
+		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+	}
+	t.Logf("This activator idx = %d", rt.activatorIndex)
+	if got, want := len(rt.assignedTrackers), 2; got != want {
+		t.Errorf("Assigned trackers = %d, want: %d", got, want)
+	}
+
+	publicEp.Subsets = []corev1.EndpointSubset{
+		*epSubset(8013, "http2", []string{"130.0.0.2"}, nil),
+	}
+
+	fake.CoreV1().Endpoints(testNamespace).Update(publicEp)
+	endpoints.Informer().GetIndexer().Update(publicEp)
+
+	// Verify the index was computed.
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return atomic.LoadInt32(&rt.numActivators) == 1 &&
+			atomic.LoadInt32(&rt.activatorIndex) == 0, nil
+	}); err != nil {
+		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+	}
+}
+
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -558,32 +678,48 @@ func TestMultipleActivators(t *testing.T) {
 	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
 
+	updateCh := make(chan revisionDestsUpdate)
+	defer close(updateCh)
+
 	throttler := NewThrottler(ctx, "130.0.0.2:8012")
+	go throttler.run(updateCh)
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	throttler.handleUpdate(revisionDestsUpdate{
+	updateCh <- (revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
 	})
 
 	// Add activator endpoint with 2 activators.
-	activatorEp := &corev1.Endpoints{
+	publicEp := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      networking.ActivatorServiceName,
-			Namespace: system.Namespace(),
+			Name:      testRevision,
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
+				serving.RevisionLabelKey:  testRevision,
+			},
 		},
-		Subsets: []corev1.EndpointSubset{*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"}, nil)},
+		Subsets: []corev1.EndpointSubset{
+			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"},
+				nil)},
 	}
-	fake.CoreV1().Endpoints(system.Namespace()).Create(activatorEp)
-	endpoints.Informer().GetIndexer().Add(activatorEp)
+	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	endpoints.Informer().GetIndexer().Add(publicEp)
+
+	rt, err := throttler.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		t.Fatalf("RevisionThrottler can't be found: %v", err)
+	}
 
 	// Make sure our informer event has fired.
-	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&throttler.activatorIndex) != -1, nil
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
 	}); err != nil {
-		t.Fatal("Timed out waiting for the Activator Endpoints to fire")
+		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
 	}
+	t.Logf("This activator idx = %d", rt.activatorIndex)
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
@@ -611,7 +747,7 @@ func TestMultipleActivators(t *testing.T) {
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
-		queue.BreakerParams{}, TestLogger(t))
+		networking.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
@@ -724,7 +860,7 @@ func TestInferIndex(t *testing.T) {
 	}, {
 		"first",
 		[]string{"10.10.10.3:1234,11.11.11.11:1234"},
-		-1,
+		0,
 	}, {
 		"middle",
 		[]string{"10.10.10.1:1212", "10.10.10.2:1234", "10.10.10.3:1234", "11.11.11.11:1234"},
@@ -737,7 +873,7 @@ func TestInferIndex(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
 			if got, want := inferIndex(test.ips, myIP), test.want; got != want {
-				t.Errorf("Index = %d, wand: %d", got, want)
+				t.Errorf("Index = %d, want: %d", got, want)
 			}
 		})
 	}

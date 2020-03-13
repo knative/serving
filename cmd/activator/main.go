@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -174,8 +173,11 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx,
-		// We want to join host port since that will be our search space in the Throttler.
-		net.JoinHostPort(env.PodIP, strconv.Itoa(networking.BackendHTTPPort)))
+		// We need a separator at the end of the Activator IP, not to do incorrect prefix matches,
+		// but also so that we can match with IP address of the public service
+		// endpoints, which might be ports 8012 or 8013.
+		// e.g. `10.10.10.1` will prefix match `10.10.10.10`, but `10.10.10.1:` won't.
+		env.PodIP+":")
 	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
