@@ -142,8 +142,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
 
 	metricName := spec.ScalingMetric
+
 	var observedStableValue, observedPanicValue float64
-	switch spec.ScalingMetric {
+	switch metricName {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
 		pkgmetrics.RecordBatch(a.reporterCtx, stableRPSM.M(observedStableValue), panicRPSM.M(observedStableValue),
