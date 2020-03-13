@@ -372,13 +372,13 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 }
 
 func TestRejectUnknownScalingMetric(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency:100}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100}
 	a := newTestAutoscalerWithScalingMetric(t, 10, 10, metrics, "KABOOM!!!!", false)
 	a.expectScale(t, time.Now(), 0, 0, false)
 }
 
 func TestRejectEmptyScalingMetric(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency:100}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100}
 	a := newTestAutoscalerWithScalingMetric(t, 10, 10, metrics, "", false)
 	a.expectScale(t, time.Now(), 0, 0, false)
 }
