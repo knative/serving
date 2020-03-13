@@ -1815,7 +1815,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:39de1b8749d14914f4f24423dcc5b226f94dd7671404e82e5a72ddd43559ffde"
+  digest = "1:0f9c6d495b059a37d2926a405525b0084957fb27eadd3c7a5211c189653336e9"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1838,11 +1838,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "f4321d939aca1427c024e5d9f71e5e4dd1f06c58"
+  revision = "0067e1ec0b672ac913a12bd15eb890cb7ee4fd51"
 
 [[projects]]
   branch = "master"
-  digest = "1:6794f3dda78fe3254a3561ef0d747b30f5e81f0acd7a79d5ae8dcbeb218704d6"
+  digest = "1:087752cbad644085941d5dbe2a04ef0c285fed9205006a5a3d3816256ac0fecd"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1888,6 +1888,8 @@
     "injection",
     "injection/clients/dynamicclient",
     "injection/clients/dynamicclient/fake",
+    "injection/clients/namespacedkube/informers/core/v1/secret",
+    "injection/clients/namespacedkube/informers/factory",
     "injection/sharedmain",
     "kmeta",
     "kmp",
@@ -1950,11 +1952,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a572b9922a9e2bdf860a9c9f3482782a912d9b25"
+  revision = "1893541a0fac5885032c8ec170fd81234de13f4a"
 
 [[projects]]
   branch = "master"
-  digest = "1:866f727d10a43063eedba458848c598520c1fc8ab56cb5fd35b3745254068381"
+  digest = "1:dc78e696e725041a21e381029254196b935ea374a9940c30a127d9d0b4b56bf9"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1967,7 +1969,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "7a8eea898f66fc7cd5fec6bb7c0fa2a80eeb702e"
+  revision = "3f96c9e98f31595fe33eaa2d95f5e2170522acd7"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
