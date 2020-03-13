@@ -191,36 +191,33 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		observedPanicValue, spec.TargetValue)
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
+	isBelowPanicThreshold := !isOverPanicThreshold
 
 	a.stateMux.Lock()
 	defer a.stateMux.Unlock()
-	if a.panicTime.IsZero() && isOverPanicThreshold {
-		// Begin panicking when we cross the threshold in the panic window.
-		logger.Info("PANICKING.")
-		a.panicTime = now
-		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
-	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
-		// Stop panicking after the surge has made its way into the stable metric.
-		logger.Info("Un-panicking.")
-		a.panicTime = time.Time{}
-		a.maxPanicPods = 0
-		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
+	if isOverPanicThreshold && a.currentlyStable() {
+		a.startPanicking(now, logger)
+	} else if isBelowPanicThreshold && a.currentlyPanicking() && a.stableWindowHasElapsed(spec, now) {
+		a.stopPanicking(logger)
 	}
 
-	if !a.panicTime.IsZero() {
+	if a.currentlyStable() {
+		logger.Debug("Operating in stable mode.")
+
+		desiredPodCount = desiredStablePodCount
+	} else if a.currentlyPanicking() {
 		logger.Debug("Operating in panic mode.")
+
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
 			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
-			a.panicTime = now
-			a.maxPanicPods = desiredPanicPodCount
+
+			a.updatePanic(now, desiredPanicPodCount)
 		} else if desiredPanicPodCount < a.maxPanicPods {
 			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
 		}
+
 		desiredPodCount = a.maxPanicPods
-	} else {
-		logger.Debug("Operating in stable mode.")
-		desiredPodCount = desiredStablePodCount
 	}
 
 	// Compute the excess burst capacity based on stable value for now, since we don't want to
@@ -245,8 +242,45 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, int32(excessBCF), true
 }
 
+// Query functions
+func (a *Autoscaler) currentlyStable() bool {
+	return a.panicTime.IsZero()
+}
+
+func (a *Autoscaler) currentlyPanicking() bool {
+	return !a.currentlyStable()
+}
+
+func (a *Autoscaler) stableWindowHasElapsed(spec *DeciderSpec, now time.Time) bool {
+	return a.panicTime.Add(spec.StableWindow).Before(now)
+}
+
 func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter
+}
+
+// Panic functions
+func (a *Autoscaler) updatePanic(panicTime time.Time, maxPanicPods int32) {
+	a.panicTime = panicTime
+	a.maxPanicPods = maxPanicPods
+}
+
+func (a *Autoscaler) startPanicking(now time.Time, logger *zap.SugaredLogger) {
+	// Begin panicking when we cross the threshold in the panic window.
+	logger.Info("PANICKING.")
+
+	a.updatePanic(now, 0)
+
+	pkgmetrics.Record(a.reporterCtx, panicM.M(1))
+}
+
+func (a *Autoscaler) stopPanicking(logger *zap.SugaredLogger) {
+	// Stop panicking after the surge has made its way into the stable metric.
+	logger.Info("Un-panicking.")
+
+	a.updatePanic(time.Time{}, 0)
+
+	pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 }
