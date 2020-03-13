@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the Istio Ingress implementation.
   name: knative-serving-istio
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -48,7 +48,7 @@ metadata:
   name: knative-ingress-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -85,7 +85,7 @@ metadata:
   name: cluster-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -114,11 +114,46 @@ spec:
 # limitations under the License.
 
 apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: webhook.istio.networking.internal.knative.dev
+  labels:
+    serving.knative.dev/release: "v20200313-44bd39a"
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: istio-webhook
+      namespace: knative-serving
+  failurePolicy: Fail
+  sideEffects: None
+  objectSelector:
+    matchExpressions:
+    - {key: "serving.knative.dev/configuration", operator: Exists}
+  name: webhook.istio.networking.internal.knative.dev
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -149,33 +184,13 @@ webhooks:
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: webhook.istio.networking.internal.knative.dev
-  labels:
-    serving.knative.dev/release: "v20200311-53bb214"
-webhooks:
-- admissionReviewVersions:
-  - v1beta1
-  clientConfig:
-    service:
-      name: istio-webhook
-      namespace: knative-serving
-  failurePolicy: Fail
-  sideEffects: None
-  objectSelector:
-    matchExpressions:
-    - {key: "serving.knative.dev/configuration", operator: Exists}
-  name: webhook.istio.networking.internal.knative.dev
----
 apiVersion: v1
 kind: Secret
 metadata:
   name: istio-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
 
 ---
 # Copyright 2018 The Knative Authors
@@ -198,7 +213,7 @@ metadata:
   name: config-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
     networking.knative.dev/ingress-provider: istio
 data:
   _example: |
@@ -268,7 +283,7 @@ metadata:
   name: networking-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -284,14 +299,14 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
-        serving.knative.dev/release: "v20200311-53bb214"
+        serving.knative.dev/release: "v20200313-44bd39a"
     spec:
       serviceAccountName: controller
       containers:
       - name: networking-istio
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:05d7cc822ee4732feff8b9b1ce73de34fbd4a923c5ed5d96feceeb0b42e2723c
+        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:acb179716e4fdcf42de937f9f475e736be7ab0da1811d73ec3cbd3ef5efbc0ea
         resources:
           requests:
             cpu: 30m
@@ -336,13 +351,14 @@ spec:
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
 spec:
   selector:
     matchLabels:
@@ -355,14 +371,14 @@ spec:
       labels:
         app: istio-webhook
         role: istio-webhook
-        serving.knative.dev/release: "v20200311-53bb214"
+        serving.knative.dev/release: "v20200313-44bd39a"
     spec:
       serviceAccountName: controller
       containers:
       - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:62f52c1514f840d3cc1f54c0ea6184b8870d431a9c079c6b7bf48108a6d1fde9
+        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:822d85f797a606ae0319e5385791d5cf8c1b9504c816f809eaf6716bddf1e5f8
         resources:
           requests:
             cpu: 20m
@@ -393,7 +409,22 @@ spec:
           containerPort: 8008
         - name: https-webhook
           containerPort: 8443
+
 ---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -401,7 +432,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: istio-webhook
-    serving.knative.dev/release: "v20200311-53bb214"
+    serving.knative.dev/release: "v20200313-44bd39a"
 spec:
   ports:
   - # Define metrics and profiling for them to be accessible within service meshes.
