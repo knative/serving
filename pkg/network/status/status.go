@@ -418,7 +418,6 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			default:
 				return false, fmt.Errorf("unexpected hash: want %q, got %q", item.ingressState.hash, hash)
 			}
-			return false, fmt.Errorf("unexpected hash: want %q, got %q", item.ingressState.hash, hash)
 		case http.StatusNotFound, http.StatusServiceUnavailable:
 			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, http.StatusNotFound)
 		default:
