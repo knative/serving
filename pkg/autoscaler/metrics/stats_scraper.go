@@ -61,15 +61,28 @@ var (
 	// stat from an unscraped pod
 	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
 
-	scrapeTimeDistribution = view.Distribution(
-		5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600,
-		700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
-
 	scrapeTimeM = stats.Float64(
 		"scrape_time",
 		"Time to scrape metrics in milliseconds",
 		stats.UnitMilliseconds)
 )
+
+func init() {
+	register()
+}
+
+func register() {
+	if err := view.Register(
+		&view.View{
+			Description: "The time to scrape metrics in milliseconds",
+			Measure:     scrapeTimeM,
+			Aggregation: view.Distribution(pkgmetrics.Buckets125(1, 100000)...),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+	); err != nil {
+		panic(err)
+	}
+}
 
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
@@ -136,16 +149,6 @@ func newServiceScraperWithClient(
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
 
-	if err := view.Register(
-		&view.View{
-			Description: "The time to scrape metrics in milliseconds",
-			Measure:     scrapeTimeM,
-			Aggregation: scrapeTimeDistribution,
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-	); err != nil {
-		return nil, err
-	}
 	ctx, err := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revName)
 	if err != nil {
 		return nil, err
