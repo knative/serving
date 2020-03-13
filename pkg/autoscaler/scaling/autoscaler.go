@@ -184,8 +184,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown)
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
-	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
-	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+	desiredStablePodCount := int32(clampInclusiveRange(dspc, maxScaleDown, maxScaleUp))
+	desiredPanicPodCount := int32(clampInclusiveRange(dppc, maxScaleDown, maxScaleUp))
 
 	logger.With(zap.String("mode", "stable")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedStableValue, spec.TargetValue)
@@ -242,6 +242,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		desiredPodCountM.M(int64(desiredPodCount)))
 
 	return desiredPodCount, int32(excessBCF), true
+}
+
+func clampInclusiveRange(valueToClamp float64, lowerBound float64, upperBound float64) float64 {
+	return math.Min(math.Max(valueToClamp, lowerBound), upperBound)
 }
 
 // Query functions
