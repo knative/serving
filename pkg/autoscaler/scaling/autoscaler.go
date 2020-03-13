@@ -142,18 +142,19 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
 
 	metricName := spec.ScalingMetric
-
 	var observedStableValue, observedPanicValue float64
 	switch metricName {
+	case autoscaling.Concurrency: // this is set as default in the webhook
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+		pkgmetrics.RecordBatch(a.reporterCtx, stableRequestConcurrencyM.M(observedStableValue),
+			panicRequestConcurrencyM.M(observedPanicValue), targetRequestConcurrencyM.M(spec.TargetValue))
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
 		pkgmetrics.RecordBatch(a.reporterCtx, stableRPSM.M(observedStableValue), panicRPSM.M(observedStableValue),
 			targetRPSM.M(spec.TargetValue))
 	default:
-		metricName = autoscaling.Concurrency // concurrency is used by default
-		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
-		pkgmetrics.RecordBatch(a.reporterCtx, stableRequestConcurrencyM.M(observedStableValue),
-			panicRequestConcurrencyM.M(observedPanicValue), targetRequestConcurrencyM.M(spec.TargetValue))
+		logger.Errorf("Expected metricName to be one of '%s' or '%s', but got '%s'", autoscaling.Concurrency, autoscaling.RPS, metricName)
+		return 0, 0, false
 	}
 
 	// Put the scaling metric to logs.
