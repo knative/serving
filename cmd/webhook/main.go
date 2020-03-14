@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
@@ -214,10 +216,16 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 }
 
 func main() {
+	// Read the port number of webhook
+	port, err := strconv.Atoi(os.Getenv("WEBHOOK_PORT"))
+	if err != nil {
+		port = 8443
+	}
+
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: "webhook",
-		Port:        8443,
+		Port:        port,
 		SecretName:  "webhook-certs",
 	})
 
