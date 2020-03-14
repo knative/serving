@@ -24,13 +24,14 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/resources"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -86,7 +87,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Updating configuration")
-	if _, err := v1a1test.PatchConfig(clients, cfg, withEnv("FOO", "BAR")); err != nil {
+	if _, err := v1a1test.PatchConfig(clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
 		t.Fatalf("Failed to update Configuration: %v", err)
 	}
 
@@ -135,12 +136,6 @@ func gte(m int) func(int) bool {
 func lt(m int) func(int) bool {
 	return func(n int) bool {
 		return n < m
-	}
-}
-
-func withEnv(name, value string) func(cfg *v1alpha1.Configuration) {
-	return func(cfg *v1alpha1.Configuration) {
-		cfg.Spec.GetTemplate().Spec.GetContainer().Env = []v1.EnvVar{{Name: name, Value: value}}
 	}
 }
 
