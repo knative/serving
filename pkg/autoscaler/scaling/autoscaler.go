@@ -199,7 +199,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	defer a.stateMux.Unlock()
 	if isOverPanicThreshold && a.currentlyStable() {
 		a.startPanicking(now, logger)
-	} else if isBelowPanicThreshold && a.currentlyPanicking() && a.stableWindowHasElapsed(spec, now) {
+	} else if isBelowPanicThreshold && a.currentlyPanicking() && a.hasElapsed(now, spec.StableWindow) {
 		a.stopPanicking(logger)
 	}
 
@@ -257,8 +257,8 @@ func (a *Autoscaler) currentlyPanicking() bool {
 	return !a.currentlyStable()
 }
 
-func (a *Autoscaler) stableWindowHasElapsed(spec *DeciderSpec, now time.Time) bool {
-	return a.panicTime.Add(spec.StableWindow).Before(now)
+func (a *Autoscaler) hasElapsed(now time.Time, duration time.Duration) bool {
+	return a.panicTime.Add(duration).Before(now)
 }
 
 func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
