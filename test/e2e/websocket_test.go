@@ -99,7 +99,6 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 			if err != nil {
 				return err
 			}
-			t.Logf("Received message %q from echo server.", string(recv))
 			respCh <- string(recv)
 			return nil
 		})
@@ -200,13 +199,10 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	t.Log("Creating a new Service in runLatest")
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
-		func(s *v1alpha1.Service) {
-			s.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = []corev1.EnvVar{{
-				Name:  "SUFFIX",
-				Value: "Blue",
-			}}
-		},
-	)
+		rtesting.WithEnv(corev1.EnvVar{
+			Name:  "SUFFIX",
+			Value: "Blue",
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

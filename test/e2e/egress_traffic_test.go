@@ -42,23 +42,22 @@ func TestEgressTraffic(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "httpproxy",
 	}
-	envVars := []corev1.EnvVar{{
-		Name:  targetHostEnvName,
-		Value: targetHostDomain,
-	}}
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	service, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
-		v1a1opts.WithEnv(envVars...))
+		v1a1opts.WithEnv(corev1.EnvVar{
+			Name:  targetHostEnvName,
+			Value: targetHostDomain,
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 	if service.Route.Status.URL == nil {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
 	}
-	t.Log(service.Route.Status.URL.String())
+	t.Log("Service URL: " + service.Route.Status.URL.String())
 
 	url := service.Route.Status.URL.URL()
 	if _, err = pkgTest.WaitForEndpointState(
@@ -68,6 +67,6 @@ func TestEgressTraffic(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Failed to send request to httpproxy: %v", err)
+		t.Errorf("Failed to send request to httpproxy: %v", err)
 	}
 }
