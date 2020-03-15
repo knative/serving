@@ -48,17 +48,26 @@ parallelism=""
 use_https=""
 (( MESH )) && parallelism="-parallel 1"
 
-if (( HTTP )); then
+if (( HTTPS )); then
   parallelism="-parallel 1"
   use_https="--https"
+  turn_on_auto_tls
+  kubectl apply -f ./test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
 # Run conformance and e2e tests.
+
 go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v certificate) \
   ./test/e2e \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+if (( HTTPS )); then
+  kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  turn_off_auto_tls
+fi
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.

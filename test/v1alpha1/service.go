@@ -28,19 +28,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"net/http"
-	"strings"
-	"sync"
 	"time"
 
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/spoof"
 
@@ -54,17 +47,13 @@ import (
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
 
 const (
-	// Namespace is the namespace of the ingress gateway
-	Namespace = "knative-serving"
-
-	// GatewayName is the name of the ingress gateway
-	GatewayName = networking.KnativeIngressGateway
+	caSecretNamespace = "cert-manager"
+	caSecretName      = "ca-key-pair"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -119,7 +108,6 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 
 // CreateRunLatestServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
-// If this function is called with https == true, the gateway MUST be restored afterwards.
 // Returns error if the service does not come up correctly.
 func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, *spoof.TransportOption, error) {
 	if names.Image == "" {
@@ -152,27 +140,20 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 		return nil, nil, err
 	}
 
-	var httpsTransportOption *spoof.TransportOption
+	var httpsTransportOption spoof.TransportOption
 	if https {
-		tlsOptions := &istiov1alpha3.Server_TLSOptions{
-			Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
-			PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
-			ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
 		}
-		servers := []*istiov1alpha3.Server{{
-			Hosts: []string{"*"},
-			Port: &istiov1alpha3.Port{
-				Name:     "standard-https",
-				Number:   443,
-				Protocol: "HTTPS",
-			},
-			Tls: tlsOptions,
-		}}
-		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host)
-		if err != nil {
-			return nil, nil, err
+		if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
+			t.Fatal("Failed to add the certificate to the root CA")
 		}
-		setupGateway(t, clients, servers)
+
+		httpsTransportOption = func(transport *http.Transport) *http.Transport {
+			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+			return transport
+		}
 	}
 
 	t.Log("Getting latest objects Created by Service")
@@ -180,7 +161,16 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
-	return resources, httpsTransportOption, err
+	return resources, &httpsTransportOption, err
+}
+
+func getPEMDataFromSecret(t pkgTest.TLegacy, clients *test.Clients, ns, secretName string) []byte {
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
+		secretName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to get Secret %s: %v", secretName, err)
+	}
+	return secret.Data[corev1.TLSCertKey]
 }
 
 // CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
@@ -403,125 +393,6 @@ func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
 func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
 	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
-}
-
-// RestoreGateway updates the gateway object to the oldGateway
-func RestoreGateway(t pkgTest.TLegacy, clients *test.Clients, oldGateway v1alpha3.Gateway) {
-	currGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(fmt.Sprintf("Failed to get Gateway %s/%s", Namespace, GatewayName))
-	}
-	if equality.Semantic.DeepEqual(*currGateway, oldGateway) {
-		t.Log("Gateway not restored because it's still the same")
-		return
-	}
-	currGateway.Spec.Servers = oldGateway.Spec.Servers
-	if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
-		t.Fatal(fmt.Sprintf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err))
-	}
-}
-
-// setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t pkgTest.TLegacy, clients *test.Clients, servers []*istiov1alpha3.Server) {
-	// Get the current Gateway
-	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(fmt.Sprintf("Failed to get Gateway %s/%s: %v", Namespace, GatewayName, err))
-	}
-
-	// Update its Spec
-	newGateway := curGateway.DeepCopy()
-	newGateway.Spec.Servers = servers
-
-	// Update the Gateway
-	gw, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(newGateway)
-	if err != nil {
-		t.Fatal(fmt.Sprintf("Failed to update Gateway %s/%s: %v", Namespace, GatewayName, err))
-	}
-
-	var selectors []string
-	for k, v := range gw.Spec.Selector {
-		selectors = append(selectors, k+"="+v)
-	}
-	selector := strings.Join(selectors, ",")
-
-	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		t.Fatal("Failed to list Gateway pods", "error", err.Error())
-	}
-
-	// TODO(bancel): there is a race condition here if a pod listed in the call above is deleted before calling watch below
-
-	var wg sync.WaitGroup
-	wg.Add(len(pods.Items))
-	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		t.Fatal("Failed to watch Gateway pods", "error", err.Error())
-	}
-	defer wtch.Stop()
-
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case event := <-wtch.ResultChan():
-				if event.Type == watch.Deleted {
-					wg.Done()
-				}
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		t.Fatal("Failed to delete Gateway pods", "error", err.Error())
-	}
-
-	wg.Wait()
-	done <- struct{}{}
-}
-
-// setupHTTPS creates a self-signed certificate, installs it as a Secret and returns an *http.Transport
-// trusting the certificate as a root CA.
-func setupHTTPS(t pkgTest.T, kubeClient *pkgTest.KubeClient, host string) (*spoof.TransportOption, error) {
-	t.Helper()
-	cert, key, err := generateCertificate(host)
-	if err != nil {
-		return nil, err
-	}
-
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-
-	if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
-		return nil, errors.New("failed to add the certificate to the root CA")
-	}
-
-	kubeClient.Kube.CoreV1().Secrets("istio-system").Delete("istio-ingressgateway-certs", &metav1.DeleteOptions{})
-	_, err = kubeClient.Kube.CoreV1().Secrets("istio-system").Create(&corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "istio-system",
-			Name:      "istio-ingressgateway-certs",
-		},
-		Type: corev1.SecretTypeTLS,
-		Data: map[string][]byte{
-			"tls.key": key,
-			"tls.crt": cert,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
-		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-		return transport
-	}
-	return &transportOption, nil
 }
 
 // generateCertificate generates a self-signed certificate for the provided host and returns

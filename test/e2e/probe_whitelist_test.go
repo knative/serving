@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
@@ -46,16 +45,6 @@ func TestProbeWhitelist(t *testing.T) {
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
-	}
-
-	if test.ServingFlags.Https {
-		// Save the current Gateway to restore it after the test
-		oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
-		}
-		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
-		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })

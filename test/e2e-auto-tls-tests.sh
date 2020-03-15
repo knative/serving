@@ -63,14 +63,6 @@ function cleanup_custom_domain() {
   kubectl apply -f ./config/config-domain.yaml
 }
 
-function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Enabled"}}'
-}
-
-function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Disabled"}}'
-}
-
 function setup_auto_tls_common() {
   setup_auto_tls_env_variables
 
