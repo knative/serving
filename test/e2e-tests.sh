@@ -48,7 +48,7 @@ parallelism=""
 use_https=""
 (( MESH )) && parallelism="-parallel 1"
 
-if (( HTTP )); then
+if (( HTTPS )); then
   parallelism="-parallel 1"
   use_https="--https"
 fi
