@@ -6206,6 +6206,7 @@ spec:
           - --webhook-ca-secret=cert-manager-webhook-ca
           - --webhook-serving-secret=cert-manager-webhook-tls
           - --webhook-dns-names=cert-manager-webhook,cert-manager-webhook.cert-manager,cert-manager-webhook.cert-manager.svc
+          - --enable-certificate-owner-ref
           ports:
           - containerPort: 9402
             protocol: TCP
