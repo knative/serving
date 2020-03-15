@@ -45,7 +45,7 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithEnv(corev1.EnvVar{
 			Name:  targetHostEnvName,
@@ -66,7 +66,9 @@ func TestEgressTraffic(t *testing.T) {
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Errorf("Failed to send request to httpproxy: %v", err)
 	}
 }

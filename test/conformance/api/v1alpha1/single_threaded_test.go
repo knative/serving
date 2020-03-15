@@ -45,7 +45,7 @@ func TestSingleConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithContainerConcurrency(1))
 	if err != nil {
@@ -62,7 +62,9 @@ func TestSingleConcurrency(t *testing.T) {
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
@@ -78,6 +80,7 @@ func TestSingleConcurrency(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
+			url.Scheme = "http" // TODO: Do not change http. we cannot change httpProtocol for e2e.
 			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %w", err)

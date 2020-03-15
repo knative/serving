@@ -59,7 +59,7 @@ func TestActivatorOverload(t *testing.T) {
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		func(service *v1alpha1.Service) {
 			service.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
@@ -76,7 +76,9 @@ func TestActivatorOverload(t *testing.T) {
 		resources.Route.Status.URL.URL(),
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
 

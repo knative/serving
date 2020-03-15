@@ -100,7 +100,9 @@ func TestDestroyPodInflight(t *testing.T) {
 		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
@@ -172,7 +174,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
@@ -186,7 +188,9 @@ func TestDestroyPodTimely(t *testing.T) {
 		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
@@ -243,7 +247,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
@@ -257,7 +261,9 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 

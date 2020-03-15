@@ -50,20 +50,12 @@ func TestHelloWorld(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
 	url := resources.Route.Status.URL.URL()
-	var opt interface{}
-	if test.ServingFlags.Https {
-		url.Scheme = "https"
-		if httpsTransportOption == nil {
-			t.Fatalf("Https transport option is nil")
-		}
-		opt = *httpsTransportOption
-	}
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -71,7 +63,8 @@ func TestHelloWorld(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		opt); err != nil {
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
@@ -108,7 +101,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
@@ -133,7 +126,9 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
 

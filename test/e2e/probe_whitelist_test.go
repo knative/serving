@@ -51,20 +51,12 @@ func TestProbeWhitelist(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
 	url := resources.Route.Status.URL.URL()
-	var opt interface{}
-	if test.ServingFlags.Https {
-		url.Scheme = "https"
-		if httpsTransportOption == nil {
-			t.Fatalf("HTTPS transport option is nil")
-		}
-		opt = *httpsTransportOption
-	}
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -72,7 +64,8 @@ func TestProbeWhitelist(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUnauthorized))),
 		"HelloWorldServesAuthFailed",
 		test.ServingFlags.ResolvableDomain,
-		opt); err != nil {
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	); err != nil {
 		// check if side car is injected before reporting error
 		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {
 			t.Skip("Side car not enabled, skipping test")

@@ -135,7 +135,7 @@ func TestWebSocket(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
@@ -197,7 +197,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "SUFFIX",

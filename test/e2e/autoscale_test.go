@@ -176,7 +176,9 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 		names.URL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	)
 	return err
 }
 
@@ -195,7 +197,7 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 		Image:   image,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{

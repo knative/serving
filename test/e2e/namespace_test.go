@@ -38,7 +38,9 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 		names.URL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	)
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)
 	}
@@ -62,7 +64,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources,
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources,
 		test.ServingFlags.Https); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
@@ -73,7 +75,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources,
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources,
 		test.ServingFlags.Https); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
@@ -126,7 +128,7 @@ func TestConflictingRouteService(t *testing.T) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}

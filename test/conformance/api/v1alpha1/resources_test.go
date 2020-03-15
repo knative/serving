@@ -55,7 +55,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		v1a1opts.WithResourceRequirements(resources))
 	if err != nil {
@@ -69,7 +69,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 		endpoint,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+	)
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}

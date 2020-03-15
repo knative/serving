@@ -109,15 +109,15 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // CreateRunLatestServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, *spoof.TransportOption, error) {
+func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
-		return nil, nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
 	t.Log("Creating a new Service.", "service", names.Service)
 	svc, err := CreateLatestService(t, clients, *names, fopt...)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Populate Route and Configuration Objects with name
@@ -131,29 +131,13 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	t.Log("Checking to ensure Service Status is populated for Ready service")
 	err = validateCreatedServiceStatus(clients, names)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	var httpsTransportOption spoof.TransportOption
-	if https {
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
-			t.Fatal("Failed to add the certificate to the root CA")
-		}
-
-		httpsTransportOption = func(transport *http.Transport) *http.Transport {
-			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-			return transport
-		}
+		return nil, err
 	}
 
 	t.Log("Getting latest objects Created by Service")
@@ -161,7 +145,27 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
-	return resources, &httpsTransportOption, err
+	return resources, err
+}
+
+// GetTransportOption returns transport option
+func GetTransportOption(t pkgTest.TLegacy, clients *test.Clients, https bool) spoof.TransportOption {
+	if !https {
+		return func(transport *http.Transport) *http.Transport {
+			return transport
+		}
+	}
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
+		t.Fatal("Failed to add the certificate to the root CA")
+	}
+	return func(transport *http.Transport) *http.Transport {
+		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+		return transport
+	}
 }
 
 func getPEMDataFromSecret(t pkgTest.TLegacy, clients *test.Clients, ns, secretName string) []byte {

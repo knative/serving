@@ -54,7 +54,7 @@ func fetchRuntimeInfo(
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
 		test.ServingFlags.Https,
 		serviceOpts...)
 	if err != nil {
@@ -68,7 +68,8 @@ func fetchRuntimeInfo(
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
-		reqOpts...)
+		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		reqOpts)
 	if err != nil {
 		return nil, nil, err
 	}
