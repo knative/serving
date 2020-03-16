@@ -67,8 +67,7 @@ func fetchRuntimeInfo(
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-		reqOpts)
+		append(reqOpts, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))...)
 	if err != nil {
 		return nil, nil, err
 	}

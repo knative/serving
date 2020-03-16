@@ -87,6 +87,7 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 		secretName, metav1.GetOptions{})
 	if err != nil {
 		logf("Failed to get Secret %s: %v", secretName, err)
+		return []byte{}
 	}
 	return secret.Data[corev1.TLSCertKey]
 }
