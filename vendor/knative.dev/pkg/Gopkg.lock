@@ -411,6 +411,14 @@
   revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
+  digest = "1:08c58ac78a8c1f61e9a96350066d30fe194b8779799bd932a79932a5166a173f"
+  name = "github.com/kelseyhightower/envconfig"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "0b417c4ec4a8a82eecc22a1459a504aa55163d61"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -1342,14 +1350,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3d0c703375017dde28d1ee030d7f82ea838ab023841890ead18e91c8c9aded80"
+  digest = "1:e5bd21467544cbd14cb25553c5c78eb2e0e93baf9288a3c2ebaf1cf1fdb0c95f"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "7a8eea898f66fc7cd5fec6bb7c0fa2a80eeb702e"
+  revision = "3f96c9e98f31595fe33eaa2d95f5e2170522acd7"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1390,6 +1398,7 @@
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
     "github.com/kballard/go-shellquote",
+    "github.com/kelseyhightower/envconfig",
     "github.com/markbates/inflect",
     "github.com/openzipkin/zipkin-go",
     "github.com/openzipkin/zipkin-go/model",

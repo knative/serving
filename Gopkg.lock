@@ -1815,7 +1815,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0f9c6d495b059a37d2926a405525b0084957fb27eadd3c7a5211c189653336e9"
+  digest = "1:5a03e6e4c238e0c17cd6c38510074ead7e53b364ebfab75f46cf55f70985b41f"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1838,11 +1838,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "0067e1ec0b672ac913a12bd15eb890cb7ee4fd51"
+  revision = "666b4fcbfb76f685cf37d73ac6fbb005b91a7787"
 
 [[projects]]
   branch = "master"
-  digest = "1:087752cbad644085941d5dbe2a04ef0c285fed9205006a5a3d3816256ac0fecd"
+  digest = "1:5e0b4baaab070168841e509efe16651d72eae440ffbd4cf23344e6ff8ae722a3"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1952,7 +1952,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "1893541a0fac5885032c8ec170fd81234de13f4a"
+  revision = "7cbd0bcc1a30e5205033b35a60149063abeda8e3"
 
 [[projects]]
   branch = "master"
@@ -1969,7 +1969,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "3f96c9e98f31595fe33eaa2d95f5e2170522acd7"
+  revision = "71f886c808ce483867a28ca2b47e843916a72b44"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2014,6 +2014,7 @@
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
+    "github.com/google/uuid",
     "github.com/gorilla/websocket",
     "github.com/hashicorp/golang-lru",
     "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2",
