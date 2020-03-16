@@ -99,7 +99,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", route.Name, url, test.HelloWorldText, err)
 	}

@@ -39,7 +39,7 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	)
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)

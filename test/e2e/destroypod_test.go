@@ -101,7 +101,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
@@ -188,7 +188,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
@@ -260,7 +260,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}

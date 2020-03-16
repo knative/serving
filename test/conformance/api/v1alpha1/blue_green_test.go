@@ -145,7 +145,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https)); err != nil {
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 

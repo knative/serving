@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
@@ -31,11 +30,9 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"net/http"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/test/spoof"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -49,11 +46,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
-)
-
-const (
-	caSecretNamespace = "cert-manager"
-	caSecretName      = "ca-key-pair"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -146,36 +138,6 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 		t.Log("Successfully created Service", names.Service)
 	}
 	return resources, err
-}
-
-// AddRootCAtoTransport returns TransportOption when HTTPS option is true. Otherwise it returns plain spoof.TransportOption.
-func AddRootCAtoTransport(t pkgTest.TLegacy, clients *test.Clients, https bool) spoof.TransportOption {
-	if !https {
-		return func(transport *http.Transport) *http.Transport {
-			return transport
-		}
-	}
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
-		t.Fatal("Failed to add the certificate to the root CA")
-	}
-	return func(transport *http.Transport) *http.Transport {
-		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-		return transport
-	}
-}
-
-// PemDataFromSecret gets pem data from secret.
-func PemDataFromSecret(t pkgTest.TLegacy, clients *test.Clients, ns, secretName string) []byte {
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
-		secretName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal("Failed to get Secret %s: %v", secretName, err)
-	}
-	return secret.Data[corev1.TLSCertKey]
 }
 
 // CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
