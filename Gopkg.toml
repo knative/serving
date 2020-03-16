@@ -49,10 +49,6 @@ required = [
   version = "v0.12.0"
 
 [[constraint]]
-  name = "github.com/gogo/protobuf"
-  version = "v1.3.1"
-
-[[constraint]]
   name = "istio.io/api"
   version = "1.4.1"
 
@@ -142,20 +138,12 @@ required = [
 # The dependencies below are required for go-containrregistry.
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2020-02-27
-  revision = "ba53fa10e72c7373ef8068e21c9f102f0c20a940"
+  # HEAD as of 2020-03-13
+  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
 
 [[override]]
   name = "github.com/vdemeester/k8s-pkg-credentialprovider"
-  version = "v1.13.12.1"
-
-[[override]]
-  name = "github.com/Azure/azure-sdk-for-go"
-  version = "v38.0.0"
-
-[[override]]
-  name = "github.com/Azure/go-autorest"
-  version = "autorest/v0.9.3"
+  version = "v1.17.4"
 
 # The dependencies below are required for opencensus.
 [[override]]
