@@ -592,23 +592,21 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	epSet, _ := endpointsToDests(eps, rt.protocol)
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := epSet.List()
-	na, ai := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
+	na, ai := atomic.LoadInt32(&rt.numActivators), atomic.LoadInt32(&rt.activatorIndex)
+	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
 
 	// Only update the values if they have changed and are meaningful.
 	// If ai == -1, means this activator is not part of the gang (or SKS
 	// is in serve mode), so the change should not matter, since this activator
 	// should not be receiving the requests anyway.
-	// NB: the line below is the only place where the number of activators
-	// or activator index are changed. Thus we can check the values without
-	// atomic ops here.
-	if ai != -1 && (rt.numActivators != na || ai != rt.activatorIndex) {
-		atomic.StoreInt32(&rt.numActivators, na)
-		atomic.StoreInt32(&rt.activatorIndex, ai)
+	if newAI != -1 && (na != newNA || newAI != ai) {
+		atomic.StoreInt32(&rt.numActivators, newNA)
+		atomic.StoreInt32(&rt.activatorIndex, newAI)
 		// Note that if the revision is served directly or this activator is not
 		// part of the subset it will be `-1/X`. And that's OK, since this activator
 		// should not be receiving requests for the revision.
 		rt.logger.Infof("This activator index is %d/%d was %d/%d",
-			rt.activatorIndex, rt.numActivators, ai, na)
+			rt.activatorIndex, rt.numActivators, newAI, newNA)
 		rt.updateCapacity(rt.backendCount)
 	}
 }
