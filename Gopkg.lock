@@ -55,10 +55,10 @@
   version = "v0.1.1"
 
 [[projects]]
-  digest = "1:f14057db39bbab063bdc42c694cf03dcd00bcde7d01e7cd238983f7bf7510716"
+  digest = "1:1a40023a7d224fa3c920f498269891b39b5be7b2e5dec5a8c6ca42d4e6bad373"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = [
-    "services/containerregistry/mgmt/2017-10-01/containerregistry",
+    "services/containerregistry/mgmt/2019-05-01/containerregistry",
     "version",
   ]
   pruneopts = "NUT"
@@ -66,7 +66,7 @@
   version = "v38.2.0"
 
 [[projects]]
-  digest = "1:7dc53e012b9e58f6fc52dce9c201d38dbc3c0e573bad4a56fa0f861823934915"
+  digest = "1:3145d0b3c746de44906703baa44c009d97a00f3daca6df01928d7b149bfe1514"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -79,8 +79,8 @@
     "tracing",
   ]
   pruneopts = "NUT"
-  revision = "42fde3a09860e638198648a4b285f31c483752cf"
-  version = "autorest/v0.9.3"
+  revision = "327ff6ce8b902f9afe648d5ea8ff6dc26c26f150"
+  version = "v13.4.0"
 
 [[projects]]
   digest = "1:632e5f740de6cafce1c08f659bfa10e75f7e7938dfaeb3d99c82fcbf484484e2"
@@ -407,7 +407,7 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:581ae6c8dd04799c7dd873489a8077447f6c0e5beb0486c11a36b06c06266a4f"
+  digest = "1:01504b3636ebed2a77278bb497de8a4f36f7af1a1de973f5713fc39984ad781b"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -429,7 +429,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "ba53fa10e72c7373ef8068e21c9f102f0c20a940"
+  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
 
 [[projects]]
   digest = "1:91099c6f78b1e7bdf9ed06eb4cb7f017174293a3689d76b995a06f4c8d64a7f0"
@@ -850,7 +850,7 @@
   revision = "ab06ddb56e2f6097bba8c5a6d168621088867949"
 
 [[projects]]
-  digest = "1:dea16da4d4bb03447ee203c66803f8def380f60a36899b529a08a205e5d8820f"
+  digest = "1:d551cf37521fd4048380f88443356d4884536f5dcbbcef18a5b79c02f970f55d"
   name = "github.com/vdemeester/k8s-pkg-credentialprovider"
   packages = [
     ".",
@@ -860,8 +860,8 @@
     "secrets",
   ]
   pruneopts = "NUT"
-  revision = "bdf12461ac6a424422f200d0abaac1b4bc9e19c8"
-  version = "v1.13.12.1"
+  revision = "7b4add7cc8e027500562518bff49a4354f49f691"
+  version = "v1.17.4"
 
 [[projects]]
   digest = "1:0e3fd52087079d1289983e4fef32268ca965973f5370b69204e2934185527baa"
