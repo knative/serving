@@ -22,11 +22,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -401,11 +403,11 @@ func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1.Revision
-		lc   *logging.Config
-		tc   *tracingconfig.Config
-		oc   *metrics.ObservabilityConfig
-		ac   *autoscalerconfig.Config
-		cc   *deployment.Config
+		lc   logging.Config
+		tc   tracingconfig.Config
+		oc   metrics.ObservabilityConfig
+		ac   autoscalerconfig.Config
+		cc   deployment.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -420,11 +422,6 @@ func TestMakePodSpec(t *testing.T) {
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -464,11 +461,6 @@ func TestMakePodSpec(t *testing.T) {
 				}}
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -504,11 +496,6 @@ func TestMakePodSpec(t *testing.T) {
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -529,11 +516,6 @@ func TestMakePodSpec(t *testing.T) {
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(func(container *corev1.Container) {
@@ -554,11 +536,6 @@ func TestMakePodSpec(t *testing.T) {
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -574,11 +551,6 @@ func TestMakePodSpec(t *testing.T) {
 				withHTTPReadinessProbe(v1.DefaultUserPort),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -599,11 +571,6 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -619,11 +586,6 @@ func TestMakePodSpec(t *testing.T) {
 				withExecReadinessProbe([]string{"echo", "hello"}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -645,11 +607,6 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -678,11 +635,6 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -704,13 +656,9 @@ func TestMakePodSpec(t *testing.T) {
 					withTCPReadinessProbe(),
 				)
 			}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{
+		oc: metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 		},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -731,13 +679,9 @@ func TestMakePodSpec(t *testing.T) {
 				withTCPReadinessProbe(),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{
+		ac: autoscalerconfig.Config{
 			EnableGracefulScaledown: true,
 		},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -776,11 +720,6 @@ func TestMakePodSpec(t *testing.T) {
 				revision.Spec.GetContainer().TerminationMessagePolicy = corev1.TerminationMessageReadFile
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -821,7 +760,7 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
+			got, err := makePodSpec(test.rev, &test.lc, &test.tc, &test.oc, &test.ac, &test.cc)
 			if err != nil {
 				t.Fatalf("makePodSpec returned error: %v", err)
 			}
@@ -849,12 +788,6 @@ func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1.Revision
-		lc   *logging.Config
-		tc   *tracingconfig.Config
-		nc   *network.Config
-		oc   *metrics.ObservabilityConfig
-		ac   *autoscalerconfig.Config
-		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
 		name: "with concurrency=1",
@@ -872,12 +805,6 @@ func TestMakeDeployment(t *testing.T) {
 				)
 			},
 		),
-		lc:   &logging.Config{},
-		tc:   &tracingconfig.Config{},
-		nc:   &network.Config{},
-		oc:   &metrics.ObservabilityConfig{},
-		ac:   &autoscalerconfig.Config{},
-		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
 		name: "with owner",
@@ -895,12 +822,6 @@ func TestMakeDeployment(t *testing.T) {
 				)
 			},
 		),
-		lc:   &logging.Config{},
-		tc:   &tracingconfig.Config{},
-		nc:   &network.Config{},
-		oc:   &metrics.ObservabilityConfig{},
-		ac:   &autoscalerconfig.Config{},
-		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
 		name: "with sidecar annotation override",
@@ -917,12 +838,6 @@ func TestMakeDeployment(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
@@ -932,12 +847,14 @@ func TestMakeDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
+			podSpec, err := makePodSpec(test.rev, &logging.Config{}, &tracingconfig.Config{},
+				&metrics.ObservabilityConfig{}, &autoscalerconfig.Config{}, &deployment.Config{})
 			if err != nil {
 				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
-			got, err := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.ac, test.cc)
+			got, err := MakeDeployment(test.rev, &logging.Config{}, &tracingconfig.Config{},
+				&network.Config{}, &metrics.ObservabilityConfig{}, &autoscalerconfig.Config{}, &deployment.Config{})
 			if err != nil {
 				t.Fatalf("got unexpected error: %v", err)
 			}
