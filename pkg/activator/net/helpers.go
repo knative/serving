@@ -37,6 +37,7 @@ func healthyAddressesWithPort(endpoints *corev1.Endpoints, portName string) sets
 				for _, addr := range es.Addresses {
 					ready.Insert(addr.IP)
 				}
+				break
 			}
 		}
 	}
@@ -62,6 +63,7 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String
 					// Prefer IP as we can avoid a DNS lookup this way.
 					notReady.Insert(net.JoinHostPort(addr.IP, portStr))
 				}
+				break
 			}
 		}
 	}
