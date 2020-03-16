@@ -46,7 +46,6 @@ func TestEgressTraffic(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		v1a1opts.WithEnv(corev1.EnvVar{
 			Name:  targetHostEnvName,
 			Value: targetHostDomain,

@@ -91,7 +91,6 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -165,7 +164,6 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -233,7 +231,6 @@ func TestSecretVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -305,7 +302,6 @@ func TestProjectedSecretVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withVolume, withSubpath); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -404,7 +400,6 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

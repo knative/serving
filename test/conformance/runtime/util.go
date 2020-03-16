@@ -55,7 +55,6 @@ func fetchRuntimeInfo(
 	})
 
 	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
-		test.ServingFlags.Https,
 		serviceOpts...)
 	if err != nil {
 		return nil, nil, err

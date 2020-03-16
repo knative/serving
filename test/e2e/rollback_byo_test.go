@@ -67,7 +67,6 @@ func TestRollbackBYOName(t *testing.T) {
 
 	t.Logf("Creating a new Service with byo config name %q.", byoNameOld)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
 		withTrafficSpecOld, func(svc *v1alpha1.Service) {
 			svc.Spec.ConfigurationSpec.Template.ObjectMeta.Name = byoNameOld
 		})

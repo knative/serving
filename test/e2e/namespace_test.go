@@ -64,8 +64,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources,
-		test.ServingFlags.Https); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
 
@@ -75,8 +74,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources,
-		test.ServingFlags.Https); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
@@ -128,8 +126,7 @@ func TestConflictingRouteService(t *testing.T) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }
