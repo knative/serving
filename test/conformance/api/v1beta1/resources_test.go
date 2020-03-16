@@ -68,7 +68,8 @@ func TestCustomResourcesLimits(t *testing.T) {
 		endpoint,
 		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}

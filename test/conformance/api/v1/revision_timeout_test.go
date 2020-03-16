@@ -202,7 +202,8 @@ func TestRevisionTimeout(t *testing.T) {
 		rev5sURL,
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", rev5sURL, err)
 	}
 

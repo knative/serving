@@ -61,7 +61,8 @@ func TestSingleConcurrency(t *testing.T) {
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
