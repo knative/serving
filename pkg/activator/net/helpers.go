@@ -26,9 +26,9 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-// healthyEndpointsWithPort takes an endpoints object and a port name and return the set
+// healthyEndpoints takes an endpoints object and a port name and return the set
 // of addresses that implement this port.
-func healthyAddressesWithPort(endpoints *corev1.Endpoints, portName string) sets.String {
+func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String {
 	ready := sets.NewString()
 
 	for _, es := range endpoints.Subsets {

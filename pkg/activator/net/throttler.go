@@ -588,7 +588,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 
 func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
 	// NB: this is guaranteed to be executed on a single thread.
-	epSet := healthyAddressesWithPort(eps, rt.protocol)
+	epSet := healthyAddresses(eps, rt.protocol)
 	if !epSet.Has(selfIP) {
 		// No need to do anything, this activator is not in path.
 		return
