@@ -136,6 +136,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 		cancel: cancel,
 	}
 	m.probes[url] = p
+	m.transportOptions = append(m.transportOptions, AddRootCAtoTransport(nil, m.clients, ServingFlags.Https))
 
 	errGrp.Go(func() error {
 		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)

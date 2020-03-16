@@ -66,7 +66,7 @@ func TestSingleConcurrency(t *testing.T) {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https), test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

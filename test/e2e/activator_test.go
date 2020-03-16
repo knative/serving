@@ -87,7 +87,7 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	domain := resources.Route.Status.URL.Host
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)
 	}

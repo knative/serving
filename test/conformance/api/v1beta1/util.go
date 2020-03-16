@@ -35,7 +35,7 @@ import (
 )
 
 func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		return err
 	}

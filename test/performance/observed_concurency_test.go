@@ -177,7 +177,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Error probing %s: %v", baseURL, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
