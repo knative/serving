@@ -66,7 +66,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		globalSLO = 0.999
 		minProbes = 20
 	)
-	pm := test.NewProberManager(t.Logf, clients, minProbes)
+	pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
