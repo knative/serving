@@ -67,7 +67,7 @@ func TestSingleConcurrency(t *testing.T) {
 		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -79,7 +79,6 @@ func TestSingleConcurrency(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			url.Scheme = "http" // TODO: Do not change http. we cannot change httpProtocol for e2e.
 			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %w", err)
