@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-// healthyEndpoints takes an endpoints object and a port name and return the set
+// healthyAddresses takes an endpoints object and a port name and return the set
 // of addresses that implement this port.
 func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String {
 	ready := sets.NewString()
