@@ -254,6 +254,9 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	numTrackers := func() int {
 		// We do not have to process the `podTrackers` under lock, since
 		// updateCapacity is guaranteed to be executed by a single goroutine.
+		// But `assignedTrackers` is being read by the serving thread, so the
+		// actual assignment has to be done under lock.
+
 		// We're using cluster IP.
 		if rt.clusterIPTracker != nil {
 			return 0
