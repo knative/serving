@@ -283,7 +283,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating HTTP request: %v", err)
 	}
-	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain)
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
