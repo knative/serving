@@ -161,7 +161,7 @@ function install_istio() {
   # If no gateway was set on command line, assume Istio
   if [[ -z "${ISTIO_VERSION}" ]]; then
     echo ">> No gateway set up on command line, using Istio"
-    readonly ISTIO_VERSION="1.5-latest"
+    readonly ISTIO_VERSION="1.4-latest"
   fi
 
   local istio_base="./third_party/istio-${ISTIO_VERSION}"
