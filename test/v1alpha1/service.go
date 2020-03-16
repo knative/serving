@@ -159,7 +159,7 @@ func GetTransportOption(t pkgTest.TLegacy, clients *test.Clients, https bool) sp
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
+	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return func(transport *http.Transport) *http.Transport {
@@ -168,7 +168,8 @@ func GetTransportOption(t pkgTest.TLegacy, clients *test.Clients, https bool) sp
 	}
 }
 
-func getPEMDataFromSecret(t pkgTest.TLegacy, clients *test.Clients, ns, secretName string) []byte {
+// PemDataFromSecret gets pem data from secret.
+func PemDataFromSecret(t pkgTest.TLegacy, clients *test.Clients, ns, secretName string) []byte {
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
