@@ -108,6 +108,11 @@ type Finished struct {
 // Metadata contains metadata in finished.json
 type Metadata map[string]interface{}
 
+// IsCI returns whether the current environment is a CI environment.
+func IsCI() bool {
+	return strings.EqualFold(os.Getenv("CI"), "true")
+}
+
 /* Local logics */
 
 // GetLocalArtifactsDir gets the artifacts directory where prow looks for artifacts.
