@@ -66,7 +66,7 @@ func TestEgressTraffic(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Errorf("Failed to send request to httpproxy: %v", err)
 	}

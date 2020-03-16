@@ -125,7 +125,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
@@ -174,7 +174,7 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	t.Helper()
-	pemData := test.PemDataFromSecret(t, clients, ns, secretName)
+	pemData := test.PemDataFromSecret(t.Logf, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {

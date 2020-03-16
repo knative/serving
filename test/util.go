@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/signals"
-	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
 
@@ -62,7 +62,7 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 }
 
 // AddRootCAtoTransport returns TransportOption when HTTPS option is true. Otherwise it returns plain spoof.TransportOption.
-func AddRootCAtoTransport(t pkgTest.TLegacy, clients *Clients, https bool) spoof.TransportOption {
+func AddRootCAtoTransport(logf logging.FormatLogger, clients *Clients, https bool) spoof.TransportOption {
 	if !https {
 		return func(transport *http.Transport) *http.Transport {
 			return transport
@@ -72,8 +72,8 @@ func AddRootCAtoTransport(t pkgTest.TLegacy, clients *Clients, https bool) spoof
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(t, clients, caSecretNamespace, caSecretName)) {
-		t.Fatal("Failed to add the certificate to the root CA")
+	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(logf, clients, caSecretNamespace, caSecretName)) {
+		logf("Failed to add the certificate to the root CA")
 	}
 	return func(transport *http.Transport) *http.Transport {
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
@@ -82,11 +82,11 @@ func AddRootCAtoTransport(t pkgTest.TLegacy, clients *Clients, https bool) spoof
 }
 
 // PemDataFromSecret gets pem data from secret.
-func PemDataFromSecret(t pkgTest.TLegacy, clients *Clients, ns, secretName string) []byte {
+func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretName string) []byte {
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatal("Failed to get Secret %s: %v", secretName, err)
+		logf("Failed to get Secret %s: %v", secretName, err)
 	}
 	return secret.Data[corev1.TLSCertKey]
 }
