@@ -22,7 +22,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -589,26 +588,31 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 
 func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
 	// NB: this is guaranteed to be executed on a single thread.
-	epSet, _ := endpointsToDests(eps, rt.protocol)
+	epSet := healthyAddressesWithPort(eps, rt.protocol)
+	if !epSet.Has(selfIP) {
+		// No need to do anything, this activator is not in path.
+		return
+	}
+
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := epSet.List()
-	na, ai := atomic.LoadInt32(&rt.numActivators), atomic.LoadInt32(&rt.activatorIndex)
 	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
-
-	// Only update the values if they have changed and are meaningful.
-	// If ai == -1, means this activator is not part of the gang (or SKS
-	// is in serve mode), so the change should not matter, since this activator
-	// should not be receiving the requests anyway.
-	if newAI != -1 && (na != newNA || newAI != ai) {
-		atomic.StoreInt32(&rt.numActivators, newNA)
-		atomic.StoreInt32(&rt.activatorIndex, newAI)
-		// Note that if the revision is served directly or this activator is not
-		// part of the subset it will be `-1/X`. And that's OK, since this activator
-		// should not be receiving requests for the revision.
-		rt.logger.Infof("This activator index is %d/%d was %d/%d",
-			rt.activatorIndex, rt.numActivators, newAI, newNA)
-		rt.updateCapacity(rt.backendCount)
+	if newAI == -1 {
+		// No need to do anything, this activator is not in path.
+		return
 	}
+
+	na, ai := atomic.LoadInt32(&rt.numActivators), atomic.LoadInt32(&rt.activatorIndex)
+	if na == newNA && ai == newAI {
+		// The state didn't change, do nothing
+		return
+	}
+
+	atomic.StoreInt32(&rt.numActivators, newNA)
+	atomic.StoreInt32(&rt.activatorIndex, newAI)
+	rt.logger.Infof("This activator index is %d/%d was %d/%d",
+		rt.activatorIndex, rt.numActivators, newAI, newNA)
+	rt.updateCapacity(rt.backendCount)
 }
 
 // inferIndex returns the index of this activator slice.
@@ -619,12 +623,11 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 // For now we are just sorting the IP addresses of all activators
 // and finding our index in that list.
 func inferIndex(eps []string, ipAddress string) int {
-	// `eps` will contain port, so binary search of the insertion point would be fine.
 	idx := sort.SearchStrings(eps, ipAddress)
 
 	// Check if this activator is part of the endpoints slice?
-	if idx == len(eps) || !strings.HasPrefix(eps[idx], ipAddress) {
-		idx = -1
+	if idx == len(eps) || eps[idx] != ipAddress {
+		return -1
 	}
 	return idx
 }

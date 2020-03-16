@@ -68,7 +68,7 @@ func newTestThrottler(ctx context.Context) (*Throttler, func()) {
 	bp := breakerParams
 	breakerParams = defaultParams
 
-	throttler := NewThrottler(ctx, "10.10.10.10:8012")
+	throttler := NewThrottler(ctx, "10.10.10.10")
 	return throttler, func() {
 		breakerParams = bp
 	}
@@ -400,7 +400,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			updateCh := make(chan revisionDestsUpdate)
 			defer close(updateCh)
 
-			throttler := NewThrottler(ctx, "130.0.0.2:8012")
+			throttler := NewThrottler(ctx, "130.0.0.2")
 			go throttler.run(updateCh)
 
 			for _, update := range tc.initUpdates {
@@ -597,7 +597,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	updateCh := make(chan revisionDestsUpdate)
 	defer close(updateCh)
 
-	throttler := NewThrottler(ctx, "130.0.0.2:")
+	throttler := NewThrottler(ctx, "130.0.0.2")
 	go throttler.run(updateCh)
 
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
@@ -681,7 +681,7 @@ func TestMultipleActivators(t *testing.T) {
 	updateCh := make(chan revisionDestsUpdate)
 	defer close(updateCh)
 
-	throttler := NewThrottler(ctx, "130.0.0.2:8012")
+	throttler := NewThrottler(ctx, "130.0.0.2")
 	go throttler.run(updateCh)
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -844,7 +844,7 @@ func TestInfiniteBreaker(t *testing.T) {
 }
 
 func TestInferIndex(t *testing.T) {
-	const myIP = "10.10.10.3:1234"
+	const myIP = "10.10.10.3"
 	tests := []struct {
 		label string
 		ips   []string
@@ -855,19 +855,19 @@ func TestInferIndex(t *testing.T) {
 		-1,
 	}, {
 		"missing",
-		[]string{"11.11.11.11:1234", "11.11.11.12:1234"},
+		[]string{"11.11.11.11", "11.11.11.12"},
 		-1,
 	}, {
 		"first",
-		[]string{"10.10.10.3:1234,11.11.11.11:1234"},
+		[]string{"10.10.10.3", "11.11.11.11"},
 		0,
 	}, {
 		"middle",
-		[]string{"10.10.10.1:1212", "10.10.10.2:1234", "10.10.10.3:1234", "11.11.11.11:1234"},
+		[]string{"10.10.10.1", "10.10.10.2", "10.10.10.3", "11.11.11.11"},
 		2,
 	}, {
 		"last",
-		[]string{"10.10.10.1:1234", "10.10.10.2:1234", "10.10.10.3:1234"},
+		[]string{"10.10.10.1", "10.10.10.2", "10.10.10.3"},
 		2,
 	}}
 	for _, test := range tests {
