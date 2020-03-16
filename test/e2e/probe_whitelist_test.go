@@ -64,7 +64,7 @@ func TestProbeWhitelist(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUnauthorized))),
 		"HelloWorldServesAuthFailed",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		// check if side car is injected before reporting error
 		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {

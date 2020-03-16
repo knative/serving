@@ -63,7 +63,7 @@ func TestHelloWorld(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
@@ -126,7 +126,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}

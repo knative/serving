@@ -148,8 +148,8 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 	return resources, err
 }
 
-// GetTransportOption returns transport option
-func GetTransportOption(t pkgTest.TLegacy, clients *test.Clients, https bool) spoof.TransportOption {
+// AddRootCAtoTransport returns TransportOption when HTTPS option is true. Otherwise it returns plain spoof.TransportOption.
+func AddRootCAtoTransport(t pkgTest.TLegacy, clients *test.Clients, https bool) spoof.TransportOption {
 	if !https {
 		return func(transport *http.Transport) *http.Transport {
 			return transport

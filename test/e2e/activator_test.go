@@ -76,7 +76,7 @@ func TestActivatorOverload(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}

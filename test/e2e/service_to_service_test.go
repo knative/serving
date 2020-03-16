@@ -136,7 +136,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
-		v1a1test.GetTransportOption(t, clients, test.ServingFlags.Https),
+		v1a1test.AddRootCAtoTransport(t, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
