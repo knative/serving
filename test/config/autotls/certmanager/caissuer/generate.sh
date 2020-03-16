@@ -23,8 +23,6 @@ CAKEY=$(cat rootCAKey.pem |base64  | tr -d '\n')
 CACERT=$(cat rootCACert.pem |base64  | tr -d '\n')
 
 cat <<EOF > secret.yaml
-#!/bin/bash
-
 # Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
