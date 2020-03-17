@@ -44,6 +44,22 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	return clients.ServingAlphaClient.Configs.Create(config)
 }
 
+// PatchConfig patches the existing config with the provided options. Returns the latest Configuration object
+func PatchConfig(clients *test.Clients, cfg *v1alpha1.Configuration, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
+	newCfg := cfg.DeepCopy()
+
+	for _, opt := range fopt {
+		opt(newCfg)
+	}
+
+	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
 func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
