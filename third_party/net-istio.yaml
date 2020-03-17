@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the Istio Ingress implementation.
   name: knative-serving-istio
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -48,7 +48,7 @@ metadata:
   name: knative-ingress-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -85,7 +85,7 @@ metadata:
   name: cluster-local-gateway
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -118,7 +118,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -153,7 +153,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.istio.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -190,7 +190,7 @@ metadata:
   name: istio-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
 
 ---
 # Copyright 2018 The Knative Authors
@@ -213,7 +213,7 @@ metadata:
   name: config-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
     networking.knative.dev/ingress-provider: istio
 data:
   _example: |
@@ -283,7 +283,7 @@ metadata:
   name: networking-istio
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -299,14 +299,14 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
-        serving.knative.dev/release: "v20200313-44bd39a"
+        serving.knative.dev/release: "v20200316-516fac9"
     spec:
       serviceAccountName: controller
       containers:
       - name: networking-istio
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:acb179716e4fdcf42de937f9f475e736be7ab0da1811d73ec3cbd3ef5efbc0ea
+        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:2912a2bd807bc0a04f614d592ba69edbd7ccfd2fc529e5352fd69a4d532db32b
         resources:
           requests:
             cpu: 30m
@@ -358,7 +358,7 @@ metadata:
   name: istio-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
 spec:
   selector:
     matchLabels:
@@ -371,14 +371,14 @@ spec:
       labels:
         app: istio-webhook
         role: istio-webhook
-        serving.knative.dev/release: "v20200313-44bd39a"
+        serving.knative.dev/release: "v20200316-516fac9"
     spec:
       serviceAccountName: controller
       containers:
       - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:822d85f797a606ae0319e5385791d5cf8c1b9504c816f809eaf6716bddf1e5f8
+        image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:fd56a6ff0610b723e38de64822f40f24dddeace97295a7c9a78be866ad372fc4
         resources:
           requests:
             cpu: 20m
@@ -432,7 +432,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: istio-webhook
-    serving.knative.dev/release: "v20200313-44bd39a"
+    serving.knative.dev/release: "v20200316-516fac9"
 spec:
   ports:
   - # Define metrics and profiling for them to be accessible within service meshes.
