@@ -55,14 +55,10 @@ func (r *reconciler) reconcileCertificate(ctx context.Context) error {
 
 	secret, err := r.secretlister.Secrets(system.Namespace()).Get(r.secretName)
 	if apierrors.IsNotFound(err) {
-		secret, err = certresources.MakeSecret(ctx, r.secretName, system.Namespace(), r.serviceName)
-		if err != nil {
-			return err
-		}
-		secret, err = r.client.CoreV1().Secrets(secret.Namespace).Create(secret)
-		if err != nil {
-			return err
-		}
+		// The secret should be created explicitly by a higher-level system
+		// that's responsible for install/updates.  We simply populate the
+		// secret information.
+		return nil
 	} else if err != nil {
 		logger.Errorf("Error accessing certificate secret %q: %v", r.secretName, err)
 		return err
