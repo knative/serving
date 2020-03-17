@@ -43,6 +43,7 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
+TEST_NAMESPACE="knative-tests"
 
 # Parse our custom flags.
 function parse_flags() {
@@ -203,7 +204,7 @@ function install_istio() {
     # We apply a filter here because when we're installing from a pre-built
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
-    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
+    ko apply -n ${TEST_NAMESPACE} -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
   fi
 }
@@ -281,8 +282,8 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Creating knative-serving namespace if it does not exist"
-  kubectl get ns knative-serving || kubectl create namespace knative-serving
+  echo ">> Creating ${TEST_NAMESPACE} namespace if it does not exist"
+  kubectl get ns ${TEST_NAMESPACE} || kubectl create namespace ${TEST_NAMESPACE}
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -313,13 +314,14 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Cert-Manager"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
+  kubectl apply -n ${TEST_NAMESPACE} -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
     echo "Knative YAML: ${SERVING_CORE_YAML} and ${SERVING_HPA_YAML}"
     kubectl apply \
+	    -n ${TEST_NAMESPACE} \
 	    -f "${SERVING_CORE_YAML}" \
 	    -f "${SERVING_HPA_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" "${SERVING_HPA_YAML}" )
@@ -328,12 +330,12 @@ function install_knative_serving_standard() {
     # build_knative_from_source
     echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML}"
     kubectl apply \
-      -f "${SERVING_CERT_MANAGER_YAML}" || return 1
+      -n ${TEST_NAMESPACE} -f "${SERVING_CERT_MANAGER_YAML}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
 	echo "Knative Monitoring YAML: ${MONITORING_YAML}"
-	kubectl apply -f "${MONITORING_YAML}" || return 1
+	kubectl apply -n ${TEST_NAMESPACE} -f "${MONITORING_YAML}" || return 1
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
     fi
   else
@@ -341,13 +343,13 @@ function install_knative_serving_standard() {
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
+    ko apply -n ${TEST_NAMESPACE} -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
 
     if (( INSTALL_MONITORING )); then
       echo ">> Installing Monitoring"
       echo "Knative Monitoring YAML: ${2}"
-      kubectl apply -f "${2}" || return 1
+      kubectl apply -n ${TEST_NAMESPACE} -f "${2}" || return 1
       UNINSTALL_LIST+=( "${2}" )
     fi
   fi
@@ -358,7 +360,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving
+  namespace: ${TEST_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -371,14 +373,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: knative-serving
+  namespace: ${TEST_NAMESPACE}
 data:
   profiling.enable: "true"
 EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${TEST_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -424,7 +426,7 @@ function knative_teardown() {
 	# We uninstall elements in the reverse of the order they were installed.
 	local YAML="${UNINSTALL_LIST[$(( ${#array[@]} - $i ))]}"
 	echo ">> Bringing down YAML: ${YAML}"
-	kubectl delete --ignore-not-found=true -f "${YAML}" || return 1
+	kubectl delete --ignore-not-found=true -n ${TEST_NAMESPACE} -f "${YAML}" || return 1
     done
   fi
 }
@@ -471,7 +473,7 @@ function test_setup() {
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
   echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running ${TEST_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
