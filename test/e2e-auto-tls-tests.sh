@@ -28,7 +28,7 @@ function setup_auto_tls_env_variables() {
   # Google Cloud project that hosts the DNS server for the testing domain `kn-e2e.dev`
   export CLOUD_DNS_PROJECT="knative-e2e-dns"
   # The service account credential file used to access the DNS server.
-  export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
+  export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
 
   export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.kn-e2e.dev"
 
