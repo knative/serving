@@ -33,6 +33,7 @@ var defaultConfig = Config{
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100,
 	RPSTargetDefault:                   200,
+	ActivatorCapacity:                  100,
 	TargetUtilization:                  0.7,
 	TargetBurstCapacity:                200,
 	MaxScaleUpRate:                     1000,
@@ -66,6 +67,7 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
+			"activator-capacity":                      "1",
 		},
 		want: func(c Config) *Config {
 			c.ContainerConcurrencyTargetFraction = 0.5
@@ -73,6 +75,7 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
+			c.ActivatorCapacity = 1
 			return &c
 		}(defaultConfig),
 	}, {
@@ -109,6 +112,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
 			"pod-autoscaler-class":                    "some.class",
+			"activator-capacity":                      "905",
 		},
 		want: func(c Config) *Config {
 			c.TargetBurstCapacity = 12345
@@ -118,6 +122,7 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
+			c.ActivatorCapacity = 905
 			c.PodAutoscalerClass = "some.class"
 			return &c
 		}(defaultConfig),
@@ -214,6 +219,12 @@ func TestNewConfig(t *testing.T) {
 		name: "stable not seconds",
 		input: map[string]string{
 			"stable-window": "61984ms",
+		},
+		wantErr: true,
+	}, {
+		name: "activator-capacity invalid",
+		input: map[string]string{
+			"activator-capacity": "0.95",
 		},
 		wantErr: true,
 	}, {

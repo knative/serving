@@ -140,6 +140,8 @@ data:
 
     # The capacity of a single activator task.
     # The `unit` is one concurrent request proxied by the activator.
+    # activator-capacity must be at least 1.
     # This value is used for computation of the Activator subset size.
     # See the algorithm here: http://bit.ly/38XiCZ3.
-    activator-capacity: "200"
+    # TODO(vagababov): tune after actual benchmarking.
+    activator-capacity: "100"
