@@ -6,9 +6,9 @@
 [![LICENSE](https://img.shields.io/github/license/knative/serving.svg)](https://github.com/knative/serving/blob/master/LICENSE)
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://knative.slack.com)
 
-Knative Serving builds on Kubernetes and Istio to support deploying and serving
-of serverless applications and functions. Serving is easy to get started with
-and scales to support advanced scenarios.
+Knative Serving builds on Kubernetes to support deploying and serving of
+applications and functions as serverless containers. Serving is easy to get
+started with and scales to support advanced scenarios.
 
 The Knative Serving project provides middleware primitives that enable:
 
