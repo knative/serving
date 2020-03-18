@@ -62,6 +62,11 @@ type Config struct {
 	// NB: most of our computations are in floats, so this is float to avoid casting.
 	TargetBurstCapacity float64
 
+	// ActivatorCapacity is the number of the concurrent requests an activator
+	// task can accept. This is used in activator subsetting algorithm, to determine
+	// the number of activators per revision.
+	ActivatorCapacity float64
+
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
 	MaxScaleDownRate         float64
@@ -140,6 +145,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field:        &lc.PanicWindowPercentage,
 		defaultValue: 10.0,
 	}, {
+		key:          "activator-capacity",
+		field:        &lc.ActivatorCapacity,
+		defaultValue: 100.0,
+	}, {
 		key:          "panic-threshold-percentage",
 		field:        &lc.PanicThresholdPercentage,
 		defaultValue: 200.0,
@@ -214,6 +223,10 @@ func validate(lc *Config) (*Config, error) {
 
 	if lc.RPSTargetDefault < autoscaling.TargetMin {
 		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, got %v", autoscaling.TargetMin, lc.RPSTargetDefault)
+	}
+
+	if lc.ActivatorCapacity < 1 {
+		return nil, fmt.Errorf("activator-capacity = %v, must be at least 1", lc.ActivatorCapacity)
 	}
 
 	if lc.MaxScaleUpRate <= 1.0 {
