@@ -43,6 +43,8 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
+# This the namespace used to install Knative Serving. It should match the system namespace in your system.go.
+E2E_SYSTEM_NAMESPACE="knative-testing"
 
 # Parse our custom flags.
 function parse_flags() {
@@ -281,8 +283,8 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Creating knative-serving namespace if it does not exist"
-  kubectl get ns knative-serving || kubectl create namespace knative-serving
+  echo ">> Creating ${E2E_SYSTEM_NAMESPACE} namespace if it does not exist"
+  kubectl get ns ${E2E_SYSTEM_NAMESPACE} || kubectl create namespace ${E2E_SYSTEM_NAMESPACE}
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -358,7 +360,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving
+  namespace: ${E2E_SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -371,14 +373,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: knative-serving
+  namespace: ${E2E_SYSTEM_NAMESPACE}
 data:
   profiling.enable: "true"
 EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${E2E_SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -471,7 +473,7 @@ function test_setup() {
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
   echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running ${E2E_SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
