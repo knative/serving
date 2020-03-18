@@ -29,18 +29,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -403,11 +400,8 @@ func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1.Revision
-		lc   logging.Config
-		tc   tracingconfig.Config
 		oc   metrics.ObservabilityConfig
 		ac   autoscalerconfig.Config
-		cc   deployment.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -760,7 +754,7 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got, err := makePodSpec(test.rev, &test.lc, &test.tc, &test.oc, &test.ac, &test.cc)
+			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &test.ac, &deploymentConfig)
 			if err != nil {
 				t.Fatalf("makePodSpec returned error: %v", err)
 			}
@@ -772,14 +766,8 @@ func TestMakePodSpec(t *testing.T) {
 }
 
 func TestMissingProbeError(t *testing.T) {
-	if _, err := MakeDeployment(defaultRevision,
-		&logging.Config{},
-		&tracingconfig.Config{},
-		&network.Config{},
-		&metrics.ObservabilityConfig{},
-		&autoscalerconfig.Config{},
-		&deployment.Config{},
-	); err == nil {
+	if _, err := MakeDeployment(defaultRevision, &logConfig, &traceConfig,
+		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -847,14 +835,14 @@ func TestMakeDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, &logging.Config{}, &tracingconfig.Config{},
-				&metrics.ObservabilityConfig{}, &autoscalerconfig.Config{}, &deployment.Config{})
+			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
+				&obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
-			got, err := MakeDeployment(test.rev, &logging.Config{}, &tracingconfig.Config{},
-				&network.Config{}, &metrics.ObservabilityConfig{}, &autoscalerconfig.Config{}, &deployment.Config{})
+			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
+				&network.Config{}, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatalf("got unexpected error: %v", err)
 			}
