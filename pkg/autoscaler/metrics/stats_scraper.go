@@ -68,10 +68,6 @@ var (
 )
 
 func init() {
-	register()
-}
-
-func register() {
 	if err := view.Register(
 		&view.View{
 			Description: "The time to scrape metrics in milliseconds",
