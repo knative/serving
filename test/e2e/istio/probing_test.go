@@ -1,4 +1,4 @@
-//// +build e2e istio
+// +build e2e istio
 
 /*
 Copyright 2019 The Knative Authors
