@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-certmanager
-  namespace: knative-serving
+  namespace: {KNATIVE_SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
     networking.knative.dev/certificate-provider: cert-manager

@@ -193,7 +193,7 @@ metadata:
   name: dataplane-probe
 spec:
   gateways:
-  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  - knative-ingress-gateway.{KNATIVE_SYSTEM_NAMESPACE}.svc.cluster.local
   hosts:
   - istio.default
   - istio.default.svc
