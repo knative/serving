@@ -73,7 +73,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
-	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
 		autoscalerconfig.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
@@ -84,14 +84,14 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 
 // rawCM returns the raw knative config map for the given name
 func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
 		name,
 		metav1.GetOptions{})
 }
 
 // patchCM updates the existing config map with the supplied value.
 func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Update(cm)
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(cm)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
