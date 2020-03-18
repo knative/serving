@@ -1,4 +1,4 @@
-// +build e2e istio
+//// +build e2e istio
 
 /*
 Copyright 2019 The Knative Authors
@@ -27,6 +27,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"knative.dev/pkg/system"
 	"math/big"
 	"net"
 	"net/http"
@@ -53,7 +54,7 @@ import (
 )
 
 var (
-	namespace = "knative-serving"
+	namespace = system.Namespace()
 )
 
 func TestIstioProbing(t *testing.T) {
