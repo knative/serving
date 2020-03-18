@@ -51,7 +51,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-domain
-  namespace: knative-serving
+  namespace: ${E2E_SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -61,6 +61,14 @@ EOF
 
 function cleanup_custom_domain() {
   kubectl apply -f ./config/config-domain.yaml
+}
+
+function turn_on_auto_tls() {
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
+}
+
+function turn_off_auto_tls() {
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
 }
 
 function setup_auto_tls_common() {
