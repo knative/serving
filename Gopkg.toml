@@ -135,6 +135,11 @@ required = [
   unused-packages = false
   non-go = false
 
+[[override]]
+  name = "knative.dev/test-infra"
+  branch = "presubmit-multiple-files"
+  source = "github.com/albertomilan/test-infra"
+
 # The dependencies below are required for go-containrregistry.
 [[constraint]]
   name = "github.com/google/go-containerregistry"

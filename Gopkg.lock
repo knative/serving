@@ -1955,8 +1955,8 @@
   revision = "be54585f8f04fe39ce6b6d28d78809818b724734"
 
 [[projects]]
-  branch = "master"
-  digest = "1:b5ed62c73ed48a805a5704a431bac942f8fb9f2c41a3de60696896352afa6a4e"
+  branch = "presubmit-multiple-files"
+  digest = "1:36fcef0100a5243a4635c564feaf1fc8450bcb31a6633ec3ef7bbf2a00b33c31"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1969,7 +1969,8 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "01c075fbeae4b089793fcca6fc855d31e1628cad"
+  revision = "6b23b6e0daf1996a53af20a296ad8993cd1812be"
+  source = "github.com/albertomilan/test-infra"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
