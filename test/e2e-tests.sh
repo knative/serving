@@ -26,7 +26,7 @@
 # cluster.
 
 source $(dirname $0)/e2e-common.sh
-
+# Foo bar
 # Helper functions.
 
 function knative_setup() {
