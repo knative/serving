@@ -86,6 +86,9 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
 
+# Run HA tests separately as they're stopping core Knative Serving pods
+go_test_e2e -timeout=10m -parallel=1 ./test/ha || failed=1
+
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
 (( failed )) && fail_test
