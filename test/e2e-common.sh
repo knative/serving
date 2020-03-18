@@ -43,6 +43,7 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
+KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. It should match the system namespace in your system.go.
 E2E_SYSTEM_NAMESPACE="knative-testing"
 
@@ -154,6 +155,7 @@ function install_knative_serving() {
   echo ">> Installing Knative serving from custom YAMLs"
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${yaml}
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
@@ -205,6 +207,7 @@ function install_istio() {
     # We apply a filter here because when we're installing from a pre-built
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
   fi
@@ -295,6 +298,7 @@ function install_knative_serving_standard() {
     kubectl apply -f "${SERVING_CRD_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
   else
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     echo "Knative YAML: ${1}"
     ko apply -f "${1}" --selector=knative.dev/crd-install=true || return 1
     UNINSTALL_LIST+=( "${1}" )
@@ -314,12 +318,15 @@ function install_knative_serving_standard() {
   fi
 
   echo ">> Installing Cert-Manager"
+  sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${INSTALL_CERT_MANAGER_YAML}
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML}
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML}
     echo "Knative YAML: ${SERVING_CORE_YAML} and ${SERVING_HPA_YAML}"
     kubectl apply \
 	    -f "${SERVING_CORE_YAML}" \
@@ -328,12 +335,14 @@ function install_knative_serving_standard() {
 
     # ${SERVING_CERT_MANAGER_YAML} is set when calling
     # build_knative_from_source
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML}
     echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML}"
     kubectl apply \
       -f "${SERVING_CERT_MANAGER_YAML}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
+	sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${MONITORING_YAML}
 	echo "Knative Monitoring YAML: ${MONITORING_YAML}"
 	kubectl apply -f "${MONITORING_YAML}" || return 1
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
@@ -343,11 +352,13 @@ function install_knative_serving_standard() {
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
 
     if (( INSTALL_MONITORING )); then
       echo ">> Installing Monitoring"
+      sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${2}
       echo "Knative Monitoring YAML: ${2}"
       kubectl apply -f "${2}" || return 1
       UNINSTALL_LIST+=( "${2}" )
@@ -448,8 +459,7 @@ function add_trap() {
 # Create test resources and images
 function test_setup() {
   echo ">> Replacing {KNATIVE_SYSTEM_NAMESPACE} with the actual namespace for Knative Serving..."
-  find test -type f -name "*.yaml" -exec sed -i ".bak" "s/{KNATIVE_SYSTEM_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
-  find test -name "*yaml.bak" -type f -delete
+  find test -type f -name "*.yaml" -exec sed -i "s/{KNATIVE_SYSTEM_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
 
   echo ">> Setting up logging..."
 

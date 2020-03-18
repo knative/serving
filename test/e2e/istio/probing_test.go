@@ -27,7 +27,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"knative.dev/pkg/system"
 	"math/big"
 	"net"
 	"net/http"
@@ -44,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"

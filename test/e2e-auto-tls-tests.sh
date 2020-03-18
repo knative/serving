@@ -60,7 +60,7 @@ EOF
 }
 
 function cleanup_custom_domain() {
-  kubectl apply -f ./config/config-domain.yaml
+  kubectl delete ConfigMap config-domain -n ${E2E_SYSTEM_NAMESPACE}
 }
 
 function turn_on_auto_tls() {
