@@ -447,6 +447,10 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Replacing {KNATIVE_SYSTEM_NAMESPACE} with the actual namespace for Knative Serving..."
+  find test -type f -name "*.yaml" -exec sed -i ".bak" "s/{KNATIVE_SYSTEM_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
+  find test -name "*yaml.bak" -type f -delete
+
   echo ">> Setting up logging..."
 
   # Install kail if needed.

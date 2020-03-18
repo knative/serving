@@ -16,7 +16,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: apicoverage-webhook
-  namespace: knative-serving
+  namespace: {KNATIVE_SYSTEM_NAMESPACE}
   labels:
     name: apicoverage-webhook
 spec:
@@ -33,7 +33,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: apicoverage-webhook
-  namespace: knative-serving
+  namespace: {KNATIVE_SYSTEM_NAMESPACE}
   labels:
     name: apicoverage-webhook
 spec:
