@@ -1272,7 +1272,7 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         command:
         - contour
@@ -1503,7 +1503,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         name: contour
         ports:
@@ -1651,7 +1651,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -2957,7 +2957,7 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         command:
         - contour
@@ -3188,7 +3188,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         name: contour
         ports:
@@ -3336,7 +3336,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:56337dccb0174b1212b08277a4c9b7a52e56dcbb7e76975708099f3e467f7138
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b75e96b2222b34a866ab2e2957fb86b4e423a2e637504a47639aefb551dcee02
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
