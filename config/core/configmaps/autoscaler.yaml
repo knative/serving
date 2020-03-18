@@ -144,4 +144,4 @@ data:
     # This value is used for computation of the Activator subset size.
     # See the algorithm here: http://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
-    activator-capacity: "100"
+    activator-capacity: "100.0"
