@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -398,10 +399,18 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			updateCh := make(chan revisionDestsUpdate)
-			defer close(updateCh)
 
 			throttler := NewThrottler(ctx, "130.0.0.2")
-			go throttler.run(updateCh)
+			var grp errgroup.Group
+			grp.Go(func() error { throttler.run(updateCh); return nil })
+			// Ensure the throttler stopped before we leave the test, so that
+			// logging does freak out.
+			defer func() {
+				close(updateCh)
+				grp.Wait()
+				cancel()
+				waitInformers()
+			}()
 
 			for _, update := range tc.initUpdates {
 				updateCh <- update
@@ -583,10 +592,6 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	rev := revisionCC1(revID, networking.ProtocolH2C)
@@ -595,10 +600,18 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
-	defer close(updateCh)
 
 	throttler := NewThrottler(ctx, "130.0.0.2")
-	go throttler.run(updateCh)
+	var grp errgroup.Group
+	grp.Go(func() error { throttler.run(updateCh); return nil })
+	// Ensure the throttler stopped before we leave the test, so that
+	// logging does freak out.
+	defer func() {
+		close(updateCh)
+		grp.Wait()
+		cancel()
+		waitInformers()
+	}()
 
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
 	updateCh <- (revisionDestsUpdate{
@@ -668,10 +681,6 @@ func TestMultipleActivators(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	// Add the revision we're testing.
@@ -679,10 +688,18 @@ func TestMultipleActivators(t *testing.T) {
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
-	defer close(updateCh)
 
 	throttler := NewThrottler(ctx, "130.0.0.2")
-	go throttler.run(updateCh)
+	var grp errgroup.Group
+	grp.Go(func() error { throttler.run(updateCh); return nil })
+	// Ensure the throttler stopped before we leave the test, so that
+	// logging does freak out.
+	defer func() {
+		close(updateCh)
+		grp.Wait()
+		cancel()
+		waitInformers()
+	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
