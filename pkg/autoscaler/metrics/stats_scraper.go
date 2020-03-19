@@ -175,8 +175,10 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	if readyPodsCount == 0 {
 		return emptyStat, nil
 	}
+	frpc := float64(readyPodsCount)
 
-	sampleSize := populationMeanSampleSize(readyPodsCount)
+	sampleSizeF := populationMeanSampleSize(frpc)
+	sampleSize := int(sampleSizeF)
 	oldStatCh := make(chan Stat, sampleSize)
 	youngStatCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
@@ -261,12 +263,10 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 		proxiedReqCount += stat.ProxiedRequestCount
 	}
 
-	count := float64(sampleSize)
-	frpc := float64(readyPodsCount)
-	avgConcurrency = avgConcurrency / count
-	avgProxiedConcurrency = avgProxiedConcurrency / count
-	reqCount = reqCount / count
-	proxiedReqCount = proxiedReqCount / count
+	avgConcurrency = avgConcurrency / sampleSizeF
+	avgProxiedConcurrency = avgProxiedConcurrency / sampleSizeF
+	reqCount = reqCount / sampleSizeF
+	proxiedReqCount = proxiedReqCount / sampleSizeF
 
 	// Assumption: A particular pod can stand for other pods, i.e. other pods
 	// have similar concurrency and QPS.
