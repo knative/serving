@@ -93,19 +93,19 @@ function run_build_tests() {
   local failed=0
   # Run pre-build tests, if any
   if function_exists pre_build_tests; then
-    pre_build_tests || failed=1
+    pre_build_tests || { failed=1; step_failed "pre_build_tests"; }
   fi
   # Don't run build tests if pre-build tests failed
   if (( ! failed )); then
     if function_exists build_tests; then
-      build_tests || failed=1
+      build_tests || { failed=1; step_failed "build_tests"; }
     else
-      default_build_test_runner || failed=1
+      default_build_test_runner || { failed=1; step_failed "default_build_test_runner"; }
     fi
   fi
   # Don't run post-build tests if pre/build tests failed
   if (( ! failed )) && function_exists post_build_tests; then
-    post_build_tests || failed=1
+    post_build_tests || { failed=1; step_failed "post_build_tests"; }
   fi
   results_banner "Build" ${failed}
   return ${failed}
@@ -213,19 +213,19 @@ function run_unit_tests() {
   local failed=0
   # Run pre-unit tests, if any
   if function_exists pre_unit_tests; then
-    pre_unit_tests || failed=1
+    pre_unit_tests || { failed=1; step_failed "pre_unit_tests"; }
   fi
   # Don't run unit tests if pre-unit tests failed
   if (( ! failed )); then
     if function_exists unit_tests; then
-      unit_tests || failed=1
+      unit_tests || { failed=1; step_failed "unit_tests"; }
     else
-      default_unit_test_runner || failed=1
+      default_unit_test_runner || { failed=1; step_failed "default_unit_test_runner"; }
     fi
   fi
   # Don't run post-unit tests if pre/unit tests failed
   if (( ! failed )) && function_exists post_unit_tests; then
-    post_unit_tests || failed=1
+    post_unit_tests || { failed=1; step_failed "post_unit_tests"; }
   fi
   results_banner "Unit" ${failed}
   return ${failed}
@@ -249,19 +249,19 @@ function run_integration_tests() {
   local failed=0
   # Run pre-integration tests, if any
   if function_exists pre_integration_tests; then
-    pre_integration_tests || failed=1
+    pre_integration_tests || { failed=1; step_failed "pre_integration_tests"; }
   fi
   # Don't run integration tests if pre-integration tests failed
   if (( ! failed )); then
     if function_exists integration_tests; then
-      integration_tests || failed=1
+      integration_tests || { failed=1; step_failed "integration_tests"; }
     else
-      default_integration_test_runner || failed=1
+      default_integration_test_runner || { failed=1; step_failed "default_integration_test_runner"; }
     fi
   fi
   # Don't run integration tests if pre/integration tests failed
   if (( ! failed )) && function_exists post_integration_tests; then
-    post_integration_tests || failed=1
+    post_integration_tests || { failed=1; step_failed "post_integration_tests"; }
   fi
   results_banner "Integration" ${failed}
   return ${failed}
@@ -275,6 +275,7 @@ function default_integration_test_runner() {
     echo "Running integration test ${e2e_test}"
     if ! ${e2e_test} ${options}; then
       failed=1
+      step_failed "${e2e_test} ${options}"
     fi
   done
   return ${failed}
@@ -327,7 +328,7 @@ function main() {
 
   [[ -z $1 ]] && set -- "--all-tests"
 
-  local TEST_TO_RUN=""
+  local TESTS_TO_RUN=()
 
   while [[ $# -ne 0 ]]; do
     local parameter=$1
@@ -343,7 +344,7 @@ function main() {
       --run-test)
         shift
         [[ $# -ge 1 ]] || abort "missing executable after --run-test"
-        TEST_TO_RUN="$1"
+        TESTS_TO_RUN+=("$1")
         ;;
       *) abort "error: unknown option ${parameter}" ;;
     esac
@@ -353,7 +354,7 @@ function main() {
   readonly RUN_BUILD_TESTS
   readonly RUN_UNIT_TESTS
   readonly RUN_INTEGRATION_TESTS
-  readonly TEST_TO_RUN
+  readonly TESTS_TO_RUN
 
   cd ${REPO_ROOT_DIR}
 
@@ -361,7 +362,7 @@ function main() {
 
   local failed=0
 
-  if [[ -n "${TEST_TO_RUN}" ]]; then
+  if [[ ${#TESTS_TO_RUN[@]} > 0 ]]; then
     if (( RUN_BUILD_TESTS || RUN_UNIT_TESTS || RUN_INTEGRATION_TESTS )); then
       abort "--run-test must be used alone"
     fi
@@ -370,17 +371,19 @@ function main() {
       header "Documentation only PR, skipping running custom test"
       exit 0
     fi
-    ${TEST_TO_RUN} || failed=1
+    for test_to_run in "${TESTS_TO_RUN[@]}"; do
+      ${test_to_run} || { failed=1; step_failed "${test_to_run}"; }
+    done
   fi
 
-  run_build_tests || failed=1
+  run_build_tests || { failed=1; step_failed "run_build_tests"; }
   # If PRESUBMIT_TEST_FAIL_FAST is set to true, don't run unit tests if build tests failed
   if (( ! PRESUBMIT_TEST_FAIL_FAST )) || (( ! failed )); then
-    run_unit_tests || failed=1
+    run_unit_tests || { failed=1; step_failed "run_unit_tests"; }
   fi
   # If PRESUBMIT_TEST_FAIL_FAST is set to true, don't run integration tests if build/unit tests failed
   if (( ! PRESUBMIT_TEST_FAIL_FAST )) || (( ! failed )); then
-    run_integration_tests || failed=1
+    run_integration_tests || { failed=1; step_failed "run_integration_tests"; }
   fi
 
   exit ${failed}
