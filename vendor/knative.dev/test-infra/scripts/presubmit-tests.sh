@@ -371,8 +371,12 @@ function main() {
       header "Documentation only PR, skipping running custom test"
       exit 0
     fi
+    local cur_exec_dir
+    cur_exec_dir="$(pwd)"
     for test_to_run in "${TESTS_TO_RUN[@]}"; do
+      pushd "${cur_exec_dir}"
       ${test_to_run} || { failed=1; step_failed "${test_to_run}"; }
+      popd
     done
   fi
 
