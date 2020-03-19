@@ -107,9 +107,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "1",
-			})
-		}),
+					"CONTAINER_CONCURRENCY": "1",
+				})
+			}),
 	}, {
 		name: "no owner no autoscaler single",
 		rev: revision(
@@ -196,10 +196,10 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "0",
-				"SERVING_CONFIGURATION": "the-parent-config-name",
-				"SERVING_NAMESPACE":     "baz",
-				"SERVING_REVISION":      "blah",
+					"CONTAINER_CONCURRENCY": "0",
+					"SERVING_CONFIGURATION": "the-parent-config-name",
+					"SERVING_NAMESPACE":     "baz",
+					"SERVING_REVISION":      "blah",
 				})
 				c.Ports = append(queueNonServingPorts, queueHTTPPort)
 			}),
@@ -225,11 +225,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":  "0",
-				"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
-				"SERVING_LOGGING_LEVEL":  "error",
-				"SERVING_NAMESPACE":      "log",
-				"SERVING_REVISION":       "this",
+					"CONTAINER_CONCURRENCY":  "0",
+					"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
+					"SERVING_LOGGING_LEVEL":  "error",
+					"SERVING_NAMESPACE":      "log",
+					"SERVING_REVISION":       "this",
 				})
 				c.Ports = append(queueNonServingPorts, queueHTTPPort)
 			}),
@@ -249,7 +249,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "10",
+					"CONTAINER_CONCURRENCY": "10",
 				})
 				c.Ports = append(queueNonServingPorts, queueHTTPPort)
 			}),
@@ -273,9 +273,9 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":            "0",
-				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
-				"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
+					"CONTAINER_CONCURRENCY":            "0",
+					"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
+					"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
 				})
 				c.Ports = append(queueNonServingPorts, queueHTTPPort)
 			}),
@@ -298,8 +298,8 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":           "0",
-				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
+					"CONTAINER_CONCURRENCY":           "0",
+					"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
 				})
 				c.Ports = append(queueNonServingPorts, queueHTTPPort)
 			}),
@@ -687,7 +687,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
 						Command: []string{"/ko-app/queue", "-probe-period", "10"},
-				}},
+					}},
 				PeriodSeconds:  2,
 				TimeoutSeconds: 10,
 			}
