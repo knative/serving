@@ -46,8 +46,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/configmap"
@@ -455,7 +457,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				revision := obj.(*v1.Revision)
 				t.Logf("Revision updated: %v", revision.Name)
 
-				expected := "http://log-here.test.com?filter="
+				const expected = "http://log-here.test.com?filter="
 				got := revision.Status.LogURL
 				if strings.HasPrefix(got, expected) {
 					return HookComplete
@@ -529,11 +531,23 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
 			revClient.Create(rev)
+			revL := fakerevisioninformer.Get(ctx).Lister()
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				l, err := revL.List(labels.Everything())
+				if err != nil {
+					return false, err
+				}
+				// We only create a single revision.
+				return len(l) > 0, nil
+			}); err != nil {
+				t.Fatalf("Failed to see Revision propagation: %v", err)
+			}
+			t.Log("Seen revision propagation")
 
 			watcher.OnChange(test.configMapToUpdate)
 
-			if err := h.WaitForHooks(1 * time.Second); err != nil {
-				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+			if err := h.WaitForHooks(3 * time.Second); err != nil {
+				t.Errorf("Global Resync Failed: %v", err)
 			}
 		})
 	}
