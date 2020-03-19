@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-
 source $(dirname $0)/e2e-common.sh
 
 function knative_setup() {
