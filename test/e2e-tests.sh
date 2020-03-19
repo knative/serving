@@ -36,6 +36,7 @@ function knative_setup() {
 # Script entry point.
 
 # Skip installing istio as an add-on
+header "initializing"
 initialize $@ --skip-istio-addon
 
 # Run the tests
