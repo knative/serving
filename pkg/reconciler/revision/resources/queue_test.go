@@ -140,8 +140,8 @@ func TestMakeQueueContainer(t *testing.T) {
 				c.Image = "alpine"
 				c.Ports = append(queueNonServingPorts, queueHTTP2Port)
 				c.Env = env(map[string]string{
-					"USER_PORT": "1955",
-					"QUEUE_SERVING_PORT": "8013",
+					"USER_PORT":             "1955",
+					"QUEUE_SERVING_PORT":    "8013",
 					"CONTAINER_CONCURRENCY": "1",
 				})
 			},
@@ -390,7 +390,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env =  env(map[string]string{
+				c.Env = env(map[string]string{
 					"SERVING_SERVICE": "svc",
 				})
 				c.Resources.Limits = corev1.ResourceList{
@@ -429,8 +429,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env =  env(map[string]string{
-				"SERVING_SERVICE": "svc",
+				c.Env = env(map[string]string{
+					"SERVING_SERVICE": "svc",
 				})
 				c.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
@@ -468,11 +468,11 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env =  env(map[string]string{
+				c.Env = env(map[string]string{
 					"SERVING_SERVICE": "svc",
 				})
 				c.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				}
 				c.Image = "alpine"
 			}),
@@ -505,7 +505,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env =  env(map[string]string{
+				c.Env = env(map[string]string{
 					"SERVING_SERVICE": "svc",
 				})
 				c.Resources.Requests = corev1.ResourceList{
@@ -596,11 +596,11 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 
 	want := queueContainer(
 		func(c *corev1.Container) {
-			c.Env =  env(map[string]string{
+			c.Env = env(map[string]string{
 				"SERVING_READINESS_PROBE": string(wantProbeJSON),
 			})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
@@ -679,8 +679,8 @@ func TestProbeGenerationHTTP(t *testing.T) {
 
 	want := queueContainer(
 		func(c *corev1.Container) {
-			c.Env =  env(map[string]string{
-				"USER_PORT": strconv.Itoa(userPort),
+			c.Env = env(map[string]string{
+				"USER_PORT":               strconv.Itoa(userPort),
 				"SERVING_READINESS_PROBE": string(wantProbeJSON),
 			})
 			c.ReadinessProbe = &corev1.Probe{
@@ -745,7 +745,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				}
 				c.ReadinessProbe = &corev1.Probe{
 					Handler: corev1.Handler{
@@ -788,7 +788,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		want: queueContainer(
 			func(c *corev1.Container) {
 				c.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
+					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				}
 				c.ReadinessProbe = &corev1.Probe{
 					Handler: corev1.Handler{
