@@ -284,8 +284,9 @@ func TestHTTPTimeout(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: tsURL.Hostname(),
-				Port: intstr.FromString(tsURL.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	})
