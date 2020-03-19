@@ -29,9 +29,8 @@ import (
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
@@ -642,7 +641,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		test.ServingFlags.SystemNamespace).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}
