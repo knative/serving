@@ -458,8 +458,8 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
-  echo ">> Replacing {KNATIVE_SYSTEM_NAMESPACE} with the actual namespace for Knative Serving..."
-  find test -type f -name "*.yaml" -exec sed -i "s/{KNATIVE_SYSTEM_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
+  echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
+  find test -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
 
   echo ">> Setting up logging..."
 
