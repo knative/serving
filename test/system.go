@@ -23,5 +23,5 @@ import (
 )
 
 func init() {
-	os.Setenv(system.NamespaceEnvKey, "knative-testing")
+	os.Setenv(system.NamespaceEnvKey, ServingFlags.SystemNamespace)
 }
