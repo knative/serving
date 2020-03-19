@@ -26,7 +26,7 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
   name: "default"
-  namespace: "{KNATIVE_SYSTEM_NAMESPACE}"
+  namespace: "knative-serving"
 spec:
   peers:
   - mtls:
