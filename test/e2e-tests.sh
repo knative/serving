@@ -87,8 +87,7 @@ kubectl delete -f ./test/config/autotls/certmanager/http01/
 # Run scale tests.
 go_test_e2e -timeout=10m \
   ${parallelism} \
-  "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" \
-  ./test/scale || failed=1
+  ./test/scale "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
@@ -99,11 +98,11 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
-kubectl -n knative-serving patch configmap/config-leader-election --type=merge \
+kubectl -n ${E2E_SYSTEM_NAMESPACE} patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"}}'
-add_trap "kubectl get cm config-leader-election -n knative-serving -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m -parallel=1 ./test/ha || failed=1
-kubectl get cm config-leader-election -n knative-serving -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
+add_trap "kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m -parallel=1 ./test/ha "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" || failed=1
+kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
