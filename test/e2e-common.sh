@@ -44,8 +44,8 @@ INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
 KNATIVE_DEFAULT_NAMESPACE="knative-serving"
-# This the namespace used to install Knative Serving. It should match the system namespace in your system.go.
-E2E_SYSTEM_NAMESPACE="knative-testing"
+# This the namespace used to install Knative Serving. Use generated UUID as namespace.
+E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Parse our custom flags.
 function parse_flags() {
@@ -458,6 +458,8 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Tell me the generated ns"
+  echo ${E2E_SYSTEM_NAMESPACE}
   echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
   find test -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
 

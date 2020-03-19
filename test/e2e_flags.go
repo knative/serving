@@ -34,6 +34,7 @@ type ServingEnvironmentFlags struct {
 	Https            bool   // Indicates where the test service will be created with https
 	IngressClass     string // Indicates the class of Ingress provider to test.
 	CertificateClass string // Indicates the class of Certificate provider to test.
+	SystemNamespace  string // Indicates the system namespace, in which Knative Serving is installed.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -49,6 +50,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to the ingress class to test against.")
 	flag.StringVar(&f.CertificateClass, "certificateClass", network.CertManagerCertificateClassName,
 		"Set this flag to the certificate class to test against.")
+	flag.StringVar(&f.SystemNamespace, "systemNamespace", "knative-serving",
+		"Set this flag to the namespace for Knative Serving.")
 
 	return &f
 }
