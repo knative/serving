@@ -43,7 +43,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
@@ -53,16 +52,12 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-var (
-	namespace = system.Namespace()
-)
-
 func TestIstioProbing(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
 	clients := e2e.Setup(t)
-
+	namespace := test.ServingFlags.SystemNamespace
 	// Save the current Gateway to restore it after the test
 	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
@@ -260,7 +255,7 @@ func TestIstioProbing(t *testing.T) {
 				transportOptions = append(transportOptions, setupHTTPS(t, clients.KubeClient, []string{names.Service + "." + domain}))
 			}
 
-			setupGateway(t, clients, names, domain, c.servers)
+			setupGateway(t, clients, names, domain, namespace, c.servers)
 
 			// Create the service and wait for it to be ready
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -311,7 +306,8 @@ func hasHTTPS(servers []*istiov1alpha3.Server) bool {
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, servers []*istiov1alpha3.Server) {
+func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string,
+	namespace string, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
 	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {

@@ -458,8 +458,6 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
-  echo ">> Tell me the generated ns"
-  echo ${E2E_SYSTEM_NAMESPACE}
   echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
   find test -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
 
@@ -570,9 +568,9 @@ function dump_extra_cluster_state() {
 }
 
 function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Enabled"}}'
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
 }
 
 function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Disabled"}}'
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
 }
