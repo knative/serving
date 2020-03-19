@@ -172,7 +172,7 @@ func TestRevisionConversion(t *testing.T) {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got): \n%s", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
 
@@ -199,7 +199,7 @@ func TestRevisionConversion(t *testing.T) {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got): \n%s", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -245,7 +245,7 @@ func TestRevisionConversionForMultiContainer(t *testing.T) {
 		t.Errorf("ConvertFrom() = %v", err)
 	}
 	if diff := cmp.Diff(input, got); diff != "" {
-		t.Errorf("roundtrip (-want, +got): \n%s", diff)
+		t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 	}
 }
 
@@ -333,7 +333,7 @@ func TestRevisionConversionError(t *testing.T) {
 				t.Errorf("ConvertTo() = %#v, wanted %v", beta, test.want)
 			}
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("roundtrip (-want, +got): \n%s", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
 	}
