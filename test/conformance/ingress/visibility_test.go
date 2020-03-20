@@ -60,9 +60,6 @@ func TestVisibility(t *testing.T) {
 	})
 	defer cancel()
 
-	// Ensure the service is not publicly accessible
-	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, sets.NewInt(http.StatusNotFound))
-
 	loadbalancerAddress := ingress.Status.PrivateLoadBalancer.Ingress[0].DomainInternal
 	proxyName, proxyPort, cancel := CreateProxyService(t, clients, privateHostName, loadbalancerAddress)
 	defer cancel()
@@ -86,6 +83,9 @@ func TestVisibility(t *testing.T) {
 		}},
 	})
 	defer cancel()
+
+	// Ensure the service is not publicly accessible
+	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, sets.NewInt(http.StatusNotFound))
 
 	// Ensure the service is accessible from within the cluster.
 	RuntimeRequest(t, client, "http://"+publicHostName)
@@ -148,9 +148,6 @@ func TestVisibilitySplit(t *testing.T) {
 	})
 	defer cancel()
 
-	// Ensure we can't connect to the private resources
-	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, sets.NewInt(http.StatusNotFound))
-
 	loadbalancerAddress := localIngress.Status.PrivateLoadBalancer.Ingress[0].DomainInternal
 	proxyName, proxyPort, cancel := CreateProxyService(t, clients, privateHostName, loadbalancerAddress)
 	defer cancel()
@@ -174,6 +171,9 @@ func TestVisibilitySplit(t *testing.T) {
 		}},
 	})
 	defer cancel()
+
+	// Ensure we can't connect to the private resources
+	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, sets.NewInt(http.StatusNotFound))
 
 	// Create a large enough population of requests that we can reasonably assess how
 	// well the Ingress respected the percentage split.
