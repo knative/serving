@@ -87,7 +87,11 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
+kubectl -n knative-serving patch configmap/config-leader-election --type=merge \
+  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"}}'
+add_trap "kubectl get cm config-leader-election -n knative-serving -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m -parallel=1 ./test/ha || failed=1
+kubectl get cm config-leader-election -n knative-serving -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state

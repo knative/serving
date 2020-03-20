@@ -34,9 +34,11 @@ const (
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	enableHA(t, clients, controllerDeploymentName)
-	defer disableHA(t, clients, controllerDeploymentName)
-	test.CleanupOnInterrupt(func() { disableHA(t, clients, controllerDeploymentName) })
+	if err := scaleUpDeployment(clients, controllerDeploymentName); err != nil {
+		t.Fatalf("Failed to scale deployment: %v", err)
+	}
+	defer scaleDownDeployment(clients, controllerDeploymentName)
+	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, controllerDeploymentName) })
 
 	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })

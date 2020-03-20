@@ -38,9 +38,11 @@ const (
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	enableHA(t, clients, autoscalerHpaDeploymentName)
-	defer disableHA(t, clients, autoscalerHpaDeploymentName)
-	test.CleanupOnInterrupt(func() { disableHA(t, clients, autoscalerHpaDeploymentName) })
+	if err := scaleUpDeployment(clients, autoscalerHpaDeploymentName); err != nil {
+		t.Fatalf("Failed to scale deployment: %v", err)
+	}
+	defer scaleDownDeployment(clients, autoscalerHpaDeploymentName)
+	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHpaDeploymentName) })
 
 	names, resources := createPizzaPlanetService(t, "pizzaplanet-service",
 		rtesting.WithConfigAnnotations(map[string]string{

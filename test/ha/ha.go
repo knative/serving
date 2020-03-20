@@ -24,13 +24,13 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
-	leaderelectionconfig "knative.dev/pkg/leaderelection"
 	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	servingNamespace         = "knative-serving"
-	leaderElectionComponents = "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"
-	haReplicas               = 2
+	servingNamespace = "knative-serving"
+	haReplicas       = 2
 )
 
 func getLeader(t *testing.T, clients *test.Clients, labelSelector string) (string, error) {
@@ -101,36 +100,6 @@ func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) {
 	}
 }
 
-func enableHA(t *testing.T, clients *test.Clients, deploymentToScale string) {
-	leaderElectionConfigMap, err := e2e.RawCM(clients, leaderelectionconfig.ConfigMapName())
-	if err != nil {
-		t.Fatalf("Error retrieving leader election configmap: %v", err)
-	}
-	patchedLeaderElectionConfigMap := leaderElectionConfigMap.DeepCopy()
-	patchedLeaderElectionConfigMap.Data["enabledComponents"] = leaderElectionComponents
-	if _, err := e2e.PatchCM(clients, patchedLeaderElectionConfigMap); err != nil {
-		t.Fatalf("Failed to patch leader election config: %v", err)
-	}
-	if err := scaleUpDeployment(clients, deploymentToScale); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
-	}
-}
-
-func disableHA(t *testing.T, clients *test.Clients, deploymenToScale string) {
-	if err := scaleDownDeployment(clients, deploymenToScale); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
-	}
-	leaderElectionConfigMap, err := e2e.RawCM(clients, leaderelectionconfig.ConfigMapName())
-	if err != nil {
-		t.Fatalf("Error retrieving leader election configmap: %v", err)
-	}
-	patchedLeaderElectionConfigMap := leaderElectionConfigMap.DeepCopy()
-	delete(patchedLeaderElectionConfigMap.Data, "enabledComponents")
-	if _, err := e2e.PatchCM(clients, patchedLeaderElectionConfigMap); err != nil {
-		t.Fatalf("Failed to patch leader election config: %v", err)
-	}
-}
-
 func scaleUpDeployment(clients *test.Clients, name string) error {
 	return scaleDeployment(clients, name, haReplicas)
 }
@@ -146,23 +115,16 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(servingNamespace).UpdateScale(name, scaleRequest); err != nil {
 		return fmt.Errorf("error scaling: %w", err)
 	}
-	return waitForDeploymentScale(clients, name, replicas)
-}
-
-func waitForDeploymentScale(clients *test.Clients, deploymentName string, scale int) error {
-	if err := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		deployment, err := clients.KubeClient.Kube.AppsV1().Deployments(servingNamespace).Get(deploymentName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		if deployment.Status.ReadyReplicas == int32(scale) {
-			return true, nil
-		}
-		return false, nil
-	}); err != nil {
-		return fmt.Errorf("did not observe deployment %q to actually scale to %d", deploymentName, scale)
-	}
-	return nil
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		name,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == int32(replicas), nil
+		},
+		"DeploymentIsScaled",
+		servingNamespace,
+		test.PollTimeout,
+	)
 }
 
 func createPizzaPlanetService(t *testing.T, serviceName string, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
