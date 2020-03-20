@@ -82,19 +82,21 @@ func createDNSRecord(dnsRecord *config.DNSRecord) error {
 func waitForDNSRecordVisible(record *config.DNSRecord) error {
 	nameservers, err := net.LookupNS(env.DomainName)
 	if err != nil {
-		return fmt.Errorf("failed to lookup NS records for domain: %v", err)
+		return err
 	}
 
 	return wait.PollImmediate(10*time.Second, 300*time.Second, func() (bool, error) {
 		for _, ns := range nameservers {
 			nsIP, err := net.LookupHost(ns.Host)
 			if err != nil {
-				return true, err
+				log.Printf("failed to look up host %s: %v", ns.Host, err)
+				return false, nil
 			}
+			// This resolver bypasses the local resolver and instead queries the
+			// domain's authoritative servers.
 			r := &net.Resolver{
-				PreferGo: true,
 				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-					d := net.Dialer{}
+					d := net.Dialer{Timeout: 30 * time.Second}
 					return d.DialContext(ctx, "udp", nsIP[0]+":53")
 				},
 			}
@@ -117,7 +119,7 @@ func validateRecord(resolver *net.Resolver, record *config.DNSRecord) bool {
 }
 
 func replaceWildcard(domain string) string {
-	if !strings.HasPrefix(domain, "*") {
+	if domain[0] != '*' {
 		return domain
 	}
 
