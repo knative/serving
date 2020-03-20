@@ -80,6 +80,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		logger:               logger,
 		breaker:              queue.NewBreaker(defaultParams),
 		containerConcurrency: 10,
+		clusterIPTracker:     &podTracker{},
 	}
 
 	rt.updateCapacity(1)
@@ -134,6 +135,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	rt.activatorIndex = 0
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
+	rt.clusterIPTracker = nil
 	rt.updateCapacity(0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -505,7 +507,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip0", "ip4", "ip5"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
-	if got, want := rt.breaker.Capacity(), 6*42/4; got != want {
+	if got, want := rt.breaker.Capacity(), 6*42/4+1; got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
@@ -701,7 +703,7 @@ func TestMultipleActivators(t *testing.T) {
 	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
+	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")
 	updateCh <- (revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
@@ -737,7 +739,7 @@ func TestMultipleActivators(t *testing.T) {
 	}
 	t.Logf("This activator idx = %d", rt.activatorIndex)
 
-	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
+	// Test with 2 activators, 2 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
 	mux.Lock() // Lock the mutex so all requests are blocked in the Try function.
 
@@ -1018,32 +1020,44 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 0 /*cc*/)
+		got, gotCap := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 0 /*cc*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff([]*podTracker{}, got, opt))
 		}
+		if want := 0; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
+		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1, 0)
+		got, gotCap := assignSlice(trackers, -1, 1, 0)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, opt))
 		}
+		if want := 0; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
+		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 3, 0)
+		got, gotCap := assignSlice(cp, 1, 3, 0)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
 		}
+		if want := 0; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
+		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3, 0)
+		got, gotCap := assignSlice(trackers[0:1], 1, 3, 0)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
+		}
+		if want := 0; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
 		}
 	})
 
@@ -1059,11 +1073,15 @@ func TestAssignSlice(t *testing.T) {
 			b:    queue.NewBreaker(defaultParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 2, 5)
+		got, gotCap := assignSlice(cp, 1, 2, 5)
 		want := append(trackers[0:1], trackers[2:]...)
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(trackers[0:1], got, opt))
+		}
+		// Want one entire pod (5) + the tail pod (5/2+1=3)
+		if want := 8; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
 		}
 		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
@@ -1081,11 +1099,15 @@ func TestAssignSlice(t *testing.T) {
 			b:    queue.NewBreaker(defaultParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 2, 6)
+		got, gotCap := assignSlice(cp, 1, 2, 6)
 		want := append(trackers[0:1], trackers[2:]...)
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(trackers[0:1], got, opt))
+		}
+		// Want one entire pod (6) + the tail pod (6/2=3)
+		if want := 9; gotCap != want {
+			t.Errorf("capacity = %d, want %d", gotCap, want)
 		}
 		if got, want := got[1].b.Capacity(), 3; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)

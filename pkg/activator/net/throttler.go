@@ -249,44 +249,34 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
-
 	ac, ai := int(atomic.LoadInt32(&rt.numActivators)), int(atomic.LoadInt32(&rt.activatorIndex))
-	numTrackers := func() int {
+
+	capacity := 0
+	if rt.clusterIPTracker == nil {
 		// We do not have to process the `podTrackers` under lock, since
 		// updateCapacity is guaranteed to be executed by a single goroutine.
 		// But `assignedTrackers` is being read by the serving thread, so the
 		// actual assignment has to be done under lock.
-
-		// We're using cluster IP.
-		if rt.clusterIPTracker != nil {
-			return 0
-		}
-
 		assigned := rt.podTrackers
 		if rt.containerConcurrency != 0 {
 			rt.resetTrackers()
 			// TODO(vagababov): pull assign slice into RT.
-			assigned = assignSlice(rt.podTrackers,
-				ai, ac, rt.containerConcurrency)
+			assigned, capacity = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
+		} else {
+			capacity = rt.calculateCapacity(len(assigned), ac, breakerParams.MaxConcurrency)
 		}
-		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
-		// The actual write out of the assigned trackers has to be under lock.
-		rt.mux.Lock()
-		defer rt.mux.Unlock()
-		rt.assignedTrackers = assigned
-		return len(assigned)
-	}()
 
-	capacity := 0
-	if numTrackers > 0 {
-		// Capacity is computed based off of number of trackers,
-		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, breakerParams.MaxConcurrency)
+		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, assigned)
+
+		rt.mux.Lock()
+		rt.assignedTrackers = assigned
+		rt.mux.Unlock()
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
 		capacity = rt.calculateCapacity(backendCount, ac, breakerParams.MaxConcurrency)
 	}
+
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
 
@@ -343,11 +333,11 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
-func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
+func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) ([]*podTracker, int) {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
-		return trackers
+		return trackers, lt * cc
 	}
 	// Sort, so we get more or less stable results.
 	sort.Slice(trackers, func(i, j int) bool {
@@ -355,6 +345,7 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 	})
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
+	capacity := len(x) * cc
 	if remnants > 0 {
 		tail := trackers[len(trackers)-remnants:]
 		// We shuffle the tail, to ensure that pods in the tail get better
@@ -363,16 +354,16 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		rand.Shuffle(remnants, func(i, j int) {
 			tail[i], tail[j] = tail[j], tail[i]
 		})
-		// We need minOneOrValue in order for cc==0 to work.
-		dcc := minOneOrValue(int(math.Ceil(float64(cc) / float64(numActivators))))
+		dcc := int(math.Ceil(float64(cc) / float64(numActivators)))
 		// This is basically: x = append(x, trackers[len(trackers)-remnants:]...)
 		// But we need to update the capacity.
+		capacity += len(tail) * dcc
 		for _, t := range tail {
 			t.UpdateConcurrency(dcc)
 			x = append(x, t)
 		}
 	}
-	return x
+	return x, capacity
 }
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
