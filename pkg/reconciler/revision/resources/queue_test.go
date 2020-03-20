@@ -19,7 +19,6 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
-	"knative.dev/serving/pkg/apis/networking"
 	"sort"
 	"strconv"
 	"testing"
@@ -41,6 +40,7 @@ import (
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -93,15 +93,11 @@ func TestMakeQueueContainer(t *testing.T) {
 		want corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: queueContainer(
@@ -112,15 +108,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "no owner no autoscaler single",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				revision.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           containerName,
@@ -148,17 +140,12 @@ func TestMakeQueueContainer(t *testing.T) {
 		),
 	}, {
 		name: "service name in labels",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.ServiceLabelKey: "svc",
-					},
+				revision.ObjectMeta.Labels = map[string]string{
+					serving.ServiceLabelKey: "svc",
 				}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
@@ -175,22 +162,18 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "config owner as env var, zero concurrency",
-		rev: revision(
+		rev: revision("blah", "baz",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "baz",
-					Name:      "blah",
-					UID:       "1234",
-					OwnerReferences: []metav1.OwnerReference{{
-						APIVersion:         v1.SchemeGroupVersion.String(),
-						Kind:               "Configuration",
-						Name:               "the-parent-config-name",
-						Controller:         ptr.Bool(true),
-						BlockOwnerDeletion: ptr.Bool(true),
-					}},
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "the-parent-config-name",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: queueContainer(
@@ -205,15 +188,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "logging configuration as env var",
-		rev: revision(
+		rev: revision("this", "log",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "log",
-					Name:      "this",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		lc: logging.Config{
@@ -235,15 +214,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "container concurrency 10",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(10),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: queueContainer(
@@ -255,15 +230,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "request log configuration as env var",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{
@@ -281,15 +252,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "request metrics backend as env var",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{
@@ -305,15 +272,11 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 	}, {
 		name: "enable profiling",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-				}
+				revision.ObjectMeta.Labels = map[string]string{}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
@@ -362,20 +325,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want corev1.Container
 	}{{
 		name: "resources percentage in annotations",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.ServiceLabelKey: "svc",
-					},
-					Annotations: map[string]string{
-						serving.QueueSideCarResourcePercentageAnnotation: "20",
-					},
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.ObjectMeta.Annotations = map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "20",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           containerName,
@@ -390,9 +346,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env = env(map[string]string{
-					"SERVING_SERVICE": "svc",
-				})
+				c.Env = env(map[string]string{})
 				c.Resources.Limits = corev1.ResourceList{
 					corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
 					corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
@@ -401,20 +355,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 	}, {
 		name: "resources percentage in annotations small than min allowed",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.ServiceLabelKey: "svc",
-					},
-					Annotations: map[string]string{
-						serving.QueueSideCarResourcePercentageAnnotation: "0.2",
-					},
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.ObjectMeta.Annotations = map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           containerName,
@@ -429,9 +376,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env = env(map[string]string{
-					"SERVING_SERVICE": "svc",
-				})
+				c.Env = env(map[string]string{})
 				c.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
 					corev1.ResourceName("memory"): resource.MustParse("50Mi"),
@@ -440,20 +385,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 	}, {
 		name: "Invalid resources percentage in annotations",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.ServiceLabelKey: "svc",
-					},
-					Annotations: map[string]string{
-						serving.QueueSideCarResourcePercentageAnnotation: "foo",
-					},
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.ObjectMeta.Annotations = map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "foo",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           containerName,
@@ -468,9 +406,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env = env(map[string]string{
-					"SERVING_SERVICE": "svc",
-				})
+				c.Env = env(map[string]string{})
 				c.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				}
@@ -478,20 +414,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 	}, {
 		name: "resources percentage in annotations bigger than than math.MaxInt64",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta = metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.ServiceLabelKey: "svc",
-					},
-					Annotations: map[string]string{
-						serving.QueueSideCarResourcePercentageAnnotation: "100",
-					},
+				revision.ObjectMeta.Labels = map[string]string{}
+				revision.ObjectMeta.Annotations = map[string]string{
+					serving.QueueSideCarResourcePercentageAnnotation: "100",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           containerName,
@@ -505,9 +434,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}),
 		want: queueContainer(
 			func(c *corev1.Container) {
-				c.Env = env(map[string]string{
-					"SERVING_SERVICE": "svc",
-				})
+				c.Env = env(map[string]string{})
 				c.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceName("cpu"):    resource.MustParse("25m"),
 					corev1.ResourceName("memory"): resource.MustParse("200Mi"),
@@ -549,15 +476,11 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 }
 
 func TestProbeGenerationHTTPDefaults(t *testing.T) {
-	rev := revision(
+	rev := revision("bar", "foo",
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.TimeoutSeconds = ptr.Int64(45)
-			revision.ObjectMeta = metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			}
+			revision.ObjectMeta.Labels = map[string]string{}
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				ReadinessProbe: &corev1.Probe{
@@ -628,15 +551,11 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	const userPort = 12345
 	const probePath = "/health"
 
-	rev := revision(
+	rev := revision("bar", "foo",
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.TimeoutSeconds = ptr.Int64(45)
-			revision.ObjectMeta = metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				UID:       "1234",
-			}
+			revision.ObjectMeta.Labels = map[string]string{}
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				Ports: []corev1.ContainerPort{{
@@ -860,7 +779,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testRev := revision(
+			testRev := revision("bar", "foo",
 				func(revision *v1.Revision) {
 					revision.ObjectMeta = metav1.ObjectMeta{
 						Namespace: "foo",
