@@ -640,16 +640,23 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatalf("RevisionThrottler can't be found: %v", err)
 	}
 
-	// Verify the index was computed.
+	// Verify capacity gets updated. This is the very last thing we update
+	// so we now know that the rest is set statically.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.numActivators) == 2 &&
-			atomic.LoadInt32(&rt.activatorIndex) == 1, nil
+		// Capacity doesn't exceed 1 in this test.
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
-		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex)
+
+	if got, want := atomic.LoadInt32(&rt.numActivators), int32(2); got != want {
+		t.Fatalf("numActivators = %d, want %d", got, want)
+	}
+	if got, want := atomic.LoadInt32(&rt.activatorIndex), int32(1); got != want {
+		t.Fatalf("activatorIndex = %d, want %d", got, want)
+	}
 	if got, want := len(rt.assignedTrackers), 2; got != want {
-		t.Errorf("Assigned trackers = %d, want: %d", got, want)
+		t.Fatalf("len(assignedTrackers) = %d, want %d", got, want)
 	}
 
 	publicEp.Subsets = []corev1.EndpointSubset{
