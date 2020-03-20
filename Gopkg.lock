@@ -1768,14 +1768,6 @@
   revision = "743ec37842bffe49dd4221d9026f30fb1d5adbc4"
 
 [[projects]]
-  digest = "1:547c5d5fec284edacb232b739d7fe88d5294b6b7711162c5b2e4861443b81dda"
-  name = "k8s.io/kubernetes"
-  packages = ["pkg/version"]
-  pruneopts = "NUT"
-  revision = "81753b10df112992bf51bbc2c2f85208aad78335"
-  version = "v1.10.2"
-
-[[projects]]
   digest = "1:94200bdf759648846fb4e38e4d438a0b91faa44c6cb485f2402d90341260c817"
   name = "k8s.io/legacy-cloud-providers"
   packages = ["azure/auth"]
@@ -2102,7 +2094,6 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
-    "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
     "knative.dev/caching/pkg/apis/caching",
     "knative.dev/caching/pkg/apis/caching/v1alpha1",
