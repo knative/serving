@@ -17,9 +17,7 @@ limitations under the License.
 package ha
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"testing"
@@ -31,7 +29,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	restclient "k8s.io/client-go/rest"
 	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -44,47 +41,38 @@ const (
 	haReplicas       = 2
 )
 
-func getLeader(t *testing.T, clients *test.Clients, labelSelector string) (string, error) {
-	var leader string
-	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
-		controllerPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
-			LabelSelector: labelSelector,
-		})
-		if err != nil {
-			return false, fmt.Errorf("error retrieving pods with label %s: %w", labelSelector, err)
-		}
-		for _, pod := range controllerPodList.Items {
-			podLogs, err := logsAsString(clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).GetLogs(pod.Name, &corev1.PodLogOptions{}))
-			if err != nil {
-				if strings.Contains(err.Error(), "ContainerCreating") {
-					// Go ahead and check other pods
-					continue
-				}
-				return false, fmt.Errorf("failed to convert log stream to string: %w", err)
-			}
-			if strings.Contains(podLogs, "became leader") {
-				leader = pod.Name
-				return true, nil
-			}
-		}
-		return false, nil
-	}); err != nil {
-		return "", err
-	}
-	return leader, nil
-}
-
-func logsAsString(req *restclient.Request) (string, error) {
-	logStream, err := req.Stream()
+func getLeader(t *testing.T, clients *test.Clients, component, labelSelector string) (string, error) {
+	watcher, err := clients.KubeClient.Kube.CoreV1().Events(servingNamespace).Watch(metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.kind=Lease,involvedObject.name=%s", component),
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to open stream: %w", err)
+		return "", fmt.Errorf("unable to create watcher: %w", err)
 	}
-	defer logStream.Close()
-	buf := new(bytes.Buffer)
-	if _, err = io.Copy(buf, logStream); err != nil {
-		return "", fmt.Errorf("error copying stream: %w", err)
+	defer watcher.Stop()
+	eventCh := watcher.ResultChan()
+	timeoutCh := time.After(time.Minute)
+	for {
+		select {
+		case <-timeoutCh:
+			return "", fmt.Errorf("timeout")
+		case event := <-eventCh:
+			lease := event.Object.(*corev1.Event)
+			if strings.Contains(lease.Message, "became leader") {
+				eventPod := strings.Split(lease.Message, "_")[0]
+				currentPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+					LabelSelector: labelSelector,
+				})
+				if err != nil {
+					return "", fmt.Errorf("error retrieving pods with label %s: %w", labelSelector, err)
+				}
+				for _, pod := range currentPodList.Items {
+					if pod.Name == eventPod { // the leader must be an existing pod, ignore old events
+						return eventPod, nil
+					}
+				}
+			}
+		}
 	}
-	return buf.String(), nil
 }
 
 func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) error {

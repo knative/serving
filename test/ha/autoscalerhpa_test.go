@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	autoscalerHpaDeploymentName = "autoscaler-hpa"
-	autoscalerHpaLabel          = "app=autoscaler-hpa"
+	autoscalerHpaElectionComponent = "hpaautoscaler"
+	autoscalerHpaDeploymentName    = "autoscaler-hpa"
+	autoscalerHpaLabel             = "app=autoscaler-hpa"
 )
 
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
@@ -53,7 +54,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	leaderController, err := getLeader(t, clients, autoscalerHpaLabel)
+	leaderController, err := getLeader(t, clients, autoscalerHpaElectionComponent, autoscalerHpaLabel)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
@@ -65,7 +66,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, autoscalerHpaLabel); err != nil {
+	if _, err = getLeader(t, clients, autoscalerHpaElectionComponent, autoscalerHpaLabel); err != nil {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 
