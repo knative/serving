@@ -159,6 +159,12 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
+// WithRouteConditionsAutoTLSDisabled calls MarkAutoTLSNotEnabled after initialized the Service's conditions.
+func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkAutoTLSNotEnabled()
+}
+
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1.Route) {
 	r.Status.MarkTrafficAssigned()
