@@ -29,7 +29,9 @@ import (
 var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
-	RouteConditionCertificateProvisioned,
+
+// TODO(nak3):  Add RouteConditionCertificateProvisioned in the next release.
+// RouteConditionCertificateProvisioned,
 )
 
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
@@ -46,8 +48,6 @@ func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
-	// Since Certificate is optional, initialize the status with Ready.
-	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 
 // // MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that

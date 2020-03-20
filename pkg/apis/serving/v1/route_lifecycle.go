@@ -29,7 +29,9 @@ import (
 var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
-	RouteConditionCertificateProvisioned,
+
+// TODO(nak3):  Add RouteConditionCertificateProvisioned in the next release.
+// RouteConditionCertificateProvisioned,
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.
@@ -45,8 +47,6 @@ func (rs *RouteStatus) IsReady() bool {
 // InitializeConditions sets the initial values to the conditions.
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
-	// Since Certificate is optional, initialize the status with Ready.
-	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 
 // MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
