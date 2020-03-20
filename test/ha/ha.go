@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -45,7 +46,7 @@ const (
 
 func getLeader(t *testing.T, clients *test.Clients, labelSelector string) (string, error) {
 	var leader string
-	if err := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
 		controllerPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
 			LabelSelector: labelSelector,
 		})
@@ -87,7 +88,7 @@ func logsAsString(req *restclient.Request) (string, error) {
 }
 
 func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) {
-	if err := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
 		if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(podName, metav1.GetOptions{}); err != nil {
 			if apierrs.IsNotFound(err) {
 				return true, nil
@@ -123,7 +124,7 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 		},
 		"DeploymentIsScaled",
 		servingNamespace,
-		test.PollTimeout,
+		time.Minute,
 	)
 }
 
