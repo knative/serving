@@ -82,15 +82,15 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
 }
 
-// RawCM returns the raw knative config map for the given name
-func RawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
+// rawCM returns the raw knative config map for the given name
+func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
 	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
 		name,
 		metav1.GetOptions{})
 }
 
-// PatchCM updates the existing config map with the supplied value.
-func PatchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+// patchCM updates the existing config map with the supplied value.
+func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Update(cm)
 }
 

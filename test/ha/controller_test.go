@@ -51,7 +51,9 @@ func TestControllerHA(t *testing.T) {
 
 	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(leaderController, &metav1.DeleteOptions{})
 
-	waitForPodDeleted(t, clients, leaderController)
+	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
+		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
+	}
 
 	// Make sure a new leader has been elected
 	if _, err = getLeader(t, clients, controllerLabel); err != nil {

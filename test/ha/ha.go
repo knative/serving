@@ -57,8 +57,8 @@ func getLeader(t *testing.T, clients *test.Clients, labelSelector string) (strin
 			podLogs, err := logsAsString(clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).GetLogs(pod.Name, &corev1.PodLogOptions{}))
 			if err != nil {
 				if strings.Contains(err.Error(), "ContainerCreating") {
-					// Need to wait a little more for the containers to be started
-					return false, nil
+					// Go ahead and check other pods
+					continue
 				}
 				return false, fmt.Errorf("failed to convert log stream to string: %w", err)
 			}
@@ -87,7 +87,7 @@ func logsAsString(req *restclient.Request) (string, error) {
 	return buf.String(), nil
 }
 
-func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) {
+func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) error {
 	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
 		if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(podName, metav1.GetOptions{}); err != nil {
 			if apierrs.IsNotFound(err) {
@@ -97,8 +97,9 @@ func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) {
 		}
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Did not observe %q to actually be deleted", podName)
+		return err
 	}
+	return nil
 }
 
 func scaleUpDeployment(clients *test.Clients, name string) error {
@@ -129,6 +130,7 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 }
 
 func createPizzaPlanetService(t *testing.T, serviceName string, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
+	t.Helper()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: serviceName,

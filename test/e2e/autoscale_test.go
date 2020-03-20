@@ -443,16 +443,16 @@ func TestGracefulScaledown(t *testing.T) {
 		}))
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	autoscalerConfigMap, err := RawCM(ctx.clients, autoscalerconfig.ConfigName)
+	autoscalerConfigMap, err := rawCM(ctx.clients, autoscalerconfig.ConfigName)
 	if err != nil {
 		t.Errorf("Error retrieving autoscaler configmap: %v", err)
 	}
 
 	patchedAutoscalerConfigMap := autoscalerConfigMap.DeepCopy()
 	patchedAutoscalerConfigMap.Data["enable-graceful-scaledown"] = "true"
-	PatchCM(ctx.clients, patchedAutoscalerConfigMap)
-	defer PatchCM(ctx.clients, autoscalerConfigMap)
-	test.CleanupOnInterrupt(func() { PatchCM(ctx.clients, autoscalerConfigMap) })
+	patchCM(ctx.clients, patchedAutoscalerConfigMap)
+	defer patchCM(ctx.clients, autoscalerConfigMap)
+	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
 
 	if err = assertGracefulScaledown(t, ctx, 4 /* desired pods */); err != nil {
 		t.Errorf("Failed: %v", err)
