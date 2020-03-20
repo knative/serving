@@ -43,6 +43,7 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
+	// TickInterval denotes how often we evaluate the scale suggestion.
 	TickInterval     time.Duration
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
@@ -56,8 +57,12 @@ type DeciderSpec struct {
 	// The burst capacity that user wants to maintain without queuing at the POD level.
 	// Note, that queueing still might happen due to the non-ideal load balancing.
 	TargetBurstCapacity float64
-	PanicThreshold      float64
-	// StableWindow is needed to determine when to exit panicmode.
+	// ActivatorCapacity is the single activator capacity, for subsetting.
+	ActivatorCapacity float64
+	// PanicThreshold is the threshold value of panic to stable concurrency
+	// ratio to transition into panic mode.
+	PanicThreshold float64
+	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration
 	// The name of the k8s service for pod information.
 	ServiceName string
