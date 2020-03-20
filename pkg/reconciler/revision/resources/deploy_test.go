@@ -60,11 +60,9 @@ var (
 			Name:  "K_REVISION",
 			Value: "bar",
 		}, {
-			Name:  "K_CONFIGURATION",
-			Value: "",
+			Name: "K_CONFIGURATION",
 		}, {
-			Name:  "K_SERVICE",
-			Value: "",
+			Name: "K_SERVICE",
 		}},
 	}
 
