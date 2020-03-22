@@ -25,7 +25,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,38 +40,30 @@ const (
 	haReplicas       = 2
 )
 
-func getLeader(t *testing.T, clients *test.Clients, component, labelSelector string) (string, error) {
-	watcher, err := clients.KubeClient.Kube.CoreV1().Events(servingNamespace).Watch(metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("involvedObject.kind=Lease,involvedObject.name=%s", component),
-	})
-	if err != nil {
-		return "", fmt.Errorf("unable to create watcher: %w", err)
-	}
-	defer watcher.Stop()
-	eventCh := watcher.ResultChan()
-	timeoutCh := time.After(time.Minute)
-	for {
-		select {
-		case <-timeoutCh:
-			return "", fmt.Errorf("timeout")
-		case event := <-eventCh:
-			lease := event.Object.(*corev1.Event)
-			if strings.Contains(lease.Message, "became leader") {
-				eventPod := strings.Split(lease.Message, "_")[0]
-				currentPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
-					LabelSelector: labelSelector,
-				})
-				if err != nil {
-					return "", fmt.Errorf("error retrieving pods with label %s: %w", labelSelector, err)
-				}
-				for _, pod := range currentPodList.Items {
-					if pod.Name == eventPod { // the leader must be an existing pod, ignore old events
-						return eventPod, nil
-					}
-				}
+func getLeader(t *testing.T, clients *test.Clients, lease, labelSelector string) (string, error) {
+	var leader string
+	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
+		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(servingNamespace).Get(lease, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
+		}
+		leader = strings.Split(*lease.Spec.HolderIdentity, "_")[0]
+		currentPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			return false, fmt.Errorf("error retrieving pods with label %s: %w", labelSelector, err)
+		}
+		for _, pod := range currentPodList.Items {
+			if pod.Name == leader { // the leader must be an existing pod
+				return true, nil
 			}
 		}
+		return false, nil
+	}); err != nil {
+		return "", err
 	}
+	return leader, nil
 }
 
 func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) error {

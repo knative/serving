@@ -31,19 +31,19 @@ import (
 )
 
 const (
-	autoscalerHpaElectionComponent = "hpaautoscaler"
-	autoscalerHpaDeploymentName    = "autoscaler-hpa"
-	autoscalerHpaLabel             = "app=autoscaler-hpa"
+	autoscalerHPALease          = "hpaautoscaler"
+	autoscalerHPADeploymentName = "autoscaler-hpa"
+	autoscalerHPALabel          = "app=autoscaler-hpa"
 )
 
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := scaleUpDeployment(clients, autoscalerHpaDeploymentName); err != nil {
+	if err := scaleUpDeployment(clients, autoscalerHPADeploymentName); err != nil {
 		t.Fatalf("Failed to scale deployment: %v", err)
 	}
-	defer scaleDownDeployment(clients, autoscalerHpaDeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHpaDeploymentName) })
+	defer scaleDownDeployment(clients, autoscalerHPADeploymentName)
+	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHPADeploymentName) })
 
 	names, resources := createPizzaPlanetService(t, "pizzaplanet-service",
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -54,7 +54,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	leaderController, err := getLeader(t, clients, autoscalerHpaElectionComponent, autoscalerHpaLabel)
+	leaderController, err := getLeader(t, clients, autoscalerHPALease, autoscalerHPALabel)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, autoscalerHpaElectionComponent, autoscalerHpaLabel); err != nil {
+	if _, err = getLeader(t, clients, autoscalerHPALease, autoscalerHPALabel); err != nil {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 
