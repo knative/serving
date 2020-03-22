@@ -84,10 +84,11 @@ type DeciderStatus struct {
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
-	// Scale either proposes a number of replicas and available excess burst capacity,
-	// or skips proposing. The proposal is requested at the given time.
+	// Scale either proposes a number of replicas, available excess burst capacity,
+	// and suggested number of activators, or skips proposing.
+	// The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, int32, bool)
+	Scale(context.Context, time.Time) (int32, int32, int32, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
@@ -314,7 +315,8 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
 	logger := logging.FromContext(ctx)
-	desiredScale, excessBC, scaled := scaler.Scale(ctx, time.Now())
+	// TODO(vagababov): Finish this as part of #7347.
+	desiredScale, excessBC, _, scaled := scaler.Scale(ctx, time.Now())
 
 	if !scaled {
 		return
