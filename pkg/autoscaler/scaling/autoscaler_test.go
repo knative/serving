@@ -19,7 +19,6 @@ package scaling
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -71,9 +70,6 @@ func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 }
 
 func expectedNA(a *Autoscaler, numP float64) int32 {
-	fmt.Printf("%v %v %v\n", a.deciderSpec.TotalValue*numP,
-		a.deciderSpec.TotalValue*numP+a.deciderSpec.TargetBurstCapacity,
-		(a.deciderSpec.TotalValue*numP+a.deciderSpec.TargetBurstCapacity)/float64(a.deciderSpec.ActivatorCapacity))
 	return int32(math.Max(1,
 		math.Ceil(
 			(a.deciderSpec.TotalValue*numP+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
