@@ -64,8 +64,7 @@ required = [
 
 [[constraint]]
   name = "github.com/google/go-cmp"
-  # HEAD as of 2019-04-09
-  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
+  version = "v0.4.0"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"

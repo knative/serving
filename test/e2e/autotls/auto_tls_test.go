@@ -100,9 +100,6 @@ func testAutoTLS(t *testing.T) {
 			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 			return transport
 		}
-		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
-		defer test.AssertProberDefault(t, prober)
-
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
 				Tag:            "tag1",
@@ -130,6 +127,10 @@ func testAutoTLS(t *testing.T) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
+
+		// Start prober after the new rootCA is added.
+		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+		defer test.AssertProberDefault(t, prober)
 
 		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
 		if err != nil {

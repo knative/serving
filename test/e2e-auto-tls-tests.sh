@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-
 source $(dirname $0)/e2e-common.sh
 
 function knative_setup() {
@@ -30,7 +28,9 @@ function setup_auto_tls_env_variables() {
   # The service account credential file used to access the DNS server.
   export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
 
-  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.kn-e2e.dev"
+  export DOMAIN_NAME="kn-e2e.dev"
+
+  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
 
   local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE}
   if [[ -z "${GATEWAY_NAMESPACE}" ]]; then

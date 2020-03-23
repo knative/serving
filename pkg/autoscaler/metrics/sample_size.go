@@ -27,6 +27,12 @@ const (
 	marginOfErrorSquared = 5.0 * 5.0
 	// σ2 is the population variance.
 	σ2 = 100.0
+
+	// sampleSize is the sample size required to achieve the confidence
+	// with the giving moe and σ2.
+	// Since sampleSize is the number of samples we need in an unbounded population
+	// we scale it according to the actual pod population.
+	sampleSize = criticalValueSquared * σ2 / marginOfErrorSquared
 )
 
 // populationMeanSampleSize uses the following formula for the sample size n:
@@ -39,14 +45,9 @@ const (
 // where N is the population size, C is the critical value of the Normal distribution
 // for a given confidence level of 95%, MOE is the margin of error and σ^2 is the
 // population variance.
-func populationMeanSampleSize(population int) int {
-	if population < 0 {
-		return 0
-	}
+func populationMeanSampleSize(population float64) float64 {
 	if population <= 3 {
-		return population
+		return math.Max(population, 0)
 	}
-	x := criticalValueSquared * σ2 / marginOfErrorSquared
-	populationf := float64(population)
-	return int(math.Ceil(populationf * x / (populationf + x - 1)))
+	return math.Ceil(population * sampleSize / (population + sampleSize - 1))
 }

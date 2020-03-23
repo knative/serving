@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -398,10 +398,18 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			updateCh := make(chan revisionDestsUpdate)
-			defer close(updateCh)
 
 			throttler := NewThrottler(ctx, "130.0.0.2")
-			go throttler.run(updateCh)
+			var grp errgroup.Group
+			grp.Go(func() error { throttler.run(updateCh); return nil })
+			// Ensure the throttler stopped before we leave the test, so that
+			// logging does freak out.
+			defer func() {
+				close(updateCh)
+				grp.Wait()
+				cancel()
+				waitInformers()
+			}()
 
 			for _, update := range tc.initUpdates {
 				updateCh <- update
@@ -583,10 +591,6 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	rev := revisionCC1(revID, networking.ProtocolH2C)
@@ -595,10 +599,18 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
-	defer close(updateCh)
 
 	throttler := NewThrottler(ctx, "130.0.0.2")
-	go throttler.run(updateCh)
+	var grp errgroup.Group
+	grp.Go(func() error { throttler.run(updateCh); return nil })
+	// Ensure the throttler stopped before we leave the test, so that
+	// logging does freak out.
+	defer func() {
+		close(updateCh)
+		grp.Wait()
+		cancel()
+		waitInformers()
+	}()
 
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
 	updateCh <- (revisionDestsUpdate{
@@ -628,16 +640,23 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatalf("RevisionThrottler can't be found: %v", err)
 	}
 
-	// Verify the index was computed.
+	// Verify capacity gets updated. This is the very last thing we update
+	// so we now know that the rest is set statically.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.numActivators) == 2 &&
-			atomic.LoadInt32(&rt.activatorIndex) == 1, nil
+		// Capacity doesn't exceed 1 in this test.
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
-		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex)
+
+	if got, want := atomic.LoadInt32(&rt.numActivators), int32(2); got != want {
+		t.Fatalf("numActivators = %d, want %d", got, want)
+	}
+	if got, want := atomic.LoadInt32(&rt.activatorIndex), int32(1); got != want {
+		t.Fatalf("activatorIndex = %d, want %d", got, want)
+	}
 	if got, want := len(rt.assignedTrackers), 2; got != want {
-		t.Errorf("Assigned trackers = %d, want: %d", got, want)
+		t.Fatalf("len(assignedTrackers) = %d, want %d", got, want)
 	}
 
 	publicEp.Subsets = []corev1.EndpointSubset{
@@ -668,10 +687,6 @@ func TestMultipleActivators(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	// Add the revision we're testing.
@@ -679,10 +694,18 @@ func TestMultipleActivators(t *testing.T) {
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
-	defer close(updateCh)
 
 	throttler := NewThrottler(ctx, "130.0.0.2")
-	go throttler.run(updateCh)
+	var grp errgroup.Group
+	grp.Go(func() error { throttler.run(updateCh); return nil })
+	// Ensure the throttler stopped before we leave the test, so that
+	// logging does freak out.
+	defer func() {
+		close(updateCh)
+		grp.Wait()
+		cancel()
+		waitInformers()
+	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
@@ -991,10 +1014,9 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
-	opts := []cmp.Option{
-		cmpopts.IgnoreUnexported(queue.Breaker{}),
-		cmp.AllowUnexported(podTracker{}),
-	}
+	opt := cmp.Comparer(func(a *podTracker, b *podTracker) bool {
+		return a.dest == b.dest
+	})
 	trackers := []*podTracker{{
 		dest: "2",
 	}, {
@@ -1003,32 +1025,32 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0, 1, 0)
-		if !cmp.Equal(got, []*podTracker{}, opts...) {
+		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 0 /*cc*/)
+		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff([]*podTracker{}, got, opts...))
+				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1, 0)
-		if !cmp.Equal(got, trackers, opts...) {
+		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff(trackers, got, opts...))
+				cmp.Diff(trackers, got, opt))
 		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], opts...) {
+		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, opts...))
+				cmp.Diff(trackers[0:1], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
 		got := assignSlice(trackers[0:1], 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], opts...) {
+		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, opts...))
+				cmp.Diff(trackers[0:1], got, opt))
 		}
 	})
 
@@ -1046,9 +1068,9 @@ func TestAssignSlice(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 5)
 		want := append(trackers[0:1], trackers[2:]...)
-		if !cmp.Equal(got, want, opts...) {
+		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opts...))
+				cmp.Diff(trackers[0:1], got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
@@ -1068,9 +1090,9 @@ func TestAssignSlice(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 6)
 		want := append(trackers[0:1], trackers[2:]...)
-		if !cmp.Equal(got, want, opts...) {
+		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opts...))
+				cmp.Diff(trackers[0:1], got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 3; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)

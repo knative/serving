@@ -22,8 +22,8 @@ import (
 
 func TestPopulationMeanSampleSize(t *testing.T) {
 	testCases := []struct {
-		popSize        int
-		wantSampleSize int
+		popSize        float64
+		wantSampleSize float64
 	}{{
 		popSize:        0,
 		wantSampleSize: 0,

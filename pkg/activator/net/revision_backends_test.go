@@ -715,6 +715,10 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}()
 
 			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, probeFreq)
+			defer func() {
+				cancel()
+				waitForRevisionBackedMananger(t, rbm)
+			}()
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -741,9 +745,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
-
-			cancel()
-			waitForRevisionBackedMananger(t, rbm)
 		})
 	}
 }
@@ -1013,14 +1014,17 @@ func TestRevisionDeleted(t *testing.T) {
 	ri.Informer().GetIndexer().Add(rev)
 
 	fakeRT := activatortest.FakeRoundTripper{}
-	rt := network.RoundTripperFunc(fakeRT.RT)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	defer func() {
+		cancel()
+		waitForRevisionBackedMananger(t, rbm)
+	}()
 
-	rbm := newRevisionBackendsManager(ctx, rt)
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
 	case <-rbm.updates():
-	case <-time.After(time.Second * 2):
+	case <-time.After(updateTimeout):
 		t.Error("Timedout waiting for initial response")
 	}
 	// Now delete the endpoints.
@@ -1031,9 +1035,6 @@ func TestRevisionDeleted(t *testing.T) {
 	case <-time.After(updateTimeout):
 		// Wait to make sure the callbacks are executed.
 	}
-
-	cancel()
-	waitForRevisionBackedMananger(t, rbm)
 }
 
 func TestServiceDoesNotExist(t *testing.T) {
@@ -1072,9 +1073,12 @@ func TestServiceDoesNotExist(t *testing.T) {
 			}},
 		},
 	}
-	rt := network.RoundTripperFunc(fakeRT.RT)
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	defer func() {
+		cancel()
+		waitForRevisionBackedMananger(t, rbm)
+	}()
 
-	rbm := newRevisionBackendsManager(ctx, rt)
 	// Make some movements to generate a checkDests call.
 	ei.Informer().GetIndexer().Add(eps)
 	select {
@@ -1085,9 +1089,6 @@ func TestServiceDoesNotExist(t *testing.T) {
 		t.Errorf("Unexpected update, should have had none: %v", x)
 	case <-time.After(updateTimeout):
 	}
-
-	cancel()
-	waitForRevisionBackedMananger(t, rbm)
 }
 
 func TestServiceMoreThanOne(t *testing.T) {
@@ -1140,9 +1141,12 @@ func TestServiceMoreThanOne(t *testing.T) {
 			}},
 		},
 	}
+	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
+	defer func() {
+		cancel()
+		waitForRevisionBackedMananger(t, rbm)
+	}()
 
-	rt := network.RoundTripperFunc(fakeRT.RT)
-	rbm := newRevisionBackendsManager(ctx, rt)
 	ei.Informer().GetIndexer().Add(eps)
 	select {
 	case x := <-rbm.updates():
@@ -1152,7 +1156,4 @@ func TestServiceMoreThanOne(t *testing.T) {
 		t.Errorf("Unexpected update, should have had none: %v", x)
 	case <-time.After(updateTimeout):
 	}
-
-	cancel()
-	waitForRevisionBackedMananger(t, rbm)
 }

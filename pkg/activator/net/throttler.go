@@ -60,11 +60,15 @@ const (
 	breakerMaxConcurrency = 1000
 )
 
-var breakerParams = queue.BreakerParams{
-	QueueDepth:      breakerQueueDepth,
-	MaxConcurrency:  breakerMaxConcurrency,
-	InitialCapacity: 0,
-}
+var (
+	ErrActivatorOverload = errors.New("activator overload")
+
+	breakerParams = queue.BreakerParams{
+		QueueDepth:      breakerQueueDepth,
+		MaxConcurrency:  breakerMaxConcurrency,
+		InitialCapacity: 0,
+	}
+)
 
 type podTracker struct {
 	dest string
@@ -102,8 +106,6 @@ type breaker interface {
 	UpdateConcurrency(int) error
 	Reserve(ctx context.Context) (func(), bool)
 }
-
-var ErrActivatorOverload = errors.New("activator overload")
 
 type revisionThrottler struct {
 	revID                types.NamespacedName
@@ -176,12 +178,12 @@ func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracke
 	if cc == 0 {
 		return noop, tgs[rand.Intn(len(tgs))]
 	}
+
 	for _, t := range tgs {
 		if cb, ok := t.Reserve(ctx); ok {
 			return cb, t
 		}
 	}
-	// NB: as currently written this can never happen.
 	return noop, nil
 }
 
@@ -200,18 +202,26 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
-	if err := rt.breaker.Maybe(ctx, func() {
-		cb, tracker := rt.acquireDest(ctx)
-		if tracker == nil {
-			ret = errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
-				" never happen" + rt.revID.String())
-			return
+	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
+	// pod capacity are not changed atomically, hence they can race each other. We
+	// "reenqueue" requests should that happen.
+	reenqueue := true
+	for reenqueue {
+		reenqueue = false
+		if err := rt.breaker.Maybe(ctx, func() {
+			cb, tracker := rt.acquireDest(ctx)
+			if tracker == nil {
+				// This can happen if individual requests raced each other or if pod
+				// capacity was decreased after passing the outer semaphore.
+				reenqueue = true
+				return
+			}
+			defer cb()
+			// We already reserved a guaranteed spot. So just execute the passed functor.
+			ret = function(tracker.dest)
+		}); err != nil {
+			return err
 		}
-		defer cb()
-		// We already reserved a guaranteed spot. So just execute the passed functor.
-		ret = function(tracker.dest)
-	}); err != nil {
-		return err
 	}
 	return ret
 }

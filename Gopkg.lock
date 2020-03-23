@@ -393,7 +393,7 @@
   version = "v1.3.2"
 
 [[projects]]
-  digest = "1:010d46ea3c1e730897e53058d1013a963f3f987675dda87df64f891b945281db"
+  digest = "1:f0ae868d945753df81e797524bb7f3c577bcf751ce515c18162d259ca3ff8de7"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -404,7 +404,8 @@
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
+  revision = "5a6f75716e1203a923a78c9efb94089d857df0f6"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:01504b3636ebed2a77278bb497de8a4f36f7af1a1de973f5713fc39984ad781b"
@@ -1044,6 +1045,17 @@
   ]
   pruneopts = "NUT"
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
+
+[[projects]]
+  branch = "master"
+  digest = "1:325a1b73817aa79fc85f10376ed41ea607f7dd7f6c6bfa46df6a28ef2857941f"
+  name = "golang.org/x/xerrors"
+  packages = [
+    ".",
+    "internal",
+  ]
+  pruneopts = "NUT"
+  revision = "9bdfabe68543c54f90421aeb9a60ef8061b5b544"
 
 [[projects]]
   digest = "1:8392b5c29adedc5f85c66b48bb53b6c49dd91d8540f3cad5d43ef7277946718f"
@@ -1768,14 +1780,6 @@
   revision = "743ec37842bffe49dd4221d9026f30fb1d5adbc4"
 
 [[projects]]
-  digest = "1:547c5d5fec284edacb232b739d7fe88d5294b6b7711162c5b2e4861443b81dda"
-  name = "k8s.io/kubernetes"
-  packages = ["pkg/version"]
-  pruneopts = "NUT"
-  revision = "81753b10df112992bf51bbc2c2f85208aad78335"
-  version = "v1.10.2"
-
-[[projects]]
   digest = "1:94200bdf759648846fb4e38e4d438a0b91faa44c6cb485f2402d90341260c817"
   name = "k8s.io/legacy-cloud-providers"
   packages = ["azure/auth"]
@@ -1815,7 +1819,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:aab3fcf1e9d51d43ac3e60a95f648d4793b357cb5c99289642208199c0e45d0d"
+  digest = "1:14b1c0b8b90ac671fd1d525fcb711e461f25d74dc84e851e5f42a55b91224820"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1838,11 +1842,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "bef50dbb5e03573c5d3f27729065666293017a9c"
+  revision = "0f1d90796c389faca78d3fcc1887a1377c8610fe"
 
 [[projects]]
   branch = "master"
-  digest = "1:73d6a1f3f7a178275499102ae27b5177a91aaccc57e3a0328e628cb3ced708f8"
+  digest = "1:b866a374c5f954ec0830aa3c31962f4f8777624a77eba2b99fb19c732d5c2452"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1952,11 +1956,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "be54585f8f04fe39ce6b6d28d78809818b724734"
+  revision = "aa5b1f2211ac4a538128a4a4e03797e9232b0431"
 
 [[projects]]
   branch = "master"
-  digest = "1:b5ed62c73ed48a805a5704a431bac942f8fb9f2c41a3de60696896352afa6a4e"
+  digest = "1:36fcef0100a5243a4635c564feaf1fc8450bcb31a6633ec3ef7bbf2a00b33c31"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1969,7 +1973,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "01c075fbeae4b089793fcca6fc855d31e1628cad"
+  revision = "64929018c86389e47a88782619565b6d099c0a5a"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2102,7 +2106,6 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
-    "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
     "knative.dev/caching/pkg/apis/caching",
     "knative.dev/caching/pkg/apis/caching/v1alpha1",
