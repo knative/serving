@@ -242,7 +242,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
 	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
-	// By default we need just one Activator to back the revision.
 	numAct = minActivators
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
