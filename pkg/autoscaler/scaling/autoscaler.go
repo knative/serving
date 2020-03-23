@@ -226,10 +226,21 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		desiredPodCount = desiredStablePodCount
 	}
 
-	// Compute the excess burst capacity based on stable value for now, since we don't want to
-	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
-	// that the deployment does not have enough capacity to serve the desired burst off hand.
-	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+	// Here we compute two numbers: excess burst capacity and number of activators
+	// for subsetting.
+	// - the excess burst capacity based on stable value for now, since we don't want to
+	//   be making knee-jerk decisions about Activator in the request path.
+	//   Negative EBC means that the deployment does not have enough capacity to serve
+	//   the desired burst off hand.
+	//   EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+	// - number of activators is based on total capacity and TargetBurstCapacity values.
+	//   if tbc==0, then activators are in play only for scale from 0 and the revision gets
+	//   the default number.
+	//   if tbc > 0, then revision gets number of activators to support total capacity and
+	//   tbc additional units.
+	//   if tbc==-1, then revision gets to number of activators to support total capacity.
+	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
+	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
 	// By default we need just one Activator to back the revision.
 	numAct = minActivators
