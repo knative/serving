@@ -490,22 +490,23 @@ func createMultiScaler(ctx context.Context, l *zap.SugaredLogger) (*MultiScaler,
 }
 
 type fakeUniScaler struct {
-	mutex      sync.RWMutex
-	replicas   int32
-	surplus    int32
-	scaled     bool
-	scaleCount int
+	mutex         sync.RWMutex
+	replicas      int32
+	surplus       int32
+	numActivators int32
+	scaled        bool
+	scaleCount    int
 }
 
 func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, bool) {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, int32, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	u.scaleCount++
-	return u.replicas, u.surplus, u.scaled
+	return u.replicas, u.surplus, u.numActivators, u.scaled
 }
 
 func (u *fakeUniScaler) getScaleCount() int {
