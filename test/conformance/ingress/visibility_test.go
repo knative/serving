@@ -61,9 +61,9 @@ func TestVisibility(t *testing.T) {
 	defer cancel()
 
 	// Ensure the service is not publicly accessible
-	expectations := Expectations{
-		HTTPResponseStatuses: sets.NewInt(http.StatusNotFound),
-		AllowDialError:       true,
+	expectations := []Expectation{
+		AllowDialErrorConnectionExpectation,
+		StatusCodeExpectation(sets.NewInt(http.StatusNotFound)),
 	}
 	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, expectations)
 
@@ -177,9 +177,9 @@ func TestVisibilitySplit(t *testing.T) {
 	defer cancel()
 
 	// Ensure we can't connect to the private resources
-	expectations := Expectations{
-		HTTPResponseStatuses: sets.NewInt(http.StatusNotFound),
-		AllowDialError:       true,
+	expectations := []Expectation{
+		AllowDialErrorConnectionExpectation,
+		StatusCodeExpectation(sets.NewInt(http.StatusNotFound)),
 	}
 	RuntimeRequestWithStatus(t, client, "http://"+privateHostName, expectations)
 
