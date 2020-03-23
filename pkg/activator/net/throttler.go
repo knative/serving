@@ -176,13 +176,17 @@ func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracke
 	if cc == 0 {
 		return noop, tgs[rand.Intn(len(tgs))]
 	}
-	for _, t := range tgs {
-		if cb, ok := t.Reserve(ctx); ok {
-			return cb, t
+	// Us reaching here means we will eventually find a pod
+	// with available capacity, because we passed the outer
+	// semaphore. We can safely retry infinitely as request
+	// might still race to the actual pods.
+	for {
+		for _, t := range tgs {
+			if cb, ok := t.Reserve(ctx); ok {
+				return cb, t
+			}
 		}
 	}
-	// NB: as currently written this can never happen.
-	return noop, nil
 }
 
 // Returns a dest that at the moment of choosing had an open slot
@@ -202,11 +206,6 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 
 	if err := rt.breaker.Maybe(ctx, func() {
 		cb, tracker := rt.acquireDest(ctx)
-		if tracker == nil {
-			ret = errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
-				" never happen" + rt.revID.String())
-			return
-		}
 		defer cb()
 		// We already reserved a guaranteed spot. So just execute the passed functor.
 		ret = function(tracker.dest)
