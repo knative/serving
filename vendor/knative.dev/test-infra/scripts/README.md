@@ -1,6 +1,6 @@
 # Helper scripts
 
-This directory contains helper scripts used by Prow test jobs, as well as local
+This directory contains helper scripts used by Prow test jobs, as well and local
 development scripts.
 
 ## Using the `presubmit-tests.sh` helper script
@@ -70,11 +70,10 @@ integration tests).
 Use the flags `--build-tests`, `--unit-tests` and `--integration-tests` to run a
 specific set of tests.
 
-To run specific programs as a test, use the `--run-test` flag, and provide the
+To run a specific program as a test, use the `--run-test` flag, and provide the
 program as the argument. If arguments are required for the program, pass
 everything as a single quotes argument. For example,
-`./presubmit-tests.sh --run-test "test/my/test data"`. This flag can be used
-repeatedly, and each one will be ran in sequential order.
+`./presubmit-tests.sh --run-test "test/my/test data"`.
 
 The script will automatically skip all presubmit tests for PRs where all changed
 files are exempt of tests (e.g., a PR changing only the `OWNERS` file).
