@@ -61,6 +61,7 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1.Service {
 			Name: name,
 		},
 	}
+	s.SetDefaults(context.Background())
 	for _, opt := range so {
 		opt(s)
 	}

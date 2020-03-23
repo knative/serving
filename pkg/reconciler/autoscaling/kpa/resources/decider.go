@@ -18,8 +18,11 @@ package resources
 
 import (
 	"context"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -48,6 +51,7 @@ type Deciders interface {
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
 func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config, svc string) *scaling.Decider {
+	logger := logging.FromContext(ctx)
 	panicThresholdPercentage := config.PanicThresholdPercentage
 	if x, ok := pa.PanicThresholdPercentage(); ok {
 		panicThresholdPercentage = x
@@ -59,6 +63,17 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	tbc := config.TargetBurstCapacity
 	if x, ok := pa.TargetBC(); ok {
 		tbc = x
+	}
+
+	initScale := config.InitialScale
+	if revInitScale, ok := pa.Annotations[autoscaling.InitialScaleAnnotationKey]; ok {
+		revInitScaleInt, err := strconv.Atoi(revInitScale)
+		if err != nil {
+			logger.Errorf("Error processing revision initial scale %d: %v", revInitScale, err)
+		}
+		if revInitScaleInt > 1 {
+			initScale = int32(revInitScaleInt)
+		}
 	}
 	return &scaling.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
@@ -73,6 +88,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,
+			InitialScale:        initScale,
 		},
 	}
 }

@@ -37,7 +37,6 @@ import (
 // the revision level. This test runs after the cluster wide flag allow-zero-initial-scale
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -57,7 +56,6 @@ func TestInitScaleZero(t *testing.T) {
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()

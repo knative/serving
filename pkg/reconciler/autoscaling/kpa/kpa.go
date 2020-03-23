@@ -19,6 +19,9 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"math"
+	"strconv"
+	"time"
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
@@ -27,6 +30,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -94,7 +98,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, podCounts{want: scaleUnknown}, logger)
+		return c.computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -174,7 +178,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, pc, logger)
+	return c.computeStatus(ctx, pa, pc, logger)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
@@ -200,14 +204,14 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
+func (c *Reconciler) computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	if err := reportMetrics(pa, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, pc)
+	c.computeActiveCondition(ctx, pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
 	pa.Status.ObservedGeneration = pa.Generation
@@ -248,8 +252,8 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | inactive   | inactive   |
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
-	minReady := activeThreshold(pa)
+func (c *Reconciler) computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+	minReady := c.activeThreshold(ctx, pa)
 
 	switch {
 	case pc.want == 0:
@@ -275,12 +279,40 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
-	min, _ := pa.ScaleBounds()
-	if min < 1 {
-		min = 1
+func (c *Reconciler) activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
+	logger := logging.FromContext(ctx)
+	initScale := int(config.FromContext(ctx).Autoscaler.InitialScale)
+	allowZero := config.FromContext(ctx).Autoscaler.AllowZeroInitialScale
+	revInitScale, ok := pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	defaultScale := 1
+	if ok {
+		initialScaleInt, err := strconv.Atoi(revInitScale)
+		if err != nil {
+			logger.Errorf("error processing initialScale annotation: %v", err)
+		}
+		if initialScaleInt == 0 {
+			if allowZero {
+				initScale = 0
+			}
+		} else if initialScaleInt > 1 {
+			initScale = initialScaleInt
+		}
 	}
 
+	if c.scaler.lastReconcileTime != nil {
+		c.scaler.initialScaleTime += time.Since(*c.scaler.lastReconcileTime)
+		if c.scaler.initialScaleTime < config.FromContext(ctx).Autoscaler.StableWindow {
+			defaultScale = initScale
+		}
+	} else {
+		defaultScale = initScale
+	}
+	min, _ := pa.ScaleBounds()
+	if min < 1 && defaultScale == 1 {
+		min = 1
+	} else {
+		min = int32(math.Max(float64(min), float64(defaultScale)))
+	}
 	return int(min)
 }
 

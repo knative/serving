@@ -187,6 +187,11 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
 }
 
+// WithPAInitialScale adds a initial scale annotation to the PA.
+func WithPAInitialScale(initialScale string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.InitialScaleAnnotationKey, initialScale)
+}
+
 // WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.
 func WithMetricOwnersRemoved(m *asv1a1.Metric) {
 	m.OwnerReferences = nil

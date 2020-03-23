@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -724,17 +725,18 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
+		&network.Config{}, &obsConfig, asConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1.Revision
-		want *appsv1.Deployment
-		dc   deployment.Config
+		name                string
+		rev                 *v1.Revision
+		clusterInitialScale *int32
+		want                *appsv1.Deployment
+		dc                  deployment.Config
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -776,19 +778,67 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
+	}, {
+		name:                "cluster initial scale",
+		clusterInitialScale: ptr.Int32(int32(10)),
+		rev: revision("bar", "foo",
+			withoutLabels,
+			func(revision *v1.Revision) {
+				container(revision.Spec.GetContainer(),
+					withReadinessProbe(corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Host: "127.0.0.1",
+							Port: intstr.FromInt(12345),
+						},
+					}),
+				)
+			},
+		),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.Int32(int32(10))
+		}),
+	}, {
+		name:                "cluster initial scale override by revision initial scale",
+		clusterInitialScale: ptr.Int32(int32(10)),
+		rev: revision("bar", "foo",
+			withoutLabels,
+			func(revision *v1.Revision) {
+				container(revision.Spec.GetContainer(),
+					withReadinessProbe(corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Host: "127.0.0.1",
+							Port: intstr.FromInt(12345),
+						},
+					}),
+				)
+				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			},
+		),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.Int32(int32(20))
+			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+		}),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
+			asConfigPtr, err := autoscalerconfig.NewConfigFromMap(map[string]string{})
+			if err != nil {
+				t.Fatalf("Error creating default autoscaler config: %v", err)
+			}
+			if test.clusterInitialScale != nil {
+				asConfigPtr.InitialScale = *test.clusterInitialScale
+			}
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, &asConfig, &deploymentConfig)
+				&obsConfig, asConfigPtr, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &asConfig, &test.dc)
+				&network.Config{}, &obsConfig, asConfigPtr, &test.dc)
 			if err != nil {
 				t.Fatal("got unexpected error:", err)
 			}

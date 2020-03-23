@@ -21,6 +21,8 @@ metadata:
     serving.knative.dev/release: devel
 
 data:
+  allow-zero-initial-scale: "true"
+  initial-scale: "0"
   _example: |
     ################################
     #                              #
@@ -176,3 +178,13 @@ data:
     # See the algorithm here: http://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
+
+    # allow-zero-initial-scale specifies whether developers can set
+    # the autoscaling.internal.knative.dev/initialScale annotation to
+    # 0, and whether operators can set initial-scale to 0.
+    allow-zero-initial-scale: "false"
+
+    # initial-scale specifies the initial revision size when
+    # a new service is deployed. This number can be set to 0 iff
+    # allow-zero-initial-scale is true.
+    initial-scale: "1"

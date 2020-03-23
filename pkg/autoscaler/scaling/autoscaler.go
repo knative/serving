@@ -29,6 +29,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	v1 "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,11 +42,12 @@ const MinActivators = 2
 
 // Autoscaler stores current state of an instance of an autoscaler.
 type Autoscaler struct {
-	namespace    string
-	revision     string
-	metricClient metrics.MetricClient
-	lister       corev1listers.EndpointsLister
-	reporterCtx  context.Context
+	namespace       string
+	revision        string
+	metricClient    metrics.MetricClient
+	endpointslister corev1listers.EndpointsLister
+	revisionlister  v1.RevisionLister
+	reporterCtx     context.Context
 
 	// State in panic mode.
 	panicTime    time.Time
@@ -55,6 +57,9 @@ type Autoscaler struct {
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
 	podCounter  resources.EndpointsCounter
+
+	// For service initial scale.
+	initialScaleTime time.Duration
 }
 
 // New creates a new instance of autoscaler
@@ -96,17 +101,19 @@ func New(
 	}
 
 	return &Autoscaler{
-		namespace:    namespace,
-		revision:     revision,
-		metricClient: metricClient,
-		lister:       lister,
-		reporterCtx:  reporterCtx,
+		namespace:       namespace,
+		revision:        revision,
+		metricClient:    metricClient,
+		endpointslister: lister,
+		reporterCtx:     reporterCtx,
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
+
+		initialScaleTime: 0 * time.Second,
 	}, nil
 }
 
@@ -117,7 +124,7 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 
 	// Update the podCounter if service name changes.
 	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
-		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
+		a.podCounter = resources.NewScopedEndpointsCounter(a.endpointslister, a.namespace,
 			deciderSpec.ServiceName)
 	}
 	a.deciderSpec = deciderSpec
@@ -230,6 +237,21 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		desiredPodCount = a.maxPanicPods
 	} else {
 		logger.Debug("Operating in stable mode.")
+	}
+
+	// Wait a full stable window at initial scale, because we want to scale down behavior
+	// to look the same to users as when autoscaler naturally scales down due to lack of
+	// traffic, and it will take a full stable window without traffic for it to scale down to minScale.
+	if spec.InitialScale > 1 && a.initialScaleTime < a.deciderSpec.StableWindow {
+		if originalReadyPodsCount >= int(spec.InitialScale) {
+			a.initialScaleTime += tickInterval
+		}
+		// Only force the desired pod count to be initial scale if it's less than initial scale,
+		// because user might be getting a lot of traffic and need to scale up
+		if desiredPodCount < spec.InitialScale {
+			logger.Debugf("Updating desiredPodCount to initial scale: %d -> %d", desiredPodCount, spec.InitialScale)
+			desiredPodCount = spec.InitialScale
+		}
 	}
 
 	// Here we compute two numbers: excess burst capacity and number of activators

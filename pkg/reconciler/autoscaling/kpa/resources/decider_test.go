@@ -130,6 +130,18 @@ func TestMakeDecider(t *testing.T) {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+	}, {
+		name: "with initial scale annotation",
+		pa:   pa(WithPAInitialScale("5")),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withInitialScale(5), withInitialScaleAnnotation("5")),
+	}, {
+		name: "use cluster initial scale",
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.InitialScale = 3
+			return &c
+		},
+		pa:   pa(),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withInitialScale(3)),
 	}}
 
 	for _, tc := range cases {
@@ -200,6 +212,7 @@ func decider(options ...deciderOption) *scaling.Decider {
 			PanicThreshold:      200,
 			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
+			InitialScale:        config.InitialScale,
 		},
 	}
 	for _, fn := range options {
@@ -257,6 +270,12 @@ func withPanicThreshold(threshold float64) deciderOption {
 	}
 }
 
+func withInitialScale(initialScale int) deciderOption {
+	return func(decider *scaling.Decider) {
+		decider.Spec.InitialScale = int32(initialScale)
+	}
+}
+
 func withTargetAnnotation(target string) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
@@ -275,6 +294,12 @@ func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 	}
 }
 
+func withInitialScaleAnnotation(initialScale string) deciderOption {
+	return func(decider *scaling.Decider) {
+		decider.Annotations[autoscaling.InitialScaleAnnotationKey] = initialScale
+	}
+}
+
 var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
@@ -288,4 +313,5 @@ var config = &autoscalerconfig.Config{
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
 	ScaleToZeroGracePeriod:             30 * time.Second,
+	InitialScale:                       1,
 }

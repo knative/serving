@@ -113,11 +113,11 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		// Validate all Create operations through the serving client.
 		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return rtesting.ValidateCreates(context.Background(), action)
+			return rtesting.ValidateCreates(r.Ctx, action)
 		})
 		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return rtesting.ValidateUpdates(context.Background(), action)
+			return rtesting.ValidateUpdates(r.Ctx, action)
 		})
 
 		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, kubeClient, cachingClient}

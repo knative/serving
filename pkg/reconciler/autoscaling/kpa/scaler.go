@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
@@ -29,6 +30,7 @@ import (
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -87,6 +89,10 @@ type scaler struct {
 	// For async probes.
 	probeManager asyncProber
 	enqueueCB    func(interface{}, time.Duration)
+
+	// For service initial scale.
+	initialScaleTime  time.Duration
+	lastReconcileTime *time.Time
 }
 
 // newScaler creates a scaler.
@@ -307,6 +313,29 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 	}
 
 	min, max := pa.ScaleBounds()
+	initialScale := getInitialScale(ctx, pa)
+	asConfig := config.FromContext(ctx).Autoscaler
+	if initialScale > min && initialScale > 1 {
+		// We need to manually set the initial scale here for a short period of time, even though
+		// Autoscaler.Scale(...) will set it too. This is because even though both scaler.Scale(...)
+		// and Autoscaler.Scale(...) are triggered by KPA reconciliation, scaler.Scale(...) will
+		// run a few seconds earlier before Autoscaler.Scale(...) starts running because
+		// scaler.Scale(...) will be run in tick intervals (see multiScaler.runScalerTicker(...)).
+		// This creates a problem in the scenario where minScale < initialScale, in that a newly
+		// created service will have minScale number of pods created, then a few seconds later it
+		// will adjust the scale to initialScale.
+		if pa.Status.ActualScale != nil && *pa.Status.ActualScale == initialScale {
+			if ks.lastReconcileTime != nil {
+				ks.initialScaleTime += time.Since(*ks.lastReconcileTime)
+			}
+			now := time.Now()
+			ks.lastReconcileTime = &now
+		}
+		if ks.initialScaleTime < asConfig.StableWindow/2 {
+			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
+			min = initialScale
+		}
+	}
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
@@ -332,4 +361,20 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+}
+
+func getInitialScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int32 {
+	config := config.FromContext(ctx).Autoscaler
+	initialScale := config.InitialScale
+	revisionInitialScale, ok := pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	if ok {
+		revInitialScaleInt, err := strconv.Atoi(revisionInitialScale)
+		if err == nil {
+			initialScale = int32(revInitialScaleInt)
+		} else {
+			logger := logging.FromContext(ctx)
+			logger.Errorf("Failed to convert revision initial scale to int: %v", err)
+		}
+	}
+	return initialScale
 }

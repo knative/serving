@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/pkg/ptr"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -67,20 +68,27 @@ const (
 
 func TestScaler(t *testing.T) {
 	const activationTimeout = progressDeadline + activationTimeoutBuffer
+	now := time.Now()
 	tests := []struct {
-		label               string
-		startReplicas       int
-		scaleTo             int32
-		minScale            int32
-		maxScale            int32
-		wantReplicas        int32
-		wantScaling         bool
-		sks                 SKSOption
-		paMutation          func(*pav1alpha1.PodAutoscaler)
-		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
-		configMutator       func(*config.Config)
-		wantCBCount         int
-		wantAsyncProbeCount int
+		ctx                         context.Context
+		label                       string
+		startReplicas               int
+		scaleTo                     int32
+		minScale                    int32
+		maxScale                    int32
+		revisionInitialScale        *int32
+		lastReconcileTime           *time.Time
+		initialScaleTime            time.Duration
+		wantReplicas                int32
+		wantScaling                 bool
+		sks                         SKSOption
+		paMutation                  func(*pav1alpha1.PodAutoscaler)
+		proberfunc                  func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
+		configMutator               func(*config.Config)
+		wantCBCount                 int
+		wantAsyncProbeCount         int
+		wantLastReconcileTimeUpdate bool
+		wantInitialScaleTimeUpdate  bool
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
@@ -403,6 +411,64 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
 		},
+	}, {
+		label: "cluster initial scale",
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.AllowZeroInitialScale = false
+			c.Autoscaler.InitialScale = 3
+		},
+		startReplicas:               0,
+		scaleTo:                     1,
+		wantReplicas:                3,
+		wantScaling:                 true,
+		wantLastReconcileTimeUpdate: false,
+		wantInitialScaleTimeUpdate:  false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+		},
+	}, {
+		label: "cluster initial scale have scaled",
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.AllowZeroInitialScale = false
+			c.Autoscaler.InitialScale = 3
+		},
+		startReplicas:               3,
+		scaleTo:                     1,
+		lastReconcileTime:           &now,
+		wantReplicas:                3,
+		wantScaling:                 false,
+		wantLastReconcileTimeUpdate: true,
+		wantInitialScaleTimeUpdate:  true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+			k.Status.ActualScale = ptr.Int32(int32(3))
+		},
+	}, {
+		label:                       "revision initial scale",
+		startReplicas:               0,
+		scaleTo:                     1,
+		revisionInitialScale:        ptr.Int32(int32(3)),
+		wantReplicas:                3,
+		wantScaling:                 true,
+		wantLastReconcileTimeUpdate: false,
+		wantInitialScaleTimeUpdate:  false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+		},
+	}, {
+		label:                       "revision initial scale have scaled",
+		startReplicas:               3,
+		scaleTo:                     1,
+		revisionInitialScale:        ptr.Int32(int32(3)),
+		lastReconcileTime:           &now,
+		wantReplicas:                3,
+		wantScaling:                 false,
+		wantLastReconcileTimeUpdate: true,
+		wantInitialScaleTimeUpdate:  true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+			k.Status.ActualScale = ptr.Int32(int32(3))
+		},
 	}}
 
 	for _, test := range tests {
@@ -411,7 +477,7 @@ func TestScaler(t *testing.T) {
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 
-			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
+			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale, test.revisionInitialScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
 			revisionScaler := newScaler(ctx, podscalable.Get(ctx), func(interface{}, time.Duration) {
@@ -424,6 +490,8 @@ func TestScaler(t *testing.T) {
 			}
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
+			revisionScaler.lastReconcileTime = test.lastReconcileTime
+			revisionScaler.initialScaleTime = test.initialScaleTime
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -472,19 +540,38 @@ func TestScaler(t *testing.T) {
 				}
 				checkReplicas(t, dynamicClient, deployment, test.wantReplicas)
 			}
+			if test.wantLastReconcileTimeUpdate {
+				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; gotUpdatedLastReconcileTime.Sub(now) == 0*time.Second {
+					t.Error("lastReconcileTime not updated")
+				}
+			} else {
+				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; gotUpdatedLastReconcileTime != nil {
+					t.Error("lastReconcileTime should not be updated")
+				}
+			}
+			if test.wantInitialScaleTimeUpdate {
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime == 0*time.Second {
+					t.Error("initialScaleTime not updated")
+				}
+			} else {
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime > 0*time.Second {
+					t.Error("initialScaleTime should not be updated")
+				}
+			}
 		})
 	}
 }
 
 func TestDisableScaleToZero(t *testing.T) {
 	tests := []struct {
-		label         string
-		startReplicas int
-		scaleTo       int32
-		minScale      int32
-		maxScale      int32
-		wantReplicas  int32
-		wantScaling   bool
+		label                string
+		startReplicas        int
+		scaleTo              int32
+		minScale             int32
+		maxScale             int32
+		revisionInitialScale *int32
+		wantReplicas         int32
+		wantScaling          bool
 	}{{
 		label:         "EnableScaleToZero == false and minScale == 0",
 		startReplicas: 10,
@@ -525,7 +612,7 @@ func TestDisableScaleToZero(t *testing.T) {
 					return true, nil, nil
 				})
 
-			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
+			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale, test.revisionInitialScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
@@ -567,7 +654,7 @@ func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1.Revisi
 	return pa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
+func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32, initialScale *int32) *v1.Revision {
 	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
@@ -575,6 +662,9 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	}
 	if maxScale > 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
+	}
+	if initialScale != nil {
+		annotations[autoscaling.InitialScaleAnnotationKey] = strconv.Itoa(int(*initialScale))
 	}
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -750,4 +840,12 @@ func markSKSInProxyFor(sks *nv1a1.ServerlessService, d time.Duration) {
 	sks.Status.MarkActivatorEndpointsPopulated()
 	// This works because the conditions are sorted alphabetically
 	sks.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-d))}
+}
+
+func autoscalerConfigCtx(t *testing.T, allowInitialScaleZero bool, initialScale int) context.Context {
+	testConfigs := defaultConfig()
+	testConfigs.Autoscaler.AllowZeroInitialScale = allowInitialScaleZero
+	testConfigs.Autoscaler.InitialScale = int32(initialScale)
+	ctx, _ := SetupFakeContext(t)
+	return config.ToContext(ctx, testConfigs)
 }
