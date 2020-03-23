@@ -574,7 +574,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1814,7 +1814,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cc1ad7ece65e84799152801726e967c5519628669c14e4c5f23ee458397fe051"
+  digest = "1:9ca8ad57e2b2c8c3d9dcd93c322cad609ed437565205fce3a87d919a0311fcf1"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1837,7 +1837,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "e2e5784288b6ca1e3f8b047521f73c68da79a748"
+  revision = "9729e19dae043f67dce41861bc45cf180d2f4539"
 
 [[projects]]
   branch = "release-0.13"
@@ -1952,8 +1952,8 @@
   revision = "a56a6ea3fa56b9c9c2482a5bda0005dd2364d183"
 
 [[projects]]
-  branch = "master"
-  digest = "1:ed2bc53a52c6d986713ba16c92bdd64ad910403d92735db9a2056d9152c75299"
+  branch = "revert-1682-autobump"
+  digest = "1:a6825e0c1abd44ce942d424e28faf9b5b4ee1af8d0d30ffc3d8a778579fafc84"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1966,7 +1966,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "8c4b7ba9225ef684492032fb787f5f99d021545d"
+  revision = "f911c664103ea1187cc0d50e5029ec02fab2f64a"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
