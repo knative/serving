@@ -25,7 +25,6 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -123,7 +122,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
@@ -174,19 +173,9 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	}
 }
 
-func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
-	t.Helper()
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
-		secretName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
-	}
-	return secret.Data[corev1.TLSCertKey]
-}
-
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	t.Helper()
-	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
+	pemData := test.PemDataFromSecret(t.Logf, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {

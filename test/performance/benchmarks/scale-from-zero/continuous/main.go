@@ -111,7 +111,7 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], _, err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], false, sos...); err != nil {
+			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil

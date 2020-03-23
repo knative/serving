@@ -550,3 +550,11 @@ function dump_extra_cluster_state() {
   echo ">>> SKSs:"
   kubectl get serverlessservices -o yaml --all-namespaces
 }
+
+function turn_on_auto_tls() {
+  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Enabled"}}'
+}
+
+function turn_off_auto_tls() {
+  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Disabled"}}'
+}
