@@ -48,18 +48,14 @@ func getLeader(t *testing.T, clients *test.Clients, lease, labelSelector string)
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}
 		leader = strings.Split(*lease.Spec.HolderIdentity, "_")[0]
-		currentPodList, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
-			LabelSelector: labelSelector,
-		})
-		if err != nil {
-			return false, fmt.Errorf("error retrieving pods with label %s: %w", labelSelector, err)
-		}
-		for _, pod := range currentPodList.Items {
-			if pod.Name == leader { // the leader must be an existing pod
-				return true, nil
+		// the leader must be an existing pod
+		if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(leader, metav1.GetOptions{}); err != nil {
+			if apierrs.IsNotFound(err) {
+				return false, nil
 			}
+			return false, fmt.Errorf("error getting pod %s: %w", leader, err)
 		}
-		return false, nil
+		return true, nil
 	}); err != nil {
 		return "", err
 	}
