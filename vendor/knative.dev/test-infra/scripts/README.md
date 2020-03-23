@@ -1,6 +1,6 @@
 # Helper scripts
 
-This directory contains helper scripts used by Prow test jobs, as well as local
+This directory contains helper scripts used by Prow test jobs, as well and local
 development scripts.
 
 ## Using the `presubmit-tests.sh` helper script
