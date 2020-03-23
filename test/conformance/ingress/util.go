@@ -35,6 +35,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	nurl "net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -844,12 +845,16 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 }
 
 type RequestOption func(*http.Request)
-
-func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
-	return RuntimeRequestWithStatus(t, client, url, sets.NewInt(http.StatusOK), opts...)
+type Expectations struct {
+	HTTPResponseStatuses sets.Int
+	AllowDialError       bool
 }
 
-func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, expectedStatus sets.Int, opts ...RequestOption) *types.RuntimeInfo {
+func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
+	return RuntimeRequestWithStatus(t, client, url, Expectations{HTTPResponseStatuses: sets.NewInt(http.StatusOK)}, opts...)
+}
+
+func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, expectations Expectations, opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -864,12 +869,16 @@ func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, exp
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if isDialError(t, err) && expectations.AllowDialError {
+			return nil
+		}
 		t.Errorf("Error making GET request: %v", err)
 		return nil
 	}
+
 	defer resp.Body.Close()
-	if !expectedStatus.Has(resp.StatusCode) {
-		t.Errorf("Got unexpected status: %d, expected %v", resp.StatusCode, expectedStatus)
+	if !expectations.HTTPResponseStatuses.Has(resp.StatusCode) {
+		t.Errorf("Got unexpected status: %d, expected %v", resp.StatusCode, expectations.HTTPResponseStatuses)
 		DumpResponse(t, resp)
 		return nil
 	}
@@ -898,4 +907,18 @@ func DumpResponse(t *testing.T, resp *http.Response) {
 		t.Errorf("Error dumping response: %v", err)
 	}
 	t.Log(string(b))
+}
+
+func isDialError(t *testing.T, err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if err, ok := err.(*nurl.Error); ok {
+		if err, ok := err.Err.(*net.OpError); ok {
+			return err.Op == "dial"
+		}
+	}
+
+	return false
 }
