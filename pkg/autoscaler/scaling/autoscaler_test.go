@@ -62,7 +62,7 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 	}
 
 	a := newTestAutoscaler(t, 10, 100, metrics)
-	a.expectScale(t, time.Now(), 0, 0, 1, false)
+	a.expectScale(t, time.Now(), 0, 0, minActivators, false)
 }
 
 func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
@@ -70,7 +70,7 @@ func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 }
 
 func expectedNA(a *Autoscaler, numP float64) int32 {
-	return int32(math.Max(1,
+	return int32(math.Max(minActivators,
 		math.Ceil(
 			(a.deciderSpec.TotalValue*numP+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
 }
@@ -382,12 +382,12 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	fake.Endpoints(0, fake.TestService)
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
-	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), 1, true)
+	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), minActivators, true)
 
 	eraseEndpoints()
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no Endpoints object is there from K8S API.
-	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), 1, true)
+	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), minActivators, true)
 }
 
 func TestAutoscalerUpdateTarget(t *testing.T) {
