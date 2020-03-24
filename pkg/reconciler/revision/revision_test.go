@@ -340,6 +340,40 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	}
 }
 
+func TestRevWithImageDigests(t *testing.T) {
+	deploymentConfig := getTestDeploymentConfig()
+	ctx, _, controller, _ := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      config.DefaultsConfigName,
+		},
+		Data: map[string]string{
+			"enable-multi-container": "true",
+		},
+	},
+	})
+	// Flag is enabled and spec contains single container then rev status should not have imageDigests field
+	rev := getRev(ctx, t, controller, testRevision())
+	if len(rev.Status.ImageDigests) != 0 {
+		t.Errorf("revision status does not have imageDigests")
+	}
+	// Flag is enabled and spec contains multiple container so rev status should contain imageDigests field
+	rev = getRev(ctx, t, controller, testRevisionForMultipleContainer())
+	if len(rev.Status.ImageDigests) == 0 {
+		t.Errorf("revision status does not have imageDigests")
+	}
+}
+
+func getRev(ctx context.Context, t *testing.T, controller *controller.Impl, rev *v1.Revision) *v1.Revision {
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
+	createRevision(t, ctx, controller, rev)
+	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("couldn't get revision: %v", err)
+	}
+	return createdRev
+}
+
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	ctx, cancel, _, ctl, _ := newTestController(t)

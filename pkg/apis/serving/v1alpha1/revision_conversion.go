@@ -80,6 +80,7 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.ImageDigest = source.ImageDigest
+	sink.ImageDigests = source.ImageDigests
 }
 
 // ConvertFrom implements apis.Convertible
@@ -112,4 +113,5 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.ImageDigest = source.ImageDigest
+	sink.ImageDigests = source.ImageDigests
 }
