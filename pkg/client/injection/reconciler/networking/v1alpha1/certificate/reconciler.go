@@ -125,14 +125,20 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 
 	// Convert the namespace/name string into a distinct namespace and name
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+
 	if err != nil {
 		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 
 	// Get the resource with this namespace/name.
-	original, err := r.Lister.Certificates(namespace).Get(name)
+
+	getter := r.Lister.Certificates(namespace)
+
+	original, err := getter.Get(name)
+
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		logger.Errorf("resource %q no longer exists", key)
@@ -211,7 +217,10 @@ func (r *reconcilerImpl) updateStatus(existing *v1alpha1.Certificate, desired *v
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the injectionInformer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
-			existing, err = r.Client.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+
+			getter := r.Client.NetworkingV1alpha1().Certificates(desired.Namespace)
+
+			existing, err = getter.Get(desired.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -223,7 +232,10 @@ func (r *reconcilerImpl) updateStatus(existing *v1alpha1.Certificate, desired *v
 		}
 
 		existing.Status = desired.Status
-		_, err = r.Client.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+
+		updater := r.Client.NetworkingV1alpha1().Certificates(existing.Namespace)
+
+		_, err = updater.UpdateStatus(existing)
 		return err
 	})
 }
@@ -234,7 +246,9 @@ func (r *reconcilerImpl) updateStatus(existing *v1alpha1.Certificate, desired *v
 func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
 	finalizerName := defaultFinalizerName
 
-	actual, err := r.Lister.Certificates(resource.Namespace).Get(resource.Name)
+	getter := r.Lister.Certificates(resource.Namespace)
+
+	actual, err := getter.Get(resource.Name)
 	if err != nil {
 		return resource, err
 	}
@@ -277,7 +291,9 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 		return resource, err
 	}
 
-	resource, err = r.Client.NetworkingV1alpha1().Certificates(resource.Namespace).Patch(resource.Name, types.MergePatchType, patch)
+	patcher := r.Client.NetworkingV1alpha1().Certificates(resource.Namespace)
+
+	resource, err = patcher.Patch(resource.Name, types.MergePatchType, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resource.Name, err)

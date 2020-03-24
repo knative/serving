@@ -48,11 +48,13 @@ var _ podautoscaler.Interface = (*Reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, o *v1alpha1.PodAutoscaler) reconciler.Event {
-	o.Status.InitializeConditions()
+	// TODO: use this if the resource implements InitializeConditions.
+	// o.Status.InitializeConditions()
 
 	// TODO: add custom reconciliation logic here.
 
-	o.Status.ObservedGeneration = o.Generation
+	// TODO: use this if the object has .status.ObservedGeneration.
+	// o.Status.ObservedGeneration = o.Generation
 	return newReconciledNormal(o.Namespace, o.Name)
 }
 

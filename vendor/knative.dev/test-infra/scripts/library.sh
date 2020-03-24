@@ -482,7 +482,19 @@ function run_go_tool() {
   if [[ -z "$(which ${tool})" ]]; then
     local action=get
     [[ $1 =~ ^[\./].* ]] && action=install
-    go ${action} $1
+    # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
+    # See discussions in https://github.com/golang/go/issues/27643.
+    if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
+      local temp_dir="$(mktemp -d)"
+      local install_failed=0
+      # Swallow the output as we are returning the stdout in the end.
+      pushd "${temp_dir}" > /dev/null 2>&1
+      go ${action} $1 || install_failed=1
+      popd > /dev/null 2>&1
+      (( install_failed )) && return ${install_failed}
+    else
+      go ${action} $1
+    fi
   fi
   shift 2
   ${tool} "$@"

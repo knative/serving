@@ -1362,14 +1362,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3f2366ce9a05503ac8da902b58e898c285cc9a972e0e89fda0b2a2fedcd4fb46"
+  digest = "1:2987a1db00b983af9e5d5281639a754fb6449eef01e6a375894829eaec17cb2a"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "e7f947d615d5eb623e80824f71d139a958c4019f"
+  revision = "9a501343b4dafbac1a1a5dcfe2cb46975a78abb5"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1459,6 +1459,7 @@
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1",
