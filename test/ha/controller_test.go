@@ -28,7 +28,6 @@ import (
 
 const (
 	controllerDeploymentName = "controller"
-	controllerLabel          = "app=controller"
 )
 
 func TestControllerHA(t *testing.T) {
@@ -44,7 +43,7 @@ func TestControllerHA(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 
-	leaderController, err := getLeader(t, clients, controllerDeploymentName, controllerLabel)
+	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
@@ -56,7 +55,7 @@ func TestControllerHA(t *testing.T) {
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, controllerDeploymentName, controllerLabel); err != nil {
+	if _, err = getLeader(t, clients, controllerDeploymentName); err != nil {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 

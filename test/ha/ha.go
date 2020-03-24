@@ -40,41 +40,35 @@ const (
 	haReplicas       = 2
 )
 
-func getLeader(t *testing.T, clients *test.Clients, lease, labelSelector string) (string, error) {
+func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
 	var leader string
-	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
+	err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
 		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(servingNamespace).Get(lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}
 		leader = strings.Split(*lease.Spec.HolderIdentity, "_")[0]
 		// the leader must be an existing pod
-		if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(leader, metav1.GetOptions{}); err != nil {
-			if apierrs.IsNotFound(err) {
-				return false, nil
-			}
-			return false, fmt.Errorf("error getting pod %s: %w", leader, err)
-		}
-		return true, nil
-	}); err != nil {
-		return "", err
-	}
-	return leader, nil
+		return podExists(clients, leader)
+	})
+	return leader, err
 }
 
 func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) error {
-	if err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
-		if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(podName, metav1.GetOptions{}); err != nil {
-			if apierrs.IsNotFound(err) {
-				return true, nil
-			}
-			return false, err
+	return wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
+		exists, err := podExists(clients, podName)
+		return !exists, err
+	})
+}
+
+func podExists(clients *test.Clients, podName string) (bool, error) {
+	if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(podName, metav1.GetOptions{}); err != nil {
+		if apierrs.IsNotFound(err) {
+			return false, nil
 		}
-		return false, nil
-	}); err != nil {
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
 func scaleUpDeployment(clients *test.Clients, name string) error {
