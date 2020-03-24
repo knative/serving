@@ -61,10 +61,7 @@ func TestVisibility(t *testing.T) {
 	defer cancel()
 
 	// Ensure the service is not publicly accessible
-	RuntimeRequestWithStatus(t, client, "http://"+privateHostName,
-		[]ResponseExpectation{AllowStatusCodeExpectation(sets.NewInt(http.StatusNotFound))},
-		[]ErrorExpectation{AllowDialErrorConnectionExpectation},
-	)
+	RuntimeRequestWithExpectations(t, client, "http://"+privateHostName, []ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusNotFound))}, true)
 
 	loadbalancerAddress := ingress.Status.PrivateLoadBalancer.Ingress[0].DomainInternal
 	proxyName, proxyPort, cancel := CreateProxyService(t, clients, privateHostName, loadbalancerAddress)
@@ -176,10 +173,7 @@ func TestVisibilitySplit(t *testing.T) {
 	defer cancel()
 
 	// Ensure we can't connect to the private resources
-	RuntimeRequestWithStatus(t, client, "http://"+privateHostName,
-		[]ResponseExpectation{AllowStatusCodeExpectation(sets.NewInt(http.StatusNotFound))},
-		[]ErrorExpectation{AllowDialErrorConnectionExpectation},
-	)
+	RuntimeRequestWithExpectations(t, client, "http://"+privateHostName, []ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusNotFound))}, true)
 
 	// Create a large enough population of requests that we can reasonably assess how
 	// well the Ingress respected the percentage split.

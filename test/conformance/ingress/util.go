@@ -846,19 +846,20 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 
 type RequestOption func(*http.Request)
 type ResponseExpectation func(response *http.Response) error
-type ErrorExpectation func(err error) error
 
 func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
-	return RuntimeRequestWithStatus(t, client, url,
-		[]ResponseExpectation{AllowStatusCodeExpectation(sets.NewInt(http.StatusOK))},
-		[]ErrorExpectation{DefaultConnectionExpectation},
+	return RuntimeRequestWithExpectations(t, client, url,
+		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusOK))},
+		false,
 		opts...)
-
 }
 
-func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string,
+// RuntimeRequestWithExpectations attempts to make a request to url and return runtime information.
+// If connection is successful only then it will validate all response expectations.
+// If allowDialError is set to true then function will not fail if connection is a dial error.
+func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url string,
 	responseExpectations []ResponseExpectation,
-	errorExpectations []ErrorExpectation,
+	allowDialError bool,
 	opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
@@ -875,10 +876,8 @@ func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string,
 	resp, err := client.Do(req)
 
 	if err != nil {
-		for _, e := range errorExpectations {
-			if err := e(err); err != nil {
-				t.Errorf("Error: %v", err)
-			}
+		if !allowDialError || !IsDialError(err) {
+			t.Errorf("Error making GET request: %v", err)
 		}
 		return nil
 	}
@@ -888,7 +887,7 @@ func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string,
 	if resp != nil {
 		for _, e := range responseExpectations {
 			if err := e(resp); err != nil {
-				t.Errorf("Error making GET request: %v", err)
+				t.Errorf("Error meeting response expectations: %v", err)
 				DumpResponse(t, resp)
 				return nil
 			}
@@ -921,7 +920,7 @@ func DumpResponse(t *testing.T, resp *http.Response) {
 	t.Log(string(b))
 }
 
-func AllowStatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
+func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
 	return func(response *http.Response) error {
 		if !statusCodes.Has(response.StatusCode) {
 			return fmt.Errorf("got unexpected status: %d, expected %v", response.StatusCode, statusCodes)
@@ -930,15 +929,10 @@ func AllowStatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
 	}
 }
 
-func DefaultConnectionExpectation(err error) error {
-	return err
-}
-
-func AllowDialErrorConnectionExpectation(err error) error {
+func IsDialError(err error) bool {
 	if err, ok := err.(*nurl.Error); ok {
-		if err, ok := err.Err.(*net.OpError); ok && err.Op == "dial" {
-			return nil
-		}
+		err, ok := err.Err.(*net.OpError)
+		return ok && err.Op == "dial"
 	}
-	return err
+	return false
 }
