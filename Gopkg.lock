@@ -1959,21 +1959,21 @@
   revision = "9f9f7bea94e15840f36f08b90a2c03203e886f91"
 
 [[projects]]
-  branch = "revert-1682-autobump"
-  digest = "1:a6825e0c1abd44ce942d424e28faf9b5b4ee1af8d0d30ffc3d8a778579fafc84"
+  branch = "master"
+  digest = "1:99d756cd6cbf24bfbf5aa6754735615510f52ed935d8ab18e94f08481aacf5dc"
   name = "knative.dev/test-infra"
   packages = [
+    "pkg/common",
+    "pkg/gcs",
+    "pkg/junit",
+    "pkg/performance",
+    "pkg/prow",
+    "pkg/testgrid",
     "scripts",
-    "shared/common",
-    "shared/gcs",
-    "shared/junit",
-    "shared/performance",
-    "shared/prow",
-    "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "f911c664103ea1187cc0d50e5029ec02fab2f64a"
+  revision = "0042e9ca752c8339c3c245e1d2c76b891a144b7e"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2197,11 +2197,11 @@
     "knative.dev/pkg/webhook/resourcesemantics/defaulting",
     "knative.dev/pkg/webhook/resourcesemantics/validation",
     "knative.dev/pkg/websocket",
+    "knative.dev/test-infra/pkg/junit",
+    "knative.dev/test-infra/pkg/performance",
+    "knative.dev/test-infra/pkg/prow",
+    "knative.dev/test-infra/pkg/testgrid",
     "knative.dev/test-infra/scripts",
-    "knative.dev/test-infra/shared/junit",
-    "knative.dev/test-infra/shared/performance",
-    "knative.dev/test-infra/shared/prow",
-    "knative.dev/test-infra/shared/testgrid",
     "knative.dev/test-infra/tools/dep-collector",
   ]
   solver-name = "gps-cdcl"

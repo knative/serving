@@ -19,7 +19,7 @@ package performance
 import (
 	"fmt"
 
-	"knative.dev/test-infra/shared/junit"
+	"knative.dev/test-infra/pkg/junit"
 )
 
 const (
