@@ -78,6 +78,8 @@ type GKECluster struct {
 	Request *GKERequest
 	// Project might be GKE specific, so put it here
 	Project string
+	// IsBoskos is true if the GCP project used is managed by boskos
+	IsBoskos bool
 	// NeedsCleanup tells whether the cluster needs to be deleted afterwards
 	// This probably should be part of task wrapper's logic
 	NeedsCleanup bool
@@ -181,12 +183,13 @@ func (gc *GKECluster) Acquire() error {
 
 	// Get project name from boskos if running in Prow, otherwise it should fail
 	// since we don't know which project to use
-	if common.IsProw() {
+	if gc.Request.Project == "" && common.IsProw() {
 		project, err := gc.boskosOps.AcquireGKEProject(gc.Request.ResourceType)
 		if err != nil {
 			return fmt.Errorf("failed acquiring boskos project: '%v'", err)
 		}
 		gc.Project = project.Name
+		gc.IsBoskos = true
 	}
 	if gc.Project == "" {
 		return errors.New("GCP project must be set")
@@ -268,7 +271,7 @@ func (gc *GKECluster) Delete() error {
 	gc.ensureProtected()
 	// Release Boskos if running in Prow, will let Janitor taking care of
 	// clusters deleting
-	if common.IsProw() {
+	if gc.IsBoskos {
 		log.Printf("Releasing Boskos resource: '%v'", gc.Project)
 		return gc.boskosOps.ReleaseGKEProject(gc.Project)
 	}

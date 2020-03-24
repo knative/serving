@@ -33,8 +33,25 @@ const (
 	separator               = "\n"
 )
 
+// Option enables further configuration of a Cmd.
+type Option func(cmd *exec.Cmd)
+
+// WithEnvs returns an option that adds env vars for the given Cmd.
+func WithEnvs(envs []string) Option {
+	return func(c *exec.Cmd) {
+		c.Env = envs
+	}
+}
+
+// WithDir returns an option that adds dir for the given Cmd.
+func WithDir(dir string) Option {
+	return func(c *exec.Cmd) {
+		c.Dir = dir
+	}
+}
+
 // RunCommand will run the command and return the standard output, plus error if there is one.
-func RunCommand(cmdLine string) (string, error) {
+func RunCommand(cmdLine string, options ...Option) (string, error) {
 	cmdSplit, err := shell.Split(cmdLine)
 	if len(cmdSplit) == 0 || err != nil {
 		return "", &CommandLineError{
@@ -47,6 +64,10 @@ func RunCommand(cmdLine string) (string, error) {
 	cmdName := cmdSplit[0]
 	args := cmdSplit[1:]
 	cmd := exec.Command(cmdName, args...)
+	for _, option := range options {
+		option(cmd)
+	}
+
 	var eb bytes.Buffer
 	cmd.Stderr = &eb
 

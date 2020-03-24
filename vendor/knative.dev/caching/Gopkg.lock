@@ -159,7 +159,7 @@
   version = "v1.3.2"
 
 [[projects]]
-  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
+  digest = "1:0aeda02073125667ac6c9df50c7921cb22c08a4accdc54589c697a7e76be65c2"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
@@ -169,8 +169,8 @@
     "cmp/internal/value",
   ]
   pruneopts = "NUT"
-  revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
-  version = "v0.3.0"
+  revision = "5a6f75716e1203a923a78c9efb94089d857df0f6"
+  version = "v0.4.0"
 
 [[projects]]
   branch = "master"
@@ -966,7 +966,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:94d7cfde4eee652c089b47f0200b86bc28e618de18a2e5368b0bbc8e2b601026"
+  digest = "1:b866a374c5f954ec0830aa3c31962f4f8777624a77eba2b99fb19c732d5c2452"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -986,7 +986,7 @@
     "reconciler",
   ]
   pruneopts = "T"
-  revision = "c13e86e2d4f484f1dd3b8ca6474994c16da74f20"
+  revision = "aa5b1f2211ac4a538128a4a4e03797e9232b0431"
 
 [[projects]]
   branch = "master"
@@ -997,7 +997,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "64929018c86389e47a88782619565b6d099c0a5a"
+  revision = "0bc1e8bb1582a8738da1b5c485084a84bf76f17c"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
