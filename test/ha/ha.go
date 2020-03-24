@@ -85,11 +85,15 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingFlags.SystemNamespace).UpdateScale(name, scaleRequest); err != nil {
 		return fmt.Errorf("error scaling: %w", err)
 	}
+	return waitForDeploymentScale(clients, name, replicas)
+}
+
+func waitForDeploymentScale(clients *test.Clients, name string, scale int) error {
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		name,
 		func(d *appsv1.Deployment) (bool, error) {
-			return d.Status.ReadyReplicas == int32(replicas), nil
+			return d.Status.ReadyReplicas == int32(scale), nil
 		},
 		"DeploymentIsScaled",
 		test.ServingFlags.SystemNamespace,
@@ -97,11 +101,11 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 	)
 }
 
-func createPizzaPlanetService(t *testing.T, serviceName string, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
+func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
 	t.Helper()
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
-		Service: serviceName,
+		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
 	}
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopt...)

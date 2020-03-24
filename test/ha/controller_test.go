@@ -62,7 +62,7 @@ func TestControllerHA(t *testing.T) {
 	assertServiceWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	// Verify that after changing the leader we can still create a new kservice
-	service2Names, _ := createPizzaPlanetService(t, "pizzaplanet-service2")
+	service2Names, _ := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service2Names) })
 	test.TearDown(clients, service2Names)
 }

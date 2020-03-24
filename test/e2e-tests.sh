@@ -103,8 +103,9 @@ fi
 kubectl -n ${E2E_SYSTEM_NAMESPACE} patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"}}'
 add_trap "kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m -parallel=1 ./test/ha "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" || failed=1
-kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
+# Define short -spoofinterval to ensure frequent probing while stopping pods
+go_test_e2e -timeout=10m -parallel=1 ./test/ha "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" -spoofinterval="10ms" || failed=1
+kubectl get cm config-leader-election -n "${E2E_SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
