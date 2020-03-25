@@ -1819,7 +1819,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8d196a05c25718c76e17a9f113e433bd3f2d1d15660dc802bd887460adcf316b"
+  digest = "1:2dda1f3bcbf47ef797f4b6f064e8ab94c3f50e09f4697597315eebb3d4ef96fd"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1842,11 +1842,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "495e087ad2228a6e36a499089586a38058c2e11c"
+  revision = "17555f9c73074dafdd4bf649878886d0322744df"
 
 [[projects]]
   branch = "master"
-  digest = "1:7912249df5f43ca10fa1c3f8a3febdc3c0f7b320698787fa73c9fb1920a832d6"
+  digest = "1:9a3d6a5933182bb0ac923b36a7e581b19ea23edeb6684eabe14002758cd7b067"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1956,7 +1956,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "0840da9555a3a75f801abc1d654fb00dfe9a687a"
+  revision = "9f9f7bea94e15840f36f08b90a2c03203e886f91"
 
 [[projects]]
   branch = "revert-1682-autobump"
@@ -2056,6 +2056,7 @@
     "istio.io/client-go/pkg/apis/networking/v1alpha3",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/autoscaling/v1",
     "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
