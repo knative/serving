@@ -69,6 +69,10 @@ data:
     loglevel.queueproxy: "info"
     loglevel.webhook: "info"
     loglevel.activator: "info"
+    loglevel.hpaautoscaler: "info"
+    loglevel.certcontroller: "info"
+    loglevel.istiocontroller: "info"
+    loglevel.nscontroller: "info"
 
   zap-logger-config: |
     {
@@ -101,3 +105,7 @@ data:
   loglevel.queueproxy: "debug"
   loglevel.webhook: "debug"
   loglevel.activator: "debug"
+  loglevel.hpaautoscaler: "debug"
+  loglevel.certcontroller: "debug"
+  loglevel.istiocontroller: "debug"
+  loglevel.nscontroller: "debug"
