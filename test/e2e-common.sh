@@ -293,6 +293,8 @@ function install_knative_serving_standard() {
 
   echo ">> Creating ${E2E_SYSTEM_NAMESPACE} namespace if it does not exist"
   kubectl get ns ${E2E_SYSTEM_NAMESPACE} || kubectl create namespace ${E2E_SYSTEM_NAMESPACE}
+  # Delete the test namespace
+  add_trap "kubectl delete namespace ${E2E_SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -445,8 +447,6 @@ function knative_teardown() {
 	kubectl delete --ignore-not-found=true -f "${YAML}" || return 1
     done
   fi
-  # Delete the test namespace
-  kubectl delete namespace ${E2E_SYSTEM_NAMESPACE} --ignore-not-found=true
 }
 
 # Add function call to trap
