@@ -60,7 +60,37 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func testRevision() *v1.Revision {
+func getPodSpec() corev1.PodSpec {
+	return corev1.PodSpec{
+		// corev1.Container has a lot of setting.  We try to pass many
+		// of them here to verify that we pass through the settings to
+		// derived objects.
+		Containers: []corev1.Container{{
+			Image:      "gcr.io/repo/image",
+			Command:    []string{"echo"},
+			Args:       []string{"hello", "world"},
+			WorkingDir: "/tmp",
+			Env: []corev1.EnvVar{{
+				Name:  "EDITOR",
+				Value: "emacs",
+			}},
+			LivenessProbe: &corev1.Probe{
+				TimeoutSeconds: 42,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "health",
+					},
+				},
+				TimeoutSeconds: 43,
+			},
+			TerminationMessagePath: "/dev/null",
+		}},
+	}
+}
+
+func testRevision(podSpec corev1.PodSpec) *v1.Revision {
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/test-rev",
@@ -77,62 +107,12 @@ func testRevision() *v1.Revision {
 			UID: "test-rev-uid",
 		},
 		Spec: v1.RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				// corev1.Container has a lot of setting.  We try to pass many
-				// of them here to verify that we pass through the settings to
-				// derived objects.
-				Containers: []corev1.Container{{
-					Image:      "gcr.io/repo/image",
-					Command:    []string{"echo"},
-					Args:       []string{"hello", "world"},
-					WorkingDir: "/tmp",
-					Env: []corev1.EnvVar{{
-						Name:  "EDITOR",
-						Value: "emacs",
-					}},
-					LivenessProbe: &corev1.Probe{
-						TimeoutSeconds: 42,
-					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "health",
-							},
-						},
-						TimeoutSeconds: 43,
-					},
-					TerminationMessagePath: "/dev/null",
-				}},
-			},
+			PodSpec:        podSpec,
 			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
 	rev.SetDefaults(context.Background())
 	return rev
-}
-
-func testRevisionForMultipleContainer() *v1.Revision {
-	return &v1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-rev-multi-container",
-			Namespace: testNamespace,
-		},
-		Spec: v1.RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Image: "gcr.io/repo/image",
-				}, {
-					Image: "docker.io/repo/image",
-				}},
-			},
-		},
-	}
-}
-
-func getTestDefaultConfig() *config.Defaults {
-	c, _ := config.NewDefaultsConfigFromConfigMap(getTestDefaultsConfigMap())
-	// ignoring error as test controller is generated
-	return c
 }
 
 func getTestDeploymentConfig() *deployment.Config {
@@ -254,7 +234,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	eg := errgroup.Group{}
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()

@@ -79,7 +79,7 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	sink.ImageDigest = source.ImageDigest
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
 	sink.ImageDigests = source.ImageDigests
 }
 
@@ -112,6 +112,6 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	sink.ImageDigest = source.ImageDigest
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
 	sink.ImageDigests = source.ImageDigests
 }

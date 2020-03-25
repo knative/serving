@@ -268,7 +268,7 @@ func TestResolutionFailed(t *testing.T) {
 	})
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
@@ -313,7 +313,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	createRevision(t, ctx, controller, rev)
 
 	// Update controllers logging URL
@@ -344,41 +344,37 @@ func TestRevWithImageDigests(t *testing.T) {
 	deploymentConfig := getTestDeploymentConfig()
 	ctx, _, controller, _ := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
 			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"enable-multi-container": "true",
+			"container-name-template": "user-container",
 		},
-	},
-	})
-	// Flag is enabled and spec contains single container then rev status should not have imageDigests field
-	rev := getRev(ctx, t, controller, testRevision())
-	if len(rev.Status.ImageDigests) != 0 {
-		t.Errorf("revision status does not have imageDigests")
-	}
-	// Flag is enabled and spec contains multiple container so rev status should contain imageDigests field
-	rev = getRev(ctx, t, controller, testRevisionForMultipleContainer())
-	if len(rev.Status.ImageDigests) == 0 {
-		t.Errorf("revision status does not have imageDigests")
-	}
-}
+	}})
 
-func getRev(ctx context.Context, t *testing.T, controller *controller.Impl, rev *v1.Revision) *v1.Revision {
-	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
+	rev := testRevision(corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: "gcr.io/repo/image",
+		}, {
+			Image: "docker.io/repo/image",
+		}},
+	})
 	createRevision(t, ctx, controller, rev)
-	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
+	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("couldn't get revision: %v", err)
+		t.Fatalf("Couldn't get revision: %v", err)
 	}
-	return createdRev
+	if len(rev.Status.ImageDigests) < 2 {
+		t.Errorf("Revision status does not have imageDigests")
+	}
 }
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	ctx, cancel, _, ctl, _ := newTestController(t)
 	defer cancel()
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 
 	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
@@ -444,7 +440,7 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	ctx, cancel, _, controller, watcher := newTestController(t)
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
@@ -539,7 +535,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			servingClient := fakeservingclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := servingClient.ServingV1().Revisions(rev.Namespace)
 
 			h := NewHooks()
@@ -679,7 +675,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			kubeClient := fakekubeclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 			h := NewHooks()
 			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))

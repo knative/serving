@@ -64,7 +64,7 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	// The image digest has already been resolved.
-	if rev.Status.ImageDigest != "" || len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
+	if rev.Status.DeprecatedImageDigest != "" || len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
 		return nil
 	}
 
@@ -92,16 +92,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			return err
 		}
 		if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
-			rev.Status.ImageDigest = digest
+			rev.Status.DeprecatedImageDigest = digest
 		}
-
-		// In order to keep consistency with original behavior of single container handled below scenario
-		// revision status should not contains imageDigests field in these scenario
-		// 1. If flag is disabled
-		// 2. If flag enabled but applied revision has single container
-		if cfgs.Defaults.EnableMultiContainer && len(rev.Spec.Containers) > 1 {
-			rev.Status.ImageDigests[container.Name] = digest
-		}
+		rev.Status.ImageDigests[container.Name] = digest
 	}
 	return nil
 }

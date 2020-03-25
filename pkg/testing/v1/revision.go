@@ -182,3 +182,10 @@ func WithRevisionLabel(key, value string) RevisionOption {
 		config.Labels[key] = value
 	}
 }
+
+// WithImageDigests sets the .Status.ImageDigests to the Revision.
+func WithImageDigests(r *v1.Revision) {
+	r.Status.ImageDigests = map[string]string{
+		"user-container": "",
+	}
+}

@@ -129,15 +129,17 @@ type RevisionStatus struct {
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 
-	// ImageDigest holds the resolved digest for the image specified
+	// DeprecatedImageDigest holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.
+	// DEPRECATED Use ImageDigests instead.
+	// TODO(savitaashture) Remove deprecatedImageDigest in 2 releases(0.16).
 	// +optional
-	ImageDigest string `json:"imageDigest,omitempty"`
+	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
 
-	// ImageDigests holds the resolved digest for the image specified
+	// ImageDigests holds the resolved digest for the specified images
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. ImageDigests holds the digest for all the .Spec.Container.Image both serving and non serving.
 	// ref: http://bit.ly/image-digests
