@@ -31,9 +31,9 @@ import (
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/shared/junit"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
+	"knative.dev/test-infra/pkg/junit"
+	perf "knative.dev/test-infra/pkg/performance"
+	"knative.dev/test-infra/pkg/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 )

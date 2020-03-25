@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"knative.dev/test-infra/shared/gcs"
+	"knative.dev/test-infra/pkg/gcs"
 )
 
 const (
