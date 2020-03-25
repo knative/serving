@@ -28,7 +28,7 @@ type resourceBoundary struct {
 
 var (
 	queueContainerRequestCPU    = resourceBoundary{min: resource.MustParse("25m"), max: resource.MustParse("100m")}
-	queueContainerLimitCPU      = resourceBoundary{min: resource.MustParse("40m"), max: resource.MustParse("500m")}
+	queueContainerLimitCPU      = resourceBoundary{min: resource.MustParse("40m"), max: resource.MustParse("800m")}
 	queueContainerRequestMemory = resourceBoundary{min: resource.MustParse("50Mi"), max: resource.MustParse("200Mi")}
 	queueContainerLimitMemory   = resourceBoundary{min: resource.MustParse("200Mi"), max: resource.MustParse("500Mi")}
 )

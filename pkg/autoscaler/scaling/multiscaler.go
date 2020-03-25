@@ -80,6 +80,10 @@ type DeciderStatus struct {
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
+
+	// NumActivators is the computed number of activators
+	// necessary to back the revision.
+	NumActivators int32
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
@@ -118,12 +122,16 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
+func (sr *scalerRunner) updateLatestScale(proposed, ebc, na int32) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
 	if sr.decider.Status.DesiredScale != proposed {
 		sr.decider.Status.DesiredScale = proposed
+		ret = true
+	}
+	if sr.decider.Status.NumActivators != na {
+		sr.decider.Status.NumActivators = na
 		ret = true
 	}
 
@@ -315,8 +323,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
 	logger := logging.FromContext(ctx)
-	// TODO(vagababov): Finish this as part of #7347.
-	desiredScale, excessBC, _, scaled := scaler.Scale(ctx, time.Now())
+	desiredScale, excessBC, numAct, scaled := scaler.Scale(ctx, time.Now())
 
 	if !scaled {
 		return
@@ -328,7 +335,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 		return
 	}
 
-	if runner.updateLatestScale(desiredScale, excessBC) {
+	if runner.updateLatestScale(desiredScale, excessBC, numAct) {
 		m.Inform(metricKey)
 	}
 }
