@@ -83,17 +83,21 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Failed to scale to zero: %v", err)
 	}
 
+	scaleToZeroURL := resources.Service.Status.URL.URL()
 	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
 	defer test.AssertProberDefault(t, prober)
 
-	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, resourcesScaleToZero.Service.Status.URL.URL().Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, scaleToZeroURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
 	activatorPod := pods.Items[0].Name // stop the oldest activator pod
 
-	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{})
+	var gracePeriodSeconds int64 = 0
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriodSeconds,
+	})
 
 	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
 		1 /* expected number of public endpoint addresses */); err != nil {
@@ -101,7 +105,7 @@ func TestActivatorHA(t *testing.T) {
 	}
 
 	// assert the service at the first possible moment - when the killed activator disappears from its endpoint address list
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
@@ -120,14 +124,16 @@ func TestActivatorHA(t *testing.T) {
 
 	activatorPod = pods.Items[0].Name // stop the oldest activator pod again which is now a different one
 
-	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{})
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriodSeconds,
+	})
 
 	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
 		1 /* expected number of public endpoint addresses */); err != nil {
 		t.Fatalf("Failed to wait for the service to be using only the remaining activator")
 	}
 
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
@@ -136,5 +142,5 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 }
