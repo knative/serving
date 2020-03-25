@@ -43,7 +43,7 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
-KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
@@ -116,6 +116,11 @@ function parse_flags() {
       # latest version of Contour pinned in third_party will be installed
       readonly CONTOUR_VERSION=$2
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
+      return 2
+      ;;
+    --system-namespace)
+      [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
+      readonly E2E_SYSTEM_NAMESPACE=$2
       return 2
       ;;
   esac
@@ -440,6 +445,8 @@ function knative_teardown() {
 	kubectl delete --ignore-not-found=true -f "${YAML}" || return 1
     done
   fi
+  # Delete the test namespace
+  kubectl delete namespace ${E2E_SYSTEM_NAMESPACE} --ignore-not-found=true
 }
 
 # Add function call to trap
