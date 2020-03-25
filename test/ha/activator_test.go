@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -40,20 +40,10 @@ const (
 func TestActivatorHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	autoscalerConfigMap, err := e2e.RawCM(clients, autoscalerconfig.ConfigName)
-	if err != nil {
-		t.Errorf("Error retrieving autoscaler configmap: %v", err)
-	}
-	patchedAutoscalerConfigMap := autoscalerConfigMap.DeepCopy()
-	// make sure all requests go through the activator
-	patchedAutoscalerConfigMap.Data["target-burst-capacity"] = "-1"
-	e2e.PatchCM(clients, patchedAutoscalerConfigMap)
-	defer e2e.PatchCM(clients, autoscalerConfigMap)
-	test.CleanupOnInterrupt(func() { e2e.PatchCM(clients, autoscalerConfigMap) })
-
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
+			autoscaling.MinScaleAnnotationKey:  "1",  //make sure we don't scale to zero during the test
+			autoscaling.TargetBurstCapacityKey: "-1", // make sure all requests go through the activator
 		}),
 	)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -61,7 +51,8 @@ func TestActivatorHA(t *testing.T) {
 
 	namesScaleToZero, resourcesScaleToZero := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
+			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), //make sure we scale to zero quickly
+			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
 	)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, namesScaleToZero) })
