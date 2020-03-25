@@ -70,7 +70,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	}
 
 	url := resources.Service.Status.URL.URL()
-	assertServiceWorks(t, clients, names, url, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText1)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
@@ -85,5 +85,5 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 		t.Fatalf("New image not reflected in Service: %v", err)
 	}
 
-	assertServiceWorks(t, clients, names, url, test.PizzaPlanetText2)
+	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText2)
 }

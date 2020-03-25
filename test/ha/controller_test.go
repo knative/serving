@@ -59,7 +59,7 @@ func TestControllerHA(t *testing.T) {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 
-	assertServiceWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	// Verify that after changing the leader we can still create a new kservice
 	service2Names, _ := createPizzaPlanetService(t)

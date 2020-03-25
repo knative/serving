@@ -18,6 +18,7 @@ package ha
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -29,6 +30,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -57,6 +61,24 @@ func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) erro
 	return wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
 		exists, err := podExists(clients, podName)
 		return !exists, err
+	})
+}
+
+func waitForPublicEndpointAddresses(t *testing.T, clients *test.Clients, revision string, numAddr int) error {
+	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
+		endpoints, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
+				serving.RevisionLabelKey, revision,
+				networking.ServiceTypeKey, networking.ServiceTypePublic,
+			),
+		})
+		if err != nil || len(endpoints.Items) != 1 {
+			return false, fmt.Errorf("no endpoints or error: %w", err)
+		}
+		if len(endpoints.Items[0].Subsets[0].Addresses) == numAddr {
+			return true, nil
+		}
+		return false, nil
 	})
 }
 
@@ -113,11 +135,23 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	assertServiceWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 	return names, resources
 }
 
-func assertServiceWorks(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
+func assertServiceWorksNow(t *testing.T, clients *test.Clients, spoofingClient *spoof.SpoofingClient, names test.ResourceNames, url *url.URL, expectedText string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	resp, err := spoofingClient.Do(req)
+	if err != nil || !strings.Contains(string(resp.Body), expectedText) {
+		t.Fatalf("Failed to verify service works: %v", err)
+	}
+}
+
+func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -126,6 +160,6 @@ func assertServiceWorks(t pkgTest.TLegacy, clients *test.Clients, names test.Res
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatal(fmt.Sprintf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err))
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
 }

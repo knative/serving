@@ -19,10 +19,13 @@ limitations under the License.
 package ha
 
 import (
+	"fmt"
 	"log"
+	"sort"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -35,11 +38,27 @@ const (
 	activatorLabel          = "app=activator"
 )
 
-// Activator is managed by the activator HPA and does not have leader election enabled.
+// The Activator is managed by the activator HPA and does not have leader election enabled.
 // The test ensures that stopping one of the activator pods doesn't affect user applications.
+// One service is probed during activator restarts and another service is used for testing
+// that we can scale from zero after activator restart.
 func TestActivatorHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+		LabelSelector: activatorLabel,
+	})
+	if err != nil {
+		t.Fatalf("Failed to get activator pods: %v", err)
+	}
+	// make sure we have the right number of activator replicas before continuing
+	if len(pods.Items) != haReplicas {
+		t.Skip(fmt.Sprintf("The test requires %d activator pods, got: %d", haReplicas, len(pods.Items)))
+	}
+	// sort the pods according to creation timestamp so that we can always kill the oldest one
+	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
+
+	// create first service that we will continually probe during activator restart
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  "1",  //make sure we don't scale to zero during the test
@@ -49,10 +68,12 @@ func TestActivatorHA(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
+	// create second service that will be scaled to zero and after stopping the activator we'll
+	// ensure it can be scaled back from zero
 	namesScaleToZero, resourcesScaleToZero := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), //make sure we scale to zero quickly
-			autoscaling.TargetBurstCapacityKey: "-1",
+			autoscaling.TargetBurstCapacityKey: "-1",                           // make sure all requests go through the activator
 		}),
 	)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, namesScaleToZero) })
@@ -65,37 +86,55 @@ func TestActivatorHA(t *testing.T) {
 	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
 	defer test.AssertProberDefault(t, prober)
 
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, resourcesScaleToZero.Service.Status.URL.URL().Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	if err != nil {
+		t.Fatalf("Error creating spoofing client: %v", err)
+	}
+
+	activatorPod := pods.Items[0].Name // stop the oldest activator pod
+
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{})
+
+	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
+		1 /* expected number of public endpoint addresses */); err != nil {
+		t.Fatalf("Failed to wait for the service to be using only the remaining activator")
+	}
+
+	// assert the service at the first possible moment - when the killed activator disappears from its endpoint address list
+	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+
+	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
+		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
+	}
+	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
+	}
+
+	pods, err = clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
 		t.Fatalf("Failed to get activator pods: %v", err)
 	}
-	if len(pods.Items) != haReplicas {
-		t.Fatalf("The test requires %d activator pods", haReplicas)
-	}
-	activatorPod := pods.Items[0].Name // stop the first activator pod
+	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
+
+	activatorPod = pods.Items[0].Name // stop the oldest activator pod again which is now a different one
 
 	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{})
+
+	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
+		1 /* expected number of public endpoint addresses */); err != nil {
+		t.Fatalf("Failed to wait for the service to be using only the remaining activator")
+	}
+
+	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
 	}
-
 	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	activatorPod = pods.Items[1].Name // now stop the other activator pod
-
-	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{})
-	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
-		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
-	}
-
-	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
-		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
-	}
-
-	assertServiceWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 }
