@@ -130,6 +130,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
     echo "Error: variable SERVING_NSCERT_YAML is not set."
     exit 1
   fi
+  sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML}
   kubectl apply -f ${SERVING_NSCERT_YAML}
 }
 

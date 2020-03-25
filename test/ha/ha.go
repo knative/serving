@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	haReplicas       = 2
+	haReplicas = 2
 )
 
 func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
