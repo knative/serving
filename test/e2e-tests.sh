@@ -49,11 +49,11 @@ use_https=""
 (( MESH )) && parallelism="-parallel 1"
 
 if (( HTTPS )); then
-  parallelism="-parallel 1"
   use_https="--https"
   turn_on_auto_tls
   kubectl apply -f ./test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
 # Run conformance and e2e tests.
