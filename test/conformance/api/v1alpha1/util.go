@@ -241,10 +241,12 @@ func validateRunLatestControlPlane(t pkgTest.T, clients *test.Clients, names tes
 	t.Log("Checking to ensure Configuration is in desired state.")
 	err = v1a1test.CheckConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %w", names.Config, names.Revision, err)
+			return false, fmt.Errorf("Configuration(%s).LatestCreatedRevisionName = %q, want %q",
+				names.Config, c.Status.LatestCreatedRevisionName, names.Revision)
 		}
 		if c.Status.LatestReadyRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was ready: %w", names.Config, names.Revision, err)
+			return false, fmt.Errorf("Configuration(%s).LatestReadyRevisionName = %q, want %q",
+				names.Config, c.Status.LatestReadyRevisionName, names.Revision)
 		}
 		return true, nil
 	})
