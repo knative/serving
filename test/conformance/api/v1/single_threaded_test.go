@@ -76,7 +76,9 @@ func TestSingleConcurrency(t *testing.T) {
 	t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	group, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < concurrency; i++ {
+		threadIdx := i
 		group.Go(func() error {
+			requestIdx := 0
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
@@ -89,13 +91,14 @@ func TestSingleConcurrency(t *testing.T) {
 					return nil
 				default:
 					res, err := client.Do(req)
+					requestIdx = requestIdx + 1
 					if err != nil {
-						return fmt.Errorf("error making request %w", err)
+						return fmt.Errorf("error making request, thread index: %d, request index: %d: %w", threadIdx, requestIdx, err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
 						return errors.New("detected concurrent requests")
 					} else if res.StatusCode != http.StatusOK {
-						return fmt.Errorf("non 200 response %v", res.StatusCode)
+						return fmt.Errorf("non 200 response, thread index: %d, request index: %d, response %s", threadIdx, requestIdx, res)
 					}
 				}
 			}
