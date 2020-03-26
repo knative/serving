@@ -135,6 +135,9 @@ const (
 	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
 )
 
+var defaultDomainTemplate = template.Must(template.New("domain-template").Parse(
+	DefaultDomainTemplate))
+
 // DomainTemplateValues are the available properties people can choose from
 // in their Route's "DomainTemplate" golang template sting.
 // We could add more over time - e.g. RevisionName if we thought that
@@ -162,6 +165,7 @@ type Config struct {
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
 	DomainTemplate string
+	cachedDT       *template.Template
 
 	// TagTemplate is the golang text template to use to generate the
 	// Route's tag hostnames.
@@ -198,6 +202,7 @@ func defaultConfig() *Config {
 		DefaultIngressClass:     IstioIngressClassName,
 		DefaultCertificateClass: CertManagerCertificateClassName,
 		DomainTemplate:          DefaultDomainTemplate,
+		cachedDT:                defaultDomainTemplate,
 		TagTemplate:             DefaultTagTemplate,
 		AutoTLS:                 false,
 		HTTPProtocol:            HTTPEnabled,
@@ -233,6 +238,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err := checkDomainTemplate(t); err != nil {
 			return nil, err
 		}
+		nc.cachedDT = t
 		nc.DomainTemplate = dt
 	}
 
@@ -264,12 +270,9 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	return nc, nil
 }
 
-// GetDomainTemplate returns the golang Template from the config map
-// or panics (the value is validated during CM validation and at
-// this point guaranteed to be parseable).
+// GetDomainTemplate returns the golang Template from the config map.
 func (c *Config) GetDomainTemplate() *template.Template {
-	return template.Must(template.New("domain-template").Parse(
-		c.DomainTemplate))
+	return c.cachedDT
 }
 
 func checkDomainTemplate(t *template.Template) error {

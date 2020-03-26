@@ -35,6 +35,8 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
+var cmpOpts = []cmp.Option{cmpopts.IgnoreUnexported(Config{})}
+
 func TestOurConfig(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName)
 
@@ -43,14 +45,14 @@ func TestOurConfig(t *testing.T) {
 	}
 	if got, err := NewConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
-	} else if want := defaultConfig(); !cmp.Equal(got, want) {
-		t.Errorf("ExampleConfig does not match default confif: (-want,+got):\n%s", cmp.Diff(want, got))
+	} else if want := defaultConfig(); !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("ExampleConfig does not match default confif: (-want,+got):\n%s",
+			cmp.Diff(want, got, cmpOpts...))
 	}
 }
 
 func TestConfiguration(t *testing.T) {
 	const nonDefaultDomainTemplate = "{{.Namespace}}.{{.Name}}.{{.Domain}}"
-	ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
 
 	networkConfigTests := []struct {
 		name       string
@@ -68,6 +70,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "foo-ingress",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
@@ -81,6 +84,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
 			DefaultCertificateClass: "foo-cert",
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
@@ -94,6 +98,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "foo-ingress",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          nonDefaultDomainTemplate,
+			cachedDT:                template.Must(template.New("domain-template").Parse(nonDefaultDomainTemplate)),
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
@@ -150,6 +155,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPEnabled,
@@ -164,6 +170,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			AutoTLS:                 false,
 			HTTPProtocol:            HTTPEnabled,
@@ -179,6 +186,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPDisabled,
@@ -194,6 +202,7 @@ func TestConfiguration(t *testing.T) {
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
 			DefaultCertificateClass: CertManagerCertificateClassName,
 			DomainTemplate:          DefaultDomainTemplate,
+			cachedDT:                defaultDomainTemplate,
 			TagTemplate:             DefaultTagTemplate,
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPRedirected,
@@ -236,9 +245,8 @@ func TestConfiguration(t *testing.T) {
 				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
 			}
 
-			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
-				t.Fatalf("want %v, but got %v",
-					tt.wantConfig, actualConfig)
+			if got, want := actualConfig, tt.wantConfig; !cmp.Equal(got, want, cmpOpts...) {
+				t.Errorf("NetConfig mismatch: (-want, +got):\n%s", cmp.Diff(want, got, cmpOpts...))
 			}
 		})
 	}
@@ -249,21 +257,16 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 		name               string
 		wantErr            bool
 		wantDomainTemplate string
+		cmData             map[string]string
 		config             *corev1.ConfigMap
 		data               DomainTemplateValues
 	}{{
 		name:               "network configuration with annotations in template",
 		wantErr:            false,
 		wantDomainTemplate: "foo.sub1.baz.com",
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
-			},
+		cmData: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		},
 		data: DomainTemplateValues{
 			Name:      "foo",
@@ -275,15 +278,9 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 		name:               "network configuration without annotations in template",
 		wantErr:            false,
 		wantDomainTemplate: "foo.bar.baz.com",
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
-			},
+		cmData: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
 		},
 		data: DomainTemplateValues{
 			Name:      "foo",
@@ -293,7 +290,14 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 
 	for _, tt := range networkConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			config := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: tt.cmData,
+			}
+			actualConfig, err := NewConfigFromConfigMap(config)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
 					tt.name, err, tt.wantErr)
