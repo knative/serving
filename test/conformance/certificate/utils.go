@@ -72,7 +72,7 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate
 // until it exists or the timeout is exceeded. It then validates its contents
-func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, desc string) error {
+func WaitForCertificateSecret(t *testing.T, client *test.Clients, cert *v1alpha1.Certificate, desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateSecret/%s/%s", cert.Spec.SecretName, desc))
 	defer span.End()
 
@@ -87,6 +87,8 @@ func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, 
 
 		block, _ := pem.Decode(secret.Data[corev1.TLSCertKey])
 		if block == nil {
+			// PEM files are text, so just dump it here.
+			t.Logf("Bad PEM file:\n%s", secret.Data[corev1.TLSCertKey])
 			return true, errors.New("failed to decode PEM data")
 		}
 
