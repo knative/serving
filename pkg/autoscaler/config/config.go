@@ -157,11 +157,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field: &lc.PanicThresholdPercentage,
 	}} {
 		if raw, ok := data[f64.key]; ok {
-			if val, err := strconv.ParseFloat(raw, 64); err != nil {
+			val, err := strconv.ParseFloat(raw, 64)
+			if err != nil {
 				return nil, err
-			} else {
-				*f64.field = val
 			}
+			*f64.field = val
 		}
 	}
 
@@ -188,11 +188,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field: &lc.TickInterval,
 	}} {
 		if raw, ok := data[dur.key]; ok {
-			if val, err := time.ParseDuration(raw); err != nil {
+			val, err := time.ParseDuration(raw)
+			if err != nil {
 				return nil, err
-			} else {
-				*dur.field = val
 			}
+			*dur.field = val
 		}
 	}
 
