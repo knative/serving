@@ -35,7 +35,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	nurl "net/url"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -930,7 +930,7 @@ func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
 }
 
 func IsDialError(err error) bool {
-	if err, ok := err.(*nurl.Error); ok {
+	if err, ok := err.(*url.Error); ok {
 		err, ok := err.Err.(*net.OpError)
 		return ok && err.Op == "dial"
 	}
