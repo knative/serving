@@ -50,7 +50,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 	case spec.NumActivators < 0:
 		all = all.Also(apis.ErrInvalidValue(spec.NumActivators, "numActivators"))
 	case spec.NumActivators == 0:
-		// TODP(vagababov): stop permitting after 0.16, since this is needed only for upgrades.
+		// TODO(vagababov): stop permitting after 0.16, since this is needed only for upgrades.
 		break
 	}
 
