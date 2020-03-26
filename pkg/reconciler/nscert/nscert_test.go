@@ -32,6 +32,9 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	// Inject the fakes for informers this reconciler depends on.
+	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -238,18 +241,19 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &reconciler{
+		r := &reconciler{
 			client:              servingclient.Get(ctx),
-			recorder:            controller.GetEventRecorder(ctx),
 			knCertificateLister: listers.GetKnCertificateLister(),
-			nsLister:            listers.GetNamespaceLister(),
-			configStore: &testConfigStore{
+		}
+
+		return namespacereconciler.NewReconciler(ctx, logging.FromContext(ctx), kubeclient.Get(ctx),
+			listers.GetNamespaceLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{
 					Network: networkConfig(),
 					Domain:  domainConfig(),
 				},
-			},
-		}
+			}})
 	}))
 }
 
@@ -445,17 +449,13 @@ func TestDomainConfigDomain(t *testing.T) {
 
 			r := &reconciler{
 				client:              servingclient.Get(ctx),
-				recorder:            controller.GetEventRecorder(ctx),
-				configStore:         configStore,
-				nsLister:            fakensinformer.Get(ctx).Lister(),
 				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
 			}
 
 			namespace := kubeNamespace(ns)
-			fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
-			fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
-			r.Reconcile(ctx, ns)
+			ctx = configStore.ToContext(ctx)
+			r.ReconcileKind(ctx, namespace)
 
 			cert, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
 			if err != nil {
