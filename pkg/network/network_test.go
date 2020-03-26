@@ -41,8 +41,10 @@ func TestOurConfig(t *testing.T) {
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
 	}
-	if _, err := NewConfigFromConfigMap(example); err != nil {
+	if got, err := NewConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
+	} else if want := defaultConfig(); !cmp.Equal(got, want) {
+		t.Errorf("ExampleConfig does not match default confif: (-want,+got):\n%s", cmp.Diff(want, got))
 	}
 }
 
@@ -54,25 +56,13 @@ func TestConfiguration(t *testing.T) {
 		name       string
 		wantErr    bool
 		wantConfig *Config
-		config     *corev1.ConfigMap
+		data       map[string]string
 	}{{
-		name:    "network configuration with no network input",
-		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			HTTPProtocol:            HTTPEnabled,
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-		},
+		name:       "network configuration with no network input",
+		wantErr:    false,
+		wantConfig: defaultConfig(),
 	}, {
-		name:    "network configuration with non-Istio ingress type",
+		name:    "network configuration with non-default ingress type",
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultIngressClass:     "foo-ingress",
@@ -81,14 +71,8 @@ func TestConfiguration(t *testing.T) {
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
 		},
 	}, {
 		name:    "network configuration with non-Cert-Manager Certificate type",
@@ -100,14 +84,8 @@ func TestConfiguration(t *testing.T) {
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultCertificateClassKey: "foo-cert",
-			},
+		data: map[string]string{
+			DefaultCertificateClassKey: "foo-cert",
 		},
 	}, {
 		name:    "network configuration with diff domain template",
@@ -119,87 +97,54 @@ func TestConfiguration(t *testing.T) {
 			TagTemplate:             DefaultTagTemplate,
 			HTTPProtocol:            HTTPEnabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      nonDefaultDomainTemplate,
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      nonDefaultDomainTemplate,
 		},
 	}, {
 		name:    "network configuration with blank domain template",
 		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      "",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      "",
 		},
 	}, {
 		name:    "network configuration with bad domain template",
 		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				// This is missing a closing brace.
-				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			// This is missing a closing brace.
+			DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
 		},
 	}, {
 		name:    "network configuration with bad domain template",
 		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				// This is missing a closing brace.
-				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			// This is missing a closing brace.
+			DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
 		},
 	}, {
 		name:    "network configuration with bad url",
 		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				// Paths are disallowed
-				DomainTemplateKey: "{{.Domain}}/{{.Namespace}}/{{.Name}}.",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			// Paths are disallowed
+			DomainTemplateKey: "{{.Domain}}/{{.Namespace}}/{{.Name}}.",
 		},
 	}, {
 		name:    "network configuration with bad variable",
 		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				// Bad variable
-				DomainTemplateKey: "{{.Name}}.{{.NAmespace}}.{{.Domain}}",
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			// Bad variable
+			DomainTemplateKey: "{{.Name}}.{{.NAmespace}}.{{.Domain}}",
 		},
 	}, {
-		name:    "network configuration with Auto TLS enabled",
+		name: "network configuration with Auto TLS enabled",
+		data: map[string]string{
+			AutoTLSKey: "enabled",
+		},
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
@@ -209,17 +154,11 @@ func TestConfiguration(t *testing.T) {
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPEnabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				AutoTLSKey: "enabled",
-			},
-		},
 	}, {
-		name:    "network configuration with Auto TLS disabled",
+		name: "network configuration with Auto TLS disabled",
+		data: map[string]string{
+			AutoTLSKey: "disabled",
+		},
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
@@ -229,17 +168,12 @@ func TestConfiguration(t *testing.T) {
 			AutoTLS:                 false,
 			HTTPProtocol:            HTTPEnabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				AutoTLSKey: "disabled",
-			},
-		},
 	}, {
-		name:    "network configuration with HTTPProtocol disabled",
+		name: "network configuration with HTTPProtocol disabled",
+		data: map[string]string{
+			AutoTLSKey:      "enabled",
+			HTTPProtocolKey: "Disabled",
+		},
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
@@ -249,18 +183,12 @@ func TestConfiguration(t *testing.T) {
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPDisabled,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				AutoTLSKey:      "enabled",
-				HTTPProtocolKey: "Disabled",
-			},
-		},
 	}, {
-		name:    "network configuration with HTTPProtocol redirected",
+		name: "network configuration with HTTPProtocol redirected",
+		data: map[string]string{
+			AutoTLSKey:      "enabled",
+			HTTPProtocolKey: "Redirected",
+		},
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
@@ -270,21 +198,25 @@ func TestConfiguration(t *testing.T) {
 			AutoTLS:                 true,
 			HTTPProtocol:            HTTPRedirected,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				AutoTLSKey:      "enabled",
-				HTTPProtocolKey: "Redirected",
-			},
+	}, {
+		name: "network configuration with HTTPProtocol bad",
+		data: map[string]string{
+			AutoTLSKey:      "enabled",
+			HTTPProtocolKey: "under-the-bridge",
 		},
+		wantErr: true,
 	}}
 
 	for _, tt := range networkConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			config := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: tt.data,
+			}
+			actualConfig, err := NewConfigFromConfigMap(config)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
 					tt.name, err, tt.wantErr)
