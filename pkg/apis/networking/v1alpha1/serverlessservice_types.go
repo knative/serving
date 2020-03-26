@@ -102,7 +102,7 @@ type ServerlessServiceSpec struct {
 	// serving imports networking, so just use string.
 	ProtocolType networking.ProtocolType
 
-	// NumActivators contines number of Activators that this revision should be
+	// NumActivators contains number of Activators that this revision should be
 	// assigned.
 	NumActivators int32 `json:"numActivators,omitempty"`
 }
