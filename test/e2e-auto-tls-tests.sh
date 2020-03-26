@@ -90,12 +90,12 @@ function setup_http01_auto_tls() {
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
@@ -106,7 +106,7 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   export TLS_SERVICE_NAME="self-per-ksvc"
 
   kubectl delete kcert --all -n serving-tests
-  kubectl apply -f test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 }
 
 function setup_selfsigned_per_namespace_auto_tls() {
@@ -121,7 +121,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
   export NAMESPACE_WITH_CERT="serving-tests"
   go run ./test/e2e/autotls/config/disablenscert
 
-  kubectl apply -f test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
   # SERVING_NSCERT_YAML is set in build_knative_from_source function
   # when building knative.
@@ -130,8 +130,9 @@ function setup_selfsigned_per_namespace_auto_tls() {
     echo "Error: variable SERVING_NSCERT_YAML is not set."
     exit 1
   fi
-  sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML}
-  kubectl apply -f ${SERVING_NSCERT_YAML}
+  local YAML_NAME=${TMP_DIR}/${SERVING_NSCERT_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML} > ${YAML_NAME}
+  kubectl apply -f ${YAML_NAME}
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {

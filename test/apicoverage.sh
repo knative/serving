@@ -46,8 +46,13 @@ function fail_apicoverage_run() {
 initialize $@ --skip-istio-addon
 
 header "Setting up API Coverage Webhook"
-kubectl apply -f "${APICOVERAGE_IMAGE}/service-account.yaml" || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"
-ko apply -f "${APICOVERAGE_IMAGE}/apicoverage-webhook.yaml" || fail_apicoverage_run "Failed setting up apicoverage-webhook"
+
+local YAML_NAME=${TMP_DIR}/service-account.yaml
+sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${APICOVERAGE_IMAGE}/service-account.yaml > ${YAML_NAME}
+kubectl apply -f ${YAML_NAME} || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"
+YAML_NAME=${TMP_DIR}/apicoverage-webhook.yaml
+sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${APICOVERAGE_IMAGE}/apicoverage-webhook.yaml > ${YAML_NAME}
+ko apply -f ${YAML_NAME} || fail_apicoverage_run "Failed setting up apicoverage-webhook"
 
 header "Running tests"
 # Run conformance tests and e2e tests

@@ -51,8 +51,8 @@ use_https=""
 if (( HTTPS )); then
   use_https="--https"
   turn_on_auto_tls
-  kubectl apply -f ./test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
@@ -66,23 +66,23 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
-  kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
-kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
   ./test/conformance/certificate/nonhttp01 "$(certificate_class)" --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ./test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
   ./test/conformance/certificate/http01 "$(certificate_class)" --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
 # Run scale tests.
 go_test_e2e -timeout=10m \
