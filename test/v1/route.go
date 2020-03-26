@@ -114,10 +114,22 @@ func IsRouteNotReady(r *v1.Route) (bool, error) {
 	return !r.Status.IsReady(), nil
 }
 
-// RetryingRouteInconsistency retries common requests seen when creating a new route
+// RetryingRouteInconsistency conditionally retries common requests seen when creating a new route.
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
+	var successes int
+	if test.ServingFlags.IngressRetries > 0 {
+		return func(resp *spoof.Response) (bool, error) {
+			success, err := innerCheck(resp)
+			if !success {
+				successes = 0
+				return false, err
+			}
+			successes++
+			return successes == test.ServingFlags.IngressRetries, err
+		}
+	}
+	// By default only wrap the innerCheck.
 	return func(resp *spoof.Response) (bool, error) {
-		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
 		return innerCheck(resp)
 	}
 }

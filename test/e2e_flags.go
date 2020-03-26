@@ -33,6 +33,8 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	Https            bool   // Indicates where the test service will be created with https
 	IngressClass     string // Indicates the class of Ingress provider to test.
+	IngressRetries   int    // Indicates how many consecutive requests sent against the ingress should be
+	// successful before claiming the Ingress ready.
 	CertificateClass string // Indicates the class of Certificate provider to test.
 	SystemNamespace  string // Indicates the system namespace, in which Knative Serving is installed.
 }
@@ -48,6 +50,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.IngressClass, "ingressClass", network.IstioIngressClassName,
 		"Set this flag to the ingress class to test against.")
+	flag.IntVar(&f.IngressRetries, "ingressRetries", 0,
+		"Set this flag to a positive number to enforce retrying ingress consistency in tests.")
 	flag.StringVar(&f.CertificateClass, "certificateClass", network.CertManagerCertificateClassName,
 		"Set this flag to the certificate class to test against.")
 
