@@ -22,7 +22,6 @@
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
-source $(dirname $0)/../e2e-common.sh
 
 function update_knative() {
   local istio_version="istio-1.4-latest"
@@ -59,11 +58,11 @@ function update_knative() {
   popd
 
   # Update the activator hpa minReplicas to 10
-  kubectl patch hpa -n ${E2E_SYSTEM_NAMESPACE} activator \
+  kubectl patch hpa -n knative-serving activator \
     --patch '{"spec": {"minReplicas": 10}}'
   # Update the scale-to-zero grace period to 10s
   kubectl patch configmap/config-autoscaler \
-    -n ${E2E_SYSTEM_NAMESPACE} \
+    -n knative-serving \
     --type merge \
     -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 

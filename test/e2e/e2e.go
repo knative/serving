@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -72,7 +73,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
-	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingFlags.SystemNamespace).Get(
+	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
 		autoscalerconfig.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
@@ -83,14 +84,14 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 
 // rawCM returns the raw knative config map for the given name
 func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingFlags.SystemNamespace).Get(
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
 		name,
 		metav1.GetOptions{})
 }
 
 // patchCM updates the existing config map with the supplied value.
 func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingFlags.SystemNamespace).Update(cm)
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Update(cm)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
@@ -121,7 +122,7 @@ func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *tes
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-			test.ServingFlags.SystemNamespace).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
