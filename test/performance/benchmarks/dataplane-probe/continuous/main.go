@@ -25,8 +25,8 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 
 	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/test"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
@@ -97,7 +97,7 @@ func main() {
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
-	deploymentStatus := metrics.FetchDeploymentStatus(ctx, system.Namespace(), "activator", time.Second)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, test.ServingFlags.SystemNamespace, "activator", time.Second)
 LOOP:
 	for {
 		select {

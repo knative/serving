@@ -43,6 +43,9 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
+readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+# This the namespace used to install Knative Serving. Use generated UUID as namespace.
+E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Parse our custom flags.
 function parse_flags() {
@@ -115,6 +118,11 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --system-namespace)
+      [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
+      readonly E2E_SYSTEM_NAMESPACE=$2
+      return 2
+      ;;
   esac
   return 0
 }
@@ -152,6 +160,7 @@ function install_knative_serving() {
   echo ">> Installing Knative serving from custom YAMLs"
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${yaml}
     echo "Installing '${yaml}'"
     kubectl create -f "${yaml}" || return 1
   done
@@ -203,6 +212,7 @@ function install_istio() {
     # We apply a filter here because when we're installing from a pre-built
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
   fi
@@ -281,8 +291,10 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Creating knative-serving namespace if it does not exist"
-  kubectl get ns knative-serving || kubectl create namespace knative-serving
+  echo ">> Creating ${E2E_SYSTEM_NAMESPACE} namespace if it does not exist"
+  kubectl get ns ${E2E_SYSTEM_NAMESPACE} || kubectl create namespace ${E2E_SYSTEM_NAMESPACE}
+  # Delete the test namespace
+  add_trap "kubectl delete namespace ${E2E_SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -293,6 +305,7 @@ function install_knative_serving_standard() {
     kubectl apply -f "${SERVING_CRD_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
   else
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     echo "Knative YAML: ${1}"
     ko apply -f "${1}" --selector=knative.dev/crd-install=true || return 1
     UNINSTALL_LIST+=( "${1}" )
@@ -312,12 +325,15 @@ function install_knative_serving_standard() {
   fi
 
   echo ">> Installing Cert-Manager"
+  sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${INSTALL_CERT_MANAGER_YAML}
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML}
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML}
     echo "Knative YAML: ${SERVING_CORE_YAML} and ${SERVING_HPA_YAML}"
     kubectl apply \
 	    -f "${SERVING_CORE_YAML}" \
@@ -326,12 +342,14 @@ function install_knative_serving_standard() {
 
     # ${SERVING_CERT_MANAGER_YAML} is set when calling
     # build_knative_from_source
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML}
     echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML}"
     kubectl apply \
       -f "${SERVING_CERT_MANAGER_YAML}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
+	sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${MONITORING_YAML}
 	echo "Knative Monitoring YAML: ${MONITORING_YAML}"
 	kubectl apply -f "${MONITORING_YAML}" || return 1
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
@@ -341,11 +359,13 @@ function install_knative_serving_standard() {
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1}
     ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
     UNINSTALL_LIST+=( "${1}" )
 
     if (( INSTALL_MONITORING )); then
       echo ">> Installing Monitoring"
+      sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${2}
       echo "Knative Monitoring YAML: ${2}"
       kubectl apply -f "${2}" || return 1
       UNINSTALL_LIST+=( "${2}" )
@@ -358,7 +378,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving
+  namespace: ${E2E_SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -371,14 +391,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: knative-serving
+  namespace: ${E2E_SYSTEM_NAMESPACE}
 data:
   profiling.enable: "true"
 EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${E2E_SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -445,6 +465,9 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
+  find test -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
+
   echo ">> Setting up logging..."
 
   # Install kail if needed.
@@ -471,7 +494,7 @@ function test_setup() {
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
   echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running ${E2E_SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
@@ -552,9 +575,9 @@ function dump_extra_cluster_state() {
 }
 
 function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Enabled"}}'
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
 }
 
 function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Disabled"}}'
+  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
 }
