@@ -193,31 +193,39 @@ const (
 	HTTPRedirected HTTPProtocol = "redirected"
 )
 
+func defaultConfig() *Config {
+	return &Config{
+		DefaultIngressClass:     IstioIngressClassName,
+		DefaultCertificateClass: CertManagerCertificateClassName,
+		DomainTemplate:          DefaultDomainTemplate,
+		TagTemplate:             DefaultTagTemplate,
+		AutoTLS:                 false,
+		HTTPProtocol:            HTTPEnabled,
+	}
+}
+
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
-	nc := &Config{}
+	nc := defaultConfig()
 	if _, ok := configMap.Data[IstioOutboundIPRangesKey]; ok {
-		// Until the next version is released, the validation check is enabled to notify users who configure some value.
+		// TODO(0.15): Until the next version is released, the validation check is
+		// enabled to notify users who configure this value.
 		logger := logging.FromContext(context.Background()).Named(configMap.Name)
 		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
 	}
 
-	nc.DefaultIngressClass = IstioIngressClassName
 	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; ok {
 		nc.DefaultIngressClass = ingressClass
 	} else if ingressClass, ok := configMap.Data[DeprecatedDefaultIngressClassKey]; ok {
 		nc.DefaultIngressClass = ingressClass
 	}
 
-	nc.DefaultCertificateClass = CertManagerCertificateClassName
 	if certClass, ok := configMap.Data[DefaultCertificateClassKey]; ok {
 		nc.DefaultCertificateClass = certClass
 	}
 
 	// Blank DomainTemplate makes no sense so use our default
-	if dt, ok := configMap.Data[DomainTemplateKey]; !ok {
-		nc.DomainTemplate = DefaultDomainTemplate
-	} else {
+	if dt, ok := configMap.Data[DomainTemplateKey]; ok {
 		t, err := template.New("domain-template").Parse(dt)
 		if err != nil {
 			return nil, err
@@ -225,14 +233,11 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err := checkDomainTemplate(t); err != nil {
 			return nil, err
 		}
-
 		nc.DomainTemplate = dt
 	}
 
 	// Blank TagTemplate makes no sense so use our default
-	if tt, ok := configMap.Data[TagTemplateKey]; !ok {
-		nc.TagTemplate = DefaultTagTemplate
-	} else {
+	if tt, ok := configMap.Data[TagTemplateKey]; ok {
 		t, err := template.New("tag-template").Parse(tt)
 		if err != nil {
 			return nil, err
@@ -240,19 +245,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err := checkTagTemplate(t); err != nil {
 			return nil, err
 		}
-
 		nc.TagTemplate = tt
 	}
 
 	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
 
 	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
-	case string(HTTPEnabled):
-		nc.HTTPProtocol = HTTPEnabled
-	case "":
-		// If HTTPProtocol is not set in the config-network, we set the default value
-		// to HTTPEnabled.
-		nc.HTTPProtocol = HTTPEnabled
+	case "", string(HTTPEnabled):
+		// If HTTPProtocol is not set in the config-network, default is already
+		// set to HTTPEnabled.
 	case string(HTTPDisabled):
 		nc.HTTPProtocol = HTTPDisabled
 	case string(HTTPRedirected):
