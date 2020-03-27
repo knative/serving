@@ -311,9 +311,9 @@ spec:
           requests:
             cpu: 30m
             memory: 40Mi
-          limits:
-            cpu: 300m
-            memory: 400Mi
+#          limits:
+#            cpu: 300m
+#            memory: 400Mi
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -383,9 +383,9 @@ spec:
           requests:
             cpu: 20m
             memory: 20Mi
-          limits:
-            cpu: 200m
-            memory: 200Mi
+#          limits:
+#            cpu: 200m
+#            memory: 200Mi
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
