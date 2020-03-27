@@ -62,45 +62,40 @@ func TestConfiguration(t *testing.T) {
 		wantErr:    false,
 		wantConfig: defaultConfig(),
 	}, {
-		name:    "network configuration with non-default ingress type",
-		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "foo-ingress",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			HTTPProtocol:            HTTPEnabled,
-		},
+		name: "network configuration with non-default ingress type",
 		data: map[string]string{
 			DefaultIngressClassKey: "foo-ingress",
 		},
-	}, {
-		name:    "network configuration with non-Cert-Manager Certificate type",
 		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: "foo-cert",
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			HTTPProtocol:            HTTPEnabled,
-		},
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.DefaultIngressClass = "foo-ingress"
+			return c
+		}(),
+	}, {
+		name: "network configuration with non-Cert-Manager Certificate type",
 		data: map[string]string{
 			DefaultCertificateClassKey: "foo-cert",
 		},
-	}, {
-		name:    "network configuration with diff domain template",
 		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "foo-ingress",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          nonDefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			HTTPProtocol:            HTTPEnabled,
-		},
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.DefaultCertificateClass = "foo-cert"
+			return c
+		}(),
+	}, {
+		name: "network configuration with diff domain template",
 		data: map[string]string{
 			DefaultIngressClassKey: "foo-ingress",
 			DomainTemplateKey:      nonDefaultDomainTemplate,
 		},
+		wantErr: false,
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.DefaultIngressClass = "foo-ingress"
+			c.DomainTemplate = nonDefaultDomainTemplate
+			return c
+		}(),
 	}, {
 		name:    "network configuration with blank domain template",
 		wantErr: true,
@@ -146,28 +141,18 @@ func TestConfiguration(t *testing.T) {
 			AutoTLSKey: "enabled",
 		},
 		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			AutoTLS:                 true,
-			HTTPProtocol:            HTTPEnabled,
-		},
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.AutoTLS = true
+			return c
+		}(),
 	}, {
 		name: "network configuration with Auto TLS disabled",
 		data: map[string]string{
 			AutoTLSKey: "disabled",
 		},
-		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			AutoTLS:                 false,
-			HTTPProtocol:            HTTPEnabled,
-		},
+		wantErr:    false,
+		wantConfig: defaultConfig(),
 	}, {
 		name: "network configuration with HTTPProtocol disabled",
 		data: map[string]string{
@@ -175,14 +160,12 @@ func TestConfiguration(t *testing.T) {
 			HTTPProtocolKey: "Disabled",
 		},
 		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			AutoTLS:                 true,
-			HTTPProtocol:            HTTPDisabled,
-		},
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.AutoTLS = true
+			c.HTTPProtocol = HTTPDisabled
+			return c
+		}(),
 	}, {
 		name: "network configuration with HTTPProtocol redirected",
 		data: map[string]string{
@@ -190,14 +173,12 @@ func TestConfiguration(t *testing.T) {
 			HTTPProtocolKey: "Redirected",
 		},
 		wantErr: false,
-		wantConfig: &Config{
-			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass: CertManagerCertificateClassName,
-			DomainTemplate:          DefaultDomainTemplate,
-			TagTemplate:             DefaultTagTemplate,
-			AutoTLS:                 true,
-			HTTPProtocol:            HTTPRedirected,
-		},
+		wantConfig: func() *Config {
+			c := defaultConfig()
+			c.AutoTLS = true
+			c.HTTPProtocol = HTTPRedirected
+			return c
+		}(),
 	}, {
 		name: "network configuration with HTTPProtocol bad",
 		data: map[string]string{
@@ -349,7 +330,7 @@ func TestKnativeProbeHeader(t *testing.T) {
 	if h := KnativeProbeHeader(req); h != "" {
 		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
 	}
-	want := "activator"
+	const want = "activator"
 	req.Header.Set(ProbeHeaderName, want)
 	if h := KnativeProbeHeader(req); h != want {
 		t.Errorf("KnativeProbeHeader(req)=%v, want %v", h, want)
@@ -368,7 +349,7 @@ func TestKnativeProxyHeader(t *testing.T) {
 	if h := KnativeProxyHeader(req); h != "" {
 		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
 	}
-	want := "activator"
+	const want = "activator"
 	req.Header.Set(ProxyHeaderName, want)
 	if h := KnativeProxyHeader(req); h != want {
 		t.Errorf("KnativeProxyHeader(req)=%v, want %v", h, want)
