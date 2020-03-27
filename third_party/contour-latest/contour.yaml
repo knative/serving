@@ -51,8 +51,8 @@ data:
     #   minimum-protocol-version: "1.1"
     # The following config shows the defaults for the leader election.
     # leaderelection:
-    #   configmap-name: contour
-    #   configmap-namespace: leader-elect
+    #   configmap-name: leader-elect
+    #   configmap-namespace: contour-external
     ### Logging options
     # Default setting
     accesslog-format: envoy
@@ -88,6 +88,8 @@ data:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
 spec:
@@ -180,7 +182,8 @@ spec:
                       count:
                         description: NumRetries is maximum allowed number of retries.
                           If not supplied, the number of retries is one.
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       perTryTimeout:
                         description: PerTryTimeout specifies the timeout per retry
@@ -199,7 +202,8 @@ spec:
                             healthyThresholdCount:
                               description: The number of healthy health checks required
                                 before a host is marked healthy
-                              format: int32
+                              format: int64
+                              minimum: 0
                               type: integer
                             host:
                               description: The value of the host header in the HTTP
@@ -222,7 +226,8 @@ spec:
                             unhealthyThresholdCount:
                               description: The number of unhealthy health checks required
                                 before a host is marked unhealthy
-                              format: int32
+                              format: int64
+                              minimum: 0
                               type: integer
                           required:
                           - path
@@ -258,7 +263,8 @@ spec:
                         weight:
                           description: Weight defines percentage of traffic to balance
                             traffic
-                          format: int32
+                          format: int64
+                          minimum: 0
                           type: integer
                       required:
                       - name
@@ -307,7 +313,8 @@ spec:
                           healthyThresholdCount:
                             description: The number of healthy health checks required
                               before a host is marked healthy
-                            format: int32
+                            format: int64
+                            minimum: 0
                             type: integer
                           host:
                             description: The value of the host header in the HTTP
@@ -330,7 +337,8 @@ spec:
                           unhealthyThresholdCount:
                             description: The number of unhealthy health checks required
                               before a host is marked unhealthy
-                            format: int32
+                            format: int64
+                            minimum: 0
                             type: integer
                         required:
                         - path
@@ -366,7 +374,8 @@ spec:
                       weight:
                         description: Weight defines percentage of traffic to balance
                           traffic
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - name
@@ -384,7 +393,7 @@ spec:
                     to the fqdn
                   type: string
                 tls:
-                  description: If present describes tls properties. The CNI names
+                  description: If present describes tls properties. The SNI names
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
@@ -431,6 +440,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
 spec:
@@ -505,6 +516,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
 spec:
@@ -573,28 +586,31 @@ spec:
                           description: Header specifies the header condition to match.
                           properties:
                             contains:
-                              description: Contains is true if the Header containing
-                                this string is present in the request.
+                              description: Contains specifies a substring that must
+                                be present in the header value.
                               type: string
                             exact:
-                              description: Exact is true if the Header containing
-                                this string matches exactly in the request.
+                              description: Exact specifies a string that the header
+                                value must be equal to.
                               type: string
                             name:
                               description: Name is the name of the header to match
-                                on. Name is required. Header names are case insensitive.
+                                against. Name is required. Header names are case insensitive.
                               type: string
                             notcontains:
-                              description: NotContains is true if the Header containing
-                                this string is not present in the request.
+                              description: NotContains specifies a substring that
+                                must not be present in the header value.
                               type: string
                             notexact:
-                              description: NotExact is true if the Header containing
-                                this string doesn't match exactly in the request.
+                              description: NoExact specifies a string that the header
+                                value must not be equal to. The condition is true
+                                if the header has any other value.
                               type: string
                             present:
-                              description: Present is true if the Header is present
-                                in the request.
+                              description: Present specifies that condition is true
+                                when the named header is present, regardless of its
+                                value. Note that setting Present to false does not
+                                make the condition true if the named header is absent.
                               type: boolean
                           required:
                           - name
@@ -632,28 +648,31 @@ spec:
                           description: Header specifies the header condition to match.
                           properties:
                             contains:
-                              description: Contains is true if the Header containing
-                                this string is present in the request.
+                              description: Contains specifies a substring that must
+                                be present in the header value.
                               type: string
                             exact:
-                              description: Exact is true if the Header containing
-                                this string matches exactly in the request.
+                              description: Exact specifies a string that the header
+                                value must be equal to.
                               type: string
                             name:
                               description: Name is the name of the header to match
-                                on. Name is required. Header names are case insensitive.
+                                against. Name is required. Header names are case insensitive.
                               type: string
                             notcontains:
-                              description: NotContains is true if the Header containing
-                                this string is not present in the request.
+                              description: NotContains specifies a substring that
+                                must not be present in the header value.
                               type: string
                             notexact:
-                              description: NotExact is true if the Header containing
-                                this string doesn't match exactly in the request.
+                              description: NoExact specifies a string that the header
+                                value must not be equal to. The condition is true
+                                if the header has any other value.
                               type: string
                             present:
-                              description: Present is true if the Header is present
-                                in the request.
+                              description: Present specifies that condition is true
+                                when the named header is present, regardless of its
+                                value. Note that setting Present to false does not
+                                make the condition true if the named header is absent.
                               type: boolean
                           required:
                           - name
@@ -672,7 +691,8 @@ spec:
                       healthyThresholdCount:
                         description: The number of healthy health checks required
                           before a host is marked healthy
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       host:
                         description: The value of the host header in the HTTP health
@@ -695,7 +715,8 @@ spec:
                       unhealthyThresholdCount:
                         description: The number of unhealthy health checks required
                           before a host is marked unhealthy
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - path
@@ -704,6 +725,12 @@ spec:
                     description: The load balancing policy for this route.
                     properties:
                       strategy:
+                        description: Strategy specifies the policy used to balance
+                          requests across the pool of backend pods. Valid policy names
+                          are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Random`
+                          and `Cookie`. If an unknown strategy name is specified or
+                          no policy is supplied, the default `RoundRobin` policy is
+                          used.
                         type: string
                     type: object
                   pathRewritePolicy:
@@ -812,7 +839,8 @@ spec:
                       count:
                         description: NumRetries is maximum allowed number of retries.
                           If not supplied, the number of retries is one.
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       perTryTimeout:
                         description: PerTryTimeout specifies the timeout per retry
@@ -841,8 +869,12 @@ spec:
                         protocol:
                           description: Protocol may be used to specify (or override)
                             the protocol used to reach this Service. Values may be
-                            tls, h2, h2c.  It ommitted protocol-selection falls back
+                            tls, h2, h2c. If omitted, protocol-selection falls back
                             on Service annotations.
+                          enum:
+                          - h2
+                          - h2c
+                          - tls
                           type: string
                         requestHeadersPolicy:
                           description: The policy for managing request headers during
@@ -927,12 +959,14 @@ spec:
                         weight:
                           description: Weight defines percentage of traffic to balance
                             traffic
-                          format: int32
+                          format: int64
+                          minimum: 0
                           type: integer
                       required:
                       - name
                       - port
                       type: object
+                    minItems: 1
                     type: array
                   timeoutPolicy:
                     description: The timeout policy for this route.
@@ -949,14 +983,55 @@ spec:
                           the timeout duration is undefined.
                         type: string
                     type: object
+                required:
+                - services
                 type: object
               type: array
             tcpproxy:
               description: TCPProxy holds TCP proxy information.
               properties:
-                includes:
+                healthCheckPolicy:
+                  description: The health check policy for this tcp proxy
+                  properties:
+                    healthyThresholdCount:
+                      description: The number of healthy health checks required before
+                        a host is marked healthy
+                      format: int32
+                      type: integer
+                    intervalSeconds:
+                      description: The interval (seconds) between health checks
+                      format: int64
+                      type: integer
+                    timeoutSeconds:
+                      description: The time to wait (seconds) for a health check response
+                      format: int64
+                      type: integer
+                    unhealthyThresholdCount:
+                      description: The number of unhealthy health checks required
+                        before a host is marked unhealthy
+                      format: int32
+                      type: integer
+                  type: object
+                include:
                   description: Include specifies that this tcpproxy should be delegated
                     to another HTTPProxy.
+                  properties:
+                    name:
+                      description: Name of the child HTTPProxy
+                      type: string
+                    namespace:
+                      description: Namespace of the HTTPProxy to include. Defaults
+                        to the current namespace if not supplied.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                includes:
+                  description: "IncludesDeprecated allow for specific routing configuration
+                    to be appended to another HTTPProxy in another namespace. \n Exists
+                    due to a mistake when developing HTTPProxy and the field was marked
+                    plural when it should have been singular. This field should stay
+                    to not break backwards compatibility to v1 users."
                   properties:
                     name:
                       description: Name of the child HTTPProxy
@@ -972,6 +1047,11 @@ spec:
                   description: The load balancing policy for the backend services.
                   properties:
                     strategy:
+                      description: Strategy specifies the policy used to balance requests
+                        across the pool of backend pods. Valid policy names are `Random`,
+                        `RoundRobin`, `WeightedLeastRequest`, `Random` and `Cookie`.
+                        If an unknown strategy name is specified or no policy is supplied,
+                        the default `RoundRobin` policy is used.
                       type: string
                   type: object
                 services:
@@ -995,8 +1075,12 @@ spec:
                       protocol:
                         description: Protocol may be used to specify (or override)
                           the protocol used to reach this Service. Values may be tls,
-                          h2, h2c.  It ommitted protocol-selection falls back on Service
+                          h2, h2c. If omitted, protocol-selection falls back on Service
                           annotations.
+                        enum:
+                        - h2
+                        - h2c
+                        - tls
                         type: string
                       requestHeadersPolicy:
                         description: The policy for managing request headers during
@@ -1081,13 +1165,17 @@ spec:
                       weight:
                         description: Weight defines percentage of traffic to balance
                           traffic
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - name
                     - port
                     type: object
+                  minItems: 1
                   type: array
+              required:
+              - services
               type: object
             virtualhost:
               description: Virtualhost appears at most once. If it is present, the
@@ -1099,7 +1187,7 @@ spec:
                     to the fqdn
                   type: string
                 tls:
-                  description: If present describes tls properties. The CNI names
+                  description: If present describes tls properties. The SNI names
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
@@ -1146,6 +1234,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
 spec:
@@ -1272,7 +1362,7 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         command:
         - contour
@@ -1365,6 +1455,15 @@ rules:
   - patch
 - apiGroups: ["projectcontour.io"]
   resources: ["httpproxies", "tlscertificatedelegations"]
+  verbs:
+  - get
+  - list
+  - watch
+  - put
+  - post
+  - patch
+- apiGroups: ["networking.x.k8s.io"]
+  resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
   - get
   - list
@@ -1493,7 +1592,6 @@ spec:
         - serve
         - --ingress-class-name=contour-external
         - --incluster
-        - --use-extensions-v1beta1-ingress
         - --xds-address=0.0.0.0
         - --xds-port=8001
         - --envoy-service-http-port=80
@@ -1503,7 +1601,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         name: contour
         ports:
@@ -1584,6 +1682,26 @@ spec:
         app: envoy
     spec:
       containers:
+      - command:
+        - contour
+        args:
+        - envoy
+        - shutdown-manager
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            httpGet:
+              path: /shutdown
+              port: 8090
+              scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 3
+          periodSeconds: 10
+        name: shutdown-manager
       - args:
         - -c
         - /config/envoy.json
@@ -1592,7 +1710,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.12.2
+        image: docker.io/envoyproxy/envoy:v1.13.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -1620,7 +1738,7 @@ spec:
             path: /ready
             port: 8002
           initialDelaySeconds: 3
-          periodSeconds: 3
+          periodSeconds: 4
         volumeMounts:
         - name: envoy-config
           mountPath: /config
@@ -1630,16 +1748,10 @@ spec:
           mountPath: /ca
         lifecycle:
           preStop:
-            exec:
-              command:
-              - bash
-              - -c
-              - --
-              - echo
-              - -ne
-              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
-                close\r\n\r\n"
-              - '>/dev/tcp/localhost/9001'
+            httpGet:
+              path: /shutdown
+              port: 8090
+              scheme: HTTP
       initContainers:
       - args:
         - bootstrap
@@ -1651,7 +1763,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -1669,6 +1781,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
         emptyDir: {}
@@ -1736,8 +1849,8 @@ data:
     #   minimum-protocol-version: "1.1"
     # The following config shows the defaults for the leader election.
     # leaderelection:
-    #   configmap-name: contour
-    #   configmap-namespace: leader-elect
+    #   configmap-name: leader-elect
+    #   configmap-namespace: contour-internal
     ### Logging options
     # Default setting
     accesslog-format: envoy
@@ -1773,6 +1886,8 @@ data:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
 spec:
@@ -1865,7 +1980,8 @@ spec:
                       count:
                         description: NumRetries is maximum allowed number of retries.
                           If not supplied, the number of retries is one.
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       perTryTimeout:
                         description: PerTryTimeout specifies the timeout per retry
@@ -1884,7 +2000,8 @@ spec:
                             healthyThresholdCount:
                               description: The number of healthy health checks required
                                 before a host is marked healthy
-                              format: int32
+                              format: int64
+                              minimum: 0
                               type: integer
                             host:
                               description: The value of the host header in the HTTP
@@ -1907,7 +2024,8 @@ spec:
                             unhealthyThresholdCount:
                               description: The number of unhealthy health checks required
                                 before a host is marked unhealthy
-                              format: int32
+                              format: int64
+                              minimum: 0
                               type: integer
                           required:
                           - path
@@ -1943,7 +2061,8 @@ spec:
                         weight:
                           description: Weight defines percentage of traffic to balance
                             traffic
-                          format: int32
+                          format: int64
+                          minimum: 0
                           type: integer
                       required:
                       - name
@@ -1992,7 +2111,8 @@ spec:
                           healthyThresholdCount:
                             description: The number of healthy health checks required
                               before a host is marked healthy
-                            format: int32
+                            format: int64
+                            minimum: 0
                             type: integer
                           host:
                             description: The value of the host header in the HTTP
@@ -2015,7 +2135,8 @@ spec:
                           unhealthyThresholdCount:
                             description: The number of unhealthy health checks required
                               before a host is marked unhealthy
-                            format: int32
+                            format: int64
+                            minimum: 0
                             type: integer
                         required:
                         - path
@@ -2051,7 +2172,8 @@ spec:
                       weight:
                         description: Weight defines percentage of traffic to balance
                           traffic
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - name
@@ -2069,7 +2191,7 @@ spec:
                     to the fqdn
                   type: string
                 tls:
-                  description: If present describes tls properties. The CNI names
+                  description: If present describes tls properties. The SNI names
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
@@ -2116,6 +2238,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
 spec:
@@ -2190,6 +2314,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
 spec:
@@ -2258,28 +2384,31 @@ spec:
                           description: Header specifies the header condition to match.
                           properties:
                             contains:
-                              description: Contains is true if the Header containing
-                                this string is present in the request.
+                              description: Contains specifies a substring that must
+                                be present in the header value.
                               type: string
                             exact:
-                              description: Exact is true if the Header containing
-                                this string matches exactly in the request.
+                              description: Exact specifies a string that the header
+                                value must be equal to.
                               type: string
                             name:
                               description: Name is the name of the header to match
-                                on. Name is required. Header names are case insensitive.
+                                against. Name is required. Header names are case insensitive.
                               type: string
                             notcontains:
-                              description: NotContains is true if the Header containing
-                                this string is not present in the request.
+                              description: NotContains specifies a substring that
+                                must not be present in the header value.
                               type: string
                             notexact:
-                              description: NotExact is true if the Header containing
-                                this string doesn't match exactly in the request.
+                              description: NoExact specifies a string that the header
+                                value must not be equal to. The condition is true
+                                if the header has any other value.
                               type: string
                             present:
-                              description: Present is true if the Header is present
-                                in the request.
+                              description: Present specifies that condition is true
+                                when the named header is present, regardless of its
+                                value. Note that setting Present to false does not
+                                make the condition true if the named header is absent.
                               type: boolean
                           required:
                           - name
@@ -2317,28 +2446,31 @@ spec:
                           description: Header specifies the header condition to match.
                           properties:
                             contains:
-                              description: Contains is true if the Header containing
-                                this string is present in the request.
+                              description: Contains specifies a substring that must
+                                be present in the header value.
                               type: string
                             exact:
-                              description: Exact is true if the Header containing
-                                this string matches exactly in the request.
+                              description: Exact specifies a string that the header
+                                value must be equal to.
                               type: string
                             name:
                               description: Name is the name of the header to match
-                                on. Name is required. Header names are case insensitive.
+                                against. Name is required. Header names are case insensitive.
                               type: string
                             notcontains:
-                              description: NotContains is true if the Header containing
-                                this string is not present in the request.
+                              description: NotContains specifies a substring that
+                                must not be present in the header value.
                               type: string
                             notexact:
-                              description: NotExact is true if the Header containing
-                                this string doesn't match exactly in the request.
+                              description: NoExact specifies a string that the header
+                                value must not be equal to. The condition is true
+                                if the header has any other value.
                               type: string
                             present:
-                              description: Present is true if the Header is present
-                                in the request.
+                              description: Present specifies that condition is true
+                                when the named header is present, regardless of its
+                                value. Note that setting Present to false does not
+                                make the condition true if the named header is absent.
                               type: boolean
                           required:
                           - name
@@ -2357,7 +2489,8 @@ spec:
                       healthyThresholdCount:
                         description: The number of healthy health checks required
                           before a host is marked healthy
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       host:
                         description: The value of the host header in the HTTP health
@@ -2380,7 +2513,8 @@ spec:
                       unhealthyThresholdCount:
                         description: The number of unhealthy health checks required
                           before a host is marked unhealthy
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - path
@@ -2389,6 +2523,12 @@ spec:
                     description: The load balancing policy for this route.
                     properties:
                       strategy:
+                        description: Strategy specifies the policy used to balance
+                          requests across the pool of backend pods. Valid policy names
+                          are `Random`, `RoundRobin`, `WeightedLeastRequest`, `Random`
+                          and `Cookie`. If an unknown strategy name is specified or
+                          no policy is supplied, the default `RoundRobin` policy is
+                          used.
                         type: string
                     type: object
                   pathRewritePolicy:
@@ -2497,7 +2637,8 @@ spec:
                       count:
                         description: NumRetries is maximum allowed number of retries.
                           If not supplied, the number of retries is one.
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                       perTryTimeout:
                         description: PerTryTimeout specifies the timeout per retry
@@ -2526,8 +2667,12 @@ spec:
                         protocol:
                           description: Protocol may be used to specify (or override)
                             the protocol used to reach this Service. Values may be
-                            tls, h2, h2c.  It ommitted protocol-selection falls back
+                            tls, h2, h2c. If omitted, protocol-selection falls back
                             on Service annotations.
+                          enum:
+                          - h2
+                          - h2c
+                          - tls
                           type: string
                         requestHeadersPolicy:
                           description: The policy for managing request headers during
@@ -2612,12 +2757,14 @@ spec:
                         weight:
                           description: Weight defines percentage of traffic to balance
                             traffic
-                          format: int32
+                          format: int64
+                          minimum: 0
                           type: integer
                       required:
                       - name
                       - port
                       type: object
+                    minItems: 1
                     type: array
                   timeoutPolicy:
                     description: The timeout policy for this route.
@@ -2634,14 +2781,55 @@ spec:
                           the timeout duration is undefined.
                         type: string
                     type: object
+                required:
+                - services
                 type: object
               type: array
             tcpproxy:
               description: TCPProxy holds TCP proxy information.
               properties:
-                includes:
+                healthCheckPolicy:
+                  description: The health check policy for this tcp proxy
+                  properties:
+                    healthyThresholdCount:
+                      description: The number of healthy health checks required before
+                        a host is marked healthy
+                      format: int32
+                      type: integer
+                    intervalSeconds:
+                      description: The interval (seconds) between health checks
+                      format: int64
+                      type: integer
+                    timeoutSeconds:
+                      description: The time to wait (seconds) for a health check response
+                      format: int64
+                      type: integer
+                    unhealthyThresholdCount:
+                      description: The number of unhealthy health checks required
+                        before a host is marked unhealthy
+                      format: int32
+                      type: integer
+                  type: object
+                include:
                   description: Include specifies that this tcpproxy should be delegated
                     to another HTTPProxy.
+                  properties:
+                    name:
+                      description: Name of the child HTTPProxy
+                      type: string
+                    namespace:
+                      description: Namespace of the HTTPProxy to include. Defaults
+                        to the current namespace if not supplied.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                includes:
+                  description: "IncludesDeprecated allow for specific routing configuration
+                    to be appended to another HTTPProxy in another namespace. \n Exists
+                    due to a mistake when developing HTTPProxy and the field was marked
+                    plural when it should have been singular. This field should stay
+                    to not break backwards compatibility to v1 users."
                   properties:
                     name:
                       description: Name of the child HTTPProxy
@@ -2657,6 +2845,11 @@ spec:
                   description: The load balancing policy for the backend services.
                   properties:
                     strategy:
+                      description: Strategy specifies the policy used to balance requests
+                        across the pool of backend pods. Valid policy names are `Random`,
+                        `RoundRobin`, `WeightedLeastRequest`, `Random` and `Cookie`.
+                        If an unknown strategy name is specified or no policy is supplied,
+                        the default `RoundRobin` policy is used.
                       type: string
                   type: object
                 services:
@@ -2680,8 +2873,12 @@ spec:
                       protocol:
                         description: Protocol may be used to specify (or override)
                           the protocol used to reach this Service. Values may be tls,
-                          h2, h2c.  It ommitted protocol-selection falls back on Service
+                          h2, h2c. If omitted, protocol-selection falls back on Service
                           annotations.
+                        enum:
+                        - h2
+                        - h2c
+                        - tls
                         type: string
                       requestHeadersPolicy:
                         description: The policy for managing request headers during
@@ -2766,13 +2963,17 @@ spec:
                       weight:
                         description: Weight defines percentage of traffic to balance
                           traffic
-                        format: int32
+                        format: int64
+                        minimum: 0
                         type: integer
                     required:
                     - name
                     - port
                     type: object
+                  minItems: 1
                   type: array
+              required:
+              - services
               type: object
             virtualhost:
               description: Virtualhost appears at most once. If it is present, the
@@ -2784,7 +2985,7 @@ spec:
                     to the fqdn
                   type: string
                 tls:
-                  description: If present describes tls properties. The CNI names
+                  description: If present describes tls properties. The SNI names
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
@@ -2831,6 +3032,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
 spec:
@@ -2957,7 +3160,7 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         command:
         - contour
@@ -3050,6 +3253,15 @@ rules:
   - patch
 - apiGroups: ["projectcontour.io"]
   resources: ["httpproxies", "tlscertificatedelegations"]
+  verbs:
+  - get
+  - list
+  - watch
+  - put
+  - post
+  - patch
+- apiGroups: ["networking.x.k8s.io"]
+  resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
   - get
   - list
@@ -3178,7 +3390,6 @@ spec:
         - serve
         - --ingress-class-name=contour-internal
         - --incluster
-        - --use-extensions-v1beta1-ingress
         - --xds-address=0.0.0.0
         - --xds-port=8001
         - --envoy-service-http-port=80
@@ -3188,7 +3399,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         name: contour
         ports:
@@ -3269,6 +3480,26 @@ spec:
         app: envoy
     spec:
       containers:
+      - command:
+        - contour
+        args:
+        - envoy
+        - shutdown-manager
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            httpGet:
+              path: /shutdown
+              port: 8090
+              scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 3
+          periodSeconds: 10
+        name: shutdown-manager
       - args:
         - -c
         - /config/envoy.json
@@ -3277,7 +3508,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.12.2
+        image: docker.io/envoyproxy/envoy:v1.13.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -3305,7 +3536,7 @@ spec:
             path: /ready
             port: 8002
           initialDelaySeconds: 3
-          periodSeconds: 3
+          periodSeconds: 4
         volumeMounts:
         - name: envoy-config
           mountPath: /config
@@ -3315,16 +3546,10 @@ spec:
           mountPath: /ca
         lifecycle:
           preStop:
-            exec:
-              command:
-              - bash
-              - -c
-              - --
-              - echo
-              - -ne
-              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
-                close\r\n\r\n"
-              - '>/dev/tcp/localhost/9001'
+            httpGet:
+              path: /shutdown
+              port: 8090
+              scheme: HTTP
       initContainers:
       - args:
         - bootstrap
@@ -3336,7 +3561,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:0320e34efbe50b51d8593210ca2ecf35edce0136bb74eb99e86e91f4c92934a7
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:b4cbe36e58481fc44e78e3e057c980296a32c3322be1a6f79f359caaa1cc8a4e
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -3354,6 +3579,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
         emptyDir: {}
