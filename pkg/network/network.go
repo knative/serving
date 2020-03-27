@@ -155,14 +155,15 @@ type TagTemplateValues struct {
 }
 
 var (
-	templateCache   *lru.Cache
-	defaultTemplate = template.Must(template.New("tag-template").Parse(DefaultDomainTemplate))
+	templateCache         *lru.Cache
+	defaultDomainTemplate = template.Must(template.New("domain-template").Parse(DefaultDomainTemplate))
+	defaultTagTemplate    = template.Must(template.New("tag-template").Parse(DefaultTagTemplate))
 )
 
 func init() {
 	// The only failure is due to negative size.
-	// Store 10 latest templates.
-	templateCache, _ = lru.New(10)
+	// Store ~10 latest templates per template type.
+	templateCache, _ = lru.New(10 * 2)
 }
 
 // Config contains the networking configuration defined in the
@@ -254,7 +255,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		nc.DomainTemplate = dt
 	} else {
 		// Make sure default template is in the cache.
-		templateCache.Add(DefaultDomainTemplate, defaultTemplate)
+		templateCache.Add(DefaultDomainTemplate, defaultDomainTemplate)
 	}
 
 	// Blank TagTemplate makes no sense so use our default
@@ -267,6 +268,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 			return nil, err
 		}
 		nc.TagTemplate = tt
+	} else {
+		// Make sure default template is in the cache.
+		templateCache.Add(DefaultDomainTemplate, defaultTagTemplate)
 	}
 
 	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
@@ -331,8 +335,15 @@ func checkDomainTemplate(t *template.Template) error {
 }
 
 func (c *Config) GetTagTemplate() *template.Template {
-	return template.Must(template.New("tag-template").Parse(
-		c.TagTemplate))
+	if tt, ok := templateCache.Get(c.TagTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("tag-template").Parse(
+			c.TagTemplate))
+		templateCache.Add(c.TagTemplate, nt)
+		return nt
+	}
 }
 
 func checkTagTemplate(t *template.Template) error {
