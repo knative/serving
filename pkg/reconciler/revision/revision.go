@@ -85,12 +85,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 
 	var digestGrp errgroup.Group
 	type digestData struct {
-		digestValue   string
-		containerName string
-		containerPort int
+		digestValue        string
+		containerName      string
+		isServingContainer bool
 	}
 
-	digests := make(chan *digestData, len(rev.Spec.Containers))
+	digests := make(chan digestData, len(rev.Spec.Containers))
 	digestGrp.Go(func() error {
 		for _, container := range rev.Spec.Containers {
 			container = container // Standard Go concurrency pattern.
@@ -103,7 +103,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 						container.Image, err.Error()))
 				return err
 			}
-			digests <- &digestData{digestValue: digest, containerName: container.Name, containerPort: len(container.Ports)}
+			digests <- digestData{digestValue: digest, containerName: container.Name, isServingContainer: len(container.Ports) != 0}
 		}
 		return nil
 	})
@@ -112,7 +112,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 	close(digests)
 	for v := range digests {
-		if len(rev.Spec.Containers) == 1 || v.containerPort != 0 {
+		if len(rev.Spec.Containers) == 1 || v.isServingContainer {
 			rev.Status.DeprecatedImageDigest = v.digestValue
 		}
 		rev.Status.ImageDigests[v.containerName] = v.digestValue
