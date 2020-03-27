@@ -91,9 +91,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	digests := make(chan digestData, len(rev.Spec.Containers))
-	digestGrp.Go(func() error {
-		for _, container := range rev.Spec.Containers {
-			container = container // Standard Go concurrency pattern.
+	for _, container := range rev.Spec.Containers {
+		container := container // Standard Go concurrency pattern.
+		digestGrp.Go(func() error {
 			digest, err := c.resolver.Resolve(container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
@@ -104,9 +104,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				return err
 			}
 			digests <- digestData{digestValue: digest, containerName: container.Name, isServingContainer: len(container.Ports) != 0}
-		}
-		return nil
-	})
+			return nil
+		})
+	}
 	if err := digestGrp.Wait(); err != nil {
 		return err
 	}
