@@ -36,7 +36,7 @@ CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
 
 HTTPS=0
-MESH=0
+MESH=1
 INSTALL_MONITORING=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -46,7 +46,8 @@ UNINSTALL_LIST=()
 readonly TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
+#E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
+E2E_SYSTEM_NAMESPACE="knative-testing-serving"
 
 # Parse our custom flags.
 function parse_flags() {
@@ -215,7 +216,7 @@ function install_istio() {
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
     local YAML_NAME=${TMP_DIR}/${1##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g; s/${KNATIVE_DEFAULT_NAMESPACE}\./${E2E_SYSTEM_NAMESPACE}\./g" ${1} > ${YAML_NAME}
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
