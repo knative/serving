@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/system"
@@ -222,6 +223,38 @@ func TestConfiguration(t *testing.T) {
 					tt.wantConfig, actualConfig)
 			}
 		})
+	}
+}
+
+func TestTemplateCaching(t *testing.T) {
+	// Reset the template cache, to ensure size change.
+	templateCache, _ = lru.New(10)
+
+	const anotherTemplate = "{{.Namespace}}.{{.Name}}.{{.Domain}}.sad"
+	actualConfig, err := NewConfigFromMap(map[string]string{
+		DomainTemplateKey: anotherTemplate,
+	})
+	if err != nil {
+		t.Fatalf("Config parsing failure = %v", err)
+	}
+	if got, want := actualConfig.DomainTemplate, anotherTemplate; got != want {
+		t.Errorf("DomainTemplate = %q, want: %q", got, want)
+	}
+	if got, want := templateCache.Len(), 2; got != want {
+		t.Errorf("Cache size = %d, want = %d", got, want)
+	}
+
+	// Reset to default. And make sure it is cached.
+	actualConfig, err = NewConfigFromMap(map[string]string{})
+	if err != nil {
+		t.Fatalf("Config parsing failure = %v", err)
+	}
+
+	if got, want := actualConfig.DomainTemplate, DefaultDomainTemplate; got != want {
+		t.Errorf("DomainTemplate = %q, want: %q", got, want)
+	}
+	if got, want := templateCache.Len(), 3; got != want {
+		t.Errorf("Cache size = %d, want = %d", got, want)
 	}
 }
 
