@@ -50,6 +50,7 @@ use_https=""
 
 if (( HTTPS )); then
   use_https="--https"
+  parallelism="-parallel 1"
   turn_on_auto_tls
   kubectl apply -f ./test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ./test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
