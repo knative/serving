@@ -145,10 +145,6 @@ required = [
 
 # The dependencies below are required for opencensus.
 [[override]]
-  name = "google.golang.org/genproto"
-  revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
-
-[[override]]
   name = "contrib.go.opencensus.io/exporter/prometheus"
   version = "0.1.0"
 

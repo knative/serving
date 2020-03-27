@@ -575,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1111,7 +1111,8 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:0a17eda92a03c3e0843832503aae4610abf8d8ed4c3a7adfc72015cf6b688502"
+  branch = "master"
+  digest = "1:eef2693c03d676828edaaf633f76079d172b770d6416c9b4902fd7b0e32775a2"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api",
@@ -1127,10 +1128,12 @@
     "googleapis/monitoring/v3",
     "googleapis/rpc/code",
     "googleapis/rpc/status",
+    "googleapis/type/calendarperiod",
+    "googleapis/type/expr",
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
-  revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
+  revision = "f447254575fde2c994d6f2d03076c476bfe61854"
 
 [[projects]]
   digest = "1:480952990437229d2348e7fd7f32897bfc2da15a769e954f307ff861040124f9"
@@ -1819,7 +1822,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c1541c449d7119b6dde5828fe73caa185a66f67a0906d66b5fc4388808e3e089"
+  digest = "1:dc09b738d2c1a5c8621b2f76857c1374e76f7b7078b3d655bec51fea1dbf1c28"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1842,7 +1845,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "43151cf35caf24c89a4d66f01d26f9ad738e9742"
+  revision = "76bf9176138c4172170dd865c0e35a4a323e6585"
 
 [[projects]]
   branch = "master"
@@ -1883,6 +1886,7 @@
     "client/injection/kube/informers/core/v1/service/fake",
     "client/injection/kube/informers/factory",
     "client/injection/kube/informers/factory/fake",
+    "client/injection/kube/reconciler/core/v1/namespace",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
     "codegen/cmd/injection-gen/generators",
@@ -1973,7 +1977,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "d19eedb9432c5515a7ccc19a09cb4d2440df7e18"
+  revision = "17335bd2f34224bce33f39c9694e703aeeb52b97"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2142,6 +2146,7 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
+    "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",
