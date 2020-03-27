@@ -36,7 +36,7 @@ CONTOUR_VERSION=""
 CERTIFICATE_CLASS=""
 
 HTTPS=0
-MESH=0
+MESH=1
 INSTALL_MONITORING=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -46,6 +46,7 @@ UNINSTALL_LIST=()
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
+E2E_SYSTEM_NAMESPACE="knative-1"
 
 # Parse our custom flags.
 function parse_flags() {
@@ -484,6 +485,7 @@ function test_setup() {
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   if (( MESH )); then
+    kubectl label namespace ${E2E_SYSTEM_NAMESPACE} istio-injection=enabled
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
