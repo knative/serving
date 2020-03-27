@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -74,7 +73,6 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
-			logger.Debugf("Diff: %s", cmp.Diff(tmpl.Spec, sks.Spec))
 			if sks, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}

@@ -147,12 +147,6 @@ func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	return m
 }
 
-func withNumActivators(n int32) SKSOption {
-	return func(sks *nv1a1.ServerlessService) {
-		sks.Spec.NumActivators = n
-	}
-}
-
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	kpa := kpa(ns, n)
 	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
@@ -928,13 +922,13 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithProxyMode, WithSKSReady, withNumActivators(4)),
+				WithProxyMode, WithSKSReady, WithNumActivators(4)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithProxyMode, WithSKSReady, withNumActivators(1982)),
+				WithProxyMode, WithSKSReady, WithNumActivators(1982)),
 		}},
 	}, {
 		Name: "traffic increased, no longer enough burst capacity",
