@@ -154,15 +154,15 @@ type TagTemplateValues struct {
 	Tag  string
 }
 
-var templateCache *lru.Cache
+var (
+	templateCache   *lru.Cache
+	defaultTemplate = template.Must(template.New("tag-template").Parse(DefaultDomainTemplate))
+)
 
 func init() {
 	// The only failure is due to negative size.
 	// Store 10 latest templates.
 	templateCache, _ = lru.New(10)
-	// Seed it with default template.
-	dt := template.Must(template.New("tag-template").Parse(DefaultDomainTemplate))
-	templateCache.Add(DefaultDomainTemplate, dt)
 }
 
 // Config contains the networking configuration defined in the
@@ -247,6 +247,9 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		}
 		templateCache.Add(tt, t)
 		nc.DomainTemplate = dt
+	} else {
+		// Make sure default template is in the cache.
+		templateCache.Add(DefaultDomainTemplate, defaultTemplate)
 	}
 
 	// Blank TagTemplate makes no sense so use our default
