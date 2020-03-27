@@ -49,22 +49,6 @@ import (
 )
 
 var (
-	defaultKnativeQReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", "0"},
-			},
-		},
-		// We want to mark the service as not ready as soon as the
-		// PreStop handler is called, so we need to check a little
-		// bit more often than the default.  It is a small
-		// sacrifice for a low rate of 503s.
-		PeriodSeconds: 1,
-		// We keep the connection open for a while because we're
-		// actively probing the user-container on that endpoint and
-		// thus don't want to be limited by K8s granularity here.
-		TimeoutSeconds: 10,
-	}
 	testProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
