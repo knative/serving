@@ -55,6 +55,7 @@ import (
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
@@ -466,7 +467,7 @@ func TestReconcile(t *testing.T) {
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	hpa := pa(ns, n, WithHPAClass)
-	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	for _, opt := range so {
 		opt(s)
 	}
@@ -485,7 +486,7 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutos
 		},
 		Spec: asv1a1.PodAutoscalerSpec{
 			ScaleTargetRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
+				APIVersion: "apps/v2",
 				Kind:       "Deployment",
 				Name:       name + "-deployment",
 			},

@@ -56,6 +56,7 @@ func TestMakeSKS(t *testing.T) {
 	}
 
 	const mode = nv1a1.SKSOperationModeServe
+	const na = int32(42)
 
 	want := &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -79,8 +80,9 @@ func TestMakeSKS(t *testing.T) {
 			}},
 		},
 		Spec: nv1a1.ServerlessServiceSpec{
-			ProtocolType: networking.ProtocolHTTP1,
-			Mode:         nv1a1.SKSOperationModeServe,
+			ProtocolType:  networking.ProtocolHTTP1,
+			Mode:          nv1a1.SKSOperationModeServe,
+			NumActivators: 42,
 			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
@@ -88,7 +90,7 @@ func TestMakeSKS(t *testing.T) {
 			},
 		},
 	}
-	if got, want := MakeSKS(pa, mode), want; !cmp.Equal(got, want) {
+	if got, want := MakeSKS(pa, mode, na), want; !cmp.Equal(got, want) {
 		t.Errorf("MakeSKS = %#v, want: %#v, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
