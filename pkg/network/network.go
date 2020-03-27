@@ -245,7 +245,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err := checkDomainTemplate(t); err != nil {
 			return nil, err
 		}
-		templateCache.Add(tt, t)
+		templateCache.Add(dt, t)
 		nc.DomainTemplate = dt
 	} else {
 		// Make sure default template is in the cache.
