@@ -65,7 +65,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	t.Run("network", func(t *testing.T) {
 		expected, _ := network.NewConfigFromConfigMap(networkConfig)
-		ignoreDT := cmpopts.IgnoreFields(network.Config{}, "DomainTemplate")
+		ignoreDT := cmpopts.IgnoreUnexported(network.Config{})
 
 		if diff := cmp.Diff(expected, config.Network, ignoreDT); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)

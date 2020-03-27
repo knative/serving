@@ -1229,17 +1229,14 @@ func TestRouteDomain(t *testing.T) {
 		Template: `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 		Pass:     true,
 		Expected: "myapp.mysub.example.com",
-	}, {
-		// This cannot get through our validation, but verify we handle errors.
-		Name:     "BadVarName",
-		Template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
-		Pass:     false,
-		Expected: "",
 	}}
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			cfg.Network.DomainTemplate = test.Template
+			ncfg, _ := network.NewConfigFromMap(map[string]string{
+				network.DomainTemplateKey: test.Template,
+			})
+			cfg.Network = ncfg
 
 			res, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, route.Name)
 

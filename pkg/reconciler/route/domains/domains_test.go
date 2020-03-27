@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmeta"
 
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -32,7 +33,10 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
-func testConfig() *config.Config {
+func testConfig(m map[string]string) *config.Config {
+	ncfg, _ := network.NewConfigFromMap(kmeta.UnionMaps(map[string]string{
+		network.DefaultIngressClassKey: "ingress-class-foo",
+	}, m))
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -42,10 +46,7 @@ func testConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
-			DefaultIngressClass: "ingress-class-foo",
-			DomainTemplate:      network.DefaultDomainTemplate,
-		},
+		Network: ncfg,
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},
@@ -99,13 +100,6 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		args:     args{name: "test-name"},
 		want:     "test-name.mysub.example.com",
 		local:    false,
-	}, {
-		// This cannot get through our validation, but verify we handle errors.
-		name:     "BadVarName",
-		template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
-		args:     args{name: "test-name"},
-		wantErr:  true,
-		local:    false,
 	}}
 
 	meta := metav1.ObjectMeta{
@@ -123,8 +117,9 @@ func TestDomainNameFromTemplate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			cfg := testConfig()
-			cfg.Network.DomainTemplate = tt.template
+			cfg := testConfig(map[string]string{
+				network.DomainTemplateKey: tt.template,
+			})
 			ctx = config.ToContext(ctx, cfg)
 
 			if tt.local {
@@ -212,16 +207,6 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			"target-2-dot-myroute.default.example.com": "target-2",
 			"myroute.default.example.com":              "",
 		},
-	}, {
-		name:           "bad template",
-		domainTemplate: "{{.NNName}}.{{.Namespace}}.{{.Domain}}",
-		tagTemplate:    "{{.Name}}-{{.Tag}}",
-		wantErr:        true,
-	}, {
-		name:           "bad template",
-		domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
-		tagTemplate:    "{{.NNName}}-{{.Tag}}",
-		wantErr:        true,
 	}}
 
 	route := &v1.Route{
@@ -238,9 +223,10 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			cfg := testConfig()
-			cfg.Network.DomainTemplate = tt.domainTemplate
-			cfg.Network.TagTemplate = tt.tagTemplate
+			cfg := testConfig(map[string]string{
+				network.DomainTemplateKey: tt.domainTemplate,
+				network.TagTemplateKey:    tt.tagTemplate,
+			})
 			ctx = config.ToContext(ctx, cfg)
 
 			// here, a tag-less major domain will have empty string as the input

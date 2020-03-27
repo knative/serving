@@ -1042,6 +1042,9 @@ func getContext() context.Context {
 }
 
 func testNetworkConfig() *config.Config {
+	nconf, _ := network.NewConfigFromMap(map[string]string{
+		network.DefaultIngressClassKey: "test-ingress-class",
+	})
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -1051,11 +1054,7 @@ func testNetworkConfig() *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      network.DefaultDomainTemplate,
-			TagTemplate:         network.DefaultTagTemplate,
-		},
+		Network: nconf,
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},

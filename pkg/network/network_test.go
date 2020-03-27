@@ -35,7 +35,7 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
-var cmpOpts = []cmp.Option{cmpopts.IgnoreUnexported(Config{})}
+var cmpOpt = cmpopts.IgnoreUnexported(Config{})
 
 func TestOurConfig(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName)
@@ -45,9 +45,9 @@ func TestOurConfig(t *testing.T) {
 	}
 	if got, err := NewConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
-	} else if want := defaultConfig(); !cmp.Equal(got, want, cmpOpts...) {
+	} else if want := defaultConfig(); !cmp.Equal(got, want, cmpOpt) {
 		t.Errorf("ExampleConfig does not match default confif: (-want,+got):\n%s",
-			cmp.Diff(want, got, cmpOpts...))
+			cmp.Diff(want, got, cmpOpt))
 	}
 }
 
@@ -245,8 +245,8 @@ func TestConfiguration(t *testing.T) {
 				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
 			}
 
-			if got, want := actualConfig, tt.wantConfig; !cmp.Equal(got, want, cmpOpts...) {
-				t.Errorf("NetConfig mismatch: (-want, +got):\n%s", cmp.Diff(want, got, cmpOpts...))
+			if got, want := actualConfig, tt.wantConfig; !cmp.Equal(got, want, cmpOpt) {
+				t.Errorf("NetConfig mismatch: (-want, +got):\n%s", cmp.Diff(want, got, cmpOpt))
 			}
 		})
 	}

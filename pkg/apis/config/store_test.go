@@ -27,10 +27,12 @@ import (
 
 	. "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/network"
 )
 
 var ignoreStuff = cmp.Options{
 	cmpopts.IgnoreUnexported(resource.Quantity{}),
+	cmpopts.IgnoreUnexported(network.Config{}),
 }
 
 func TestStoreLoadWithContext(t *testing.T) {

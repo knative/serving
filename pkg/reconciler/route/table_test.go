@@ -2628,6 +2628,14 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
+	tls := "Disabled"
+	if enableAutoTLS {
+		tls = "Enabled"
+	}
+	ncfg, _ := network.NewConfigFromMap(map[string]string{
+		network.DefaultIngressClassKey: TestIngressClass,
+		network.AutoTLSKey:             tls,
+	})
 	return &config.Config{
 		Domain: &config.Domain{
 			Domains: map[string]*config.LabelSelector{
@@ -2637,14 +2645,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 				},
 			},
 		},
-		Network: &network.Config{
-			DefaultIngressClass:     TestIngressClass,
-			DefaultCertificateClass: network.CertManagerCertificateClassName,
-			AutoTLS:                 enableAutoTLS,
-			DomainTemplate:          network.DefaultDomainTemplate,
-			TagTemplate:             network.DefaultTagTemplate,
-			HTTPProtocol:            network.HTTPEnabled,
-		},
+		Network: ncfg,
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
 		},

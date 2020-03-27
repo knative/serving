@@ -18,7 +18,6 @@ package resources
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,6 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
@@ -50,7 +48,7 @@ const (
 	testIngressClass    = "test-ingress"
 )
 
-func TestMakeIngress_CorrectMetadata(t *testing.T) {
+func TestMakeIngressCorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "ng-ingress"
 	passdownIngressClass := "ok-ingress"
@@ -87,7 +85,7 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 	}
 }
 
-func TestIngress_NoKubectlAnnotation(t *testing.T) {
+func TestIngressNoKubectlAnnotation(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	r := Route(ns, testRouteName, WithRouteAnnotation(map[string]string{
 		networking.IngressClassAnnotationKey: testIngressClass,
@@ -102,7 +100,7 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 	}
 }
 
-func TestMakeIngressSpec_CorrectRules(t *testing.T) {
+func TestMakeIngressSpecCorrectRules(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -222,7 +220,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	}
 }
 
-func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
+func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 	cases := []struct {
 		name               string
 		route              *v1.Route
@@ -307,7 +305,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 }
 
 // One active target.
-func TestMakeIngressRule_Vanilla(t *testing.T) {
+func TestMakeIngressRuleVanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -349,7 +347,7 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 }
 
 // One active target and a target of zero percent.
-func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
+func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -395,7 +393,7 @@ func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 }
 
 // One active target and a target of nil (implied zero) percent.
-func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
+func TestMakeIngressRuleNilPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -441,7 +439,7 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 }
 
 // Two active targets.
-func TestMakeIngressRule_TwoTargets(t *testing.T) {
+func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -499,7 +497,7 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 }
 
 // Inactive target.
-func TestMakeIngressRule_InactiveTarget(t *testing.T) {
+func TestMakeIngressRuleInactiveTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -540,7 +538,7 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 }
 
 // Two inactive targets.
-func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
+func TestMakeIngressRuleTwoInactiveTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -599,7 +597,7 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 	}
 }
 
-func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
+func TestMakeIngressRuleZeroPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -644,7 +642,7 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	}
 }
 
-func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
+func TestMakeIngressRuleNilPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -689,7 +687,7 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 	}
 }
 
-func TestMakeIngress_WithTLS(t *testing.T) {
+func TestMakeIngressWithTLS(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
 	r := Route(ns, "test-route", WithRouteUID("1234-5678"), WithURL)
@@ -748,7 +746,7 @@ func TestMakeIngressTLS(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngress_ACMEChallenges(t *testing.T) {
+func TestMakeClusterIngressACMEChallenges(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -846,82 +844,6 @@ func TestMakeClusterIngress_ACMEChallenges(t *testing.T) {
 
 	if !cmp.Equal(expected, ci.Rules) {
 		t.Errorf("Unexpected rules (-want, +got): %s", cmp.Diff(expected, ci.Rules))
-	}
-
-}
-
-func TestMakeIngress_FailToGenerateDomain(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{
-		traffic.DefaultTarget: {{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "config",
-				RevisionName:      "v2",
-				Percent:           ptr.Int64(100),
-			},
-			ServiceName: "gilberto",
-			Active:      true,
-		}},
-	}
-
-	r := Route(ns, "test-route", WithURL)
-
-	// Create a context that has a bad domain template.
-	badContext := config.ToContext(context.Background(), &config.Config{
-		Domain: &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}},
-		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
-			TagTemplate:         network.DefaultTagTemplate,
-		},
-	})
-	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
-	if err == nil {
-		t.Error("Expected error, saw none")
-	}
-	if err != nil && !strings.Contains(err.Error(), "DomainTemplate") {
-		t.Errorf("Expected DomainTemplate error, saw %v", err)
-	}
-}
-
-func TestMakeIngress_FailToGenerateTagHost(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{
-		traffic.DefaultTarget: {{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "config",
-				RevisionName:      "v2",
-				Percent:           ptr.Int64(100),
-			},
-			ServiceName: "gilberto",
-			Active:      true,
-		}},
-		"v1": {{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "config",
-				RevisionName:      "v1",
-				Percent:           ptr.Int64(100),
-			},
-			ServiceName: "jobim",
-			Active:      true,
-		}},
-	}
-
-	r := Route(ns, "test-route", WithURL)
-
-	// Create a context that has a bad domain template.
-	badContext := config.ToContext(context.Background(), &config.Config{
-		Domain: &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}},
-		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      network.DefaultDomainTemplate,
-			TagTemplate:         "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
-		},
-	})
-	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
-	if err == nil {
-		t.Error("Expected error, saw none")
-	}
-	if err != nil && !strings.Contains(err.Error(), "TagTemplate") {
-		t.Errorf("Expected TagTemplate error, saw %v", err)
 	}
 }
 
