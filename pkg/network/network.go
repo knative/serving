@@ -27,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
 )
@@ -153,6 +154,17 @@ type TagTemplateValues struct {
 	Tag  string
 }
 
+var templateCache *lru.Cache
+
+func init() {
+	// The only failure is due to negative size.
+	// Store 10 latest templates.
+	templateCache, _ = lru.New(10)
+	// Seed it with default template.
+	dt := template.Must(template.New("tag-template").Parse(DefaultDomainTemplate))
+	templateCache.Add(DefaultDomainTemplate, dt)
+}
+
 // Config contains the networking configuration defined in the
 // network config map.
 type Config struct {
@@ -233,6 +245,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		if err := checkDomainTemplate(t); err != nil {
 			return nil, err
 		}
+		templateCache.Add(tt, t)
 		nc.DomainTemplate = dt
 	}
 
@@ -268,8 +281,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // or panics (the value is validated during CM validation and at
 // this point guaranteed to be parseable).
 func (c *Config) GetDomainTemplate() *template.Template {
-	return template.Must(template.New("domain-template").Parse(
-		c.DomainTemplate))
+	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("domain-template").Parse(
+			c.DomainTemplate))
+		templateCache.Add(c.DomainTemplate, nt)
+		return nt
+	}
 }
 
 func checkDomainTemplate(t *template.Template) error {
