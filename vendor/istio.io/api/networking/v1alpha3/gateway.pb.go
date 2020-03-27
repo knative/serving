@@ -14,6 +14,8 @@
 // on these ports, it is the responsibility of the user to ensure that
 // external traffic to these ports are allowed into the mesh.
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway
@@ -66,6 +68,63 @@
 //     hosts:
 //     - "*"
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: Gateway
+// metadata:
+//   name: my-gateway
+//   namespace: some-config-namespace
+// spec:
+//   selector:
+//     app: my-gateway-controller
+//   servers:
+//   - port:
+//       number: 80
+//       name: http
+//       protocol: HTTP
+//     hosts:
+//     - uk.bookinfo.com
+//     - eu.bookinfo.com
+//     tls:
+//       httpsRedirect: true # sends 301 redirect for http requests
+//   - port:
+//       number: 443
+//       name: https-443
+//       protocol: HTTPS
+//     hosts:
+//     - uk.bookinfo.com
+//     - eu.bookinfo.com
+//     tls:
+//       mode: SIMPLE # enables HTTPS on this port
+//       serverCertificate: /etc/certs/servercert.pem
+//       privateKey: /etc/certs/privatekey.pem
+//   - port:
+//       number: 9443
+//       name: https-9443
+//       protocol: HTTPS
+//     hosts:
+//     - "bookinfo-namespace/*.bookinfo.com"
+//     tls:
+//       mode: SIMPLE # enables HTTPS on this port
+//       credentialName: bookinfo-secret # fetches certs from Kubernetes secret
+//   - port:
+//       number: 9080
+//       name: http-wildcard
+//       protocol: HTTP
+//     hosts:
+//     - "*"
+//   - port:
+//       number: 2379 # to expose internal service via external port 2379
+//       name: mongo
+//       protocol: MONGO
+//     hosts:
+//     - "*"
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
@@ -82,6 +141,8 @@
 // applicable across ports 443, 9080. Note that `http://uk.bookinfo.com`
 // gets redirected to `https://uk.bookinfo.com` (i.e. 80 redirects to 443).
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: VirtualService
@@ -119,12 +180,56 @@
 //         host: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: VirtualService
+// metadata:
+//   name: bookinfo-rule
+//   namespace: bookinfo-namespace
+// spec:
+//   hosts:
+//   - reviews.prod.svc.cluster.local
+//   - uk.bookinfo.com
+//   - eu.bookinfo.com
+//   gateways:
+//   - some-config-namespace/my-gateway
+//   - mesh # applies to all the sidecars in the mesh
+//   http:
+//   - match:
+//     - headers:
+//         cookie:
+//           exact: "user=dev-123"
+//     route:
+//     - destination:
+//         port:
+//           number: 7777
+//         host: reviews.qa.svc.cluster.local
+//   - match:
+//     - uri:
+//         prefix: /reviews/
+//     route:
+//     - destination:
+//         port:
+//           number: 9080 # can be omitted if it's the only port for reviews
+//         host: reviews.prod.svc.cluster.local
+//       weight: 80
+//     - destination:
+//         host: reviews.qa.svc.cluster.local
+//       weight: 20
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 // The following VirtualService forwards traffic arriving at (external)
 // port 27017 to internal Mongo server on port 5555. This rule is not
 // applicable internally in the mesh as the gateway list omits the
 // reserved name `mesh`.
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: VirtualService
@@ -146,6 +251,32 @@
 //         port:
 //           number: 5555
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: VirtualService
+// metadata:
+//   name: bookinfo-Mongo
+//   namespace: bookinfo-namespace
+// spec:
+//   hosts:
+//   - mongosvr.prod.svc.cluster.local # name of internal Mongo service
+//   gateways:
+//   - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
+//                                        namespace as virtual service.
+//   tcp:
+//   - match:
+//     - port: 27017
+//     route:
+//     - destination:
+//         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 // It is possible to restrict the set of virtual services that can bind to
 // a gateway server using the namespace/hostname syntax in the hosts field.
@@ -153,6 +284,8 @@
 // namespace to bind to it, while restricting only the virtual service with
 // foo.bar.com host in the ns2 namespace to bind to it.
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway
@@ -171,6 +304,29 @@
 //     - "ns1/*"
 //     - "ns2/foo.bar.com"
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: Gateway
+// metadata:
+//   name: my-gateway
+//   namespace: some-config-namespace
+// spec:
+//   selector:
+//     app: my-gateway-controller
+//   servers:
+//   - port:
+//       number: 80
+//       name: http
+//       protocol: HTTP
+//     hosts:
+//     - "ns1/*"
+//     - "ns2/foo.bar.com"
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 
 package v1alpha3
@@ -295,6 +451,17 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 // Gateway describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections.
 //
+// <!-- crd generation tags
+// +cue-gen:Gateway:groupName:networking.istio.io
+// +cue-gen:Gateway:version:v1alpha3
+// +cue-gen:Gateway:storageVersion
+// +cue-gen:Gateway:annotations:helm.sh/resource-policy=keep
+// +cue-gen:Gateway:labels:app=istio-pilot,chart=istio,heritage=Tiller,release=istio
+// +cue-gen:Gateway:subresource:status
+// +cue-gen:Gateway:scope:Namespaced
+// +cue-gen:Gateway:resource:categories=istio-io,networking-istio-io,shortNames=gw
+// -->
+//
 // <!-- go code generation tags
 // +kubetype-gen
 // +kubetype-gen:groupVersion=networking.istio.io/v1alpha3
@@ -365,6 +532,8 @@ func (m *Gateway) GetSelector() map[string]string {
 // `Server` describes the properties of the proxy on a given load balancer
 // port. For example,
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway
@@ -381,9 +550,32 @@ func (m *Gateway) GetSelector() map[string]string {
 //     hosts:
 //     - "*"
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: Gateway
+// metadata:
+//   name: my-ingress
+// spec:
+//   selector:
+//     app: my-ingress-gateway
+//   servers:
+//   - port:
+//       number: 80
+//       name: http2
+//       protocol: HTTP2
+//     hosts:
+//     - "*"
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 // Another example
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway
@@ -400,9 +592,32 @@ func (m *Gateway) GetSelector() map[string]string {
 //     hosts:
 //     - "*"
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: Gateway
+// metadata:
+//   name: my-tcp-ingress
+// spec:
+//   selector:
+//     app: my-tcp-ingress-gateway
+//   servers:
+//   - port:
+//       number: 27018
+//       name: mongo
+//       protocol: MONGO
+//     hosts:
+//     - "*"
+// ```
+// {{</tab>}}
+// {{</tabset>}}
 //
 // The following is an example of TLS configuration for port 443
 //
+// {{<tabset category-name="example">}}
+// {{<tab name="v1alpha3" category-value="v1alpha3">}}
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway
@@ -423,6 +638,32 @@ func (m *Gateway) GetSelector() map[string]string {
 //       serverCertificate: /etc/certs/server.pem
 //       privateKey: /etc/certs/privatekey.pem
 // ```
+// {{</tab>}}
+//
+// {{<tab name="v1beta1" category-value="v1beta1">}}
+// ```yaml
+// apiVersion: networking.istio.io/v1beta1
+// kind: Gateway
+// metadata:
+//   name: my-tls-ingress
+// spec:
+//   selector:
+//     app: my-tls-ingress-gateway
+//   servers:
+//   - port:
+//       number: 443
+//       name: https
+//       protocol: HTTPS
+//     hosts:
+//     - "*"
+//     tls:
+//       mode: SIMPLE
+//       serverCertificate: /etc/certs/server.pem
+//       privateKey: /etc/certs/privatekey.pem
+// ```
+// {{</tab>}}
+// {{</tabset>}}
+//
 type Server struct {
 	// The Port on which the proxy should listen for incoming
 	// connections.

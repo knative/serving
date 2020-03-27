@@ -1211,20 +1211,20 @@
   version = "v2.2.8"
 
 [[projects]]
-  digest = "1:9579dd8b1ccd8cf54ed576af68438b69588cc136eac90b10aa7c8d1a1c8334ff"
+  digest = "1:68155060a29bf71d7047eca2e5aa201fdc3b76d9b7d9f6f3207af980965f60f9"
   name = "istio.io/api"
   packages = ["networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "e1a1952e5b81ed914b06c1814fd3a0c92c750e37"
-  version = "1.4.1"
+  revision = "da46fe8e25be0d3f410d5b9dfcd729e7d1d2f85a"
+  version = "1.5.1"
 
 [[projects]]
-  digest = "1:57e8c0255e33ab72e09219665d5ed7733a694e0092ab4a69b97100aa27bcbbb4"
+  digest = "1:e75a62ec4aa488947396f31f691708319f60540f174b585935d92c5ecc90b984"
   name = "istio.io/client-go"
   packages = ["pkg/apis/networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "26c62a04cdbc1fb52dd71a9194b0d49ce297e836"
-  version = "1.4.1"
+  revision = "065c5926775027f386ef768afd355c14ff3dbdd8"
+  version = "1.5.1"
 
 [[projects]]
   digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"
@@ -1883,6 +1883,7 @@
     "client/injection/kube/informers/core/v1/service/fake",
     "client/injection/kube/informers/factory",
     "client/injection/kube/informers/factory/fake",
+    "client/injection/kube/reconciler/core/v1/namespace",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
     "codegen/cmd/injection-gen/generators",
@@ -2142,6 +2143,7 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
+    "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",
