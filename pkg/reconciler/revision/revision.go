@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -81,20 +82,40 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	if rev.Status.ImageDigests == nil {
 		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
 	}
-	for _, container := range rev.Spec.Containers {
-		digest, err := c.resolver.Resolve(container.Image,
-			opt, cfgs.Deployment.RegistriesSkippingTagResolving)
-		if err != nil {
-			err = fmt.Errorf("failed to resolve image to digest: %w", err)
-			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-				v1.RevisionContainerMissingMessage(
-					container.Image, err.Error()))
-			return err
+
+	var digestGrp errgroup.Group
+	type digestData struct {
+		digestValue   string
+		containerName string
+		containerPort int
+	}
+
+	digests := make(chan *digestData, len(rev.Spec.Containers))
+	digestGrp.Go(func() error {
+		for _, container := range rev.Spec.Containers {
+			container = container // Standard Go concurrency pattern.
+			digest, err := c.resolver.Resolve(container.Image,
+				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
+			if err != nil {
+				err = fmt.Errorf("failed to resolve image to digest: %w", err)
+				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+					v1.RevisionContainerMissingMessage(
+						container.Image, err.Error()))
+				return err
+			}
+			digests <- &digestData{digestValue: digest, containerName: container.Name, containerPort: len(container.Ports)}
 		}
-		if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
-			rev.Status.DeprecatedImageDigest = digest
+		return nil
+	})
+	if err := digestGrp.Wait(); err != nil {
+		return err
+	}
+	close(digests)
+	for v := range digests {
+		if len(rev.Spec.Containers) == 1 || v.containerPort != 0 {
+			rev.Status.DeprecatedImageDigest = v.digestValue
 		}
-		rev.Status.ImageDigests[container.Name] = digest
+		rev.Status.ImageDigests[v.containerName] = v.digestValue
 	}
 	return nil
 }

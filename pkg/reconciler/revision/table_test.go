@@ -515,7 +515,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
-				MarkRevisionReady),
+				MarkRevisionReady, WithImageDigests),
 			pa("foo", "missing-owners", WithTraffic),
 			noOwner(deploy(t, "foo", "missing-owners")),
 			image("foo", "missing-owners"),
