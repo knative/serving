@@ -233,7 +233,7 @@ func TestTemplateCaching(t *testing.T) {
 	const anotherTemplate = "{{.Namespace}}.{{.Name}}.{{.Domain}}.sad"
 	actualConfig, err := NewConfigFromMap(map[string]string{
 		DomainTemplateKey: anotherTemplate,
-	}, "whatever")
+	})
 	if err != nil {
 		t.Fatalf("Config parsing failure = %v", err)
 	}
@@ -245,7 +245,7 @@ func TestTemplateCaching(t *testing.T) {
 	}
 
 	// Reset to default. And make sure it is cached.
-	actualConfig, err = NewConfigFromMap(map[string]string{}, "sup?")
+	actualConfig, err = NewConfigFromMap(map[string]string{})
 	if err != nil {
 		t.Fatalf("Config parsing failure = %v", err)
 	}

@@ -218,16 +218,16 @@ func defaultConfig() *Config {
 
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
-	return NewConfigFromMap(configMap.Data, configMap.Name)
+	return NewConfigFromMap(configMap.Data)
 }
 
-// NewConfigFromMap creates a Config from the supplied data.
-func NewConfigFromMap(data map[string]string, cmName string) (*Config, error) {
+// NewConfogFromMap creates a Config from the supplied data.
+func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
 	if _, ok := data[IstioOutboundIPRangesKey]; ok {
 		// TODO(0.15): Until the next version is released, the validation check is
 		// enabled to notify users who configure this value.
-		logger := logging.FromContext(context.Background()).Named(cmName)
+		logger := logging.FromContext(context.Background()).Named("config-network")
 		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
 	}
 
