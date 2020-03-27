@@ -385,7 +385,7 @@ func TestReconcile(t *testing.T) {
 			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(2)),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testNamespace, testRevision),
@@ -406,7 +406,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(2)),
 		},
 		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -486,7 +486,7 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutos
 		},
 		Spec: asv1a1.PodAutoscalerSpec{
 			ScaleTargetRef: corev1.ObjectReference{
-				APIVersion: "apps/v2",
+				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       name + "-deployment",
 			},

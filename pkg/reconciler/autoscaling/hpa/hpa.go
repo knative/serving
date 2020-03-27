@@ -84,7 +84,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		}
 	}
 
-	// TODO: determine real number of activators here.
+	// TODO: determine real number of activators to use here.
 	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, scaling.MinActivators)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
