@@ -240,7 +240,7 @@ func TestTemplateCaching(t *testing.T) {
 	if got, want := actualConfig.DomainTemplate, anotherTemplate; got != want {
 		t.Errorf("DomainTemplate = %q, want: %q", got, want)
 	}
-	if got, want := templateCache.Len(), 1; got != want {
+	if got, want := templateCache.Len(), 2; got != want {
 		t.Errorf("Cache size = %d, want = %d", got, want)
 	}
 
@@ -253,7 +253,7 @@ func TestTemplateCaching(t *testing.T) {
 	if got, want := actualConfig.DomainTemplate, DefaultDomainTemplate; got != want {
 		t.Errorf("DomainTemplate = %q, want: %q", got, want)
 	}
-	if got, want := templateCache.Len(), 2; got != want {
+	if got, want := templateCache.Len(), 3; got != want {
 		t.Errorf("Cache size = %d, want = %d", got, want)
 	}
 }

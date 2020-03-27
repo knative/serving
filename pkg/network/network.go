@@ -267,10 +267,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		if err := checkTagTemplate(t); err != nil {
 			return nil, err
 		}
+		templateCache.Add(tt, t)
 		nc.TagTemplate = tt
 	} else {
 		// Make sure default template is in the cache.
-		templateCache.Add(DefaultDomainTemplate, defaultTagTemplate)
+		templateCache.Add(DefaultTagTemplate, defaultTagTemplate)
 	}
 
 	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
