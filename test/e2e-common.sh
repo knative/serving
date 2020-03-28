@@ -197,15 +197,20 @@ function install_istio() {
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
   UNINSTALL_LIST+=( "${INSTALL_ISTIO_YAML}" )
 
+  PILOT_NAME="istiod"
+  if [[ "${ISTIO_VERSION}" == "1.4-latest" ]]; then
+    PILOT_NAME="istio-pilot"
+  fi
+
   echo ">> Patching Istio"
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to reduce flakes.
-  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-    kubectl patch hpa -n istio-system istio-pilot \
+  if kubectl get hpa -n istio-system ${PILOT_NAME} 2>/dev/null; then
+    kubectl patch hpa -n istio-system ${PILOT_NAME} \
             --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
   else
     # Some versions of Istio don't provide an HPA for pilot.
-    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+    kubectl autoscale -n istio-system deploy ${PILOT_NAME} --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 
   # If the yaml for the Istio Ingress controller is passed, then install it.
