@@ -358,14 +358,6 @@ func TestRevWithImageDigests(t *testing.T) {
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8888,
 			}},
-			ReadinessProbe: &corev1.Probe{
-				Handler:             corev1.Handler{},
-				InitialDelaySeconds: 0,
-				TimeoutSeconds:      0,
-				PeriodSeconds:       0,
-				SuccessThreshold:    0,
-				FailureThreshold:    0,
-			},
 		}, {
 			Image: "docker.io/repo/image",
 		}},
