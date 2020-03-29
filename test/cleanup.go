@@ -22,18 +22,37 @@ package test
 import (
 	"os"
 	"os/signal"
+	"sync"
 )
 
-// CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
-func CleanupOnInterrupt(cleanup func()) {
+func init() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func() {
-		for range c {
-			cleanup()
+	go cleanupOnInterrupt(c)
+}
+
+var cf struct {
+	o sync.Once
+	s sync.Map
+}
+
+// cleanupOnInterrupt registers a signal handler and will execute a stack of functions if an interrupt signal is caught
+func cleanupOnInterrupt(c chan os.Signal) {
+	for range c {
+		cf.o.Do(func() {
+			cf.s.Range(func(f interface{}, _ interface{}) bool {
+				clean := *f.(*func())
+				clean()
+				return true
+			})
 			os.Exit(1)
-		}
-	}()
+		})
+	}
+}
+
+// CleanupOnInterrupt stores cleanup functions to execute if an interrupt signal is caught
+func CleanupOnInterrupt(cleanup func()) {
+	cf.s.Store(&cleanup, struct{}{})
 }
 
 // TearDown will delete created names using clients.
