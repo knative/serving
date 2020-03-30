@@ -129,6 +129,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
+	// If we have not successfully reconciled Decider yet, NumActivators will be 0 and
+	// we'll use all activators to back this revision.
 	sks, err = c.ReconcileSKS(ctx, pa, mode, decider.Status.NumActivators)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
