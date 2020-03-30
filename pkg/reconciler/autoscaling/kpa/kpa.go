@@ -129,6 +129,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
+	// If we arrive here before first successful run of Scale has completed.
+	na := decider.Status.NumActivators
+	if na == 0 {
+		na = scaling.MinActivators
+	}
 	sks, err = c.ReconcileSKS(ctx, pa, mode, decider.Status.NumActivators)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)

@@ -917,7 +917,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
-				-42 /* ebc */, 1982)),
+				-42 /* ebc */, 1982 /*numActivators*/)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),

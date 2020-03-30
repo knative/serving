@@ -82,7 +82,7 @@ func TestMakeSKS(t *testing.T) {
 		Spec: nv1a1.ServerlessServiceSpec{
 			ProtocolType:  networking.ProtocolHTTP1,
 			Mode:          nv1a1.SKSOperationModeServe,
-			NumActivators: 42,
+			NumActivators: na,
 			ObjectRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
