@@ -43,7 +43,8 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
-readonly TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
+TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
+readonly TMP_DIR
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
@@ -281,10 +282,12 @@ function install_contour() {
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
 
+  local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
   echo ">> Bringing up net-contour"
-  kubectl apply -f ${INSTALL_NET_CONTOUR_YAML} || return 1
+  kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
 
-  UNINSTALL_LIST+=( "${INSTALL_NET_CONTOUR_YAML}" )
+  UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
