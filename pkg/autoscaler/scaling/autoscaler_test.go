@@ -243,7 +243,6 @@ func TestAutoscalerScale(t *testing.T) {
 		label:     "AutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{}),
 		baseScale: 1,
-		prepFunc:  func(*Autoscaler) { fake.Endpoints(1, fake.TestService) },
 		wantScale: 0,
 		wantEBC:   expectedEBC(10, 100, 0, 1),
 	}, {
@@ -267,7 +266,6 @@ func TestAutoscalerScale(t *testing.T) {
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
-		prepFunc:  func(*Autoscaler) { fake.Endpoints(5, fake.TestService) },
 		baseScale: 5,
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
@@ -275,7 +273,6 @@ func TestAutoscalerScale(t *testing.T) {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
 		baseScale: 5,
-		prepFunc:  func(*Autoscaler) { fake.Endpoints(5, fake.TestService) },
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
@@ -284,7 +281,6 @@ func TestAutoscalerScale(t *testing.T) {
 		baseScale: 2,
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleUpRate = 1.1
-			fake.Endpoints(2, fake.TestService)
 		},
 		wantScale: 3,
 		wantEBC:   expectedEBC(1, 1982, 3, 2),
@@ -294,7 +290,6 @@ func TestAutoscalerScale(t *testing.T) {
 		baseScale: 100,
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
-			fake.Endpoints(100, fake.TestService)
 		},
 		wantScale: 90,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
