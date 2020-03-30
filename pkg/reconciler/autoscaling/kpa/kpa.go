@@ -92,7 +92,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
-		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, scaling.MinActivators); err != nil {
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		return computeStatus(pa, podCounts{want: scaleUnknown})
