@@ -379,10 +379,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -391,10 +391,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -682,7 +682,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.6
+    chart: istio-1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -885,7 +885,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: galley
-          image: "docker.io/istio/galley:1.4.6"
+          image: "docker.io/istio/galley:1.4.7"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -986,6 +986,197 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways
+    heritage: Helm
+    istio: cluster-local-gateway
+    release: RELEASE-NAME
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cluster-local-gateway
+      istio: cluster-local-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge:
+      maxUnavailable:
+  template:
+    metadata:
+      labels:
+        app: cluster-local-gateway
+        chart: gateways
+        heritage: Helm
+        istio: cluster-local-gateway
+        release: RELEASE-NAME
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: cluster-local-gateway-service-account
+      containers:
+        - name: istio-proxy
+          image: "docker.io/istio/proxyv2:1.4.7"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 15020
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --log_output_level=default:info
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - cluster-local-gateway
+          - --zipkinAddress
+          - zipkin:9411
+          - --proxyAdminPort
+          - "15000"
+          - --statusPort
+          - "15020"
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot:15010
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1024Mi
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "Kubernetes"
+          - name: SDS_ENABLED
+            value: "false"
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: cluster-local-gateway
+          - name: ISTIO_META_OWNER
+            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
+
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: cluster-local-gateway-certs
+            mountPath: "/etc/istio/cluster-local-gateway-certs"
+            readOnly: true
+          - name: cluster-local-gateway-ca-certs
+            mountPath: "/etc/istio/cluster-local-gateway-ca-certs"
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.cluster-local-gateway-service-account
+          optional: true
+      - name: cluster-local-gateway-certs
+        secret:
+          secretName: "istio-cluster-local-gateway-certs"
+          optional: true
+      - name: cluster-local-gateway-ca-certs
+        secret:
+          secretName: "istio-cluster-local-gateway-ca-certs"
+          optional: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
+---
+# Source: istio/charts/gateways/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
@@ -1017,7 +1208,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.4.6"
+          image: "docker.io/istio/node-agent-k8s:1.4.7"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -1040,7 +1231,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.6"
+          image: "docker.io/istio/proxyv2:1.4.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -1207,197 +1398,6 @@ spec:
                 values:
                 - "s390x"
 ---
-# Source: istio/charts/gateways/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Helm
-    istio: cluster-local-gateway
-    release: RELEASE-NAME
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: cluster-local-gateway
-      istio: cluster-local-gateway
-  strategy:
-    rollingUpdate:
-      maxSurge:
-      maxUnavailable:
-  template:
-    metadata:
-      labels:
-        app: cluster-local-gateway
-        chart: gateways
-        heritage: Helm
-        istio: cluster-local-gateway
-        release: RELEASE-NAME
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: cluster-local-gateway-service-account
-      containers:
-        - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.6"
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 15020
-            - containerPort: 80
-            - containerPort: 443
-            - containerPort: 15090
-              protocol: TCP
-              name: http-envoy-prom
-          args:
-          - proxy
-          - router
-          - --domain
-          - $(POD_NAMESPACE).svc.cluster.local
-          - --log_output_level=default:info
-          - --drainDuration
-          - '45s' #drainDuration
-          - --parentShutdownDuration
-          - '1m0s' #parentShutdownDuration
-          - --connectTimeout
-          - '10s' #connectTimeout
-          - --serviceCluster
-          - cluster-local-gateway
-          - --zipkinAddress
-          - zipkin:9411
-          - --proxyAdminPort
-          - "15000"
-          - --statusPort
-          - "15020"
-          - --controlPlaneAuthPolicy
-          - NONE
-          - --discoveryAddress
-          - istio-pilot:15010
-          readinessProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz/ready
-              port: 15020
-              scheme: HTTP
-            initialDelaySeconds: 1
-            periodSeconds: 2
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 1024Mi
-          env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          - name: HOST_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.hostIP
-          - name: SERVICE_ACCOUNT
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.serviceAccountName
-          - name: ISTIO_META_POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: ISTIO_META_CONFIG_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
-          - name: ISTIO_META_CLUSTER_ID
-            value: "Kubernetes"
-          - name: SDS_ENABLED
-            value: "false"
-          - name: ISTIO_META_WORKLOAD_NAME
-            value: cluster-local-gateway
-          - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
-
-          volumeMounts:
-          - name: istio-certs
-            mountPath: /etc/certs
-            readOnly: true
-          - name: cluster-local-gateway-certs
-            mountPath: "/etc/istio/cluster-local-gateway-certs"
-            readOnly: true
-          - name: cluster-local-gateway-ca-certs
-            mountPath: "/etc/istio/cluster-local-gateway-ca-certs"
-            readOnly: true
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.cluster-local-gateway-service-account
-          optional: true
-      - name: cluster-local-gateway-certs
-        secret:
-          secretName: "istio-cluster-local-gateway-certs"
-          optional: true
-      - name: cluster-local-gateway-ca-certs
-        secret:
-          secretName: "istio-cluster-local-gateway-ca-certs"
-          optional: true
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
----
 # Source: istio/charts/pilot/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -1433,7 +1433,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.4.6"
+          image: "docker.io/istio/pilot:1.4.7"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -1563,7 +1563,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.4.6"
+          image: "docker.io/istio/citadel:1.4.7"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
@@ -1650,8 +1650,8 @@ metadata:
     heritage: Helm
     release: RELEASE-NAME
 spec:
-  maxReplicas: 5
-  minReplicas: 1
+  maxReplicas: 10
+  minReplicas: 3
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -1660,13 +1660,13 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      targetAverageUtilization: 60
 ---
 # Source: istio/charts/security/templates/create-custom-resources-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install-1.4.6
+  name: istio-security-post-install-1.4.7
   namespace: istio-system
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -1691,7 +1691,7 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: kubectl
-          image: "docker.io/istio/kubectl:1.4.6"
+          image: "docker.io/istio/kubectl:1.4.7"
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
