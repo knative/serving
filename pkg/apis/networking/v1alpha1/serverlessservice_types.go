@@ -104,6 +104,7 @@ type ServerlessServiceSpec struct {
 
 	// NumActivators contains number of Activators that this revision should be
 	// assigned.
+	// O means — assign all.
 	NumActivators int32 `json:"numActivators,omitempty"`
 }
 
