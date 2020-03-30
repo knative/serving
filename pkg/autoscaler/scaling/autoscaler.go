@@ -37,7 +37,7 @@ import (
 )
 
 // The minimum number of activators a revision will get.
-const minActivators = 2
+const MinActivators = 2
 
 // Autoscaler stores current state of an instance of an autoscaler.
 type Autoscaler struct {
@@ -137,7 +137,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, 0, minActivators, false
+		return 0, 0, MinActivators, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -167,7 +167,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return 0, 0, minActivators, false
+		return 0, 0, MinActivators, false
 	}
 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate
@@ -242,7 +242,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
 	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
-	numAct = minActivators
+	numAct = MinActivators
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBCF = 0
@@ -251,10 +251,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
 		excessBCF = math.Floor(totCap - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity)
-		numAct = int32(math.Max(minActivators,
+		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
 	case a.deciderSpec.TargetBurstCapacity == -1:
-		numAct = int32(math.Max(minActivators,
+		numAct = int32(math.Max(MinActivators,
 			math.Ceil(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue/a.deciderSpec.ActivatorCapacity)))
 	}
 	logger.Debugf("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v NumActivators=%d",
