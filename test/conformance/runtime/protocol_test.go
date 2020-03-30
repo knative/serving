@@ -22,13 +22,13 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1options "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	testingv1 "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )
 
-func withPort(name string) v1a1options.ServiceOption {
-	return func(s *v1alpha1.Service) {
+func withPort(name string) testingv1.ServiceOption {
+	return func(s *v1.Service) {
 		if name != "" {
 			s.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{Name: name}}
 		}

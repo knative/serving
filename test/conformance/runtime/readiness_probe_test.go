@@ -24,10 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logstream"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestProbeRuntime(t *testing.T) {
@@ -77,8 +77,8 @@ func TestProbeRuntime(t *testing.T) {
 			defer test.TearDown(clients, names)
 
 			t.Log("Creating a new Service")
-			resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-				v1a1opts.WithReadinessProbe(
+			resources, err := v1test.CreateServiceReady(t, clients, &names,
+				v1opts.WithReadinessProbe(
 					&corev1.Probe{
 						Handler: tc.handler,
 					}))
