@@ -28,12 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/pool"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -88,8 +88,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := v1a1test.CreateLatestService(t, clients, names,
-				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
+			svc, err := v1test.CreateService(t, clients, names,
+				rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("50m"),
 						corev1.ResourceMemory: resource.MustParse("50Mi"),
@@ -99,17 +99,17 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
-				v1alpha1testing.WithConfigAnnotations(map[string]string{
+				rtesting.WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
 				}),
-				v1alpha1testing.WithReadinessProbe(&corev1.Probe{
+				rtesting.WithReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				}),
-				v1alpha1testing.WithRevisionTimeoutSeconds(10))
+				rtesting.WithRevisionTimeoutSeconds(10))
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
 				return fmt.Errorf("CreateLatestService() failed: %w", err)
@@ -125,7 +125,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var url *url.URL
-			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+			err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
 				if ctx.Err() != nil {
 					return false, ctx.Err()
 				}
@@ -133,7 +133,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					return false, nil
 				}
 				url = s.Status.URL.URL()
-				return v1a1test.IsServiceReady(s)
+				return v1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 
 			if err != nil {
@@ -148,7 +148,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				url,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
+				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {

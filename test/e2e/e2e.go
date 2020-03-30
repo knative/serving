@@ -37,7 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -118,7 +118,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 }
 
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
-func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
+func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.Clients) error {
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
