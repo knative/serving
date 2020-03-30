@@ -47,6 +47,15 @@ spec:
               name: http2
             - port: 443
               name: https
+          overlays:
+            # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
+            # https://github.com/istio/istio/issues/22095
+            - kind: Gateway
+              name: ingressgateway
+              patches:
+                - path: spec.selector.istio
+                  value:
+                    dummy
       - name: cluster-local-gateway
         enabled: true
         k8s:
@@ -97,6 +106,7 @@ spec:
                   value:
                     cluster-local-gateway
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
+            # https://github.com/istio/istio/issues/22095
             - kind: Gateway
               name: ingressgateway
               patches:

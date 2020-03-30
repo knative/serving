@@ -1139,7 +1139,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: true
+    enableAutoMtls: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -1376,6 +1376,48 @@ spec:
 ---
 
 
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: istio
+spec:
+  peers:
+  - mtls: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1437,8 +1479,8 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": false,
+          "enabled": true
         },
         "multiCluster": {
           "clusterName": "",
@@ -1576,7 +1618,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false,
+        "rewriteAppHTTPProbe": true,
         "selfSigned": false
       }
     }
@@ -8402,33 +8444,25 @@ metadata:
 
 # Galley component is disabled.
 
-# Resources for IngressGateways component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
 metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    
     release: istio
+  name: ingressgateway
+  namespace: istio-system
 spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingressgateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
+  selector:
+    istio: dummy
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8439,7 +8473,6 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: istio-ingressgateway
@@ -8566,8 +8599,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -8649,31 +8680,30 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
+  maxReplicas: 5
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-ingressgateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 60
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8686,8 +8716,6 @@ rules:
   resources: ["secrets"]
   verbs: ["get", "watch", "list"]
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -8703,8 +8731,6 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingressgateway-service-account
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -8727,10 +8753,7 @@ spec:
     app: istio-ingressgateway
     istio: ingressgateway
   type: LoadBalancer
-
 ---
-
-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -8742,8 +8765,6 @@ metadata:
     
     release: istio
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -8768,7 +8789,6 @@ metadata:
   name: cluster-local-gateway
   namespace: istio-system
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: cluster-local-gateway
@@ -8895,8 +8915,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -9035,7 +9053,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9044,7 +9062,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 80
+        targetAverageUtilization: 60
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -9626,7 +9644,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: true
+    enableAutoMtls: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -9748,6 +9766,8 @@ spec:
         - 30m
         - --disable-install-crds=true
         env:
+        - name: TERMINATION_DRAIN_DURATION_SECONDS
+          value: "20"
         - name: JWT_POLICY
           value: first-party-jwt
         - name: PILOT_CERT_PROVIDER
@@ -9855,6 +9875,48 @@ spec:
 ---
 
 
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: istio
+spec:
+  peers:
+  - mtls: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9916,8 +9978,8 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": false,
+          "enabled": true
         },
         "multiCluster": {
           "clusterName": "",
@@ -10055,7 +10117,7 @@ data:
           "autoInject": true,
           "enabled": false
         },
-        "rewriteAppHTTPProbe": false,
+        "rewriteAppHTTPProbe": true,
         "selfSigned": false
       }
     }

@@ -8402,33 +8402,25 @@ metadata:
 
 # Galley component is disabled.
 
-# Resources for IngressGateways component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
 metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    
     release: istio
+  name: ingressgateway
+  namespace: istio-system
 spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingressgateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
+  selector:
+    istio: dummy
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8439,7 +8431,6 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: istio-ingressgateway
@@ -8649,31 +8640,30 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  name: ingressgateway
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    
     release: istio
 spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-      - "*"
-    # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
+  maxReplicas: 5
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-ingressgateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 60
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8686,8 +8676,6 @@ rules:
   resources: ["secrets"]
   verbs: ["get", "watch", "list"]
 ---
-
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -8703,8 +8691,6 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingressgateway-service-account
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -8727,10 +8713,7 @@ spec:
     app: istio-ingressgateway
     istio: ingressgateway
   type: LoadBalancer
-
 ---
-
-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -8742,8 +8725,6 @@ metadata:
     
     release: istio
 ---
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -8768,7 +8749,6 @@ metadata:
   name: cluster-local-gateway
   namespace: istio-system
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: cluster-local-gateway
@@ -9035,7 +9015,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9044,7 +9024,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 80
+        targetAverageUtilization: 60
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
