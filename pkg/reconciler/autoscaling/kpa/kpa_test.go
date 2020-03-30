@@ -560,7 +560,7 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActivating, WithPAMetricsService(privateSvc), withScales(0, unknownScale)),
 		}},
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
 		},
 	}, {
 		Name: "sks is out of whack",
@@ -593,7 +593,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -613,7 +613,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
@@ -935,17 +935,18 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
-				-18 /* ebc */, scaling.MinActivators)),
+				-18 /* ebc */, scaling.MinActivators+1)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
+				WithNumActivators(2)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName), WithProxyMode),
+				WithDeployRef(deployName), WithProxyMode, WithNumActivators(scaling.MinActivators+1)),
 		}},
 	}, {
 		Name: "traffic decreased, now we have enough burst capacity",
@@ -956,13 +957,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithProxyMode),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithProxyMode,
+				WithNumActivators(3)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
-				WithDeployRef(deployName)),
+				WithDeployRef(deployName), WithNumActivators(2)),
 		}},
 	}}
 
