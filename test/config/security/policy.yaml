@@ -46,4 +46,6 @@ spec:
       - excludedPaths:
         - prefix: /metrics
         - prefix: /_internal/knative/activator/probe
+        - prefix: /_internal/knative/autoscaler/probe
+        - prefix: /_internal/knative/networking/probe
   principalBinding: USE_ORIGIN
