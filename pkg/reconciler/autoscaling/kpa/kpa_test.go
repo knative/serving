@@ -1602,27 +1602,21 @@ func TestMetricsReporter(t *testing.T) {
 }
 
 func TestResolveScrapeTarget(t *testing.T) {
-	pa := kpa(testNamespace, testRevision)
+	pa := kpa(testNamespace, testRevision, WithPAMetricsService("echo"))
 	tc := &testConfigStore{config: defaultConfig()}
 
-	want := "echo"
-	got := resolveScrapeTarget(tc.ToContext(context.Background()), pa, "echo")
-	if got != want {
-		t.Errorf("reconcileMetricSN()= %v, want %v", got, want)
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), "echo"; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
 	}
-
+	
 	tc.config.Autoscaler.TargetBurstCapacity = -1
-	want = ""
-	got = resolveScrapeTarget(tc.ToContext(context.Background()), pa, "echo")
-	if got != want {
-		t.Errorf("reconcileMetricSN()= %v, want %v", got, want)
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
 	}
-
+	
 	tc = &testConfigStore{config: defaultConfig()}
 	pa.Annotations["autoscaling.knative.dev/targetBurstCapacity"] = "-1"
-	want = ""
-	got = resolveScrapeTarget(tc.ToContext(context.Background()), pa, "echo")
-	if got != want {
-		t.Errorf("reconcileMetricSN()= %v, want %v", got, want)
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
 	}
 }

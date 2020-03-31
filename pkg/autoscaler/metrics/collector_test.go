@@ -216,19 +216,12 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	}
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
-	const (
-		reportConcurrency = 0.0
-		reportRPS         = 0.0
-		wantConcurrency   = 0.0
-		wantRPS           = 0.0
-		wantPConcurrency  = 0.0
-		wantPRPS          = 0.0
-	)
+	const wantStat = 0.
 	stat := Stat{
 		Time:                      now,
 		PodName:                   "testPod",
-		AverageConcurrentRequests: reportConcurrency,
-		RequestCount:              reportRPS,
+		AverageConcurrentRequests: wantStat,
+		RequestCount:              wantStat,
 	}
 	scraper := &testScraper{
 		s: func() (Stat, error) {
@@ -260,17 +253,39 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	if noData != ErrNoData {
 		t.Errorf("StableAndPanicRPS = %v", noData)
 	}
-	if panicConcurrency != wantPConcurrency {
-		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
+	if panicConcurrency != wantStat {
+		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
 	}
-	if panicRPS != wantPRPS {
-		t.Errorf("PanicRPS() = %v, want %v", panicRPS, wantPRPS)
+	if panicRPS != wantStat {
+		t.Errorf("PanicRPS() = %v, want %v", panicRPS, wantStat)
 	}
-	if gotConcurrency != wantConcurrency {
-		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+	if gotConcurrency != wantStat {
+		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantStat)
 	}
-	if gotRPS != wantRPS {
-		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRPS)
+	if gotRPS != wantStat {
+		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantStat)
+	}
+
+	// Verify Record() works as expected and values can be retrieved.
+	const (
+		wantRC        = 30.0
+		wantAverageRC = 10.0
+	)
+	stat.RequestCount = wantRC
+	stat.AverageConcurrentRequests = wantAverageRC
+
+	coll.Record(metricKey, stat)
+
+	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
+	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Errorf("StableAndPanicRPS = %v", err)
+	}
+	if gotRPS != wantRC {
+		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRC)
+	}
+	if gotConcurrency != wantAverageRC {
+		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantAverageRC)
 	}
 }
 

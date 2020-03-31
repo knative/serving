@@ -279,11 +279,12 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				if c.metric.Spec.ScrapeTarget == "" {
-					// don't scrape empty target service
+				currentMetric := c.currentMetric()
+				if currentMetric.Spec.ScrapeTarget == "" {
+					// Don't scrape empty target service.
 					continue
 				}
-				stat, err := c.getScraper().Scrape(c.currentMetric().Spec.StableWindow)
+				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
 				if err != nil {
 					copy := metric.DeepCopy()
 					switch {
