@@ -65,6 +65,9 @@ type Webhook struct {
 	Options Options
 	Logger  *zap.SugaredLogger
 
+	// synced is function that is called when the informers have been synced.
+	synced context.CancelFunc
+
 	mux          http.ServeMux
 	secretlister corelisters.SecretLister
 }
@@ -105,11 +108,14 @@ func New(
 		opts.StatsReporter = reporter
 	}
 
+	syncCtx, cancel := context.WithCancel(context.Background())
+
 	webhook = &Webhook{
 		Client:       client,
 		Options:      *opts,
 		secretlister: secretInformer.Lister(),
 		Logger:       logger,
+		synced:       cancel,
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -117,24 +123,29 @@ func New(
 	})
 
 	for _, controller := range controllers {
-		var handler http.Handler
-		var path string
-
 		switch c := controller.(type) {
 		case AdmissionController:
-			handler = admissionHandler(logger, opts.StatsReporter, c)
-			path = c.Path()
+			handler := admissionHandler(logger, opts.StatsReporter, c, syncCtx.Done())
+			webhook.mux.Handle(c.Path(), handler)
+
 		case ConversionController:
-			handler = conversionHandler(logger, opts.StatsReporter, c)
-			path = c.Path()
+			handler := conversionHandler(logger, opts.StatsReporter, c)
+			webhook.mux.Handle(c.Path(), handler)
+
 		default:
 			return nil, fmt.Errorf("unknown webhook controller type:  %T", controller)
 		}
 
-		webhook.mux.Handle(path, handler)
 	}
 
 	return
+}
+
+// InformersHaveSynced is called when the informers have all been synced, which allows any outstanding
+// admission webhooks through.
+func (wh *Webhook) InformersHaveSynced() {
+	wh.synced()
+	wh.Logger.Info("Informers have been synced, unblocking admission webhooks.")
 }
 
 // Run implements the admission controller run loop.
