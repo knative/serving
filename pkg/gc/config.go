@@ -43,53 +43,57 @@ type Config struct {
 	StaleRevisionLastpinnedDebounce time.Duration
 }
 
+func defaultConfig() *Config {
+	return &Config{
+		StaleRevisionCreateDelay:        48 * time.Hour,
+		StaleRevisionTimeout:            15 * time.Hour,
+		StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+		StaleRevisionMinimumGenerations: 20,
+	}
+}
+
 func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.ConfigMap) (*Config, error) {
 	logger := logging.FromContext(ctx)
 	minRevisionTimeout := controller.GetResyncPeriod(ctx)
 	return func(configMap *corev1.ConfigMap) (*Config, error) {
-		c := Config{}
+		c := defaultConfig()
 
 		for _, dur := range []struct {
-			key          string
-			field        *time.Duration
-			defaultValue time.Duration
+			key   string
+			field *time.Duration
 		}{{
-			key:          "stale-revision-create-delay",
-			field:        &c.StaleRevisionCreateDelay,
-			defaultValue: 48 * time.Hour,
+			key:   "stale-revision-create-delay",
+			field: &c.StaleRevisionCreateDelay,
 		}, {
-			key:          "stale-revision-timeout",
-			field:        &c.StaleRevisionTimeout,
-			defaultValue: 15 * time.Hour,
+			key:   "stale-revision-timeout",
+			field: &c.StaleRevisionTimeout,
 		}, {
-			key:          "stale-revision-lastpinned-debounce",
-			field:        &c.StaleRevisionLastpinnedDebounce,
-			defaultValue: 5 * time.Hour,
+			key:   "stale-revision-lastpinned-debounce",
+			field: &c.StaleRevisionLastpinnedDebounce,
 		}} {
-			if raw, ok := configMap.Data[dur.key]; !ok {
-				*dur.field = dur.defaultValue
-			} else if val, err := time.ParseDuration(raw); err != nil {
-				return nil, err
-			} else {
+			if raw, ok := configMap.Data[dur.key]; ok {
+				val, err := time.ParseDuration(raw)
+				if err != nil {
+					return nil, err
+				}
 				*dur.field = val
 			}
 		}
 
-		if raw, ok := configMap.Data["stale-revision-minimum-generations"]; !ok {
-			c.StaleRevisionMinimumGenerations = 20
-		} else if val, err := strconv.ParseInt(raw, 10 /*base*/, 64 /*bit count*/); err != nil {
-			return nil, err
-		} else if val < 0 {
-			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", val)
-		} else {
+		if raw, ok := configMap.Data["stale-revision-minimum-generations"]; ok {
+			val, err := strconv.ParseInt(raw, 10 /*base*/, 64 /*bit count*/)
+			if err != nil {
+				return nil, err
+			} else if val < 0 {
+				return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", val)
+			}
 			c.StaleRevisionMinimumGenerations = val
 		}
 
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
 			logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
 			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
-			return &c, nil
 		}
-		return &c, nil
+		return c, nil
 	}
 }
