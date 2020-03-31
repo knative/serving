@@ -109,7 +109,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	r.SetDefaults(ctx)
 	r.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route: %#v", r)
+	logger.Debugf("Reconciling route: %#v", r)
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
