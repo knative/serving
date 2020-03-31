@@ -21,13 +21,13 @@ package runtime
 import (
 	"testing"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1options "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	testingv1 "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )
 
-func withWorkingDir(wd string) v1a1options.ServiceOption {
-	return func(svc *v1alpha1.Service) {
+func withWorkingDir(wd string) testingv1.ServiceOption {
+	return func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers[0].WorkingDir = wd
 	}
 }
