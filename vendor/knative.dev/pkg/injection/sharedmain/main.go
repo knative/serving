@@ -232,6 +232,26 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
 	WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
 
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(profilingServer.ListenAndServe)
+
+	// If we have one or more admission controllers, then start the webhook
+	// and pass them in.
+	var wh *webhook.Webhook
+	var err error
+	if len(webhooks) > 0 {
+		// Register webhook metrics
+		webhook.RegisterMetrics()
+
+		wh, err = webhook.New(ctx, webhooks)
+		if err != nil {
+			logger.Fatalw("Failed to create webhook", zap.Error(err))
+		}
+		eg.Go(func() error {
+			return wh.Run(ctx.Done())
+		})
+	}
+
 	logger.Info("Starting configuration manager...")
 	if err := cmw.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
@@ -240,26 +260,11 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
+	if wh != nil {
+		wh.InformersHaveSynced()
+	}
 	logger.Info("Starting controllers...")
 	go controller.StartAll(ctx.Done(), controllers...)
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(profilingServer.ListenAndServe)
-
-	// If we have one or more admission controllers, then start the webhook
-	// and pass them in.
-	if len(webhooks) > 0 {
-		// Register webhook metrics
-		webhook.RegisterMetrics()
-
-		wh, err := webhook.New(ctx, webhooks)
-		if err != nil {
-			logger.Fatalw("Failed to create webhook", zap.Error(err))
-		}
-		eg.Go(func() error {
-			return wh.Run(ctx.Done())
-		})
-	}
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
