@@ -1819,7 +1819,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c1541c449d7119b6dde5828fe73caa185a66f67a0906d66b5fc4388808e3e089"
+  digest = "1:dc09b738d2c1a5c8621b2f76857c1374e76f7b7078b3d655bec51fea1dbf1c28"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1842,11 +1842,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "43151cf35caf24c89a4d66f01d26f9ad738e9742"
+  revision = "76bf9176138c4172170dd865c0e35a4a323e6585"
 
 [[projects]]
   branch = "master"
-  digest = "1:664207d75dbcaeab206d93b3dcd8098c59e3b6b21378af02d686579e491fc859"
+  digest = "1:18f4c5453f19fef868e3da19f815840517c4bfa28e15fb2cccd504a9b96ce68d"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1883,6 +1883,7 @@
     "client/injection/kube/informers/core/v1/service/fake",
     "client/injection/kube/informers/factory",
     "client/injection/kube/informers/factory/fake",
+    "client/injection/kube/reconciler/core/v1/namespace",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
     "codegen/cmd/injection-gen/generators",
@@ -1956,11 +1957,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "8a6d25b30970038d1e24ddf5f6e0cec129c9564c"
+  revision = "e2ee5bed78d74604ed87dcb761a6f6e10a2e355c"
 
 [[projects]]
   branch = "master"
-  digest = "1:7bfda4bd3808ff9bd24d275d62cf3da5e86c4be4bb828ff5259001e998122835"
+  digest = "1:f0121ef2a10438400b70878ed1b6933825fb9962bce3a77a95fce031fb5df003"
   name = "knative.dev/test-infra"
   packages = [
     "pkg/common",
@@ -1973,7 +1974,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "d19eedb9432c5515a7ccc19a09cb4d2440df7e18"
+  revision = "030e4e29cb8ba9502a06b667b1450f6a725371b1"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2142,6 +2143,7 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
+    "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",

@@ -50,7 +50,7 @@ required = [
 
 [[override]]
   name = "gopkg.in/yaml.v2"
-  version = "v2.2.4"
+  version = "v2.2.8"
 
 [[override]]
   name = "github.com/json-iterator/go"
