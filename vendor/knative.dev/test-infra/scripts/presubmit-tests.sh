@@ -28,7 +28,7 @@ readonly PRESUBMIT_TEST_FAIL_FAST=${PRESUBMIT_TEST_FAIL_FAST:-0}
 readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS)
 
 # Flag if this is a presubmit run or not.
-[[ IS_PROW && -n "${PULL_PULL_SHA}" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0
+(( IS_PROW )) && [[ -n "${PULL_PULL_SHA}" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0
 readonly IS_PRESUBMIT
 
 # List of changed files on presubmit, LF separated.
@@ -362,7 +362,7 @@ function main() {
 
   local failed=0
 
-  if [[ ${#TESTS_TO_RUN[@]} > 0 ]]; then
+  if [[ ${#TESTS_TO_RUN[@]} -gt 0 ]]; then
     if (( RUN_BUILD_TESTS || RUN_UNIT_TESTS || RUN_INTEGRATION_TESTS )); then
       abort "--run-test must be used alone"
     fi

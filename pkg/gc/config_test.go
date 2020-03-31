@@ -22,9 +22,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
-	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestOurConfig(t *testing.T) {
@@ -33,67 +33,51 @@ func TestOurConfig(t *testing.T) {
 		name string
 		fail bool
 		want *Config
-		data *corev1.ConfigMap
+		data map[string]string
 	}{{
 		name: "Actual config",
 		fail: false,
-		want: &Config{
-			StaleRevisionCreateDelay:        48 * time.Hour,
-			StaleRevisionTimeout:            15 * time.Hour,
-			StaleRevisionMinimumGenerations: 20,
-			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
-		},
-		data: actual,
+		want: defaultConfig(),
+		data: actual.Data,
 	}, {
 		name: "Example config",
 		fail: false,
-		want: &Config{
-			StaleRevisionCreateDelay:        48 * time.Hour,
-			StaleRevisionTimeout:            15 * time.Hour,
-			StaleRevisionMinimumGenerations: 20,
-			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
-		},
-		data: example,
+		want: defaultConfig(),
+		data: example.Data,
 	}, {
 		name: "With value overrides",
 		want: &Config{
 			StaleRevisionCreateDelay:        15 * time.Hour,
-			StaleRevisionTimeout:            15 * time.Hour,
+			StaleRevisionTimeout:            14 * time.Hour,
 			StaleRevisionMinimumGenerations: 10,
-			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
 		},
-		data: &corev1.ConfigMap{
-			Data: map[string]string{
-				"stale-revision-create-delay":        "15h",
-				"stale-revision-minimum-generations": "10",
-			},
+		data: map[string]string{
+			"stale-revision-create-delay":        "15h",
+			"stale-revision-timeout":             "14h",
+			"stale-revision-minimum-generations": "10",
+			"stale-revision-lastpinned-debounce": "2h30m44s",
 		},
 	}, {
 		name: "Invalid duration",
 		fail: true,
 		want: nil,
-		data: &corev1.ConfigMap{
-			Data: map[string]string{
-				"stale-revision-create-delay": "invalid",
-			},
+		data: map[string]string{
+			"stale-revision-create-delay": "invalid",
 		},
 	}, {
 		name: "Invalid negative minimum generation",
 		fail: true,
 		want: nil,
-		data: &corev1.ConfigMap{
-			Data: map[string]string{
-				"stale-revision-minimum-generations": "-1",
-			},
+		data: map[string]string{
+			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
 		name: "Invalid minimum generation",
 		fail: true,
 		want: nil,
-		data: &corev1.ConfigMap{
-			Data: map[string]string{
-				"stale-revision-minimum-generations": "invalid",
-			},
+		data: map[string]string{
+			"stale-revision-minimum-generations": "invalid",
 		},
 	}, {
 		name: "Below minimum timeout",
@@ -104,22 +88,21 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionMinimumGenerations: 10,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 		},
-		data: &corev1.ConfigMap{
-			Data: map[string]string{
-				"stale-revision-create-delay":        "15h",
-				"stale-revision-minimum-generations": "10",
-				"stale-revision-timeout":             "1h",
-			},
+		data: map[string]string{
+			"stale-revision-create-delay":        "15h",
+			"stale-revision-minimum-generations": "10",
+			"stale-revision-timeout":             "1h",
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			testConfig, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(tt.data)
+			got, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(
+				&corev1.ConfigMap{Data: tt.data})
 			if tt.fail != (err != nil) {
 				t.Fatalf("Unexpected error value: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.want, testConfig); diff != "" {
-				t.Errorf("Unexpected controller config (-want, +got): %s", diff)
+			if !cmp.Equal(tt.want, got) {
+				t.Errorf("GC config (-want, +got): %s", cmp.Diff(tt.want, got))
 			}
 		})
 	}

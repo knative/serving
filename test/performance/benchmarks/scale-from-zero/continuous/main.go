@@ -41,9 +41,9 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	ktest "knative.dev/serving/pkg/testing/v1alpha1"
+	ktest "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -70,7 +70,7 @@ func clientsFromConfig() (*test.Clients, error) {
 	return test.NewClientsFromConfig(cfg, testNamespace)
 }
 
-func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjects, func(), error) {
+func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {
 	testNames := make([]*test.ResourceNames, count)
 
 	// Initialize our service names.
@@ -88,7 +88,7 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 		}
 	}
 
-	objs := make([]*v1a1test.ResourceObjects, count)
+	objs := make([]*v1test.ResourceObjects, count)
 	begin := time.Now()
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
@@ -111,7 +111,7 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
+			if objs[ndx], err = v1test.CreateServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
@@ -124,7 +124,7 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 	return objs, cleanupNames, nil
 }
 
-func waitForScaleToZero(ctx context.Context, objs []*v1a1test.ResourceObjects) error {
+func waitForScaleToZero(ctx context.Context, objs []*v1test.ResourceObjects) error {
 	g := errgroup.Group{}
 	for i := 0; i < len(objs); i++ {
 		idx := i
@@ -146,7 +146,7 @@ func waitForScaleToZero(ctx context.Context, objs []*v1a1test.ResourceObjects) e
 	return g.Wait()
 }
 
-func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, q *quickstore.Quickstore) {
+func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1test.ResourceObjects, q *quickstore.Quickstore) {
 	count := len(objs)
 	// Get the key for saving latency and error metrics in the benchmark.
 	lk := "l" + strconv.Itoa(count)
@@ -180,7 +180,7 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 	wg.Wait()
 }
 
-func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1a1test.ResourceObjects) (
+func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1test.ResourceObjects) (
 	time.Duration, time.Duration, error) {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Service.Name,

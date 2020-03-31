@@ -46,12 +46,8 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 
-	switch {
-	case spec.NumActivators < 0:
+	if spec.NumActivators < 0 {
 		all = all.Also(apis.ErrInvalidValue(spec.NumActivators, "numActivators"))
-	case spec.NumActivators == 0:
-		// TODO(vagababov): stop permitting after 0.16, since this is needed only for upgrades.
-		break
 	}
 
 	all = all.Also(serving.ValidateNamespacedObjectReference(&spec.ObjectRef).ViaField("objectRef"))
