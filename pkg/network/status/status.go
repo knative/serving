@@ -44,8 +44,8 @@ const (
 	// probeConcurrency defines how many probing calls can be issued simultaneously
 	probeConcurrency = 15
 	//probeTimeout defines the maximum amount of time a request will wait
-	probeTimeout = 1 * time.Second
-	probePath = "/_internal/knative/networking/probe"
+	probeTimeout     = 1 * time.Second
+	probePath        = "/_internal/knative/networking/probe"
 )
 
 var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
@@ -357,7 +357,7 @@ func (m *Prober) processWorkItem() bool {
 			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
 		}}
 
-	probeUrl := *item.url
+	probeUrl, _ := url.Parse(item.url.String())
 	probeUrl.Path = probePath
 
 	ok, err := prober.Do(
