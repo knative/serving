@@ -136,8 +136,8 @@ required = [
 # The dependencies below are required for go-containrregistry.
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2020-03-13
-  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
+  # HEAD as of 2020-03-31
+  revision = "3d03ed9b1ca2ad5d78d43832e8e46adc31d2b961"
 
 [[override]]
   name = "github.com/vdemeester/k8s-pkg-credentialprovider"
