@@ -408,7 +408,7 @@
   version = "v0.4.0"
 
 [[projects]]
-  digest = "1:01504b3636ebed2a77278bb497de8a4f36f7af1a1de973f5713fc39984ad781b"
+  digest = "1:dbb3e0b020b97ef9fa4aac07fab3c0040ff8f9b149e91de14d1059489fffc08e"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -430,7 +430,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
+  revision = "3d03ed9b1ca2ad5d78d43832e8e46adc31d2b961"
 
 [[projects]]
   digest = "1:91099c6f78b1e7bdf9ed06eb4cb7f017174293a3689d76b995a06f4c8d64a7f0"
@@ -575,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
