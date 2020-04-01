@@ -453,7 +453,7 @@ function test_setup() {
   fi
 
   # Capture all logs.
-  kail > ${ARTIFACTS}/k8s.log.txt &
+  kail > ${ARTIFACTS}/k8s.log-$(basename ${E2E_SCRIPT}).txt &
   local kail_pid=$!
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
