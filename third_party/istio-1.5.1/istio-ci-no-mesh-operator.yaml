@@ -33,7 +33,7 @@ spec:
         targetAverageUtilization: 60
     gateways:
       istio-ingressgateway:
-        autoscaleMin: 3
+        autoscaleMin: 2
         autoscaleMax: 10
         cpu:
           targetAverageUtilization: 60

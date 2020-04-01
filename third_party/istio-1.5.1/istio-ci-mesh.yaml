@@ -8692,7 +8692,7 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 5
+  maxReplicas: 10
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
@@ -9052,7 +9052,7 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 5
+  maxReplicas: 10
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
