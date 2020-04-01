@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	grpcContainerConcurrency = 1.0
+	grpcContainerConcurrency = 1
 	grpcMinScale             = 3
 )
 
@@ -414,9 +414,9 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 			autoscaleTest(t, resources, clients, names, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
-			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.TargetBurstCapacityKey:         "-1",
 			autoscaling.WindowAnnotationKey:            "10s",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
@@ -432,10 +432,10 @@ func TestGRPCLoadBalancing(t *testing.T) {
 			loadBalancingTest(t, resources, clients, names, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
-			autoscaling.MinScaleAnnotationKey:          strconv.FormatInt(grpcMinScale, 10),
-			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
+			autoscaling.TargetBurstCapacityKey:         "-1",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "HOSTNAME",

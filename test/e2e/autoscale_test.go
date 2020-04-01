@@ -53,7 +53,7 @@ import (
 const (
 	// Concurrency must be high enough to avoid the problems with sampling
 	// but not high enough to generate scheduling problems.
-	containerConcurrency = 6.0
+	containerConcurrency = 6
 	targetUtilization    = 0.7
 	successRateSLO       = 0.999
 	autoscaleSleep       = 500
@@ -68,7 +68,7 @@ type testContext struct {
 	names             test.ResourceNames
 	resources         *v1test.ResourceObjects
 	targetUtilization float64
-	targetValue       float64
+	targetValue       int
 	metric            string
 }
 
@@ -181,12 +181,16 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 	return err
 }
 
+func toPercentageString(f float64) string {
+	return strconv.FormatFloat(f*100, 'f', -1, 64)
+}
+
 // setup creates a new service, with given service options.
 // It returns a testContext that has resources, K8s clients and other needed
 // data points.
 // It sets up CleanupOnInterrupt as well that will destroy the resources
 // when the test terminates.
-func setup(t *testing.T, class, metric string, target, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -201,8 +205,8 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
 				autoscaling.MetricAnnotationKey:            metric,
-				autoscaling.TargetAnnotationKey:            strconv.FormatFloat(target, 'f', -1, 64),
-				autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
+				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
+				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
 				// We run the test for 60s, so make window a bit shorter,
 				// so that we're operating in sustained mode and the pod actions stopped happening.
 				autoscaling.WindowAnnotationKey: "50s",
@@ -368,9 +372,9 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*ctx.targetValue), duration, stopChan)
+			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
 		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*ctx.targetValue), duration, stopChan)
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
 		}
 	})
 
