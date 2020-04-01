@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package helpers
 
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
-
-	"knative.dev/pkg/test/cmd"
 )
 
 const allUsersFullPermission = 0777
@@ -37,7 +36,7 @@ func CreateDir(dirPath string) error {
 func CreateDirWithFileMode(dirPath string, perm os.FileMode) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		if err = os.MkdirAll(dirPath, perm); err != nil {
-			return fmt.Errorf("Failed to create directory: %v", err)
+			return fmt.Errorf("error creating directory: %v", err)
 		}
 	}
 	return nil
@@ -45,12 +44,16 @@ func CreateDirWithFileMode(dirPath string, perm os.FileMode) error {
 
 // GetRootDir gets directory of git root
 func GetRootDir() (string, error) {
-	stdout, err := cmd.RunCommand("git rev-parse --show-toplevel")
-	return strings.TrimSpace(string(stdout)), err
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
 
-// CDToRootDir change directory to git root dir
-func CDToRootDir() error {
+// ChdirToRoot change directory to git root dir
+func ChdirToRoot() error {
 	d, err := GetRootDir()
 	if err != nil {
 		return err

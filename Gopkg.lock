@@ -575,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -610,14 +610,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
-
-[[projects]]
-  branch = "master"
-  digest = "1:cf68a79fd02ab0f6942b9567d03d054b6568212fcc22de2a4afdefd096923749"
-  name = "github.com/kballard/go-shellquote"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   digest = "1:08c58ac78a8c1f61e9a96350066d30fe194b8779799bd932a79932a5166a173f"
@@ -1846,7 +1838,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1cfbe38d639ea8c4aeb9f1b0b98ac80b0004ef612f0b48eb572ba6bb23bdc003"
+  digest = "1:ae72dd6d2950c1ffe31061c827bb8904fce102f9134c4309cca0fe1ac5864c26"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1916,11 +1908,12 @@
     "system",
     "system/testing",
     "test",
-    "test/cmd",
+    "test/gcs",
     "test/ghutil",
     "test/gke",
     "test/helpers",
     "test/ingress",
+    "test/junit",
     "test/logging",
     "test/logstream",
     "test/mako",
@@ -1929,9 +1922,12 @@
     "test/mako/alerter/slack",
     "test/mako/config",
     "test/monitoring",
+    "test/performance",
     "test/prometheus",
+    "test/prow",
     "test/slackutil",
     "test/spoof",
+    "test/testgrid",
     "test/vegeta/pacers",
     "test/webhook-apicoverage/coveragecalculator",
     "test/webhook-apicoverage/resourcetree",
@@ -1957,19 +1953,13 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "94b2b6aaaf4b81c3b26b269bd477518094aa31a5"
+  revision = "55250e6aab62f767b8680a12ddeb771c519d78fe"
 
 [[projects]]
   branch = "master"
-  digest = "1:0d11aef7002e40c37d52de01e35f0c1c0691920f0e9f566d06bddf2e73aecbf6"
+  digest = "1:5da0f15efcd7dafa6296be9cd4a630fcb5253cf202e54638299221ae7df419ab"
   name = "knative.dev/test-infra"
   packages = [
-    "pkg/common",
-    "pkg/gcs",
-    "pkg/junit",
-    "pkg/performance",
-    "pkg/prow",
-    "pkg/testgrid",
     "scripts",
     "tools/dep-collector",
   ]
@@ -2174,11 +2164,15 @@
     "knative.dev/pkg/test",
     "knative.dev/pkg/test/helpers",
     "knative.dev/pkg/test/ingress",
+    "knative.dev/pkg/test/junit",
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
+    "knative.dev/pkg/test/performance",
     "knative.dev/pkg/test/prometheus",
+    "knative.dev/pkg/test/prow",
     "knative.dev/pkg/test/spoof",
+    "knative.dev/pkg/test/testgrid",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/webhook-apicoverage/coveragecalculator",
     "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
@@ -2199,10 +2193,6 @@
     "knative.dev/pkg/webhook/resourcesemantics/defaulting",
     "knative.dev/pkg/webhook/resourcesemantics/validation",
     "knative.dev/pkg/websocket",
-    "knative.dev/test-infra/pkg/junit",
-    "knative.dev/test-infra/pkg/performance",
-    "knative.dev/test-infra/pkg/prow",
-    "knative.dev/test-infra/pkg/testgrid",
     "knative.dev/test-infra/scripts",
     "knative.dev/test-infra/tools/dep-collector",
   ]

@@ -27,7 +27,7 @@ import (
 	"knative.dev/pkg/test/webhook-apicoverage/tools"
 	"knative.dev/serving/test/apicoverage/image/common"
 	"knative.dev/serving/test/apicoverage/image/rules"
-	"knative.dev/test-infra/pkg/prow"
+	"knative.dev/pkg/test/prow"
 )
 
 var buildFailed = flag.Bool("build_failed", false,
