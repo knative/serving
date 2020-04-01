@@ -123,7 +123,7 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 
 	// Safe to ignore error since we know the string is a valid URL
 	httpDest, _ := url.Parse(fmt.Sprintf("http://%s:%d/", svc, port))
-    httpDest.Path = path.Join(httpDest.Path, probePath)
+	httpDest.Path = path.Join(httpDest.Path, probePath)
 
 	return httpDest.String()
 }
