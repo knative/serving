@@ -22,6 +22,8 @@ spec:
         auto: false
       proxy:
         autoInject: enabled
+        accessLogFile: "/dev/stdout"
+        accessLogEncoding: 'JSON'
       disablePolicyChecks: true
       defaultPodDisruptionBudget:
         enabled: false
@@ -43,6 +45,11 @@ spec:
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true
 
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        TERMINATION_DRAIN_DURATION_SECONDS: "20"
+
   addonComponents:
     pilot:
       enabled: true
@@ -56,10 +63,6 @@ spec:
   components:
     pilot:
       enabled: true
-      k8s:
-        env:
-        - name: TERMINATION_DRAIN_DURATION_SECONDS
-          value: "20"
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
