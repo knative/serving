@@ -575,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1961,7 +1961,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f0121ef2a10438400b70878ed1b6933825fb9962bce3a77a95fce031fb5df003"
+  digest = "1:0d11aef7002e40c37d52de01e35f0c1c0691920f0e9f566d06bddf2e73aecbf6"
   name = "knative.dev/test-infra"
   packages = [
     "pkg/common",
@@ -1974,7 +1974,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "030e4e29cb8ba9502a06b667b1450f6a725371b1"
+  revision = "5bdfbd623938f0cc4a260bf06c503bbb0a76d6f9"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
