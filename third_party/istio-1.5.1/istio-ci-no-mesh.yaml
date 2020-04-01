@@ -8598,8 +8598,8 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 2000m
-            memory: 1024Mi
+            cpu: 3000m
+            memory: 2048Mi
           requests:
             cpu: 1000m
             memory: 1024Mi
@@ -8652,7 +8652,7 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 10
+  maxReplicas: 5
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
@@ -8662,7 +8662,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 60
+        targetAverageUtilization: 80
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -8916,8 +8916,8 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 2000m
-            memory: 1024Mi
+            cpu: 3000m
+            memory: 2048Mi
           requests:
             cpu: 1000m
             memory: 1024Mi
@@ -9014,7 +9014,7 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 10
+  maxReplicas: 5
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
@@ -9024,7 +9024,7 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: 60
+        targetAverageUtilization: 80
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
