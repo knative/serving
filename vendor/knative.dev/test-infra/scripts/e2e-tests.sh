@@ -93,7 +93,7 @@ function dump_cluster_state() {
   echo "***    Start of information dump    ***"
   echo "***************************************"
 
-  local output="${ARTIFACTS}/k8s.dump.txt"
+  local output="${ARTIFACTS}/k8s.dump-$(basename ${E2E_SCRIPT}).txt"
   echo ">>> The dump is located at ${output}"
 
   for crd in $(kubectl api-resources --verbs=list -o name | sort); do
