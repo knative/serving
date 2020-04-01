@@ -19,6 +19,7 @@ limitations under the License.
 package test
 
 import (
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -229,7 +230,9 @@ func (clients *ServingClients) Delete(routes []string, configs []string, service
 			}
 
 			if err := deletion.client.Delete(item, dopt); err != nil {
-				return err
+				if !apierrs.IsNotFound(err) {
+					return err
+				}
 			}
 		}
 	}
