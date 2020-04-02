@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	net "knative.dev/serving/pkg/network"
 )
 
 // ComputeHash computes a hash of the Ingress Spec, Namespace and Name
@@ -36,6 +37,30 @@ func ComputeHash(ing *v1alpha1.Ingress) ([sha256.Size]byte, error) {
 	bytes = append(bytes, []byte(ing.GetNamespace())...)
 	bytes = append(bytes, []byte(ing.GetName())...)
 	return sha256.Sum256(bytes), nil
+}
+
+// InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
+// the version of the Ingress currently deployed on the Gateway.
+func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
+	bytes, err := ComputeHash(ing)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
+	}
+	hash := fmt.Sprintf("%x", bytes)
+
+	for _, rule := range ing.Spec.Rules {
+		if rule.HTTP == nil {
+			return "", fmt.Errorf("rule is missing HTTP block: %+v", rule)
+		}
+		for i := range rule.HTTP.Paths {
+			if rule.HTTP.Paths[i].AppendHeaders == nil {
+				rule.HTTP.Paths[i].AppendHeaders = make(map[string]string, 1)
+			}
+			rule.HTTP.Paths[i].AppendHeaders[net.HashHeaderName] = hash
+		}
+	}
+
+	return hash, nil
 }
 
 // HostsPerVisibility takes an Ingress and a map from visibility levels to a set of string keys,

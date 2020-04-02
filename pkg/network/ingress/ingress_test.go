@@ -77,6 +77,76 @@ func TestGetExpandedHosts(t *testing.T) {
 	}
 }
 
+func TestInsertProbe(t *testing.T) {
+	tests := []struct {
+		name    string
+		ingress *v1alpha1.Ingress
+		want    string
+	}{{
+		name: "with rules, no append header",
+		ingress: &v1alpha1.Ingress{
+			Spec: v1alpha1.IngressSpec{
+				Rules: []v1alpha1.IngressRule{{
+					Hosts: []string{
+						"example.com",
+					},
+					HTTP: &v1alpha1.HTTPIngressRuleValue{
+						Paths: []v1alpha1.HTTPIngressPath{{
+							Splits: []v1alpha1.IngressBackendSplit{{
+								IngressBackend: v1alpha1.IngressBackend{
+									ServiceName: "blah",
+								},
+							}},
+						}},
+					},
+				}},
+			},
+		},
+		want: "a25000a350642c8abef53078b329bd043e18758f6063c1172d53b04e14fcf5c1",
+	}, {
+		name: "with rules, with append header",
+		ingress: &v1alpha1.Ingress{
+			Spec: v1alpha1.IngressSpec{
+				Rules: []v1alpha1.IngressRule{{
+					Hosts: []string{
+						"example.com",
+					},
+					HTTP: &v1alpha1.HTTPIngressRuleValue{
+						Paths: []v1alpha1.HTTPIngressPath{{
+							Splits: []v1alpha1.IngressBackendSplit{{
+								IngressBackend: v1alpha1.IngressBackend{
+									ServiceName: "blah",
+								},
+								AppendHeaders: map[string]string{
+									"Foo": "bar",
+								},
+							}},
+						}},
+					},
+				}},
+			},
+		},
+		want: "6b652c7abed871354affd4a9cb699d33816f24541fac942149b91ad872fe63ca",
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			before := len(test.ingress.Spec.Rules[0].HTTP.Paths[0].AppendHeaders)
+			got, err := InsertProbe(test.ingress)
+			if err != nil {
+				t.Errorf("InsertProbe() = %v", err)
+			}
+			if got != test.want {
+				t.Errorf("InsertProbe() = %s, wanted %s", got, test.want)
+			}
+			after := len(test.ingress.Spec.Rules[0].HTTP.Paths[0].AppendHeaders)
+			if before+1 != after {
+				t.Errorf("InsertProbe() left %d headers, wanted %d", after, before+1)
+			}
+		})
+	}
+}
+
 func TestHostsPerVisibility(t *testing.T) {
 	tests := []struct {
 		name    string

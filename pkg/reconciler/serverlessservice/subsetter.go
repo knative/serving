@@ -21,6 +21,8 @@ import (
 	"hash"
 	"hash/fnv"
 	"sort"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -29,7 +31,9 @@ const (
 	fromSalt  = "from-salt"
 
 	// universe represents the possible range of angles [0, universe).
-	universe = uint64(360)
+	universe = uint64(720)
+	// Smaller value for steps.
+	stepModulo = universe / 10
 )
 
 // computeAngle returns a uint64 number swhich represents
@@ -41,17 +45,30 @@ func computeHash(n string, h hash.Hash64) uint64 {
 	return h.Sum64()
 }
 
-func buildHashes(from []string, target string) (uint64, uint64, []uint64) {
+type hashData struct {
+	lookup   map[string]int
+	hashPool []int
+	start    int
+	step     int
+}
+
+func buildHashes(from []string, target string) *hashData {
 	h := fnv.New64()
-	poolHashes := make([]uint64, len(from))
+	hd := &hashData{
+		hashPool: make([]int, len(from)),
+		lookup:   map[string]int{},
+	}
+
 	for i, f := range from {
-		// Without sal FNV returns adjacent values, for adjacent keys.
-		poolHashes[i] = computeHash(f+fromSalt, h)
+		// Without salt FNV returns adjacent values, for adjacent keys.
+		hd.hashPool[i] = int(computeHash(f+fromSalt, h) % universe)
+		hd.lookup[f] = hd.hashPool[i]
+
 	}
 	sort.Slice(poolHashes, func(i, j int) bool {
 		return poolHashes[i] < poolHashes[j]
 	})
-	return computeHash(target+startSalt, h), computeHash(target+stepSalt, h), poolHashes
+	return computeHash(target+startSalt, h) % universe, computeHash(target+stepSalt, h) % stepModulo, poolHashes
 }
 
 // chooseSubset consistently chooses n items from `from`, using
@@ -62,7 +79,20 @@ func chooseSubset(from []string, n int, target string) []string {
 	if n >= len(from) {
 		return from
 	}
+
 	start, step, poolHashes := buildHashes(from, target)
+	root := sort.Search(len(from), func(i int) bool {
+		return poolHashes[i] >= start
+	})
+	// Wrap around.
+	if root == len(poolHashes) {
+		root = 0
+	}
+	ret := sets.NewString(poolHashes[root])
+	if n == 1 {
+		return ret.UnsortedList()
+	}
+
 	fmt.Printf("Start = %v Stop = %v Hashes = %v", start, step, poolHashes)
-	return from
+	return ret.UnsortedList()
 }
