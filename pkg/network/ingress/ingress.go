@@ -41,6 +41,8 @@ func ComputeHash(ing *v1alpha1.Ingress) ([sha256.Size]byte, error) {
 
 // InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
 // the version of the Ingress currently deployed on the Gateway.
+// TODO: move this to github.com/knative/networking — currently it is used by downstream
+// consumers, see: https://github.com/knative/serving/issues/7482.
 func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 	bytes, err := ComputeHash(ing)
 	if err != nil {
