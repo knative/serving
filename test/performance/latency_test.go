@@ -28,12 +28,12 @@ import (
 	"time"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/pkg/test/testgrid"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/pkg/junit"
-	perf "knative.dev/test-infra/pkg/performance"
-	"knative.dev/test-infra/pkg/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 )
