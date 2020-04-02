@@ -19,6 +19,7 @@ package status
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -57,10 +58,11 @@ var (
 
 func TestProbeLifecycle(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
-	hash, err := ingress.InsertProbe(ing)
+	hashBytes, err := ingress.ComputeHash(ing)
 	if err != nil {
 		t.Fatalf("Failed to insert probe: %v", err)
 	}
+	hash := fmt.Sprintf("%x", hashBytes)
 
 	// Simulate that the latest configuration is not applied yet by returning a different
 	// hash once and then the by returning the expected hash.
@@ -351,10 +353,11 @@ func TestCancelPodProbing(t *testing.T) {
 
 func TestPartialPodCancellation(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
-	hash, err := ingress.InsertProbe(ing)
+	hashBytes, err := ingress.ComputeHash(ing)
 	if err != nil {
 		t.Fatalf("Failed to insert probe: %v", err)
 	}
+	hash := fmt.Sprintf("%x", hashBytes)
 
 	// Simulate a probe target returning HTTP 200 OK and the correct hash
 	requests := make(chan *http.Request, 100)
