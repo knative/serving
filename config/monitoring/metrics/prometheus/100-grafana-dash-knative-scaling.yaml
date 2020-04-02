@@ -809,6 +809,107 @@ data:
                "dashLength": 10,
                "dashes": false,
                "datasource": "prometheus",
+               "fill": 1,
+               "gridPos": {
+               "h": 9,
+               "w": 24,
+               "x": 0,
+               "y": 14
+               },
+               "id": 30,
+               "legend": {
+               "avg": true,
+               "current": false,
+               "max": false,
+               "min": false,
+               "show": true,
+               "total": false,
+               "values": true
+               },
+               "lines": true,
+               "linewidth": 1,
+               "links": [],
+               "nullPointMode": "null",
+               "percentage": false,
+               "pointradius": 5,
+               "points": false,
+               "renderer": "flot",
+               "seriesOverrides": [],
+               "spaceLength": 10,
+               "stack": false,
+               "steppedLine": false,
+               "targets": [
+               {
+                  "expr": "label_replace(histogram_quantile(0.50, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p50)",
+                  "refId": "A"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.90, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p90)",
+                  "refId": "B"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.95, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p95)",
+                  "refId": "C"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.99, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p99)",
+                  "refId": "D"
+               }
+               ],
+               "thresholds": [],
+               "timeFrom": null,
+               "timeShift": null,
+               "title": "Scrape time by revision",
+               "tooltip": {
+               "shared": true,
+               "sort": 0,
+               "value_type": "individual"
+               },
+               "type": "graph",
+               "xaxis": {
+               "buckets": null,
+               "mode": "time",
+               "name": null,
+               "show": true,
+               "values": []
+               },
+               "yaxes": [
+               {
+                  "format": "ms",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+               },
+               {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+               }
+               ]
+            },
+            {
+               "aliasColors": {},
+               "bars": false,
+               "dashLength": 10,
+               "dashes": false,
+               "datasource": "prometheus",
                "decimals": null,
                "fill": 1,
                "gridPos": {

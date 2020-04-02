@@ -337,6 +337,14 @@ func WithSKSReady(sks *netv1alpha1.ServerlessService) {
 	sks.Status.MarkEndpointsReady()
 }
 
+// WithNumActivators sets the number of requested activators
+// on the SKS spec.
+func WithNumActivators(n int32) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Spec.NumActivators = n
+	}
+}
+
 // WithPrivateService annotates SKS status with the private service name.
 func WithPrivateService(sks *netv1alpha1.ServerlessService) {
 	sks.Status.PrivateServiceName = kmeta.ChildName(sks.Name, "-private")

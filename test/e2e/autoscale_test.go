@@ -29,9 +29,15 @@ import (
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
-	"knative.dev/pkg/system"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
@@ -39,16 +45,9 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -67,7 +66,7 @@ type testContext struct {
 	t                 *testing.T
 	clients           *test.Clients
 	names             test.ResourceNames
-	resources         *v1a1test.ResourceObjects
+	resources         *v1test.ResourceObjects
 	targetUtilization float64
 	targetValue       float64
 	metric            string
@@ -174,9 +173,11 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	)
 	return err
 }
 
@@ -195,8 +196,7 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 		Image:   image,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
@@ -262,7 +262,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
-	if err := v1a1test.CheckRevisionState(ctx.clients.ServingAlphaClient, ctx.names.Revision, v1a1test.IsRevisionReady); err != nil {
+	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
@@ -641,7 +641,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		test.ServingFlags.SystemNamespace).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}

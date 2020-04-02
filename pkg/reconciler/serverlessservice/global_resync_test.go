@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
@@ -31,7 +32,9 @@ import (
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -90,27 +93,6 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		return ctrl.Run(1, ctx.Done())
 	})
 
-	numServices, numEndpoints := 0, 0
-	createHooks := NewHooks()
-	createHooks.OnCreate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
-		t.Logf("Registered creation of endpoints: %#v", obj)
-		// We are waiting for creation of two endpoints objects.
-		numEndpoints++
-		if numEndpoints == 2 {
-			return HookComplete
-		}
-		return HookIncomplete
-	})
-	createHooks.OnCreate(&kubeClnt.Fake, "services", func(obj runtime.Object) HookResult {
-		t.Logf("Registered creation of services: %#v", obj)
-		numServices++
-		// We need to wait for creation of 2x2 K8s services.
-		if numServices == 4 {
-			return HookComplete
-		}
-		return HookIncomplete
-	})
-
 	// Due to the fact that registering reactors is not guarded by locks in k8s
 	// fake clients we need to pre-register those.
 	updateHooks := NewHooks()
@@ -141,10 +123,17 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
 		t.Fatalf("Error creating SKS2: %v", err)
 	}
-	if err := createHooks.WaitForHooks(3 * time.Second); err != nil {
-		t.Fatalf("Error creating preliminary objects: %v", err)
-	}
 
+	eps := fakeendpointsinformer.Get(ctx).Lister()
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		l, err := eps.List(labels.Everything())
+		if err != nil {
+			return false, err
+		}
+		return len(l) >= 4, nil
+	}); err != nil {
+		t.Fatalf("Failed to see endpoint creation: %v", err)
+	}
 	t.Log("Updating the activator endpoints now...")
 
 	// Now that we have established the baseline, update the activator endpoints.

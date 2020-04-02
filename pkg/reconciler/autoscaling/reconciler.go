@@ -49,14 +49,15 @@ type Base struct {
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
-func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, mode nv1alpha1.ServerlessServiceOperationMode) (*nv1alpha1.ServerlessService, error) {
+func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
+	mode nv1alpha1.ServerlessServiceOperationMode, numActivators int32) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Info("SKS does not exist; creating.")
-		sks = resources.MakeSKS(pa, mode)
+		sks = resources.MakeSKS(pa, mode, numActivators)
 		if _, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks); err != nil {
 			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
@@ -67,7 +68,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("PA: %s does not own SKS: %s", pa.Name, sksName)
 	} else {
-		tmpl := resources.MakeSKS(pa, mode)
+		tmpl := resources.MakeSKS(pa, mode, numActivators)
 		if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec

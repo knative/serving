@@ -9,8 +9,6 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "knative.dev/pkg/codegen/cmd/injection-gen",
-  # TODO(#4549): Drop this when we drop our patches.
-  "k8s.io/kubernetes/pkg/version",
   "knative.dev/caching/pkg/apis/caching",
   # For cluster management in performance testing.
   "knative.dev/pkg/testutils/clustermanager/perf-tests",
@@ -26,7 +24,7 @@ required = [
 
 [[override]]
   name = "gopkg.in/yaml.v2"
-  version = "v2.2.4"
+  version = "v2.2.8"
 
 [[override]]
   name = "knative.dev/pkg"
@@ -138,8 +136,8 @@ required = [
 # The dependencies below are required for go-containrregistry.
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2020-03-13
-  revision = "955bf358a3d8d1ebfa6204338ef3fe364255cd85"
+  # HEAD as of 2020-03-31
+  revision = "3d03ed9b1ca2ad5d78d43832e8e46adc31d2b961"
 
 [[override]]
   name = "github.com/vdemeester/k8s-pkg-credentialprovider"

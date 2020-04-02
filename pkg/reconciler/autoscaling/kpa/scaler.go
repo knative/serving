@@ -47,6 +47,7 @@ const (
 	scaleUnknown = -1
 	probePeriod  = 1 * time.Second
 	probeTimeout = 45 * time.Second
+
 	// The time after which the PA will be re-enqueued.
 	// This number is small, since `handleScaleToZero` below will
 	// re-enqueue for the configured grace period.
@@ -112,11 +113,12 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 	return ks
 }
 
-// Resolves the pa to hostname:port.
+// Resolves the pa to the probing endpoint Eg. http://hostname:port/healthz
 func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
-	return fmt.Sprintf("http://%s:%d/", svc, port)
+
+	return fmt.Sprintf("http://%s:%d/healthz", svc, port)
 }
 
 // activatorProbe returns true if via probe it determines that the

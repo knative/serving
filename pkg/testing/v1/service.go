@@ -390,6 +390,14 @@ func WithServiceLatestReadyRevision(lrr string) ServiceOption {
 	}
 }
 
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.Containers[0].ReadinessProbe = p
+	}
+}
+
 // MarkConfigurationNotReconciled calls the function of the same name on the Service's status.
 func MarkConfigurationNotReconciled(service *v1.Service) {
 	service.Status.MarkConfigurationNotReconciled()

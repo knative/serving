@@ -26,20 +26,18 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/davecgh/go-spew/spew"
+	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -65,25 +63,25 @@ func TestDestroyPodInflight(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Route and Configuration")
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+	if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	routeURL := route.Status.URL.URL()
 
-	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			names.Revision = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -98,13 +96,15 @@ func TestDestroyPodInflight(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
+		return clients.ServingClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -172,9 +172,8 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -184,9 +183,11 @@ func TestDestroyPodTimely(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
@@ -203,7 +204,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	start := time.Now()
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
 
-	var latestPodState *v1.Pod
+	var latestPodState *corev1.Pod
 	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
 		pod, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Get(podToDelete, metav1.GetOptions{})
 		if err != nil {
@@ -243,9 +244,8 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -255,9 +255,11 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
@@ -279,7 +281,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating HTTP request: %v", err)
 	}
-	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain)
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

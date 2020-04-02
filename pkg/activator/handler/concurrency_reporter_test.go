@@ -258,7 +258,7 @@ func TestStats(t *testing.T) {
 				case x := <-s.statChan:
 					stats = append(stats, x...)
 				case <-time.After(time.Second):
-					t.Fatal("Timedout waiting for the event")
+					t.Fatal("Timed out waiting for the event")
 				}
 			}
 

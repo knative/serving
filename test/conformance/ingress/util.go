@@ -35,6 +35,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -844,12 +845,22 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 }
 
 type RequestOption func(*http.Request)
+type ResponseExpectation func(response *http.Response) error
 
 func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
-	return RuntimeRequestWithStatus(t, client, url, sets.NewInt(http.StatusOK), opts...)
+	return RuntimeRequestWithExpectations(t, client, url,
+		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusOK))},
+		false,
+		opts...)
 }
 
-func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, expectedStatus sets.Int, opts ...RequestOption) *types.RuntimeInfo {
+// RuntimeRequestWithExpectations attempts to make a request to url and return runtime information.
+// If connection is successful only then it will validate all response expectations.
+// If allowDialError is set to true then function will not fail if connection is a dial error.
+func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url string,
+	responseExpectations []ResponseExpectation,
+	allowDialError bool,
+	opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -863,39 +874,65 @@ func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, exp
 	}
 
 	resp, err := client.Do(req)
+
 	if err != nil {
-		t.Errorf("Error making GET request: %v", err)
+		if !allowDialError || !IsDialError(err) {
+			t.Errorf("Error making GET request: %v", err)
+		}
 		return nil
 	}
+
 	defer resp.Body.Close()
-	if !expectedStatus.Has(resp.StatusCode) {
-		t.Errorf("Got unexpected status: %d, expected %v", resp.StatusCode, expectedStatus)
-		DumpResponse(t, resp)
-		return nil
-	}
-	if resp.StatusCode == http.StatusOK {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Errorf("Unable to read response body: %v", err)
-			DumpResponse(t, resp)
-			return nil
+
+	if resp != nil {
+		for _, e := range responseExpectations {
+			if err := e(resp); err != nil {
+				t.Errorf("Error meeting response expectations: %v", err)
+				DumpResponse(t, resp)
+				return nil
+			}
 		}
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Errorf("Unable to parse runtime image's response payload: %v", err)
-			return nil
+
+		if resp.StatusCode == http.StatusOK {
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("Unable to read response body: %v", err)
+				DumpResponse(t, resp)
+				return nil
+			}
+			ri := &types.RuntimeInfo{}
+			if err := json.Unmarshal(b, ri); err != nil {
+				t.Errorf("Unable to parse runtime image's response payload: %v", err)
+				return nil
+			}
+			return ri
 		}
-		return ri
 	}
 	return nil
 }
 
 func DumpResponse(t *testing.T, resp *http.Response) {
 	t.Helper()
-
 	b, err := httputil.DumpResponse(resp, true)
 	if err != nil {
 		t.Errorf("Error dumping response: %v", err)
 	}
 	t.Log(string(b))
+}
+
+func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
+	return func(response *http.Response) error {
+		if !statusCodes.Has(response.StatusCode) {
+			return fmt.Errorf("got unexpected status: %d, expected %v", response.StatusCode, statusCodes)
+		}
+		return nil
+	}
+}
+
+func IsDialError(err error) bool {
+	if err, ok := err.(*url.Error); ok {
+		err, ok := err.Err.(*net.OpError)
+		return ok && err.Op == "dial"
+	}
+	return false
 }

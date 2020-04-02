@@ -87,6 +87,14 @@ func TestMakeDecider(t *testing.T) {
 			return &c
 		},
 	}, {
+		name: "with activator capacity override",
+		pa:   pa(),
+		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ActivatorCapacity = 420
+			return &c
+		},
+	}, {
 		name: "with burst capacity set on the annotation",
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
@@ -171,6 +179,8 @@ func withDeciderTBCAnnotation(tbc string) deciderOption {
 	}
 }
 
+type deciderOption func(*scaling.Decider)
+
 func decider(options ...deciderOption) *scaling.Decider {
 	m := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
@@ -189,6 +199,7 @@ func decider(options ...deciderOption) *scaling.Decider {
 			TotalValue:          100,
 			TargetBurstCapacity: 211,
 			PanicThreshold:      200,
+			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
 		},
 	}
@@ -198,7 +209,11 @@ func decider(options ...deciderOption) *scaling.Decider {
 	return m
 }
 
-type deciderOption func(*scaling.Decider)
+func withActivatorCapacity(x float64) deciderOption {
+	return func(d *scaling.Decider) {
+		d.Spec.ActivatorCapacity = x
+	}
+}
 
 func withMetric(metric string) deciderOption {
 	return func(decider *scaling.Decider) {
@@ -268,6 +283,7 @@ var config = &autoscalerconfig.Config{
 	TargetBurstCapacity:                211.0,
 	MaxScaleUpRate:                     10.0,
 	RPSTargetDefault:                   100,
+	ActivatorCapacity:                  811,
 	TargetUtilization:                  1.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,

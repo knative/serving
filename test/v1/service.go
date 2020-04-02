@@ -23,10 +23,10 @@ import (
 
 	"github.com/mattbaird/jsonpatch"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	"knative.dev/pkg/apis/duck"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
@@ -252,5 +252,12 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 // IsServiceNotReady will check the status conditions of the service and return true if the service is
 // not ready.
 func IsServiceNotReady(s *v1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+	result := s.Status.GetCondition(v1.ServiceConditionReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+}
+
+// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesNotReady(s *v1.Service) (bool, error) {
+	result := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }

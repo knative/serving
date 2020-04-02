@@ -31,9 +31,9 @@ import (
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/shared/junit"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
+	"knative.dev/test-infra/pkg/junit"
+	perf "knative.dev/test-infra/pkg/performance"
+	"knative.dev/test-infra/pkg/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 )
@@ -64,8 +64,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https only enabled for e2e and conformance tests */)
+	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -77,7 +76,9 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("Error probing %s: %v", routeURL, err)
 	}
 

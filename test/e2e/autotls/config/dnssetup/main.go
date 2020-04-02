@@ -17,9 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -50,7 +52,7 @@ func setupDNSRecord() error {
 	if err := createDNSRecord(dnsRecord); err != nil {
 		return err
 	}
-	if err := waitForDNSRecordVisibleLocally(dnsRecord); err != nil {
+	if err := waitForDNSRecordVisible(dnsRecord); err != nil {
 		config.DeleteDNSRecord(dnsRecord, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone)
 		return err
 	}
@@ -77,14 +79,49 @@ func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	return config.ChangeDNSRecord(addition, svc, env.CloudDNSProject, env.DNSZone)
 }
 
-func waitForDNSRecordVisibleLocally(record *config.DNSRecord) error {
+func waitForDNSRecordVisible(record *config.DNSRecord) error {
+	nameservers, err := net.LookupNS(env.DomainName)
+	if err != nil {
+		return err
+	}
+
 	return wait.PollImmediate(10*time.Second, 300*time.Second, func() (bool, error) {
-		ips, _ := net.LookupHost(record.Domain)
-		for _, ip := range ips {
-			if ip == record.IP {
-				return true, nil
+		for _, ns := range nameservers {
+			nsIP, err := net.LookupHost(ns.Host)
+			if err != nil {
+				log.Printf("failed to look up host %s: %v", ns.Host, err)
+				return false, nil
+			}
+			// This resolver bypasses the local resolver and instead queries the
+			// domain's authoritative servers.
+			r := &net.Resolver{
+				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+					d := net.Dialer{Timeout: 30 * time.Second}
+					return d.DialContext(ctx, "udp", nsIP[0]+":53")
+				},
+			}
+			if !validateRecord(r, record) {
+				return false, nil
 			}
 		}
-		return false, nil
+		return true, nil
 	})
+}
+
+func validateRecord(resolver *net.Resolver, record *config.DNSRecord) bool {
+	ips, _ := resolver.LookupHost(context.Background(), replaceWildcard(record.Domain))
+	for _, ip := range ips {
+		if ip == record.IP {
+			return true
+		}
+	}
+	return false
+}
+
+func replaceWildcard(domain string) string {
+	if domain[0] != '*' {
+		return domain
+	}
+
+	return strings.Replace(domain, "*", "star", 1)
 }

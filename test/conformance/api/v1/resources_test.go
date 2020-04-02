@@ -68,14 +68,15 @@ func TestCustomResourcesLimits(t *testing.T) {
 		endpoint,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 		t.Logf("Request %s", url)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 		if err != nil {
 			return nil, err
 		}

@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
@@ -32,6 +31,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -76,12 +77,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		Data: map[string]string{},
 	})
 
-	ctrl := NewController(ctx, configMapWatcher)
-
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
-
 	// Check for Ingress created as a signal that syncHandler ran
 	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*netv1alpha1.Ingress)
@@ -90,12 +88,18 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	eg := errgroup.Group{}
-
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
+
+	// Run the controller.
+	eg := errgroup.Group{}
+	eg.Go(func() error {
+		ctrl := NewController(ctx, configMapWatcher)
+		return ctrl.Run(2, ctx.Done())
+	})
+
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
@@ -104,26 +108,17 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		waitInformers()
 	}()
 
-	// Run the controller.
-	eg.Go(func() error {
-		return ctrl.Run(2, ctx.Done())
-	})
-
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Errorf("Unexpected error creating revision: %v", err)
+		t.Fatalf("Unexpected error creating revision: %v", err)
 	}
-
-	for i, informer := range informers {
-		if ok := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !ok {
-			t.Fatalf("failed to wait for cache at index %d to sync", i)
-		}
-	}
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
-		t.Errorf("Unexpected error creating route: %v", err)
+		t.Fatalf("Unexpected error creating route: %v", err)
 	}
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }

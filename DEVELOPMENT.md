@@ -135,11 +135,11 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.3-latest/istio-crds.yaml
+kubectl apply -f ./third_party/istio-stable/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.3-latest/istio-minimal.yaml
+kubectl apply -f ./third_party/istio-stable/istio-minimal.yaml
 ```
 
 Follow the
@@ -154,7 +154,7 @@ installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
+kubectl apply -f ./third_party/istio-stable/istio-knative-extras.yaml
 ```
 
 > If you want to customize the `istio*.yaml` files you can refer to
@@ -283,8 +283,8 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-1.3-latest/istio-minimal.yaml \
-  -f ./third_party/istio-1.3-latest/istio-crds.yaml \
+  -f ./third_party/istio-stable/istio-minimal.yaml \
+  -f ./third_party/istio-stable/istio-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```

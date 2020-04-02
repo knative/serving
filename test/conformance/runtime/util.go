@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
-	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	v1testing "knative.dev/serving/pkg/testing/v1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -49,13 +49,12 @@ func fetchRuntimeInfo(
 		return nil, nil, err
 	}
 
-	serviceOpts = append(serviceOpts, func(svc *v1alpha1.Service) {
+	serviceOpts = append(serviceOpts, func(svc *v1.Service) {
 		// Always fetch the latest runtime image.
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
-		test.ServingFlags.Https,
+	objects, err := v1test.CreateServiceReady(t, clients, names,
 		serviceOpts...)
 	if err != nil {
 		return nil, nil, err
@@ -65,10 +64,10 @@ func fetchRuntimeInfo(
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.URL(),
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
-		reqOpts...)
+		append(reqOpts, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,13 +77,13 @@ func fetchRuntimeInfo(
 	return names, &ri, err
 }
 
-func splitOpts(opts ...interface{}) ([]v1alpha1testing.ServiceOption, []interface{}, error) {
-	serviceOpts := []v1alpha1testing.ServiceOption{}
+func splitOpts(opts ...interface{}) ([]v1testing.ServiceOption, []interface{}, error) {
+	serviceOpts := []v1testing.ServiceOption{}
 	reqOpts := []interface{}{}
 	for _, opt := range opts {
 		switch t := opt.(type) {
-		case v1alpha1testing.ServiceOption:
-			serviceOpts = append(serviceOpts, opt.(v1alpha1testing.ServiceOption))
+		case v1testing.ServiceOption:
+			serviceOpts = append(serviceOpts, opt.(v1testing.ServiceOption))
 		case pkgTest.RequestOption:
 			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
 		default:
