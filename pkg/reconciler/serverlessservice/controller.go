@@ -19,21 +19,21 @@ package serverlessservice
 import (
 	"context"
 
+	"k8s.io/client-go/tools/cache"
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
 
