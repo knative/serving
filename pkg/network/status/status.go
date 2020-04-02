@@ -433,7 +433,7 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 	}
 }
 
-// Deep copies a URL into a new one
+// deepCopy copies a URL into a new one
 func deepCopy(in *url.URL) *url.URL {
 	// Safe to ignore the error since this is a deep copy
 	newURL, _ := url.Parse(in.String())
