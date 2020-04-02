@@ -32,13 +32,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/pkg/test/testgrid"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
-	"knative.dev/test-infra/pkg/junit"
-	perf "knative.dev/test-infra/pkg/performance"
-	"knative.dev/test-infra/pkg/testgrid"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.

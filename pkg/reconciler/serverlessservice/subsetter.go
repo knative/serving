@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"sort"
 )
 
 const (
 	startSalt = "start-angle-salt"
 	stepSalt  = "step-angle-salt"
+	fromSalt  = "from-salt"
 
 	// universe represents the possible range of angles [0, universe).
 	universe = uint64(360)
@@ -43,8 +45,12 @@ func buildHashes(from []string, target string) (uint64, uint64, []uint64) {
 	h := fnv.New64()
 	poolHashes := make([]uint64, len(from))
 	for i, f := range from {
-		poolHashes[i] = computeHash(f, h)
+		// Without sal FNV returns adjacent values, for adjacent keys.
+		poolHashes[i] = computeHash(f+fromSalt, h)
 	}
+	sort.Slice(poolHashes, func(i, j int) bool {
+		return poolHashes[i] < poolHashes[j]
+	})
 	return computeHash(target+startSalt, h), computeHash(target+stepSalt, h), poolHashes
 }
 

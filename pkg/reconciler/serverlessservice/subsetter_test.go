@@ -17,6 +17,7 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,7 +25,7 @@ import (
 
 func TestBuildHashes(t *testing.T) {
 	const target = "a target"
-	set := []string{"a", "b", "c"}
+	set := []string{"a", "b", "c", "e", "f"}
 
 	s1, st1, f1 := buildHashes(set, target)
 	s2, st2, f2 := buildHashes(set, target)
@@ -42,5 +43,10 @@ func TestBuildHashes(t *testing.T) {
 	// Verify it's consistent from run to run.
 	if !cmp.Equal(res[1], res[0]) {
 		t.Errorf("Resutls are not consistent, diff(-want,+got):\n%s", cmp.Diff(res[0], res[1]))
+	}
+	if !sort.SliceIsSorted(res[0].From, func(i, j int) bool {
+		return res[0].From[i] < res[0].From[j]
+	}) {
+		t.Errorf("From list is not sorted: %v", res[0].From)
 	}
 }
