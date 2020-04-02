@@ -21,6 +21,7 @@ package ingress
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -161,6 +162,10 @@ func TestUpdate(t *testing.T) {
 		}
 	}
 
+	// Need to cancel prober before canceling the last version, otherwise, it
+	// might receive 4xx errors.
+	proberCancel()
+
 	// Then cleanup the final version.
 	previousVersionCancel()
 }
@@ -192,8 +197,11 @@ func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
 	}()
 
 	// Return a cancel function that stops the prober and then waits for it to complete.
+	var stopOnce sync.Once
 	return func() {
-		close(stopCh)
-		<-doneCh
+		stopOnce.Do(func() {
+			close(stopCh)
+			<-doneCh
+		})
 	}
 }
