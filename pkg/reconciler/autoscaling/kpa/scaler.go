@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
@@ -49,7 +47,6 @@ const (
 	scaleUnknown = -1
 	probePeriod  = 1 * time.Second
 	probeTimeout = 45 * time.Second
-	probePath    = "/healthz"
 
 	// The time after which the PA will be re-enqueued.
 	// This number is small, since `handleScaleToZero` below will
@@ -116,16 +113,12 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 	return ks
 }
 
-// Resolves the pa to hostname:port.
+// Resolves the pa to the probing endpoint Eg. http://hostname:port/healthz
 func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
 
-	// Safe to ignore error since we know the string is a valid URL
-	httpDest, _ := url.Parse(fmt.Sprintf("http://%s:%d/", svc, port))
-	httpDest.Path = path.Join(httpDest.Path, probePath)
-
-	return httpDest.String()
+	return fmt.Sprintf("http://%s:%d/healthz", svc, port)
 }
 
 // activatorProbe returns true if via probe it determines that the

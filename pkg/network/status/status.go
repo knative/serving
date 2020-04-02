@@ -358,13 +358,13 @@ func (m *Prober) processWorkItem() bool {
 			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
 		}}
 
-	probeUrl := deepCopy(item.url)
-	probeUrl.Path = path.Join(probeUrl.Path, probePath)
+	probeURL := deepCopy(item.url)
+	probeURL.Path = path.Join(probeURL.Path, probePath)
 
 	ok, err := prober.Do(
 		item.context,
 		transport,
-		probeUrl.String(),
+		probeURL.String(),
 		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
 		m.probeVerifier(item))
@@ -433,8 +433,9 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 	}
 }
 
+// Deep copies a URL into a new one
 func deepCopy(in *url.URL) *url.URL {
 	// Safe to ignore the error since this is a deep copy
-	newUrl, _ := url.Parse(in.String())
-	return newUrl
+	newURL, _ := url.Parse(in.String())
+	return newURL
 }
