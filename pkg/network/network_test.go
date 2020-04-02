@@ -191,14 +191,7 @@ func TestConfiguration(t *testing.T) {
 
 	for _, tt := range networkConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      ConfigName,
-				},
-				Data: tt.data,
-			}
-			actualConfig, err := NewConfigFromConfigMap(config)
+			actualConfig, err := NewConfigFromMap(tt.data)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
 					tt.name, err, tt.wantErr)

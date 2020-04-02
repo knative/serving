@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
-
 	. "knative.dev/pkg/configmap/testing"
 )
 
@@ -246,9 +244,7 @@ func TestNewConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
-				Data: test.input,
-			})
+			got, err := NewConfigFromMap(test.input)
 			t.Logf("Error = %v", err)
 			if (err != nil) != test.wantErr {
 				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)

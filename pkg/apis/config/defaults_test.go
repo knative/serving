@@ -25,8 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/system"
-
 	. "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"
 )
@@ -150,13 +148,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualDefaults, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      DefaultsConfigName,
-				},
-				Data: tt.data,
-			})
+			actualDefaults, err := NewDefaultsConfigFromMap(tt.data)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", err, tt.wantErr)
@@ -186,15 +178,7 @@ func TestTemplating(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			def, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      DefaultsConfigName,
-				},
-				Data: map[string]string{
-					"container-name-template": test.template,
-				},
-			})
+			def, err := NewDefaultsConfigFromMap(map[string]string{"container-name-template": test.template})
 			if err != nil {
 				t.Errorf("Error parsing defaults: %v", err)
 			}
