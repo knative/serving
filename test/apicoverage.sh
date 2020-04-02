@@ -46,12 +46,13 @@ function fail_apicoverage_run() {
 initialize $@ --skip-istio-addon
 
 header "Setting up API Coverage Webhook"
-kubectl apply -f "${APICOVERAGE_IMAGE}/service-account.yaml" || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"
-ko apply -f "${APICOVERAGE_IMAGE}/apicoverage-webhook.yaml" || fail_apicoverage_run "Failed setting up apicoverage-webhook"
+kubectl apply -f "${TMP_DIR}/test/apicoverage/image/service-account.yaml" || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"
+ko apply -f "${TMP_DIR}/test/apicoverage/image/apicoverage-webhook.yaml" || fail_apicoverage_run "Failed setting up apicoverage-webhook"
 
 header "Running tests"
 # Run conformance tests and e2e tests
-go_test_e2e -timeout=30m ./test/conformance/api/v1alpha1 ./test/conformance/api/v1beta1 ./test/conformance/runtime ./test/e2e || fail_apicoverage_run "Failed in executing Tests"
+go_test_e2e -timeout=30m ./test/conformance/api/v1alpha1 ./test/conformance/api/v1beta1 ./test/conformance/runtime ./test/e2e \
+  --systemNamespace=${E2E_SYSTEM_NAMESPACE} || fail_apicoverage_run "Failed in executing Tests"
 
 header "Retrieving API Coverage values"
 go run "${APICOVERAGE_TOOL}/main.go" || fail_test "Failed retrieving API coverage values"

@@ -46,19 +46,16 @@ function install_latest_release() {
 
   install_knative_serving "${RELEASE_YAML}" \
       || fail_test "Knative latest release installation failed"
-  wait_until_pods_running knative-serving
+  wait_until_pods_running ${E2E_SYSTEM_NAMESPACE}
 }
 
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
-  wait_until_pods_running knative-serving
+  wait_until_pods_running ${E2E_SYSTEM_NAMESPACE}
 }
 
 function knative_setup() {
-  # Build Knative to generate Istio manifests from HEAD for install_latest_release
-  # We do it here because it's a one-time setup
-  build_knative_from_source
   install_latest_release
 }
 
@@ -72,7 +69,7 @@ TIMEOUT=10m
 header "Running preupgrade tests"
 
 go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) --systemNamespace=${E2E_SYSTEM_NAMESPACE} || fail_test
 
 header "Starting prober test"
 
@@ -80,7 +77,7 @@ header "Starting prober test"
 rm -f /tmp/prober-signal
 
 go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) &
+  --resolvabledomain=$(use_resolvable_domain) --systemNamespace=${E2E_SYSTEM_NAMESPACE} &
 PROBER_PID=$!
 echo "Prober PID is ${PROBER_PID}"
 
@@ -88,13 +85,13 @@ install_head
 
 header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) --systemNamespace=${E2E_SYSTEM_NAMESPACE} || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
 go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) --systemNamespace=${E2E_SYSTEM_NAMESPACE} || fail_test
 
 # The prober is blocking on /tmp/prober-signal to know when it should exit.
 #

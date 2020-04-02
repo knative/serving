@@ -36,14 +36,13 @@ import (
 )
 
 const (
-	servingNamespace = "knative-serving"
-	haReplicas       = 2
+	haReplicas = 2
 )
 
 func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
 	var leader string
 	err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
-		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(servingNamespace).Get(lease, metav1.GetOptions{})
+		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(test.ServingFlags.SystemNamespace).Get(lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}
@@ -62,7 +61,7 @@ func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) erro
 }
 
 func podExists(clients *test.Clients, podName string) (bool, error) {
-	if _, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Get(podName, metav1.GetOptions{}); err != nil {
+	if _, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Get(podName, metav1.GetOptions{}); err != nil {
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
@@ -82,8 +81,8 @@ func scaleDownDeployment(clients *test.Clients, name string) error {
 func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 	scaleRequest := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: int32(replicas)}}
 	scaleRequest.Name = name
-	scaleRequest.Namespace = servingNamespace
-	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(servingNamespace).UpdateScale(name, scaleRequest); err != nil {
+	scaleRequest.Namespace = test.ServingFlags.SystemNamespace
+	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingFlags.SystemNamespace).UpdateScale(name, scaleRequest); err != nil {
 		return fmt.Errorf("error scaling: %w", err)
 	}
 	return pkgTest.WaitForDeploymentState(
@@ -93,7 +92,7 @@ func scaleDeployment(clients *test.Clients, name string, replicas int) error {
 			return d.Status.ReadyReplicas == int32(replicas), nil
 		},
 		"DeploymentIsScaled",
-		servingNamespace,
+		test.ServingFlags.SystemNamespace,
 		time.Minute,
 	)
 }
