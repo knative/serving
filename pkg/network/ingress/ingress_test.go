@@ -102,7 +102,7 @@ func TestInsertProbe(t *testing.T) {
 				}},
 			},
 		},
-		want: "b90f793b72c245476c6b4060967121ef",
+		want: "a25000a350642c8abef53078b329bd043e18758f6063c1172d53b04e14fcf5c1",
 	}, {
 		name: "with rules, with append header",
 		ingress: &v1alpha1.Ingress{
@@ -126,7 +126,7 @@ func TestInsertProbe(t *testing.T) {
 				}},
 			},
 		},
-		want: "061575cdf950105126a81d6da83cda8b",
+		want: "6b652c7abed871354affd4a9cb699d33816f24541fac942149b91ad872fe63ca",
 	}}
 
 	for _, test := range tests {
