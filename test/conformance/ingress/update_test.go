@@ -21,7 +21,6 @@ package ingress
 import (
 	"context"
 	"net/http"
-	"sync"
 	"testing"
 	"time"
 
@@ -65,10 +64,18 @@ func TestUpdate(t *testing.T) {
 			},
 		}},
 	})
-	defer cancel()
+
+	previousVersionCancel := func() {
+		t.Logf("Tearing down %q", firstName)
+		firstCancel()
+	}
 
 	proberCancel := checkOK(t, "http://"+hostname+".example.com", client)
-	defer proberCancel()
+	defer func() {
+		proberCancel()
+		previousVersionCancel()
+		cancel()
+	}()
 
 	// Give the prober a chance to get started.
 	time.Sleep(1 * time.Second)
@@ -112,7 +119,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Next test with varying sentinels AND fresh services each time.
-	previousVersionCancel := func() {
+	previousVersionCancel = func() {
 		t.Logf("Tearing down %q", firstName)
 		firstCancel()
 	}
@@ -161,13 +168,6 @@ func TestUpdate(t *testing.T) {
 			nextCancel()
 		}
 	}
-
-	// Need to cancel prober before canceling the last version, otherwise, it
-	// might receive 4xx errors.
-	proberCancel()
-
-	// Then cleanup the final version.
-	previousVersionCancel()
 }
 
 func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
@@ -197,11 +197,8 @@ func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
 	}()
 
 	// Return a cancel function that stops the prober and then waits for it to complete.
-	var stopOnce sync.Once
 	return func() {
-		stopOnce.Do(func() {
-			close(stopCh)
-			<-doneCh
-		})
+		close(stopCh)
+		<-doneCh
 	}
 }
