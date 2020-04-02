@@ -64,10 +64,18 @@ func TestUpdate(t *testing.T) {
 			},
 		}},
 	})
-	defer cancel()
+
+	previousVersionCancel := func() {
+		t.Logf("Tearing down %q", firstName)
+		firstCancel()
+	}
 
 	proberCancel := checkOK(t, "http://"+hostname+".example.com", client)
-	defer proberCancel()
+	defer func() {
+		proberCancel()
+		previousVersionCancel()
+		cancel()
+	}()
 
 	// Give the prober a chance to get started.
 	time.Sleep(1 * time.Second)
@@ -111,7 +119,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Next test with varying sentinels AND fresh services each time.
-	previousVersionCancel := func() {
+	previousVersionCancel = func() {
 		t.Logf("Tearing down %q", firstName)
 		firstCancel()
 	}
@@ -160,9 +168,6 @@ func TestUpdate(t *testing.T) {
 			nextCancel()
 		}
 	}
-
-	// Then cleanup the final version.
-	previousVersionCancel()
 }
 
 func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
