@@ -136,9 +136,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 	}
 
-	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = DefaultUserContainerName
-	} else {
+	if raw, ok := data["container-name-template"]; ok {
 		tmpl, err := template.New("user-container").Parse(raw)
 		if err != nil {
 			return nil, err
