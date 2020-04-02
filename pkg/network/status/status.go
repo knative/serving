@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -43,8 +44,9 @@ import (
 const (
 	// probeConcurrency defines how many probing calls can be issued simultaneously
 	probeConcurrency = 15
-	//probeTimeout defines the maximum amount of time a request will wait
+	// probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
+	probePath    = "/healthz"
 )
 
 var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
@@ -356,10 +358,13 @@ func (m *Prober) processWorkItem() bool {
 			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
 		}}
 
+	probeURL := deepCopy(item.url)
+	probeURL.Path = path.Join(probeURL.Path, probePath)
+
 	ok, err := prober.Do(
 		item.context,
 		transport,
-		item.url.String(),
+		probeURL.String(),
 		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
 		m.probeVerifier(item))
@@ -426,4 +431,11 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			return true, nil
 		}
 	}
+}
+
+// deepCopy copies a URL into a new one
+func deepCopy(in *url.URL) *url.URL {
+	// Safe to ignore the error since this is a deep copy
+	newURL, _ := url.Parse(in.String())
+	return newURL
 }
