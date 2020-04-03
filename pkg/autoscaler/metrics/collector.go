@@ -195,7 +195,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	}
 
 	s, p, noData := collection.stableAndPanicConcurrency(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
@@ -213,7 +213,7 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 	}
 
 	s, p, noData := collection.stableAndPanicRPS(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
