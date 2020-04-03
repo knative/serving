@@ -249,9 +249,9 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	})
 
 	gotConcurrency, panicConcurrency, _ := coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, panicRPS, noData := coll.StableAndPanicRPS(metricKey, now)
-	if noData != ErrNoData {
-		t.Errorf("StableAndPanicRPS = %v", noData)
+	gotRPS, panicRPS, err := coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Errorf("StableAndPanicRPS = %v", err)
 	}
 	if panicConcurrency != wantStat {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
@@ -277,7 +277,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	coll.Record(metricKey, stat)
 
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
+	gotRPS, _, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Errorf("StableAndPanicRPS = %v", err)
 	}
