@@ -253,12 +253,6 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	mtp.Channel <- now
 	mtp.Channel <- now
 
-	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
-		_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
-		return errRPS == nil && errCon == nil, nil
-	})
-
 	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != nil {
