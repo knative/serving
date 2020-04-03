@@ -233,10 +233,21 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.tickProvider = mtp.NewTicker // custom ticker.
 
+	targetMetric := defaultMetric
+	coll.CreateOrUpdate(&targetMetric)
+	// Verify correct error is returned if ScrapeTarget is set
+	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
+	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
+	if errCon != ErrNoData {
+		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+	}
+	if errRPS != ErrNoData {
+		t.Errorf("StableAndPanicRPS = %v", errRPS)
+	}
+
 	noTargetMetric := defaultMetric
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
-
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
 	mtp.Channel <- now
 	mtp.Channel <- now
@@ -245,13 +256,16 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 		_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
-		return errRPS == ErrNoData && errCon == errRPS, nil
+		return errRPS == nil && errCon == nil, nil
 	})
 
-	gotConcurrency, panicConcurrency, _ := coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, panicRPS, err := coll.StableAndPanicRPS(metricKey, now)
-	if err != nil {
-		t.Errorf("StableAndPanicRPS = %v", err)
+	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
+	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
+	if errCon != nil {
+		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+	}
+	if errRPS != nil {
+		t.Errorf("StableAndPanicRPS = %v", errRPS)
 	}
 	if panicConcurrency != wantStat {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
@@ -277,7 +291,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	coll.Record(metricKey, stat)
 
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, _, err = coll.StableAndPanicRPS(metricKey, now)
+	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Errorf("StableAndPanicRPS = %v", err)
 	}
