@@ -41,7 +41,7 @@ const (
 
 func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
 	var leader string
-	err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
+	err := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(test.ServingFlags.SystemNamespace).Get(lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
