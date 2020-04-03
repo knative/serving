@@ -233,18 +233,6 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.tickProvider = mtp.NewTicker // custom ticker.
 
-	targetMetric := defaultMetric
-	coll.CreateOrUpdate(&targetMetric)
-	// Verify correct error is returned if ScrapeTarget is set
-	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
-	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
-	if errCon != ErrNoData {
-		t.Errorf("StableAndPanicConcurrency = %v", errCon)
-	}
-	if errRPS != ErrNoData {
-		t.Errorf("StableAndPanicRPS = %v", errRPS)
-	}
-
 	noTargetMetric := defaultMetric
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
@@ -294,6 +282,38 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	}
 	if gotConcurrency != wantAverageRC {
 		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantAverageRC)
+	}
+}
+
+func TestMetricCollectorNoDataError(t *testing.T) {
+	logger := TestLogger(t)
+
+	now := time.Now()
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	const wantStat = 0.
+	stat := Stat{
+		Time:                      now,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: wantStat,
+		RequestCount:              wantStat,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+	coll := NewMetricCollector(factory, logger)
+
+	coll.CreateOrUpdate(&defaultMetric)
+	// Verify correct error is returned if ScrapeTarget is set
+	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
+	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
+	if errCon != ErrNoData {
+		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+	}
+	if errRPS != ErrNoData {
+		t.Errorf("StableAndPanicRPS = %v", errRPS)
 	}
 }
 
