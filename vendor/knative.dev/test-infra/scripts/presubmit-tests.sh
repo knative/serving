@@ -177,11 +177,12 @@ function default_build_test_runner() {
     # Consider an error message everything that's not a package name.
     errors_go1="$(grep -v '^\(github\.com\|knative\.dev\)/' "${report}" | sort | uniq)"
   fi
-  # Get all build tags in go code (ignore /vendor)
+  # Get all build tags in go code (ignore /vendor and /hack)
   local tags="$(grep -r '// +build' . \
-      | grep -v '^./vendor/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
+      | grep -v '^./vendor/' | grep -v '^./hack/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
   local tagged_pkgs="$(grep -r '// +build' . \
-    | grep -v '^./vendor/' | grep ":// +build " | cut -f1 -d: | xargs dirname | sort | uniq | tr '\n' ' ')"
+    | grep -v '^./vendor/' | grep -v '^./hack/' | grep ":// +build " | cut -f1 -d: | xargs dirname \
+    | sort | uniq | tr '\n' ' ')"
   for pkg in ${tagged_pkgs}; do
     # `go test -c` lets us compile the tests but do not run them.
     if ! capture_output "${report}" go test -c -tags="${tags}" ${pkg} ; then

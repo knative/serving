@@ -195,7 +195,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	}
 
 	s, p, noData := collection.stableAndPanicConcurrency(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
@@ -213,7 +213,7 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 	}
 
 	s, p, noData := collection.stableAndPanicRPS(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
@@ -279,7 +279,12 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				stat, err := c.getScraper().Scrape(c.currentMetric().Spec.StableWindow)
+				currentMetric := c.currentMetric()
+				if currentMetric.Spec.ScrapeTarget == "" {
+					// Don't scrape empty target service.
+					continue
+				}
+				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
 				if err != nil {
 					copy := metric.DeepCopy()
 					switch {

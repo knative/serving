@@ -22,7 +22,6 @@
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
-source $(dirname $0)/../e2e-common.sh
 
 function update_knative() {
   local istio_version="istio-1.4-latest"
@@ -46,15 +45,11 @@ function update_knative() {
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
-  local SERVING_CONFIG_PATH=${TMP_DIR}/serving/config
-  mkdir -p ${SERVING_CONFIG_PATH}
-  cp -r serving/config/* ${SERVING_CONFIG_PATH}
-  find ${SERVING_CONFIG_PATH} -type f -name "*.yaml" -exec sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" {} +
   # Retry installation for at most three times as there can sometime be a race condition when applying serving CRDs
   local n=0
   until [ $n -ge 3 ]
   do
-    ko apply -f ${SERVING_CONFIG_PATH}/ && break
+    ko apply -f serving/config/ && break
     n=$[$n+1]
   done
   if [ $n == 3 ]; then
@@ -63,11 +58,11 @@ function update_knative() {
   popd
 
   # Update the activator hpa minReplicas to 10
-  kubectl patch hpa -n ${E2E_SYSTEM_NAMESPACE} activator \
+  kubectl patch hpa -n knative-serving activator \
     --patch '{"spec": {"minReplicas": 10}}'
   # Update the scale-to-zero grace period to 10s
   kubectl patch configmap/config-autoscaler \
-    -n ${E2E_SYSTEM_NAMESPACE} \
+    -n knative-serving \
     --type merge \
     -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 
@@ -97,18 +92,13 @@ EOF
 }
 
 function update_benchmark() {
-  local TEST_BENCHMARK_ROOT_PATH=${TMP_DIR}/$1/continuous
-  mkdir -p ${TEST_BENCHMARK_ROOT_PATH}
-  cp -r ${BENCHMARK_ROOT_PATH}/$1/continuous/* ${TEST_BENCHMARK_ROOT_PATH}
-  find ${TEST_BENCHMARK_ROOT_PATH} -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
-
   echo ">> Deleting all the yamls for benchmark $1"
-  ko delete -f ${TEST_BENCHMARK_ROOT_PATH} --ignore-not-found=true
+  ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
   echo ">> Deleting all Knative serving services"
   kubectl delete ksvc --all
 
   echo ">> Applying all the yamls for benchmark $1"
-  ko apply -f ${TEST_BENCHMARK_ROOT_PATH} || abort "failed to apply benchmarks yaml $1"
+  ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 
 main $@

@@ -104,7 +104,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		return fmt.Errorf("error reconciling Decider: %w", err)
 	}
 
-	if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
+	if err := c.ReconcileMetric(ctx, pa, resolveScrapeTarget(ctx, pa)); err != nil {
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
@@ -280,4 +280,19 @@ func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
 	}
 
 	return int(min)
+}
+
+// resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
+// TBC == -1 => activator in path, don't scrape the service
+func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
+	tbc := 0.
+	if v, ok := pa.TargetBC(); ok {
+		tbc = v
+	} else {
+		tbc = config.FromContext(ctx).Autoscaler.TargetBurstCapacity
+	}
+	if tbc == -1 {
+		return ""
+	}
+	return pa.Status.MetricsServiceName
 }

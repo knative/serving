@@ -1629,3 +1629,23 @@ func TestMetricsReporter(t *testing.T) {
 	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
 	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1955)
 }
+
+func TestResolveScrapeTarget(t *testing.T) {
+	pa := kpa(testNamespace, testRevision, WithPAMetricsService("echo"))
+	tc := &testConfigStore{config: defaultConfig()}
+
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), "echo"; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
+	}
+
+	tc.config.Autoscaler.TargetBurstCapacity = -1
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
+	}
+
+	tc = &testConfigStore{config: defaultConfig()}
+	pa.Annotations["autoscaling.knative.dev/targetBurstCapacity"] = "-1"
+	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
+		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
+	}
+}
