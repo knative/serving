@@ -17,36 +17,122 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"fmt"
+	"math"
 	"sort"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestBuildHashes(t *testing.T) {
-	const target = "a target"
+	const target = "a target to remember"
 	set := []string{"a", "b", "c", "e", "f"}
 
-	s1, st1, f1 := buildHashes(set, target)
-	s2, st2, f2 := buildHashes(set, target)
-	t.Logf("Start = %x, Step = %x, From = %x", s1, st1, f1)
+	hd1 := buildHashes(set, target)
+	hd2 := buildHashes(set, target)
+	t.Log("HashData = ", spew.Sprintf("%+v", hd1))
 
-	res := []struct {
-		Start uint64
-		Step  uint64
-		From  []uint64
-	}{{
-		s1, st1, f1,
-	}, {
-		s2, st2, f2,
-	}}
-	// Verify it's consistent from run to run.
-	if !cmp.Equal(res[1], res[0]) {
-		t.Errorf("Resutls are not consistent, diff(-want,+got):\n%s", cmp.Diff(res[0], res[1]))
+	if !cmp.Equal(hd1, hd2, cmp.AllowUnexported(hashData{})) {
+		t.Errorf("buildHashe is not consistent: diff(-want,+got):\n%s",
+			cmp.Diff(hd1, hd2, cmp.AllowUnexported(hashData{})))
 	}
-	if !sort.SliceIsSorted(res[0].From, func(i, j int) bool {
-		return res[0].From[i] < res[0].From[j]
+	if !sort.SliceIsSorted(hd1.hashPool, func(i, j int) bool {
+		return hd1.hashPool[i] < hd1.hashPool[j]
 	}) {
-		t.Errorf("From list is not sorted: %v", res[0].From)
+		t.Errorf("From list is not sorted: %v", hd1.hashPool)
+	}
+}
+
+func TestChooseSubset(t *testing.T) {
+	tests := []struct {
+		name    string
+		from    []string
+		target  string
+		wantNum int
+		want    sets.String
+	}{{
+		name:    "return all",
+		from:    []string{"sun", "moon", "mars", "mercury"},
+		target:  "a target!",
+		wantNum: 4,
+		want:    sets.NewString("sun", "moon", "mars", "mercury"),
+	}, {
+		name:    "subset 1",
+		from:    []string{"sun", "moon", "mars", "mercury"},
+		target:  "a target!",
+		wantNum: 2,
+		want:    sets.NewString("mercury", "sun"),
+	}, {
+		name:    "subset 2",
+		from:    []string{"sun", "moon", "mars", "mercury"},
+		target:  "something else entirely",
+		wantNum: 2,
+		want:    sets.NewString("moon", "mars"),
+	}, {
+		name:    "select 3",
+		from:    []string{"sun", "moon", "mars", "mercury"},
+		target:  "something else entirely",
+		wantNum: 3,
+		want:    sets.NewString("mars", "mercury", "moon"),
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := chooseSubset(tc.from, tc.wantNum, tc.target)
+			if !cmp.Equal(got, tc.want) {
+				t.Errorf("Chose = %v, want = %v, diff(-want,+got):\n%s", got, tc.want, cmp.Diff(tc.want, got))
+			}
+		})
+	}
+}
+
+func TestOverlay(t *testing.T) {
+	const (
+		sources   = 50
+		samples   = 3000
+		selection = 10
+		want      = samples * selection / sources
+		threshold = want / 5 // 20%
+	)
+	from := make([]string, sources)
+	for i := 0; i < sources; i++ {
+		from[i] = uuid.New().String()
+	}
+	freqs := map[string]int{}
+
+	for i := 0; i < samples; i++ {
+		target := uuid.New().String()
+		got := chooseSubset(from, selection, target)
+		for k := range got {
+			freqs[k]++
+		}
+	}
+
+	for _, v := range freqs {
+		if d := v - want; math.Abs(float64(d)) > threshold {
+			t.Errorf("Diff for %d is %d, larger than threshold: %d", v, d, threshold)
+		}
+	}
+	t.Log(freqs)
+}
+
+func BenchmarkSelection(b *testing.B) {
+	for _, v := range []int{5, 10, 25, 50, 100} {
+		from := make([]string, v)
+		for i := 0; i < v; i++ {
+			from[i] = uuid.New().String()
+		}
+		for _, ss := range []int{1, 5, 10, 15, 20, 25} {
+			b.Run(fmt.Sprintf("pool-%d-subset-%d", v, ss), func(b *testing.B) {
+				target := uuid.New().String()
+				for i := 0; i < b.N; i++ {
+					chooseSubset(from, 10, target)
+				}
+			})
+		}
 	}
 }
