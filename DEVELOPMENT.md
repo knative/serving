@@ -199,8 +199,8 @@ ko apply -f config/
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
-ko delete -f config/post-install --ignore-not-found
-ko apply -f config/post-install
+ko delete -f config/post-install/default-domain.yaml --ignore-not-found
+ko apply -f config/post-install/default-domain.yaml
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
