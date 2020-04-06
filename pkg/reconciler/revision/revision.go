@@ -64,9 +64,20 @@ type Reconciler struct {
 var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
-	// The image digest has already been resolved.
-	if rev.Status.DeprecatedImageDigest != "" || len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
-		return nil
+	if rev.Status.ImageDigests == nil {
+		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
+	}
+
+	if rev.Status.DeprecatedImageDigest != "" {
+		// The image digest has already been resolved.
+		if len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
+			return nil
+		}
+		// Default old revisions to have ImageDigests filled in.
+		// This path should only be taken by "old" revisions that have exactly one container.
+		if len(rev.Status.ImageDigests) == 0 {
+			rev.Status.ImageDigests[rev.Spec.Containers[0].Name] = rev.Status.DeprecatedImageDigest
+		}
 	}
 
 	var imagePullSecrets []string
@@ -78,9 +89,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		Namespace:          rev.Namespace,
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 		ImagePullSecrets:   imagePullSecrets,
-	}
-	if rev.Status.ImageDigests == nil {
-		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
 	}
 
 	var digestGrp errgroup.Group
@@ -103,7 +111,11 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 						container.Image, err.Error()))
 				return err
 			}
-			digests <- digestData{digestValue: digest, containerName: container.Name, isServingContainer: len(container.Ports) != 0}
+			digests <- digestData{
+				digestValue:        digest,
+				containerName:      container.Name,
+				isServingContainer: len(rev.Spec.Containers) == 1 || len(container.Ports) != 0,
+			}
 			return nil
 		})
 	}
@@ -112,7 +124,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 	close(digests)
 	for v := range digests {
-		if len(rev.Spec.Containers) == 1 || v.isServingContainer {
+		if v.isServingContainer {
 			rev.Status.DeprecatedImageDigest = v.digestValue
 		}
 		rev.Status.ImageDigests[v.containerName] = v.digestValue
