@@ -21,12 +21,12 @@ import (
 	"log"
 
 	clm "knative.dev/pkg/testutils/clustermanager/e2e-tests"
+	"knative.dev/pkg/testutils/clustermanager/e2e-tests/common"
 	"knative.dev/pkg/testutils/clustermanager/prow-cluster-operation/options"
 )
 
 // Delete deletes a GKE cluster
 func Delete(o *options.RequestWrapper) error {
-	o.Request.NeedsCleanup = true
 	o.Request.SkipCreation = true
 
 	gkeClient := clm.GKEClient{}
@@ -40,15 +40,13 @@ func Delete(o *options.RequestWrapper) error {
 	if err = gkeOps.Delete(); err != nil {
 		return fmt.Errorf("failed deleting cluster: '%v'", err)
 	}
-	// TODO: uncomment the lines below when previous Delete command becomes
-	// async operation
-	// // Unset context with best effort. The first command only unsets current
-	// // context, but doesn't delete the entry from kubeconfig, and should return it's
-	// // context if succeeded, which can be used by the second command to
-	// // delete it from kubeconfig
-	// if out, err := common.StandardExec("kubectl", "config", "unset", "current-context"); err != nil {
-	// 	common.StandardExec("kubectl", "config", "unset", "contexts."+string(out))
-	// }
+	// Unset context with best effort. The first command only unsets current
+	// context, but doesn't delete the entry from kubeconfig, and should return it's
+	// context if succeeded, which can be used by the second command to
+	// delete it from kubeconfig
+	if out, err := common.StandardExec("kubectl", "config", "unset", "current-context"); err != nil {
+		common.StandardExec("kubectl", "config", "unset", "contexts."+string(out))
+	}
 
 	return nil
 }

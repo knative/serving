@@ -334,7 +334,7 @@ func (r conditionsImpl) findUnhappyDependent() *Condition {
 	}
 
 	// If something was not initialized.
-	if len(r.dependents) != len(conditions) {
+	if len(r.dependents) > len(conditions) {
 		return &Condition{
 			Status: corev1.ConditionUnknown,
 		}

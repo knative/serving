@@ -60,6 +60,8 @@ const (
 	// OpenCensus is used to export to the OpenCensus Agent / Collector,
 	// which can send to many other services.
 	OpenCensus metricsBackend = "opencensus"
+	// None is used to export, well, nothing.
+	None metricsBackend = "none"
 
 	defaultBackendEnvName = "DEFAULT_METRICS_BACKEND"
 

@@ -39,10 +39,10 @@ type client struct {
 	Path     string
 }
 
-// NewClient creates a client, takes custom directory for storing `metadata.json`.
+// New creates a client, takes custom directory for storing `metadata.json`.
 // It reads existing `metadata.json` file if it exists, otherwise creates it.
 // Errors out if there is any file i/o problem other than file not exist error.
-func NewClient(dir string) (*client, error) {
+func New(dir string) (*client, error) {
 	c := &client{
 		MetaData: make(map[string]string),
 	}
@@ -53,7 +53,7 @@ func NewClient(dir string) (*client, error) {
 	c.Path = path.Join(dir, filename)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0777); err != nil {
-			return nil, fmt.Errorf("Failed to create directory: %v", err)
+			return nil, fmt.Errorf("failed creating directory: %w", err)
 		}
 	}
 	return c, nil

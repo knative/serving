@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -89,15 +90,19 @@ func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
 // or via reading a configMap from the API.
 // The context is expected to be initialized with injection.
 func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
-	loggingConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return logging.NewConfigFromMap(nil)
-		} else {
-			return nil, err
-		}
+	var loggingConfigMap *corev1.ConfigMap
+	// These timeout and retry interval are set by heuristics.
+	// e.g. istio sidecar needs a few seconds to configure the pod network.
+	if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+		var err error
+		loggingConfigMap, err = kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{})
+		return err == nil || apierrors.IsNotFound(err), nil
+	}); err != nil {
+		return nil, err
 	}
-
+	if loggingConfigMap == nil {
+		return logging.NewConfigFromMap(nil)
+	}
 	return logging.NewConfigFromConfigMap(loggingConfigMap)
 }
 
