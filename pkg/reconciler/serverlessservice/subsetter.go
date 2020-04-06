@@ -16,6 +16,9 @@ limitations under the License.
 
 package serverlessservice
 
+// This file contains the implementation of the subsetting algorithm for
+// choosing a subset of input values in a consistent manner.
+
 import (
 	"hash"
 	"hash/fnv"
@@ -69,6 +72,11 @@ func (hd *hashData) nameForHIndex(hi int) string {
 }
 
 func buildHashes(from []string, target string) *hashData {
+	// Any one changing this function must execute
+	// Remove the skip in the TestOverlay test and run
+	// `go test -run=TestOverlay -count=150`.
+	// This is to ensure there is no regression in the selection
+	// algorithm.
 	hasher := fnv.New64a()
 	hd := &hashData{
 		nameLookup: make(map[int]string, len(from)),

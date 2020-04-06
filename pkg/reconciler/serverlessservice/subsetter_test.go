@@ -91,9 +91,13 @@ func TestChooseSubset(t *testing.T) {
 }
 
 func TestOverlay(t *testing.T) {
+	// Comment the skip below and execute
+	// `go test -run=TestOverlay -count=150`
+	// To ensure assignments are still not skewed.
+	t.Skip()
 	const (
 		sources   = 50
-		samples   = 3000
+		samples   = 30000
 		selection = 10
 		want      = samples * selection / sources
 		threshold = want / 5 // 20%
@@ -121,16 +125,17 @@ func TestOverlay(t *testing.T) {
 }
 
 func BenchmarkSelection(b *testing.B) {
-	for _, v := range []int{5, 10, 25, 50, 100} {
-		from := make([]string, v)
-		for i := 0; i < v; i++ {
-			from[i] = uuid.New().String()
-		}
+	const maxSet = 100
+	from := make([]string, maxSet)
+	for i := 0; i < maxSet; i++ {
+		from[i] = uuid.New().String()
+	}
+	for _, v := range []int{5, 10, 25, 50, maxSet} {
 		for _, ss := range []int{1, 5, 10, 15, 20, 25} {
 			b.Run(fmt.Sprintf("pool-%d-subset-%d", v, ss), func(b *testing.B) {
 				target := uuid.New().String()
 				for i := 0; i < b.N; i++ {
-					chooseSubset(from, 10, target)
+					chooseSubset(from[:v], 10, target)
 				}
 			})
 		}
