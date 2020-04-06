@@ -114,16 +114,6 @@ func NewController(
 		},
 	})
 
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
-	})
-
-	// Watch all the services that we have created.
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
