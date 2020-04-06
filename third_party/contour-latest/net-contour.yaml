@@ -33,7 +33,7 @@ metadata:
   name: config-contour
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200403-228b668"
+    serving.knative.dev/release: "v20200406-28c5c93"
 data:
   _example: |
     ################################
@@ -90,7 +90,7 @@ spec:
       - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:c26c179fa5281072266fb998b9d37b603c4db3e118e5268c738d60ee5c9e92b1
+        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:0f5b7e6b38eb46636d7e5e9bd113e67373c8e40eab0ccf03b90e105b7938daa1
         resources:
           requests:
             cpu: 40m
