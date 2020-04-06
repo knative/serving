@@ -19,12 +19,12 @@ limitations under the License.
 package ha
 
 import (
-	"fmt"
 	"log"
 	"sort"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -51,14 +51,14 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get activator pods: %v", err)
 	}
-	// make sure we have the right number of activator replicas before continuing
+	// Make sure we have the right number of activator replicas before continuing.
 	if len(pods.Items) != haReplicas {
-		t.Skip(fmt.Sprintf("The test requires %d activator pods, got: %d", haReplicas, len(pods.Items)))
+		t.Skipf("The test requires %d activator pods, got: %d", haReplicas, len(pods.Items))
 	}
-	// sort the pods according to creation timestamp so that we can always kill the oldest one
+	// Sort the pods according to creation timestamp so that we can always kill the oldest one.
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
-	// create first service that we will continually probe during activator restart
+	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  "1",  //make sure we don't scale to zero during the test
@@ -68,8 +68,8 @@ func TestActivatorHA(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	// create second service that will be scaled to zero and after stopping the activator we'll
-	// ensure it can be scaled back from zero
+	// Create second service that will be scaled to zero and after stopping the activator we'll
+	// ensure it can be scaled back from zero.
 	namesScaleToZero, resourcesScaleToZero := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), //make sure we scale to zero quickly
@@ -94,14 +94,14 @@ func TestActivatorHA(t *testing.T) {
 
 	activatorPod := pods.Items[0].Name // stop the oldest activator pod
 
-	var gracePeriodSeconds int64 = 0
 	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
-		GracePeriodSeconds: &gracePeriodSeconds,
+		GracePeriodSeconds: ptr.Int64(0),
 	})
 
+	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
 		1 /* expected number of public endpoint addresses */); err != nil {
-		t.Fatalf("Failed to wait for the service to be using only the remaining activator")
+		t.Fatal("Failed to wait for the service to use only the remaining activator")
 	}
 
 	// assert the service at the first possible moment - when the killed activator disappears from its endpoint address list
