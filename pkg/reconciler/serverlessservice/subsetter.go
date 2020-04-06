@@ -119,8 +119,8 @@ func chooseSubset(from []string, n int, target string) sets.String {
 	// 1. While n candidates are not selected
 	// 2. Find the index for that angle.
 	//    2.1. While that index is already selected pick next index
-	// 3. advance angle by `step`
-	// 4. goto 1.
+	// 3. Advance angle by `step`
+	// 4. Goto 1.
 	selection := sets.NewInt()
 	angle := hashData.start
 	hpl := len(hashData.hashPool)
