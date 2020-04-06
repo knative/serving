@@ -38,11 +38,9 @@ const (
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := scaleUpDeployment(clients, autoscalerHPADeploymentName); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
+	if err := waitForDeploymentScale(clients, autoscalerHPADeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
 	}
-	defer scaleDownDeployment(clients, autoscalerHPADeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHPADeploymentName) })
 
 	leaderController, err := getLeader(t, clients, autoscalerHPALease)
 	if err != nil {

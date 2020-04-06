@@ -38,22 +38,21 @@ const (
 	activatorLabel          = "app=activator"
 )
 
-// The Activator is managed by the activator HPA and does not have leader election enabled.
+// The Activator does not have leader election enabled.
 // The test ensures that stopping one of the activator pods doesn't affect user applications.
 // One service is probed during activator restarts and another service is used for testing
 // that we can scale from zero after activator restart.
 func TestActivatorHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
+	}
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
 		t.Fatalf("Failed to get activator pods: %v", err)
-	}
-	// Make sure we have the right number of activator replicas before continuing.
-	if len(pods.Items) != haReplicas {
-		t.Skipf("The test requires %d activator pods, got: %d", haReplicas, len(pods.Items))
 	}
 	// Sort the pods according to creation timestamp so that we can always kill the oldest one.
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
@@ -94,7 +93,7 @@ func TestActivatorHA(t *testing.T) {
 
 	activatorPod := pods.Items[0].Name // stop the oldest activator pod
 
-	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
@@ -114,7 +113,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	pods, err = clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
+	pods, err = clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -124,8 +123,8 @@ func TestActivatorHA(t *testing.T) {
 
 	activatorPod = pods.Items[0].Name // stop the oldest activator pod again which is now a different one
 
-	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
-		GracePeriodSeconds: &gracePeriodSeconds,
+	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+		GracePeriodSeconds: ptr.Int64(0),
 	})
 
 	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,

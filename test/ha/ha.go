@@ -25,7 +25,6 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -92,24 +91,6 @@ func podExists(clients *test.Clients, podName string) (bool, error) {
 	return true, nil
 }
 
-func scaleUpDeployment(clients *test.Clients, name string) error {
-	return scaleDeployment(clients, name, haReplicas)
-}
-
-func scaleDownDeployment(clients *test.Clients, name string) error {
-	return scaleDeployment(clients, name, 1 /*target number of replicas*/)
-}
-
-func scaleDeployment(clients *test.Clients, name string, replicas int) error {
-	scaleRequest := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: int32(replicas)}}
-	scaleRequest.Name = name
-	scaleRequest.Namespace = test.ServingFlags.SystemNamespace
-	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingFlags.SystemNamespace).UpdateScale(name, scaleRequest); err != nil {
-		return fmt.Errorf("error scaling: %w", err)
-	}
-	return waitForDeploymentScale(clients, name, replicas)
-}
-
 func waitForDeploymentScale(clients *test.Clients, name string, scale int) error {
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
@@ -147,7 +128,7 @@ func assertServiceWorksNow(t *testing.T, clients *test.Clients, spoofingClient *
 	}
 	resp, err := spoofingClient.Do(req)
 	if err != nil || !strings.Contains(string(resp.Body), expectedText) {
-		t.Fatalf("Failed to verify service works: %v", err)
+		t.Fatalf("Failed to verify service works. Response body: %s, Error: %v", string(resp.Body), err)
 	}
 }
 

@@ -33,11 +33,9 @@ const (
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := scaleUpDeployment(clients, controllerDeploymentName); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
+	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)
 	}
-	defer scaleDownDeployment(clients, controllerDeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, controllerDeploymentName) })
 
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
