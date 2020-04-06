@@ -38,7 +38,7 @@ func main() {
 	// Create with default path of metahelper/client, so that the path is
 	// consistent with all other consumers of metahelper/client that run within
 	// the same context of this tool
-	c, err := client.NewClient("")
+	c, err := client.New("")
 	if err != nil {
 		log.Fatal(err)
 	}

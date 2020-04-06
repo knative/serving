@@ -195,6 +195,8 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 		e, err = newStackdriverExporter(config, logger)
 	case Prometheus:
 		e, err = newPrometheusExporter(config, logger)
+	case None:
+		e, err = nil, nil
 	default:
 		err = fmt.Errorf("unsupported metrics backend %v", config.backendDestination)
 	}

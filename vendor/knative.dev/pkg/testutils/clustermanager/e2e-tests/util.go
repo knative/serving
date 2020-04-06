@@ -45,7 +45,7 @@ func getResourceName(rt ResourceType) (string, error) {
 			return "", fmt.Errorf("failed getting BUILD_NUMBER env var")
 		}
 		if len(buildNumStr) > 20 {
-			buildNumStr = string(buildNumStr[:20])
+			buildNumStr = buildNumStr[:20]
 		}
 		resName = fmt.Sprintf("%s-%s", resName, buildNumStr)
 	}
