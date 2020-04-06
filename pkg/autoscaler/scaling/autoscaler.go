@@ -129,7 +129,7 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount, excessBC, numAct int32, validScale bool) {
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (observedPodCount, desiredPodCount, excessBC, numAct int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
 	spec, podCounter := a.currentSpecAndPC()
@@ -137,7 +137,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, 0, MinActivators, false
+		return 0, 0, 0, MinActivators, false
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -167,7 +167,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return 0, 0, MinActivators, false
+		return 0, 0, 0, MinActivators, false
 	}
 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate
@@ -264,7 +264,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	pkgmetrics.RecordBatch(a.reporterCtx, excessBurstCapacityM.M(excessBCF),
 		desiredPodCountM.M(int64(desiredPodCount)))
 
-	return desiredPodCount, int32(excessBCF), numAct, true
+	return int32(originalReadyPodsCount), desiredPodCount, int32(excessBCF), numAct, true
 }
 
 func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {

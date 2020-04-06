@@ -70,6 +70,9 @@ type DeciderSpec struct {
 
 // DeciderStatus is the current scale recommendation.
 type DeciderStatus struct {
+	// ObservedScale is the number of ready instances.
+	ObservedScale int32
+
 	// DesiredScale is the target number of instances that autoscaler
 	// this revision needs.
 	DesiredScale int32
@@ -92,7 +95,7 @@ type UniScaler interface {
 	// and suggested number of activators, or skips proposing.
 	// The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, int32, int32, bool)
+	Scale(context.Context, time.Time) (int32, int32, int32, int32, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
@@ -122,10 +125,15 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(proposed, ebc, na int32) bool {
+func (sr *scalerRunner) updateLatestScale(observed, proposed, ebc, na int32) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
+
+	if sr.decider.Status.ObservedScale != observed {
+		sr.decider.Status.ObservedScale = observed
+		ret = true
+	}
 	if sr.decider.Status.DesiredScale != proposed {
 		sr.decider.Status.DesiredScale = proposed
 		ret = true
@@ -323,7 +331,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
 	logger := logging.FromContext(ctx)
-	desiredScale, excessBC, numAct, scaled := scaler.Scale(ctx, time.Now())
+	observedScale, desiredScale, excessBC, numAct, scaled := scaler.Scale(ctx, time.Now())
 
 	if !scaled {
 		return
@@ -335,7 +343,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 		return
 	}
 
-	if runner.updateLatestScale(desiredScale, excessBC, numAct) {
+	if runner.updateLatestScale(observedScale, desiredScale, excessBC, numAct) {
 		m.Inform(metricKey)
 	}
 }
