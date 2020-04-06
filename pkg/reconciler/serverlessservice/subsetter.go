@@ -35,8 +35,8 @@ const (
 	universe = (1 << 10)
 )
 
-// computeAngle returns a uint64 number swhich represents
-// a hashe built off the given `n` string for consistent selection
+// computeAngle returns a uint64 number which represents
+// a hash built off the given `n` string for consistent selection
 // algorithm.
 func computeHash(n string, h hash.Hash64) uint64 {
 	h.Reset()
@@ -79,19 +79,21 @@ func buildHashes(from []string, target string) *hashData {
 	for i, f := range from {
 		// Make unique sets for every target.
 		k := f + target
-		h := int(computeHash(k, hasher))
-		hs := h % universe
+		h := computeHash(k, hasher)
+		hs := int(h % universe)
 		// Two values slotted to the same bucket.
 		// On average should happen with 1/universe probability.
-		for _, ok := hd.nameLookup[hs]; ok; _, ok = hd.nameLookup[hs] {
+		_, ok := hd.nameLookup[hs]
+		for ok {
 			// Feed the hash as salt.
-			k = f + strconv.Itoa(h)
-			h = int(computeHash(k, hasher))
-			hs = h % universe
+			k = f + strconv.FormatUint(h, 16 /*append hex strings for shortness*/)
+			h = computeHash(k, hasher)
+			hs = int(h % universe)
+			_, ok = hd.nameLookup[hs]
 		}
 
-		hd.hashPool[i] = h
-		hd.nameLookup[h] = f
+		hd.hashPool[i] = hs
+		hd.nameLookup[hs] = f
 	}
 	// Sort for consistent mapping later.
 	sort.Slice(hd.hashPool, func(i, j int) bool {
@@ -121,17 +123,21 @@ func chooseSubset(from []string, n int, target string) sets.String {
 	// 4. goto 1.
 	selection := sets.NewInt()
 	angle := hashData.start
+	hpl := len(hashData.hashPool)
 	for len(selection) < n {
-		root := sort.Search(len(from), func(i int) bool {
+		root := sort.Search(hpl, func(i int) bool {
 			return hashData.hashPool[i] >= angle
 		})
 		// Wrap around.
-		if root == len(from) {
-			root = 0
+		if root == hpl {
+			root = root % hpl
 		}
 		// Already matched this one. Continue to the next index.
 		for selection.Has(root) {
-			root = (root + 1) % len(from)
+			root += 1
+			if root == hpl {
+				root = 0
+			}
 		}
 		selection.Insert(root)
 		angle = (angle + hashData.step) % universe

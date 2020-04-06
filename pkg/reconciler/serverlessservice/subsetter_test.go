@@ -65,7 +65,7 @@ func TestChooseSubset(t *testing.T) {
 		from:    []string{"sun", "moon", "mars", "mercury"},
 		target:  "a target!",
 		wantNum: 2,
-		want:    sets.NewString("mercury", "sun"),
+		want:    sets.NewString("mercury", "moon"),
 	}, {
 		name:    "subset 2",
 		from:    []string{"sun", "moon", "mars", "mercury"},
