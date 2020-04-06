@@ -385,7 +385,6 @@ func TestRevisionWatcher(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
-			defer close(updateCh)
 
 			// This gets closed up by revisionWatcher
 			destsCh := make(chan dests)
@@ -407,11 +406,12 @@ func TestRevisionWatcher(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informer.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
 				waitInformers()
+				close(updateCh)
 			}()
 
 			rw := newRevisionWatcher(
@@ -469,7 +469,7 @@ func TestRevisionWatcher(t *testing.T) {
 func assertChClosed(t *testing.T, ch chan struct{}) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("the channel was not closed")
+			t.Error("The channel was not closed")
 		}
 	}()
 	select {
@@ -707,16 +707,13 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpointsInformer.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
 
 			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, probeFreq)
 			defer func() {
 				cancel()
+				waitInformers()
 				waitForRevisionBackedMananger(t, rbm)
 			}()
 
@@ -766,7 +763,7 @@ func TestCheckDests(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -820,7 +817,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1001,12 +998,8 @@ func TestRevisionDeleted(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1017,6 +1010,7 @@ func TestRevisionDeleted(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1046,12 +1040,8 @@ func TestServiceDoesNotExist(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1076,6 +1066,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1100,13 +1091,8 @@ func TestServiceMoreThanOne(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
@@ -1144,6 +1130,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1153,7 +1140,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		// We can't probe endpoints (see RT above) and we can't get to probe
 		// cluster IP. But if the service is accessible then we will and probing will
 		// succeed since RT has no rules for that.
-		t.Errorf("Unexpected update, should have had none: %v", x)
+		t.Errorf("Unexpected update, should have had none: %#v", x)
 	case <-time.After(updateTimeout):
 	}
 }
