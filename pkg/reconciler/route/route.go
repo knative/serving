@@ -294,12 +294,17 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	// race conditions were routes are reconciled before their targets appear
 	// in the informer cache
 	for _, obj := range t.MissingTargets {
-		if err := c.tracker.Track(obj, r); err != nil {
+		if err := c.tracker.TrackReference(tracker.Reference{
+			APIVersion: obj.APIVersion,
+			Kind:       obj.Kind,
+			Namespace:  obj.Namespace,
+			Name:       obj.Name,
+		}, r); err != nil {
 			return nil, err
 		}
 	}
 	for _, configuration := range t.Configurations {
-		if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(configuration), r); err != nil {
 			return nil, err
 		}
 	}
@@ -307,7 +312,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		if revision.Status.IsActivationRequired() {
 			logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 		}
-		if err := c.tracker.Track(objectRef(revision), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(revision), r); err != nil {
 			return nil, err
 		}
 	}
@@ -379,10 +384,10 @@ type accessor interface {
 	GetName() string
 }
 
-func objectRef(a accessor) corev1.ObjectReference {
+func objectRef(a accessor) tracker.Reference {
 	gvk := a.GetGroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
+	return tracker.Reference{
 		APIVersion: apiVersion,
 		Kind:       kind,
 		Namespace:  a.GetNamespace(),
