@@ -1053,8 +1053,15 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 	for _, tc := range expectations {
 		t.Run(tc.expectedDomainSuffix, func(t *testing.T) {
-			ctx, _, ctl, watcher, cf := newTestSetup(t)
-			defer cf()
+			ctx, ifs, ctl, watcher, cf := newTestSetup(t)
+			waitInformers, err := controller.RunInformers(ctx.Done(), ifs...)
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
+			defer func() {
+				cf()
+				waitInformers()
+			}()
 			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Name = uuid.New().String()
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
