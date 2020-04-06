@@ -37,6 +37,10 @@ import (
 // CreateResource creates a testing.Resource with the given name in the system namespace.
 func CreateResource(name string) *pkgtest.Resource {
 	return &pkgtest.Resource{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Resource",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      name,

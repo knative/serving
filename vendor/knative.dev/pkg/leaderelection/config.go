@@ -17,7 +17,6 @@ limitations under the License.
 package leaderelection
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -30,10 +29,7 @@ import (
 
 const ConfigMapNameEnv = "CONFIG_LEADERELECTION_NAME"
 
-var (
-	errEmptyLeaderElectionConfig = errors.New("empty leader election configuration")
-	validResourceLocks           = sets.NewString("leases", "configmaps", "endpoints")
-)
+var validResourceLocks = sets.NewString("leases", "configmaps", "endpoints")
 
 // NewConfigFromMap returns a Config for the given map, or an error.
 func NewConfigFromMap(data map[string]string) (*Config, error) {

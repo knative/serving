@@ -51,10 +51,10 @@ func CreateXMLOutput(tc []junit.TestCase, testName string) error {
 	outputFile := path.Join(artifactsDir, filePrefix+testName+extension)
 	log.Printf("Storing output in %s", outputFile)
 	f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	defer f.Close()
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	if _, err := f.WriteString(string(op) + "\n"); err != nil {
 		return err
 	}
