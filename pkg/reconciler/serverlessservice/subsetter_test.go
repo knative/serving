@@ -102,7 +102,7 @@ func TestOverlay(t *testing.T) {
 	for i := 0; i < sources; i++ {
 		from[i] = uuid.New().String()
 	}
-	freqs := map[string]int{}
+	freqs := make(map[string]int, sources)
 
 	for i := 0; i < samples; i++ {
 		target := uuid.New().String()

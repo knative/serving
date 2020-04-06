@@ -28,7 +28,6 @@ import (
 const (
 	startSalt = "start-angle-salt"
 	stepSalt  = "step-angle-salt"
-	fromSalt  = "from-salt"
 
 	// universe represents the possible range of angles [0, universe).
 	// We want to have universe divide total range evenly to reduce bias.
@@ -38,6 +37,8 @@ const (
 // computeAngle returns a uint64 number which represents
 // a hash built off the given `n` string for consistent selection
 // algorithm.
+// We return uint64 here and cast after computing modulo, since
+// int might 32 bits on 32 platforms and that would trim result.
 func computeHash(n string, h hash.Hash64) uint64 {
 	h.Reset()
 	h.Write([]byte(n))
@@ -130,7 +131,7 @@ func chooseSubset(from []string, n int, target string) sets.String {
 		})
 		// Wrap around.
 		if root == hpl {
-			root = root % hpl
+			root = 0
 		}
 		// Already matched this one. Continue to the next index.
 		for selection.Has(root) {
