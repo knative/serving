@@ -206,11 +206,6 @@ func isNonNamespaced(t *types.Type) bool {
 	return nonNamespaced
 }
 
-// isInternal returns true if the tags for a member do not contain a json tag
-func isInternal(m types.Member) bool {
-	return !strings.Contains(m.Tags, "json")
-}
-
 func vendorless(p string) string {
 	if pos := strings.LastIndex(p, "/vendor/"); pos != -1 {
 		return p[pos+len("/vendor/"):]
