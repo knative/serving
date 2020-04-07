@@ -18,6 +18,7 @@ package serverlessservice
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math"
 	"sort"
 	"testing"
@@ -71,13 +72,13 @@ func TestChooseSubset(t *testing.T) {
 		from:    []string{"sun", "moon", "mars", "mercury"},
 		target:  "something else entirely",
 		wantNum: 2,
-		want:    sets.NewString("moon", "mars"),
+		want:    sets.NewString("mercury", "mars"),
 	}, {
 		name:    "select 3",
 		from:    []string{"sun", "moon", "mars", "mercury"},
 		target:  "something else entirely",
 		wantNum: 3,
-		want:    sets.NewString("mars", "mercury", "moon"),
+		want:    sets.NewString("mars", "mercury", "sun"),
 	}}
 
 	for _, tc := range tests {
@@ -90,11 +91,31 @@ func TestChooseSubset(t *testing.T) {
 	}
 }
 
+func TestCollisionHandling(t *testing.T) {
+	const (
+		key1   = "b08006d4-81f9-42ee-808b-ea18a39cbd83"
+		key2   = "c9dc8df4-8c8d-4077-8750-6d2c2113a23b"
+		target = "e68a64e1-19d8-4855-9ffa-04f49223a059"
+	)
+	// Verify baseline, that they collide.
+	hasher := fnv.New64a()
+	h1 := computeHash(key1+target, hasher) % universe
+	hasher.Reset()
+	h2 := computeHash(key2+target, hasher) % universe
+	if h1 != h2 {
+		t.Fatalf("Baseline incorrect keys don't collide %d != %d", h1, h2)
+	}
+	hd := buildHashes([]string{key1, key2}, target)
+	if got, want := len(hd.nameLookup), 2; got != want {
+		t.Error("Did not resolve collision, only 1 key in the map")
+	}
+
+}
+
 func TestOverlay(t *testing.T) {
-	// Comment the skip below and execute
-	// `go test -run=TestOverlay -count=150`
+	// Execute
+	// `go test -run=TestOverlay -count=200`
 	// To ensure assignments are still not skewed.
-	t.Skip()
 	const (
 		sources   = 50
 		samples   = 30000
@@ -116,21 +137,25 @@ func TestOverlay(t *testing.T) {
 		}
 	}
 
+	totalDiff := 0.
 	for _, v := range freqs {
-		if d := v - want; math.Abs(float64(d)) > threshold {
-			t.Errorf("Diff for %d is %d, larger than threshold: %d", v, d, threshold)
+		diff := float64(v - want)
+		adiff := math.Abs(diff)
+		totalDiff += adiff
+		if adiff > threshold {
+			t.Errorf("Diff for %d is %v, larger than threshold: %d", v, diff, threshold)
 		}
 	}
-	t.Log(freqs)
+	t.Log(totalDiff / float64(len(freqs)))
 }
 
 func BenchmarkSelection(b *testing.B) {
-	const maxSet = 100
+	const maxSet = 200
 	from := make([]string, maxSet)
 	for i := 0; i < maxSet; i++ {
 		from[i] = uuid.New().String()
 	}
-	for _, v := range []int{5, 10, 25, 50, maxSet} {
+	for _, v := range []int{5, 10, 25, 50, 100, 150, maxSet} {
 		for _, ss := range []int{1, 5, 10, 15, 20, 25} {
 			b.Run(fmt.Sprintf("pool-%d-subset-%d", v, ss), func(b *testing.B) {
 				target := uuid.New().String()

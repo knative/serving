@@ -34,7 +34,7 @@ const (
 
 	// universe represents the possible range of angles [0, universe).
 	// We want to have universe divide total range evenly to reduce bias.
-	universe = (1 << 10)
+	universe = (1 << 11)
 )
 
 // computeAngle returns a uint64 number which represents
@@ -73,8 +73,7 @@ func (hd *hashData) nameForHIndex(hi int) string {
 
 func buildHashes(from []string, target string) *hashData {
 	// Any one changing this function must execute
-	// Remove the skip in the TestOverlay test and run
-	// `go test -run=TestOverlay -count=150`.
+	// `go test -run=TestOverlay -count=200`.
 	// This is to ensure there is no regression in the selection
 	// algorithm.
 	hasher := fnv.New64a()
