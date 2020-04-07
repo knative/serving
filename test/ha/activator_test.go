@@ -99,8 +99,7 @@ func TestActivatorHA(t *testing.T) {
 	})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
-		1 /* expected number of public endpoint addresses */); err != nil {
+	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
 		t.Fatal("Failed to wait for the service to use only the remaining activator")
 	}
 
@@ -129,8 +128,7 @@ func TestActivatorHA(t *testing.T) {
 	})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
-		1 /* expected number of public endpoint addresses */); err != nil {
+	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
 		t.Fatalf("Failed to wait for the service to use only the remaining activator")
 	}
 
@@ -138,8 +136,7 @@ func TestActivatorHA(t *testing.T) {
 	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 
 	// Wait until activators are scaled up again and the service can use both of them.
-	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
-		2 /* expected number of public endpoint addresses */); err != nil {
+	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
 		t.Fatalf("Failed to wait for the service to use two activators again")
 	}
 

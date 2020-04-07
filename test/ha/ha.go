@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -63,21 +64,31 @@ func waitForPodDeleted(t *testing.T, clients *test.Clients, podName string) erro
 	})
 }
 
-func waitForPublicEndpointAddresses(t *testing.T, clients *test.Clients, revision string, numAddr int) error {
+func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([]string, error) {
+	endpoints, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
+			serving.RevisionLabelKey, revision,
+			networking.ServiceTypeKey, networking.ServiceTypePublic,
+		),
+	})
+	if err != nil || len(endpoints.Items) != 1 {
+		return nil, fmt.Errorf("no endpoints or error: %w", err)
+	}
+	var hosts []string
+	for _, addr := range endpoints.Items[0].Subsets[0].Addresses {
+		hosts = append(hosts, addr.IP)
+	}
+	return hosts, nil
+}
+
+func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string) error {
+	origEndpoints, err := getPublicEndpoints(t, clients, revision)
+	if err != nil {
+		return err
+	}
 	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
-		endpoints, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
-				serving.RevisionLabelKey, revision,
-				networking.ServiceTypeKey, networking.ServiceTypePublic,
-			),
-		})
-		if err != nil || len(endpoints.Items) != 1 {
-			return false, fmt.Errorf("no endpoints or error: %w", err)
-		}
-		if len(endpoints.Items[0].Subsets[0].Addresses) == numAddr {
-			return true, nil
-		}
-		return false, nil
+		newEndpoints, err := getPublicEndpoints(t, clients, revision)
+		return !reflect.DeepEqual(origEndpoints, newEndpoints), err
 	})
 }
 
