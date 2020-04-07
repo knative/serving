@@ -97,7 +97,7 @@ mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
-git remote add upstream git@github.com:knative/serving.git
+git remote add upstream https://github.com/knative/serving.git
 git remote set-url --push upstream no_push
 ```
 

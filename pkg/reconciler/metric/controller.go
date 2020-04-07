@@ -66,5 +66,7 @@ func NewController(
 		},
 	})
 
+	collector.Watch(impl.EnqueueKey)
+
 	return impl
 }

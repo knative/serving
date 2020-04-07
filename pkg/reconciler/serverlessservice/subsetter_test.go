@@ -99,9 +99,9 @@ func TestCollisionHandling(t *testing.T) {
 	)
 	// Verify baseline, that they collide.
 	hasher := fnv.New64a()
-	h1 := computeHash(key1+target, hasher) % universe
+	h1 := computeHash([]byte(key1+target), hasher) % universe
 	hasher.Reset()
-	h2 := computeHash(key2+target, hasher) % universe
+	h2 := computeHash([]byte(key2+target), hasher) % universe
 	if h1 != h2 {
 		t.Fatalf("Baseline incorrect keys don't collide %d != %d", h1, h2)
 	}
@@ -109,7 +109,6 @@ func TestCollisionHandling(t *testing.T) {
 	if got, want := len(hd.nameLookup), 2; got != want {
 		t.Error("Did not resolve collision, only 1 key in the map")
 	}
-
 }
 
 func TestOverlay(t *testing.T) {
