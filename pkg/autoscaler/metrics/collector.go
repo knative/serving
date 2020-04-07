@@ -89,7 +89,8 @@ type Collector interface {
 	Record(key types.NamespacedName, stat Stat)
 	// Delete deletes a Metric and halts collection.
 	Delete(string, string) error
-	// Watch registers a singleton function to call when collector status changes.
+	// Watch registers a singleton function to call when a specific collector's status changes.
+	// The passed name is the namespace/name of the metric owned by the respective collector.
 	Watch(func(types.NamespacedName))
 }
 
@@ -353,7 +354,8 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 	return c.metric
 }
 
-// updateLastError updates the last error returned from the scraper.
+// updateLastError updates the last error returned from the scraper
+// and returns true if the error or error state changed.
 func (c *collection) updateLastError(err error) bool {
 	c.errMutex.Lock()
 	defer c.errMutex.Unlock()

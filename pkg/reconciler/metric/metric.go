@@ -45,7 +45,8 @@ func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric)
 		case metrics.ErrDidNotReceiveStat:
 			metric.Status.MarkMetricFailed("DidNotReceiveStat", err.Error())
 		default:
-			metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection: "+err.Error())
+			metric.Status.MarkMetricFailed("CollectionFailed",
+				"Failed to reconcile metric collection: "+err.Error())
 		}
 
 		// We don't return an error because retrying is of no use. We'll be poked by collector on a change.
