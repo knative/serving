@@ -20,6 +20,7 @@ package serverlessservice
 // choosing a subset of input values in a consistent manner.
 
 import (
+	"bytes"
 	"hash"
 	"hash/fnv"
 	"sort"
@@ -42,9 +43,9 @@ const (
 // algorithm.
 // We return uint64 here and cast after computing modulo, since
 // int might 32 bits on 32 platforms and that would trim result.
-func computeHash(n string, h hash.Hash64) uint64 {
+func computeHash(n []byte, h hash.Hash64) uint64 {
 	h.Reset()
-	h.Write([]byte(n))
+	h.Write(n)
 	return h.Sum64()
 }
 
@@ -76,26 +77,34 @@ func buildHashes(from []string, target string) *hashData {
 	// `go test -run=TestOverlay -count=200`.
 	// This is to ensure there is no regression in the selection
 	// algorithm.
+
+	// Write in two pieces, so we don't allocate temp string which is sum of both.
+	buf := bytes.NewBufferString(target)
+	buf.WriteString(startSalt)
 	hasher := fnv.New64a()
 	hd := &hashData{
 		nameLookup: make(map[int]string, len(from)),
 		hashPool:   make([]int, len(from)),
-		start:      int(computeHash(target+startSalt, hasher) % universe),
-		step:       int(computeHash(target+stepSalt, hasher) % universe),
+		start:      int(computeHash(buf.Bytes(), hasher) % universe),
 	}
+	buf.Truncate(len(target)) // Discard the angle salt.
+	buf.WriteString(stepSalt)
+	hd.step = int(computeHash(buf.Bytes(), hasher) % universe)
 
 	for i, f := range from {
+		buf.Reset() // This retains the storage.
 		// Make unique sets for every target.
-		k := f + target
-		h := computeHash(k, hasher)
+		buf.WriteString(f)
+		buf.WriteString(target)
+		h := computeHash(buf.Bytes(), hasher)
 		hs := int(h % universe)
 		// Two values slotted to the same bucket.
 		// On average should happen with 1/universe probability.
 		_, ok := hd.nameLookup[hs]
 		for ok {
 			// Feed the hash as salt.
-			k = f + strconv.FormatUint(h, 16 /*append hex strings for shortness*/)
-			h = computeHash(k, hasher)
+			buf.WriteString(strconv.FormatUint(h, 16 /*append hex strings for shortness*/))
+			h = computeHash(buf.Bytes(), hasher)
 			hs = int(h % universe)
 			_, ok = hd.nameLookup[hs]
 		}
