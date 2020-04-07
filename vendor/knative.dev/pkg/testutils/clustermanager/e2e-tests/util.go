@@ -18,8 +18,16 @@ package clustermanager
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
+	"knative.dev/pkg/test/cmd"
 	"knative.dev/pkg/testutils/clustermanager/e2e-tests/common"
+)
+
+const (
+	defaultGKEVersion = "default"
+	latestGKEVersion  = "latest"
 )
 
 var (
@@ -50,4 +58,30 @@ func getResourceName(rt ResourceType) (string, error) {
 		resName = fmt.Sprintf("%s-%s", resName, buildNumStr)
 	}
 	return resName, nil
+}
+
+// resolveGKEVersion returns the actual GKE version based on the raw version and location
+func resolveGKEVersion(raw, location string) (string, error) {
+	switch raw {
+	case defaultGKEVersion:
+		defaultCmd := "gcloud container get-server-config --format='value(defaultClusterVersion)' --zone=" + location
+		version, err := cmd.RunCommand(defaultCmd)
+		if err != nil && version != "" {
+			return "", fmt.Errorf("failed getting the default version: %w", err)
+		}
+		log.Printf("Using default version, %s", version)
+		return version, nil
+	case latestGKEVersion:
+		validCmd := "gcloud container get-server-config --format='value(validMasterVersions)' --zone=" + location
+		versionsStr, err := cmd.RunCommand(validCmd)
+		if err != nil && versionsStr != "" {
+			return "", fmt.Errorf("failed getting the list of valid versions: %w", err)
+		}
+		versions := strings.Split(versionsStr, ";")
+		log.Printf("Using the latest version, %s", strings.TrimSpace(versions[0]))
+		return strings.TrimSpace(versions[0]), nil
+	default:
+		log.Printf("Using the custom version, %s", raw)
+		return raw, nil
+	}
 }
