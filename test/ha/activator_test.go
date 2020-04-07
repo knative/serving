@@ -36,6 +36,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
+	SLO                     = 0.99 // a minimum of requests are expected to fail when killing the activator until the backup takes over
 )
 
 // The Activator does not have leader election enabled.
@@ -84,7 +85,7 @@ func TestActivatorHA(t *testing.T) {
 
 	scaleToZeroURL := resources.Service.Status.URL.URL()
 	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
-	defer test.AssertProberDefault(t, prober)
+	defer assertSLO(t, prober)
 
 	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, scaleToZeroURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
@@ -103,7 +104,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to wait for the service to use only the remaining activator")
 	}
 
-	// assert the service at the first possible moment - when the killed activator disappears from its endpoint address list
+	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
 	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
@@ -127,19 +128,30 @@ func TestActivatorHA(t *testing.T) {
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
+	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
 		1 /* expected number of public endpoint addresses */); err != nil {
-		t.Fatalf("Failed to wait for the service to be using only the remaining activator")
+		t.Fatalf("Failed to wait for the service to use only the remaining activator")
+	}
+
+	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
+	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+
+	// Wait until activators are scaled up again and the service can use both of them.
+	if err := waitForPublicEndpointAddresses(t, clients, resourcesScaleToZero.Revision.Name,
+		2 /* expected number of public endpoint addresses */); err != nil {
+		t.Fatalf("Failed to wait for the service to use two activators again")
 	}
 
 	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+}
 
-	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
-		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
+func assertSLO(t *testing.T, p test.Prober) {
+	t.Helper()
+	if err := p.Stop(); err != nil {
+		t.Errorf("Failed to stop prober: %v", err)
 	}
-	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
-		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
+	if err := test.CheckSLO(SLO, t.Name(), p); err != nil {
+		t.Errorf("CheckSLO failed: %v", err)
 	}
-
-	assertServiceEventuallyWorks(t, clients, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 }
