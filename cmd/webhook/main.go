@@ -77,7 +77,7 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
 }
 
-var callbacks = map[schema.GroupVersionKind]Callback{}
+var callbacks = map[schema.GroupVersionKind]validation.Callback{}
 
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
