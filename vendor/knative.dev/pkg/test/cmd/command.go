@@ -33,6 +33,13 @@ const (
 	separator               = "\n"
 )
 
+// These vars are defined for easy mocking in unit tests.
+var (
+	RunCommand            = runCommand
+	RunCommands           = runCommands
+	RunCommandsInParallel = runCommandsInParallel
+)
+
 // Option enables further configuration of a Cmd.
 type Option func(cmd *exec.Cmd)
 
@@ -51,7 +58,7 @@ func WithDir(dir string) Option {
 }
 
 // RunCommand will run the command and return the standard output, plus error if there is one.
-func RunCommand(cmdLine string, options ...Option) (string, error) {
+func runCommand(cmdLine string, options ...Option) (string, error) {
 	cmdSplit, err := shell.Split(cmdLine)
 	if len(cmdSplit) == 0 || err != nil {
 		return "", &CommandLineError{
@@ -85,7 +92,7 @@ func RunCommand(cmdLine string, options ...Option) (string, error) {
 
 // RunCommands will run the commands sequentially.
 // If there is an error when running a command, it will return directly with all standard output so far and the error.
-func RunCommands(cmdLines ...string) (string, error) {
+func runCommands(cmdLines ...string) (string, error) {
 	var outputs []string
 	for _, cmdLine := range cmdLines {
 		output, err := RunCommand(cmdLine)
@@ -99,7 +106,7 @@ func RunCommands(cmdLines ...string) (string, error) {
 
 // RunCommandsInParallel will run the commands in parallel.
 // It will always finish running all commands, and return all standard output and errors together.
-func RunCommandsInParallel(cmdLines ...string) (string, error) {
+func runCommandsInParallel(cmdLines ...string) (string, error) {
 	errCh := make(chan error, len(cmdLines))
 	outputCh := make(chan string, len(cmdLines))
 	mx := sync.Mutex{}
