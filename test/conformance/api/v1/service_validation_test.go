@@ -49,7 +49,7 @@ func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-	if got, want := err.Error(), "error looking up service account knative-serving/"+invalidServiceAccountName; !strings.Contains(got, want) {
+	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }
@@ -68,10 +68,13 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	_, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
+	t.Logf("Creating a new Service %s", names.Service)
+	service := v1test.Service(names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.PodSpec.Containers[0].Name = "&InvalidValue"
 	})
+	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 
+	_, err := clients.ServingClient.Services.Create(service)
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
