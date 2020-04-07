@@ -124,6 +124,59 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	return nil
 }
 
+// subsetEndpoints computes a subset of all endpoints of size `n` using a consistent
+// selection algorithm. For non empty input, subsetEndpoints returns a copy of the
+// input with the irrelevant endpoints and empty subsets filtered out, if the input
+// size is larger than `n`,
+// Otherwise the input is returned as is.
+func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
+	if len(eps.Subsets) == 0 {
+		return eps
+	}
+
+	addrs := make([]string, 0, 1)
+	for _, ss := range eps.Subsets {
+		for _, addr := range ss.Addresses {
+			addrs = append(addrs, addr.IP)
+		}
+	}
+
+	// The input is not larger than desired.
+	if len(addrs) <= n {
+		return eps
+	}
+
+	selection := chooseSubset(addrs, n, target)
+
+	// Copy the informer's copy, so we can filter it out.
+	neps := eps.DeepCopy()
+	// Standard in place filter using read and write indices.
+	// This preserves the original object order.
+	r, w := 0, 0
+	for r < len(neps.Subsets) {
+		ss := neps.Subsets[r]
+		// And same algorithm internally.
+		ra, wa := 0, 0
+		for ra < len(ss.Addresses) {
+			if selection.Has(ss.Addresses[ra].IP) {
+				ss.Addresses[wa] = ss.Addresses[ra]
+				wa++
+			}
+			ra++
+		}
+		// At least one address from the subset was preserved, so keep it.
+		if wa > 0 {
+			ss.Addresses = ss.Addresses[:wa]
+			// At least one address from the subset was preserved, so keep it.
+			neps.Subsets[w] = ss
+			w++
+		}
+		r++
+	}
+	neps.Subsets = neps.Subsets[:w]
+	return neps
+}
+
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 
