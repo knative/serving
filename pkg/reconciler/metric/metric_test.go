@@ -285,3 +285,5 @@ func (c *testCollector) Delete(namespace, name string) error {
 	}
 	return c.deleteError
 }
+
+func (c *testCollector) Watch(func(types.NamespacedName)) {}
