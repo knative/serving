@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -39,7 +40,9 @@ import (
 // Reconciler implements the control loop for the HPA resources.
 type Reconciler struct {
 	*areconciler.Base
-	hpaLister autoscalingv2beta1listers.HorizontalPodAutoscalerLister
+
+	kubeClient kubernetes.Interface
+	hpaLister  autoscalingv2beta1listers.HorizontalPodAutoscalerLister
 }
 
 // Check that our Reconciler implements pareconciler.Interface
@@ -65,7 +68,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if hpa, err = c.KubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
+		if hpa, err = c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return fmt.Errorf("failed to create HPA: %w", err)
 		}
@@ -78,12 +81,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
-		if _, err := c.KubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
+		if _, err := c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
 			return fmt.Errorf("failed to update HPA: %w", err)
 		}
 	}
 
-	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
+	// 0 num activators will work as "all".
+	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators*/)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
@@ -102,11 +106,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkActive()
-	}
-
-	// Metrics services are no longer needed as we use the private services now.
-	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
-		return err
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation

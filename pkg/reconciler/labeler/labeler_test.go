@@ -75,6 +75,25 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/first-reconcile",
 	}, {
+		Name: "label pinned revision",
+		Objects: []runtime.Object{
+			pinnedRoute("default", "pinned-revision", "the-revision"),
+			simpleConfig("default", "the-config"),
+			rev("default", "the-config"),
+			rev("default", "the-config", WithRevName("the-revision")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "pinned-revision"),
+			patchAddLabel("default", "the-revision",
+				"serving.knative.dev/route", "pinned-revision"),
+			patchAddLabel("default", "the-config",
+				"serving.knative.dev/route", "pinned-revision"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "pinned-revision"),
+		},
+		Key: "default/pinned-revision",
+	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "steady-state", "the-config", WithRouteFinalizer),
@@ -84,6 +103,43 @@ func TestReconcile(t *testing.T) {
 				WithRevisionLabel("serving.knative.dev/route", "steady-state")),
 		},
 		Key: "default/steady-state",
+	}, {
+		Name: "no ready revision",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "no-ready-revision", "the-config", WithStatusTraffic()),
+			simpleConfig("default", "the-config", WithLatestReady("")),
+			rev("default", "the-config"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "no-ready-revision"),
+			patchAddLabel("default", rev("default", "the-config").Name,
+				"serving.knative.dev/route", "no-ready-revision"),
+			patchAddLabel("default", "the-config",
+				"serving.knative.dev/route", "no-ready-revision"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "no-ready-revision"),
+		},
+		Key: "default/no-ready-revision",
+	}, {
+		Name: "transitioning route",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "transitioning-route", "old", WithRouteFinalizer,
+				WithSpecTraffic(configTraffic("new"))),
+			simpleConfig("default", "old",
+				WithConfigLabel("serving.knative.dev/route", "transitioning-route")),
+			rev("default", "old",
+				WithRevisionLabel("serving.knative.dev/route", "transitioning-route")),
+			simpleConfig("default", "new"),
+			rev("default", "new"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", rev("default", "new").Name,
+				"serving.knative.dev/route", "transitioning-route"),
+			patchAddLabel("default", "new",
+				"serving.knative.dev/route", "transitioning-route"),
+		},
+		Key: "default/transitioning-route",
 	}, {
 		Name: "failure adding label (revision)",
 		// Induce a failure during patching
@@ -161,6 +217,23 @@ func TestReconcile(t *testing.T) {
 			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change"),
 		},
 		Key: "default/config-change",
+	}, {
+		Name: "update configuration",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "config-update", "the-config", WithRouteFinalizer),
+			simpleConfig("default", "the-config",
+				WithLatestCreated("the-config-ecoge"),
+				WithConfigLabel("serving.knative.dev/route", "config-update")),
+			rev("default", "the-config",
+				WithRevisionLabel("serving.knative.dev/route", "config-update")),
+			rev("default", "the-config",
+				WithRevName("the-config-ecoge")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "the-config-ecoge",
+				"serving.knative.dev/route", "config-update"),
+		},
+		Key: "default/config-update",
 	}, {
 		Name: "delete route",
 		Objects: []runtime.Object{
@@ -242,15 +315,38 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func routeWithTraffic(namespace, name string, traffic v1.TrafficTarget, opts ...RouteOption) *v1.Route {
-	return Route(namespace, name, append(opts, WithStatusTraffic(traffic))...)
+func configTraffic(name string) v1.TrafficTarget {
+	return v1.TrafficTarget{
+		ConfigurationName: name,
+		Percent:           ptr.Int64(100),
+		LatestRevision:    ptr.Bool(true),
+	}
+}
+
+func revTraffic(name string, latest bool) v1.TrafficTarget {
+	return v1.TrafficTarget{
+		RevisionName:   name,
+		Percent:        ptr.Int64(100),
+		LatestRevision: ptr.Bool(latest),
+	}
+}
+
+func routeWithTraffic(namespace, name string, spec, status v1.TrafficTarget, opts ...RouteOption) *v1.Route {
+	return Route(namespace, name,
+		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status)}, opts...)...)
 }
 
 func simpleRunLatest(namespace, name, config string, opts ...RouteOption) *v1.Route {
-	return routeWithTraffic(namespace, name, v1.TrafficTarget{
-		RevisionName: config + "-dbnfd",
-		Percent:      ptr.Int64(100),
-	}, opts...)
+	return routeWithTraffic(namespace, name,
+		configTraffic(config),
+		revTraffic(config+"-dbnfd", true),
+		opts...)
+}
+
+func pinnedRoute(namespace, name, revision string, opts ...RouteOption) *v1.Route {
+	traffic := revTraffic(revision, false)
+
+	return routeWithTraffic(namespace, name, traffic, traffic, opts...)
 }
 
 func simpleConfig(namespace, name string, opts ...ConfigOption) *v1.Configuration {
@@ -276,7 +372,7 @@ func rev(namespace, name string, opts ...RevisionOption) *v1.Revision {
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
-			Name:            cfg.Status.LatestCreatedRevisionName,
+			Name:            cfg.Status.LatestReadyRevisionName,
 			ResourceVersion: "v1",
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cfg)},
 		},

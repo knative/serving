@@ -38,7 +38,7 @@ spec:
       - name: activator
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: knative.dev/serving/cmd/activator
+        image: ko://knative.dev/serving/cmd/activator
 
         # The numbers are based on performance test results from
         # https://github.com/knative/serving/issues/1625#issuecomment-511930023

@@ -26,6 +26,25 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
+// healthyAddresses takes an endpoints object and a port name and return the set
+// of addresses that implement this port.
+func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String {
+	ready := sets.NewString()
+
+	for _, es := range endpoints.Subsets {
+		for _, port := range es.Ports {
+			if port.Name == portName {
+				for _, addr := range es.Addresses {
+					ready.Insert(addr.IP)
+				}
+				break
+			}
+		}
+	}
+
+	return ready
+}
+
 // endpointsToDests takes an endpoints object and a port name and returns two sets of
 // ready and non-ready l4 dests in the endpoints object which have that port.
 func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String, sets.String) {
@@ -44,6 +63,7 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String
 					// Prefer IP as we can avoid a DNS lookup this way.
 					notReady.Insert(net.JoinHostPort(addr.IP, portStr))
 				}
+				break
 			}
 		}
 	}

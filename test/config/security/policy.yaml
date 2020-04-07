@@ -45,5 +45,5 @@ spec:
       triggerRules:
       - excludedPaths:
         - prefix: /metrics
-        - prefix: /_internal/knative/activator/probe
+        - prefix: /healthz
   principalBinding: USE_ORIGIN

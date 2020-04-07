@@ -53,8 +53,7 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -78,7 +77,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL)
+	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -197,8 +196,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	revName := names.Service + "-byoname"
 
 	// Setup initial Service
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		func(svc *v1alpha1.Service) {
 			svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
 		})
@@ -228,7 +226,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL)
+	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -268,8 +266,7 @@ func TestReleaseService(t *testing.T) {
 	)
 
 	// Setup initial Service
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -533,8 +530,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https)
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

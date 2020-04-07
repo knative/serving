@@ -90,7 +90,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Having an SKS and its PrivateServiceName is a prerequisite for all upcoming steps.
 	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
-		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
+		// Before we can reconcile decider and get real number of activators
+		// we start with default of 2.
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		return computeStatus(pa, podCounts{want: scaleUnknown})
@@ -102,13 +104,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		return fmt.Errorf("error reconciling Decider: %w", err)
 	}
 
-	if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
+	if err := c.ReconcileMetric(ctx, pa, resolveScrapeTarget(ctx, pa)); err != nil {
 		return fmt.Errorf("error reconciling Metric: %w", err)
-	}
-
-	// Metrics services are no longer needed as we use the private services now.
-	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
-		return err
 	}
 
 	// Get the appropriate current scale from the metric, and right size
@@ -132,7 +129,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
-	sks, err = c.ReconcileSKS(ctx, pa, mode)
+	// If we have not successfully reconciled Decider yet, NumActivators will be 0 and
+	// we'll use all activators to back this revision.
+	sks, err = c.ReconcileSKS(ctx, pa, mode, decider.Status.NumActivators)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
@@ -281,4 +280,19 @@ func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
 	}
 
 	return int(min)
+}
+
+// resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
+// TBC == -1 => activator in path, don't scrape the service
+func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
+	tbc := 0.
+	if v, ok := pa.TargetBC(); ok {
+		tbc = v
+	} else {
+		tbc = config.FromContext(ctx).Autoscaler.TargetBurstCapacity
+	}
+	if tbc == -1 {
+		return ""
+	}
+	return pa.Status.MetricsServiceName
 }

@@ -190,7 +190,7 @@ func (c *Reconciler) setHTTP01Challenges(knCert *v1alpha1.Certificate, cmCert *c
 		}
 
 		for _, svc := range svcs {
-			if err := c.tracker.Track(svcRef(svc.Namespace, svc.Name), knCert); err != nil {
+			if err := c.tracker.TrackReference(svcRef(svc.Namespace, svc.Name), knCert); err != nil {
 				return err
 			}
 			owner := svc.GetOwnerReferences()[0]
@@ -226,10 +226,10 @@ func (c *Reconciler) isHTTPChallenge(cmCert *cmv1alpha2.Certificate) (bool, erro
 	}
 }
 
-func svcRef(namespace, name string) corev1.ObjectReference {
+func svcRef(namespace, name string) tracker.Reference {
 	gvk := corev1.SchemeGroupVersion.WithKind("Service")
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
+	return tracker.Reference{
 		APIVersion: apiVersion,
 		Kind:       kind,
 		Namespace:  namespace,

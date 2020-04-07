@@ -16,6 +16,7 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.opencensus.io/stats/view"
@@ -89,7 +90,7 @@ func ConfigMapWatcher(component string, secrets SecretFetcher, logger *zap.Sugar
 	return func(configMap *corev1.ConfigMap) {
 		UpdateExporter(ExporterOptions{
 			Domain:    domain,
-			Component: component,
+			Component: strings.ReplaceAll(component, "-", "_"),
 			ConfigMap: configMap.Data,
 			Secrets:   secrets,
 		}, logger)
@@ -194,6 +195,8 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 		e, err = newStackdriverExporter(config, logger)
 	case Prometheus:
 		e, err = newPrometheusExporter(config, logger)
+	case None:
+		e, err = nil, nil
 	default:
 		err = fmt.Errorf("unsupported metrics backend %v", config.backendDestination)
 	}

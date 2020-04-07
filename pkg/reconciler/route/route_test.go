@@ -33,6 +33,7 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +66,8 @@ const (
 )
 
 func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1.Route {
-	return Route(testNamespace, "test-route", WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
+	return Route(testNamespace, "test-route",
+		WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
 }
 
 func getTestRevision(name string) *v1.Revision {
@@ -988,35 +990,20 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
 	}
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	ctx, _, ctl, watcher, cf := newTestSetup(t)
-	defer cf()
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
-	routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
-
-	// Create a route.
-	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-	routeClient.Create(route)
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
-	addResourcesToInformers(t, ctx, route)
-
-	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
-
 	// Test changes in domain config map. Routes should get updated appropriately.
 	expectations := []struct {
-		apply                func()
+		apply                func(*v1.Route, *configmap.ManualWatcher)
 		expectedDomainSuffix string
 	}{{
 		expectedDomainSuffix: prodDomainSuffix,
-		apply:                func() {},
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
-		apply: func() {
+		apply: func(_ *v1.Route, watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -1031,7 +1018,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
-		apply: func() {
+		apply: func(r *v1.Route, watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -1043,13 +1030,13 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				},
 			}
 			watcher.OnChange(&domainConfig)
-			route.Labels = make(map[string]string)
+			r.Labels = make(map[string]string)
 		},
 	}, {
 		// When no domain with an open selector is specified, we fallback
 		// on the default of example.com.
 		expectedDomainSuffix: config.DefaultDomain,
-		apply: func() {
+		apply: func(r *v1.Route, watcher *configmap.ManualWatcher) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
@@ -1060,20 +1047,42 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				},
 			}
 			watcher.OnChange(&domainConfig)
-			route.Labels = make(map[string]string)
+			r.Labels = make(map[string]string)
 		},
 	}}
 
-	for _, expectation := range expectations {
-		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
-			expectation.apply()
+	for _, tc := range expectations {
+		t.Run(tc.expectedDomainSuffix, func(t *testing.T) {
+			ctx, ifs, ctl, watcher, cf := newTestSetup(t)
+			waitInformers, err := controller.RunInformers(ctx.Done(), ifs...)
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
+			defer func() {
+				cf()
+				waitInformers()
+			}()
+			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
+			route.Name = uuid.New().String()
+			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
+
+			// Create a route.
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-			routeClient.Update(route)
+			routeClient.Create(route)
+			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+			addResourcesToInformers(t, ctx, route)
+			route.Labels = map[string]string{"app": "prod"}
+
+			if tc.apply != nil {
+				tc.apply(route, watcher)
+			}
+			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
+			routeClient.Create(route)
 			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 			addResourcesToInformers(t, ctx, route)
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
 			if route.Status.URL.Host != expectedDomain {
 				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
 			}

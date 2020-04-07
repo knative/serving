@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -195,9 +196,17 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Error finding gateway address", zap.Error(err))
 	}
+	ip := address.IP
 	if address.IP == "" {
-		logger.Info("Gateway has a domain instead of IP address -- leaving default domain config intact")
-		return
+		if address.Hostname == "" {
+			logger.Info("Gateway has neither IP nor hostname -- leaving default domain config intact")
+			return
+		}
+		ipAddr, err := net.ResolveIPAddr("ip4", address.Hostname)
+		if err != nil {
+			logger.Fatalw("Error resolving the IP address of %q", address.Hostname, zap.Error(err))
+		}
+		ip = ipAddr.String()
 	}
 
 	// Use the IP (assumes IPv4) to set up a magic DNS name under a top-level Magic
@@ -205,7 +214,7 @@ func main() {
 	//     1.2.3.4.xip.io  ===(magically resolves to)===> 1.2.3.4
 	// Add this magic DNS name without a label selector to the ConfigMap,
 	// and send it back to the API server.
-	domain := fmt.Sprintf("%s.%s", address.IP, *magicDNS)
+	domain := fmt.Sprintf("%s.%s", ip, *magicDNS)
 	domainCM.Data[domain] = ""
 	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(domainCM); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))

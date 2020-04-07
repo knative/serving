@@ -52,9 +52,36 @@ func TestServerlessServiceSpecValidation(t *testing.T) {
 				Kind:       "Deployment",
 				Name:       "foo",
 			},
-			ProtocolType: networking.ProtocolH2C,
+			ProtocolType:  networking.ProtocolH2C,
+			NumActivators: 311,
 		},
 		want: nil,
+	}, {
+		name: "num act == 0",
+		skss: &ServerlessServiceSpec{
+			Mode: SKSOperationModeServe,
+			ObjectRef: corev1.ObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "destiny",
+			},
+			ProtocolType:  networking.ProtocolH2C,
+			NumActivators: 0,
+		},
+		want: nil,
+	}, {
+		name: "num act invalid",
+		skss: &ServerlessServiceSpec{
+			Mode: SKSOperationModeServe,
+			ObjectRef: corev1.ObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "destiny",
+			},
+			ProtocolType:  networking.ProtocolH2C,
+			NumActivators: -1,
+		},
+		want: apis.ErrInvalidValue("-1", "numActivators"),
 	}, {
 		name: "invalid protocol",
 		skss: &ServerlessServiceSpec{

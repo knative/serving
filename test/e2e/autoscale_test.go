@@ -29,9 +29,15 @@ import (
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
-	"knative.dev/pkg/system"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
@@ -39,22 +45,15 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
 	// Concurrency must be high enough to avoid the problems with sampling
 	// but not high enough to generate scheduling problems.
-	containerConcurrency = 6.0
+	containerConcurrency = 6
 	targetUtilization    = 0.7
 	successRateSLO       = 0.999
 	autoscaleSleep       = 500
@@ -67,9 +66,9 @@ type testContext struct {
 	t                 *testing.T
 	clients           *test.Clients
 	names             test.ResourceNames
-	resources         *v1a1test.ResourceObjects
+	resources         *v1test.ResourceObjects
 	targetUtilization float64
-	targetValue       float64
+	targetValue       int
 	metric            string
 }
 
@@ -174,10 +173,16 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	)
 	return err
+}
+
+func toPercentageString(f float64) string {
+	return strconv.FormatFloat(f*100, 'f', -1, 64)
 }
 
 // setup creates a new service, with given service options.
@@ -185,7 +190,7 @@ func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNa
 // data points.
 // It sets up CleanupOnInterrupt as well that will destroy the resources
 // when the test terminates.
-func setup(t *testing.T, class, metric string, target, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -195,14 +200,13 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 		Image:   image,
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				autoscaling.ClassAnnotationKey:             class,
 				autoscaling.MetricAnnotationKey:            metric,
-				autoscaling.TargetAnnotationKey:            strconv.FormatFloat(target, 'f', -1, 64),
-				autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
+				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
+				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
 				// We run the test for 60s, so make window a bit shorter,
 				// so that we're operating in sustained mode and the pod actions stopped happening.
 				autoscaling.WindowAnnotationKey: "50s",
@@ -262,7 +266,7 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
-	if err := v1a1test.CheckRevisionState(ctx.clients.ServingAlphaClient, ctx.names.Revision, v1a1test.IsRevisionReady); err != nil {
+	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to zero: %v", ctx.names.Revision, err)
 	}
 
@@ -368,9 +372,9 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	grp.Go(func() error {
 		switch ctx.metric {
 		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*ctx.targetValue), duration, stopChan)
+			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
 		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*ctx.targetValue), duration, stopChan)
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
 		}
 	})
 
@@ -641,7 +645,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		test.ServingFlags.SystemNamespace).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}

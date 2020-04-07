@@ -32,12 +32,10 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // In this test, we set up two apps: helloworld and httpproxy.
@@ -64,21 +62,17 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 	tag := "current"
 
-	withInternalVisibility := WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
-	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{
+	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{
 			{
-				TrafficTarget: v1.TrafficTarget{
-					Tag:     tag,
-					Percent: ptr.Int64(100),
-				},
+				Tag:     tag,
+				Percent: ptr.Int64(100),
 			},
 		},
 	})
 
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		withInternalVisibility, withTrafficSpec)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -115,17 +109,13 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"
 
-	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				Tag:     subrouteTag1,
-				Percent: ptr.Int64(100),
-			},
+	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			Tag:     subrouteTag1,
+			Percent: ptr.Int64(100),
 		}},
 	})
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		withTrafficSpec)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -162,18 +152,16 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	//Create subroute2 in kservice.
 	ksvcCopy := resources.Service.DeepCopy()
 	ksvcCopyRouteTraffic := append(ksvcCopy.Spec.Traffic,
-		v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag:            subrouteTag2,
-				LatestRevision: ptr.Bool(true),
-			},
+		v1.TrafficTarget{
+			Tag:            subrouteTag2,
+			LatestRevision: ptr.Bool(true),
 		})
 
-	if _, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
+	if _, err = v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
 		t.Fatalf("Failed to patch service: %v", err)
 	}
 
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
+	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (bool, error) {
 		//Check subroute1 is not cluster-local
 		if isClusterLocal, err := isTrafficClusterLocal(r.Status.Traffic, subrouteTag1); err != nil {
 			return false, err
@@ -192,19 +180,19 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	//Update route to private.
-	ksvclabelCopy := resources.Service.DeepCopy()
-	labels.SetVisibility(&ksvclabelCopy.ObjectMeta, true)
-	if _, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy); err != nil {
+	if _, err = v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
+		labels.SetVisibility(&s.ObjectMeta, true)
+	}); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
+	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (bool, error) {
 		return isRouteClusterLocal(r.Status), nil
 	}, "Route is cluster local"); err != nil {
 		t.Fatalf("Route did not become cluster local: %s", err.Error())
 	}
 
-	clusterLocalRoute, err := clients.ServingAlphaClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
+	clusterLocalRoute, err := clients.ServingClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -237,26 +225,20 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"
 
-	withInternalVisibility := WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
-	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{
+	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{
 			{
-				TrafficTarget: v1.TrafficTarget{
-					Tag:     subrouteTag1,
-					Percent: ptr.Int64(50),
-				},
+				Tag:     subrouteTag1,
+				Percent: ptr.Int64(50),
 			},
 			{
-				TrafficTarget: v1.TrafficTarget{
-					Tag:     subrouteTag2,
-					Percent: ptr.Int64(50),
-				},
+				Tag:     subrouteTag2,
+				Percent: ptr.Int64(50),
 			},
 		},
 	})
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		withTrafficSpec, withInternalVisibility)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withTrafficSpec, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -295,7 +277,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	afterCh := time.After(5 * time.Second)
 
 	// check subroutes are private
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
+	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (bool, error) {
 		for _, tag := range []string{subrouteTag1, subrouteTag2} {
 			if isClusterLocal, err := isTrafficClusterLocal(r.Status.Traffic, tag); err != nil {
 				return false, err
@@ -321,19 +303,19 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	// change route - public (Updating ksvc as it will reconcile the route)
 	// check route = public
-	ksvclabelCopy := resources.Service.DeepCopy()
-	labels.SetVisibility(&ksvclabelCopy.ObjectMeta, false)
-	if _, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy); err != nil {
+	if _, err = v1test.PatchService(t, clients, resources.Service, func(s *v1.Service) {
+		labels.SetVisibility(&s.ObjectMeta, false)
+	}); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (b bool, e error) {
+	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (b bool, e error) {
 		return !isRouteClusterLocal(r.Status), nil
 	}, "Route is public"); err != nil {
 		t.Fatalf("Route is not public: %s", err.Error())
 	}
 
-	publicRoute, err := clients.ServingAlphaClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
+	publicRoute, err := clients.ServingClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -371,7 +353,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf("Failed to patch service: %v", err)
 	}
 
-	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, v1a1test.IsRouteReady, "Route is ready"); err != nil {
+	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, v1test.IsRouteReady, "Route is ready"); err != nil {
 		t.Fatalf("Route did not become ready: %v", err)
 	}
 
@@ -383,16 +365,16 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 }
 
 // Function check whether traffic with tag is cluster local or
-func isTrafficClusterLocal(tt []v1alpha1.TrafficTarget, tag string) (bool, error) {
+func isTrafficClusterLocal(tt []v1.TrafficTarget, tag string) (bool, error) {
 	for _, traffic := range tt {
 		if traffic.Tag == tag {
-			return strings.HasSuffix(traffic.TrafficTarget.URL.Host, network.GetClusterDomainName()), nil
+			return strings.HasSuffix(traffic.URL.Host, network.GetClusterDomainName()), nil
 		}
 	}
 	return false, fmt.Errorf("Unable to find traffic target with tag %s", tag)
 }
 
-func isRouteClusterLocal(rs v1alpha1.RouteStatus) bool {
+func isRouteClusterLocal(rs v1.RouteStatus) bool {
 	return strings.HasSuffix(rs.URL.Host, network.GetClusterDomainName())
 }
 

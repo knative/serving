@@ -47,7 +47,6 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -385,7 +384,7 @@ func TestReconcile(t *testing.T) {
 			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(0)),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testNamespace, testRevision),
@@ -406,7 +405,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(0)),
 		},
 		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -440,24 +439,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create HPA: inducing failure for create horizontalpodautoscalers"),
 		},
-	}, {
-		Name: "remove metric service",
-		Objects: []runtime.Object{
-			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
-				withScales(0, 0), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
-			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metricService(pa(testNamespace, testRevision)),
-		},
-		WantDeletes: []ktesting.DeleteActionImpl{{
-			Name: testRevision + "-bogus",
-			ActionImpl: ktesting.ActionImpl{
-				Namespace: testNamespace,
-				Verb:      "delete",
-			},
-		}},
-		Key: key(testNamespace, testRevision),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -466,14 +447,12 @@ func TestReconcile(t *testing.T) {
 
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				KubeClient:        kubeclient.Get(ctx),
-				Client:            servingclient.Get(ctx),
-				SKSLister:         listers.GetServerlessServiceLister(),
-				MetricLister:      listers.GetMetricLister(),
-				ServiceLister:     listers.GetK8sServiceLister(),
-				PSInformerFactory: podscalable.Get(ctx),
+				Client:       servingclient.Get(ctx),
+				SKSLister:    listers.GetServerlessServiceLister(),
+				MetricLister: listers.GetMetricLister(),
 			},
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			kubeClient: kubeclient.Get(ctx),
+			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, autoscaling.HPA,
@@ -485,7 +464,7 @@ func TestReconcile(t *testing.T) {
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	hpa := pa(ns, n, WithHPAClass)
-	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe, 0)
 	for _, opt := range so {
 		opt(s)
 	}
@@ -575,21 +554,6 @@ func metric(pa *asv1a1.PodAutoscaler, msvcName string, opts ...metricOption) *as
 		o(m)
 	}
 	return m
-}
-
-// TODO(5900): Remove after 0.12 is cut.
-func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pa.Name + "-bogus",
-			Namespace: pa.Namespace,
-			Labels: map[string]string{
-				autoscaling.KPALabelKey:   pa.Name,
-				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
-			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
-		},
-	}
 }
 
 func defaultConfig() *config.Config {

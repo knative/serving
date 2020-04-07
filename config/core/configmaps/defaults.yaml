@@ -88,3 +88,6 @@ data:
     # must be at or below this value.
     # Must be greater than 1.
     container-concurrency-max-limit: "1000"
+
+    # feature flag indicates whether to enable multi container support or not
+    enable-multi-container: "false"

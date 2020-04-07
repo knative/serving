@@ -20,17 +20,13 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	nsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace"
+	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
@@ -55,51 +51,35 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	c := &reconciler{
 		client:              servingclient.Get(ctx),
-		nsLister:            nsInformer.Lister(),
 		knCertificateLister: knCertificateInformer.Lister(),
 	}
 
-	impl := controller.NewImpl(c, logger, "Namespace")
+	impl := namespacereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		logger.Info("Setting up event handlers")
+		nsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: pkgreconciler.Not(pkgreconciler.LabelFilterFunc(
+				networking.DisableWildcardCertLabelKey, "true", false)),
+			Handler: controller.HandleAll(impl.Enqueue),
+		})
 
-	logger.Info("Setting up event handlers")
-	nsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.Not(pkgreconciler.LabelFilterFunc(networking.DisableWildcardCertLabelKey, "true", false)),
-		Handler:    controller.HandleAll(impl.Enqueue),
-	})
+		knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: controller.FilterGroupVersionKind(
+				corev1.SchemeGroupVersion.WithKind("Namespace")),
+			Handler: controller.HandleAll(impl.EnqueueControllerOf),
+		})
 
-	knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&network.Config{},
-		&routecfg.Domain{},
-	}
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.GlobalResync(nsInformer.Informer())
-	})
-	configStore := config.NewStore(logger.Named("config-store"), resync)
-	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
-
-	// TODO(n3wscott): Drop once we can genreconcile core resources.
-	logger.Debug("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	watches := []watch.Interface{
-		eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
-		eventBroadcaster.StartRecordingToSink(
-			&typedcorev1.EventSinkImpl{Interface: kubeclient.Get(ctx).CoreV1().Events("")}),
-	}
-	c.recorder = eventBroadcaster.NewRecorder(
-		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-	go func() {
-		<-ctx.Done()
-		for _, w := range watches {
-			w.Stop()
+		logger.Info("Setting up ConfigMap receivers")
+		configsToResync := []interface{}{
+			&network.Config{},
+			&routecfg.Domain{},
 		}
-	}()
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.GlobalResync(nsInformer.Informer())
+		})
+		configStore := config.NewStore(logger.Named("config-store"), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	return impl
 }

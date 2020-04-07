@@ -45,7 +45,7 @@ spec:
           serviceAccountName: prober
           containers:
           - name: probe
-            image: knative.dev/serving/test/performance/benchmarks/deployment-probe/continuous
+            image: ko://knative.dev/serving/test/performance/benchmarks/deployment-probe/continuous
             args:
             - "-template=basic"
             - "-duration=35m"

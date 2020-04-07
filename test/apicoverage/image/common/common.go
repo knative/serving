@@ -20,15 +20,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook/resourcesemantics"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
 	ResourceMap = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
-		v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
-		v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
-		v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
-		v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
+		v1.SchemeGroupVersion.WithKind("Revision"):      &v1.Revision{},
+		v1.SchemeGroupVersion.WithKind("Configuration"): &v1.Configuration{},
+		v1.SchemeGroupVersion.WithKind("Route"):         &v1.Route{},
+		v1.SchemeGroupVersion.WithKind("Service"):       &v1.Service{},
 	}
 	WebhookNamespace = system.Namespace()
 )

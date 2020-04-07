@@ -30,7 +30,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -92,7 +91,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Errorw("Throttler try error", zap.Error(err))
 
 		switch err {
-		case activatornet.ErrActivatorOverload, context.DeadlineExceeded, queue.ErrRequestQueueFull:
+		case context.DeadlineExceeded, queue.ErrRequestQueueFull:
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		default:
 			w.WriteHeader(http.StatusInternalServerError)

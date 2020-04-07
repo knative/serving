@@ -154,7 +154,7 @@ deployed service, you can directly use the `SpoofingClient` that
 
 ```go
 // Error handling elided for brevity, but you know better.
-client, err := pkgTest.NewSpoofingClient(clients.KubeClient.Kube, logger, route.Status.Domain, test.ServingFlags.ResolvableDomain)
+client, err := pkgTest.NewSpoofingClient(clients.KubeClient.Kube, logger, route.Status.Domain, test.ServingFlags.ResolvableDomain,test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", route.Status.Domain), nil)
 
 // Single request.

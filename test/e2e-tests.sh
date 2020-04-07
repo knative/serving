@@ -48,43 +48,63 @@ parallelism=""
 use_https=""
 (( MESH )) && parallelism="-parallel 1"
 
-if (( HTTP )); then
-  parallelism="-parallel 1"
+if (( HTTPS )); then
   use_https="--https"
+  # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
+  parallelism="-parallel 1"
+  turn_on_auto_tls
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
 # Run conformance and e2e tests.
+
 go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v certificate) \
   ./test/e2e \
   ${parallelism} \
+  "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+if (( HTTPS )); then
+  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  turn_off_auto_tls
+fi
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
-kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+  ./test/conformance/certificate/nonhttp01 "$(certificate_class)" --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ./test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/
+  ./test/conformance/certificate/http01 "$(certificate_class)" --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
 # Run scale tests.
 go_test_e2e -timeout=10m \
   ${parallelism} \
-  ./test/scale || failed=1
+  ./test/scale "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
   go_test_e2e -timeout=10m \
     ./test/e2e/istio \
+    "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" \
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
+
+# Run HA tests separately as they're stopping core Knative Serving pods
+kubectl -n ${E2E_SYSTEM_NAMESPACE} patch configmap/config-leader-election --type=merge \
+  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"}}'
+add_trap "kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m -parallel=1 ./test/ha "--systemNamespace=${E2E_SYSTEM_NAMESPACE}" || failed=1
+kubectl get cm config-leader-election -n ${E2E_SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state

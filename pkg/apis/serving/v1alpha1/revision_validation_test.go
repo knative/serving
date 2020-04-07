@@ -69,7 +69,7 @@ func TestConcurrencyModelValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestServingStateType(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cm.Validate(context.Background())
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -346,7 +346,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			}
 			got := test.rs.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -506,7 +506,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 			got := test.rts.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}
@@ -862,7 +862,7 @@ func TestImmutableFields(t *testing.T) {
 			}
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+				t.Errorf("Validate (-want, +got): \n%s", diff)
 			}
 		})
 	}

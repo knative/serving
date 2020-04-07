@@ -17,7 +17,7 @@ limitations under the License.
 package ingress
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -29,18 +29,20 @@ import (
 )
 
 // ComputeHash computes a hash of the Ingress Spec, Namespace and Name
-func ComputeHash(ing *v1alpha1.Ingress) ([16]byte, error) {
+func ComputeHash(ing *v1alpha1.Ingress) ([sha256.Size]byte, error) {
 	bytes, err := json.Marshal(ing.Spec)
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to serialize Ingress: %w", err)
+		return [sha256.Size]byte{}, fmt.Errorf("failed to serialize Ingress: %w", err)
 	}
 	bytes = append(bytes, []byte(ing.GetNamespace())...)
 	bytes = append(bytes, []byte(ing.GetName())...)
-	return md5.Sum(bytes), nil
+	return sha256.Sum256(bytes), nil
 }
 
 // InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
 // the version of the Ingress currently deployed on the Gateway.
+// TODO: move this to github.com/knative/networking — currently it is used by downstream
+// consumers, see: https://github.com/knative/serving/issues/7482.
 func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 	bytes, err := ComputeHash(ing)
 	if err != nil {

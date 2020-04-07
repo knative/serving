@@ -9,8 +9,6 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "knative.dev/pkg/codegen/cmd/injection-gen",
-  # TODO(#4549): Drop this when we drop our patches.
-  "k8s.io/kubernetes/pkg/version",
   "knative.dev/caching/pkg/apis/caching",
   # For cluster management in performance testing.
   "knative.dev/pkg/testutils/clustermanager/perf-tests",
@@ -26,11 +24,11 @@ required = [
 
 [[override]]
   name = "gopkg.in/yaml.v2"
-  version = "v2.2.4"
+  version = "v2.2.8"
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "master"
+  branch = "release-0.14"
 
 [[constraint]]
   name = "knative.dev/caching"
@@ -47,10 +45,6 @@ required = [
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
   version = "v0.12.0"
-
-[[constraint]]
-  name = "github.com/gogo/protobuf"
-  version = "v1.3.1"
 
 [[constraint]]
   name = "istio.io/api"
@@ -142,20 +136,12 @@ required = [
 # The dependencies below are required for go-containrregistry.
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2020-02-27
-  revision = "ba53fa10e72c7373ef8068e21c9f102f0c20a940"
+  # HEAD as of 2020-03-31
+  revision = "3d03ed9b1ca2ad5d78d43832e8e46adc31d2b961"
 
 [[override]]
   name = "github.com/vdemeester/k8s-pkg-credentialprovider"
-  version = "v1.13.12.1"
-
-[[override]]
-  name = "github.com/Azure/azure-sdk-for-go"
-  version = "v38.0.0"
-
-[[override]]
-  name = "github.com/Azure/go-autorest"
-  version = "autorest/v0.9.3"
+  version = "v1.17.4"
 
 # The dependencies below are required for opencensus.
 [[override]]

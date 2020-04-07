@@ -120,3 +120,10 @@ func WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption
 		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
 	}
 }
+
+// WithConfigEnv configures the Service to use the provided environment variables.
+func WithConfigEnv(evs ...corev1.EnvVar) ConfigOption {
+	return func(c *v1alpha1.Configuration) {
+		c.Spec.Template.Spec.Containers[0].Env = evs
+	}
+}

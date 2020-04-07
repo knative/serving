@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"math"
 	"strconv"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -68,6 +69,9 @@ func defaultConfig() *Defaults {
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
 
+	// Process bool field.
+	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
+
 	// Process int64 fields
 	for _, i64 := range []struct {
 		key   string
@@ -86,11 +90,11 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		field: &nc.ContainerConcurrencyMaxLimit,
 	}} {
 		if raw, ok := data[i64.key]; ok {
-			if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			val, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil {
 				return nil, err
-			} else {
-				*i64.field = val
 			}
+			*i64.field = val
 		}
 	}
 
@@ -132,9 +136,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 	}
 
-	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = DefaultUserContainerName
-	} else {
+	if raw, ok := data["container-name-template"]; ok {
 		tmpl, err := template.New("user-container").Parse(raw)
 		if err != nil {
 			return nil, err
@@ -158,6 +160,9 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
+	// Feature flag to enable multi container support
+	EnableMultiContainer bool
+
 	RevisionTimeoutSeconds int64
 	// This is the timeout set for cluster ingress.
 	// RevisionTimeoutSeconds must be less than this value.

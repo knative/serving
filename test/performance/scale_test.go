@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/test-infra/shared/junit"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
+	"knative.dev/pkg/test/testgrid"
 
 	"knative.dev/serving/test/e2e"
 )

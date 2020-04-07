@@ -20,10 +20,8 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -38,6 +36,8 @@ import (
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -58,7 +58,6 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	podsInformer := podinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
@@ -69,12 +68,9 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			KubeClient:        kubeclient.Get(ctx),
-			Client:            servingclient.Get(ctx),
-			SKSLister:         sksInformer.Lister(),
-			ServiceLister:     serviceInformer.Lister(),
-			MetricLister:      metricInformer.Lister(),
-			PSInformerFactory: psInformerFactory,
+			Client:       servingclient.Get(ctx),
+			SKSLister:    sksInformer.Lister(),
+			MetricLister: metricInformer.Lister(),
 		},
 		endpointsLister: endpointsInformer.Lister(),
 		podsLister:      podsInformer.Lister(),
@@ -114,16 +110,12 @@ func NewController(
 		},
 	})
 
+	// Watch all the private service endpoints.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
+		FilterFunc: pkgreconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
 	})
 
-	// Watch all the services that we have created.
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),

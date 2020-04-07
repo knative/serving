@@ -137,3 +137,11 @@ data:
     # that should be used if none is specified. If omitted, the Knative
     # Horizontal Pod Autoscaler (KPA) is used by default.
     pod-autoscaler-class: "kpa.autoscaling.knative.dev"
+
+    # The capacity of a single activator task.
+    # The `unit` is one concurrent request proxied by the activator.
+    # activator-capacity must be at least 1.
+    # This value is used for computation of the Activator subset size.
+    # See the algorithm here: http://bit.ly/38XiCZ3.
+    # TODO(vagababov): tune after actual benchmarking.
+    activator-capacity: "100.0"

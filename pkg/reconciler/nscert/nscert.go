@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"text/template"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -32,11 +31,8 @@ import (
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kubelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
+	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -52,53 +48,12 @@ type reconciler struct {
 	client clientset.Interface
 
 	// listers index properties about resources
-	nsLister            kubelisters.NamespaceLister
 	knCertificateLister listers.CertificateLister
-
-	// TODO(n3wscott): Drop once we can genreconcile core resources.
-	recorder record.EventRecorder
-
-	configStore pkgreconciler.ConfigStore
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+// Check that our Reconciler implements namespacereconciler.Interface
+var _ namespacereconciler.Interface = (*reconciler)(nil)
 var domainTemplateRegex *regexp.Regexp = regexp.MustCompile(`^\*\..+$`)
-
-// Reconciler implements controller.Reconciler for Namespace resources.
-func (c *reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-
-	if !config.FromContext(ctx).Network.AutoTLS {
-		logger.Debug("AutoTLS is disabled. Skipping wildcard certificate creation")
-		return nil
-	}
-
-	_, ns, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	namespace, err := c.nsLister.Get(ns)
-	if apierrs.IsNotFound(err) {
-		logger.Info("Namespace in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// TODO(n3wscott): Drop once we can genreconcile core resources.
-	recorder := c.recorder
-	ctx = controller.WithEventRecorder(ctx, recorder)
-
-	err = c.ReconcileKind(ctx, namespace)
-	if err != nil {
-		recorder.Event(namespace, corev1.EventTypeWarning, "InternalError", err.Error())
-	}
-	return err
-}
 
 func certClass(ctx context.Context, r *v1.Namespace) string {
 	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
@@ -107,7 +62,7 @@ func certClass(ctx context.Context, r *v1.Namespace) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
-func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) error {
+func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pkgreconciler.Event {
 	cfg := config.FromContext(ctx)
 
 	labelSelector := kubelabels.NewSelector()

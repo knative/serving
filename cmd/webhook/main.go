@@ -52,7 +52,6 @@ import (
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
-	istioconfig "knative.dev/serving/pkg/reconciler/ingress/config"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -146,7 +145,6 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			certconfig.CertManagerConfigName:  certconfig.NewCertManagerConfigFromConfigMap,
 			gc.ConfigName:                     gc.NewConfigFromConfigMapFunc(ctx),
 			network.ConfigName:                network.NewConfigFromConfigMap,
-			istioconfig.IstioConfigName:       istioconfig.NewIstioFromConfigMap,
 			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
 			metrics.ConfigMapName():           metrics.NewObservabilityConfigFromConfigMap,
 			logging.ConfigMapName():           logging.NewConfigFromConfigMap,

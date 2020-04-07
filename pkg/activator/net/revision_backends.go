@@ -69,7 +69,7 @@ type dests struct {
 const (
 	probeTimeout          time.Duration = 300 * time.Millisecond
 	defaultProbeFrequency time.Duration = 200 * time.Millisecond
-	probePath                           = "/_internal/knative/activator/probe"
+	probePath                           = "/healthz"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic

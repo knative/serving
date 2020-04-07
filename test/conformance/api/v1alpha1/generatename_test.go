@@ -98,7 +98,8 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", route.Name, url, test.HelloWorldText, err)
 	}
@@ -124,8 +125,7 @@ func TestServiceGenerateName(t *testing.T) {
 
 	// Create the service using the generate name field. If the service does not become ready this will fail.
 	t.Logf("Creating new service with generateName %s", generateName)
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)

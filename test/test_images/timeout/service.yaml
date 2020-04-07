@@ -7,4 +7,4 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/timeout
+      - image: ko://knative.dev/serving/test/test_images/timeout

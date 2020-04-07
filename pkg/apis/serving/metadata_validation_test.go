@@ -252,10 +252,18 @@ func TestValidateTimeoutSecond(t *testing.T) {
 	}
 }
 
+func cfg(m map[string]string) *config.Config {
+	d, _ := config.NewDefaultsConfigFromMap(m)
+	return &config.Config{
+		Defaults: d,
+	}
+}
+
 func TestValidateContainerConcurrency(t *testing.T) {
 	cases := []struct {
 		name                 string
 		containerConcurrency *int64
+		ctx                  context.Context
 		expectErr            error
 	}{{
 		name:                 "empty containerConcurrency",
@@ -267,15 +275,33 @@ func TestValidateContainerConcurrency(t *testing.T) {
 		expectErr: apis.ErrOutOfBoundsValue(
 			2000, 0, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField),
 	}, {
+		name:                 "invalid containerConcurrency value, non def config",
+		containerConcurrency: ptr.Int64(2000),
+		ctx: config.ToContext(context.Background(), cfg(map[string]string{
+			"container-concurrency-max-limit": "1950",
+		})),
+		expectErr: apis.ErrOutOfBoundsValue(
+			2000, 0, 1950, apis.CurrentField),
+	}, {
 		name:                 "valid containerConcurrency value",
 		containerConcurrency: ptr.Int64(10),
 		expectErr:            (*apis.FieldError)(nil),
+	}, {
+		name:                 "valid containerConcurrency value huge",
+		containerConcurrency: ptr.Int64(2019),
+		expectErr:            (*apis.FieldError)(nil),
+		ctx: config.ToContext(context.Background(), cfg(map[string]string{
+			"container-concurrency-max-limit": "2021",
+		})),
 	}}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			err := ValidateContainerConcurrency(c.containerConcurrency)
-			if !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.ctx == nil {
+				tc.ctx = context.Background()
+			}
+			err := ValidateContainerConcurrency(tc.ctx, tc.containerConcurrency)
+			if !reflect.DeepEqual(tc.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", tc.expectErr, err)
 			}
 		})
 	}

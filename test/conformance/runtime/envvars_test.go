@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 // TestShouldEnvVars verifies environment variables that are declared as "SHOULD be set" in runtime-contract

@@ -15,12 +15,18 @@ package test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/signals"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/spoof"
 )
 
 const (
@@ -31,6 +37,9 @@ const (
 
 	// HelloVolumePath is the path to the test volume.
 	HelloVolumePath = "/hello/world"
+
+	caSecretNamespace = "cert-manager"
+	caSecretName      = "ca-key-pair"
 )
 
 // util.go provides shared utilities methods across knative serving test
@@ -50,4 +59,35 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 
 	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
+}
+
+// AddRootCAtoTransport returns TransportOption when HTTPS option is true. Otherwise it returns plain spoof.TransportOption.
+func AddRootCAtoTransport(logf logging.FormatLogger, clients *Clients, https bool) spoof.TransportOption {
+	if !https {
+		return func(transport *http.Transport) *http.Transport {
+			return transport
+		}
+	}
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(logf, clients, caSecretNamespace, caSecretName)) {
+		logf("Failed to add the certificate to the root CA")
+	}
+	return func(transport *http.Transport) *http.Transport {
+		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+		return transport
+	}
+}
+
+// PemDataFromSecret gets pem data from secret.
+func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretName string) []byte {
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
+		secretName, metav1.GetOptions{})
+	if err != nil {
+		logf("Failed to get Secret %s: %v", secretName, err)
+		return []byte{}
+	}
+	return secret.Data[corev1.TLSCertKey]
 }
