@@ -39,12 +39,12 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,10 +101,10 @@ func TestActivationHandler(t *testing.T) {
 		throttler: fakeThrottler{err: context.DeadlineExceeded},
 	}, {
 		name:      "overflow",
-		wantBody:  "activator overload\n",
+		wantBody:  "pending request queue full\n",
 		wantCode:  http.StatusServiceUnavailable,
 		wantErr:   nil,
-		throttler: fakeThrottler{err: anet.ErrActivatorOverload},
+		throttler: fakeThrottler{err: queue.ErrRequestQueueFull},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
