@@ -57,8 +57,12 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	impl := namespacereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up event handlers")
 		nsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: pkgreconciler.Not(pkgreconciler.LabelFilterFunc(
-				networking.DisableWildcardCertLabelKey, "true", false)),
+			FilterFunc: pkgreconciler.ChainFilterFuncs(
+				pkgreconciler.Not(pkgreconciler.LabelFilterFunc(
+					networking.DisableWildcardCertLabelKey, "true", false)),
+				pkgreconciler.Not(pkgreconciler.LabelFilterFunc(
+					networking.DisableInternalWildcardCertLabelKey, "true", false)),
+			),
 			Handler: controller.HandleAll(impl.Enqueue),
 		})
 
