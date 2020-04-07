@@ -447,9 +447,9 @@ func TestMetricCollectorError(t *testing.T) {
 				t.Fatalf("Event = %v, want %v", event, key)
 			}
 
-			// Simulate a reconcile.
+			// Make sure the error is surfaced via 'CreateOrUpdate', which is called in the reconciler.
 			if err := coll.CreateOrUpdate(testMetric); err != test.expectedError {
-				t.Fatalf("lastError = %v, want %v", err, test.expectedError)
+				t.Fatalf("CreateOrUpdate = %v, want %v", err, test.expectedError)
 			}
 
 			coll.Delete(testMetric.Namespace, testMetric.Name)
