@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 )
 
 func init() {
@@ -34,17 +35,19 @@ func init() {
 var cf struct {
 	o sync.Once
 	s sync.Map
+	c uint64
 }
 
 // cleanupOnInterrupt registers a signal handler and will execute a stack of functions if an interrupt signal is caught
 func cleanupOnInterrupt(c chan os.Signal) {
 	for range c {
 		cf.o.Do(func() {
-			cf.s.Range(func(f interface{}, _ interface{}) bool {
-				clean := *f.(*func())
-				clean()
-				return true
-			})
+			for i := cf.c; i > 0; i-- {
+				if f, ok := cf.s.Load(i); ok {
+					clean := *f.(*func())
+					clean()
+				}
+			}
 			os.Exit(1)
 		})
 	}
@@ -52,7 +55,7 @@ func cleanupOnInterrupt(c chan os.Signal) {
 
 // CleanupOnInterrupt stores cleanup functions to execute if an interrupt signal is caught
 func CleanupOnInterrupt(cleanup func()) {
-	cf.s.Store(&cleanup, struct{}{})
+	cf.s.Store(atomic.AddUint64(&cf.c, 1), &cleanup)
 }
 
 // TearDown will delete created names using clients.
