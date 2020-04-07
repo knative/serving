@@ -39,6 +39,7 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/extravalidation"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -77,7 +78,9 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
 }
 
-var callbacks = map[schema.GroupVersionKind]validation.Callback{}
+var callbacks = map[schema.GroupVersionKind]validation.Callback{
+	v1.SchemeGroupVersion.WithKind("Service"):validation.NewCallback(, webhook.Operation.CREATE, webhook.Operation.UPDATE)
+}
 
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.

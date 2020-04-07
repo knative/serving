@@ -141,6 +141,23 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
+	userContainer := BuildUserContainer(rev)
+	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
+
+	// Add the Knative internal volume only if /var/log collection is enabled
+	if observabilityConfig.EnableVarLogCollection {
+		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
+	}
+
+	if autoscalerConfig.EnableGracefulScaledown {
+		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
+	}
+
+	return podSpec, nil
+}
+
+// BuildUserContainer makes a container from the Revision template.
+func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
@@ -177,28 +194,18 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
+	return userContainer
+}
 
-	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{
-			*userContainer,
-			*queueContainer,
-		},
+// BuildPodSpec creates a PodSpec from the given revision and containers.
+func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		Containers:                    containers,
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
 		ImagePullSecrets:              rev.Spec.ImagePullSecrets,
 	}
-
-	// Add the Knative internal volume only if /var/log collection is enabled
-	if observabilityConfig.EnableVarLogCollection {
-		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
-	}
-
-	if autoscalerConfig.EnableGracefulScaledown {
-		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
-	}
-
-	return podSpec, nil
 }
 
 func getUserPort(rev *v1.Revision) int32 {
