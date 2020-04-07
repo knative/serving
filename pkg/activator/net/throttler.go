@@ -18,7 +18,6 @@ package net
 
 import (
 	"context"
-	"errors"
 	"math"
 	"math/rand"
 	"sort"
@@ -61,8 +60,6 @@ const (
 )
 
 var (
-	ErrActivatorOverload = errors.New("activator overload")
-
 	breakerParams = queue.BreakerParams{
 		QueueDepth:      breakerQueueDepth,
 		MaxConcurrency:  breakerMaxConcurrency,
