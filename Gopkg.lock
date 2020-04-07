@@ -575,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -610,6 +610,14 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+
+[[projects]]
+  branch = "master"
+  digest = "1:cf68a79fd02ab0f6942b9567d03d054b6568212fcc22de2a4afdefd096923749"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   digest = "1:08c58ac78a8c1f61e9a96350066d30fe194b8779799bd932a79932a5166a173f"
@@ -1838,7 +1846,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b608c5aa58f33859735c419f4e4a165f33bf878e3e1b5e331783ea6ef7163b3f"
+  digest = "1:462fe2b87ea48e65015f45b404de9db04ebd1332fca8f06e19642641308869f7"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1908,6 +1916,7 @@
     "system",
     "system/testing",
     "test",
+    "test/cmd",
     "test/gcs",
     "test/ghutil",
     "test/gke",
@@ -1953,18 +1962,18 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d22642244e45bfa1dc59919a4fd4867cc7f27a48"
+  revision = "466c676678ddd57b3ec05a06a2d0bc6cfca8c3db"
 
 [[projects]]
   branch = "master"
-  digest = "1:d8858077778bca77705b26d5b5262bf33a6bfbaa701fffca1578fd7ef4c4b975"
+  digest = "1:ce8214f24f811aa582a58b2680e3380ff3fac7668a00d490fb23349a21051dcb"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "a67f228609fb8365383a9971ff189a78fe63e672"
+  revision = "a7b18bf0c37bf1a10743fba5c1ce988b7c2e0e30"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
