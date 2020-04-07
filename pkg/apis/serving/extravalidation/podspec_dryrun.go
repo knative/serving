@@ -38,6 +38,16 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 		return errors.New("could not decode Service from resource")
 	}
 
+	// Extra Validations for Service
+
+	if err := validatePodSpec(ctx, s); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePodSpec(ctx context.Context, s v1.Service) *apis.FieldError {
 	om := metav1.ObjectMeta{
 		Name:      "dry-run-validation",
 		Namespace: system.Namespace(),
@@ -46,7 +56,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 	// Create a dummy Revision from the template
 	rev := &v1.Revision{
 		ObjectMeta: om,
-		Spec:       *&s.Spec.Template.Spec,
+		Spec:       s.Spec.Template.Spec,
 	}
 	userContainer := resources.BuildUserContainer(rev)
 	podSpec := resources.BuildPodSpec(rev, []corev1.Container{*userContainer})
@@ -57,8 +67,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 		Spec:       *podSpec,
 	}
 
-	dryRunPodSpec(ctx, pod)
-	return nil
+	return dryRunPodSpec(ctx, pod)
 }
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
