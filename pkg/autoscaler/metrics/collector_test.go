@@ -434,16 +434,18 @@ func TestMetricCollectorError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			factory := scraperFactory(test.scraper, nil)
 			coll := NewMetricCollector(factory, logger)
+			watchCh := make(chan types.NamespacedName)
+			coll.Watch(func(key types.NamespacedName) {
+				watchCh <- key
+			})
 			coll.CreateOrUpdate(testMetric)
 			key := types.NamespacedName{Namespace: testMetric.Namespace, Name: testMetric.Name}
 
-			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-				collection, ok := coll.collections[key]
-				if !ok {
-					return false, nil
-				}
-				return collection.lastError() == test.expectedError, nil
-			})
+			// Expect an event to be propagated because we're erroring.
+			event := <-watchCh
+			if event != key {
+				t.Fatalf("Event = %v, want %v", event, key)
+			}
 
 			// Simulate a reconcile.
 			if err := coll.CreateOrUpdate(testMetric); err != test.expectedError {
