@@ -27,7 +27,7 @@ import (
 	"time"
 
 	// These are the fake informers we want setup.
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
+
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
@@ -993,12 +993,9 @@ func TestReconcile(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				KubeClient:        kubeclient.Get(ctx),
-				Client:            servingclient.Get(ctx),
-				SKSLister:         listers.GetServerlessServiceLister(),
-				ServiceLister:     listers.GetK8sServiceLister(),
-				MetricLister:      listers.GetMetricLister(),
-				PSInformerFactory: psf,
+				Client:       servingclient.Get(ctx),
+				SKSLister:    listers.GetServerlessServiceLister(),
+				MetricLister: listers.GetMetricLister(),
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			podsLister:      listers.GetPodsLister(),

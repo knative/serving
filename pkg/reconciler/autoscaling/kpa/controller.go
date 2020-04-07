@@ -20,10 +20,8 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -60,7 +58,6 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	podsInformer := podinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
@@ -71,12 +68,9 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			KubeClient:        kubeclient.Get(ctx),
-			Client:            servingclient.Get(ctx),
-			SKSLister:         sksInformer.Lister(),
-			ServiceLister:     serviceInformer.Lister(),
-			MetricLister:      metricInformer.Lister(),
-			PSInformerFactory: psInformerFactory,
+			Client:       servingclient.Get(ctx),
+			SKSLister:    sksInformer.Lister(),
+			MetricLister: metricInformer.Lister(),
 		},
 		endpointsLister: endpointsInformer.Lister(),
 		podsLister:      podsInformer.Lister(),
