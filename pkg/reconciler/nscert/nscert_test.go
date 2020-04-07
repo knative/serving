@@ -192,10 +192,29 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name: "certificate not created for excluded namespace",
+		Name:                    "create Knative certificate for namespace with explicitly enabled for internal label",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			kubeNamespaceWithDisableInternalLabelValue("foo", "false"),
+		},
+		WantCreates: []runtime.Object{
+			knCert(kubeNamespace("foo")),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Knative Certificate %s/%s", "foo", defaultCertName),
+		},
+		Key: "foo",
+	}, {
+		Name: "certificate not created for excluded namespace with intenal label",
 		Key:  "foo",
 		Objects: []runtime.Object{
 			kubeNamespaceWithDisableLabelValue("foo", "true"),
+		},
+	}, {
+		Name: "certificate not created for excluded namespace",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithDisableInternalLabelValue("foo", "true"),
 		},
 	}, {
 		Name:                    "certificate creation failed",
@@ -517,6 +536,17 @@ func kubeNamespaceWithDisableLabelValue(name, value string) *corev1.Namespace {
 			Name: name,
 			Labels: map[string]string{
 				networking.DisableWildcardCertLabelKey: value,
+			},
+		},
+	}
+}
+
+func kubeNamespaceWithDisableInternalLabelValue(name, value string) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				networking.DisableInternalWildcardCertLabelKey: value,
 			},
 		},
 	}
