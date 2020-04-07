@@ -143,7 +143,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
-		return nil
+		return collection.lastError()
 	}
 
 	c.collectionsMutex.Lock()
@@ -153,7 +153,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
-		return nil
+		return collection.lastError()
 	}
 
 	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.logger)
@@ -224,6 +224,9 @@ type collection struct {
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
 
+	errMutex sync.RWMutex
+	lastErr  error
+
 	scraperMutex            sync.RWMutex
 	scraper                 StatsScraper
 	concurrencyBuckets      *aggregation.TimedFloat64Buckets
@@ -282,21 +285,17 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				currentMetric := c.currentMetric()
 				if currentMetric.Spec.ScrapeTarget == "" {
 					// Don't scrape empty target service.
+					if c.updateLastError(nil) {
+						// Notify reconciler.
+					}
 					continue
 				}
 				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
 				if err != nil {
-					copy := metric.DeepCopy()
-					switch {
-					case err == ErrFailedGetEndpoints:
-						copy.Status.MarkMetricNotReady("NoEndpoints", ErrFailedGetEndpoints.Error())
-					case err == ErrDidNotReceiveStat:
-						copy.Status.MarkMetricFailed("DidNotReceiveStat", ErrDidNotReceiveStat.Error())
-					default:
-						copy.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
-					}
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
-					c.updateMetric(copy)
+				}
+				if c.updateLastError(err) {
+					// Notify reconciler.
 				}
 				if stat != emptyStat {
 					c.record(stat)
@@ -326,6 +325,25 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 	defer c.metricMutex.RUnlock()
 
 	return c.metric
+}
+
+// updateLastError updates the last error returned from the scraper.
+func (c *collection) updateLastError(err error) bool {
+	c.errMutex.Lock()
+	defer c.errMutex.Unlock()
+
+	if c.lastErr == err {
+		return false
+	}
+	c.lastErr = err
+	return true
+}
+
+func (c *collection) lastError() error {
+	c.errMutex.RLock()
+	defer c.errMutex.RUnlock()
+
+	return c.lastErr
 }
 
 // record adds a stat to the current collection.
