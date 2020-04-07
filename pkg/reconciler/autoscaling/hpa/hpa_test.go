@@ -447,14 +447,12 @@ func TestReconcile(t *testing.T) {
 
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				KubeClient:        kubeclient.Get(ctx),
-				Client:            servingclient.Get(ctx),
-				SKSLister:         listers.GetServerlessServiceLister(),
-				MetricLister:      listers.GetMetricLister(),
-				ServiceLister:     listers.GetK8sServiceLister(),
-				PSInformerFactory: podscalable.Get(ctx),
+				Client:       servingclient.Get(ctx),
+				SKSLister:    listers.GetServerlessServiceLister(),
+				MetricLister: listers.GetMetricLister(),
 			},
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			kubeClient: kubeclient.Get(ctx),
+			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, autoscaling.HPA,
