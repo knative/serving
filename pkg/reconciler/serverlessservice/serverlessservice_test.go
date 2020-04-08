@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -815,9 +814,8 @@ func withNSubsets(numSS, numAddr int) EndpointsOption {
 		for i := 0; i < numSS; i++ {
 			ep.Subsets[i].Ports = []corev1.EndpointPort{{Port: 8012}, {Port: 8013}}
 			ep.Subsets[i].Addresses = make([]corev1.EndpointAddress, numAddr)
-			is := strconv.Itoa(i + 1)
 			for j := 0; j < numAddr; j++ {
-				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%s.%d", is, j+1)
+				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%d.%d", i+1, j+1)
 			}
 		}
 	}
