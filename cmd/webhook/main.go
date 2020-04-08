@@ -79,7 +79,8 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
-	v1.SchemeGroupVersion.WithKind("Service"):validation.NewCallback(extravalidation.ExtraServiceValidation, webhook.Operation.CREATE, webhook.Operation.UPDATE)
+	v1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
+		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
 }
 
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {

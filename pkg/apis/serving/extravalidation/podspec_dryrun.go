@@ -18,14 +18,17 @@ package extravalidation
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"strings"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
@@ -33,9 +36,9 @@ import (
 
 // ExtraServiceValidation runs extra validation on Service resources
 func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
-	s := v1.Service{}
+	s := &v1.Service{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), s); err != nil {
-		return errors.New("could not decode Service from resource")
+		return fmt.Errorf("could not decode Service from resource: %w", err)
 	}
 
 	// Extra Validations for Service
@@ -47,7 +50,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 	return nil
 }
 
-func validatePodSpec(ctx context.Context, s v1.Service) *apis.FieldError {
+func validatePodSpec(ctx context.Context, s *v1.Service) *apis.FieldError {
 	om := metav1.ObjectMeta{
 		Name:      "dry-run-validation",
 		Namespace: system.Namespace(),
@@ -72,10 +75,21 @@ func validatePodSpec(ctx context.Context, s v1.Service) *apis.FieldError {
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
 func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
+	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 	pods := client.CoreV1().Pods(pod.GetNamespace())
+
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
-		return apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "PodSpec")
+
+		// Ignore failures for implementations that don't support dry-run.
+		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
+		if strings.Contains(err.Error(), "does not support dry run") {
+			logger.Errorw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
+			return nil
+		}
+
+		return apis.ErrGeneric("podSpec dry run failed: "+err.Error(), "PodSpec")
 	}
+	return nil
 }
