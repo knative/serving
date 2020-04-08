@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -43,6 +44,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
+	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -805,6 +807,22 @@ func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoi
 	return ep
 }
 
+// withNSubsets populates the endpoints object with numSS subsets
+// each having numAddr endpoints.
+func withNSubsets(numSS, numAddr int) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		ep.Subsets = make([]corev1.EndpointSubset, numSS)
+		for i := 0; i < numSS; i++ {
+			ep.Subsets[i].Ports = []corev1.EndpointPort{{Port: 8012}, {Port: 8013}}
+			ep.Subsets[i].Addresses = make([]corev1.EndpointAddress, numAddr)
+			is := strconv.Itoa(i + 1)
+			for j := 0; j < numAddr; j++ {
+				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%s.%d", is, j+1)
+			}
+		}
+	}
+}
+
 func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
 	service := svcpub(namespace, name)
 	ep := &corev1.Endpoints{
@@ -818,4 +836,74 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 
 func withTimeSelector(svc *corev1.Service) {
 	svc.Spec.Selector = map[string]string{"pod-x": fmt.Sprintf("a-%d", time.Now().UnixNano())}
+}
+
+func TestSubsetEndpoints(t *testing.T) {
+	// This just tests the `subsetEndpoints` helper.
+	t.Run("empty", func(t *testing.T) {
+		aeps := activatorEndpoints()
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+		aeps = activatorEndpoints(withNSubsets(1, 0))
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+	})
+	t.Run("over-requested", func(t *testing.T) {
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x1", 1, 1, 1,
+		}, {
+			"1x2", 1, 2, 2,
+		}, {
+			"2x1", 2, 1, 3,
+		}, {
+			"20x10", 20, 10, 212,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				if got, want := subsetEndpoints(aeps, "rev", tc.req), aeps; got != want {
+					t.Errorf("Not enough for selection EPS = %p, want: %p", got, want)
+				}
+			})
+		}
+	})
+	t.Run("actual subset", func(t *testing.T) {
+		// We need to verify two things
+		// 1. that exacly N items were returned
+		// 2. they are distinct
+		// 3. No empty subset is returned.
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x2 - 1", 1, 2, 1,
+		}, {
+			"2x1 - 1", 2, 1, 1,
+		}, {
+			"5x5 - 1", 5, 5, 1,
+		}, {
+			"5x5 - 12", 5, 5, 12,
+		}, {
+			"5x5 - 24", 5, 5, 24,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				subset := subsetEndpoints(aeps, "target", tc.req)
+				if got, want := presources.ReadyAddressCount(subset), tc.req; got != want {
+					t.Errorf("Endpoint count = %d, want: %d", got, want)
+				}
+				for i, ss := range subset.Subsets {
+					if len(ss.Addresses) == 0 {
+						t.Errorf("Size of subset %d is 0", i)
+					}
+				}
+			})
+		}
+	})
 }
