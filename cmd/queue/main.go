@@ -64,11 +64,11 @@ const (
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 
-	// Duration the /quitquitquit handler should wait before returning.
+	// Duration the /wait-for-drain handler should wait before returning.
 	// This is to give Istio a little bit more time to remove the pod
 	// from its configuration and propagate that to all istio-proxies
 	// in the mesh.
-	quitSleepDuration = 20 * time.Second
+	drainSleepDuration = 20 * time.Second
 
 	badProbeTemplate   = "unexpected probe header value: %s"
 	failingHealthcheck = "failing healthcheck"
@@ -418,7 +418,7 @@ func main() {
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
 			// Give Istio time to sync our "not ready" state.
-			time.Sleep(quitSleepDuration)
+			time.Sleep(drainSleepDuration)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
