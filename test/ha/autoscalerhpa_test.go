@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -56,7 +57,16 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
+<<<<<<< HEAD
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
+=======
+	leaderController, err := getLeader(t, clients, autoscalerHPALease)
+	if err != nil {
+		t.Fatalf("Failed to get leader: %v", err)
+	}
+
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController, &metav1.DeleteOptions{})
+>>>>>>> e4621c5c3... Remove namespace flag and replace with exported env var.
 
 	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)

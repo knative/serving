@@ -43,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
@@ -57,7 +58,7 @@ func TestIstioProbing(t *testing.T) {
 	defer cancel()
 
 	clients := e2e.Setup(t)
-	namespace := test.ServingFlags.SystemNamespace
+	namespace := system.Namespace()
 	// Save the current Gateway to restore it after the test
 	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {

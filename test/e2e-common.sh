@@ -47,6 +47,7 @@ TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 readonly TMP_DIR
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
+export SYSTEM_NAMESPACE
 SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Parse our custom flags.
