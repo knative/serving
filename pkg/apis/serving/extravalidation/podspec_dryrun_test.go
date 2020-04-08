@@ -15,3 +15,72 @@ limitations under the License.
 */
 
 package extravalidation
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	"knative.dev/pkg/ptr"
+	_ "knative.dev/pkg/system/testing"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+)
+
+func TestExtraServiceValidation(t *testing.T) {
+	goodConfigSpec := v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name string
+		s    *v1.Service
+		want *apis.FieldError
+	}{{
+		name: "valid run latest",
+		s: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		want: nil,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := fakekubeclient.With(context.Background())
+			unstruct := &unstructured.Unstructured{}
+			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.s)
+			unstruct.SetUnstructuredContent(content)
+
+			got := ExtraServiceValidation(ctx, unstruct)
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}

@@ -43,11 +43,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 
 	// Extra Validations for Service
 
-	if err := validatePodSpec(ctx, s); err != nil {
-		return err
-	}
-
-	return nil
+	return validatePodSpec(ctx, s)
 }
 
 func validatePodSpec(ctx context.Context, s *v1.Service) *apis.FieldError {
