@@ -43,12 +43,11 @@ func TestServicePostUpgrade(t *testing.T) {
 	} else if !hasGeneration {
 		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	// TODO(https://github.com/knative/serving/issues/6984): Re-enable this after 0.13 cuts.
-	// if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
-	// 	t.Fatalf("Error comparing Route generation: %v", err)
-	// } else if !hasGeneration {
-	// 	t.Fatal("Route is updated after an upgrade.")
-	// }
+	if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Route generation: %v", err)
+	} else if !hasGeneration {
+		t.Fatal("Route is updated after an upgrade.")
+	}
 	updateService(serviceName, t)
 }
 
