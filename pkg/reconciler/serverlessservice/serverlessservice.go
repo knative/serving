@@ -129,12 +129,13 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 // input with the irrelevant endpoints and empty subsets filtered out, if the input
 // size is larger than `n`,
 // Otherwise the input is returned as is.
+// `target` is the revision name for which we are computing a subset.
 func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
 	if len(eps.Subsets) == 0 {
 		return eps
 	}
 
-	addrs := make([]string, 0, 1)
+	addrs := make([]string, 0, n)
 	for _, ss := range eps.Subsets {
 		for _, addr := range ss.Addresses {
 			addrs = append(addrs, addr.IP)
@@ -173,6 +174,11 @@ func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoi
 		}
 		r++
 	}
+	// We are guaranteed here to have w > 0, because
+	// 0. There's at least one subset (checked above).
+	// 1. A subset cannot be empty (k8s validation).
+	// 2. len(addrs) is at least as big as n
+	// Thus there's at least 1 non empty subset (and for all intents and purposes we'll have 1 always).
 	neps.Subsets = neps.Subsets[:w]
 	return neps
 }
