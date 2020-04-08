@@ -205,7 +205,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name: "certificate not created for excluded namespace with intenal label",
+		Name: "certificate not created for excluded namespace with internal label",
 		Key:  "foo",
 		Objects: []runtime.Object{
 			kubeNamespaceWithDisableLabelValue("foo", "true"),
@@ -546,7 +546,7 @@ func kubeNamespaceWithDisableInternalLabelValue(name, value string) *corev1.Name
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				networking.DisableInternalWildcardCertLabelKey: value,
+				networking.DeprecatedDisableWildcardCertLabelKey: value,
 			},
 		},
 	}

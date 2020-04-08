@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,7 +78,8 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
-	if ns.Labels[networking.DisableWildcardCertLabelKey] == "true" || ns.Labels[networking.DisableInternalWildcardCertLabelKey] == "true" {
+	if strings.EqualFold(ns.Labels[networking.DisableWildcardCertLabelKey], "true") ||
+		strings.EqualFold(ns.Labels[networking.DeprecatedDisableWildcardCertLabelKey], "true") {
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 

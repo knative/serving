@@ -73,9 +73,9 @@ const (
 	// ActivatorServiceName is the name of the activator Kubernetes service.
 	ActivatorServiceName = "activator-service"
 
-	// DisableInternalWildcardCertLabelKey is the label key attached to a namespace to indicate that
+	// DeprecatedDisableWildcardCertLabelKey is the deprecated label key attached to a namespace to indicate that
 	// a wildcard certificate should be not created for it.
-	DisableInternalWildcardCertLabelKey = GroupName + "/disableWildcardCert"
+	DeprecatedDisableWildcardCertLabelKey = GroupName + "/disableWildcardCert"
 
 	// DisableWildcardCertLabelKey is the label key attached to a namespace to indicate that
 	// a wildcard certificate should be not created for it.
