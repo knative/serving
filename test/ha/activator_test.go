@@ -36,7 +36,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
-	SLO                     = 0.99 // a minimum of requests are expected to fail when killing the activator until the backup takes over
+	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator
 )
 
 // The Activator does not have leader election enabled.
@@ -49,14 +49,6 @@ func TestActivatorHA(t *testing.T) {
 	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
 	}
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
-		LabelSelector: activatorLabel,
-	})
-	if err != nil {
-		t.Fatalf("Failed to get activator pods: %v", err)
-	}
-	// Sort the pods according to creation timestamp so that we can always kill the oldest one.
-	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
@@ -80,7 +72,7 @@ func TestActivatorHA(t *testing.T) {
 	defer test.TearDown(clients, namesScaleToZero)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
-		t.Fatalf("Failed to scale to zero: %v", err)
+		t.Fatal("Failed to scale to zero:", err)
 	}
 
 	scaleToZeroURL := resources.Service.Status.URL.URL()
@@ -89,8 +81,18 @@ func TestActivatorHA(t *testing.T) {
 
 	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, scaleToZeroURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
+
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
+		LabelSelector: activatorLabel,
+	})
+	if err != nil {
+		t.Fatal("Failed to get activator pods:", err)
+	}
+	// Sort the pods according to creation timestamp so that we can kill the oldest one. We want to
+	// gradually kill both activator pods that were started at the beginning.
+	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
 	activatorPod := pods.Items[0].Name // stop the oldest activator pod
 
@@ -117,7 +119,7 @@ func TestActivatorHA(t *testing.T) {
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
-		t.Fatalf("Failed to get activator pods: %v", err)
+		t.Fatal("Failed to get activator pods:", err)
 	}
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
@@ -129,7 +131,7 @@ func TestActivatorHA(t *testing.T) {
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
-		t.Fatalf("Failed to wait for the service to use only the remaining activator")
+		t.Fatal("Failed to wait for the service to use only the remaining activator")
 	}
 
 	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
@@ -137,7 +139,7 @@ func TestActivatorHA(t *testing.T) {
 
 	// Wait until activators are scaled up again and the service can use both of them.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
-		t.Fatalf("Failed to wait for the service to use two activators again")
+		t.Fatal("Failed to wait for the service to use two activators again")
 	}
 
 	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
@@ -146,9 +148,9 @@ func TestActivatorHA(t *testing.T) {
 func assertSLO(t *testing.T, p test.Prober) {
 	t.Helper()
 	if err := p.Stop(); err != nil {
-		t.Errorf("Failed to stop prober: %v", err)
+		t.Error("Failed to stop prober:", err)
 	}
 	if err := test.CheckSLO(SLO, t.Name(), p); err != nil {
-		t.Errorf("CheckSLO failed: %v", err)
+		t.Error("CheckSLO failed:", err)
 	}
 }
