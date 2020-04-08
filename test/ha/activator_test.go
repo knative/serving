@@ -90,10 +90,6 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get activator pods:", err)
 	}
-	// Sort the pods according to creation timestamp so that we can kill the oldest one. We want to
-	// gradually kill both activator pods that were started at the beginning.
-	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
-
 	activatorPod := pods.Items[0].Name // stop the oldest activator pod
 
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
@@ -121,6 +117,8 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get activator pods:", err)
 	}
+	// Sort the pods according to creation timestamp so that we can kill the oldest one. We want to
+	// gradually kill both activator pods that were started at the beginning.
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
 	activatorPod = pods.Items[0].Name // stop the oldest activator pod again which is now a different one
@@ -135,13 +133,6 @@ func TestActivatorHA(t *testing.T) {
 	}
 
 	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
-
-	// Wait until activators are scaled up again and the service can use both of them.
-	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
-		t.Fatal("Failed to wait for the service to use two activators again")
-	}
-
 	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
 }
 
