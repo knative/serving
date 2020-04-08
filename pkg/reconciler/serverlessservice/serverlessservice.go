@@ -131,7 +131,8 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 // Otherwise the input is returned as is.
 // `target` is the revision name for which we are computing a subset.
 func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
-	if len(eps.Subsets) == 0 {
+	// n == 0 means all, and if there are no subsets there's no work to do either.
+	if len(eps.Subsets) == 0 || n == 0 {
 		return eps
 	}
 

@@ -848,7 +848,7 @@ func TestSubsetEndpoints(t *testing.T) {
 			t.Errorf("Empty EPS = %p, want: %p", got, want)
 		}
 	})
-	t.Run("over-requested", func(t *testing.T) {
+	t.Run("over-requested or all", func(t *testing.T) {
 		tests := []struct {
 			name            string
 			nss, naddr, req int
@@ -860,12 +860,14 @@ func TestSubsetEndpoints(t *testing.T) {
 			"2x1", 2, 1, 3,
 		}, {
 			"20x10", 20, 10, 212,
+		}, {
+			"20x10", 20, 10, 0,
 		}}
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
 				if got, want := subsetEndpoints(aeps, "rev", tc.req), aeps; got != want {
-					t.Errorf("Not enough for selection EPS = %p, want: %p", got, want)
+					t.Errorf("Select all: EPS = %p, want: %p", got, want)
 				}
 			})
 		}
