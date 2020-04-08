@@ -18,6 +18,7 @@ package extravalidation
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	ktesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
@@ -47,9 +49,10 @@ func TestExtraServiceValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		s    *v1.Service
-		want *apis.FieldError
+		name          string
+		s             *v1.Service
+		want          *apis.FieldError
+		modifyContext func(context.Context)
 	}{{
 		name: "valid run latest",
 		s: &v1.Service{
@@ -66,12 +69,35 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
+		want:          nil,
+		modifyContext: nil,
+	}, {
+		name: "dryrun fail",
+		s: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		want:          apis.ErrGeneric("podSpec dry run failed", "kubeclient error"),
+		modifyContext: failKubeCalls,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
+			if test.modifyContext != nil {
+				test.modifyContext(ctx)
+			}
+
 			unstruct := &unstructured.Unstructured{}
 			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.s)
 			unstruct.SetUnstructuredContent(content)
@@ -83,4 +109,13 @@ func TestExtraServiceValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func failKubeCalls(ctx context.Context) {
+	client := fakekubeclient.Get(ctx)
+	client.PrependReactor("*", "*",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("kubeclient error")
+		},
+	)
 }
