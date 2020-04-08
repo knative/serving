@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -40,9 +40,9 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
-	observabilityConfig := ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName())
-	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
-	tracingConfig := ConfigMapFromTestFile(t, pkgtracing.ConfigName)
+	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, pkgmetrics.ConfigMapName())
+	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
+	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
 	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 
@@ -65,9 +65,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	t.Run("network", func(t *testing.T) {
 		expected, _ := network.NewConfigFromConfigMap(networkConfig)
-		ignoreDT := cmpopts.IgnoreFields(network.Config{}, "DomainTemplate")
-
-		if diff := cmp.Diff(expected, config.Network, ignoreDT); diff != "" {
+		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
 	})
@@ -77,6 +75,16 @@ func TestStoreLoadWithContext(t *testing.T) {
 		if diff := cmp.Diff(expected, config.Observability); diff != "" {
 			t.Errorf("Unexpected observability config (-want, +got): %v", diff)
 		}
+
+		// Default config.
+		want, _ := metrics.NewObservabilityConfigFromConfigMap(&corev1.ConfigMap{Data: map[string]string{}})
+		got, err := metrics.NewObservabilityConfigFromConfigMap(observabilityConfigExample)
+		if err != nil {
+			t.Fatal("Error parsing example observability config:", err)
+		}
+		if cmp.Equal(got, want) {
+			t.Error("Example Observability Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
+		}
 	})
 
 	t.Run("logging", func(t *testing.T) {
@@ -84,12 +92,32 @@ func TestStoreLoadWithContext(t *testing.T) {
 		if diff := cmp.Diff(expected, config.Logging); diff != "" {
 			t.Errorf("Unexpected logging config (-want, +got): %v", diff)
 		}
+
+		// Default config.
+		want, _ := logging.NewConfigFromConfigMap(&corev1.ConfigMap{Data: map[string]string{}})
+		got, err := logging.NewConfigFromConfigMap(loggingConfigExample)
+		if err != nil {
+			t.Fatal("Error parsing example logging config:", err)
+		}
+		if cmp.Equal(got, want) {
+			t.Error("Example Logging Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
+		}
 	})
 
 	t.Run("tracing", func(t *testing.T) {
 		expected, _ := pkgtracing.NewTracingConfigFromConfigMap(tracingConfig)
 		if diff := cmp.Diff(expected, config.Tracing); diff != "" {
 			t.Errorf("Unexpected tracing config (-want, +got): %v", diff)
+		}
+
+		// Default config.
+		want, _ := pkgtracing.NewTracingConfigFromConfigMap(&corev1.ConfigMap{Data: map[string]string{}})
+		got, err := pkgtracing.NewTracingConfigFromConfigMap(tracingConfigExample)
+		if err != nil {
+			t.Fatal("Error parsing example tracing config:", err)
+		}
+		if cmp.Equal(got, want) {
+			t.Error("Example Tracing Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
 	})
 
