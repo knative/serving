@@ -89,6 +89,24 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 		want:          apis.ErrGeneric("podSpec dry run failed", "kubeclient error"),
 		modifyContext: failKubeCalls,
+	}, {
+		name: "dryrun not supported succeeds",
+		s: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		want:          nil, // Not supported fails soft
+		modifyContext: dryRunNotSupported,
 	}}
 
 	for _, test := range tests {
@@ -116,6 +134,15 @@ func failKubeCalls(ctx context.Context) {
 	client.PrependReactor("*", "*",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
 			return true, nil, errors.New("kubeclient error")
+		},
+	)
+}
+
+func dryRunNotSupported(ctx context.Context) {
+	client := fakekubeclient.Get(ctx)
+	client.PrependReactor("*", "*",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("fakekube does not support dry run")
 		},
 	)
 }
