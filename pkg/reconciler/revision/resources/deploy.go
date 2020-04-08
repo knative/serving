@@ -241,10 +241,6 @@ func MakeDeployment(rev *v1.Revision,
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 
-	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
-	// out via annotation) we should explicitly disable that here to avoid redundant Image
-	// resources.
-
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
