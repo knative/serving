@@ -18,7 +18,6 @@ package queue
 
 import (
 	"errors"
-	"math"
 	"testing"
 	"time"
 
@@ -32,10 +31,6 @@ const (
 	config    = "helloworld-go"
 	revision  = "helloworld-go-00001"
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
-
-	// Except for uptime everything else is integers, so this precision is
-	// good enough for the tests.
-	precision = 0.1
 )
 
 func TestNewPrometheusStatsReporter_negative(t *testing.T) {
@@ -175,12 +170,22 @@ func TestReporterReport(t *testing.T) {
 			checkData(t, averageConcurrentRequestsGV, test.expectedConcurrency)
 			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)
 			checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
-			checkData(t, processUptimeGV, 5.0)
+
+			if got := getData(t, processUptimeGV); got < 5.0 || got > 6.0 {
+				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", got)
+			}
 		})
 	}
 }
 
 func checkData(t *testing.T, gv *prometheus.GaugeVec, want float64) {
+	t.Helper()
+	if got := getData(t, gv); got != want {
+		t.Errorf("Got %v for Gauge value, wanted %v", got, want)
+	}
+}
+
+func getData(t *testing.T, gv *prometheus.GaugeVec) float64 {
 	t.Helper()
 	g, err := gv.GetMetricWith(prometheus.Labels{
 		destinationNsLabel:     namespace,
@@ -196,7 +201,5 @@ func checkData(t *testing.T, gv *prometheus.GaugeVec, want float64) {
 	if err := g.Write(&m); err != nil {
 		t.Fatalf("Gauge.Write() error = %v", err)
 	}
-	if got := *m.Gauge.Value; math.Abs(got-want) > precision {
-		t.Errorf("Got %v for Gauge value, wanted %v", got, want)
-	}
+	return m.Gauge.GetValue()
 }
