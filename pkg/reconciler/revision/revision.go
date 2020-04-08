@@ -96,6 +96,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		digestValue        string
 		containerName      string
 		isServingContainer bool
+		image              string
 	}
 
 	digests := make(chan digestData, len(rev.Spec.Containers))
@@ -106,9 +107,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
 				err = fmt.Errorf("failed to resolve image to digest: %w", err)
-				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-					v1.RevisionContainerMissingMessage(
-						container.Image, err.Error()))
+				digests <- digestData{image: container.Image}
 				return err
 			}
 			digests <- digestData{
@@ -119,10 +118,21 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			return nil
 		})
 	}
+
+	var setError error
 	if err := digestGrp.Wait(); err != nil {
-		return err
+		setError = err
 	}
 	close(digests)
+	if setError != nil {
+		for v := range digests {
+			fmt.Println("Inside for loop", v)
+			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+				v1.RevisionContainerMissingMessage(
+					v.image, setError.Error()))
+		}
+		return setError
+	}
 	for v := range digests {
 		if v.isServingContainer {
 			rev.Status.DeprecatedImageDigest = v.digestValue
