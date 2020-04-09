@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
@@ -43,16 +42,16 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 
 	// Extra Validations for Service
 
-	if err := validatePodSpec(ctx, s.Spec.Template.Spec); err != nil {
+	if err := validatePodSpec(ctx, s.Spec.Template.Spec, s.GetNamespace()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validatePodSpec(ctx context.Context, ps v1.RevisionSpec) *apis.FieldError {
+func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) *apis.FieldError {
 	om := metav1.ObjectMeta{
 		Name:      "dry-run-validation",
-		Namespace: system.Namespace(),
+		Namespace: namespace,
 	}
 
 	// Create a dummy Revision from the template
@@ -80,7 +79,6 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
 
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
-
 		// Ignore failures for implementations that don't support dry-run.
 		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
 		if strings.Contains(err.Error(), "does not support dry run") {
