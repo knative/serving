@@ -36,7 +36,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
-	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator
+	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
 )
 
 // The Activator does not have leader election enabled.
@@ -53,8 +53,8 @@ func TestActivatorHA(t *testing.T) {
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey:  "1",  //make sure we don't scale to zero during the test
-			autoscaling.TargetBurstCapacityKey: "-1", // make sure all requests go through the activator
+			autoscaling.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
+			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -64,8 +64,8 @@ func TestActivatorHA(t *testing.T) {
 	// ensure it can be scaled back from zero.
 	namesScaleToZero, resourcesScaleToZero := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), //make sure we scale to zero quickly
-			autoscaling.TargetBurstCapacityKey: "-1",                           // make sure all requests go through the activator
+			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), // Make sure we scale to zero quickly.
+			autoscaling.TargetBurstCapacityKey: "-1",                           // Make sure all requests go through the activator.
 		}),
 	)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, namesScaleToZero) })
@@ -75,11 +75,17 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to scale to zero:", err)
 	}
 
-	scaleToZeroURL := resources.Service.Status.URL.URL()
 	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober)
 
-	spoofingClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, scaleToZeroURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	scaleToZeroURL := resourcesScaleToZero.Service.Status.URL.URL()
+	spoofingClient, err := pkgTest.NewSpoofingClient(
+		clients.KubeClient,
+		t.Logf,
+		scaleToZeroURL.Hostname(),
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}
@@ -90,15 +96,20 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get activator pods:", err)
 	}
-	activatorPod := pods.Items[0].Name // stop the oldest activator pod
+	activatorPod := pods.Items[0].Name
+
+	origEndpoints, err := getPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name)
+	if err != nil {
+		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
+	}
 
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
-		t.Fatal("Failed to wait for the service to use only the remaining activator")
+	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
+		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
 	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
@@ -117,19 +128,25 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to get activator pods:", err)
 	}
+
 	// Sort the pods according to creation timestamp so that we can kill the oldest one. We want to
 	// gradually kill both activator pods that were started at the beginning.
 	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
 
-	activatorPod = pods.Items[0].Name // stop the oldest activator pod again which is now a different one
+	activatorPod = pods.Items[0].Name // Stop the oldest activator pod remaining.
+
+	origEndpoints, err = getPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name)
+	if err != nil {
+		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
+	}
 
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name); err != nil {
-		t.Fatal("Failed to wait for the service to use only the remaining activator")
+	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
+		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
 	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.

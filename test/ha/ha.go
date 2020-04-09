@@ -81,11 +81,7 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 	return hosts, nil
 }
 
-func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string) error {
-	origEndpoints, err := getPublicEndpoints(t, clients, revision)
-	if err != nil {
-		return err
-	}
+func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string, origEndpoints []string) error {
 	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
 		newEndpoints, err := getPublicEndpoints(t, clients, revision)
 		return !reflect.DeepEqual(origEndpoints, newEndpoints), err
