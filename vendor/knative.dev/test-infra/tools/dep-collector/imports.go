@@ -19,66 +19,72 @@ package main
 import (
 	"fmt"
 	gb "go/build"
-	"path/filepath"
 	"sort"
 	"strings"
 )
 
-func CollectTransitiveImports(binaries []string) ([]string, error) {
+type ImportInfo struct {
+	ImportPath string
+	Dir        string
+}
+
+func CollectTransitiveImports(binaries []string) ([]ImportInfo, error) {
 	// Perform a simple DFS to collect the binaries' transitive dependencies.
-	visited := make(map[string]struct{})
+	visited := make(map[string]ImportInfo)
+	mi, err := moduleInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed getting Go module info: %v", err)
+	}
+	g := &gobuild{mi}
 	for _, importpath := range binaries {
 		if gb.IsLocalImport(importpath) {
-			ip, err := qualifyLocalImport(importpath)
+			ip, err := g.qualifyLocalImport(importpath)
 			if err != nil {
 				return nil, err
 			}
 			importpath = ip
 		}
 
-		pkg, err := gb.Import(importpath, WorkingDir, gb.ImportComment)
+		pkg, err := g.importPackage(importpath)
 		if err != nil {
 			return nil, err
 		}
-		if err := visit(pkg, visited); err != nil {
+		if err := visit(g, pkg, visited); err != nil {
 			return nil, err
 		}
 	}
 
 	// Sort the dependencies deterministically.
 	var list sort.StringSlice
-	for ip := range visited {
-		if !strings.Contains(ip, "/vendor/") {
+	for dir := range visited {
+		if !strings.Contains(dir, "/vendor/") {
 			// Skip files outside of vendor
 			continue
 		}
-		list = append(list, ip)
+		list = append(list, dir)
 	}
 	list.Sort()
 
-	return list, nil
-}
-
-func qualifyLocalImport(ip string) (string, error) {
-	gopathsrc := filepath.Join(gb.Default.GOPATH, "src")
-	if !strings.HasPrefix(WorkingDir, gopathsrc) {
-		return "", fmt.Errorf("working directory must be on ${GOPATH}/src = %s", gopathsrc)
+	iiList := make([]ImportInfo, len(list))
+	for i := range iiList {
+		iiList[i] = visited[list[i]]
 	}
-	return filepath.Join(strings.TrimPrefix(WorkingDir, gopathsrc+string(filepath.Separator)), ip), nil
+
+	return iiList, nil
 }
 
-func visit(pkg *gb.Package, visited map[string]struct{}) error {
-	if _, ok := visited[pkg.ImportPath]; ok {
+func visit(g *gobuild, pkg *gb.Package, visited map[string]ImportInfo) error {
+	if _, ok := visited[pkg.Dir]; ok {
 		return nil
 	}
-	visited[pkg.ImportPath] = struct{}{}
+	visited[pkg.Dir] = ImportInfo{Dir: pkg.Dir, ImportPath: pkg.ImportPath}
 
 	for _, ip := range pkg.Imports {
 		if ip == "C" {
 			// skip cgo
 			continue
 		}
-		subpkg, err := gb.Import(ip, WorkingDir, gb.ImportComment)
+		subpkg, err := g.importPackage(ip)
 		if err != nil {
 			return fmt.Errorf("%v\n -> %v", pkg.ImportPath, err)
 		}
@@ -86,7 +92,7 @@ func visit(pkg *gb.Package, visited map[string]struct{}) error {
 			// Skip import paths outside of our workspace (std library)
 			continue
 		}
-		if err := visit(subpkg, visited); err != nil {
+		if err := visit(g, subpkg, visited); err != nil {
 			return fmt.Errorf("%v (%v)\n -> %v", pkg.ImportPath, pkg.Dir, err)
 		}
 	}

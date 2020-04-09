@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	gb "go/build"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -72,7 +71,7 @@ func (lt *LicenseFile) Check(classifier *licenseclassifier.License) error {
 	}
 	ms := classifier.MultipleMatch(body, false)
 	for _, m := range ms {
-		return fmt.Errorf("Found matching forbidden license in %q: %v", lt.EnclosingImportPath, m.Name)
+		return fmt.Errorf("found matching forbidden license in %q: %v", lt.EnclosingImportPath, m.Name)
 	}
 	return nil
 }
@@ -108,17 +107,13 @@ func (lt *LicenseFile) CSVRow(classifier *licenseclassifier.License) (string, er
 	}, ","), nil
 }
 
-func findLicense(ip string) (*LicenseFile, error) {
-	pkg, err := gb.Import(ip, WorkingDir, gb.ImportComment)
-	if err != nil {
-		return nil, err
-	}
-	dir := pkg.Dir
-
+func findLicense(ii ImportInfo) (*LicenseFile, error) {
+	dir := ii.Dir
+	ip := ii.ImportPath
 	for {
 		// When we reach the root of our workspace, stop searching.
 		if dir == WorkingDir {
-			return nil, fmt.Errorf("unable to find license for %q", pkg.ImportPath)
+			return nil, fmt.Errorf("unable to find license for %q", ip)
 		}
 
 		for _, name := range LicenseNames {
@@ -178,11 +173,12 @@ func (lc LicenseCollection) Check(classifier *licenseclassifier.License) error {
 	return fmt.Errorf("Errors validating licenses:\n%v", strings.Join(errors, "\n"))
 }
 
-func CollectLicenses(imports []string) (LicenseCollection, error) {
+// CollectLicenses collects a list of licenses for the given imports.
+func CollectLicenses(importInfos []ImportInfo) (LicenseCollection, error) {
 	// for each of the import paths, search for a license file.
 	licenseFiles := make(map[string]*LicenseFile)
-	for _, ip := range imports {
-		lf, err := findLicense(ip)
+	for _, info := range importInfos {
+		lf, err := findLicense(info)
 		if err != nil {
 			return nil, err
 		}

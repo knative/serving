@@ -124,6 +124,66 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	return nil
 }
 
+// subsetEndpoints computes a subset of all endpoints of size `n` using a consistent
+// selection algorithm. For non empty input, subsetEndpoints returns a copy of the
+// input with the irrelevant endpoints and empty subsets filtered out, if the input
+// size is larger than `n`,
+// Otherwise the input is returned as is.
+// `target` is the revision name for which we are computing a subset.
+func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
+	// n == 0 means all, and if there are no subsets there's no work to do either.
+	if len(eps.Subsets) == 0 || n == 0 {
+		return eps
+	}
+
+	addrs := make([]string, 0, n)
+	for _, ss := range eps.Subsets {
+		for _, addr := range ss.Addresses {
+			addrs = append(addrs, addr.IP)
+		}
+	}
+
+	// The input is not larger than desired.
+	if len(addrs) <= n {
+		return eps
+	}
+
+	selection := chooseSubset(addrs, n, target)
+
+	// Copy the informer's copy, so we can filter it out.
+	neps := eps.DeepCopy()
+	// Standard in place filter using read and write indices.
+	// This preserves the original object order.
+	r, w := 0, 0
+	for r < len(neps.Subsets) {
+		ss := neps.Subsets[r]
+		// And same algorithm internally.
+		ra, wa := 0, 0
+		for ra < len(ss.Addresses) {
+			if selection.Has(ss.Addresses[ra].IP) {
+				ss.Addresses[wa] = ss.Addresses[ra]
+				wa++
+			}
+			ra++
+		}
+		// At least one address from the subset was preserved, so keep it.
+		if wa > 0 {
+			ss.Addresses = ss.Addresses[:wa]
+			// At least one address from the subset was preserved, so keep it.
+			neps.Subsets[w] = ss
+			w++
+		}
+		r++
+	}
+	// We are guaranteed here to have w > 0, because
+	// 0. There's at least one subset (checked above).
+	// 1. A subset cannot be empty (k8s validation).
+	// 2. len(addrs) is at least as big as n
+	// Thus there's at least 1 non empty subset (and for all intents and purposes we'll have 1 always).
+	neps.Subsets = neps.Subsets[:w]
+	return neps
+}
+
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 

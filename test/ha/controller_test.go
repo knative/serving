@@ -39,14 +39,14 @@ func TestControllerHA(t *testing.T) {
 	defer scaleDownDeployment(clients, controllerDeploymentName)
 	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, controllerDeploymentName) })
 
-	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
-	defer test.TearDown(clients, service1Names)
-
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
+
+	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
+	defer test.TearDown(clients, service1Names)
 
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
 
