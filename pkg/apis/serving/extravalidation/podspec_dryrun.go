@@ -44,12 +44,13 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 
 	// Extra Validations for Service
 
-	return validatePodSpec(ctx, s)
+	if err := validatePodSpec(ctx, s.Spec.Template.Spec); err != nil {
+		return err
+	}
+	return nil
 }
 
-func validatePodSpec(ctx context.Context, s *v1.Service) *apis.FieldError {
-	ps := s.Spec.Template.Spec
-
+func validatePodSpec(ctx context.Context, ps v1.RevisionSpec) *apis.FieldError {
 	if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
 		// Skip dryrun if no template is provided
 		return nil
