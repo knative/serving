@@ -124,6 +124,50 @@ func TestReconcile(t *testing.T) {
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 	}, {
+		Name: "steady switch to proxy mode, subset",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(5)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(5)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 5, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
+		Name: "steady switch to proxy mode, subset all",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(8)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(8)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 8, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
 		// This is the case for once we are proxying for unsufficient burst capacity.
 		// It should be a no-op.
 		Name: "steady switch to proxy mode with endpoints",
@@ -251,7 +295,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "endpoints"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("update-eps", "failA", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
+			Object: endpointspub("update-eps", "failA", WithSubsets,
+				withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -661,14 +706,27 @@ func TestReconcile(t *testing.T) {
 // Keeps only desired port.
 func withFilteredPorts(port int32) EndpointsOption {
 	return func(ep *corev1.Endpoints) {
-		for _, p := range ep.Subsets[0].Ports {
-			if p.Port == port {
-				ep.Subsets[0].Ports[0] = p
-				break
+		for i := range ep.Subsets {
+			for _, p := range ep.Subsets[i].Ports {
+				if p.Port == port {
+					ep.Subsets[i].Ports[i] = p
+					break
+				}
 			}
+			// Strip all the others.
+			ep.Subsets[i].Ports = ep.Subsets[i].Ports[:1]
 		}
-		// Strip all the others.
-		ep.Subsets[0].Ports = ep.Subsets[0].Ports[:1]
+	}
+}
+
+// withPickedSubset simulates the picking of the activator
+// adress subset.
+func withPickedSubset(numSS, numAddrs, pickN int, target string) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		// Generate the full set.
+		withNSubsets(numSS, numAddrs)(ep)
+		// Now pick and replace.
+		ep.Subsets = subsetEndpoints(ep, target, pickN).Subsets
 	}
 }
 

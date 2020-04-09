@@ -228,13 +228,13 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		// Serving but no ready endpoints.
 		if pvtReady == 0 {
 			logger.Info(psn + " is in mode Serve but has no endpoints, using Activator endpoints for now")
-			srcEps = activatorEps
+			srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
 		} else {
 			// Serving & have endpoints ready.
 			srcEps = pvtEps
 		}
 	case netv1alpha1.SKSOperationModeProxy:
-		srcEps = activatorEps
+		srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
 	}
 
 	sn := sks.Name
