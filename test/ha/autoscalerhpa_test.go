@@ -44,6 +44,11 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	defer scaleDownDeployment(clients, autoscalerHPADeploymentName)
 	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHPADeploymentName) })
 
+	leaderController, err := getLeader(t, clients, autoscalerHPALease)
+	if err != nil {
+		t.Fatalf("Failed to get leader: %v", err)
+	}
+
 	names, resources := createPizzaPlanetService(t, "pizzaplanet-service",
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:  autoscaling.HPA,
@@ -52,11 +57,6 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 		}))
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-
-	leaderController, err := getLeader(t, clients, autoscalerHPALease)
-	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
-	}
 
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
 
