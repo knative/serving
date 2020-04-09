@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,11 +50,6 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 }
 
 func validatePodSpec(ctx context.Context, ps v1.RevisionSpec) *apis.FieldError {
-	if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
-		// Skip dryrun if no template is provided
-		return nil
-	}
-
 	om := metav1.ObjectMeta{
 		Name:      "dry-run-validation",
 		Namespace: system.Namespace(),

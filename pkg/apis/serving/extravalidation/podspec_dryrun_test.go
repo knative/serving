@@ -121,7 +121,7 @@ func TestExtraServiceValidation(t *testing.T) {
 			unstruct.SetUnstructuredContent(content)
 
 			got := ExtraServiceValidation(ctx, unstruct)
-			if !cmp.Equal(test.want.Error(), got.Error()) {
+			if (test.want != nil || got != nil) && !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
 			}
