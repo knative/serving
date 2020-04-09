@@ -720,7 +720,7 @@ func withFilteredPorts(port int32) EndpointsOption {
 }
 
 // withPickedSubset simulates the picking of the activator
-// adress subset.
+// address subset.
 func withPickedSubset(numSS, numAddrs, pickN int, target string) EndpointsOption {
 	return func(ep *corev1.Endpoints) {
 		// Generate the full set.
