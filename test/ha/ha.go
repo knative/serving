@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,7 +84,7 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string, origEndpoints []string) error {
 	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
 		newEndpoints, err := getPublicEndpoints(t, clients, revision)
-		return !reflect.DeepEqual(origEndpoints, newEndpoints), err
+		return !cmp.Equal(origEndpoints, newEndpoints), err
 	})
 }
 
