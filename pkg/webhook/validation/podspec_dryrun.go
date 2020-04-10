@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -33,27 +32,16 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
-// ExtraServiceValidation runs extra validation on Service resources
-func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
-	logger := logging.FromContext(ctx)
-
-	val, found, err := unstructured.NestedFieldNoCopy(uns.UnstructuredContent(), "spec", "template")
-	if err != nil {
-		return fmt.Errorf("could not traverse nested spec.template field: %w", err)
-	}
-	if found {
-		templ := &v1.RevisionTemplateSpec{}
-		asData := val.(map[string]interface{})
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(asData, templ); err != nil {
-			return fmt.Errorf("could not decode RevisionTemplateSpec from resource: %w", err)
-		}
-
-		if err := validatePodSpec(ctx, templ.Spec, templ.ObjectMeta.Namespace); err != nil {
-			return err
-		}
+func decodeTemplateAndValidate(ctx context.Context, val interface{}) error {
+	templ := &v1.RevisionTemplateSpec{}
+	asData := val.(map[string]interface{})
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(asData, templ); err != nil {
+		return fmt.Errorf("could not decode RevisionTemplateSpec from resource: %w", err)
 	}
 
-	logger.Warnw("no spec.template found for unstrucutred", uns)
+	if err := validatePodSpec(ctx, templ.Spec, templ.ObjectMeta.Namespace); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -106,6 +106,24 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 		want:          nil, // Not supported fails soft
 		modifyContext: dryRunNotSupported,
+	}, {
+		name: "no template found",
+		s: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{}, // Empty spec
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		want:          nil,
+		modifyContext: nil,
 	}}
 
 	for _, test := range tests {
