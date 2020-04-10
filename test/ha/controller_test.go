@@ -42,7 +42,7 @@ func TestControllerHA(t *testing.T) {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
 
-	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
+	service1Names, resources := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 

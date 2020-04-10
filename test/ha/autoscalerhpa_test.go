@@ -47,7 +47,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
 
-	names, resources := createPizzaPlanetService(t, "pizzaplanet-service",
+	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 			autoscaling.MetricAnnotationKey: autoscaling.CPU,
