@@ -61,7 +61,9 @@ data:
     # will be used as a scaling target for autoscaler.
     # When specifying unlimited concurrency, the autoscaler will
     # horizontally scale the application based on this target concurrency.
-    # This is what we call "soft limit" in the documentation.
+    # This is what we call "soft limit" in the documentation, i.e. it only
+    # affects number of pods and does not affect the number of requests
+    # individual pod processes.
     # The value must be a positive number such that the value multiplied
     # by container-concurrency-target-percentage is greater than 0.01.
     # NOTE: that this value will be adjusted by application of
