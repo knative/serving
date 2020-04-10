@@ -129,7 +129,7 @@ function markdown_build_tests() {
   (( DISABLE_MD_LINTING && DISABLE_MD_LINK_CHECK )) && return 0
   # Get changed markdown files (ignore /vendor, github templates, and deleted files)
   local mdfiles=""
-  for file in $(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/ | grep -v ^.github/); do
+  for file in $(echo "${CHANGED_FILES}" | grep \\.md$ | grep -v ^vendor/ | grep -v ^.github/); do
     [[ -f "${file}" ]] && mdfiles="${mdfiles} ${file}"
   done
   [[ -z "${mdfiles}" ]] && return 0
