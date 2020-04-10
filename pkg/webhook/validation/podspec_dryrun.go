@@ -47,8 +47,8 @@ func decodeTemplateAndValidate(ctx context.Context, val interface{}) error {
 
 func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) *apis.FieldError {
 	om := metav1.ObjectMeta{
-		Name:      "dry-run-validation",
-		Namespace: namespace,
+		GenerateName: "dry-run-validation",
+		Namespace:    namespace,
 	}
 
 	// Create a dummy Revision from the template
