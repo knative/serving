@@ -26,11 +26,8 @@ import (
 
 // ExtraServiceValidation runs extra validation on Service resources
 func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
-	logger := logging.FromContext(ctx)
-
 	content := uns.UnstructuredContent()
-
-	namespace, found, err := unstructured.NestedString(content, "metadata", "namespace")
+	namespace, _, err := unstructured.NestedString(content, "metadata", "namespace")
 	if err != nil {
 		return fmt.Errorf("could not traverse nested objectmeta.namespace field: %w", err)
 	}
@@ -41,7 +38,8 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 		return fmt.Errorf("could not traverse nested spec.template field: %w", err)
 	}
 	if !found {
-		logger.Warnw("no spec.template found for unstructured", uns)
+		logger := logging.FromContext(ctx)
+		logger.Warnw("no spec.template found for unstructured")
 		return nil
 	}
 
