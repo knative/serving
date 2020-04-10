@@ -49,13 +49,27 @@ data:
     # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
     # Thus minimal percentage value must be greater than 1.0, or it will be
     # treated as a fraction.
+    # NOTE: that this value does not affect actual number of concurrent requests
+    #       the user container may receive, but only the average number of requests
+    #       that the revision pods will receive.
     container-concurrency-target-percentage: "70"
 
     # The container concurrency target default is what the Autoscaler will
-    # try to maintain when concurrency is used as the scaling metric for a
+    # try to maintain when concurrency is used as the scaling metric for the
     # Revision and the Revision specifies unlimited concurrency.
-    # Even when specifying unlimited concurrency, the autoscaler will
+    # When revision explicitly specifies container concurrency, that value
+    # will be used as a scaling target for autoscaler.
+    # When specifying unlimited concurrency, the autoscaler will
     # horizontally scale the application based on this target concurrency.
+    # This is what we call "soft limit" in the documentation, i.e. it only
+    # affects number of pods and does not affect the number of requests
+    # individual pod processes.
+    # The value must be a positive number such that the value multiplied
+    # by container-concurrency-target-percentage is greater than 0.01.
+    # NOTE: that this value will be adjusted by application of
+    #       container-concurrency-target-percentage, i.e. by default
+    #       the system will target on average 70 concurrent requests
+    #       per revision pod.
     # NOTE: Only one metric can be used for autoscaling a Revision.
     container-concurrency-target-default: "100"
 
