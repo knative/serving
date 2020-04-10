@@ -33,18 +33,16 @@ const (
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := scaleUpDeployment(clients, controllerDeploymentName); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
+	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)
 	}
-	defer scaleDownDeployment(clients, controllerDeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, controllerDeploymentName) })
 
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
 
-	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
+	service1Names, resources := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 
@@ -59,10 +57,10 @@ func TestControllerHA(t *testing.T) {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 
-	assertServiceWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	// Verify that after changing the leader we can still create a new kservice
-	service2Names, _ := createPizzaPlanetService(t, "pizzaplanet-service2")
+	service2Names, _ := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service2Names) })
 	test.TearDown(clients, service2Names)
 }
