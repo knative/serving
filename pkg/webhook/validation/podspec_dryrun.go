@@ -32,14 +32,18 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
-func decodeTemplateAndValidate(ctx context.Context, val interface{}) error {
+func decodeTemplateAndValidate(ctx context.Context, val interface{}, namespace string) error {
 	templ := &v1.RevisionTemplateSpec{}
 	asData := val.(map[string]interface{})
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(asData, templ); err != nil {
 		return fmt.Errorf("could not decode RevisionTemplateSpec from resource: %w", err)
 	}
 
-	if err := validatePodSpec(ctx, templ.Spec, templ.ObjectMeta.Namespace); err != nil {
+	if templ.ObjectMeta.Namespace != "" {
+		namespace = templ.ObjectMeta.Namespace
+	}
+
+	if err := validatePodSpec(ctx, templ.Spec, namespace); err != nil {
 		return err
 	}
 	return nil

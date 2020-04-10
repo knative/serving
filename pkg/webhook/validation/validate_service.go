@@ -28,15 +28,22 @@ import (
 func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
 	logger := logging.FromContext(ctx)
 
+	content := uns.UnstructuredContent()
+
+	namespace, found, err := unstructured.NestedString(content, "objectmeta", "namespace")
+	if err != nil {
+		return fmt.Errorf("could not traverse nested objectmeta.namespace field: %w", err)
+	}
+
 	// Decode and validate the RevisionTemplateSpec
-	val, found, err := unstructured.NestedFieldNoCopy(uns.UnstructuredContent(), "spec", "template")
+	val, found, err := unstructured.NestedFieldNoCopy(content, "spec", "template")
 	if err != nil {
 		return fmt.Errorf("could not traverse nested spec.template field: %w", err)
 	}
 	if !found {
-		logger.Warnw("no spec.template found for unstrucutred", uns)
+		logger.Warnw("no spec.template found for unstructured", uns)
 		return nil
 	}
 
-	return decodeTemplateAndValidate(ctx, val)
+	return decodeTemplateAndValidate(ctx, val, namespace)
 }
