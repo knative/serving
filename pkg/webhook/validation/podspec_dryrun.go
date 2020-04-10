@@ -56,6 +56,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) 
 		ObjectMeta: om,
 		Spec:       ps,
 	}
+	rev.SetDefaults(ctx)
 	userContainer := resources.BuildUserContainer(rev)
 	podSpec := resources.BuildPodSpec(rev, []corev1.Container{*userContainer})
 
