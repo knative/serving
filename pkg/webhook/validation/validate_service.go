@@ -47,7 +47,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 	}
 	if !found {
 		logger := logging.FromContext(ctx)
-		logger.Warnw("no spec.template found for unstructured")
+		logger.Warn("no spec.template found for unstructured")
 		return nil
 	}
 

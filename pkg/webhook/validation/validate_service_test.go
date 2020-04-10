@@ -18,10 +18,8 @@ package validation
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"knative.dev/pkg/apis"
@@ -34,7 +32,7 @@ func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name   string
 		data   map[string]interface{}
-		want   error
+		want   string
 		dryRun bool
 	}{{
 		name: "valid run latest",
@@ -55,7 +53,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:   nil,
+		want:   "",
 		dryRun: true,
 	}, {
 		name: "no template",
@@ -66,7 +64,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": map[string]interface{}{},
 		},
-		want:   nil,
+		want:   "",
 		dryRun: true,
 	}, {
 		name: "invalid structure",
@@ -76,8 +74,8 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": true, // Invalid, spec is expcted to be a struct
 		},
-		want: errors.New("could not traverse nested spec.template field: " +
-			".spec.template accessor error: true is of the type bool, expected map[string]interface{}"),
+		want: "could not traverse nested spec.template field: " +
+			".spec.template accessor error: true is of the type bool, expected map[string]interface{}",
 		dryRun: true,
 	}, {
 		name: "not dry run",
@@ -87,7 +85,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": true, // Invalid, spec is expcted to be a struct
 		},
-		want:   nil,
+		want:   "",
 		dryRun: false, // Skip validation because not dry run
 	}}
 
@@ -104,9 +102,8 @@ func TestServiceValidation(t *testing.T) {
 			unstruct.SetUnstructuredContent(test.data)
 
 			got := ExtraServiceValidation(ctx, unstruct)
-			if (got != nil || test.want != nil) && !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if (got != nil || test.want != "") && test.want != got.Error() {
+				t.Errorf("Validate got='%v', want='%v'", test.want, got.Error())
 			}
 		})
 	}

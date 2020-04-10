@@ -21,7 +21,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -52,7 +51,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	tests := []struct {
 		name          string
 		s             *v1.Service
-		want          *apis.FieldError
+		want          string
 		modifyContext func(context.Context)
 	}{{
 		name: "valid run latest",
@@ -71,7 +70,7 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          nil,
+		want:          "",
 		modifyContext: nil,
 	}, {
 		name: "dryrun fail",
@@ -90,7 +89,7 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          apis.ErrGeneric("podSpec dry run failed", "kubeclient error"),
+		want:          "podSpec dry run failed: kubeclient error",
 		modifyContext: failKubeCalls,
 	}, {
 		name: "dryrun not supported succeeds",
@@ -109,7 +108,7 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          nil, // Not supported fails soft
+		want:          "", // Not supported fails soft
 		modifyContext: dryRunNotSupported,
 	}, {
 		name: "no template found",
@@ -128,7 +127,7 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          nil,
+		want:          "",
 		modifyContext: nil,
 	}}
 
@@ -146,11 +145,11 @@ func TestExtraServiceValidation(t *testing.T) {
 			unstruct.SetUnstructuredContent(content)
 
 			got := ExtraServiceValidation(ctx, unstruct)
-			if (test.want != nil || got != nil) && !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if (got != nil || test.want != "") && test.want != got.Error() {
+				t.Errorf("Validate got='%v', want='%v'", test.want, got.Error())
 			}
 		})
+
 	}
 }
 

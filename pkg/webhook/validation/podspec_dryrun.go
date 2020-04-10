@@ -43,10 +43,7 @@ func decodeTemplateAndValidate(ctx context.Context, val interface{}, namespace s
 		namespace = templ.ObjectMeta.Namespace
 	}
 
-	if err := validatePodSpec(ctx, templ.Spec, namespace); err != nil {
-		return err
-	}
-	return nil
+	return validatePodSpec(ctx, templ.Spec, namespace)
 }
 
 func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) *apis.FieldError {
@@ -84,7 +81,7 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
 		// Ignore failures for implementations that don't support dry-run.
 		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
 		if strings.Contains(err.Error(), "does not support dry run") {
-			logger.Errorw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
+			logger.Warnw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
 			return nil
 		}
 
