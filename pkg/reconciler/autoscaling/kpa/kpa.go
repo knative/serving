@@ -78,7 +78,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
-	logger.Debug("PA exists")
 
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
@@ -95,7 +94,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, podCounts{want: scaleUnknown})
+		return computeStatus(pa, podCounts{want: scaleUnknown}, logger)
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -173,7 +172,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, pc)
+	return computeStatus(pa, pc, logger)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
@@ -199,7 +198,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	if err := reportMetrics(pa, pc); err != nil {
@@ -207,6 +206,7 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	}
 
 	computeActiveCondition(pa, pc)
+	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
