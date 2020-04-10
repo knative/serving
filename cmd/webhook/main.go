@@ -79,6 +79,10 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
+	v1alpha1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
+		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
+	v1beta1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
+		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
 	v1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
 		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
 }
