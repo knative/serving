@@ -65,7 +65,7 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	if rev.Status.ImageDigests == nil {
-		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
+		rev.Status.ImageDigests = make([]v1.ImageDigests, len(rev.Spec.Containers))
 	}
 
 	if rev.Status.DeprecatedImageDigest != "" {
@@ -76,7 +76,10 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		// Default old revisions to have ImageDigests filled in.
 		// This path should only be taken by "old" revisions that have exactly one container.
 		if len(rev.Status.ImageDigests) == 0 {
-			rev.Status.ImageDigests[rev.Spec.Containers[0].Name] = rev.Status.DeprecatedImageDigest
+			rev.Status.ImageDigests = append(rev.Status.ImageDigests, v1.ImageDigests{
+				ContainerName: rev.Spec.Containers[0].Name,
+				ImageDigest:   rev.Status.DeprecatedImageDigest,
+			})
 		}
 	}
 
@@ -134,10 +137,30 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		if v.isServingContainer {
 			rev.Status.DeprecatedImageDigest = v.digestValue
 		}
-		rev.Status.ImageDigests[v.containerName] = v.digestValue
-
+		rev.Status.ImageDigests = append(rev.Status.ImageDigests, v1.ImageDigests{
+			ContainerName: v.containerName,
+			ImageDigest:   v.digestValue,
+		})
 	}
+	rev.Status.ImageDigests = removeDuplicateDigests(rev.Status.ImageDigests)
 	return nil
+}
+
+func removeDuplicateDigests(imageDigests []v1.ImageDigests) []v1.ImageDigests {
+	digests := make(map[v1.ImageDigests]bool)
+	list := []v1.ImageDigests{}
+	for _, d := range imageDigests {
+		if v := digests[d]; !v {
+			digests[d] = true
+			list = append(list, d)
+		}
+	}
+	for i, v := range list {
+		if v == (v1.ImageDigests{}) {
+			list = append(list[:i], list[i+1:]...)
+		}
+	}
+	return list
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {

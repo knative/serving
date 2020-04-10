@@ -377,7 +377,7 @@ func TestRevWithImageDigests(t *testing.T) {
 	if len(rev.Spec.Containers) != len(rev.Status.ImageDigests) {
 		t.Error("Image digests does not match with the provided containers")
 	}
-	rev.Status.ImageDigests = map[string]string{}
+	rev.Status.ImageDigests = []v1.ImageDigests{}
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Status.ImageDigests) != 0 {
 		t.Error("Failed to update revision")

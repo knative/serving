@@ -185,7 +185,8 @@ func WithRevisionLabel(key, value string) RevisionOption {
 
 // WithImageDigests sets the .Status.ImageDigests to the Revision.
 func WithImageDigests(r *v1.Revision) {
-	r.Status.ImageDigests = map[string]string{
-		"user-container": "",
-	}
+	r.Status.ImageDigests = []v1.ImageDigests{{
+		ContainerName: "user-container",
+		ImageDigest:   "",
+	}}
 }

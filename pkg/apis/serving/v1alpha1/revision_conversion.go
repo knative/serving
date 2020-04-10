@@ -80,7 +80,16 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
-	sink.ImageDigests = source.ImageDigests
+	sink.ImageDigests = make([]v1.ImageDigests, len(source.ImageDigests))
+	for i := range source.ImageDigests {
+		source.ImageDigests[i].ConvertTo(&sink.ImageDigests[i])
+	}
+}
+
+// ConvertTo helps implement apis.Convertible
+func (source *ImageDigests) ConvertTo(sink *v1.ImageDigests) {
+	sink.ContainerName = source.ContainerName
+	sink.ImageDigest = source.ImageDigest
 }
 
 // ConvertFrom implements apis.Convertible
@@ -113,5 +122,14 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
-	sink.ImageDigests = source.ImageDigests
+	sink.ImageDigests = make([]ImageDigests, len(source.ImageDigests))
+	for i := range sink.ImageDigests {
+		sink.ImageDigests[i].ConvertFrom(&source.ImageDigests[i])
+	}
+}
+
+// ConvertFrom helps implement apis.Convertible
+func (sink *ImageDigests) ConvertFrom(source *v1.ImageDigests) {
+	sink.ContainerName = source.ContainerName
+	sink.ImageDigest = source.ImageDigest
 }

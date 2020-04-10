@@ -147,7 +147,13 @@ type RevisionStatus struct {
 	// of Revision. ImageDigests holds the digests for both serving and non serving container.
 	// ref: http://bit.ly/image-digests
 	// +optional
-	ImageDigests map[string]string `json:"imageDigests,omitempty"`
+	ImageDigests []ImageDigests `json:"imageDigests,omitempty"`
+}
+
+// ImageDigests holds the information of container name and digest value
+type ImageDigests struct {
+	ContainerName string `json:"containerName,omitempty"`
+	ImageDigest   string `json:"imageDigest,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
