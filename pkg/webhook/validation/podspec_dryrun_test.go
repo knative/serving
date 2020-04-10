@@ -56,7 +56,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		name: "valid run latest",
 		s: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "foo",
 			},
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
@@ -74,7 +75,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		name: "dryrun fail",
 		s: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "foo",
 			},
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
@@ -92,7 +94,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		name: "dryrun not supported succeeds",
 		s: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "foo",
 			},
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
@@ -110,7 +113,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		name: "no template found",
 		s: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
+				Name:      "valid",
+				Namespace: "foo",
 			},
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{}, // Empty spec

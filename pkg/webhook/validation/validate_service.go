@@ -30,7 +30,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 
 	content := uns.UnstructuredContent()
 
-	namespace, found, err := unstructured.NestedString(content, "objectmeta", "namespace")
+	namespace, found, err := unstructured.NestedString(content, "metadata", "namespace")
 	if err != nil {
 		return fmt.Errorf("could not traverse nested objectmeta.namespace field: %w", err)
 	}
