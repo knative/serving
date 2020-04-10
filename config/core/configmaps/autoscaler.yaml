@@ -66,7 +66,7 @@ data:
     # by container-concurrency-target-percentage is greater than 0.01.
     # NOTE: that this value will be adjusted by application of
     #       container-concurrency-target-percentage, i.e. by default
-    #       the system will target on average 70 concurrent requests 
+    #       the system will target on average 70 concurrent requests
     #       per revision pod.
     # NOTE: Only one metric can be used for autoscaling a Revision.
     container-concurrency-target-default: "100"

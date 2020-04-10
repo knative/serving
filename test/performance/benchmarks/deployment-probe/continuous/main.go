@@ -222,10 +222,10 @@ func main() {
 				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
-					log.Printf("Error creating service: %v", err)
+					log.Println("Error creating service:", err)
 					break
 				}
-				log.Printf("Created: %s", svc.Name)
+				log.Println("Created:", svc.Name)
 
 			case event := <-serviceWI.ResultChan():
 				if event.Type != watch.Modified {
