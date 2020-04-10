@@ -30,6 +30,8 @@ import (
 
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	"knative.dev/pkg/logging"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -136,6 +138,8 @@ func TestExtraServiceValidation(t *testing.T) {
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)
 			}
+			logger := logtesting.TestLogger(t)
+			ctx = logging.WithLogger(apis.WithDryRun(ctx), logger)
 
 			unstruct := &unstructured.Unstructured{}
 			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.s)
