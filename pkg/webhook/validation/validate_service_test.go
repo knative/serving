@@ -53,7 +53,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:   "",
 		dryRun: true,
 	}, {
 		name: "no template",
@@ -64,7 +63,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": map[string]interface{}{},
 		},
-		want:   "",
 		dryRun: true,
 	}, {
 		name: "invalid structure",
@@ -85,7 +83,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": true, // Invalid, spec is expcted to be a struct
 		},
-		want:   "",
 		dryRun: false, // Skip validation because not dry run
 	}}
 

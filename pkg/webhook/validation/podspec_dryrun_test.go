@@ -70,7 +70,6 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "",
 		modifyContext: nil,
 	}, {
 		name: "dryrun fail",
@@ -108,7 +107,6 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "", // Not supported fails soft
 		modifyContext: dryRunNotSupported,
 	}, {
 		name: "no template found",
@@ -127,7 +125,6 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "",
 		modifyContext: nil,
 	}}
 
