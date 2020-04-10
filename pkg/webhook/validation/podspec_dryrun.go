@@ -35,16 +35,25 @@ import (
 
 // ExtraServiceValidation runs extra validation on Service resources
 func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
-	s := &v1.Service{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), s); err != nil {
-		return fmt.Errorf("could not decode Service from resource: %w", err)
+	logger := logging.FromContext(ctx)
+
+	val, found, err := unstructured.NestedFieldNoCopy(uns.UnstructuredContent(), "spec", "template")
+	if err != nil {
+		return fmt.Errorf("could not traverse nested spec.template field: %w", err)
+	}
+	if found {
+		templ := &v1.RevisionTemplateSpec{}
+		asData := val.(map[string]interface{})
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(asData, templ); err != nil {
+			return fmt.Errorf("could not decode RevisionTemplateSpec from resource: %w", err)
+		}
+
+		if err := validatePodSpec(ctx, templ.Spec, templ.ObjectMeta.Namespace); err != nil {
+			return err
+		}
 	}
 
-	// Extra Validations for Service
-
-	if err := validatePodSpec(ctx, s.Spec.Template.Spec, s.GetNamespace()); err != nil {
-		return err
-	}
+	logger.Warnw("no spec.template found for unstrucutred", uns)
 	return nil
 }
 
