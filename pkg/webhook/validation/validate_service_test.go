@@ -32,9 +32,10 @@ import (
 
 func TestServiceValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		data map[string]interface{}
-		want error
+		name   string
+		data   map[string]interface{}
+		want   error
+		dryRun bool
 	}{{
 		name: "valid run latest",
 		data: map[string]interface{}{
@@ -54,7 +55,8 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
+		want:   nil,
+		dryRun: true,
 	}, {
 		name: "no template",
 		data: map[string]interface{}{
@@ -64,7 +66,8 @@ func TestServiceValidation(t *testing.T) {
 			},
 			"spec": map[string]interface{}{},
 		},
-		want: nil,
+		want:   nil,
+		dryRun: true,
 	}, {
 		name: "invalid structure",
 		data: map[string]interface{}{
@@ -75,13 +78,27 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: errors.New("could not traverse nested spec.template field: " +
 			".spec.template accessor error: true is of the type bool, expected map[string]interface{}"),
+		dryRun: true,
+	}, {
+		name: "not dry run",
+		data: map[string]interface{}{
+			"namespace": map[string]interface{}{
+				"name": "valid",
+			},
+			"spec": true, // Invalid, spec is expcted to be a struct
+		},
+		want:   nil,
+		dryRun: false, // Skip validation because not dry run
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
-			ctx = logging.WithLogger(apis.WithDryRun(ctx), logger)
+			ctx = logging.WithLogger(ctx, logger)
+			if test.dryRun {
+				ctx = apis.WithDryRun(ctx)
+			}
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
