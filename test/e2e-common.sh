@@ -502,7 +502,6 @@ function test_setup() {
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    kubectl label namespace default istio-injection=enabled
     ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ || return 1
   fi
 
