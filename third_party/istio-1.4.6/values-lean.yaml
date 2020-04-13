@@ -84,6 +84,10 @@ mixer:
 pilot:
   traceSampling: 100
   sidecar: false
+  autoscaleMin: 3
+  autoscaleMax: 10
+  cpu:
+    targetAverageUtilization: 60
   resources:
     requests:
       cpu: 1000m
