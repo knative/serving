@@ -165,6 +165,7 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 			}
 			if err := breaker.Maybe(r.Context(), func() {
 				cf()
+				next.ServeHTTP(w, r)
 			}); err != nil {
 				cf()
 				switch err {
@@ -173,10 +174,10 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 				default:
 					w.WriteHeader(http.StatusInternalServerError)
 				}
-				return
 			}
+		} else {
+			next.ServeHTTP(w, r)
 		}
-		next.ServeHTTP(w, r)
 	}
 }
 
