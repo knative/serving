@@ -51,10 +51,6 @@ spec:
   addonComponents:
     pilot:
       enabled: true
-    galley:
-      enabled: true
-    citadel: # galley depends on citadel.
-      enabled: true
     prometheus:
       enabled: false
 
