@@ -99,25 +99,7 @@ func podExists(clients *test.Clients, podName string) (bool, error) {
 	return true, nil
 }
 
-<<<<<<< HEAD
 func waitForDeploymentScale(clients *test.Clients, name string, scale int) error {
-=======
-func scaleUpDeployment(clients *test.Clients, name string) error {
-	return scaleDeployment(clients, name, haReplicas)
-}
-
-func scaleDownDeployment(clients *test.Clients, name string) error {
-	return scaleDeployment(clients, name, 1 /*target number of replicas*/)
-}
-
-func scaleDeployment(clients *test.Clients, name string, replicas int) error {
-	scaleRequest := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: int32(replicas)}}
-	scaleRequest.Name = name
-	scaleRequest.Namespace = system.Namespace()
-	if _, err := clients.KubeClient.Kube.AppsV1().Deployments(system.Namespace()).UpdateScale(name, scaleRequest); err != nil {
-		return fmt.Errorf("error scaling: %w", err)
-	}
->>>>>>> e4621c5c3... Remove namespace flag and replace with exported env var.
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		name,
