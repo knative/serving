@@ -29,6 +29,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
@@ -46,7 +47,7 @@ const (
 func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
 	var leader string
 	err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
-		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(test.ServingFlags.SystemNamespace).Get(lease, metav1.GetOptions{})
+		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(system.Namespace()).Get(lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}
@@ -89,7 +90,7 @@ func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision
 }
 
 func podExists(clients *test.Clients, podName string) (bool, error) {
-	if _, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Get(podName, metav1.GetOptions{}); err != nil {
+	if _, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Get(podName, metav1.GetOptions{}); err != nil {
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
@@ -106,7 +107,7 @@ func waitForDeploymentScale(clients *test.Clients, name string, scale int) error
 			return d.Status.ReadyReplicas == int32(scale), nil
 		},
 		"DeploymentIsScaled",
-		test.ServingFlags.SystemNamespace,
+		system.Namespace(),
 		time.Minute,
 	)
 }

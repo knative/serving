@@ -47,7 +47,8 @@ TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 readonly TMP_DIR
 readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-E2E_SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
+export SYSTEM_NAMESPACE
+SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Parse our custom flags.
 function parse_flags() {
@@ -122,7 +123,7 @@ function parse_flags() {
       ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
-      readonly E2E_SYSTEM_NAMESPACE=$2
+      export SYSTEM_NAMESPACE=$2
       return 2
       ;;
   esac
@@ -163,7 +164,7 @@ function install_knative_serving() {
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
     local YAML_NAME=${TMP_DIR}/${yaml##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${yaml} > ${YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${yaml} > ${YAML_NAME}
     echo "Installing '${YAML_NAME}'"
     kubectl create -f "${YAML_NAME}" || return 1
   done
@@ -205,7 +206,7 @@ function install_istio() {
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
     local YAML_NAME=${TMP_DIR}/${1##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
@@ -272,7 +273,7 @@ function install_contour() {
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
 
   local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
   echo ">> Bringing up net-contour"
   kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
 
@@ -286,13 +287,13 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Creating ${E2E_SYSTEM_NAMESPACE} namespace if it does not exist"
-  kubectl get ns ${E2E_SYSTEM_NAMESPACE} || kubectl create namespace ${E2E_SYSTEM_NAMESPACE}
+  echo ">> Creating ${SYSTEM_NAMESPACE} namespace if it does not exist"
+  kubectl get ns ${SYSTEM_NAMESPACE} || kubectl create namespace ${SYSTEM_NAMESPACE}
   if (( MESH )); then
-    kubectl label namespace ${E2E_SYSTEM_NAMESPACE} istio-injection=enabled
+    kubectl label namespace ${SYSTEM_NAMESPACE} istio-injection=enabled
   fi
   # Delete the test namespace
-  add_trap "kubectl delete namespace ${E2E_SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
+  add_trap "kubectl delete namespace ${SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -304,7 +305,7 @@ function install_knative_serving_standard() {
     UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
   else
     local YAML_NAME=${TMP_DIR}/${1##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     echo "Knative YAML: ${YAML_NAME}"
     ko apply -f "${YAML_NAME}" --selector=knative.dev/crd-install=true || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
@@ -331,9 +332,9 @@ function install_knative_serving_standard() {
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
     local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
     local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
     echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME}"
     kubectl apply \
 	    -f "${CORE_YAML_NAME}" \
@@ -343,7 +344,7 @@ function install_knative_serving_standard() {
     # ${SERVING_CERT_MANAGER_YAML} is set when calling
     # build_knative_from_source
     local CERT_YAML_NAME=${TMP_DIR}/${SERVING_CERT_MANAGER_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML} > ${CERT_YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML} > ${CERT_YAML_NAME}
     echo "Knative TLS YAML: ${CERT_YAML_NAME}"
     kubectl apply \
       -f "${CERT_YAML_NAME}" || return 1
@@ -360,7 +361,7 @@ function install_knative_serving_standard() {
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
     local YAML_NAME=${TMP_DIR}/${1##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
 
@@ -378,7 +379,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: ${E2E_SYSTEM_NAMESPACE}
+  namespace: ${SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -391,14 +392,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: ${E2E_SYSTEM_NAMESPACE}
+  namespace: ${SYSTEM_NAMESPACE}
 data:
   profiling.enable: "true"
 EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n ${E2E_SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -469,7 +470,7 @@ function test_setup() {
   local TEST_DIR=${TMP_DIR}/test
   mkdir -p ${TEST_DIR}
   cp -r test/* ${TEST_DIR}
-  find ${TEST_DIR} -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${E2E_SYSTEM_NAMESPACE}/g" {} +
+  find ${TEST_DIR} -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" {} +
 
   echo ">> Setting up logging..."
 
@@ -498,7 +499,7 @@ function test_setup() {
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
   echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running ${E2E_SYSTEM_NAMESPACE} || return 1
+  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
@@ -580,9 +581,9 @@ function dump_extra_cluster_state() {
 }
 
 function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
+  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
 }
 
 function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n ${E2E_SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
+  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
 }

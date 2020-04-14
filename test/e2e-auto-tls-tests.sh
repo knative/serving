@@ -51,7 +51,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-domain
-  namespace: ${E2E_SYSTEM_NAMESPACE}
+  namespace: ${SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -60,7 +60,7 @@ EOF
 }
 
 function cleanup_custom_domain() {
-  kubectl delete ConfigMap config-domain -n ${E2E_SYSTEM_NAMESPACE}
+  kubectl delete ConfigMap config-domain -n ${SYSTEM_NAMESPACE}
 }
 
 function setup_auto_tls_common() {
@@ -131,7 +131,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
     exit 1
   fi
   local YAML_NAME=${TMP_DIR}/${SERVING_NSCERT_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${E2E_SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML} > ${YAML_NAME}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML} > ${YAML_NAME}
   kubectl apply -f ${YAML_NAME}
 }
 
@@ -173,22 +173,19 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
 subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
 setup_selfsigned_per_ksvc_auto_tls
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
 subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
 setup_selfsigned_per_namespace_auto_tls
 add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 cleanup_per_selfsigned_namespace_auto_tls
 
 subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
 setup_http01_auto_tls
 add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ --systemNamespace=${E2E_SYSTEM_NAMESPACE} || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/http01/
 delete_dns_record
 
