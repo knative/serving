@@ -1064,22 +1064,28 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			}()
 			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Name = uuid.New().String()
+			route.Labels = map[string]string{"app": "prod"}
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 
 			// Create a route.
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			routeClient.Create(route)
-			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
+			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+				t.Fatalf("Reconcile() = %v, want no error", err)
+			}
 			addResourcesToInformers(t, ctx, route)
-			route.Labels = map[string]string{"app": "prod"}
 
 			if tc.apply != nil {
 				tc.apply(route, watcher)
+				fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
+				if _, err := routeClient.Update(route); err != nil {
+					t.Fatalf("Route.Update() = %v, want no error", err)
+				}
 			}
-			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-			routeClient.Create(route)
-			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
-			addResourcesToInformers(t, ctx, route)
+
+			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+				t.Fatalf("Reconcile() = %v, want no error", err)
+			}
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
