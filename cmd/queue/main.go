@@ -128,6 +128,8 @@ type config struct {
 	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
 }
 
+func noop() {}
+
 // Make handler a closure for testing.
 func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -155,9 +157,17 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
+			cf := noop
+			if tracingEnabled {
+				ctx, waitSpan := trace.StartSpan(r.Context(), "queueWait")
+				r = r.WithContext(ctx)
+				cf = waitSpan.End
+			}
 			if err := breaker.Maybe(r.Context(), func() {
+				cf()
 				next.ServeHTTP(w, r)
 			}); err != nil {
+				cf()
 				switch err {
 				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)
