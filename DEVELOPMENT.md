@@ -193,6 +193,7 @@ off-machine registry.
 Run:
 
 ```shell
+ko apply --selector knative.dev/crd-install=true -f config/
 ko apply -f config/
 
 # Optional steps
