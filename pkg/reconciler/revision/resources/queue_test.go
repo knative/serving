@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
@@ -278,8 +277,8 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
@@ -419,8 +418,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainerWithPercentageAnnotation (-want, +got) =", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
 				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
@@ -504,8 +503,8 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+		t.Error("makeQueueContainer(-want, +got) =", diff)
 	}
 }
 
@@ -579,8 +578,8 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+		t.Error("makeQueueContainer(-want, +got) =", diff)
 	}
 }
 
@@ -756,8 +755,8 @@ func TestTCPProbeGeneration(t *testing.T) {
 			}
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
