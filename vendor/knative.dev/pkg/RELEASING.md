@@ -6,11 +6,11 @@ release, but likely this should happen incrementally over each milestone.
 
 ## Release Process.
 
-### Step #1: Monday the week prior to each release.
+### Step #1: 7 days prior to each release.
 
-On Monday of the week prior to the Knative release, each of the downstream
-repositories should stage a `[WIP]` Pull Request that advances the knative/pkg
-dependency to the latest commit.
+7 days prior to the Knative release, each of the downstream repositories should
+stage a `[WIP]` Pull Request that advances the knative/pkg dependency to the
+latest commit.
 
 At present, these downstream repositories include:
 
@@ -47,9 +47,26 @@ process repeats until knative/pkg can be cleanly updated without any changes.
 ### Step #2: Friday the week prior to each release.
 
 A release branch is snapped on knative/pkg with the form `release-0.X` where `X`
-reflects the forthcoming Knative release. The commit at which this branch is
-snapped will be the version that has been staged into `[WIP]` PRs in every
-repository.
+reflects the forthcoming Knative release.
+
+Any releaseable components inside of `knative/pkg` also need to be set to their
+release branch to avoid trivial point releases during the next release. At the
+moment we have the following Knative dependecies inside of `pkg`:
+
+- knative.dev/test-infra
+
+Update these to point to a release branch for the current release and update the
+toml entry on the `knative.dev/pkg:release-0.X` branch, like:
+
+```toml
+[[constraint]]
+  name = "knative.dev/test-infra"
+  branch = "release-0.14"
+```
+
+After this updated in the `pkg` release branch, apply this commit at which this
+branch is snapped will be the version that has been staged into `[WIP]` PRs in
+every repository.
 
 These staging PRs are then updated to:
 
@@ -61,6 +78,9 @@ These staging PRs are then updated to:
 ```
 
 The `[WIP]` is removed, and the PRs are reviewed and merged.
+
+> Note: a simple tool has been written to help with the
+> [toml editing](https://github.com/n3wscott/tomles).
 
 ## Backporting Fixes
 
