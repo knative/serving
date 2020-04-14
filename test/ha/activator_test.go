@@ -23,6 +23,8 @@ import (
 	"sort"
 	"testing"
 
+	"knative.dev/pkg/system"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
@@ -90,7 +92,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -103,7 +105,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
@@ -122,7 +124,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	pods, err = clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
+	pods, err = clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -140,7 +142,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
