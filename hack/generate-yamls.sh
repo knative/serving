@@ -74,8 +74,10 @@ readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS} --strict"
 
 if [[ -n "${TAG}" ]]; then
   LABEL_YAML_CMD=(sed -e "s|serving.knative.dev/release: devel|serving.knative.dev/release: \"${TAG}\"|")
+  NET_ISTIO_YAML=https://github.com/knative/net-istio/releases/download/${TAG}/release.yaml
 else
   LABEL_YAML_CMD=(cat)
+  NET_ISTIO_YAML=https://storage.googleapis.com/knative-nightly/net-istio/latest/release.yaml
 fi
 
 : ${KO_DOCKER_REPO:="ko.local"}
@@ -105,7 +107,7 @@ ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_C
 # Create serving.yaml with all of the default components
 cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
 cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
-cat "./third_party/net-istio.yaml" >> "${SERVING_YAML}"
+cat "${NET_ISTIO_YAML}" >> "${SERVING_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
