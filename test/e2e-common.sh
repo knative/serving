@@ -123,7 +123,7 @@ function parse_flags() {
       ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
-      readonly SYSTEM_NAMESPACE=$2
+      export SYSTEM_NAMESPACE=$2
       return 2
       ;;
   esac
