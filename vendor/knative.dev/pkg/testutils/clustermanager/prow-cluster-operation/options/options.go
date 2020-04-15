@@ -55,6 +55,7 @@ func (rw *RequestWrapper) addOptions() {
 	flag.StringVar(&rw.Request.Zone, "zone", "", "GCP zone")
 	flag.StringVar(&rw.Request.Project, "project", "", "GCP project")
 	flag.StringVar(&rw.Request.ClusterName, "name", "", "cluster name")
+	flag.StringVar(&rw.Request.GKEVersion, "version", "latest", "GKE version")
 	flag.StringVar(&rw.Request.ReleaseChannel, "release-channel", "", "GKE release channel")
 	flag.StringVar(&rw.Request.ResourceType, "resource-type", "", "Boskos Resource Type")
 	flag.StringVar(&rw.BackupRegionsStr, "backup-regions", "", "GCP regions as backup, separated by comma")

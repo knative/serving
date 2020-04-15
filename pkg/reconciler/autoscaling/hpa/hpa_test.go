@@ -384,7 +384,7 @@ func TestReconcile(t *testing.T) {
 			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(0)),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testNamespace, testRevision),
@@ -405,7 +405,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(0)),
 		},
 		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -447,14 +447,12 @@ func TestReconcile(t *testing.T) {
 
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				KubeClient:        kubeclient.Get(ctx),
-				Client:            servingclient.Get(ctx),
-				SKSLister:         listers.GetServerlessServiceLister(),
-				MetricLister:      listers.GetMetricLister(),
-				ServiceLister:     listers.GetK8sServiceLister(),
-				PSInformerFactory: podscalable.Get(ctx),
+				Client:       servingclient.Get(ctx),
+				SKSLister:    listers.GetServerlessServiceLister(),
+				MetricLister: listers.GetMetricLister(),
 			},
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			kubeClient: kubeclient.Get(ctx),
+			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, autoscaling.HPA,
@@ -466,7 +464,7 @@ func TestReconcile(t *testing.T) {
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	hpa := pa(ns, n, WithHPAClass)
-	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe)
+	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe, 0)
 	for _, opt := range so {
 		opt(s)
 	}

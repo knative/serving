@@ -46,19 +46,16 @@ function install_latest_release() {
 
   install_knative_serving "${RELEASE_YAML}" \
       || fail_test "Knative latest release installation failed"
-  wait_until_pods_running knative-serving
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
 }
 
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
-  wait_until_pods_running knative-serving
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
 }
 
 function knative_setup() {
-  # Build Knative to generate Istio manifests from HEAD for install_latest_release
-  # We do it here because it's a one-time setup
-  build_knative_from_source
   install_latest_release
 }
 

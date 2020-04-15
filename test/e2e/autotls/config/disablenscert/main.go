@@ -68,6 +68,7 @@ func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.St
 		}
 		if whiteLists.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
+			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}

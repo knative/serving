@@ -25,21 +25,14 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"sync"
 	"text/template"
 	"time"
 
 	"knative.dev/pkg/test/logging"
 )
 
-const (
-	// The recommended default log level https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md
-	klogDefaultLogLevel = "2"
-)
-
 var (
-	flagsSetupOnce = &sync.Once{}
-	klogFlags      = flag.NewFlagSet("klog", flag.ExitOnError)
+	klogFlags = flag.NewFlagSet("klog", flag.ExitOnError)
 	// Flags holds the command line flags or defaults for settings in the user's environment.
 	// See EnvironmentFlags for a list of supported fields.
 	Flags = initializeFlags()

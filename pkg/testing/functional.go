@@ -240,7 +240,7 @@ func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
 
-// WithSubsets adds subsets to the body of a Revision, enabling us to refer readiness.
+// WithSubsets adds subsets to the body of an Endpoints object.
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
@@ -311,6 +311,14 @@ func WithHosts(index int, hosts ...string) IngressOption {
 	}
 }
 
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
+	}
+}
+
 // SKSOption is a callback type for decorate SKS objects.
 type SKSOption func(sks *netv1alpha1.ServerlessService)
 
@@ -335,6 +343,14 @@ func WithSKSReady(sks *netv1alpha1.ServerlessService) {
 	WithPrivateService(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
+}
+
+// WithNumActivators sets the number of requested activators
+// on the SKS spec.
+func WithNumActivators(n int32) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Spec.NumActivators = n
+	}
 }
 
 // WithPrivateService annotates SKS status with the private service name.

@@ -90,11 +90,11 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		field: &nc.ContainerConcurrencyMaxLimit,
 	}} {
 		if raw, ok := data[i64.key]; ok {
-			if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			val, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil {
 				return nil, err
-			} else {
-				*i64.field = val
 			}
+			*i64.field = val
 		}
 	}
 
@@ -136,9 +136,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		}
 	}
 
-	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = DefaultUserContainerName
-	} else {
+	if raw, ok := data["container-name-template"]; ok {
 		tmpl, err := template.New("user-container").Parse(raw)
 		if err != nil {
 			return nil, err

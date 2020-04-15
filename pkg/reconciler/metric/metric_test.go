@@ -121,15 +121,10 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			metric("bad", "collector"),
 		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"failed to initiate or update scraping: the-error"),
-		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: metric("bad", "collector", failed("CollectionFailed",
-				"Failed to reconcile metric collection")),
+				"Failed to reconcile metric collection: the-error")),
 		}},
-		WantErr: true,
 	}, {
 		Name: "cannot create collection-part II",
 		Ctx: context.WithValue(context.Background(), collectorKey{},
@@ -138,13 +133,34 @@ func TestReconcile(t *testing.T) {
 		Key: "bad/collector",
 		Objects: []runtime.Object{
 			metric("bad", "collector", failed("CollectionFailed",
-				"Failed to reconcile metric collection")),
+				"Failed to reconcile metric collection: the-error")),
 		},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				"failed to initiate or update scraping: the-error"),
+	}, {
+		Name: "no endpoints error",
+		Ctx: context.WithValue(context.Background(), collectorKey{},
+			&testCollector{createOrUpdateError: metrics.ErrFailedGetEndpoints},
+		),
+		Key: "bad/collector",
+		Objects: []runtime.Object{
+			metric("bad", "collector"),
 		},
-		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("bad", "collector", unknown("NoEndpoints",
+				metrics.ErrFailedGetEndpoints.Error())),
+		}},
+	}, {
+		Name: "no stats error",
+		Ctx: context.WithValue(context.Background(), collectorKey{},
+			&testCollector{createOrUpdateError: metrics.ErrDidNotReceiveStat},
+		),
+		Key: "bad/collector",
+		Objects: []runtime.Object{
+			metric("bad", "collector"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("bad", "collector", failed("DidNotReceiveStat",
+				metrics.ErrDidNotReceiveStat.Error())),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -212,6 +228,12 @@ func failed(r, m string) metricOption {
 	}
 }
 
+func unknown(r, m string) metricOption {
+	return func(metric *av1alpha1.Metric) {
+		metric.Status.MarkMetricNotReady(r, m)
+	}
+}
+
 func ready(m *av1alpha1.Metric) {
 	m.Status.MarkMetricReady()
 }
@@ -263,3 +285,5 @@ func (c *testCollector) Delete(namespace, name string) error {
 	}
 	return c.deleteError
 }
+
+func (c *testCollector) Watch(func(types.NamespacedName)) {}

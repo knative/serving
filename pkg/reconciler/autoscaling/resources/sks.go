@@ -26,7 +26,7 @@ import (
 )
 
 // MakeSKS makes an SKS resource from the PA and operation mode.
-func MakeSKS(pa *pav1alpha1.PodAutoscaler, mode nv1a1.ServerlessServiceOperationMode) *nv1a1.ServerlessService {
+func MakeSKS(pa *pav1alpha1.PodAutoscaler, mode nv1a1.ServerlessServiceOperationMode, numActivators int32) *nv1a1.ServerlessService {
 	return &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.SKS(pa.Name),
@@ -38,9 +38,10 @@ func MakeSKS(pa *pav1alpha1.PodAutoscaler, mode nv1a1.ServerlessServiceOperation
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: nv1a1.ServerlessServiceSpec{
-			Mode:         mode,
-			ObjectRef:    pa.Spec.ScaleTargetRef,
-			ProtocolType: pa.Spec.ProtocolType,
+			Mode:          mode,
+			ObjectRef:     pa.Spec.ScaleTargetRef,
+			ProtocolType:  pa.Spec.ProtocolType,
+			NumActivators: numActivators,
 		},
 	}
 }

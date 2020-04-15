@@ -43,6 +43,12 @@ INSTALL_MONITORING=0
 INSTALL_CUSTOM_YAMLS=""
 
 UNINSTALL_LIST=()
+TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
+readonly TMP_DIR
+readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+# This the namespace used to install Knative Serving. Use generated UUID as namespace.
+export SYSTEM_NAMESPACE
+SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
 # Parse our custom flags.
 function parse_flags() {
@@ -115,6 +121,11 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --system-namespace)
+      [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
+      export SYSTEM_NAMESPACE=$2
+      return 2
+      ;;
   esac
   return 0
 }
@@ -152,8 +163,10 @@ function install_knative_serving() {
   echo ">> Installing Knative serving from custom YAMLs"
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
-    echo "Installing '${yaml}'"
-    kubectl create -f "${yaml}" || return 1
+    local YAML_NAME=${TMP_DIR}/${yaml##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${yaml} > ${YAML_NAME}
+    echo "Installing '${YAML_NAME}'"
+    kubectl create -f "${YAML_NAME}" || return 1
   done
 }
 
@@ -185,17 +198,6 @@ function install_istio() {
   kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
   UNINSTALL_LIST+=( "${INSTALL_ISTIO_YAML}" )
 
-  echo ">> Patching Istio"
-  # There are reports of Envoy failing (503) when istio-pilot is overloaded.
-  # We generously add more pilot instances here to reduce flakes.
-  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-    kubectl patch hpa -n istio-system istio-pilot \
-            --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
-  else
-    # Some versions of Istio don't provide an HPA for pilot.
-    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
-  fi
-
   # If the yaml for the Istio Ingress controller is passed, then install it.
   if [[ -n "$1" ]]; then
     echo ">> Installing Istio Ingress"
@@ -203,8 +205,10 @@ function install_istio() {
     # We apply a filter here because when we're installing from a pre-built
     # bundle then the whole bundle it passed here.  We use ko because it has
     # better filtering support for CRDs.
-    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
-    UNINSTALL_LIST+=( "${1}" )
+    local YAML_NAME=${TMP_DIR}/${1##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
+    UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
 }
 
@@ -268,10 +272,12 @@ function install_contour() {
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
 
+  local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
   echo ">> Bringing up net-contour"
-  kubectl apply -f ${INSTALL_NET_CONTOUR_YAML} || return 1
+  kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
 
-  UNINSTALL_LIST+=( "${INSTALL_NET_CONTOUR_YAML}" )
+  UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -281,8 +287,13 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Creating knative-serving namespace if it does not exist"
-  kubectl get ns knative-serving || kubectl create namespace knative-serving
+  echo ">> Creating ${SYSTEM_NAMESPACE} namespace if it does not exist"
+  kubectl get ns ${SYSTEM_NAMESPACE} || kubectl create namespace ${SYSTEM_NAMESPACE}
+  if (( MESH )); then
+    kubectl label namespace ${SYSTEM_NAMESPACE} istio-injection=enabled
+  fi
+  # Delete the test namespace
+  add_trap "kubectl delete namespace ${SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
 
   echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
@@ -293,9 +304,11 @@ function install_knative_serving_standard() {
     kubectl apply -f "${SERVING_CRD_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
   else
-    echo "Knative YAML: ${1}"
-    ko apply -f "${1}" --selector=knative.dev/crd-install=true || return 1
-    UNINSTALL_LIST+=( "${1}" )
+    local YAML_NAME=${TMP_DIR}/${1##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    echo "Knative YAML: ${YAML_NAME}"
+    ko apply -f "${YAML_NAME}" --selector=knative.dev/crd-install=true || return 1
+    UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
 
   echo ">> Installing Ingress"
@@ -318,17 +331,23 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
-    echo "Knative YAML: ${SERVING_CORE_YAML} and ${SERVING_HPA_YAML}"
+    local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
+    local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
+    echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME}"
     kubectl apply \
-	    -f "${SERVING_CORE_YAML}" \
-	    -f "${SERVING_HPA_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" "${SERVING_HPA_YAML}" )
+	    -f "${CORE_YAML_NAME}" \
+	    -f "${HPA_YAML_NAME}" || return 1
+    UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
 
     # ${SERVING_CERT_MANAGER_YAML} is set when calling
     # build_knative_from_source
-    echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML}"
+    local CERT_YAML_NAME=${TMP_DIR}/${SERVING_CERT_MANAGER_YAML##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML} > ${CERT_YAML_NAME}
+    echo "Knative TLS YAML: ${CERT_YAML_NAME}"
     kubectl apply \
-      -f "${SERVING_CERT_MANAGER_YAML}" || return 1
+      -f "${CERT_YAML_NAME}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
@@ -341,8 +360,10 @@ function install_knative_serving_standard() {
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
-    UNINSTALL_LIST+=( "${1}" )
+    local YAML_NAME=${TMP_DIR}/${1##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
+    ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
+    UNINSTALL_LIST+=( "${YAML_NAME}" )
 
     if (( INSTALL_MONITORING )); then
       echo ">> Installing Monitoring"
@@ -358,7 +379,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving
+  namespace: ${SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -371,14 +392,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: knative-serving
+  namespace: ${SYSTEM_NAMESPACE}
 data:
   profiling.enable: "true"
 EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -445,6 +466,12 @@ function add_trap() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
+  local TEST_DIR=${TMP_DIR}/test
+  mkdir -p ${TEST_DIR}
+  cp -r test/* ${TEST_DIR}
+  find ${TEST_DIR} -type f -name "*.yaml" -exec sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" {} +
+
   echo ">> Setting up logging..."
 
   # Install kail if needed.
@@ -453,25 +480,26 @@ function test_setup() {
   fi
 
   # Capture all logs.
-  kail > ${ARTIFACTS}/k8s.log.txt &
+  kail > ${ARTIFACTS}/k8s.log-$(basename ${E2E_SCRIPT}).txt &
   local kail_pid=$!
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
 
-  echo ">> Creating test resources (test/config/)"
-  ko apply ${KO_FLAGS} -f test/config/ || return 1
+  local TEST_CONFIG_DIR=${TEST_DIR}/config
+  echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
+  ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    ko apply ${KO_FLAGS} -f test/config/security/ || return 1
+    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ || return 1
   fi
 
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
 
   echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running knative-serving || return 1
+  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
@@ -523,10 +551,11 @@ function test_setup() {
 
 # Delete test resources
 function test_teardown() {
-  echo ">> Removing test resources (test/config/)"
-  ko delete --ignore-not-found=true --now -f test/config/
+  local TEST_CONFIG_DIR=${TMP_DIR}/test/config
+  echo ">> Removing test resources (${TEST_CONFIG_DIR}/)"
+  ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/
   if (( MESH )); then
-    ko delete --ignore-not-found=true --now -f test/config/security/
+    ko delete --ignore-not-found=true --now -f ${TEST_CONFIG_DIR}/security/
   fi
   echo ">> Ensuring test namespaces are clean"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
@@ -549,4 +578,12 @@ function dump_extra_cluster_state() {
   kubectl get podautoscalers -o yaml --all-namespaces
   echo ">>> SKSs:"
   kubectl get serverlessservices -o yaml --all-namespaces
+}
+
+function turn_on_auto_tls() {
+  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
+}
+
+function turn_off_auto_tls() {
+  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
 }

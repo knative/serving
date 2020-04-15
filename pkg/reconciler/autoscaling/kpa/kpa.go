@@ -78,7 +78,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	pa.SetDefaults(ctx)
 
 	pa.Status.InitializeConditions()
-	logger.Debug("PA exists")
 
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
@@ -90,10 +89,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Having an SKS and its PrivateServiceName is a prerequisite for all upcoming steps.
 	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
-		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
+		// Before we can reconcile decider and get real number of activators
+		// we start with default of 2.
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, podCounts{want: scaleUnknown})
+		return computeStatus(pa, podCounts{want: scaleUnknown}, logger)
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -102,7 +103,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		return fmt.Errorf("error reconciling Decider: %w", err)
 	}
 
-	if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
+	if err := c.ReconcileMetric(ctx, pa, resolveScrapeTarget(ctx, pa)); err != nil {
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
@@ -127,7 +128,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
-	sks, err = c.ReconcileSKS(ctx, pa, mode)
+	// If we have not successfully reconciled Decider yet, NumActivators will be 0 and
+	// we'll use all activators to back this revision.
+	sks, err = c.ReconcileSKS(ctx, pa, mode, decider.Status.NumActivators)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
@@ -169,7 +172,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, pc)
+	return computeStatus(pa, pc, logger)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
@@ -195,7 +198,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	if err := reportMetrics(pa, pc); err != nil {
@@ -203,6 +206,7 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	}
 
 	computeActiveCondition(pa, pc)
+	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
@@ -276,4 +280,19 @@ func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
 	}
 
 	return int(min)
+}
+
+// resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
+// TBC == -1 => activator in path, don't scrape the service
+func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
+	tbc := 0.
+	if v, ok := pa.TargetBC(); ok {
+		tbc = v
+	} else {
+		tbc = config.FromContext(ctx).Autoscaler.TargetBurstCapacity
+	}
+	if tbc == -1 {
+		return ""
+	}
+	return pa.Status.MetricsServiceName
 }

@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -90,6 +89,9 @@ type Collector interface {
 	Record(key types.NamespacedName, stat Stat)
 	// Delete deletes a Metric and halts collection.
 	Delete(string, string) error
+	// Watch registers a singleton function to call when a specific collector's status changes.
+	// The passed name is the namespace/name of the metric owned by the respective collector.
+	Watch(func(types.NamespacedName))
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
@@ -112,6 +114,9 @@ type MetricCollector struct {
 
 	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
+
+	watcherMutex sync.RWMutex
+	watcher      func(types.NamespacedName)
 }
 
 var _ Collector = (*MetricCollector)(nil)
@@ -143,7 +148,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
-		return nil
+		return collection.lastError()
 	}
 
 	c.collectionsMutex.Lock()
@@ -153,10 +158,10 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
-		return nil
+		return collection.lastError()
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.Inform, c.logger)
 	return nil
 }
 
@@ -183,6 +188,27 @@ func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
 	}
 }
 
+// Watch registers a singleton function to call when collector status changes.
+func (c *MetricCollector) Watch(fn func(types.NamespacedName)) {
+	c.watcherMutex.Lock()
+	defer c.watcherMutex.Unlock()
+
+	if c.watcher != nil {
+		c.logger.Fatal("Multiple calls to Watch() not supported")
+	}
+	c.watcher = fn
+}
+
+// Inform sends an update to the registered watcher function, if it is set.
+func (c *MetricCollector) Inform(event types.NamespacedName) {
+	c.watcherMutex.RLock()
+	defer c.watcherMutex.RUnlock()
+
+	if c.watcher != nil {
+		c.watcher(event)
+	}
+}
+
 // StableAndPanicConcurrency returns both the stable and the panic concurrency.
 // It may truncate metric buckets as a side-effect.
 func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
@@ -195,7 +221,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	}
 
 	s, p, noData := collection.stableAndPanicConcurrency(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
@@ -213,7 +239,7 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 	}
 
 	s, p, noData := collection.stableAndPanicRPS(now)
-	if noData {
+	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
 	return s, p, nil
@@ -223,6 +249,9 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 type collection struct {
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
+
+	errMutex sync.RWMutex
+	lastErr  error
 
 	scraperMutex            sync.RWMutex
 	scraper                 StatsScraper
@@ -249,7 +278,8 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker, logger *zap.SugaredLogger) *collection {
+func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker,
+	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric: metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
@@ -265,8 +295,8 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 		stopCh: make(chan struct{}),
 	}
 
-	logger = logger.Named("collector").With(
-		zap.String(logkey.Key, fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)))
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+	logger = logger.Named("collector").With(zap.String(logkey.Key, key.String()))
 
 	c.grp.Add(1)
 	go func() {
@@ -279,19 +309,20 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				stat, err := c.getScraper().Scrape(c.currentMetric().Spec.StableWindow)
-				if err != nil {
-					copy := metric.DeepCopy()
-					switch {
-					case err == ErrFailedGetEndpoints:
-						copy.Status.MarkMetricNotReady("NoEndpoints", ErrFailedGetEndpoints.Error())
-					case err == ErrDidNotReceiveStat:
-						copy.Status.MarkMetricFailed("DidNotReceiveStat", ErrDidNotReceiveStat.Error())
-					default:
-						copy.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
+				currentMetric := c.currentMetric()
+				if currentMetric.Spec.ScrapeTarget == "" {
+					// Don't scrape empty target service.
+					if c.updateLastError(nil) {
+						callback(key)
 					}
+					continue
+				}
+				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
+				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
-					c.updateMetric(copy)
+				}
+				if c.updateLastError(err) {
+					callback(key)
 				}
 				if stat != emptyStat {
 					c.record(stat)
@@ -321,6 +352,26 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 	defer c.metricMutex.RUnlock()
 
 	return c.metric
+}
+
+// updateLastError updates the last error returned from the scraper
+// and returns true if the error or error state changed.
+func (c *collection) updateLastError(err error) bool {
+	c.errMutex.Lock()
+	defer c.errMutex.Unlock()
+
+	if c.lastErr == err {
+		return false
+	}
+	c.lastErr = err
+	return true
+}
+
+func (c *collection) lastError() error {
+	c.errMutex.RLock()
+	defer c.errMutex.RUnlock()
+
+	return c.lastErr
 }
 
 // record adds a stat to the current collection.

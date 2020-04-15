@@ -44,7 +44,7 @@ const (
 // after the cluster operation is finished
 func writeMetaData(cluster *container.Cluster, project string) {
 	// Set up metadata client for saving metadata
-	c, err := client.NewClient("")
+	c, err := client.New("")
 	if err != nil {
 		log.Fatal(err)
 	}

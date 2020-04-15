@@ -140,7 +140,12 @@ func (r *URIResolver) URIFromObjectReference(ref *corev1.ObjectReference, parent
 		return nil, errors.New("ref is nil")
 	}
 
-	if err := r.tracker.Track(*ref, parent); err != nil {
+	if err := r.tracker.TrackReference(tracker.Reference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+	}, parent); err != nil {
 		return nil, fmt.Errorf("failed to track %+v: %v", ref, err)
 	}
 

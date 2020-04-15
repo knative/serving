@@ -34,6 +34,7 @@ type ServingEnvironmentFlags struct {
 	Https            bool   // Indicates where the test service will be created with https
 	IngressClass     string // Indicates the class of Ingress provider to test.
 	CertificateClass string // Indicates the class of Certificate provider to test.
+	SystemNamespace  string // Indicates the system namespace, in which Knative Serving is installed.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {

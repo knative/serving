@@ -97,7 +97,7 @@ mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
-git remote add upstream git@github.com:knative/serving.git
+git remote add upstream https://github.com/knative/serving.git
 git remote set-url --push upstream no_push
 ```
 
@@ -135,11 +135,11 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.3-latest/istio-crds.yaml
+kubectl apply -f ./third_party/istio-stable/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.3-latest/istio-minimal.yaml
+kubectl apply -f ./third_party/istio-stable/istio-minimal.yaml
 ```
 
 Follow the
@@ -154,7 +154,7 @@ installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
+kubectl apply -f ./third_party/istio-stable/istio-knative-extras.yaml
 ```
 
 > If you want to customize the `istio*.yaml` files you can refer to
@@ -199,8 +199,8 @@ ko apply -f config/
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
-ko delete -f config/post-install --ignore-not-found
-ko apply -f config/post-install
+ko delete -f config/post-install/default-domain.yaml --ignore-not-found
+ko apply -f config/post-install/default-domain.yaml
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
@@ -283,8 +283,8 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-1.3-latest/istio-minimal.yaml \
-  -f ./third_party/istio-1.3-latest/istio-crds.yaml \
+  -f ./third_party/istio-stable/istio-minimal.yaml \
+  -f ./third_party/istio-stable/istio-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```

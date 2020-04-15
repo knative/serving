@@ -63,9 +63,9 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 }
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
-func sendRequest(t *testing.T, kubeClient *pkgTest.KubeClient, endpoint *url.URL,
+func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(kubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
 	}
@@ -207,31 +207,32 @@ func TestRevisionTimeout(t *testing.T) {
 		rev5sURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", rev5sURL, err)
 	}
 
 	// Quick sanity check
-	if err := sendRequest(t, clients.KubeClient, rev2sURL, 0, 0, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients.KubeClient, rev5sURL, 0, 0, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 5s: %v", err)
 	}
 
 	// Fail by surpassing the initial timeout.
-	if err := sendRequest(t, clients.KubeClient, rev2sURL, 5*time.Second, 0, http.StatusGatewayTimeout); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 5*time.Second, 0, http.StatusGatewayTimeout); err != nil {
 		t.Errorf("Did not fail request with sleep 5s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients.KubeClient, rev5sURL, 7*time.Second, 0, http.StatusGatewayTimeout); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 7*time.Second, 0, http.StatusGatewayTimeout); err != nil {
 		t.Errorf("Did not fail request with sleep 7s with revision timeout 5s: %v", err)
 	}
 
 	// Not fail by not surpassing in the initial timeout, but in the overall request duration.
-	if err := sendRequest(t, clients.KubeClient, rev2sURL, time.Second, 3*time.Second, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, time.Second, 3*time.Second, http.StatusOK); err != nil {
 		t.Errorf("Did not fail request with sleep 1s/3s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients.KubeClient, rev5sURL, 3*time.Second, 3*time.Second, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 3*time.Second, 3*time.Second, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 3s/3s with revision timeout 5s: %v", err)
 	}
 }

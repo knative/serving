@@ -101,6 +101,11 @@ type ServerlessServiceSpec struct {
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
 	ProtocolType networking.ProtocolType
+
+	// NumActivators contains number of Activators that this revision should be
+	// assigned.
+	// O means — assign all.
+	NumActivators int32 `json:"numActivators,omitempty"`
 }
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.

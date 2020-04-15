@@ -24,26 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
-	"knative.dev/serving/pkg/apis/autoscaling"
 )
-
-var defaultConfig = Config{
-	EnableScaleToZero:                  true,
-	EnableGracefulScaledown:            false,
-	ContainerConcurrencyTargetFraction: 0.7,
-	ContainerConcurrencyTargetDefault:  100,
-	RPSTargetDefault:                   200,
-	TargetUtilization:                  0.7,
-	TargetBurstCapacity:                200,
-	MaxScaleUpRate:                     1000,
-	MaxScaleDownRate:                   2,
-	StableWindow:                       time.Minute,
-	ScaleToZeroGracePeriod:             30 * time.Second,
-	TickInterval:                       2 * time.Second,
-	PanicWindowPercentage:              10.0,
-	PanicThresholdPercentage:           200.0,
-	PodAutoscalerClass:                 autoscaling.KPA,
-}
 
 func TestNewConfig(t *testing.T) {
 	tests := []struct {
@@ -54,7 +35,7 @@ func TestNewConfig(t *testing.T) {
 	}{{
 		name:  "default",
 		input: map[string]string{},
-		want:  &defaultConfig,
+		want:  defaultConfig(),
 	}, {
 		name: "minimum",
 		input: map[string]string{
@@ -66,33 +47,38 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
+			"activator-capacity":                      "1",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
 			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
-			return &c
-		}(defaultConfig),
+			c.ActivatorCapacity = 1
+			return c
+		}(),
 	}, {
 		name: "concurrencty target percentage as percent",
 		input: map[string]string{
 			"container-concurrency-target-percentage": "55",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.ContainerConcurrencyTargetFraction = 0.55
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with -1 tbc",
 		input: map[string]string{
 			"target-burst-capacity": "-1",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.TargetBurstCapacity = -1
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with default toggles set",
 		input: map[string]string{
@@ -109,8 +95,10 @@ func TestNewConfig(t *testing.T) {
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
 			"pod-autoscaler-class":                    "some.class",
+			"activator-capacity":                      "905",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.TargetBurstCapacity = 12345
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
@@ -118,38 +106,41 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
+			c.ActivatorCapacity = 905
 			c.PodAutoscalerClass = "some.class"
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with toggles on strange casing",
 		input: map[string]string{
 			"enable-scale-to-zero":      "TRUE",
 			"enable-graceful-scaledown": "FALSE",
 		},
-		want: &defaultConfig,
+		want: defaultConfig(),
 	}, {
 		name: "with toggles explicitly flipped",
 		input: map[string]string{
 			"enable-scale-to-zero":      "false",
 			"enable-graceful-scaledown": "true",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.EnableGracefulScaledown = true
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "with explicit grace period",
 		input: map[string]string{
 			"enable-scale-to-zero":       "false",
 			"scale-to-zero-grace-period": "33s",
 		},
-		want: func(c Config) *Config {
+		want: func() *Config {
+			c := defaultConfig()
 			c.EnableScaleToZero = false
 			c.ScaleToZeroGracePeriod = 33 * time.Second
-			return &c
-		}(defaultConfig),
+			return c
+		}(),
 	}, {
 		name: "malformed float",
 		input: map[string]string{
@@ -217,6 +208,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "activator-capacity invalid",
+		input: map[string]string{
+			"activator-capacity": "0.95",
+		},
+		wantErr: true,
+	}, {
 		name: "panic window percentage too small",
 		input: map[string]string{
 			"stable-window":           "12s",
@@ -268,7 +265,11 @@ func TestOurConfig(t *testing.T) {
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
 	}
-	if _, err := NewConfigFromConfigMap(example); err != nil {
+	if cm, err := NewConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
+	} else if got, want := cm, defaultConfig(); !cmp.Equal(want, got) {
+		t.Errorf("ExampleConfig is not equal to defaults (-want, +got) = %s",
+			cmp.Diff(want, got))
 	}
+
 }

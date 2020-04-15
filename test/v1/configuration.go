@@ -21,15 +21,13 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/test/logging"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
+	"knative.dev/pkg/apis/duck"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )

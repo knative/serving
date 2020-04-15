@@ -62,6 +62,11 @@ type Config struct {
 	// NB: most of our computations are in floats, so this is float to avoid casting.
 	TargetBurstCapacity float64
 
+	// ActivatorCapacity is the number of the concurrent requests an activator
+	// task can accept. This is used in activator subsetting algorithm, to determine
+	// the number of activators per revision.
+	ActivatorCapacity float64
+
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
 	MaxScaleDownRate         float64
@@ -75,31 +80,46 @@ type Config struct {
 	PodAutoscalerClass string
 }
 
+func defaultConfig() *Config {
+	return &Config{
+		EnableScaleToZero:                  true,
+		EnableGracefulScaledown:            false,
+		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
+		ContainerConcurrencyTargetDefault:  100,
+		// TODO(#1956): Tune target usage based on empirical data.
+		TargetUtilization:        defaultTargetUtilization,
+		RPSTargetDefault:         200,
+		MaxScaleUpRate:           1000,
+		MaxScaleDownRate:         2,
+		TargetBurstCapacity:      200,
+		PanicWindowPercentage:    10,
+		ActivatorCapacity:        100,
+		PanicThresholdPercentage: 200,
+		StableWindow:             60 * time.Second,
+		ScaleToZeroGracePeriod:   30 * time.Second,
+		TickInterval:             2 * time.Second,
+		PodAutoscalerClass:       autoscaling.KPA,
+	}
+}
+
 // NewConfigFromMap creates a Config from the supplied map
 func NewConfigFromMap(data map[string]string) (*Config, error) {
-	lc := &Config{
-		TargetUtilization: defaultTargetUtilization,
-	}
+	lc := defaultConfig()
 
 	// Process bool fields.
 	for _, b := range []struct {
-		key          string
-		field        *bool
-		defaultValue bool
+		key   string
+		field *bool
 	}{
 		{
-			key:          "enable-scale-to-zero",
-			field:        &lc.EnableScaleToZero,
-			defaultValue: true,
+			key:   "enable-scale-to-zero",
+			field: &lc.EnableScaleToZero,
 		},
 		{
-			key:          "enable-graceful-scaledown",
-			field:        &lc.EnableGracefulScaledown,
-			defaultValue: false,
+			key:   "enable-graceful-scaledown",
+			field: &lc.EnableGracefulScaledown,
 		}} {
-		if raw, ok := data[b.key]; !ok {
-			*b.field = b.defaultValue
-		} else {
+		if raw, ok := data[b.key]; ok {
 			*b.field = strings.EqualFold(raw, "true")
 		}
 	}
@@ -108,47 +128,39 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	for _, f64 := range []struct {
 		key   string
 		field *float64
-		// specified exactly when optional
-		defaultValue float64
 	}{{
-		key:          "max-scale-up-rate",
-		field:        &lc.MaxScaleUpRate,
-		defaultValue: 1000.0,
+		key:   "max-scale-up-rate",
+		field: &lc.MaxScaleUpRate,
 	}, {
-		key:          "max-scale-down-rate",
-		field:        &lc.MaxScaleDownRate,
-		defaultValue: 2.0,
+		key:   "max-scale-down-rate",
+		field: &lc.MaxScaleDownRate,
 	}, {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
-		// TODO(#1956): Tune target usage based on empirical data.
-		defaultValue: defaultTargetUtilization,
 	}, {
-		key:          "container-concurrency-target-default",
-		field:        &lc.ContainerConcurrencyTargetDefault,
-		defaultValue: 100.0,
+		key:   "container-concurrency-target-default",
+		field: &lc.ContainerConcurrencyTargetDefault,
 	}, {
-		key:          "requests-per-second-target-default",
-		field:        &lc.RPSTargetDefault,
-		defaultValue: 200.0,
+		key:   "requests-per-second-target-default",
+		field: &lc.RPSTargetDefault,
 	}, {
-		key:          "target-burst-capacity",
-		field:        &lc.TargetBurstCapacity,
-		defaultValue: 200,
+		key:   "target-burst-capacity",
+		field: &lc.TargetBurstCapacity,
 	}, {
-		key:          "panic-window-percentage",
-		field:        &lc.PanicWindowPercentage,
-		defaultValue: 10.0,
+		key:   "panic-window-percentage",
+		field: &lc.PanicWindowPercentage,
 	}, {
-		key:          "panic-threshold-percentage",
-		field:        &lc.PanicThresholdPercentage,
-		defaultValue: 200.0,
+		key:   "activator-capacity",
+		field: &lc.ActivatorCapacity,
+	}, {
+		key:   "panic-threshold-percentage",
+		field: &lc.PanicThresholdPercentage,
 	}} {
-		if raw, ok := data[f64.key]; !ok {
-			*f64.field = f64.defaultValue
-		} else if val, err := strconv.ParseFloat(raw, 64); err != nil {
-			return nil, err
-		} else {
+		if raw, ok := data[f64.key]; ok {
+			val, err := strconv.ParseFloat(raw, 64)
+			if err != nil {
+				return nil, err
+			}
 			*f64.field = val
 		}
 	}
@@ -163,32 +175,27 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	// Process Duration fields
 	for _, dur := range []struct {
-		key          string
-		field        *time.Duration
-		defaultValue time.Duration
+		key   string
+		field *time.Duration
 	}{{
-		key:          "stable-window",
-		field:        &lc.StableWindow,
-		defaultValue: 60 * time.Second,
+		key:   "stable-window",
+		field: &lc.StableWindow,
 	}, {
-		key:          "scale-to-zero-grace-period",
-		field:        &lc.ScaleToZeroGracePeriod,
-		defaultValue: 30 * time.Second,
+		key:   "scale-to-zero-grace-period",
+		field: &lc.ScaleToZeroGracePeriod,
 	}, {
-		key:          "tick-interval",
-		field:        &lc.TickInterval,
-		defaultValue: 2 * time.Second,
+		key:   "tick-interval",
+		field: &lc.TickInterval,
 	}} {
-		if raw, ok := data[dur.key]; !ok {
-			*dur.field = dur.defaultValue
-		} else if val, err := time.ParseDuration(raw); err != nil {
-			return nil, err
-		} else {
+		if raw, ok := data[dur.key]; ok {
+			val, err := time.ParseDuration(raw)
+			if err != nil {
+				return nil, err
+			}
 			*dur.field = val
 		}
 	}
 
-	lc.PodAutoscalerClass = autoscaling.KPA
 	if pac, ok := data["pod-autoscaler-class"]; ok {
 		lc.PodAutoscalerClass = pac
 	}
@@ -214,6 +221,10 @@ func validate(lc *Config) (*Config, error) {
 
 	if lc.RPSTargetDefault < autoscaling.TargetMin {
 		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, got %v", autoscaling.TargetMin, lc.RPSTargetDefault)
+	}
+
+	if lc.ActivatorCapacity < 1 {
+		return nil, fmt.Errorf("activator-capacity = %v, must be at least 1", lc.ActivatorCapacity)
 	}
 
 	if lc.MaxScaleUpRate <= 1.0 {
