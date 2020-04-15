@@ -106,7 +106,7 @@ for deployment in controller autoscaler-hpa activator; do
   kubectl -n "${SYSTEM_NAMESPACE}" patch deployment "$deployment" --patch '{"spec":{"replicas":2}}'
 done
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=10m -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 kubectl get cm config-leader-election -n "${SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure
