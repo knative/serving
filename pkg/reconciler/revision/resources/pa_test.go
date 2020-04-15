@@ -20,9 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
@@ -316,8 +314,8 @@ func TestMakePA(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := MakePA(test.rev)
-			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeK8sService (-want, +got) = %v", diff)
+			if !cmp.Equal(got, test.want) {
+				t.Error("MakeK8sService (-want, +got) =", cmp.Diff(test.want, got))
 			}
 		})
 	}
