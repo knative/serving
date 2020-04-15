@@ -26,12 +26,10 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/networking"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/network"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
@@ -56,11 +54,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	impl := namespacereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up event handlers")
-		nsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: pkgreconciler.Not(pkgreconciler.LabelFilterFunc(
-				networking.DisableWildcardCertLabelKey, "true", false)),
-			Handler: controller.HandleAll(impl.Enqueue),
-		})
+		nsInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 		knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 			FilterFunc: controller.FilterGroupVersionKind(

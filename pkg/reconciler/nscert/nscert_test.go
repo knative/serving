@@ -182,7 +182,7 @@ func TestReconcile(t *testing.T) {
 		Name:                    "create Knative certificate for namespace with explicitly enabled",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "false"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
 		},
 		WantCreates: []runtime.Object{
 			knCert(kubeNamespace("foo")),
@@ -192,10 +192,51 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name: "certificate not created for excluded namespace",
+		Name:                    "create Knative certificate for namespace with explicitly enabled for internal label",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "false"}),
+		},
+		WantCreates: []runtime.Object{
+			knCert(kubeNamespace("foo")),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Knative Certificate %s/%s", "foo", defaultCertName),
+		},
+		Key: "foo",
+	}, {
+		Name: "certificate not created for excluded namespace with internal label",
 		Key:  "foo",
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
+		},
+	}, {
+		Name: "certificate not created for excluded namespace with external label",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DeprecatedDisableWildcardCertLabelKey: "true"}),
+		},
+	}, {
+		Name: "certificate not created for excluded namespace when both internal and external labels are present",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{
+				networking.DeprecatedDisableWildcardCertLabelKey: "true",
+				networking.DisableWildcardCertLabelKey:           "true",
+			}),
+		},
+	}, {
+		Name: "certificate not created for different wildcard cert label",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithLabelValue("foo", map[string]string{
+				networking.DeprecatedDisableWildcardCertLabelKey: "true",
+				networking.DisableWildcardCertLabelKey:           "false",
+			}),
+		},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "both networking.knative.dev/disableWildcardCert and networking.internal.knative.dev/disableWildcardCert are specified but values do not match"),
 		},
 	}, {
 		Name:                    "certificate creation failed",
@@ -219,7 +260,7 @@ func TestReconcile(t *testing.T) {
 		Name: "disabling namespace cert feature deletes the cert",
 		Key:  "foo",
 		Objects: []runtime.Object{
-			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			kubeNamespaceWithLabelValue("foo", map[string]string{networking.DisableWildcardCertLabelKey: "true"}),
 			knCert(kubeNamespace("foo")),
 		},
 		SkipNamespaceValidation: true,
@@ -511,13 +552,11 @@ func kubeNamespace(name string) *corev1.Namespace {
 	}
 }
 
-func kubeNamespaceWithDisableLabelValue(name, value string) *corev1.Namespace {
+func kubeNamespaceWithLabelValue(name string, labels map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				networking.DisableWildcardCertLabelKey: value,
-			},
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }
