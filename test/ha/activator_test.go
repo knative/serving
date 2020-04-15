@@ -38,6 +38,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
+	minProbes               = 100  // We want to send at least 100 requests.
 	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
 )
 
@@ -77,7 +78,8 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to scale to zero:", err)
 	}
 
-	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
+	prober := test.NewProberManager(log.Printf, clients, minProbes)
+	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober)
 
 	scaleToZeroURL := resourcesScaleToZero.Service.Status.URL.URL()
