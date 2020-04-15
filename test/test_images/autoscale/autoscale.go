@@ -171,7 +171,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if max <= 0 {
+	if hasMax && max <= 0 {
 		http.Error(w, "Non-positive query params are not supported", http.StatusBadRequest)
 		return
 	}
@@ -180,7 +180,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if mb <= 0 {
+	if hasMb && mb <= 0 {
 		http.Error(w, "Non-positive durations are not supported", http.StatusBadRequest)
 		return
 	}
