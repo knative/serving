@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -1198,6 +1199,15 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = map[string]string{"app": "prod"}
 
 			servingClient.ServingV1().Routes(route.Namespace).Create(route)
+
+			rl := fakerouteinformer.Get(ctx).Lister()
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				l, err := rl.List(labels.Everything())
+				// We only create a single route.
+				return len(l) > 0, err
+			}); err != nil {
+				t.Fatal("Failed to see route creation propagation:", err)
+			}
 
 			test.doThings(watcher)
 
