@@ -58,6 +58,9 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1.Route {
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1.Route, error) {
 	route := Route(names, fopt...)
+	if route.Labels == nil {
+		route.Labels = map[string]string{}
+	}
 	route.Labels[test.TestLabel] = "true"
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingClient.Routes.Create(route)

@@ -39,6 +39,9 @@ import (
 // that uses the image specified by names.Image.
 func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
 	config := Configuration(names, fopt...)
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
 	config.Labels[test.TestLabel] = "true"
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingBetaClient.Configs.Create(config)
