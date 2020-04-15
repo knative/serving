@@ -99,7 +99,7 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 
 // AddTestLabel adds the test name as a label to a resource's labels.
 func AddTestLabel(t pkgTest.T, labels *map[string]string) {
-	if labels == nil {
+	if *labels == nil {
 		labels = &map[string]string{}
 	}
 	(*labels)[TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
