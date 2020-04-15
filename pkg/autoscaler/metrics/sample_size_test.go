@@ -68,6 +68,9 @@ func TestPopulationMeanSampleSizeGracefulScaledown(t *testing.T) {
 		popSize:        5,
 		wantSampleSize: 5,
 	}, {
+		popSize:        8,
+		wantSampleSize: 8,
+	}, {
 		popSize:        10,
 		wantSampleSize: 9,
 	}, {

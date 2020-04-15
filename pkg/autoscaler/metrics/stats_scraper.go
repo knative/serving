@@ -207,6 +207,7 @@ func (s *ServiceScraper) ScrapeForRemovalCandidates() ([]string, error) {
 		return []string{}, nil
 	}
 	sampleSize := int(populationMeanSampleSizeGracefulScaledown(float64(readyPodsCount)))
+	fmt.Printf("\n\n\n\n--------- ScrapeForRemovalCandidates sampleSize is %v, readyPodsCount is %v\n\n\n", sampleSize, readyPodsCount)
 	statChan := make(chan Stat, sampleSize)
 	if err := s.doScrape(statChan, sampleSize); err != nil {
 		return nil, err
@@ -216,6 +217,7 @@ func (s *ServiceScraper) ScrapeForRemovalCandidates() ([]string, error) {
 	var podInfo []Stat
 	for stat := range statChan {
 		podInfo = append(podInfo, stat)
+		fmt.Printf("\n+++ podInfo stat: %s, AverageConcurrentRequests: %v, AverageProxiedConcurrentRequests: %v", stat.PodName, stat.AverageConcurrentRequests, stat.AverageProxiedConcurrentRequests)
 	}
 	sort.SliceStable(podInfo, func(i, j int) bool {
 		return podInfo[i].AverageConcurrentRequests+podInfo[i].AverageProxiedConcurrentRequests <
@@ -225,11 +227,11 @@ func (s *ServiceScraper) ScrapeForRemovalCandidates() ([]string, error) {
 	for _, info := range podInfo {
 		pods = append(pods, info.PodName)
 	}
+	fmt.Printf("\n\n\n\n--------- ScrapeForRemovalCandidates sampleSize is %v, readyPodsCount is %v, pods are %#v\n\n\n", sampleSize, readyPodsCount, pods)
 	return pods, nil
 }
 
 // Scrape calls the destination service then sends it
-// calculate calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()

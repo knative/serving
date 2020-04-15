@@ -18,6 +18,7 @@ package scaling
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -374,6 +375,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 		}
 	}
 
+	fmt.Printf("\n\n\n\n before calling updateLatestScale with removalCandidates %#v\n\n\n", removalCandidates)
 	if runner.updateLatestScale(sr, removalCandidates) {
 		m.Inform(metricKey)
 	}

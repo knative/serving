@@ -281,6 +281,7 @@ func allPods(ctx *testContext) ([]corev1.Pod, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods for revision %s: %w", ctx.resources.Revision.Name, err)
 	}
+	ctx.t.Logf("_______________ allPods returning %#v", pods.Items)
 
 	return pods.Items, nil
 }
@@ -303,6 +304,7 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}
+	ctx.t.Logf("----------- final eps are %#v", eps)
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
@@ -395,22 +397,24 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	if err != nil {
 		return err
 	}
-	deleteHostConnections(t, hostConnMap, upscale)
+	//deleteHostConnections(t, hostConnMap, upscale)
 
 	// give some time in between
-	time.Sleep(5 * time.Second)
+	//time.Sleep(5 * time.Second)
 
 	// start x running pods; x == size
-	hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
-	if err != nil {
-		return err
-	}
+	//hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
+	//if err != nil {
+	//	return err
+	//}
 
-	// only keep openConnCount connections open for the test
-	openConnCount := size / 2
-	deleteHostConnections(t, hostConnMap, size-openConnCount)
+	// only keep half of the connections open for the test
+	//openConnCount := size / 2
+	deleteHostConnections(t, hostConnMap, size)
+	//time.Sleep(5 * time.Second)
 
 	hostConnMap.Range(func(key, value interface{}) bool {
+		t.Logf("+++++++++++ FINAL HOST CONN %#v", key)
 		return true
 	})
 
@@ -418,8 +422,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	defer close(doneCh)
 	go pingOpenConnections(doneCh, hostConnMap)
 
-	defer deleteHostConnections(t, hostConnMap, openConnCount)
-
+	defer deleteHostConnections(t, hostConnMap, size)
 	timer := time.NewTicker(2 * time.Second)
 	for range timer.C {
 		readyCount, err := numberOfReadyPods(ctx)
@@ -427,11 +430,11 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 			return err
 		}
 
-		if int(readyCount) < openConnCount {
-			return fmt.Errorf("failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), openConnCount)
+		if int(readyCount) < size {
+			return fmt.Errorf("failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), size)
 		}
 
-		if int(readyCount) == openConnCount {
+		if int(readyCount) == size {
 			pods, err := allPods(ctx)
 			if err != nil {
 				return err
@@ -441,8 +444,10 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 				if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
 					continue
 				}
-
-				t.Logf("inspecting pod %s (%s:%s:%s)", p.Name, p.Status.PodIP, p.Status.Phase, p.DeletionTimestamp)
+				if p.ObjectMeta.Labels["autoscaling.knative.dev/prefer-for-scale-down"] == "true" {
+					t.Logf("Pod marked for prefer-for-scale-down but still running %s", p.Name)
+					continue
+				}
 				if _, ok := hostConnMap.Load(p.Name); !ok {
 					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}
@@ -461,7 +466,7 @@ func TestGracefulScaledown(t *testing.T) {
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 1 /* target */, 1, /* targetUtilization */
 		wsHostnameTestImageName, nil, /* no validation */
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey: "-1",
+			//autoscaling.TargetBurstCapacityKey: "-1",
 		}))
 	defer test.TearDown(ctx.clients, ctx.names)
 
@@ -478,7 +483,8 @@ func TestGracefulScaledown(t *testing.T) {
 	defer patchCM(ctx.clients, autoscalerConfigMap)
 	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
 
-	if err = assertGracefulScaledown(t, ctx, 3 /* desired pods */); err != nil {
+	time.Sleep(10 * time.Second)
+	if err = assertGracefulScaledown(t, ctx, 4 /* desired pods */); err != nil {
 		t.Errorf("Failed: %v", err)
 	}
 }

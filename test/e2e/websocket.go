@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -94,12 +95,33 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 	reqCnt := int32(0)
 	ctx, _ := context.WithTimeout(context.Background(), uniqueHostConnTimeout)
 	gr, gctx := errgroup.WithContext(ctx)
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	for i := 0; i < size; i++ {
 		gr.Go(func() error {
 			for {
 				select {
 				case <-gctx.Done():
 					return errors.New("timed out trying to find unique host connections")
+
+				case <-ticker.C:
+					uniqueHostConns.Range(func(key, value interface{}) bool {
+						if conn, ok := value.(*websocket.Conn); ok {
+							if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+								return false
+							}
+							_, recv, err := conn.ReadMessage()
+							if err != nil {
+								return false
+							}
+
+							host := string(recv)
+							hour, min, sec := time.Now().Clock()
+							fmt.Printf("\n\n in uniqueHostConnections, pinging: %s at time hour %v minute %v second %v\n\n", host, hour, min, sec)
+						}
+						return true
+					})
 
 				default:
 					atomic.AddInt32(&reqCnt, 1)
@@ -137,11 +159,20 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 	if err := gr.Wait(); err != nil {
 		return nil, err
 	}
+	length := 0
+	uniqueHostConns.Range(func(key, _ interface{}) bool {
+		length++
+		t.Logf("--------------- Printing unique host conns: key %v", key)
+		return true
+	})
+	if length != size {
+		t.Fatalf("Did not create %d unique pods, actually created %d", size, length)
+	}
 	t.Logf("For %d pods a total of %d requests were made", size, reqCnt)
 	return uniqueHostConns, nil
 }
 
-// deleteHostConnections closes and removees x number of open websocket connections
+// deleteHostConnections closes and removes x number of open websocket connections
 // from the hostConnMap where x == size
 func deleteHostConnections(t *testing.T, hostConnMap *sync.Map, size int) error {
 	hostConnMap.Range(func(key, value interface{}) bool {
@@ -153,38 +184,45 @@ func deleteHostConnections(t *testing.T, hostConnMap *sync.Map, size int) error 
 			conn.Close()
 			hostConnMap.Delete(key)
 			size -= 1
-			t.Logf("Closed connection to pod: %s", key.(string))
+			t.Logf("Closed connection to pod: %s, size is now %d", key.(string), size)
 			return true
 		}
 		return false
 	})
 
 	if size != 0 {
-		return errors.New("Failed to close connections")
+		return errors.New("failed to close connections")
 	}
 
 	return nil
 }
 
 // pingOpenConnections tries to keep the websocket connection alive by
-// sending a keepAlive message every 30 seconds. Otherwise the connection drops
+// sending a keepAlive message every 3 seconds. Otherwise the connection drops
 // after ~60 seconds and makes the tests flakey
 func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			var err error
 			hostConnMap.Range(func(key, value interface{}) bool {
 				if conn, ok := value.(*websocket.Conn); ok {
-					return conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")) == nil
+					if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+						return false
+					}
+					_, recv, err := conn.ReadMessage()
+					if err != nil {
+						return false
+					}
+
+					host := string(recv)
+					hour, min, sec := time.Now().Clock()
+					fmt.Printf("\n\n pingOpenConnections: %s at time hour %v minute %v second %v\n\n", host, hour, min, sec)
+					return true
 				}
 				return true
 			})
-			if err != nil {
-				return err
-			}
 		case <-doneCh:
 			return nil
 		}

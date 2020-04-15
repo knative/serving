@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"knative.dev/serving/pkg/network"
@@ -50,8 +51,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
 			// which is okay. There's no value delaying closure of the connection unnecessarily.
+			hour, min, sec := time.Now().Clock()
 			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-				log.Println("Client disconnected.")
+				log.Printf("\nClient disconnected at time hour %v minute %v second %v\n\n\n\n", hour, min, sec)
 			} else {
 				log.Println("Handler exiting on error:", err)
 			}

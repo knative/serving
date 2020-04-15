@@ -19,6 +19,7 @@ package scaling
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -135,12 +136,12 @@ func (a *Autoscaler) PrepareForRemoval(ctx context.Context, desiredScale int32) 
 	if err != nil {
 		return nil, err
 	}
-	// Need to randomly pick more pods
-	if len(podTraffic) >= readyPodsCount-int(desiredScale) {
-		return podTraffic[:readyPodsCount-int(desiredScale)], nil
-	}
-	// Don't return anything if we don't scrape enough pods to be removed,
+	// Need to randomly pick more pods if returned podTraffic is less than the number of pods we need to return
 	// so that we will do the removal randomly
+	if len(podTraffic) >= readyPodsCount - int(desiredScale) {
+		fmt.Printf("\n\n\n\nlen(podTraffic) >= readyPodsCount - int(desiredScale)\n\n\n")
+		return podTraffic, nil
+	}
 	return nil, nil
 }
 

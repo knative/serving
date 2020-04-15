@@ -143,10 +143,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		readyCount := int32(intReadyCount)
 		if readyCount > want && decider.Status.RemovalCandidates != nil {
 			logger.Debugf("removalCandidates: %#v", decider.Status.RemovalCandidates)
+			fmt.Printf("\n\n\n\n\n TARALOG before calling markPodsForRemoval with %#v, want: %v, readyCount: %v\n\n\n", decider.Status.RemovalCandidates, want, readyCount)
 			err := c.markPodsForRemoval(ctx, decider.Status.RemovalCandidates, pa, want, readyCount, podCounter)
 			if err != nil {
 				return fmt.Errorf("error marking pods for removal: %w", err)
 			}
+		} else {
+			fmt.Printf("\n\n\n\n\n TARALOG NOT calling markPodsForRemoval, want: %v, readyCount: %v\n\n\n", want, readyCount)
 		}
 	}
 

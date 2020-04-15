@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -33,7 +34,7 @@ const (
 	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval                  = time.Second
-	scrapeGracefulScaledownTickInterval = 2 * time.Second
+	scrapeGracefulScaledownTickInterval = time.Second
 )
 
 var (
@@ -255,6 +256,9 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 // CandidatesForRemoval returns candidates for removal based on stats collected on the
 // number of requests these candidate pods are processing
 func (c *MetricCollector) CandidatesForRemoval(key types.NamespacedName, readyCount, desiredScale int) ([]string, error) {
+	if readyCount <= desiredScale {
+		return nil, nil
+	}
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -265,7 +269,12 @@ func (c *MetricCollector) CandidatesForRemoval(key types.NamespacedName, readyCo
 
 	collection.podTrafficMutex.RLock()
 	defer collection.podTrafficMutex.RUnlock()
-	return collection.podTraffic, nil
+	if len(collection.podTraffic) < readyCount - desiredScale {
+		fmt.Printf("\n\n\n\n TARALOG candidatesforremoval returning %#v under len(collection.podTraffic) < readyCount - desiredScale\n\n\n\n", collection.podTraffic)
+		return collection.podTraffic, nil
+	}
+	fmt.Printf("\n\n\n\n TARALOG candidatesforremoval returning %#v\n\n\n\n", collection.podTraffic[:readyCount-desiredScale])
+	return collection.podTraffic[:readyCount-desiredScale], nil
 }
 
 // collection represents the collection of metrics for one specific entity.
@@ -330,7 +339,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 
 		scrapeTicker := tickFactory(scrapeTickInterval)
 		scrapeGracefulScaledownTicker := tickFactoryGracefulScaledown(scrapeGracefulScaledownTickInterval)
-		var err error
+		//var err error
 		for {
 			select {
 			case <-c.stopCh:
@@ -338,11 +347,22 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				scrapeGracefulScaledownTicker.Stop()
 				return
 			case <-scrapeGracefulScaledownTicker.C:
-				c.podTrafficMutex.Lock()
-				c.podTraffic, err = c.getScraper().ScrapeForRemovalCandidates()
-				c.podTrafficMutex.Unlock()
+				currentMetric := c.currentMetric()
+				if currentMetric.Spec.ScrapeTarget == "" {
+					// Don't scrape empty target service.
+					if c.updateLastError(nil) {
+						callback(key)
+					}
+					continue
+				}
+				newPodTraffic, err := c.getScraper().ScrapeForRemovalCandidates()
 				if err != nil {
 					logger.Errorw("Failed to scrape for removal candidates", zap.Error(err))
+				} else {
+					c.podTrafficMutex.Lock()
+					c.podTraffic = newPodTraffic
+					fmt.Printf("\n\n\n\n updating c.podTraffic with %#v\n\n\n", newPodTraffic)
+					c.podTrafficMutex.Unlock()
 				}
 			case <-scrapeTicker.C:
 				currentMetric := c.currentMetric()
