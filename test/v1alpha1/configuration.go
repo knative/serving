@@ -21,12 +21,14 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -40,7 +42,9 @@ import (
 // that uses the image specified by names.Image.
 func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
-	test.AddTestLabel(t, &config.Labels)
+	kmeta.UnionMaps(config.Labels, map[string]string{
+		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
+	})
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
 }

@@ -19,10 +19,12 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
@@ -59,7 +61,9 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1beta1.Rout
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1beta1.Route, error) {
 	route := Route(names, fopt...)
-	test.AddTestLabel(t, &route.Labels)
+	kmeta.UnionMaps(route.Labels, map[string]string{
+		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
+	})
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingBetaClient.Routes.Create(route)
 }

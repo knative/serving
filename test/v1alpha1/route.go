@@ -21,9 +21,11 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
@@ -45,7 +47,9 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 		},
 	}))
 	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
-	test.AddTestLabel(t, &route.Labels)
+	kmeta.UnionMaps(route.Labels, map[string]string{
+		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
+	})
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }

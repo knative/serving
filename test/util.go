@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
-	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -29,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/signals"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
@@ -95,12 +93,4 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 		return []byte{}
 	}
 	return secret.Data[corev1.TLSCertKey]
-}
-
-// AddTestLabel adds the test name as a label to a resource's labels.
-func AddTestLabel(t pkgTest.T, labels *map[string]string) {
-	if *labels == nil {
-		labels = &map[string]string{}
-	}
-	(*labels)[TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
 }
