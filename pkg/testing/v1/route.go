@@ -203,6 +203,13 @@ func MarkIngressNotConfigured(r *v1.Route) {
 	r.Status.MarkIngressNotConfigured()
 }
 
+// WithPropagatedStatus propagates the given IngressStatus into the routes status.
+func WithPropagatedStatus(status netv1alpha1.IngressStatus) RouteOption {
+	return func(r *v1.Route) {
+		r.Status.PropagateIngressStatus(status)
+	}
+}
+
 // MarkMissingTrafficTarget calls the method of the same name on .Status
 func MarkMissingTrafficTarget(kind, revision string) RouteOption {
 	return func(r *v1.Route) {
