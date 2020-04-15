@@ -400,8 +400,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "ingress-create-failure", WithConfigTarget("config"),
 				WithRouteFinalizer,
-				// Populated by reconciliation when we fail to create
-				// the cluster ingress.
+				// Populated by reconciliation when we fail to create the ingress.
 				WithURL, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -788,8 +787,8 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/becomes-public",
 	}, {
-		Name: "failure updating cluster ingress",
-		// Starting from the new latest ready, induce a failure updating the cluster ingress.
+		Name: "failure updating ingress",
+		// Starting from the new latest ready, induce a failure updating the ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "ingresses"),
@@ -1029,7 +1028,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/external-name",
 	}, {
-		Name: "reconcile cluster ingress mutation",
+		Name: "reconcile ingress mutation",
 		Objects: []runtime.Object{
 			Route("default", "ingress-mutation", WithConfigTarget("config"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1633,7 +1632,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/stale-lastpinned",
 	}, {
-		Name: "check that we can find the cluster ingress with old naming",
+		Name: "check that we can find the ingress with old naming",
 		Objects: []runtime.Object{
 			Route("default", "old-naming", WithConfigTarget("config"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
