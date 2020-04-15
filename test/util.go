@@ -16,11 +16,13 @@ package test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"knative.dev/pkg/signals"
+	pkgTest "knative.dev/pkg/test"
 )
 
 const (
@@ -41,7 +43,7 @@ func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r
 	ListenAndServeGracefullyWithHandler(addr, http.HandlerFunc(handler))
 }
 
-// ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
+// ListenAndServeGracefullyWithHandler creates an HTTP server, listens on the defined address
 // and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
 func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
@@ -50,4 +52,12 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 
 	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
+}
+
+// AddTestLabel adds the test name as a label to a resource's labels.
+func AddTestLabel(t pkgTest.T, labels *map[string]string) {
+	if labels == nil {
+		labels = &map[string]string{}
+	}
+	(*labels)[TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
 }

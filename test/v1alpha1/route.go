@@ -21,7 +21,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,10 +45,7 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 		},
 	}))
 	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
-	if route.Labels == nil {
-		route.Labels = map[string]string{}
-	}
-	route.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
+	test.AddTestLabel(t, &route.Labels)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }

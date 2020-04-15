@@ -21,7 +21,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +40,7 @@ import (
 // that uses the image specified by names.Image.
 func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
-	if config.Labels == nil {
-		config.Labels = map[string]string{}
-	}
-	config.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
+	test.AddTestLabel(t, &config.Labels)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
 }
