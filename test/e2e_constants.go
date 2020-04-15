@@ -47,4 +47,7 @@ const (
 
 	// ContainerMemoryLimit is used in any test which needs a default memory resource limit
 	ContainerMemoryLimit = "350Mi"
+
+	// TestLabel is a label attached to resources originating from tests.
+	TestLabel = "e2e-test"
 )

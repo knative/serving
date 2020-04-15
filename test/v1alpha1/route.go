@@ -45,6 +45,7 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 		},
 	}))
 	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
+	route.Labels[test.TestLabel] = "true"
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }
