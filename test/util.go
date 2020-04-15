@@ -103,3 +103,4 @@ func AddTestLabel(t pkgTest.T, labels *map[string]string) {
 		labels = &map[string]string{}
 	}
 	(*labels)[TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
+}
