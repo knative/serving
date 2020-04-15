@@ -49,7 +49,7 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 	if route.Labels == nil {
 		route.Labels = map[string]string{}
 	}
-	route.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
+	route.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }

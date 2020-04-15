@@ -135,7 +135,7 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	if service.Labels == nil {
 		service.Labels = map[string]string{}
 	}
-	service.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
+	service.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", ".", -1)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingBetaClient.Services.Create(service)
 	return svc, err
