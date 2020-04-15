@@ -239,7 +239,7 @@ func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.Re
 	if service.Labels == nil {
 		service.Labels = map[string]string{}
 	}
-	service.Labels[test.TestLabel] = t.Name()
+	service.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err

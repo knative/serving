@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
@@ -41,7 +42,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
-	config.Labels[test.TestLabel] = t.Name()
+	config.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }

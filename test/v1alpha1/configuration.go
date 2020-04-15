@@ -21,6 +21,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
-	config.Labels[test.TestLabel] = t.Name()
+	config.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
 }

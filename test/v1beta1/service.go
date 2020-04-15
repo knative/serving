@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,7 +135,7 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	if service.Labels == nil {
 		service.Labels = map[string]string{}
 	}
-	service.Labels[test.TestLabel] = t.Name()
+	service.Labels[test.TestLabel] = strings.Replace(t.Name(), "/", "_", -1)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingBetaClient.Services.Create(service)
 	return svc, err
