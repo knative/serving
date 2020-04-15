@@ -142,6 +142,11 @@ func assertServiceWorksNow(t *testing.T, clients *test.Clients, spoofingClient *
 
 func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
+	// Wait for the Service to be ready.
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatal("Service not ready: ", err)
+	}
+	// Wait for the Service to serve the expected text.
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
