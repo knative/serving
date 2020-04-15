@@ -668,6 +668,83 @@ func TestCancellation(t *testing.T) {
 	}
 }
 
+func TestProbeVerifier(t *testing.T) {
+	const hash = "Hi! I am hash!"
+	prober := NewStatusProber(zaptest.NewLogger(t).Sugar(), nil, nil, nil, nil)
+	verifier := prober.probeVerifier(&workItem{
+		ingressState: &ingressState{
+			hash: hash,
+		},
+		podState: nil,
+		podIP:    "",
+		podPort:  "",
+	})
+	cases := []struct {
+		name string
+		resp *http.Response
+		want bool
+	}{{
+		name: "HTTP 200 matching hash",
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{network.HashHeaderName: []string{hash}},
+		},
+		want: true,
+	}, {
+		name: "HTTP 200 mismatching hash",
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{network.HashHeaderName: []string{"nope"}},
+		},
+		want: false,
+	}, {
+		name: "HTTP 200 missing header",
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+		},
+		want: true,
+	}, {
+		name: "HTTP 404",
+		resp: &http.Response{
+			StatusCode: http.StatusNotFound,
+		},
+		want: false,
+	}, {
+		name: "HTTP 503",
+		resp: &http.Response{
+			StatusCode: http.StatusServiceUnavailable,
+		},
+		want: false,
+	}, {
+		name: "HTTP 403",
+		resp: &http.Response{
+			StatusCode: http.StatusForbidden,
+		},
+		want: true,
+	}, {
+		name: "HTTP 503",
+		resp: &http.Response{
+			StatusCode: http.StatusServiceUnavailable,
+		},
+		want: false,
+	}, {
+		name: "HTTP 302",
+		resp: &http.Response{
+			StatusCode: http.StatusFound,
+		},
+		want: true,
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, _ := verifier(c.resp, nil)
+			if got != c.want {
+				t.Errorf("got: %v, want: %v", got, c.want)
+			}
+		})
+	}
+}
+
 type fakeGatewayLister struct {
 	gateways []*v1alpha3.Gateway
 	fails    bool
