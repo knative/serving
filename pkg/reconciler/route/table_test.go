@@ -171,6 +171,53 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/becomes-ready",
 	}, {
+		Name: "simple route, ingress failed",
+		Objects: []runtime.Object{
+			Route("default", "ingress-failed", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			simpleIngress(
+				Route("default", "ingress-failed", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				}, WithLoadbalancerFailed("TestFailure", "failure"),
+			),
+			simplePlaceholderK8sService(
+				getContext(),
+				Route("default", "ingress-failed", WithConfigTarget("config"), WithRouteUID("12-34")),
+				"",
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "ingress-failed", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithURL, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}),
+				WithPropagatedStatus(simpleIngress(Route("default", "ingress-failed"), &traffic.Config{},
+					WithLoadbalancerFailed("TestFailure", "failure")).Status),
+			),
+		}},
+		Key: "default/ingress-failed",
+	}, {
 		Name: "custom ingress route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready",
