@@ -49,5 +49,5 @@ const (
 	ContainerMemoryLimit = "350Mi"
 
 	// TestLabel is a label attached to resources originating from tests.
-	TestLabel = "e2e-test"
+	TestLabel = "knative-e2e-test"
 )

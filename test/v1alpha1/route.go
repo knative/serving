@@ -48,7 +48,7 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 	if route.Labels == nil {
 		route.Labels = map[string]string{}
 	}
-	route.Labels[test.TestLabel] = "true"
+	route.Labels[test.TestLabel] = t.Name()
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }

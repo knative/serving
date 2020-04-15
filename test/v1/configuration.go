@@ -41,7 +41,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
-	config.Labels[test.TestLabel] = "true"
+	config.Labels[test.TestLabel] = t.Name()
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }

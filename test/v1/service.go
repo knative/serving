@@ -135,7 +135,7 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	if service.Labels == nil {
 		service.Labels = map[string]string{}
 	}
-	service.Labels[test.TestLabel] = "true"
+	service.Labels[test.TestLabel] = t.Name()
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
 }
