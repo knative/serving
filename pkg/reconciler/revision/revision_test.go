@@ -368,18 +368,18 @@ func TestRevWithImageDigests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
-	if len(rev.Status.ImageDigests) < 2 {
+	if len(rev.Status.ContainerStatuses) < 2 {
 		t.Error("Revision status does not have imageDigests")
 	}
 
 	rev.Status.DeprecatedImageDigest = "gcr.io/repo/image"
 	updateRevision(t, ctx, controller, rev)
-	if len(rev.Spec.Containers) != len(rev.Status.ImageDigests) {
+	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
 		t.Error("Image digests does not match with the provided containers")
 	}
-	rev.Status.ImageDigests = []v1.ImageDigests{}
+	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
 	updateRevision(t, ctx, controller, rev)
-	if len(rev.Status.ImageDigests) != 0 {
+	if len(rev.Status.ContainerStatuses) != 0 {
 		t.Error("Failed to update revision")
 	}
 }

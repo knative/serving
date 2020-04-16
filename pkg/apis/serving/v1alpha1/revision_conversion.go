@@ -80,15 +80,15 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
-	sink.ImageDigests = make([]v1.ImageDigests, len(source.ImageDigests))
-	for i := range source.ImageDigests {
-		source.ImageDigests[i].ConvertTo(&sink.ImageDigests[i])
+	sink.ContainerStatuses = make([]v1.ContainerStatuses, len(source.ContainerStatuses))
+	for i := range source.ContainerStatuses {
+		source.ContainerStatuses[i].ConvertTo(ctx, &sink.ContainerStatuses[i])
 	}
 }
 
 // ConvertTo helps implement apis.Convertible
-func (source *ImageDigests) ConvertTo(sink *v1.ImageDigests) {
-	sink.ContainerName = source.ContainerName
+func (source *ContainerStatuses) ConvertTo(ctx context.Context, sink *v1.ContainerStatuses) {
+	sink.Name = source.Name
 	sink.ImageDigest = source.ImageDigest
 }
 
@@ -122,14 +122,14 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
-	sink.ImageDigests = make([]ImageDigests, len(source.ImageDigests))
-	for i := range sink.ImageDigests {
-		sink.ImageDigests[i].ConvertFrom(&source.ImageDigests[i])
+	sink.ContainerStatuses = make([]ContainerStatuses, len(source.ContainerStatuses))
+	for i := range sink.ContainerStatuses {
+		sink.ContainerStatuses[i].ConvertFrom(ctx, &source.ContainerStatuses[i])
 	}
 }
 
 // ConvertFrom helps implement apis.Convertible
-func (sink *ImageDigests) ConvertFrom(source *v1.ImageDigests) {
-	sink.ContainerName = source.ContainerName
+func (sink *ContainerStatuses) ConvertFrom(ctx context.Context, source *v1.ContainerStatuses) {
+	sink.Name = source.Name
 	sink.ImageDigest = source.ImageDigest
 }

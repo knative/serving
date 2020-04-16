@@ -89,9 +89,9 @@ func TestRevisionConversion(t *testing.T) {
 						Status: "True",
 					}},
 				},
-				ServiceName:  "foo-bar",
-				LogURL:       "http://logger.io",
-				ImageDigests: []ImageDigests{},
+				ServiceName:       "foo-bar",
+				LogURL:            "http://logger.io",
+				ContainerStatuses: []ContainerStatuses{},
 			},
 		},
 	}, {
@@ -233,9 +233,9 @@ func TestRevisionConversionForMultiContainer(t *testing.T) {
 					Status: "True",
 				}},
 			},
-			ServiceName:  "foo-bar",
-			LogURL:       "http://logger.io",
-			ImageDigests: []ImageDigests{},
+			ServiceName:       "foo-bar",
+			LogURL:            "http://logger.io",
+			ContainerStatuses: []ContainerStatuses{},
 		},
 	}
 	beta := &v1beta1.Revision{}

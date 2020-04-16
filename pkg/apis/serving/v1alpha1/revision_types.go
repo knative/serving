@@ -198,18 +198,20 @@ type RevisionStatus struct {
 	// +optional
 	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
 
-	// ImageDigests is a mapping of images present in .Spec.Container[*].Image
-	// to their respective digests. The digests are resolved during the creation
-	// of Revision. ImageDigests holds the digests for both serving and non serving container.
+	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving container.
 	// ref: http://bit.ly/image-digests
 	// +optional
-	ImageDigests []ImageDigests `json:"imageDigests,omitempty"`
+	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
 }
 
-// ImageDigests holds the information of container name and digest value
-type ImageDigests struct {
-	ContainerName string `json:"containerName,omitempty"`
-	ImageDigest   string `json:"imageDigest,omitempty"`
+// ContainerStatuses holds the information of container name and image digest value
+type ContainerStatuses struct {
+	Name        string `json:"name,omitempty"`
+	ImageDigest string `json:"imageDigest,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

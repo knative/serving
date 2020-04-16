@@ -64,23 +64,24 @@ type Reconciler struct {
 var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
-	if rev.Status.ImageDigests == nil {
-		rev.Status.ImageDigests = make([]v1.ImageDigests, len(rev.Spec.Containers))
+	if rev.Status.ContainerStatuses == nil {
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0, len(rev.Spec.Containers))
 	}
 
 	if rev.Status.DeprecatedImageDigest != "" {
-		// The image digest has already been resolved.
-		if len(rev.Status.ImageDigests) == len(rev.Spec.Containers) {
-			return nil
-		}
-		// Default old revisions to have ImageDigests filled in.
+		// Default old revisions to have ContainerStatuses filled in.
 		// This path should only be taken by "old" revisions that have exactly one container.
-		if len(rev.Status.ImageDigests) == 0 {
-			rev.Status.ImageDigests = append(rev.Status.ImageDigests, v1.ImageDigests{
-				ContainerName: rev.Spec.Containers[0].Name,
-				ImageDigest:   rev.Status.DeprecatedImageDigest,
+		if len(rev.Status.ContainerStatuses) == 0 {
+			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+				Name:        rev.Spec.Containers[0].Name,
+				ImageDigest: rev.Status.DeprecatedImageDigest,
 			})
 		}
+	}
+
+	// The image digest has already been resolved.
+	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
+		return nil
 	}
 
 	var imagePullSecrets []string
@@ -137,30 +138,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		if v.isServingContainer {
 			rev.Status.DeprecatedImageDigest = v.digestValue
 		}
-		rev.Status.ImageDigests = append(rev.Status.ImageDigests, v1.ImageDigests{
-			ContainerName: v.containerName,
-			ImageDigest:   v.digestValue,
+		rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+			Name:        v.containerName,
+			ImageDigest: v.digestValue,
 		})
 	}
-	rev.Status.ImageDigests = removeDuplicateDigests(rev.Status.ImageDigests)
 	return nil
-}
-
-func removeDuplicateDigests(imageDigests []v1.ImageDigests) []v1.ImageDigests {
-	digests := make(map[v1.ImageDigests]bool)
-	list := []v1.ImageDigests{}
-	for _, d := range imageDigests {
-		if v := digests[d]; !v {
-			digests[d] = true
-			list = append(list, d)
-		}
-	}
-	for i, v := range list {
-		if v == (v1.ImageDigests{}) {
-			list = append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
