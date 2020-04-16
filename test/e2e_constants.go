@@ -49,5 +49,5 @@ const (
 	ContainerMemoryLimit = "350Mi"
 
 	// testAnnotation is an annotation attached to resources originating from tests.
-	testAnnotation = "knative-e2e-test"
+	testAnnotation = "serving.knative.dev/e2e-test"
 )
