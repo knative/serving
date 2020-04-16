@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
-	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -101,6 +100,6 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 // AddTestAnnotation adds the knative-e2e-test label to the resource.
 func AddTestAnnotation(t pkgTest.T, m metav1.ObjectMeta) {
 	kmeta.UnionMaps(m.Annotations, map[string]string{
-		TestAnnotation: strings.Replace(t.Name(), "/", ".", -1),
+		TestAnnotation: t.Name(),
 	})
 }
