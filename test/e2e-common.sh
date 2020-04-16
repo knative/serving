@@ -399,7 +399,7 @@ EOF
 
   echo ">> Patching activator HPA"
   # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
+  kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":15}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
