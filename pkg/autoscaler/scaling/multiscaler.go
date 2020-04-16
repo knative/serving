@@ -338,16 +338,9 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 }
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
-	logger := logging.FromContext(ctx)
 	sr := scaler.Scale(ctx, time.Now())
 
 	if !sr.ScaleValid {
-		return
-	}
-
-	// Cannot scale negative (nor we can compute burst capacity).
-	if sr.DesiredPodCount < 0 {
-		logger.Errorf("Cannot scale: desiredScale %d < 0.", sr.DesiredPodCount)
 		return
 	}
 
