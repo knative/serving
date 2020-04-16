@@ -537,7 +537,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				// We only create a single revision.
 				return len(l) > 0, err
 			}); err != nil {
-				t.Fatalf("Failed to see Revision propagation:", err)
+				t.Fatal("Failed to see Revision propagation:", err)
 			}
 			t.Log("Seen revision propagation")
 
