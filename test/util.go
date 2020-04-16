@@ -21,13 +21,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/signals"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
@@ -93,4 +96,11 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 		return []byte{}
 	}
 	return secret.Data[corev1.TLSCertKey]
+}
+
+// AddTestLabel adds the knative-e2e-test label to the resource.
+func AddTestLabel(t pkgTest.T, m metav1.ObjectMeta) {
+	kmeta.UnionMaps(m.Labels, map[string]string{
+		TestLabel: strings.Replace(t.Name(), "/", ".", -1),
+	})
 }

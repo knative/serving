@@ -30,11 +30,9 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"strings"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/kmeta"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -195,9 +193,7 @@ func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.Resource
 // CreateLatestServiceLegacy creates a service in namespace with the name names.Service and names.Image
 func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestServiceLegacy(names, fopt...)
-	kmeta.UnionMaps(service.Labels, map[string]string{
-		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
-	})
+	test.AddTestLabel(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err

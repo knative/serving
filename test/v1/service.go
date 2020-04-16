@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/mattbaird/jsonpatch"
 
@@ -29,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/kmeta"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -134,9 +132,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
 	service := Service(names, fopt...)
-	kmeta.UnionMaps(service.Labels, map[string]string{
-		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
-	})
+	test.AddTestLabel(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
 }

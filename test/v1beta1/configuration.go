@@ -19,11 +19,9 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -41,9 +39,7 @@ import (
 // that uses the image specified by names.Image.
 func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
 	config := Configuration(names, fopt...)
-	kmeta.UnionMaps(config.Labels, map[string]string{
-		test.TestLabel: strings.Replace(t.Name(), "/", ".", -1),
-	})
+	test.AddTestLabel(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingBetaClient.Configs.Create(config)
 }
