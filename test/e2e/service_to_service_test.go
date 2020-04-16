@@ -266,7 +266,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 
 // Same test as TestServiceToServiceCall but before sending requests
 // we're waiting for target app to be scaled to zero
-func TestServiceToServiceCallViaActivator(t *testing.T) {
+func TestSvcToSvcViaActivator(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
