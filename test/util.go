@@ -98,9 +98,9 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 	return secret.Data[corev1.TLSCertKey]
 }
 
-// AddTestLabel adds the knative-e2e-test label to the resource.
-func AddTestLabel(t pkgTest.T, m metav1.ObjectMeta) {
-	kmeta.UnionMaps(m.Labels, map[string]string{
-		TestLabel: strings.Replace(t.Name(), "/", ".", -1),
+// AddTestAnnotation adds the knative-e2e-test label to the resource.
+func AddTestAnnotation(t pkgTest.T, m metav1.ObjectMeta) {
+	kmeta.UnionMaps(m.Annotations, map[string]string{
+		TestAnnotation: strings.Replace(t.Name(), "/", ".", -1),
 	})
 }
