@@ -832,7 +832,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
 		// this is required in minikube-like environments.
 		if pkgTest.Flags.IngressEndpoint != "" {
-			return net.Dial("tcp", pkgTest.Flags.IngressEndpoint+":"+port)
+			return net.Dial("tcp", pkgTest.Flags.IngressEndpoint)
 		}
 		if ingress.IP != "" {
 			return net.Dial("tcp", ingress.IP+":"+port)

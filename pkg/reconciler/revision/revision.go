@@ -34,6 +34,7 @@ import (
 
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -129,6 +130,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 
 	readyAfterReconcile := rev.Status.IsReady()
 	if !readyBeforeReconcile && readyAfterReconcile {
+		logging.FromContext(ctx).Info("Revision became ready")
 		controller.GetEventRecorder(ctx).Event(
 			rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")

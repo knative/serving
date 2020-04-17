@@ -41,6 +41,9 @@ spec:
   - name: Mode
     type: string
     JSONPath: ".spec.mode"
+  - name: Activators
+    type: integer
+    JSONPath: ".spec.numActivators"
   - name: ServiceName
     type: string
     JSONPath: ".status.serviceName"

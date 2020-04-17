@@ -383,17 +383,27 @@ func TestQueueTraceSpans(t *testing.T) {
 		prober        func() bool
 		wantSpans     int
 		requestHeader string
+		infiniteCC    bool
 		probeWillFail bool
 		probeTrace    bool
 		enableTrace   bool
 	}{{
 		name:          "proxy trace",
 		prober:        func() bool { return true },
+		wantSpans:     3,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "proxy trace, no breaker",
+		prober:        func() bool { return true },
 		wantSpans:     2,
 		requestHeader: "",
 		probeWillFail: false,
 		probeTrace:    false,
 		enableTrace:   true,
+		infiniteCC:    true,
 	}, {
 		name:          "true prober function with probe trace",
 		prober:        func() bool { return true },
@@ -468,7 +478,10 @@ func TestQueueTraceSpans(t *testing.T) {
 
 				proxy := httputil.NewSingleHostReverseProxy(serverURL)
 				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-				breaker := queue.NewBreaker(params)
+				var breaker *queue.Breaker
+				if !tc.infiniteCC {
+					breaker = queue.NewBreaker(params)
+				}
 				reqChan := make(chan queue.ReqEvent, 10)
 
 				proxy.Transport = &ochttp.Transport{
@@ -491,9 +504,20 @@ func TestQueueTraceSpans(t *testing.T) {
 			if !tc.probeTrace {
 				spanNames = spanNames[1:]
 			}
-			for i, spanName := range spanNames[0:tc.wantSpans] {
+			// We want to add `queueWait` span only if there is possible queueing
+			// and if the tests actually expects tracing.
+			if !tc.infiniteCC && tc.wantSpans > 1 {
+				spanNames = append([]string{"queueWait"}, spanNames...)
+			}
+			gs := []string{}
+			for i := 0; i < len(gotSpans); i++ {
+				gs = append(gs, gotSpans[i].Name)
+			}
+			t.Log(spanNames)
+			t.Log(gs)
+			for i, spanName := range spanNames[:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
-					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+					t.Errorf("Span[%d].Name = %q, want: %q", i, gotSpans[i].Name, spanName)
 				}
 				if tc.probeWillFail {
 					if len(gotSpans[i].Annotations) == 0 {

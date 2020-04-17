@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -841,8 +840,8 @@ func TestMakeDeployment(t *testing.T) {
 			if err != nil {
 				t.Fatalf("got unexpected error: %v", err)
 			}
-			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("MakeDeployment (-want, +got) =", diff)
 			}
 		})
 	}

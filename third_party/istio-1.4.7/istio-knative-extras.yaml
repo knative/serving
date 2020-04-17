@@ -37,7 +37,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.6
+    chart: istio-1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -113,7 +113,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.6"
+          image: "docker.io/istio/proxyv2:1.4.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020

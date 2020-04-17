@@ -401,7 +401,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
-	} else if !scaler.updateLatestScale(0, 10, 2) {
+	} else if !scaler.updateLatestScale(ScaleResult{0, 10, 2, true}) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -415,57 +415,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 
 	// Verify that we see a "tick", even without ticking the channel
 	if err := verifyTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-}
-
-func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &fake.ManualTickProvider{
-		Channel: make(chan time.Time, 1),
-	}
-	ms.tickProvider = mtp.NewTicker
-
-	decider := newDecider()
-
-	uniScaler.setScaleResult(-1, 10, 2, true)
-
-	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
-	if !apierrors.IsNotFound(err) {
-		t.Errorf("Get() = (%v, %v), want not found error", m, err)
-	}
-
-	errCh := make(chan error)
-	ms.Watch(func(key types.NamespacedName) {
-		// Let the main process know when this is called.
-		errCh <- nil
-	})
-
-	_, err = ms.Create(ctx, decider)
-	if err != nil {
-		t.Fatalf("Create() = %v", err)
-	}
-
-	// Verify that we get no "ticks", because the desired scale is negative
-	mtp.Channel <- time.Now()
-	if err := verifyNoTick(errCh); err != nil {
-		t.Fatal(err)
-	}
-
-	err = ms.Delete(ctx, decider.Namespace, decider.Name)
-	if err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-
-	// Verify that we stop seeing "ticks"
-	mtp.Channel <- time.Now()
-	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
@@ -531,11 +480,11 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, int32, bool) {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) ScaleResult {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	u.scaleCount++
-	return u.replicas, u.surplus, u.numActivators, u.scaled
+	return ScaleResult{u.replicas, u.surplus, u.numActivators, u.scaled}
 }
 
 func (u *fakeUniScaler) getScaleCount() int {

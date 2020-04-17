@@ -127,12 +127,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	eps := fakeendpointsinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		l, err := eps.List(labels.Everything())
-		if err != nil {
-			return false, err
-		}
-		return len(l) >= 4, nil
+		return len(l) >= 4, err
 	}); err != nil {
-		t.Fatalf("Failed to see endpoint creation: %v", err)
+		t.Fatal("Failed to see endpoint creation:", err)
 	}
 	t.Log("Updating the activator endpoints now...")
 
@@ -143,6 +140,6 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	if err := updateHooks.WaitForHooks(3 * time.Second); err != nil {
-		t.Fatalf("Hooks timed out: %v", err)
+		t.Fatal("Hooks timed out:", err)
 	}
 }

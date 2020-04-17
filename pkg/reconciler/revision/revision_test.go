@@ -534,20 +534,17 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			revL := fakerevisioninformer.Get(ctx).Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 				l, err := revL.List(labels.Everything())
-				if err != nil {
-					return false, err
-				}
 				// We only create a single revision.
-				return len(l) > 0, nil
+				return len(l) > 0, err
 			}); err != nil {
-				t.Fatalf("Failed to see Revision propagation: %v", err)
+				t.Fatal("Failed to see Revision propagation:", err)
 			}
 			t.Log("Seen revision propagation")
 
 			watcher.OnChange(test.configMapToUpdate)
 
 			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Errorf("Global Resync Failed: %v", err)
+				t.Error("Global Resync Failed:", err)
 			}
 		})
 	}

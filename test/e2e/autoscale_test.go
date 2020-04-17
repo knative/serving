@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -645,7 +646,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		test.ServingFlags.SystemNamespace).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}

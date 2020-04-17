@@ -1811,7 +1811,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6383c71c7193359ff829b73a8f286fc80114a22bde0c07402f69e0758d8b1064"
+  digest = "1:adcb18f9978593f3532f31141d2cac3a47fb2de417de407d1283a44f7371bb32"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1834,11 +1834,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "6bd9f38fb03edd90b0adfa14c4d9989289a00eb5"
+  revision = "ea29e5c7d73ca145d4f828fc29d7c3abcba57b07"
 
 [[projects]]
   branch = "release-0.14"
-  digest = "1:20ae66cd133413ed130ba9bd3b63143b87b103647971c2956410e5b109f0ae13"
+  digest = "1:f806eb7e5629d594362dc18905d092888b1d56fbfe026a597d25b86e846f2d53"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1953,18 +1953,18 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "0c36abbff9e5ad06cbea50d55c0989485c236180"
+  revision = "2a1db869228ceaca9df34790b49cdf4893a5d39d"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d8858077778bca77705b26d5b5262bf33a6bfbaa701fffca1578fd7ef4c4b975"
+  branch = "release-0.14"
+  digest = "1:50482e6fd500cf50c4a29d640cda026206145c6716dff72e4368a5e57fdb7095"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "a67f228609fb8365383a9971ff189a78fe63e672"
+  revision = "9fa5882b65c5fe7e177bb74874e9a5ac87b84e98"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2047,7 +2047,6 @@
     "istio.io/client-go/pkg/apis/networking/v1alpha3",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
-    "k8s.io/api/autoscaling/v1",
     "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",

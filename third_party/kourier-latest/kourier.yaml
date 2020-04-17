@@ -16,20 +16,69 @@ metadata:
   namespace: kourier-system
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-leader-election
+  namespace: kourier-system
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # resourceLock controls which API resource is used as the basis for the
+    # leader election lock. Valid values are:
+    #
+    # - leases -> use the coordination API
+    # - configmaps -> use configmaps
+    # - endpoints -> use endpoints
+    resourceLock: "leases"
+
+    # leaseDuration is how long non-leaders will wait to try to acquire the
+    # lock; 15 seconds is the value used by core kubernetes controllers.
+    leaseDuration: "15s"
+    # renewDeadline is how long a leader will try to renew the lease before
+    # giving up; 10 seconds is the value used by core kubernetes controllers.
+    renewDeadline: "10s"
+    # retryPeriod is how long the leader election client waits between tries of
+    # actions; 2 seconds is the value used by core kubernetes controllers.
+    retryPeriod: "2s"
+    # enabledComponents is a comma-delimited list of component names for which
+    # leader election is enabled. Valid values are:
+    # - controller
+    # - hpaautoscaler
+    # - certcontroller
+    # - istiocontroller
+    # - nscontroller
+    # - kourier
+  enabledComponents: kourier
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: kourier
   namespace: kourier-system
 spec:
   ports:
-    - name: http2
-      port: 80
-      protocol: TCP
-      targetPort: 8080
-    - name: https
-      port: 443
-      protocol: TCP
-      targetPort: 8443
+  - name: http2
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
   selector:
     app: 3scale-kourier-gateway
   type: LoadBalancer
@@ -49,38 +98,38 @@ spec:
         app: 3scale-kourier-gateway
     spec:
       containers:
-        - args:
-            - -c
-            - /tmp/config/envoy-bootstrap.yaml
-          command:
-            - /usr/local/bin/envoy
-          image: docker.io/maistra/proxyv2-ubi8:1.0.8
-          imagePullPolicy: Always
-          name: kourier-gateway
-          ports:
-            - name: http2
-              containerPort: 8080
-              protocol: TCP
-            - name: https
-              containerPort: 8443
-              protocol: TCP
-          volumeMounts:
-            - name: config-volume
-              mountPath: /tmp/config
-          readinessProbe:
-            httpGet:
-              httpHeaders:
-                - name: Host
-                  value: internalkourier
-              path: /__internalkouriersnapshot
-              port: 8081
-              scheme: HTTP
-            initialDelaySeconds: 5
-            periodSeconds: 2
-      volumes:
+      - args:
+        - -c
+        - /tmp/config/envoy-bootstrap.yaml
+        command:
+        - /usr/local/bin/envoy
+        image: docker.io/maistra/proxyv2-ubi8:1.0.8
+        imagePullPolicy: Always
+        name: kourier-gateway
+        ports:
+        - name: http2
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        volumeMounts:
         - name: config-volume
-          configMap:
-            name: kourier-bootstrap
+          mountPath: /tmp/config
+        readinessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host
+              value: internalkourier
+            path: /__internalkouriersnapshot
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 2
+      volumes:
+      - name: config-volume
+        configMap:
+          name: kourier-bootstrap
       restartPolicy: Always
 ---
 apiVersion: apps/v1
@@ -99,18 +148,18 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.3.12
-          imagePullPolicy: Always
-          name: kourier-control
-          env:
-            - name: CERTS_SECRET_NAMESPACE
-              value: ""
-            - name: CERTS_SECRET_NAME
-              value: ""
-            - name: SYSTEM_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:55ae40938d23b70db6ab8bab98ba508986a0f860437d5bc5d90c448b97e88cc6
+        imagePullPolicy: Always
+        name: kourier-control
+        env:
+        - name: CERTS_SECRET_NAMESPACE
+          value: ""
+        - name: CERTS_SECRET_NAME
+          value: ""
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       restartPolicy: Always
       serviceAccountName: 3scale-kourier
 ---
@@ -120,18 +169,21 @@ metadata:
   name: 3scale-kourier
   namespace: kourier-system
 rules:
-  - apiGroups: [""]
-    resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["clusteringresses","ingresses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["ingresses/status","clusteringresses/status"]
-    verbs: ["update"]
-  - apiGroups: [ "apiextensions.k8s.io" ]
-    resources: [ "customresourcedefinitions" ]
-    verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["ingresses/status"]
+  verbs: ["update"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -148,9 +200,9 @@ roleRef:
   kind: ClusterRole
   name: 3scale-kourier
 subjects:
-  - kind: ServiceAccount
-    name: 3scale-kourier
-    namespace: kourier-system
+- kind: ServiceAccount
+  name: 3scale-kourier
+  namespace: kourier-system
 ---
 apiVersion: v1
 kind: Service
@@ -159,10 +211,10 @@ metadata:
   namespace: kourier-system
 spec:
   ports:
-    - name: http2
-      port: 80
-      protocol: TCP
-      targetPort: 8081
+  - name: http2
+    port: 80
+    protocol: TCP
+    targetPort: 8081
   selector:
     app: 3scale-kourier-gateway
   type: ClusterIP
@@ -174,9 +226,9 @@ metadata:
   namespace: kourier-system
 spec:
   ports:
-    - port: 18000
-      protocol: TCP
-      targetPort: 18000
+  - port: 18000
+    protocol: TCP
+    targetPort: 18000
   selector:
     app: 3scale-kourier-control
   type: ClusterIP
@@ -254,3 +306,5 @@ data:
       address:
         pipe:
           path: /tmp/envoy.admin
+
+---

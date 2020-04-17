@@ -240,7 +240,7 @@ func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
 
-// WithSubsets adds subsets to the body of a Revision, enabling us to refer readiness.
+// WithSubsets adds subsets to the body of an Endpoints object.
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
@@ -308,6 +308,14 @@ type IngressOption func(*netv1alpha1.Ingress)
 func WithHosts(index int, hosts ...string) IngressOption {
 	return func(ingress *netv1alpha1.Ingress) {
 		ingress.Spec.Rules[index].Hosts = hosts
+	}
+}
+
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
 	}
 }
 

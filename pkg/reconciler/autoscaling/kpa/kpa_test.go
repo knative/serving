@@ -1149,11 +1149,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	sksl := fakesksinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		l, err := sksl.List(labels.Everything())
-		if err != nil {
-			return false, err
-		}
 		// We only create a single SKS object.
-		return len(l) > 0, nil
+		return len(l) > 0, err
 	}); err != nil {
 		t.Fatalf("Failed to see SKS propagation: %v", err)
 	}

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 )
@@ -33,22 +34,20 @@ const (
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := scaleUpDeployment(clients, controllerDeploymentName); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
+	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)
 	}
-	defer scaleDownDeployment(clients, controllerDeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, controllerDeploymentName) })
-
-	service1Names, resources := createPizzaPlanetService(t, "pizzaplanet-service1")
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
-	defer test.TearDown(clients, service1Names)
 
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
 		t.Fatalf("Failed to get leader: %v", err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
+	service1Names, resources := createPizzaPlanetService(t)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
+	defer test.TearDown(clients, service1Names)
+
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController, &metav1.DeleteOptions{})
 
 	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
@@ -59,10 +58,10 @@ func TestControllerHA(t *testing.T) {
 		t.Fatalf("Failed to find new leader: %v", err)
 	}
 
-	assertServiceWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	// Verify that after changing the leader we can still create a new kservice
-	service2Names, _ := createPizzaPlanetService(t, "pizzaplanet-service2")
+	service2Names, _ := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service2Names) })
 	test.TearDown(clients, service2Names)
 }

@@ -82,7 +82,7 @@ data:
               },
               "targets": [
                 {
-                  "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$statefulset_namespace\",pod_name=~\"$statefulset_name.*\"}[3m]))",
+                  "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$statefulset_namespace\",pod=~\"$statefulset_name.*\"}[3m]))",
                   "intervalFactor": 2,
                   "refId": "A",
                   "step": 600
@@ -153,7 +153,7 @@ data:
               },
               "targets": [
                 {
-                  "expr": "sum(container_memory_usage_bytes{namespace=\"$statefulset_namespace\",pod_name=~\"$statefulset_name.*\"}) / 1024^3",
+                  "expr": "sum(container_memory_usage_bytes{namespace=\"$statefulset_namespace\",pod=~\"$statefulset_name.*\"}) / 1024^3",
                   "intervalFactor": 2,
                   "refId": "A",
                   "step": 600
@@ -224,7 +224,7 @@ data:
               },
               "targets": [
                 {
-                  "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"$statefulset_namespace\",pod_name=~\"$statefulset_name.*\"}[3m])) + sum(rate(container_network_receive_bytes_total{namespace=\"$statefulset_namespace\",pod_name=~\"$statefulset_name.*\"}[3m]))",
+                  "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"$statefulset_namespace\",pod=~\"$statefulset_name.*\"}[3m])) + sum(rate(container_network_receive_bytes_total{namespace=\"$statefulset_namespace\",pod=~\"$statefulset_name.*\"}[3m]))",
                   "intervalFactor": 2,
                   "refId": "A",
                   "step": 600
