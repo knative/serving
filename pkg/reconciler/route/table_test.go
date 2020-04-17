@@ -204,7 +204,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "ingress-failed", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithInitRouteConditions,
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithInitRouteConditions,
 				MarkTrafficAssigned,
 				WithStatusTraffic(
 					v1.TrafficTarget{
