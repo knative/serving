@@ -53,6 +53,11 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
 	}
 
+	// Wait for Controller to elect a new leader to prevent race conditions.
+	if _, err := getLeader(t, clients, controllerDeploymentName); err != nil {
+		t.Fatalf("Failed get leader: %v", err)
+	}
+
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
