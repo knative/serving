@@ -398,7 +398,7 @@ data:
 EOF
 
   echo ">> Patching activator HPA"
-  # We set min replicas to 2 for testing multiple activator pods.
+  # We set min replicas to 15 for testing multiple activator pods.
   kubectl -n ${SYSTEM_NAMESPACE} patch hpa activator --patch '{"spec":{"minReplicas":15}}' || return 1
 }
 
