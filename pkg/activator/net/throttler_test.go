@@ -736,13 +736,15 @@ func TestMultipleActivators(t *testing.T) {
 		t.Fatalf("RevisionThrottler can't be found: %v", err)
 	}
 
-	// Make sure our informer event has fired.
+	// Verify capacity gets updated. This is the very last thing we update
+	// so we now know that we got and processed both the activator endpoints
+	// and the application endpoints.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
-		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex)
+	t.Logf("This activator idx = %d", atomic.LoadInt32(&rt.activatorIndex))
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
