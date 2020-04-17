@@ -43,7 +43,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/leaderelection"
-	extravalidation "knative.dev/serving/pkg/webhook/validation"
+	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -78,13 +78,13 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
 }
 
+var serviceValidation = validation.NewCallback(
+	extravalidation.ValidateRevisionTemplate, webhook.Create, webhook.Update)
+
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
-	v1alpha1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
-		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
-	v1beta1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
-		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
-	v1.SchemeGroupVersion.WithKind("Service"): validation.NewCallback(
-		extravalidation.ExtraServiceValidation, webhook.Create, webhook.Update),
+	v1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
+	v1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
+	v1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
 }
 
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {

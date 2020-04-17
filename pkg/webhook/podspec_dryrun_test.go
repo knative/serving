@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package webhook
 
 import (
 	"context"
@@ -137,7 +137,7 @@ func TestExtraServiceValidation(t *testing.T) {
 			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.s)
 			unstruct.SetUnstructuredContent(content)
 
-			got := ExtraServiceValidation(ctx, unstruct)
+			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got='%v', want='%v'", got, test.want)

@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package webhook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -34,7 +35,10 @@ import (
 
 func decodeTemplate(ctx context.Context, val interface{}) (*v1.RevisionTemplateSpec, error) {
 	templ := &v1.RevisionTemplateSpec{}
-	asData := val.(map[string]interface{})
+	asData, ok := val.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("value could not be interpreted as a map")
+	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(asData, templ); err != nil {
 		return nil, fmt.Errorf("could not decode RevisionTemplateSpec from resource: %w", err)
 	}

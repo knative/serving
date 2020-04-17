@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package webhook
 
 import (
 	"context"
@@ -22,10 +22,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"knative.dev/pkg/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// ExtraServiceValidation runs extra validation on Service resources
-func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
+// ValidateRevisionTemplate runs extra validation on Service resources
+func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
 
 	// TODO(whaught): remove this guard once variations of this are well-tested
@@ -51,6 +52,9 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 	templ, err := decodeTemplate(ctx, val)
 	if err != nil {
 		return err
+	}
+	if templ == nil || templ == (&v1.RevisionTemplateSpec{}) {
+		return nil // Don't need to validate empty templates
 	}
 	return validatePodSpec(ctx, templ.Spec, namespace)
 }
