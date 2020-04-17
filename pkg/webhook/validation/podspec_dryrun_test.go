@@ -52,7 +52,7 @@ func TestExtraServiceValidation(t *testing.T) {
 		Name:      "valid",
 		Namespace: "foo",
 		Annotations: map[string]string{
-			"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
+			"features.knative.dev/podspec-dryrun": "enabled",
 		},
 	}
 

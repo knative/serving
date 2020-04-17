@@ -31,7 +31,7 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 	// TODO(whaught): remove this guard once variations of this are well-tested
 	// Only run extra validation for the dry-run test. This will be in place to while
 	// the feature is tested for compatibility and later removed.
-	if uns.GetAnnotations()["knative-e2e-test"] != "TestServiceValidationWithInvalidPodSpec" {
+	if uns.GetAnnotations()["features.knative.dev/podspec-dryrun"] != "enabled" {
 		return nil
 	}
 
@@ -48,5 +48,9 @@ func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured)
 		return nil
 	}
 
-	return decodeTemplateAndValidate(ctx, val, namespace)
+	templ, err := decodeTemplate(ctx, val)
+	if err != nil {
+		return err
+	}
+	return validatePodSpec(ctx, templ.Spec, namespace)
 }
