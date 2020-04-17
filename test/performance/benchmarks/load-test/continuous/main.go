@@ -65,7 +65,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 
 	ctx, cancel := context.WithCancel(ctx)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
-	sksMode := metrics.FetchSKSMode(ctx, namespace, selector, time.Second)
+	sksMode := metrics.FetchSKSStatus(ctx, namespace, selector, time.Second)
 	defer cancel()
 
 	for {
@@ -91,6 +91,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
 				"sks": mode,
+				"na":  float64(sksm.NumActivators),
 			})
 		}
 	}
