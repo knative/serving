@@ -36,6 +36,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1198,13 +1199,21 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Labels = map[string]string{"app": "prod"}
 
-			servingClient.ServingV1().Routes(route.Namespace).Create(route)
+			created, err := servingClient.ServingV1().Routes(route.Namespace).Create(route)
+			if err != nil {
+				t.Fatal("Failed to create route", err)
+			}
 
 			rl := fakerouteinformer.Get(ctx).Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-				l, err := rl.List(labels.Everything())
-				// We only create a single route.
-				return len(l) > 0, err
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if apierrs.IsNotFound(err) {
+					return false, nil
+				} else if err != nil {
+					return false, err
+				}
+				// Once we see a status difference, we know the route got reconciled initially.
+				return !cmp.Equal(r.Status, created.Status), nil
 			}); err != nil {
 				t.Fatal("Failed to see route creation propagation:", err)
 			}
