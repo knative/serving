@@ -30,7 +30,7 @@ import (
 )
 
 type config struct {
-	NamespaceWithCert string `envconfig:"namespace_with_cert" required: "false"`
+	NamespaceWithCert string `envconfig:"namespace_with_cert" required:"false"`
 }
 
 var env config
