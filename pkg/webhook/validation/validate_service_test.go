@@ -58,19 +58,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}, {
-		name: "invalid namespace",
-		data: map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"name": "valid",
-				"annotations": map[string]interface{}{
-					"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
-				},
-				"namespace": true,
-			},
-			"spec": map[string]interface{}{},
-		},
-		want: "could not traverse nested objectmeta.namespace field",
-	}, {
 		name: "no template",
 		data: map[string]interface{}{
 			"metadata": validMetadata,
