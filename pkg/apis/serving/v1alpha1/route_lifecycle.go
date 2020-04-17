@@ -29,9 +29,7 @@ import (
 var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
-
-// TODO(nak3):  Add RouteConditionCertificateProvisioned in the next release.
-// RouteConditionCertificateProvisioned,
+	RouteConditionCertificateProvisioned,
 )
 
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
