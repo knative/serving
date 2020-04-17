@@ -25,6 +25,9 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
+# Install ko for test, this should get us ko@e9800719c2cf0a095c385cdbe019fab2eb037a36
+GO111MODULE=on go get github.com/google/ko/cmd/ko@e9800719c2cf0a095c385cdbe019fab2eb037a36
+
 CERT_MANAGER_VERSION="0.9.1"
 ISTIO_VERSION=""
 GLOO_VERSION=""
