@@ -18,6 +18,7 @@ package validation
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,16 +58,18 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}, {
-		name: "no namespace",
+		name: "invalid namespace",
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name": "valid",
 				"annotations": map[string]interface{}{
 					"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
 				},
+				"namespace": true,
 			},
 			"spec": map[string]interface{}{},
 		},
+		want: "could not traverse nested objectmeta.namespace field",
 	}, {
 		name: "no template",
 		data: map[string]interface{}{
@@ -79,8 +82,7 @@ func TestServiceValidation(t *testing.T) {
 			"metadata": validMetadata,
 			"spec":     true, // Invalid, spec is expcted to be a struct
 		},
-		want: "could not traverse nested spec.template field: " +
-			".spec.template accessor error: true is of the type bool, expected map[string]interface{}",
+		want: "could not traverse nested spec.template field",
 	}, {
 		name: "no test anotation",
 		data: map[string]interface{}{
@@ -107,7 +109,7 @@ func TestServiceValidation(t *testing.T) {
 				if test.want != "" {
 					t.Errorf("Validate got='%v', want='%v'", got, test.want)
 				}
-			} else if test.want != got.Error() {
+			} else if !strings.Contains(got.Error(), test.want) {
 				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
 			}
 		})
