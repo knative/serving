@@ -17,18 +17,19 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"io/ioutil"
 	"time"
 
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/dns/v1"
+	"google.golang.org/api/option"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type EnvConfig struct {
-	FullHostName                  string `envconfig:"full_host_name" required: "true"`
-	DomainName                    string `envconfig:"domain_name" required: "true"`
+	FullHostName                  string `envconfig:"full_host_name" required:"true"`
+	DomainName                    string `envconfig:"domain_name" required:"true"`
 	DNSZone                       string `envconfig:"dns_zone" required:"true"`
 	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"true"`
 	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"true"`
@@ -87,6 +88,6 @@ func GetCloudDNSSvc(svcAccountKeyFile string) (*dns.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	client := conf.Client(oauth2.NoContext)
-	return dns.New(client)
+	ctx := context.Background()
+	return dns.NewService(ctx, option.WithHTTPClient(conf.Client(ctx)))
 }
