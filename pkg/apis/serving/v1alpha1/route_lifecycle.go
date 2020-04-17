@@ -142,12 +142,6 @@ func (rs *RouteStatus) MarkAutoTLSNotEnabled() {
 		"autoTLS is not enabled")
 }
 
-// MarkCertificateNotEnabled sets RouteConditionCertificateProvisioned to true when
-// certificate config such as autoTLS is not enabled.
-func (rs *RouteStatus) MarkCertificateNotEnabled() {
-	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
-}
-
 // PropagateIngressStatus update RouteConditionIngressReady condition
 // in RouteStatus according to IngressStatus.
 func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
