@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -38,10 +37,9 @@ func TestServiceValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		data   map[string]interface{}
-		want   string
-		dryRun bool
+		name string
+		data map[string]interface{}
+		want string
 	}{{
 		name: "valid run latest",
 		data: map[string]interface{}{
@@ -58,14 +56,23 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		dryRun: true,
+	}, {
+		name: "no namespace",
+		data: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": "valid",
+				"annotations": map[string]interface{}{
+					"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
+				},
+			},
+			"spec": map[string]interface{}{},
+		},
 	}, {
 		name: "no template",
 		data: map[string]interface{}{
 			"metadata": validMetadata,
 			"spec":     map[string]interface{}{},
 		},
-		dryRun: true,
 	}, {
 		name: "invalid structure",
 		data: map[string]interface{}{
@@ -74,17 +81,16 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: "could not traverse nested spec.template field: " +
 			".spec.template accessor error: true is of the type bool, expected map[string]interface{}",
-		dryRun: true,
 	}, {
 		name: "no test anotation",
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":      "valid",
 				"namespace": "foo",
+				// Skip validation because no test annotation
 			},
 			"spec": true, // Invalid, spec is expcted to be a struct
 		},
-		dryRun: false, // Skip validation because no test annotation
 	}}
 
 	for _, test := range tests {
@@ -92,9 +98,6 @@ func TestServiceValidation(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
 			ctx = logging.WithLogger(ctx, logger)
-			if test.dryRun {
-				ctx = apis.WithDryRun(ctx)
-			}
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
