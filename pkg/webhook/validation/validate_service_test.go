@@ -87,11 +87,11 @@ func TestServiceValidation(t *testing.T) {
 		name: "no test anotation",
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
-				"name":      "valid",
-				"namespace": "foo",
-				// Skip validation because no test annotation
+				"name":        "valid",
+				"namespace":   "foo",
+				"annotations": map[string]interface{}{}, // Skip validation because no test annotation
 			},
-			"spec": true, // Invalid, spec is expcted to be a struct
+			"spec": map[string]interface{}{},
 		},
 	}}
 
