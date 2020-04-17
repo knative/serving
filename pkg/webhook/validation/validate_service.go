@@ -21,20 +21,25 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 )
 
 // ExtraServiceValidation runs extra validation on Service resources
 func ExtraServiceValidation(ctx context.Context, uns *unstructured.Unstructured) error {
+	content := uns.UnstructuredContent()
+
 	// TODO(whaught): remove this guard once variations of this are well-tested
-	// Only run extra validation if we are in dry-run mode. This will be in place to while
+	// Only run extra validation for the dry-run test. This will be in place to while
 	// the feature is tested for compatibility and later removed.
-	if !apis.IsDryRun(ctx) {
+	m, found, err := unstructured.NestedMap(content, "metadata", "annotations")
+	if !found || err != nil {
+		return nil
+	}
+	testAnn := m["knative-e2e-test"]
+	if testAnn != "TestServiceValidationWithInvalidPodSpec" {
 		return nil
 	}
 
-	content := uns.UnstructuredContent()
 	namespace, _, err := unstructured.NestedString(content, "metadata", "namespace")
 	if err != nil {
 		return fmt.Errorf("could not traverse nested objectmeta.namespace field: %w", err)

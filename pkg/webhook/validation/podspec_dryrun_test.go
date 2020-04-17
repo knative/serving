@@ -48,6 +48,14 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 	}
 
+	om := metav1.ObjectMeta{
+		Name:      "valid",
+		Namespace: "foo",
+		Annotations: map[string]string{
+			"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
+		},
+	}
+
 	tests := []struct {
 		name          string
 		s             *v1.Service
@@ -56,10 +64,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	}{{
 		name: "valid run latest",
 		s: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
-				Namespace: "foo",
-			},
+			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec: v1.RouteSpec{
@@ -74,10 +79,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	}, {
 		name: "dryrun fail",
 		s: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
-				Namespace: "foo",
-			},
+			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec: v1.RouteSpec{
@@ -93,10 +95,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	}, {
 		name: "dryrun not supported succeeds",
 		s: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
-				Namespace: "foo",
-			},
+			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec: v1.RouteSpec{
@@ -111,10 +110,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	}, {
 		name: "no template found",
 		s: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
-				Namespace: "foo",
-			},
+			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{}, // Empty spec
 				RouteSpec: v1.RouteSpec{
@@ -142,8 +138,12 @@ func TestExtraServiceValidation(t *testing.T) {
 			unstruct.SetUnstructuredContent(content)
 
 			got := ExtraServiceValidation(ctx, unstruct)
-			if (got != nil || test.want != "") && test.want != got.Error() {
-				t.Errorf("Validate got='%v', want='%v'", test.want, got.Error())
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got='%v', want='%v'", got, test.want)
+				}
+			} else if test.want != got.Error() {
+				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
 			}
 		})
 

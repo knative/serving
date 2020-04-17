@@ -29,6 +29,14 @@ import (
 )
 
 func TestServiceValidation(t *testing.T) {
+	validMetadata := map[string]interface{}{
+		"name":      "valid",
+		"namespace": "foo",
+		"annotations": map[string]interface{}{
+			"knative-e2e-test": "TestServiceValidationWithInvalidPodSpec",
+		},
+	}
+
 	tests := []struct {
 		name   string
 		data   map[string]interface{}
@@ -37,10 +45,7 @@ func TestServiceValidation(t *testing.T) {
 	}{{
 		name: "valid run latest",
 		data: map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"name":      "valid",
-				"namespace": "foo",
-			},
+			"metadata": validMetadata,
 			"spec": map[string]interface{}{
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
@@ -57,33 +62,29 @@ func TestServiceValidation(t *testing.T) {
 	}, {
 		name: "no template",
 		data: map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"name":      "valid",
-				"namespace": "foo",
-			},
-			"spec": map[string]interface{}{},
+			"metadata": validMetadata,
+			"spec":     map[string]interface{}{},
 		},
 		dryRun: true,
 	}, {
 		name: "invalid structure",
 		data: map[string]interface{}{
-			"namespace": map[string]interface{}{
-				"name": "valid",
-			},
-			"spec": true, // Invalid, spec is expcted to be a struct
+			"metadata": validMetadata,
+			"spec":     true, // Invalid, spec is expcted to be a struct
 		},
 		want: "could not traverse nested spec.template field: " +
 			".spec.template accessor error: true is of the type bool, expected map[string]interface{}",
 		dryRun: true,
 	}, {
-		name: "not dry run",
+		name: "no test anotation",
 		data: map[string]interface{}{
-			"namespace": map[string]interface{}{
-				"name": "valid",
+			"metadata": map[string]interface{}{
+				"name":      "valid",
+				"namespace": "foo",
 			},
 			"spec": true, // Invalid, spec is expcted to be a struct
 		},
-		dryRun: false, // Skip validation because not dry run
+		dryRun: false, // Skip validation because no test annotation
 	}}
 
 	for _, test := range tests {
@@ -99,8 +100,12 @@ func TestServiceValidation(t *testing.T) {
 			unstruct.SetUnstructuredContent(test.data)
 
 			got := ExtraServiceValidation(ctx, unstruct)
-			if (got != nil || test.want != "") && test.want != got.Error() {
-				t.Errorf("Validate got='%v', want='%v'", test.want, got.Error())
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got='%v', want='%v'", got, test.want)
+				}
+			} else if test.want != got.Error() {
+				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
 			}
 		})
 	}
