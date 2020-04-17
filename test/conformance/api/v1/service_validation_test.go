@@ -45,10 +45,8 @@ func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Logf("Creating a new Service %s", names.Service)
-	service := v1test.Service(names, WithServiceAccountName(invalidServiceAccountName))
-	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
+	_, err := v1test.CreateService(t, clients, names, WithServiceAccountName(invalidServiceAccountName))
 
-	_, err := clients.ServingClient.Services.Create(service)
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
@@ -72,12 +70,10 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 
 	// Setup initial Service
 	t.Logf("Creating a new Service %s", names.Service)
-	service := v1test.Service(names, func(svc *v1.Service) {
+	_, err := v1test.CreateService(t, clients, names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.PodSpec.Containers[0].Name = "&InvalidValue"
 	})
-	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 
-	_, err := clients.ServingClient.Services.Create(service)
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}

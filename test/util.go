@@ -98,8 +98,8 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 }
 
 // AddTestAnnotation adds the knative-e2e-test label to the resource.
-func AddTestAnnotation(t pkgTest.T, m metav1.ObjectMeta) {
-	kmeta.UnionMaps(m.Annotations, map[string]string{
+func AddTestAnnotation(t pkgTest.T, m *metav1.ObjectMeta) {
+	m.Annotations = kmeta.UnionMaps(m.Annotations, map[string]string{
 		testAnnotation: t.Name(),
 	})
 }
