@@ -62,7 +62,11 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		if tt.Tag == "" {
 			continue
 		}
-
+		if msgs := validation.IsDNS1035Label(tt.Tag); len(msgs) > 0 {
+			errs = errs.Also(apis.ErrInvalidArrayValue(
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"tag", i))
+		}
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
