@@ -155,9 +155,15 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
+			var waitSpan *trace.Span
+			if tracingEnabled {
+				_, waitSpan = trace.StartSpan(r.Context(), "queueWait")
+			}
 			if err := breaker.Maybe(r.Context(), func() {
+				waitSpan.End()
 				next.ServeHTTP(w, r)
 			}); err != nil {
+				waitSpan.End()
 				switch err {
 				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)

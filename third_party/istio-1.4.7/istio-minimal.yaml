@@ -87,7 +87,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: true
+    enableAutoMtls: false
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
@@ -167,10 +167,10 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -179,10 +179,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -206,13 +206,6 @@ metadata:
   name: istio-multi
   namespace: istio-system
 ---
-# Source: istio/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-reader
-  namespace: istio-system
----
 # Source: istio/charts/pilot/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -224,14 +217,24 @@ metadata:
     heritage: Helm
     release: RELEASE-NAME
 rules:
-- apiGroups:
-  - config.istio.io
-  - rbac.istio.io
-  - security.istio.io
-  - networking.istio.io
-  - authentication.istio.io
+- apiGroups: ["config.istio.io"]
   resources: ["*"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["*"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["authentication.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
 - apiGroups: ["extensions"]
   resources: ["ingresses", "ingresses/status"]
   verbs: ["*"]
@@ -240,9 +243,6 @@ rules:
   verbs: ["create", "get", "list", "watch", "update"]
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["secrets"]
@@ -290,25 +290,9 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader
-  labels:
-    chart: istio-1.5.0
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader
-subjects:
-- kind: ServiceAccount
-  name: istio-reader
-  namespace: istio-system
----
-# Source: istio/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istio-multi
   labels:
-    chart: istio-1.5.0
+    chart: istio-1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -464,7 +448,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.5.0"
+          image: "docker.io/istio/node-agent-k8s:1.4.7"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -487,7 +471,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.5.0"
+          image: "docker.io/istio/proxyv2:1.4.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -567,8 +551,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -592,7 +574,7 @@ spec:
           - name: ISTIO_META_USER_SDS
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
-            value: standard
+            value: sni-dnat
 
 
           volumeMounts:
@@ -692,7 +674,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.5.0"
+          image: "docker.io/istio/proxyv2:1.4.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -769,8 +751,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
-          - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "true"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -885,7 +865,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.5.0"
+          image: "docker.io/istio/pilot:1.4.7"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"

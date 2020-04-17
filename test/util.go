@@ -1,10 +1,13 @@
 /*
 Copyright 2018 The Knative Authors
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -24,7 +27,9 @@ import (
 	"golang.org/x/net/http2/h2c"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/signals"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
@@ -50,7 +55,7 @@ func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r
 	ListenAndServeGracefullyWithHandler(addr, http.HandlerFunc(handler))
 }
 
-// ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
+// ListenAndServeGracefullyWithHandler creates an HTTP server, listens on the defined address
 // and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
 func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
@@ -90,4 +95,11 @@ func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretNa
 		return []byte{}
 	}
 	return secret.Data[corev1.TLSCertKey]
+}
+
+// AddTestAnnotation adds the knative-e2e-test label to the resource.
+func AddTestAnnotation(t pkgTest.T, m metav1.ObjectMeta) {
+	kmeta.UnionMaps(m.Annotations, map[string]string{
+		testAnnotation: t.Name(),
+	})
 }

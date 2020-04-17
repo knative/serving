@@ -120,14 +120,6 @@
   version = "v4.5.0"
 
 [[projects]]
-  digest = "1:53becd66889185091b58ea3fc49294996f2179fb05a89702f4de7d15e581b509"
-  name = "github.com/go-logr/logr"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "9fb12b3b21c5415d16ac18dc5cd42c1cfdd40c4e"
-  version = "v0.1.0"
-
-[[projects]]
   digest = "1:abea725bcf0210887f5da19d804fffa1dd45a42a56bdf5f02322345e3fee4f0d"
   name = "github.com/gogo/protobuf"
   packages = [
@@ -255,14 +247,6 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:b391e0e88682b33e62e6bcb005a4cfdebe9a14969dab6ebc5e7e4c166986e427"
-  name = "github.com/imdario/mergo"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "66f88b4ae75f5edcc556623b96ff32c06360fbb7"
-  version = "v0.3.9"
-
-[[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -275,14 +259,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
-
-[[projects]]
-  branch = "master"
-  digest = "1:cf68a79fd02ab0f6942b9567d03d054b6568212fcc22de2a4afdefd096923749"
-  name = "github.com/kballard/go-shellquote"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
@@ -307,14 +283,6 @@
   pruneopts = "NUT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
-
-[[projects]]
-  digest = "1:c01e66557785d9d75328704d11c44c26582980cd78209475cb141b3eedd11e9f"
-  name = "github.com/openzipkin/zipkin-go"
-  packages = ["model"]
-  pruneopts = "NUT"
-  revision = "c29478e51bfb2e9c93e0e9f5e015e5993a490399"
-  version = "v0.2.2"
 
 [[projects]]
   digest = "1:14715f705ff5dfe0ffd6571d7d201dd8e921030f8070321a79380d8ca4ec1a24"
@@ -763,7 +731,7 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:faee627f5b8379d10023d8d4844a06f0b4f89f862a81d60f3bd7f3db1a16ffbd"
+  digest = "1:952932759f1d7524d526016f70aeaa6a6947519616255ba44c30753f358b53fe"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -904,12 +872,8 @@
     "rest",
     "rest/watch",
     "testing",
-    "tools/auth",
     "tools/cache",
-    "tools/clientcmd",
     "tools/clientcmd/api",
-    "tools/clientcmd/api/latest",
-    "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/pager",
     "tools/record",
@@ -919,7 +883,6 @@
     "util/cert",
     "util/connrotation",
     "util/flowcontrol",
-    "util/homedir",
     "util/keyutil",
     "util/retry",
     "util/workqueue",
@@ -1003,7 +966,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:462fe2b87ea48e65015f45b404de9db04ebd1332fca8f06e19642641308869f7"
+  digest = "1:80c0e243552e01cdec518680967f72e6a435c4277b97b3ebf2e08f6590a389e7"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1021,28 +984,20 @@
     "metrics",
     "metrics/metricskey",
     "reconciler",
-    "test",
-    "test/cmd",
-    "test/helpers",
-    "test/ingress",
-    "test/logging",
-    "test/monitoring",
-    "test/spoof",
-    "test/zipkin",
   ]
   pruneopts = "T"
-  revision = "466c676678ddd57b3ec05a06a2d0bc6cfca8c3db"
+  revision = "9147309d53665ac87d8a5a17dabdbe3e24c97d13"
 
 [[projects]]
   branch = "master"
-  digest = "1:ce8214f24f811aa582a58b2680e3380ff3fac7668a00d490fb23349a21051dcb"
+  digest = "1:dc73d65f40ea05b1d0db96ae5491b6ebc162bb59b3ac5a252cdf87848bc7a4b7"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "a7b18bf0c37bf1a10743fba5c1ce988b7c2e0e30"
+  revision = "5e04d955cdb9a460b5d3f2a699bddcab22c8af94"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"

@@ -73,10 +73,10 @@ data:
               "steppedLine": false,
               "targets": [
                 {
-                  "expr": "sum by(container_name) (container_memory_usage_bytes{pod_name=\"$pod\", container_name=~\"$container\", container_name!=\"POD\"})",
+                  "expr": "sum by(container) (container_memory_usage_bytes{pod=\"$pod\", container=~\"$container\", container!=\"POD\", container!=\"\"})",
                   "interval": "10s",
                   "intervalFactor": 1,
-                  "legendFormat": "Current: {{ container_name }}",
+                  "legendFormat": "Current: {{ container }}",
                   "metric": "container_memory_usage_bytes",
                   "refId": "A",
                   "step": 15
@@ -179,9 +179,9 @@ data:
               "steppedLine": false,
               "targets": [
                 {
-                  "expr": "sum by (container_name)(rate(container_cpu_usage_seconds_total{image!=\"\",container_name!=\"POD\",pod_name=\"$pod\"}[1m]))",
+                  "expr": "sum by (container)(rate(container_cpu_usage_seconds_total{image!=\"\",container!=\"POD\", container!=\"\",pod=\"$pod\"}[1m]))",
                   "intervalFactor": 2,
-                  "legendFormat": "{{ container_name }}",
+                  "legendFormat": "{{ container }}",
                   "refId": "A",
                   "step": 30
                 },
@@ -283,9 +283,9 @@ data:
               "steppedLine": false,
               "targets": [
                 {
-                  "expr": "sort_desc(sum by (pod_name) (rate(container_network_receive_bytes_total{pod_name=\"$pod\"}[1m])))",
+                  "expr": "sort_desc(sum by (pod) (rate(container_network_receive_bytes_total{pod=\"$pod\"}[1m])))",
                   "intervalFactor": 2,
-                  "legendFormat": "{{ pod_name }}",
+                  "legendFormat": "{{ pod }}",
                   "refId": "A",
                   "step": 30
                 }

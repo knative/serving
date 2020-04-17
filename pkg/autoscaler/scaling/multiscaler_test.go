@@ -401,7 +401,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
-	} else if !scaler.updateLatestScale(0, 10, 2) {
+	} else if !scaler.updateLatestScale(ScaleResult{0, 10, 2, true}) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -531,11 +531,11 @@ func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
 }
 
-func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, int32, bool) {
+func (u *fakeUniScaler) Scale(context.Context, time.Time) ScaleResult {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	u.scaleCount++
-	return u.replicas, u.surplus, u.numActivators, u.scaled
+	return ScaleResult{u.replicas, u.surplus, u.numActivators, u.scaled}
 }
 
 func (u *fakeUniScaler) getScaleCount() int {

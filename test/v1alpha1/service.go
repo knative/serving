@@ -193,6 +193,7 @@ func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.Resource
 // CreateLatestServiceLegacy creates a service in namespace with the name names.Service and names.Image
 func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestServiceLegacy(names, fopt...)
+	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
 	return svc, err
