@@ -508,7 +508,6 @@ function test_setup() {
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
-    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/authorization_ingress.yaml || return 1
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
