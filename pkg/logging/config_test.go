@@ -33,7 +33,7 @@ import (
 const testConfigFileName = "test-config-logging"
 
 func TestNewConfigNoEntry(t *testing.T) {
-	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	cm, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "knative-something",
 			Name:      "config-logging",
@@ -41,6 +41,15 @@ func TestNewConfigNoEntry(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
+	}
+
+	c, err := logging.NewConfigFromMap(map[string]string{})
+	if err != nil {
+		t.Errorf("Expected no errors. got: %v", err)
+	}
+
+	if diff := cmp.Diff(cm, c); diff != "" {
+		t.Fatalf("Test: want %v, but got %v", cm, c)
 	}
 	if got := c.LoggingConfig; got == "" {
 		t.Error("LoggingConfig = empty, want not empty")
@@ -58,7 +67,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 func TestNewConfig(t *testing.T) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	wantLevel := zapcore.InfoLevel
-	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -67,9 +76,18 @@ func TestNewConfig(t *testing.T) {
 			"zap-logger-config":   wantCfg,
 			"loglevel.queueproxy": wantLevel.String(),
 		},
-	})
+	}
+
+	cm, err := logging.NewConfigFromConfigMap(configMap)
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
+	}
+	c, err := logging.NewConfigFromMap(configMap.Data)
+	if err != nil {
+		t.Errorf("Expected no errors. got: %v", err)
+	}
+	if diff := cmp.Diff(cm, c); diff != "" {
+		t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
 	}
 	if got := c.LoggingConfig; got != wantCfg {
 		t.Errorf("LoggingConfig = %v, want %v", got, wantCfg)
@@ -151,7 +169,7 @@ func TestLogLevelTestConfig(t *testing.T) {
 }
 
 func TestNewLoggerFromConfig(t *testing.T) {
-	c, _, _ := getTestConfig()
+	c, _, _ := getTestConfig(t)
 	_, atomicLevel := logging.NewLoggerFromConfig(c, "queueproxy")
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Errorf("logger level wanted: DebugLevel, got: %v", atomicLevel)
@@ -159,7 +177,7 @@ func TestNewLoggerFromConfig(t *testing.T) {
 }
 
 func TestEmptyLevel(t *testing.T) {
-	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -168,10 +186,21 @@ func TestEmptyLevel(t *testing.T) {
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 			"loglevel.queueproxy": "",
 		},
-	})
+	}
+	cm, err := logging.NewConfigFromConfigMap(configMap)
 	if err != nil {
 		t.Errorf("Expected no errors, got: %v", err)
 	}
+
+	c, err := logging.NewConfigFromMap(configMap.Data)
+	if err != nil {
+		t.Errorf("Expected no errors, got: %v", err)
+	}
+
+	if diff := cmp.Diff(cm, c); diff != "" {
+		t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
+	}
+
 	if got, want := c.LoggingLevel["queueproxy"], zapcore.InfoLevel; got != want {
 		t.Errorf("LoggingLevel[queueproxy] = %v, want: %v", got, want)
 	}
@@ -179,7 +208,7 @@ func TestEmptyLevel(t *testing.T) {
 
 func TestInvalidLevel(t *testing.T) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
-	_, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -188,16 +217,26 @@ func TestInvalidLevel(t *testing.T) {
 			"zap-logger-config":   wantCfg,
 			"loglevel.queueproxy": "invalid",
 		},
-	})
+	}
+	cm, err := logging.NewConfigFromConfigMap(configMap)
 	if err == nil {
 		t.Error("Expected errors. got nothing")
 	}
+
+	c, err := logging.NewConfigFromMap(configMap.Data)
+	if err == nil {
+		t.Error("Expected errors. got nothing")
+	}
+
+	if diff := cmp.Diff(cm, c); diff != "" {
+		t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
+	}
 }
 
-func getTestConfig() (*logging.Config, string, string) {
+func getTestConfig(t *testing.T) (*logging.Config, string, string) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	wantLevel := "debug"
-	c, _ := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -206,7 +245,18 @@ func getTestConfig() (*logging.Config, string, string) {
 			"zap-logger-config":   wantCfg,
 			"loglevel.queueproxy": wantLevel,
 		},
-	})
+	}
+	cm, err := logging.NewConfigFromConfigMap(configMap)
+	if err != nil {
+		t.Errorf("err: %s", err)
+	}
+	c, err := logging.NewConfigFromMap(configMap.Data)
+	if err != nil {
+		t.Errorf("err: %s", err)
+	}
+	if diff := cmp.Diff(cm, c); diff != "" {
+		t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
+	}
 	return c, wantCfg, wantLevel
 }
 

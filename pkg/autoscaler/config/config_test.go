@@ -246,15 +246,22 @@ func TestNewConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+			gotCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
-			t.Logf("Error = %v", err)
 			if (err != nil) != test.wantErr {
-				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)
+				t.Errorf("NewConfigFromConfigMap() = %v, want %v", err, test.wantErr)
 			}
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("NewConfig (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, gotCM); diff != "" {
+				t.Errorf("NewConfigFromConfigMap (-want, +got) = %v", diff)
+			}
+
+			got, err := NewConfigFromMap(test.input)
+			if (err != nil) != test.wantErr {
+				t.Errorf("NewConfigFromMap() = %v, want %v", err, test.wantErr)
+			}
+			if diff := cmp.Diff(got, gotCM); diff != "" {
+				t.Errorf("NewConfigFromMap (-got, +gotCM) = %s", diff)
 			}
 		})
 	}

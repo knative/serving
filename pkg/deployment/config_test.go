@@ -23,9 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -49,59 +49,68 @@ func TestControllerConfiguration(t *testing.T) {
 		wantErr        bool
 		wantController interface{}
 		config         *corev1.ConfigMap
-	}{{
-		name:    "controller configuration with bad registries",
-		wantErr: false,
-		wantController: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-			QueueSidecarImage:              noSidecarImage,
+	}{
+		{
+			name:    "controller configuration with bad registries",
+			wantErr: false,
+			wantController: &Config{
+				RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
+				QueueSidecarImage:              noSidecarImage,
+			},
+			config: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: map[string]string{
+					QueueSidecarImageKey:           noSidecarImage,
+					registriesSkippingTagResolving: "ko.local,,",
+				},
+			},
+		}, {
+			name:    "controller configuration with registries",
+			wantErr: false,
+			wantController: &Config{
+				RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+				QueueSidecarImage:              noSidecarImage,
+			},
+			config: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: map[string]string{
+					QueueSidecarImageKey:           noSidecarImage,
+					registriesSkippingTagResolving: "ko.local,ko.dev",
+				},
+			},
+		}, {
+			name:           "controller with no side car image",
+			wantErr:        true,
+			wantController: (*Config)(nil),
+			config: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: map[string]string{},
+			},
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				QueueSidecarImageKey:           noSidecarImage,
-				registriesSkippingTagResolving: "ko.local,,",
-			},
-		}}, {
-		name:    "controller configuration with registries",
-		wantErr: false,
-		wantController: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-			QueueSidecarImage:              noSidecarImage,
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				QueueSidecarImageKey:           noSidecarImage,
-				registriesSkippingTagResolving: "ko.local,ko.dev",
-			},
-		},
-	}, {
-		name:           "controller with no side car image",
-		wantErr:        true,
-		wantController: (*Config)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{},
-		},
-	}}
+	}
 
 	for _, tt := range configTests {
-		actualController, err := NewConfigFromConfigMap(tt.config)
-
+		actualControllerCM, err := NewConfigFromConfigMap(tt.config)
 		if (err != nil) != tt.wantErr {
 			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 		}
+		if diff := cmp.Diff(actualControllerCM, tt.wantController); diff != "" {
+			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualControllerCM)
+		}
 
+		actualController, err := NewConfigFromMap(tt.config.Data)
+		if (err != nil) != tt.wantErr {
+			t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+		}
 		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
 			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
 		}
