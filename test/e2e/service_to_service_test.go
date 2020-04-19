@@ -36,12 +36,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	targetHostEnv      = "TARGET_HOST"
-	gatewayHostEnv     = "GATEWAY_HOST"
-	helloworldResponse = "Hello World! How about some tasty noodles?"
-)
-
 // testCases for table-driven testing.
 var testCases = []struct {
 	// name of the test case, which will be inserted in names of routes, configurations, etc.
@@ -87,7 +81,7 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, url
 func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *url.URL, inject bool, accessibleExternal bool) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
-		Name:  targetHostEnv,
+		Name:  TargetHostEnv,
 		Value: helloworldURL.Hostname(),
 	}}
 
