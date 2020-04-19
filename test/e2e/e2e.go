@@ -41,12 +41,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	TargetHostEnv      = "TARGET_HOST"
-	gatewayHostEnv     = "GATEWAY_HOST"
-	helloworldResponse = "Hello World! How about some tasty noodles?"
-)
-
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.ServingNamespace)

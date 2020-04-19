@@ -33,6 +33,8 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+const targetHostEnv = "TARGET_HOST"
+
 // In this test, the access to cluster-local-gateway is forbidden
 // by istio authorizationpolicy.
 //
@@ -80,7 +82,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
-		Name:  e2e.TargetHostEnv,
+		Name:  targetHostEnv,
 		Value: resources.Route.Status.URL.URL().Hostname(),
 	}}
 
