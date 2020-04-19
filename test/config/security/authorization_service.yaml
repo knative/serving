@@ -31,19 +31,3 @@ spec:
  - from:
    - source:
        namespaces: ["knative-serving"]
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: ingress-policy
-  namespace: istio-system
-spec:
-  selector:
-    matchLabels:
-      app: cluster-local-gateway
-  action: ALLOW
-  rules:
-  - from:
-    - source:
-        # Don't allow serving-tests-security namespace for test.
-        namespaces: ["serving-tests"]
