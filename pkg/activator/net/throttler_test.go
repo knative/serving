@@ -439,10 +439,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}
 
 			// Make sure our informer event has fired.
-			if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-				return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
+			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() > 0, nil
 			}); err != nil {
-				t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
 			t.Logf("This activator idx = %d", rt.activatorIndex)
 

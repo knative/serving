@@ -140,7 +140,11 @@ func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.
 
 		// The subset is set. But in theory it might be revision pods,
 		// so verify below that at least 1 address is an activator pod.
-		if presources.ReadyAddressCount(svcEps) != int(sks.Spec.NumActivators) {
+		wantAct := int(sks.Spec.NumActivators)
+		if numAct := presources.ReadyAddressCount(aeps); wantAct > numAct {
+			wantAct = numAct
+		}
+		if presources.ReadyAddressCount(svcEps) != wantAct {
 			return false, nil
 		}
 		aset := sets.NewString()
