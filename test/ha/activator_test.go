@@ -27,7 +27,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -82,18 +81,6 @@ func TestActivatorHA(t *testing.T) {
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober)
 
-	scaleToZeroURL := resourcesScaleToZero.Service.Status.URL.URL()
-	spoofingClient, err := pkgTest.NewSpoofingClient(
-		clients.KubeClient,
-		t.Logf,
-		scaleToZeroURL.Hostname(),
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
-
-	if err != nil {
-		t.Fatal("Error creating spoofing client:", err)
-	}
-
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
@@ -116,8 +103,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
-	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
@@ -153,8 +139,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
-	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 }
 
 func assertSLO(t *testing.T, p test.Prober) {
