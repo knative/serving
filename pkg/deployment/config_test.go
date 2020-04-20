@@ -18,8 +18,10 @@ package deployment
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -29,90 +31,119 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
-var noSidecarImage = ""
+const noSidecarImage = ""
 
 func TestControllerConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
 
 	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
+		t.Error("NewConfigFromConfigMap(actual) =", err)
 	}
 
-	if _, err := NewConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
+	if got, err := NewConfigFromConfigMap(example); err != nil {
+		t.Error("NewConfigFromConfigMap(example) =", err)
+	} else {
+		want := defaultConfig()
+		// We require QSI to be explicitly set. So do it here.
+		want.QueueSidecarImage = "ko://knative.dev/serving/cmd/queue"
+		if !cmp.Equal(got, want) {
+			t.Error("Example stanza does not match default, diff(-want,+got):", cmp.Diff(want, got))
+		}
 	}
 }
 
 func TestControllerConfiguration(t *testing.T) {
 	configTests := []struct {
-		name           string
-		wantErr        bool
-		wantController interface{}
-		config         *corev1.ConfigMap
-	}{
-		{
-			name:    "controller configuration with bad registries",
-			wantErr: false,
-			wantController: &Config{
-				RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-				QueueSidecarImage:              noSidecarImage,
-			},
-			config: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      ConfigName,
-				},
-				Data: map[string]string{
-					QueueSidecarImageKey:           noSidecarImage,
-					registriesSkippingTagResolving: "ko.local,,",
-				},
-			},
-		}, {
-			name:    "controller configuration with registries",
-			wantErr: false,
-			wantController: &Config{
-				RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-				QueueSidecarImage:              noSidecarImage,
-			},
-			config: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      ConfigName,
-				},
-				Data: map[string]string{
-					QueueSidecarImageKey:           noSidecarImage,
-					registriesSkippingTagResolving: "ko.local,ko.dev",
-				},
-			},
-		}, {
-			name:           "controller with no side car image",
-			wantErr:        true,
-			wantController: (*Config)(nil),
-			config: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: system.Namespace(),
-					Name:      ConfigName,
-				},
-				Data: map[string]string{},
-			},
+		name       string
+		wantErr    bool
+		wantConfig *Config
+		data       map[string]string
+	}{{
+		name: "controller configuration with bad registries",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
+			QueueSidecarImage:              noSidecarImage,
+			ProgressDeadline:               ProgressDeadlineDefault,
 		},
+		data: map[string]string{
+			QueueSidecarImageKey:              noSidecarImage,
+			registriesSkippingTagResolvingKey: "ko.local,,",
+		},
+	}, {
+		name: "controller configuration good progress deadline",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+			QueueSidecarImage:              noSidecarImage,
+			ProgressDeadline:               444 * time.Second,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: noSidecarImage,
+			progressDeadlineKey:  "444s",
+		},
+	}, {
+		name: "controller configuration with registries",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+			QueueSidecarImage:              noSidecarImage,
+			ProgressDeadline:               ProgressDeadlineDefault,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:              noSidecarImage,
+			registriesSkippingTagResolvingKey: "ko.local,ko.dev",
+		},
+	}, {
+		name:    "controller with no side car image",
+		wantErr: true,
+		data:    map[string]string{},
+	}, {
+		name:    "controller configuration invalid progress deadline",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: noSidecarImage,
+			progressDeadlineKey:  "not-a-number",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline II",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: noSidecarImage,
+			progressDeadlineKey:  "-21",
+		},
+	}, {
+		name:    "controller configuration invalid progress deadline III",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: noSidecarImage,
+			progressDeadlineKey:  "0",
+		},
+	},
 	}
 
 	for _, tt := range configTests {
-		actualControllerCM, err := NewConfigFromConfigMap(tt.config)
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
-		if diff := cmp.Diff(actualControllerCM, tt.wantController); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualControllerCM)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			gotConfigCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: system.Namespace(),
+					Name:      ConfigName,
+				},
+				Data: tt.data,
+			})
 
-		actualController, err := NewConfigFromMap(tt.config.Data)
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-		}
-		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
-			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
-		}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromConfigMap() error = %v, want: %v", err, tt.wantErr)
+			}
+
+			if got, want := gotConfigCM, tt.wantConfig; !cmp.Equal(got, want) {
+				t.Error("Config mismatch, diff(-want,+got):", cmp.Diff(want, got))
+			}
+
+			gotConfig, err := NewConfigFromMap(tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+			}
+			if diff := cmp.Diff(gotConfig, gotConfigCM); diff != "" {
+				t.Fatalf("Test: %q; want %v, but got %v", tt.name, gotConfig, gotConfigCM)
+			}
+		})
 	}
 }

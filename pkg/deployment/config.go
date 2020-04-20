@@ -18,7 +18,9 @@ package deployment
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -29,23 +31,43 @@ const (
 	ConfigName = "config-deployment"
 
 	// QueueSidecarImageKey is the config map key for queue sidecar image
-	QueueSidecarImageKey           = "queueSidecarImage"
-	registriesSkippingTagResolving = "registriesSkippingTagResolving"
+	QueueSidecarImageKey = "queueSidecarImage"
+
+	// ProgressDeadlineDefault is the default value for the config's
+	// ProgressDeadlineSeconds.
+	ProgressDeadlineDefault = 120 * time.Second
+
+	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
+	progressDeadlineKey               = "progressDeadline"
 )
+
+func defaultConfig() *Config {
+	return &Config{
+		ProgressDeadline:               ProgressDeadlineDefault,
+		RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+	}
+}
 
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
-	nc := &Config{}
+	nc := defaultConfig()
 	qsideCarImage, ok := configMap[QueueSidecarImageKey]
 	if !ok {
 		return nil, errors.New("queue sidecar image is missing")
 	}
 	nc.QueueSidecarImage = qsideCarImage
 
-	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
-		// It is ok if registries are missing.
-		nc.RegistriesSkippingTagResolving = sets.NewString("ko.local", "dev.local")
-	} else {
+	if pd, ok := configMap[progressDeadlineKey]; ok {
+		v, err := time.ParseDuration(pd)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", progressDeadlineKey, pd, err)
+		} else if v <= 0 {
+			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", progressDeadlineKey, v)
+		}
+		nc.ProgressDeadline = v
+	}
+
+	if registries, ok := configMap[registriesSkippingTagResolvingKey]; ok {
 		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
 	}
 	return nc, nil
@@ -64,4 +86,8 @@ type Config struct {
 
 	// Repositories for which tag to digest resolving should be skipped
 	RegistriesSkippingTagResolving sets.String
+
+	// ProgressDeadline is the time in seconds we wait for the deployment to
+	// be ready before considering it failed.
+	ProgressDeadline time.Duration
 }

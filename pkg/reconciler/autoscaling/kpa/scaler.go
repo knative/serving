@@ -32,10 +32,10 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
-	rresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +61,7 @@ const (
 	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
 	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
 	activationTimeoutBuffer = 10 * time.Second
-	activationTimeout       = time.Duration(rresources.ProgressDeadlineSeconds)*time.Second + activationTimeoutBuffer
+	activationTimeout       = deployment.ProgressDeadlineDefault + activationTimeoutBuffer
 )
 
 var probeOptions = []interface{}{
