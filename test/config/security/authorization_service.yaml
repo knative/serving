@@ -34,6 +34,8 @@ spec:
   rules:
   - from:
     - source:
-       # This is necessary for conformance/ingress tests.
-       # Non knative services access to services from ingress-gateway in istio-system.
+       # knative-serving
+       # * This is for access to knative services from autoscaler and access via activator.
+       # istio-system
+       # * This is for access to k8s services from ingress-gateway in istio-system.
        namespaces: ["knative-serving", "istio-system"]
