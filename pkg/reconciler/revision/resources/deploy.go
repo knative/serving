@@ -176,8 +176,8 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer.TTY = false
 
 	// Prefer imageDigest from revision if available
-	if rev.Status.ImageDigest != "" {
-		userContainer.Image = rev.Status.ImageDigest
+	if rev.Status.DeprecatedImageDigest != "" {
+		userContainer.Image = rev.Status.DeprecatedImageDigest
 	}
 
 	if userContainer.TerminationMessagePolicy == "" {

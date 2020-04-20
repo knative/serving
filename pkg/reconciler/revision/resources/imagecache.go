@@ -28,7 +28,7 @@ import (
 
 // MakeImageCache makes an caching.Image resources from a revision.
 func MakeImageCache(rev *v1.Revision) *caching.Image {
-	image := rev.Status.ImageDigest
+	image := rev.Status.DeprecatedImageDigest
 	if image == "" {
 		image = rev.Spec.GetContainer().Image
 	}

@@ -495,7 +495,7 @@ func TestMakePodSpec(t *testing.T) {
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Status = v1.RevisionStatus{
-					ImageDigest: "busybox@sha256:deadbeef",
+					DeprecatedImageDigest: "busybox@sha256:deadbeef",
 				}
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),

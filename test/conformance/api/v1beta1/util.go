@@ -222,11 +222,11 @@ func validateControlPlane(t pkgTest.T, clients *test.Clients, names test.Resourc
 		if ready, err := v1b1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
-		if r.Status.ImageDigest == "" {
+		if r.Status.DeprecatedImageDigest == "" {
 			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)
 		}
-		if validDigest, err := validateImageDigest(names.Image, r.Status.ImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ImageDigest, names.Image, err)
+		if validDigest, err := validateImageDigest(names.Image, r.Status.DeprecatedImageDigest); !validDigest {
+			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
 		}
 		return true, nil
 	})
