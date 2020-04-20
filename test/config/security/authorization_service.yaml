@@ -23,7 +23,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
- name: allow-namespace
+ name: allow-serving-namespace
  namespace: serving-tests
 spec:
  action: ALLOW
@@ -31,3 +31,17 @@ spec:
  - from:
    - source:
        namespaces: ["knative-serving"]
+---
+# This is necessary for conformance/ingress tests.
+# Non knative services access to services from ingress-gateway in istio-system.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-istio-namespace
+ namespace: serving-tests
+spec:
+ action: ALLOW
+ rules:
+ - from:
+   - source:
+       namespaces: ["istio-system"]
