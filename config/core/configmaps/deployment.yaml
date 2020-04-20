@@ -44,6 +44,6 @@ data:
     # List of repositories for which tag to digest resolving should be skipped
     registriesSkippingTagResolving: "ko.local,dev.local"
 
-    # ProgressDeadlineSeconds is the time in seconds we wait for the deployment to
+    # ProgressDeadlineSeconds is the duration we wait for the deployment to
     # be ready before considering it failed.
-    progressDeadline: "120"
+    progressDeadline: "120s"

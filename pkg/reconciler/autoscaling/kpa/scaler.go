@@ -61,7 +61,7 @@ const (
 	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
 	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
 	activationTimeoutBuffer = 10 * time.Second
-	activationTimeout       = deployment.ProgressDeadlineSecondsDefault + activationTimeoutBuffer
+	activationTimeout       = deployment.ProgressDeadlineDefault + activationTimeoutBuffer
 )
 
 var probeOptions = []interface{}{

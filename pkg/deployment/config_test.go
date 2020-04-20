@@ -63,7 +63,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
 			QueueSidecarImage:              noSidecarImage,
-			ProgressDeadlineSeconds:        ProgressDeadlineSecondsDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              noSidecarImage,
@@ -74,18 +74,18 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
 			QueueSidecarImage:              noSidecarImage,
-			ProgressDeadlineSeconds:        444 * time.Second,
+			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: noSidecarImage,
-			progressDeadlineKey:  "444",
+			progressDeadlineKey:  "444s",
 		},
 	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
 			QueueSidecarImage:              noSidecarImage,
-			ProgressDeadlineSeconds:        ProgressDeadlineSecondsDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              noSidecarImage,

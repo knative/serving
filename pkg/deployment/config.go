@@ -19,7 +19,6 @@ package deployment
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,9 +33,9 @@ const (
 	// QueueSidecarImageKey is the config map key for queue sidecar image
 	QueueSidecarImageKey = "queueSidecarImage"
 
-	// ProgressDeadlineSecondsDefault is the default value for the config's
+	// ProgressDeadlineDefault is the default value for the config's
 	// ProgressDeadlineSeconds.
-	ProgressDeadlineSecondsDefault = 120 * time.Second
+	ProgressDeadlineDefault = 120 * time.Second
 
 	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
 	progressDeadlineKey               = "progressDeadline"
@@ -44,7 +43,7 @@ const (
 
 func defaultConfig() *Config {
 	return &Config{
-		ProgressDeadlineSeconds:        ProgressDeadlineSecondsDefault,
+		ProgressDeadline:               ProgressDeadlineDefault,
 		RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
 	}
 }
@@ -58,14 +57,14 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	}
 	nc.QueueSidecarImage = qsideCarImage
 
-	if pds, ok := configMap[progressDeadlineKey]; ok {
-		v, err := strconv.ParseInt(pds, 10 /*base*/, 32 /*bits*/)
+	if pd, ok := configMap[progressDeadlineKey]; ok {
+		v, err := time.ParseDuration(pd)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing %s=%s as integer, %w", progressDeadlineKey, pds, err)
+			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", progressDeadlineKey, pd, err)
 		} else if v <= 0 {
-			return nil, fmt.Errorf("%s cannot be non-positive, was %d", progressDeadlineKey, v)
+			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", progressDeadlineKey, v)
 		}
-		nc.ProgressDeadlineSeconds = time.Duration(v) * time.Second
+		nc.ProgressDeadline = v
 	}
 
 	if registries, ok := configMap[registriesSkippingTagResolvingKey]; ok {
@@ -88,7 +87,7 @@ type Config struct {
 	// Repositories for which tag to digest resolving should be skipped
 	RegistriesSkippingTagResolving sets.String
 
-	// ProgressDeadlineSeconds is the time in seconds we wait for the deployment to
+	// ProgressDeadline is the time in seconds we wait for the deployment to
 	// be ready before considering it failed.
-	ProgressDeadlineSeconds time.Duration
+	ProgressDeadline time.Duration
 }
