@@ -221,6 +221,16 @@ func TestDestroyPodTimely(t *testing.T) {
 		return true, nil
 	}); err != nil {
 		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+
+		// Fetch logs from the queue-proxy.
+		logs, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
+			Container: "queue-proxy",
+		}).Do().Raw()
+		if err != nil {
+			t.Error("Failed fetching logs from queue-proxy", err)
+		}
+		t.Log("queue-proxy logs", string(logs))
+
 		t.Fatalf("Did not observe %q to actually be deleted", podToDelete)
 	}
 

@@ -380,7 +380,7 @@ func main() {
 	healthState := &health.State{}
 
 	server := buildServer(env, healthState, probe, reqChan, logger)
-	adminServer := buildAdminServer(healthState)
+	adminServer := buildAdminServer(healthState, logger)
 	metricsServer := buildMetricsServer(promStatReporter)
 
 	servers := map[string]*http.Server{
@@ -418,16 +418,18 @@ func main() {
 	select {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		// This extra flush is needed because defers are not handled via os.Exit calls.
 		flush(logger)
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
-			// Give Istio time to sync our "not ready" state.
+			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 			time.Sleep(drainSleepDuration)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
+			logger.Info("Shutting down main server")
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
@@ -435,12 +437,13 @@ func main() {
 			delete(servers, "main")
 		})
 
-		flush(logger)
 		for serverName, srv := range servers {
+			logger.Infof("Shutting down %s server", serverName)
 			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
 			}
 		}
+		logger.Info("Shutdown complete, exiting...")
 	}
 }
 
@@ -555,9 +558,13 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 	return true
 }
 
-func buildAdminServer(healthState *health.State) *http.Server {
+func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *http.Server {
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandlerFunc())
+	drainHandler := healthState.DrainHandlerFunc()
+	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Attached drain handler from user-container")
+		drainHandler(w, r)
+	})
 
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
