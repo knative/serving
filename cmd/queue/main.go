@@ -418,6 +418,7 @@ func main() {
 	select {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
+		// This extra flush is needed because defers are not handled via os.Exit calls.
 		flush(logger)
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
@@ -443,7 +444,6 @@ func main() {
 			}
 		}
 		logger.Info("Shutdown complete, exiting...")
-		flush(logger)
 	}
 }
 
