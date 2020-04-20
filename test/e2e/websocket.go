@@ -23,14 +23,10 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"golang.org/x/sync/errgroup"
-
-	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
@@ -91,73 +87,52 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*sync.Map, error) {
 	clients := Setup(t)
 	uniqueHostConns := &sync.Map{}
-
-	reqCnt := int32(0)
-	ctx, _ := context.WithTimeout(context.Background(), uniqueHostConnTimeout)
-	gr, gctx := errgroup.WithContext(ctx)
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
 	for i := 0; i < size; i++ {
-		gr.Go(func() error {
-			for {
-				select {
-				case <-gctx.Done():
-					return errors.New("timed out trying to find unique host connections")
-
-				case <-ticker.C:
-					uniqueHostConns.Range(func(key, value interface{}) bool {
-						if conn, ok := value.(*websocket.Conn); ok {
-							if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
-								return false
-							}
-							_, recv, err := conn.ReadMessage()
-							if err != nil {
-								return false
-							}
-
-							host := string(recv)
-							hour, min, sec := time.Now().Clock()
-							fmt.Printf("\n\n in uniqueHostConnections, pinging: %s at time hour %v minute %v second %v\n\n", host, hour, min, sec)
-						}
-						return true
-					})
-
-				default:
-					atomic.AddInt32(&reqCnt, 1)
-					conn, err := connect(t, clients, names.URL.Hostname())
-					if err != nil {
-						return err
-					}
-
-					if err = conn.WriteMessage(websocket.TextMessage, []byte("hostname")); err != nil {
-						return err
-					}
-
-					_, recv, err := conn.ReadMessage()
-					if err != nil {
-						return err
-					}
-
-					host := string(recv)
-					if host == "" {
-						return errors.New("no host name is received from the server")
-					}
-
-					if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
-						t.Logf("New pod has been discovered: %s", host)
-						return nil
-					} else {
-						t.Logf("Existing pod has been returned: %s", host)
-						conn.Close()
-					}
-				}
+		now := time.Now()
+		for {
+			if time.Since(now) > uniqueHostConnTimeout {
+				return nil, fmt.Errorf("timed out finding the %dth connection", i)
 			}
-		})
-	}
-
-	if err := gr.Wait(); err != nil {
-		return nil, err
+			if int(time.Since(now).Seconds()) % 2 == 0 {
+				uniqueHostConns.Range(func(key, value interface{}) bool {
+					if conn, ok := value.(*websocket.Conn); ok {
+						if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+							return false
+						}
+						_, recv, err := conn.ReadMessage()
+						if err != nil {
+							return false
+						}
+						host := string(recv)
+						hour, min, sec := time.Now().Clock()
+						fmt.Printf("\n\n in uniqueHostConnections, pinging: %s at time %v:%v:%v\n\n", host, hour, min, sec)
+					}
+					return true
+				})
+			}
+			conn, err := connect(t, clients, names.URL.Hostname())
+			if err != nil {
+				continue
+			}
+			if err = conn.WriteMessage(websocket.TextMessage, []byte("hostname")); err != nil {
+				continue
+			}
+			_, recv, err := conn.ReadMessage()
+			if err != nil {
+				continue
+			}
+			host := string(recv)
+			if host == "" {
+				continue
+			}
+			if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
+				t.Logf("New pod has been discovered: %s", host)
+				break
+			} else {
+				t.Logf("Existing pod has been returned: %s", host)
+				conn.Close()
+			}
+		}
 	}
 	length := 0
 	uniqueHostConns.Range(func(key, _ interface{}) bool {
@@ -168,7 +143,6 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 	if length != size {
 		t.Fatalf("Did not create %d unique pods, actually created %d", size, length)
 	}
-	t.Logf("For %d pods a total of %d requests were made", size, reqCnt)
 	return uniqueHostConns, nil
 }
 
@@ -218,7 +192,7 @@ func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
 
 					host := string(recv)
 					hour, min, sec := time.Now().Clock()
-					fmt.Printf("\n\n pingOpenConnections: %s at time hour %v minute %v second %v\n\n", host, hour, min, sec)
+					fmt.Printf("\n\n pingOpenConnections: %s at time %v:%v:%v\n\n", host, hour, min, sec)
 					return true
 				}
 				return true
