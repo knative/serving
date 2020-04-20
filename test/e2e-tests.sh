@@ -119,7 +119,7 @@ add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | 
 kubectl -n "${SYSTEM_NAMESPACE}" delete hpa activator
 # Scale up components for HA tests
 for deployment in controller autoscaler-hpa activator; do
-  kubectl -n "${SYSTEM_NAMESPACE}" patch deployment "$deployment" --patch '{"spec":{"replicas":2}}'
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
 done
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
 wait_for_leader_controller || failed=1
