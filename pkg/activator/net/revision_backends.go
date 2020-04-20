@@ -263,7 +263,9 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 			// Trim the pods that migrated to the non-ready set from the
 			// ready set from the healthy pods. They will automatically
 			// probed below.
-			rw.healthyPods = rw.healthyPods.Difference(reprobe)
+			for p := range reprobe {
+				rw.healthyPods.Delete(p)
+			}
 		}
 		// First check the pod IPs. If we can individually address
 		// the Pods we should go that route, since it permits us to do
