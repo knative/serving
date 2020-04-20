@@ -44,6 +44,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: List cluster resources by using the bearertoken
+	// TOKEN=$(cat /base/token)
+	// curl -H “Authorization: Bearer $TOKEN” https://kubernetes/api/v1/ --insecure
+
 	log.Printf("Hello volume received a request: %s", string(content))
 	fmt.Fprintln(w, string(content))
 }
