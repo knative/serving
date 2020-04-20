@@ -15,21 +15,25 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
- name: deny-all
- namespace: serving-tests
+  name: deny-all
+  namespace: serving-tests
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   {}
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
- name: allow-namespaces
- namespace: serving-tests
+  name: allow-namespaces
+  namespace: serving-tests
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
- action: ALLOW
- rules:
- - from:
-   - source:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
        # This is necessary for conformance/ingress tests.
        # Non knative services access to services from ingress-gateway in istio-system.
        namespaces: ["knative-serving", "istio-system"]
