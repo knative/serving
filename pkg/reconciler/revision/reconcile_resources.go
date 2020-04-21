@@ -114,10 +114,10 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	logger := logging.FromContext(ctx)
 
 	ns := rev.Namespace
-	for _, container := range rev.Spec.Containers {
+	for _, container := range rev.Status.ContainerStatuses {
 		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+container.Name)
 		if _, err := c.imageLister.Images(ns).Get(imageName); apierrs.IsNotFound(err) {
-			if _, err := c.createImageCache(rev, container.Name); err != nil {
+			if _, err := c.createImageCache(rev, container.Name, container.ImageDigest); err != nil {
 				return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
 			}
 			logger.Infof("Created image cache %q", imageName)

@@ -27,20 +27,19 @@ import (
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.
-func MakeImageCache(rev *v1.Revision, name string) *caching.Image {
-	var image string
-	for _, digest := range rev.Status.ContainerStatuses {
-		if digest.Name == name {
-			image = digest.ImageDigest
-		}
-	}
+func MakeImageCache(rev *v1.Revision, containerName, image string) *caching.Image {
+	// If the given image is empty then replace that with the image from spec.Container[*].Image.
 	if image == "" {
-		image = rev.Spec.GetContainer().Image
+		for _, v := range rev.Spec.Containers {
+			if v.Name == containerName {
+				image = v.Image
+			}
+		}
 	}
 
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(names.ImageCache(rev), "-"+name),
+			Name:      kmeta.ChildName(names.ImageCache(rev), "-"+containerName),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {

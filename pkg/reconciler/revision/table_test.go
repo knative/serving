@@ -709,7 +709,7 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 		opt(config)
 	}
 
-	return resources.MakeImageCache(rev(namespace, name, name), name)
+	return resources.MakeImageCache(rev(namespace, name, name), name, "")
 }
 
 func pa(namespace, name string, ko ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
