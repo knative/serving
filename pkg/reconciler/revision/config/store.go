@@ -84,7 +84,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 	return ToContext(ctx, s.Load())
 }
 
-// Loads returns the config from the store.
+// Load returns the config from the store.
 func (s *Store) Load() *Config {
 	return &Config{
 		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
