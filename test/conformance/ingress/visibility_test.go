@@ -227,6 +227,9 @@ func TestVisibilityPath(t *testing.T) {
 	mainName, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
+	// Use a post-split injected header to establish which split we are sending traffic to.
+	const headerName = "Which-Backend"
+
 	name := test.ObjectNameForTest(t)
 	privateHostName := fmt.Sprintf("%s.%s.%s", name, test.ServingNamespace, "svc.cluster.local")
 	localIngress, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
@@ -303,9 +306,6 @@ func TestVisibilityPath(t *testing.T) {
 	for _, path := range []string{"", "/foo", "/bar", "/baz"} {
 		RuntimeRequestWithExpectations(t, client, "http://"+privateHostName+path, []ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusNotFound))}, true)
 	}
-
-	// Use a post-split injected header to establish which split we are sending traffic to.
-	const headerName = "Which-Backend"
 
 	loadbalancerAddress := localIngress.Status.PrivateLoadBalancer.Ingress[0].DomainInternal
 	proxyName, proxyPort, cancel := CreateProxyService(t, clients, privateHostName, loadbalancerAddress)
