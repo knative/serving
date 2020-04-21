@@ -142,6 +142,14 @@ func (rs *RouteStatus) MarkAutoTLSNotEnabled() {
 		"autoTLS is not enabled")
 }
 
+// MarkHTTPDownward sets RouteConditionCertificateProvisioned to true when plain
+// HTTP is enabled even when Certificated is not ready.
+func (rs *RouteStatus) MarkHTTPDownward(name string) {
+	routeCondSet.Manage(rs).MarkTrueWithReason(RouteConditionCertificateProvisioned,
+		"HTTPDownward",
+		"Certificate %s is not ready downard HTTP.", name)
+}
+
 // PropagateIngressStatus update RouteConditionIngressReady condition
 // in RouteStatus according to IngressStatus.
 func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {

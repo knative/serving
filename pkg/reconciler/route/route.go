@@ -258,6 +258,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 					}
 				}
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
+				r.Status.MarkHTTPDownward(cert.Name)
 			}
 		}
 	}

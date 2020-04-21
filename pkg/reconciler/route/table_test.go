@@ -1923,7 +1923,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithInitRouteConditions, MarkCertificateNotReady,
+				WithURL, WithAddress, WithInitRouteConditions, WithRouteConditionsHTTPDownward,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -2159,7 +2159,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithAddress, WithInitRouteConditions,
 				// The certificate has to be created in the not ready state for the ACME challenge
 				// ingress rules to be added.
-				MarkCertificateNotReady,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -2167,7 +2166,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						LatestRevision: ptr.Bool(true),
 					}),
 				// Which also means no HTTPS URL
-				WithURL,
+				WithURL, WithRouteConditionsHTTPDownward,
 			),
 		}},
 		Key: "default/becomes-ready",
@@ -2279,13 +2278,13 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithAddress, WithRouteConditionsHTTPDownward,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
-					}), MarkCertificateNotReady, MarkIngressNotConfigured,
+					}), MarkIngressNotConfigured,
 				// The certificate is not ready. So we want to have HTTP URL.
 				WithURL),
 		}},

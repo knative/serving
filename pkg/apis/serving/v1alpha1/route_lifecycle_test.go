@@ -386,6 +386,14 @@ func TestRouteAutoTLSNotEnabled(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }
 
+func TestRouteHTTPDownward(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkHTTPDownward("cert")
+
+	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
+}
+
 func TestIngressNotConfigured(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
