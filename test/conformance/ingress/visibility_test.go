@@ -335,8 +335,8 @@ func TestVisibilityPath(t *testing.T) {
 		"/foo":  fooName,
 		"/bar":  barName,
 		"/baz":  bazName,
-		"":      name,
-		"/asdf": name,
+		"":      mainName,
+		"/asdf": mainName,
 	}
 
 	for path, want := range tests {
