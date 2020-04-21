@@ -90,7 +90,7 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "podSpec dry run failed: kubeclient error",
+		want:          "dry run failed with kubeclient error: spec.template",
 		modifyContext: failKubeCalls,
 	}, {
 		name: "dryrun not supported succeeds",

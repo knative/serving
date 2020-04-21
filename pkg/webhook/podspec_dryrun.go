@@ -84,7 +84,7 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
 			return nil
 		}
 
-		return apis.ErrGeneric("podSpec dry run failed", err.Error())
+		return apis.ErrGeneric("dry run failed with "+err.Error(), "spec.template")
 	}
 	return nil
 }
