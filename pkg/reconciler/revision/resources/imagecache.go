@@ -27,15 +27,20 @@ import (
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.
-func MakeImageCache(rev *v1.Revision) *caching.Image {
-	image := rev.Status.DeprecatedImageDigest
+func MakeImageCache(rev *v1.Revision, name string) *caching.Image {
+	var image string
+	for _, digest := range rev.Status.ContainerStatuses {
+		if digest.Name == name {
+			image = digest.ImageDigest
+		}
+	}
 	if image == "" {
 		image = rev.Spec.GetContainer().Image
 	}
 
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.ImageCache(rev),
+			Name:      kmeta.ChildName(names.ImageCache(rev), "-"+name),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
