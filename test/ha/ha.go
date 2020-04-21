@@ -18,7 +18,6 @@ package ha
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -31,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -126,18 +124,6 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 
 	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 	return names, resources
-}
-
-func assertServiceWorksNow(t *testing.T, clients *test.Clients, spoofingClient *spoof.SpoofingClient, names test.ResourceNames, url *url.URL, expectedText string) {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	resp, err := spoofingClient.Do(req)
-	if err != nil || !strings.Contains(string(resp.Body), expectedText) {
-		t.Fatalf("Failed to verify service works. Response body: %s, Error: %v", string(resp.Body), err)
-	}
 }
 
 func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
