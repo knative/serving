@@ -140,7 +140,7 @@ func CreateRuntimeService(t *testing.T, clients *test.Clients, portName string) 
 		},
 	}
 
-	return name, port, createPodAndService(t, clients, pod, svc)
+	return name, port, CreatePodAndService(t, clients, pod, svc)
 }
 
 // CreateProxyService creates a Kubernetes service that will forward requests to
@@ -203,7 +203,7 @@ func CreateProxyService(t *testing.T, clients *test.Clients, target string, gate
 			},
 		},
 	}
-	proxyServiceCancel := createPodAndService(t, clients, pod, svc)
+	proxyServiceCancel := CreatePodAndService(t, clients, pod, svc)
 
 	targetName := strings.Split(target, ".")
 	externalNameSvc := &corev1.Service{
@@ -295,7 +295,7 @@ func CreateTimeoutService(t *testing.T, clients *test.Clients) (string, int, con
 		},
 	}
 
-	return name, port, createPodAndService(t, clients, pod, svc)
+	return name, port, CreatePodAndService(t, clients, pod, svc)
 }
 
 // CreateFlakyService creates a Kubernetes service where the backing pod will
@@ -369,7 +369,7 @@ func CreateFlakyService(t *testing.T, clients *test.Clients, period int) (string
 		},
 	}
 
-	return name, port, createPodAndService(t, clients, pod, svc)
+	return name, port, CreatePodAndService(t, clients, pod, svc)
 }
 
 // CreateWebsocketService creates a Kubernetes service that will upgrade the connection
@@ -443,7 +443,7 @@ func CreateWebsocketService(t *testing.T, clients *test.Clients, suffix string) 
 		},
 	}
 
-	return name, port, createPodAndService(t, clients, pod, svc)
+	return name, port, CreatePodAndService(t, clients, pod, svc)
 }
 
 // CreateGRPCService creates a Kubernetes service that will upgrade the connection
@@ -516,7 +516,7 @@ func CreateGRPCService(t *testing.T, clients *test.Clients, suffix string) (stri
 		},
 	}
 
-	return name, port, createPodAndService(t, clients, pod, svc)
+	return name, port, CreatePodAndService(t, clients, pod, svc)
 }
 
 // createService is a helper for creating the service resource.
@@ -539,9 +539,9 @@ func createService(t *testing.T, clients *test.Clients, svc *corev1.Service) con
 	}
 }
 
-// createPodAndService is a helper for creating the pod and service resources, setting
+// CreatePodAndService is a helper for creating the pod and service resources, setting
 // up their context.CancelFunc, and waiting for it to become ready.
-func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, svc *corev1.Service) context.CancelFunc {
+func CreatePodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, svc *corev1.Service) context.CancelFunc {
 	t.Helper()
 
 	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
