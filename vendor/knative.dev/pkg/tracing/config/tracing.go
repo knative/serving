@@ -65,13 +65,17 @@ func (cfg *Config) Equals(other *Config) bool {
 	return reflect.DeepEqual(other, cfg)
 }
 
-// NewTracingConfigFromMap returns a Config given a map corresponding to a ConfigMap
-func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
-	tc := Config{
+func defaultConfig() *Config {
+	return &Config{
 		Backend:    None,
 		Debug:      false,
 		SampleRate: 0.1,
 	}
+}
+
+// NewTracingConfigFromMap returns a Config given a map corresponding to a ConfigMap
+func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
+	tc := defaultConfig()
 
 	if backend, ok := cfgMap[backendKey]; ok {
 		switch bt := BackendType(backend); bt {
@@ -120,12 +124,15 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 	if sampleRate, ok := cfgMap[sampleRateKey]; ok {
 		sampleRateFloat, err := strconv.ParseFloat(sampleRate, 64)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse sampleRate in tracing config: %v", err)
+			return nil, fmt.Errorf("failed to parse sampleRate in tracing config: %w", err)
+		}
+		if sampleRateFloat < 0 || sampleRateFloat > 1 {
+			return nil, fmt.Errorf("sampleRate = %v must be in [0, 1] range", sampleRateFloat)
 		}
 		tc.SampleRate = sampleRateFloat
 	}
 
-	return &tc, nil
+	return tc, nil
 }
 
 // NewTracingConfigFromConfigMap returns a Config for the given configmap

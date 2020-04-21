@@ -306,6 +306,16 @@ func (c *Impl) EnqueueLabelOfClusterScopedResource(nameLabel string) func(obj in
 	}
 }
 
+// EnqueueNamespaceOf takes a resource, and enqueues the Namespace to which it belongs.
+func (c *Impl) EnqueueNamespaceOf(obj interface{}) {
+	object, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
+		c.logger.Errorw("EnqueueNamespaceOf", zap.Error(err))
+		return
+	}
+	c.EnqueueKey(types.NamespacedName{Name: object.GetNamespace()})
+}
+
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.WorkQueue.Add(key)
