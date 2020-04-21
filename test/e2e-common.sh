@@ -492,7 +492,7 @@ function test_setup() {
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ || return 1
+    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
   fi
 
   echo ">> Uploading test images..."
