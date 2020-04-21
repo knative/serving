@@ -268,7 +268,7 @@ func TestResolutionFailed(t *testing.T) {
 	})
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
@@ -313,7 +313,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	createRevision(t, ctx, controller, rev)
 
 	// Update controllers logging URL
@@ -340,11 +340,55 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	}
 }
 
+func TestRevWithImageDigests(t *testing.T) {
+	deploymentConfig := getTestDeploymentConfig()
+	ctx, _, controller, _ := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-name-template": "user-container",
+		},
+	}})
+
+	rev := testRevision(corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: "gcr.io/repo/image",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
+		}, {
+			Image: "docker.io/repo/image",
+		}},
+	})
+	createRevision(t, ctx, controller, rev)
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
+	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+	if len(rev.Status.ContainerStatuses) < 2 {
+		t.Error("Revision status does not have imageDigests")
+	}
+
+	rev.Status.DeprecatedImageDigest = "gcr.io/repo/image"
+	updateRevision(t, ctx, controller, rev)
+	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
+		t.Error("Image digests does not match with the provided containers")
+	}
+	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
+	updateRevision(t, ctx, controller, rev)
+	if len(rev.Status.ContainerStatuses) != 0 {
+		t.Error("Failed to update revision")
+	}
+}
+
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	ctx, cancel, _, ctl, _ := newTestController(t)
 	defer cancel()
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 
 	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
@@ -410,7 +454,7 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	ctx, cancel, _, controller, watcher := newTestController(t)
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
@@ -505,7 +549,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			servingClient := fakeservingclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := servingClient.ServingV1().Revisions(rev.Namespace)
 
 			h := NewHooks()
@@ -642,7 +686,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			kubeClient := fakekubeclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 			h := NewHooks()
 			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))

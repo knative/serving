@@ -38,3 +38,7 @@ wget $YAML_URL
 # Clean up.
 rm -rf cert-manager-${CERT_MANAGER_VERSION}
 rm v${CERT_MANAGER_VERSION}.tar.gz
+
+# Add enable-certificate-owner-ref option to cert-manager's controller.
+# The option is to cleans up secret(certificate) by adding ownerref.
+patch -l cert-manager.yaml owner-ref.patch

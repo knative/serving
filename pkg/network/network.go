@@ -145,6 +145,7 @@ type DomainTemplateValues struct {
 	Namespace   string
 	Domain      string
 	Annotations map[string]string
+	Labels      map[string]string
 }
 
 // TagTemplateValues are the available properties people can choose from
@@ -313,6 +314,7 @@ func checkDomainTemplate(t *template.Template) error {
 		Namespace:   "bar",
 		Domain:      "baz.com",
 		Annotations: nil,
+		Labels:      nil,
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {

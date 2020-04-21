@@ -748,7 +748,7 @@ func TestMakeIngressTLS(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngress_ACMEChallenges(t *testing.T) {
+func TestMakeIngress_ACMEChallenges(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{

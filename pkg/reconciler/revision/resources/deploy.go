@@ -176,8 +176,8 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer.TTY = false
 
 	// Prefer imageDigest from revision if available
-	if rev.Status.ImageDigest != "" {
-		userContainer.Image = rev.Status.ImageDigest
+	if rev.Status.DeprecatedImageDigest != "" {
+		userContainer.Image = rev.Status.DeprecatedImageDigest
 	}
 
 	if userContainer.TerminationMessagePolicy == "" {
@@ -260,7 +260,7 @@ func MakeDeployment(rev *v1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(1),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deployment.ProgressDeadlineDefault.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeLabels(rev),

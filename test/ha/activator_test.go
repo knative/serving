@@ -27,7 +27,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -38,6 +37,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
+	minProbes               = 100  // We want to send at least 100 requests.
 	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
 )
 
@@ -77,20 +77,9 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to scale to zero:", err)
 	}
 
-	prober := test.RunRouteProber(log.Printf, clients, resources.Service.Status.URL.URL())
+	prober := test.NewProberManager(log.Printf, clients, minProbes)
+	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober)
-
-	scaleToZeroURL := resourcesScaleToZero.Service.Status.URL.URL()
-	spoofingClient, err := pkgTest.NewSpoofingClient(
-		clients.KubeClient,
-		t.Logf,
-		scaleToZeroURL.Hostname(),
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
-
-	if err != nil {
-		t.Fatal("Error creating spoofing client:", err)
-	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
@@ -114,8 +103,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
-	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
 	if err := waitForPodDeleted(t, clients, activatorPod); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
@@ -151,8 +139,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
-	// Assert the service at the first possible moment after the killed activator disappears from its endpoints.
-	assertServiceWorksNow(t, clients, spoofingClient, namesScaleToZero, scaleToZeroURL, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 }
 
 func assertSLO(t *testing.T, p test.Prober) {

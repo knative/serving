@@ -210,8 +210,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 
 	t.Log("Updating the Service to use a different suffix")
-	greenSvc := objects.Service.DeepCopy()
-	greenSvc, err = v1test.PatchService(t, clients, objects.Service, func(s *v1.Service) {
+	greenSvc, err := v1test.PatchService(t, clients, objects.Service, func(s *v1.Service) {
 		s.Spec.Template.Spec.Containers[0].Env[0].Value = "Green"
 	})
 	if err != nil {

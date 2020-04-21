@@ -167,7 +167,6 @@ func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients 
 					}
 				}
 			}
-			return nil
 		})
 	}
 
