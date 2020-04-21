@@ -92,13 +92,13 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (ma
 				return nil, fmt.Errorf("timed out finding the %dth connection", i)
 			}
 			if int(time.Since(now).Seconds()) % 2 == 0 {
-				for _, conn := range uniqueHostConns {
+				for key, conn := range uniqueHostConns {
 					if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
-						return nil, err
+						return nil, fmt.Errorf("write message failed for host %v", key)
 					}
 					_, _, err := conn.ReadMessage()// _, recv, err := conn.ReadMessage()
 					if err != nil {
-						return nil, err
+						return nil, fmt.Errorf("read message failed for host %v", key)
 					}
 					//host := string(recv)
 					//hour, min, sec := time.Now().Clock()
