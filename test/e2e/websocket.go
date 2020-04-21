@@ -17,12 +17,10 @@ limitations under the License.
 package e2e
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"sync"
 	"testing"
 	"time"
 
@@ -84,9 +82,9 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 
 // uniqueHostConnections returns a map of open websocket connections to x number of pods where
 // x == size; ensuring that each connection lands on a separate pod
-func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*sync.Map, error) {
+func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (map[string]*websocket.Conn, error) {
 	clients := Setup(t)
-	uniqueHostConns := &sync.Map{}
+	uniqueHostConns := map[string]*websocket.Conn{}
 	for i := 0; i < size; i++ {
 		now := time.Now()
 		for {
@@ -94,21 +92,18 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 				return nil, fmt.Errorf("timed out finding the %dth connection", i)
 			}
 			if int(time.Since(now).Seconds()) % 2 == 0 {
-				uniqueHostConns.Range(func(key, value interface{}) bool {
-					if conn, ok := value.(*websocket.Conn); ok {
-						if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
-							return false
-						}
-						_, recv, err := conn.ReadMessage()
-						if err != nil {
-							return false
-						}
-						host := string(recv)
-						hour, min, sec := time.Now().Clock()
-						fmt.Printf("\n\n in uniqueHostConnections, pinging: %s at time %v:%v:%v\n\n", host, hour, min, sec)
+				for _, conn := range uniqueHostConns {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+						return nil, err
 					}
-					return true
-				})
+					_, _, err := conn.ReadMessage()// _, recv, err := conn.ReadMessage()
+					if err != nil {
+						return nil, err
+					}
+					//host := string(recv)
+					//hour, min, sec := time.Now().Clock()
+					//fmt.Printf("\n\n in uniqueHostConnections, pinging: %s at time %v:%v:%v\n\n", host, hour, min, sec)
+				}
 			}
 			conn, err := connect(t, clients, names.URL.Hostname())
 			if err != nil {
@@ -125,7 +120,8 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 			if host == "" {
 				continue
 			}
-			if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
+			if _, ok := uniqueHostConns[host]; !ok {
+				uniqueHostConns[host] = conn
 				t.Logf("New pod has been discovered: %s", host)
 				break
 			} else {
@@ -134,71 +130,45 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 			}
 		}
 	}
-	length := 0
-	uniqueHostConns.Range(func(key, _ interface{}) bool {
-		length++
-		t.Logf("--------------- Printing unique host conns: key %v", key)
-		return true
-	})
-	if length != size {
-		t.Fatalf("Did not create %d unique pods, actually created %d", size, length)
+	if len(uniqueHostConns) != size {
+		t.Fatalf("Did not create %d unique pods, actually created %d", size, len(uniqueHostConns))
+	}
+	for key, _ := range uniqueHostConns {
+		fmt.Printf("\n\n\n created uniqueHostConns %#v\n\n\n", key)
 	}
 	return uniqueHostConns, nil
 }
 
 // deleteHostConnections closes and removes x number of open websocket connections
 // from the hostConnMap where x == size
-func deleteHostConnections(t *testing.T, hostConnMap *sync.Map, size int) error {
-	hostConnMap.Range(func(key, value interface{}) bool {
-		if size <= 0 {
-			return false
+func deleteHostConnections(t *testing.T, hostConnMap map[string]*websocket.Conn, size int) error {
+	for key, conn := range hostConnMap {
+		if size == 0 {
+			return nil
 		}
-
-		if conn, ok := value.(*websocket.Conn); ok {
-			conn.Close()
-			hostConnMap.Delete(key)
-			size -= 1
-			t.Logf("Closed connection to pod: %s, size is now %d", key.(string), size)
-			return true
-		}
-		return false
-	})
-
-	if size != 0 {
-		return errors.New("failed to close connections")
+		conn.Close()
+		delete(hostConnMap, key)
+		size -= 1
+		t.Logf("Closed connection to pod: %s, size is now %d", key, size)
 	}
-
 	return nil
 }
 
 // pingOpenConnections tries to keep the websocket connection alive by
 // sending a keepAlive message every 3 seconds. Otherwise the connection drops
 // after ~60 seconds and makes the tests flakey
-func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			hostConnMap.Range(func(key, value interface{}) bool {
-				if conn, ok := value.(*websocket.Conn); ok {
-					if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
-						return false
-					}
-					_, recv, err := conn.ReadMessage()
-					if err != nil {
-						return false
-					}
-
-					host := string(recv)
-					hour, min, sec := time.Now().Clock()
-					fmt.Printf("\n\n pingOpenConnections: %s at time %v:%v:%v\n\n", host, hour, min, sec)
-					return true
-				}
-				return true
-			})
-		case <-doneCh:
-			return nil
+func pingOpenConnections(hostConnMap map[string]*websocket.Conn) error {
+	for _, conn := range hostConnMap {
+		if err := conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+			return err
 		}
+		_, recv, err := conn.ReadMessage()
+		if err != nil {
+			return err
+		}
+		host := string(recv)
+		hour, min, sec := time.Now().Clock()
+		fmt.Printf("\n\n in pingOpenConnections, pinging: %s at time %v:%v:%v\n\n", host, hour, min, sec)
 	}
+	return nil
 }

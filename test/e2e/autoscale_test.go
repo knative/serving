@@ -397,49 +397,31 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	if err != nil {
 		return err
 	}
-	//deleteHostConnections(t, hostConnMap, upscale)
-
-	// give some time in between
-	//time.Sleep(5 * time.Second)
-
-	// start x running pods; x == size
-	//hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
-	//if err != nil {
-	//	return err
-	//}
-
-	// only keep half of the connections open for the test
-	//openConnCount := size / 2
 	deleteHostConnections(t, hostConnMap, size)
-	//time.Sleep(5 * time.Second)
-
-	hostConnMap.Range(func(key, value interface{}) bool {
+	for key, _ := range hostConnMap {
 		t.Logf("+++++++++++ FINAL HOST CONN %#v", key)
-		return true
-	})
-
-	doneCh := make(chan struct{})
-	defer close(doneCh)
-	go pingOpenConnections(doneCh, hostConnMap)
+	}
 
 	defer deleteHostConnections(t, hostConnMap, size)
-	timer := time.NewTicker(2 * time.Second)
-	for range timer.C {
+	validationTimer := time.NewTicker(2 * time.Second)
+	defer validationTimer.Stop()
+	pingTimer := time.NewTicker(3 * time.Second)
+	defer pingTimer.Stop()
+	select {
+	case <-validationTimer.C:
+		fmt.Printf("\n\n\n validationTimer\n\n\n")
 		readyCount, err := numberOfReadyPods(ctx)
 		if err != nil {
 			return err
 		}
-
 		if int(readyCount) < size {
 			return fmt.Errorf("failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), size)
 		}
-
 		if int(readyCount) == size {
 			pods, err := allPods(ctx)
 			if err != nil {
 				return err
 			}
-
 			for _, p := range pods {
 				if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
 					continue
@@ -448,14 +430,18 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 					t.Logf("Pod marked for prefer-for-scale-down but still running %s", p.Name)
 					continue
 				}
-				if _, ok := hostConnMap.Load(p.Name); !ok {
+				if _, ok := hostConnMap[p.Name]; !ok {
 					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}
 			}
 			break
 		}
+    case <- pingTimer.C:
+    	fmt.Printf("\n\n\n ping open connections\n\n\n")
+    	if err := pingOpenConnections(hostConnMap); err != nil {
+    		return err
+		}
 	}
-
 	return nil
 }
 
