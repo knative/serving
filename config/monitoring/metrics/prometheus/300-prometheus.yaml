@@ -219,21 +219,6 @@ subjects:
   name: prometheus-system
   namespace: knative-monitoring
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-system-np
-  namespace: knative-monitoring
-  labels:
-    serving.knative.dev/release: devel
-spec:
-  type: NodePort
-  selector:
-    app: prometheus
-  ports:
-    - port: 8080
-      targetPort: 9090
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
