@@ -61,7 +61,9 @@ var (
 	traceConfig      tracingconfig.Config
 	obsConfig        metrics.ObservabilityConfig
 	asConfig         autoscalerconfig.Config
-	deploymentConfig deployment.Config
+	deploymentConfig = deployment.Config{
+		ProgressDeadline: deployment.ProgressDeadlineDefault,
+	}
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`

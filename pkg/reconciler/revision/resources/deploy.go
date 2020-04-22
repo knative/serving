@@ -260,7 +260,7 @@ func MakeDeployment(rev *v1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(1),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(deployment.ProgressDeadlineDefault.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeLabels(rev),

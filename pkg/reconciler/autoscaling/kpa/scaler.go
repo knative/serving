@@ -32,7 +32,6 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -61,7 +60,6 @@ const (
 	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
 	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
 	activationTimeoutBuffer = 10 * time.Second
-	activationTimeout       = deployment.ProgressDeadlineDefault + activationTimeoutBuffer
 )
 
 var probeOptions = []interface{}{
@@ -156,10 +154,14 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	//      of time.
 	//  Alternatively, if (a) and the revision did not succeed to activate in
 	//  `activationTimeout` time -- also scale it to 0.
-	config := config.FromContext(ctx).Autoscaler
-	if !config.EnableScaleToZero {
+	cfgs := config.FromContext(ctx)
+	cfgAS := cfgs.Autoscaler
+
+	if !cfgAS.EnableScaleToZero {
 		return 1, true
 	}
+	cfgD := cfgs.Deployment
+	activationTimeout := cfgD.ProgressDeadline + activationTimeoutBuffer
 
 	now := time.Now()
 	logger := logging.FromContext(ctx)
@@ -174,7 +176,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
 		// but return `(0, false)` to mark PA inactive, instead.
-		sw := aresources.StableWindow(pa, config)
+		sw := aresources.StableWindow(pa, cfgAS)
 		af := pa.Status.ActiveFor(now)
 		if af >= sw {
 			// We do not need to enqueue PA here, since this will
@@ -197,12 +199,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// defensive programming.
 
 			// Most conservative check, if it passes we're good.
-			if pa.Status.CanScaleToZero(now, config.ScaleToZeroGracePeriod) {
+			if pa.Status.CanScaleToZero(now, cfgAS.ScaleToZeroGracePeriod) {
 				return desiredScale, true
 			}
 
 			// Otherwise check how long SKS was in proxy mode.
-			to := config.ScaleToZeroGracePeriod
+			to := cfgAS.ScaleToZeroGracePeriod
 			if sks != nil {
 				// Compute the difference between time we've been proxying with the timeout.
 				// If it's positive, that's the time we need to sleep, if negative -- we
