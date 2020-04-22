@@ -78,7 +78,7 @@ func TestControllerConfiguration(t *testing.T) {
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: noSidecarImage,
-			progressDeadlineKey:  "444s",
+			ProgressDeadlineKey:  "444s",
 		},
 	}, {
 		name: "controller configuration with registries",
@@ -100,21 +100,21 @@ func TestControllerConfiguration(t *testing.T) {
 		wantErr: true,
 		data: map[string]string{
 			QueueSidecarImageKey: noSidecarImage,
-			progressDeadlineKey:  "not-a-number",
+			ProgressDeadlineKey:  "not-a-duration",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline II",
 		wantErr: true,
 		data: map[string]string{
 			QueueSidecarImageKey: noSidecarImage,
-			progressDeadlineKey:  "-21",
+			ProgressDeadlineKey:  "-21s",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline III",
 		wantErr: true,
 		data: map[string]string{
 			QueueSidecarImageKey: noSidecarImage,
-			progressDeadlineKey:  "0",
+			ProgressDeadlineKey:  "0ms",
 		},
 	}}
 
