@@ -242,6 +242,39 @@ func TestNewConfig(t *testing.T) {
 			"scale-to-zero-grace-period": "4s",
 		},
 		wantErr: true,
+	}, {
+		name: "with invalid default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"default-initial-scale":    "0",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"default-initial-scale":    "-1",
+		},
+		wantErr: true,
+	}, {
+		name: "with non-parsible default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"default-initial-scale":    "invalid",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "true",
+			"default-initial-scale":    "0",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.AllowZeroInitialScale = true
+			c.DefaultInitialScale = 0
+			return c
+		}(),
 	}}
 
 	for _, test := range tests {
