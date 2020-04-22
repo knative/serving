@@ -172,6 +172,18 @@ func WithServiceAccountName(serviceAccountName string) ServiceOption {
 	}
 }
 
+// WithPodSpecDryRunEnabled enables the podspec dry-run feature.
+func WithPodSpecDryRunEnabled() ServiceOption {
+	return func(service *v1.Service) {
+		a := service.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+			service.SetAnnotations(a)
+		}
+		a["features.knative.dev/podspec-dryrun"] = "enabled"
+	}
+}
+
 // WithContainerConcurrency sets the given Service's concurrency.
 func WithContainerConcurrency(cc int64) ServiceOption {
 	return func(svc *v1.Service) {

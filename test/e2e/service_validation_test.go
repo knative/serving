@@ -1,7 +1,7 @@
 // +build e2e
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,22 +16,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package e2e
 
 import (
 	"strings"
 	"testing"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	invalidServiceAccountName = "foo@bar.baz"
-)
+func withInvalidContainer() ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Spec.Template.Spec.PodSpec.Containers[0].Name = "&InvalidValue"
+	}
+}
 
-func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
+func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -40,16 +43,18 @@ func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
+	// Clean up on test failure or interrupt
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
+	// Setup initial Service
 	t.Logf("Creating a new Service %s", names.Service)
-	_, err := v1test.CreateService(t, clients, names, WithServiceAccountName(invalidServiceAccountName))
+	_, err := v1test.CreateService(t, clients, names, withInvalidContainer(), WithPodSpecDryRunEnabled())
 
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
+	if got, want := err.Error(), "PodSpec dry run failed"; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }
