@@ -132,7 +132,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse))),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
@@ -141,19 +141,9 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	}
 	t.Log("httpproxy is ready.")
 
-	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, url)
-	if err != nil {
-		t.Fatalf("Failed to send request to httpproxy: %v", err)
-	}
-	// We expect the response from httpproxy is equal to the response from helloworld
-	if helloworldResponse != strings.TrimSpace(string(response.Body)) {
-		t.Fatalf("The httpproxy response = %q, want: %q.", string(response.Body), helloworldResponse)
-	}
-
 	// As a final check (since we know they are both up), check that if we can
 	// (or cannot) access the helloworld app externally.
-	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
