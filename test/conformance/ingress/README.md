@@ -13,7 +13,9 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
    managing development environments.
 
 ### Test environment
-1. [A running `Knative Serving` cluster.](../../../DEVELOPMENT.md#prerequisites), with the Ingress implementation of choice installed.
+
+1. [A running `Knative Serving` cluster.](../../../DEVELOPMENT.md#prerequisites),
+   with the Ingress implementation of choice installed.
    ```bash
    # Set the Ingress class annotation to use in tests.
    # Some examples:
