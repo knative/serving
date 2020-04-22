@@ -48,7 +48,7 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
 Note: this is only required when you run conformance/e2e tests locally with
 `go test` commands.
 
-The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
+The [`upload-test-images.sh`](../../upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. The script
 expects your environment to be setup as described in
 [DEVELOPMENT.md](../../../DEVELOPMENT.md#install-requirements).
@@ -70,7 +70,7 @@ cd "$SERVING_ROOT"
 #    export INGRESS_ENDPOINT="$(minikube ip):31380"
 export INGRESS_ENDPOINT=<your-ingress-ip/url>:<your-ingress-port>
 
-go test -v -tags=e2e -count=1 $SERVING_ROOT/test/conformance/ingress \
+go test -v -tags=e2e -count=1 test/conformance/ingress \
     --ingressClass="$INGRESS_CLASS" \
     --ingressendpoint=$INGRESSENDPOINT
 ```
