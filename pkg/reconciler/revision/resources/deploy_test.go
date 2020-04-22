@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -845,5 +846,41 @@ func TestMakeDeployment(t *testing.T) {
 				t.Error("MakeDeployment (-want, +got) =", diff)
 			}
 		})
+	}
+}
+
+func TestProgressDeadlineOverride(t *testing.T) {
+	rev := revision("bar", "foo",
+		withoutLabels,
+		func(revision *v1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withReadinessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Host: "127.0.0.1",
+						Port: intstr.FromInt(12345),
+					},
+				}),
+			)
+		},
+	)
+	want := makeDeployment(func(d *appsv1.Deployment) {
+		d.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+	})
+
+	dc := &deployment.Config{
+		ProgressDeadline: 42 * time.Second,
+	}
+	podSpec, err := makePodSpec(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, dc)
+	if err != nil {
+		t.Fatal("makePodSpec returned error:", err)
+	}
+	want.Spec.Template.Spec = *podSpec
+	got, err := MakeDeployment(rev, &logConfig, &traceConfig,
+		&network.Config{}, &obsConfig, &asConfig, dc)
+	if err != nil {
+		t.Fatal("MakeDeployment returned error:", err)
+	}
+	if !cmp.Equal(want, got, cmp.AllowUnexported(resource.Quantity{})) {
+		t.Error("MakeDeployment (-want, +got) =", cmp.Diff(want, got, cmp.AllowUnexported(resource.Quantity{})))
 	}
 }
