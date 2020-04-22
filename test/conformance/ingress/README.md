@@ -24,8 +24,9 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
    #   export INGRESS_CLASS=kourier.ingress.networking.knative.dev   # Kourier Ingress
    export INGRESS_CLASS=<your-ingress-class-annotation>
    ```
-1. Knative Serving source code check out at `${SERVING_ROOT}`.  Often this is `$GO_PATH/src/go/knative.dev/serving`.
-   This contains all the tests and the test images.
+1. Knative Serving source code check out at `${SERVING_ROOT}`. Often this is
+   `$GO_PATH/src/go/knative.dev/serving`. This contains all the tests and the
+   test images.
    ```bash
    export SERVING_ROOT=<where-you-checkout-knative/serving>
    ```
