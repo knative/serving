@@ -30,6 +30,7 @@ aliases:
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
+  - julz
   - markusthoemmes
   - mdemirhan
   - taragu
