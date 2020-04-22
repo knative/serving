@@ -30,9 +30,9 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
    ```bash
    export SERVING_ROOT=<where-you-checkout-knative/serving>
    ```
-1. A docker repo containing [the test images](#test-images)
-   `KO_DOCKER_REPO`: The docker repository to which developer images should be
-   pushed (e.g. `gcr.io/[gcloud-project]`).
+1. A docker repo containing [the test images](#test-images) `KO_DOCKER_REPO`:
+   The docker repository to which developer images should be pushed (e.g.
+   `gcr.io/[gcloud-project]`).
 
    ```bash
    export KO_DOCKER_REPO=<your-docker-repository>
