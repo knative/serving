@@ -70,7 +70,7 @@ cd "$SERVING_ROOT"
 #    export INGRESS_ENDPOINT="$(minikube ip):31380"
 export INGRESS_ENDPOINT=<your-ingress-ip/url>:<your-ingress-port>
 
-go test -v -tags=e2e -count=1 ./test/conformance/ingress \
+go test -v -tags=e2e -count=1 $SERVING_ROOT/test/conformance/ingress \
     --ingressClass="$INGRESS_CLASS" \
     --ingressendpoint=$INGRESSENDPOINT
 ```
