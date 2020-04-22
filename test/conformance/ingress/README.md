@@ -28,7 +28,7 @@ This directory contains Ingress conformance tests for Knative Ingress resource.
    `$GO_PATH/src/go/knative.dev/serving`. This contains all the tests and the
    test images.
    ```bash
-   export SERVING_ROOT=<where-you-checkout-knative/serving>
+   export SERVING_ROOT=<where-you-checked-out-knative/serving>
    ```
 1. A docker repo containing [the test images](#test-images) `KO_DOCKER_REPO`:
    The docker repository to which developer images should be pushed (e.g.
