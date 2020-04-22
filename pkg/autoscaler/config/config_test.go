@@ -275,7 +275,6 @@ func TestNewConfig(t *testing.T) {
 			c.DefaultInitialScale = 0
 			return c
 		}(),
-
 	}, {
 		name: "with non-parseable allow-zero-initial-scale",
 		input: map[string]string{
