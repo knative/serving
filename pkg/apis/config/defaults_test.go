@@ -191,22 +191,21 @@ func TestTemplating(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defCM, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: system.Namespace(),
 					Name:      DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"container-name-template": test.template,
-				}})
+				},
+			}
+			defCM, err := NewDefaultsConfigFromConfigMap(configMap)
 			if err != nil {
 				t.Errorf("Error parsing defaults: %v", err)
 			}
 
-			def, err := NewDefaultsConfigFromMap(
-				map[string]string{
-					"container-name-template": test.template,
-				})
+			def, err := NewDefaultsConfigFromMap(configMap.Data)
 			if err != nil {
 				t.Errorf("Error parsing defaults: %v", err)
 			}
@@ -226,23 +225,18 @@ func TestTemplating(t *testing.T) {
 		})
 	}
 	t.Run("bad-template", func(t *testing.T) {
-		defCM, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
+		configMap := &corev1.ConfigMap{
 			Data: map[string]string{
 				"container-name-template": "{{animals-being-bros]]",
-			}})
+			},
+		}
+		_, err := NewDefaultsConfigFromConfigMap(configMap)
 		if err == nil {
 			t.Error("Expected an error but got none.")
 		}
-		def, err := NewDefaultsConfigFromMap(
-			map[string]string{
-				"container-name-template": "{{animals-being-bros]]",
-			})
+		_, err = NewDefaultsConfigFromMap(configMap.Data)
 		if err == nil {
 			t.Error("Expected an error but got none.")
-		}
-
-		if diff := cmp.Diff(defCM, def); diff != "" {
-			t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
 		}
 	})
 }

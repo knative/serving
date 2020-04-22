@@ -33,17 +33,18 @@ import (
 const testConfigFileName = "test-config-logging"
 
 func TestNewConfigNoEntry(t *testing.T) {
-	cm, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "knative-something",
 			Name:      "config-logging",
 		},
-	})
+	}
+	cm, err := logging.NewConfigFromConfigMap(configMap)
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	}
 
-	c, err := logging.NewConfigFromMap(map[string]string{})
+	c, err := logging.NewConfigFromMap(configMap.Data)
 	if err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	}

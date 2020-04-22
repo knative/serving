@@ -116,8 +116,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImageKey: noSidecarImage,
 			progressDeadlineKey:  "0",
 		},
-	},
-	}
+	}}
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
