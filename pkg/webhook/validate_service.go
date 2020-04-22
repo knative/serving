@@ -29,9 +29,9 @@ import (
 func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
 
-	// TODO(whaught): remove this guard once variations of this are well-tested
-	// Only run extra validation for the dry-run test. This will be in place to while
-	// the feature is tested for compatibility and later removed.
+	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
+	// of this are well-tested. Only run extra validation for the dry-run test.
+	// This will be in place to while the feature is tested for compatibility and later removed.
 	if uns.GetAnnotations()["features.knative.dev/podspec-dryrun"] != "enabled" {
 		return nil
 	}
