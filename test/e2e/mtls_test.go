@@ -111,7 +111,7 @@ func TestSvcToKubeSvc(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if os.Getenv("MESH") == "" && (tc.injectA || tc.injectB) {
+			if os.Getenv("MESH") != "1" && (tc.injectA || tc.injectB) {
 				t.Skip("Skipping in no-mesh cluster")
 			}
 			cancel := logstream.Start(t)
