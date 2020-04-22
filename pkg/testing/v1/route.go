@@ -165,10 +165,10 @@ func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
 	rt.Status.MarkAutoTLSNotEnabled()
 }
 
-// WithRouteConditionsHTTPDownward calls MarkHTTPDownward( after initialized the Service's conditions.
-func WithRouteConditionsHTTPDownward(rt *v1.Route) {
+// WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
+func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
 	rt.Status.InitializeConditions()
-	rt.Status.MarkHTTPDownward(routenames.Certificate(rt))
+	rt.Status.MarkHTTPDowngrade(routenames.Certificate(rt))
 }
 
 // MarkTrafficAssigned calls the method of the same name on .Status

@@ -1923,7 +1923,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithInitRouteConditions, WithRouteConditionsHTTPDownward,
+				WithURL, WithAddress, WithInitRouteConditions, WithRouteConditionsHTTPDowngrade,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -2166,7 +2166,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						LatestRevision: ptr.Bool(true),
 					}),
 				// Which also means no HTTPS URL
-				WithURL, WithRouteConditionsHTTPDownward,
+				WithURL, WithRouteConditionsHTTPDowngrade,
 			),
 		}},
 		Key: "default/becomes-ready",
@@ -2278,7 +2278,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
 				// Populated by reconciliation when all traffic has been assigned.
-				WithAddress, WithRouteConditionsHTTPDownward,
+				WithAddress, WithRouteConditionsHTTPDowngrade,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
