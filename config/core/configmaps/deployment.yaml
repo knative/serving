@@ -46,4 +46,4 @@ data:
 
     # ProgressDeadline is the duration we wait for the deployment to
     # be ready before considering it failed.
-    progressDeadline: "600s"
+    progressDeadline: "120s"
