@@ -148,7 +148,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:049de256672cf87c139b8416c02fbef2abab01fe4087ba26fa5cd4aafbda689f
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:85c4b0120b80bba9465d2c67c2d6ac99edc8fbeed57b0502df355e25addb29e6
         imagePullPolicy: Always
         name: kourier-control
         env:
@@ -177,7 +177,7 @@ rules:
   verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
 - apiGroups: ["networking.internal.knative.dev"]
   resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get", "list", "watch", "patch"]
 - apiGroups: ["networking.internal.knative.dev"]
   resources: ["ingresses/status"]
   verbs: ["update"]
