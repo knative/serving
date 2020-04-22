@@ -100,6 +100,12 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		want:     "test-name.mysub.example.com",
 		local:    false,
 	}, {
+		name:     "Labels",
+		template: `{{.Name}}.{{ index .Labels "bus"}}.{{.Domain}}`,
+		args:     args{name: "test-name"},
+		want:     "test-name.mybus.example.com",
+		local:    false,
+	}, {
 		// This cannot get through our validation, but verify we handle errors.
 		name:     "BadVarName",
 		template: "{{.Name}}.{{.NNNamespace}}.{{.Domain}}",
@@ -114,6 +120,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 		Namespace: "default",
 		Labels: map[string]string{
 			"route": "myapp",
+			"bus":   "mybus",
 		},
 		Annotations: map[string]string{
 			"sub": "mysub",

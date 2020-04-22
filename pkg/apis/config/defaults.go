@@ -164,7 +164,7 @@ type Defaults struct {
 	EnableMultiContainer bool
 
 	RevisionTimeoutSeconds int64
-	// This is the timeout set for cluster ingress.
+	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
 

@@ -94,13 +94,14 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 
 // ServerlessServiceStatus is a struct that wraps the status of a serverless service.
 type ServerlessServiceStatus struct {
-	Mode netv1alpha1.ServerlessServiceOperationMode
+	Mode          netv1alpha1.ServerlessServiceOperationMode
+	NumActivators int32
 	// Time is the time when the status is fetched
 	Time time.Time
 }
 
-// FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
-func FetchSKSMode(
+// FetchSKSStatus creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
+func FetchSKSStatus(
 	ctx context.Context, namespace string, selector labels.Selector,
 	duration time.Duration,
 ) <-chan ServerlessServiceStatus {
@@ -115,8 +116,9 @@ func FetchSKSMode(
 		}
 		for _, sks := range skses {
 			skss := ServerlessServiceStatus{
-				Mode: sks.Spec.Mode,
-				Time: t,
+				NumActivators: sks.Spec.NumActivators,
+				Mode:          sks.Spec.Mode,
+				Time:          t,
 			}
 			ch <- skss
 		}

@@ -129,12 +129,32 @@ type RevisionStatus struct {
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 
-	// ImageDigest holds the resolved digest for the image specified
+	// DeprecatedImageDigest holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.
+	// If multiple containers specified then DeprecatedImageDigest holds the digest
+	// for serving container.
+	// DEPRECATED Use ImageDigests instead.
+	// TODO(savitaashture) Remove deprecatedImageDigest.
+	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional
+	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
+
+	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving containers.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
+}
+
+// ContainerStatuses holds the information of container name and image digest value
+type ContainerStatuses struct {
+	Name        string `json:"name,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
 }
 

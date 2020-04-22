@@ -55,7 +55,7 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ImageDigest: "busybox@sha256:deadbeef",
+				DeprecatedImageDigest: "busybox@sha256:deadbeef",
 			},
 		},
 		want: &caching.Image{

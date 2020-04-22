@@ -324,6 +324,72 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 	}
 }
 
+func TestLabelsInDomainTemplate(t *testing.T) {
+	networkConfigTests := []struct {
+		name               string
+		wantErr            bool
+		wantDomainTemplate string
+		config             *corev1.ConfigMap
+		data               DomainTemplateValues
+	}{{
+		name:               "network configuration with labels in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.sub1.baz.com",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				DefaultIngressClassKey: "foo-ingress",
+				DomainTemplateKey:      `{{.Name}}.{{ index .Labels "sub"}}.{{.Domain}}`,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"sub": "sub1"},
+			Domain: "baz.com"},
+	}, {
+		name:               "network configuration without labels in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.bar.baz.com",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				DefaultIngressClassKey: "foo-ingress",
+				DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
+			},
+		},
+		data: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Domain:    "baz.com"},
+	}}
+
+	for _, tt := range networkConfigTests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
+					tt.name, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.data)
+			if got != tt.wantDomainTemplate {
+				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, tt.wantDomainTemplate)
+			}
+		})
+	}
+}
+
 func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string {
 	t.Helper()
 	buf := bytes.Buffer{}

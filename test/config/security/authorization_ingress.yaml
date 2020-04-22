@@ -1,4 +1,4 @@
-# Copyright 2019 The Knative Authors
+# Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,28 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
 metadata:
-  name: "mtls-services"
-  namespace: "serving-tests"
-  labels:
-    test.knative.dev/dependency: istio-sidecar
+  name: ingress-policy
+  namespace: istio-system
 spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
----
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
-metadata:
-  name: "mtls-services"
-  namespace: "serving-tests-alt"
-  labels:
-    test.knative.dev/dependency: istio-sidecar
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
+  selector:
+    matchLabels:
+      app: cluster-local-gateway
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        # Don't allow serving-tests-security namespace for test.
+        namespaces: ["serving-tests"]

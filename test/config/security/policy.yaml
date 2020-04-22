@@ -17,6 +17,8 @@ kind: "Policy"
 metadata:
   name: "default"
   namespace: "serving-tests"
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   peers:
   - mtls:
@@ -27,6 +29,8 @@ kind: "Policy"
 metadata:
   name: "default"
   namespace: "knative-serving"
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   peers:
   - mtls:
@@ -37,6 +41,8 @@ kind: Policy
 metadata:
   name: default
   namespace: serving-tests-security
+  labels:
+    test.knative.dev/dependency: istio-sidecar
 spec:
   origins:
   - jwt:

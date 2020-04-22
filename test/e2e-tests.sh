@@ -33,6 +33,22 @@ function knative_setup() {
   install_knative_serving
 }
 
+function wait_for_leader_controller() {
+  echo -n "Waiting for a leader Controller"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local leader=$(kubectl get lease controller -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.holderIdentity}' | cut -d"_" -f1)
+    # Make sure the leader pod exists.
+    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
+      echo -e "\nNew leader Controller has been elected"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for leader controller"
+  return 1
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -92,7 +108,10 @@ go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
+  kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
+  add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
   go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+  kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
@@ -103,10 +122,12 @@ add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | 
 kubectl -n "${SYSTEM_NAMESPACE}" delete hpa activator
 # Scale up components for HA tests
 for deployment in controller autoscaler-hpa activator; do
-  kubectl -n "${SYSTEM_NAMESPACE}" patch deployment "$deployment" --patch '{"spec":{"replicas":2}}'
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
 done
+# Wait for a new leader Controller to prevent race conditions during service reconciliation
+wait_for_leader_controller || failed=1
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=10m -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 kubectl get cm config-leader-election -n "${SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 
 # Dump cluster state in case of failure

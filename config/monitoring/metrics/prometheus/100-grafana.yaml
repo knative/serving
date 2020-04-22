@@ -118,23 +118,6 @@ data:
       options:
         path: /grafana-dashboard-definition/scaling
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: grafana
-  namespace: knative-monitoring
-  labels:
-    app: grafana
-    serving.knative.dev/release: devel
-spec:
-  type: NodePort
-  ports:
-  - port: 30802
-    protocol: TCP
-    targetPort: 3000
-  selector:
-    app: grafana
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

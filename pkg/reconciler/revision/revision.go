@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -64,8 +65,23 @@ type Reconciler struct {
 var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
+	if rev.Status.ContainerStatuses == nil {
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0, len(rev.Spec.Containers))
+	}
+
+	if rev.Status.DeprecatedImageDigest != "" {
+		// Default old revisions to have ContainerStatuses filled in.
+		// This path should only be taken by "old" revisions that have exactly one container.
+		if len(rev.Status.ContainerStatuses) == 0 {
+			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+				Name:        rev.Spec.Containers[0].Name,
+				ImageDigest: rev.Status.DeprecatedImageDigest,
+			})
+		}
+	}
+
 	// The image digest has already been resolved.
-	if rev.Status.ImageDigest != "" {
+	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
 		return nil
 	}
 
@@ -79,18 +95,55 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 		ImagePullSecrets:   imagePullSecrets,
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
-		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
-	if err != nil {
-		err = fmt.Errorf("failed to resolve image to digest: %w", err)
-		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-			v1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, err.Error()))
-		return err
+
+	var digestGrp errgroup.Group
+	type digestData struct {
+		digestValue        string
+		containerName      string
+		isServingContainer bool
+		image              string
+		digestError        error
 	}
 
-	rev.Status.ImageDigest = digest
-
+	digests := make(chan digestData, len(rev.Spec.Containers))
+	for _, container := range rev.Spec.Containers {
+		container := container // Standard Go concurrency pattern.
+		digestGrp.Go(func() error {
+			digest, err := c.resolver.Resolve(container.Image,
+				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
+			if err != nil {
+				err = fmt.Errorf("failed to resolve image to digest: %w", err)
+				digests <- digestData{
+					image:       container.Image,
+					digestError: err,
+				}
+			} else {
+				digests <- digestData{
+					digestValue:        digest,
+					containerName:      container.Name,
+					isServingContainer: len(rev.Spec.Containers) == 1 || len(container.Ports) != 0,
+				}
+			}
+			return nil
+		})
+	}
+	digestGrp.Wait()
+	close(digests)
+	for v := range digests {
+		if v.digestError != nil {
+			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+				v1.RevisionContainerMissingMessage(
+					v.image, v.digestError.Error()))
+			return v.digestError
+		}
+		if v.isServingContainer {
+			rev.Status.DeprecatedImageDigest = v.digestValue
+		}
+		rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+			Name:        v.containerName,
+			ImageDigest: v.digestValue,
+		})
+	}
 	return nil
 }
 

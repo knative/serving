@@ -22,14 +22,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	deployment "knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/pkg/configmap/testing"
@@ -40,7 +40,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
-	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, pkgmetrics.ConfigMapName())
+	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
 	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
 	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
@@ -59,21 +59,21 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("Deployment", func(t *testing.T) {
 		expected, _ := deployment.NewConfigFromConfigMap(deploymentConfig)
 		if diff := cmp.Diff(expected, config.Deployment); diff != "" {
-			t.Errorf("Unexpected deployment (-want, +got): %v", diff)
+			t.Error("Unexpected deployment (-want, +got):", diff)
 		}
 	})
 
 	t.Run("network", func(t *testing.T) {
 		expected, _ := network.NewConfigFromConfigMap(networkConfig)
 		if diff := cmp.Diff(expected, config.Network); diff != "" {
-			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+			t.Error("Unexpected controller config (-want, +got):", diff)
 		}
 	})
 
 	t.Run("observability", func(t *testing.T) {
 		expected, _ := metrics.NewObservabilityConfigFromConfigMap(observabilityConfig)
 		if diff := cmp.Diff(expected, config.Observability); diff != "" {
-			t.Errorf("Unexpected observability config (-want, +got): %v", diff)
+			t.Error("Unexpected observability config (-want, +got):", diff)
 		}
 
 		// Default config.
@@ -90,7 +90,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("logging", func(t *testing.T) {
 		expected, _ := logging.NewConfigFromConfigMap(loggingConfig)
 		if diff := cmp.Diff(expected, config.Logging); diff != "" {
-			t.Errorf("Unexpected logging config (-want, +got): %v", diff)
+			t.Error("Unexpected logging config (-want, +got):", diff)
 		}
 
 		// Default config.
@@ -107,7 +107,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("tracing", func(t *testing.T) {
 		expected, _ := pkgtracing.NewTracingConfigFromConfigMap(tracingConfig)
 		if diff := cmp.Diff(expected, config.Tracing); diff != "" {
-			t.Errorf("Unexpected tracing config (-want, +got): %v", diff)
+			t.Error("Unexpected tracing config (-want, +got):", diff)
 		}
 
 		// Default config.
@@ -124,14 +124,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := apisconfig.NewDefaultsConfigFromConfigMap(defaultConfig)
 		if diff := cmp.Diff(expected, config.Defaults); diff != "" {
-			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+			t.Error("Unexpected defaults config (-want, +got):", diff)
 		}
 	})
 
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler); diff != "" {
-			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+			t.Error("Unexpected autoscaler config (-want, +got):", diff)
 		}
 	})
 }
@@ -141,7 +141,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName()))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, metrics.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgtracing.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName))

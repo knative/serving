@@ -81,7 +81,7 @@ required = [
 
 [[constraint]]
   name = "knative.dev/test-infra"
-  branch = "release-0.14"
+  branch = "master"
 
 [prune]
   go-tests = true

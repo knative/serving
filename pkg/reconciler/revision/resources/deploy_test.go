@@ -37,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -203,7 +204,7 @@ var (
 					serving.RevisionUID: "1234",
 				},
 			},
-			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deployment.ProgressDeadlineDefault.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -494,7 +495,7 @@ func TestMakePodSpec(t *testing.T) {
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Status = v1.RevisionStatus{
-					ImageDigest: "busybox@sha256:deadbeef",
+					DeprecatedImageDigest: "busybox@sha256:deadbeef",
 				}
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
