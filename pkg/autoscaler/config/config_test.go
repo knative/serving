@@ -243,7 +243,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "with invalid default initial scale",
+		name: "with prohibited default initial scale",
 		input: map[string]string{
 			"allow-zero-initial-scale": "false",
 			"default-initial-scale":    "0",
@@ -257,7 +257,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "with non-parsible default initial scale",
+		name: "with non-parseable default initial scale",
 		input: map[string]string{
 			"allow-zero-initial-scale": "false",
 			"default-initial-scale":    "invalid",
@@ -273,6 +273,17 @@ func TestNewConfig(t *testing.T) {
 			c := defaultConfig()
 			c.AllowZeroInitialScale = true
 			c.DefaultInitialScale = 0
+			return c
+		}(),
+
+	}, {
+		name: "with non-parseable allow-zero-initial-scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "invalid",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.AllowZeroInitialScale = false
 			return c
 		}(),
 	}}

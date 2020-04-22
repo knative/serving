@@ -71,7 +71,7 @@ type Config struct {
 	// autoscaling.internal.knative.dev/initialScale are allowed to be set to 0.
 	AllowZeroInitialScale bool
 
-	// DefaultInitialScale is the cluster-wide initial revision size for newly deploy
+	// DefaultInitialScale is the cluster-wide initial revision size for newly deployed
 	// services. This can be set to 0 iff AllowZeroInitialScale is true.
 	DefaultInitialScale int32
 
