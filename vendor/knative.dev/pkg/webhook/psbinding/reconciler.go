@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
@@ -42,6 +43,12 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/tracker"
 )
+
+var jsonLabelPatch = map[string]interface{}{
+	"metadata": map[string]interface{}{
+		"labels": map[string]string{duck.BindingIncludeLabel: "true"},
+	},
+}
 
 // BaseReconciler helps implement controller.Reconciler for Binding resources.
 type BaseReconciler struct {
@@ -75,6 +82,9 @@ type BaseReconciler struct {
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
+
+	// Namespace Lister
+	NamespaceLister corev1listers.NamespaceLister
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -229,6 +239,44 @@ func (r *BaseReconciler) RemoveFinalizer(ctx context.Context, fb kmeta.Accessor)
 	return err
 }
 
+func (r *BaseReconciler) labelNamespace(ctx context.Context, subject tracker.Reference) error {
+
+	namespaceObject, err := r.NamespaceLister.Get(subject.Namespace)
+	if apierrs.IsNotFound(err) {
+		logging.FromContext(ctx).Infof("Error getting namespace (not found): %v", err)
+		return err
+	} else if err != nil {
+		logging.FromContext(ctx).Infof("Error getting namespace: %v", err)
+		return err
+	}
+
+	labels := namespaceObject.GetLabels()
+	if labels[duck.BindingIncludeLabel] != "" || labels[duck.BindingExcludeLabel] != "" {
+		return nil
+	}
+
+	patch, err := json.Marshal(jsonLabelPatch)
+	if err != nil {
+		logging.FromContext(ctx).Infof("Error generating json patch: %v, to namespace: %s", err, subject.Namespace)
+		return nil
+	}
+
+	// Determine the GroupVersionResource of the subject reference
+	gvr := schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "namespaces",
+	}
+
+	_, err = r.DynamicClient.Resource(gvr).Patch(subject.Namespace, types.MergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		logging.FromContext(ctx).Infof("Error applying patch to namespace: %s: %v", subject.Namespace, err)
+		return err
+	}
+
+	return nil
+}
+
 // ReconcileSubject handles applying the provided Binding "mutation" (Do or
 // Undo) to the Binding's subject(s).
 func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, mutation Mutation) error {
@@ -269,6 +317,10 @@ func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, muta
 		} else if err != nil {
 			return fmt.Errorf("error fetching Pod Speccable %v: %v", subject, err)
 		}
+		err = r.labelNamespace(ctx, subject)
+		if err != nil {
+			return err
+		}
 		referents = append(referents, psObj.(*duckv1.WithPod))
 	} else {
 		// Otherwise, the subject is referenced by selector, so compile
@@ -280,6 +332,10 @@ func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, muta
 		psObjs, err := lister.ByNamespace(subject.Namespace).List(selector)
 		if err != nil {
 			return fmt.Errorf("error fetching Pod Speccable %v: %v", subject, err)
+		}
+		err = r.labelNamespace(ctx, subject)
+		if err != nil {
+			return err
 		}
 		// Type cast the returned resources into our referent list.
 		for _, psObj := range psObjs {

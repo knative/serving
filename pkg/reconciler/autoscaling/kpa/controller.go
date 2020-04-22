@@ -20,10 +20,10 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/tools/cache"
+
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
@@ -31,14 +31,16 @@ import (
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/deployment"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -63,7 +65,7 @@ func NewController(
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
 
-	onlyKpaClass := pkgreconciler.AnnotationFilterFunc(
+	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
 
 	c := &Reconciler{
@@ -80,9 +82,10 @@ func NewController(
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},
+			&deployment.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-			impl.FilteredGlobalResync(onlyKpaClass, paInformer.Informer())
+			impl.FilteredGlobalResync(onlyKPAClass, paInformer.Informer())
 		})
 		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
@@ -93,7 +96,7 @@ func NewController(
 	logger.Info("Setting up KPA-Class event handlers")
 	// Handle only PodAutoscalers that have KPA annotation.
 	paHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
+		FilterFunc: onlyKPAClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
 	}
 	paInformer.Informer().AddEventHandler(paHandler)
@@ -117,12 +120,12 @@ func NewController(
 	})
 
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
+		FilterFunc: onlyKPAClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyKpaClass,
+		FilterFunc: onlyKPAClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

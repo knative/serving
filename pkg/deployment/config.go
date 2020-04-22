@@ -38,7 +38,9 @@ const (
 	ProgressDeadlineDefault = 120 * time.Second
 
 	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
-	progressDeadlineKey               = "progressDeadline"
+
+	// ProgressDeadlineKey is the key to configure deployment progress deadline.
+	ProgressDeadlineKey = "progressDeadline"
 )
 
 func defaultConfig() *Config {
@@ -57,12 +59,12 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	}
 	nc.QueueSidecarImage = qsideCarImage
 
-	if pd, ok := configMap[progressDeadlineKey]; ok {
+	if pd, ok := configMap[ProgressDeadlineKey]; ok {
 		v, err := time.ParseDuration(pd)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", progressDeadlineKey, pd, err)
+			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", ProgressDeadlineKey, pd, err)
 		} else if v <= 0 {
-			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", progressDeadlineKey, v)
+			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", ProgressDeadlineKey, v)
 		}
 		nc.ProgressDeadline = v
 	}

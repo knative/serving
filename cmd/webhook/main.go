@@ -43,6 +43,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/leaderelection"
+	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -77,6 +78,15 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
 }
 
+var serviceValidation = validation.NewCallback(
+	extravalidation.ValidateRevisionTemplate, webhook.Create, webhook.Update)
+
+var callbacks = map[schema.GroupVersionKind]validation.Callback{
+	v1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
+	v1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
+	v1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
+}
+
 func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
@@ -90,7 +100,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// The path on which to serve the webhook.
 		"/defaulting",
 
-		// The resources to validate and default.
+		// The resources to default.
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
@@ -116,7 +126,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// The path on which to serve the webhook.
 		"/resource-validation",
 
-		// The resources to validate and default.
+		// The resources to validate.
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
@@ -126,6 +136,9 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 		// Whether to disallow unknown fields.
 		true,
+
+		// Extra validating callbacks to be applied to resources.
+		callbacks,
 	)
 }
 

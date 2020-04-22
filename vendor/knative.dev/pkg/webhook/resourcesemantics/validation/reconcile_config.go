@@ -97,6 +97,7 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 			Operations: []admissionregistrationv1beta1.OperationType{
 				admissionregistrationv1beta1.Create,
 				admissionregistrationv1beta1.Update,
+				admissionregistrationv1beta1.Delete,
 			},
 			Rule: admissionregistrationv1beta1.Rule{
 				APIGroups:   []string{gvk.Group},
