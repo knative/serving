@@ -51,7 +51,7 @@ Note: this is only required when you run conformance/e2e tests locally with
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to
 build and push the test images used by the conformance and e2e tests. The script
 expects your environment to be setup as described in
-[DEVELOPMENT.md](../DEVELOPMENT.md#install-requirements).
+[DEVELOPMENT.md](../../../DEVELOPMENT.md#install-requirements).
 
 To run the script for all end to end test images:
 
