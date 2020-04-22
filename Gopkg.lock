@@ -1811,7 +1811,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:103d7071eac8f39a701748e96c7dfefac4bfe5df4fd9e9537d6c623db2a5216b"
+  digest = "1:b1b73e6d47c580e4fb4ae815231518a3dfcda4b3fe88aa3919f4a4f19d42601d"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1834,11 +1834,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "ad9c545be7bb83c71b015d624b544ec595948e27"
+  revision = "aaaa1a555a18fde1bb9790845da57d1ea333d326"
 
 [[projects]]
   branch = "master"
-  digest = "1:df83f070e3345a7acfbe668cb3a685a6ea8255200bf1a170b4f222cc4f1ae2e3"
+  digest = "1:e22353ddf843dd7a2114cd6384fdd84b7200d2fbb86aa864af91d60110954e3f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1953,18 +1953,18 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e247dc308deaabaa6e1c8a8dcac98d8a6ac91e13"
+  revision = "8aa4090a02769edfd8494007c50424cc87c6a655"
 
 [[projects]]
   branch = "master"
-  digest = "1:dc73d65f40ea05b1d0db96ae5491b6ebc162bb59b3ac5a252cdf87848bc7a4b7"
+  digest = "1:8a965ebe2d83033f6a07e926357f7341b6c7f42e165a3e13c7c8113b953a265b"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "9cf64fb1b912898b2934e0e963bf3c61b96d7a2c"
+  revision = "349504bd2094689586c7399ceb1af96fcbad1026"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2038,10 +2038,10 @@
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
-    "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/dns/v1",
+    "google.golang.org/api/option",
     "google.golang.org/grpc",
     "istio.io/api/networking/v1alpha3",
     "istio.io/client-go/pkg/apis/networking/v1alpha3",

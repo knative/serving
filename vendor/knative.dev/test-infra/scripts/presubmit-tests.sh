@@ -306,6 +306,8 @@ function main() {
     kubectl version --client
     echo ">> go version"
     go version
+    echo ">> python3 version"
+    python3 --version
     echo ">> git version"
     git version
     echo ">> ko version"

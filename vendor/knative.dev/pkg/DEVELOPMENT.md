@@ -1,10 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
-to Knative `pkg`. Also take a look at:
+[contributing](https://knative.dev/community/contributing/) to Knative `pkg`.
+Also take a look at:
 
-- [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
+- [The pull request workflow](https://knative.dev/community/contributing/reviewing/)
 
 ## Getting started
 
@@ -59,7 +59,7 @@ mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/pkg.git
 cd pkg
-git remote add upstream git@github.com:knative/pkg.git
+git remote add upstream https://github.com/knative/pkg.git
 git remote set-url --push upstream no_push
 ```
 
