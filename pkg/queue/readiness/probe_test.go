@@ -224,9 +224,10 @@ func TestHTTPSuccess(t *testing.T) {
 func TestHTTPManyParallel(t *testing.T) {
 	cnt := int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&cnt, 1)
-		// Add a small amount of work to allow the requests below to collapse into one.
-		time.Sleep(50 * time.Millisecond)
+		if atomic.AddInt32(&cnt, 1) == 1 {
+			// Add a small amount of work to allow the requests below to collapse into one.
+			time.Sleep(200 * time.Millisecond)
+		}
 	}))
 	defer ts.Close()
 
@@ -250,7 +251,7 @@ func TestHTTPManyParallel(t *testing.T) {
 	})
 
 	var grp errgroup.Group
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		grp.Go(func() error {
 			if !pb.ProbeContainer() {
 				return errors.New("failed to probe container")
@@ -266,9 +267,8 @@ func TestHTTPManyParallel(t *testing.T) {
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
 	}
-	// Check we receive strictly less than 6 (5+1) actual probes.
-	if got := atomic.LoadInt32(&cnt); got >= 6 {
-		t.Errorf("Probe count = %d, want: < 6", got)
+	if got, want := atomic.LoadInt32(&cnt), int32(2); got != want {
+		t.Errorf("Probe count = %d, want: %d", got, want)
 	}
 }
 
