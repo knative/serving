@@ -28,13 +28,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
 	cases := []struct {
 		name       string
 		objectMeta metav1.Object
+		ctx        context.Context
 		expectErr  *apis.FieldError
 	}{{
 		name: "invalid name - dots",
@@ -147,11 +150,34 @@ func TestValidateObjectMetadata(t *testing.T) {
 				"testAnnotation": "testValue",
 			},
 		},
+	}, {
+		name: "cluster allows zero revision initial scale",
+		ctx: config.ToContext(context.Background(), asCfg(map[string]string{
+			"allow-zero-initial-scale": "true",
+		})),
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "0",
+			},
+		},
+	}, {
+		name: "cluster does not allows zero revision initial scale",
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "0",
+			},
+		},
+		expectErr: apis.ErrInvalidValue("0", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := ValidateObjectMetadata(c.objectMeta)
+			if c.ctx == nil {
+				c.ctx = context.Background()
+			}
+			err := ValidateObjectMetadata(c.ctx, c.objectMeta)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {
 				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
@@ -237,6 +263,13 @@ func cfg(m map[string]string) *config.Config {
 	d, _ := config.NewDefaultsConfigFromMap(m)
 	return &config.Config{
 		Defaults: d,
+	}
+}
+
+func asCfg(m map[string]string) *config.Config {
+	as, _ := autoscalerconfig.NewConfigFromMap(m)
+	return &config.Config{
+		Autoscaler: as,
 	}
 }
 

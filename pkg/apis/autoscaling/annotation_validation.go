@@ -37,11 +37,12 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 	return i, nil
 }
 
-func ValidateAnnotations(anns map[string]string) *apis.FieldError {
+// ValidateAnnotations verifies the autoscaling annotations.
+func ValidateAnnotations(allowInitScaleZero bool, anns map[string]string) *apis.FieldError {
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns)))
+	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns).Also(validateInitialScale(allowInitScaleZero, anns))))
 }
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
@@ -141,6 +142,15 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			return nil
 		}
 		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
+	}
+	return nil
+}
+
+func validateInitialScale(allowInitScaleZero bool, annotations map[string]string) *apis.FieldError {
+	if initialScale, ok := annotations[InitialScaleAnnotationKey]; ok {
+		if !allowInitScaleZero && initialScale == "0" {
+			return apis.ErrInvalidValue(initialScale, InitialScaleAnnotationKey)
+		}
 	}
 	return nil
 }

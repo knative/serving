@@ -355,6 +355,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
+		ctx  context.Context
 		rts  *RevisionTemplateSpec
 		want *apis.FieldError
 	}{{
@@ -496,14 +497,52 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Message: "expected 1 <=  <= 2147483647",
 			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
+	}, {
+		name: "Invalid initial scale when cluster doesn't allow zero",
+		ctx:  autoscalerConfigCtx(false, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: 0",
+			Paths:   []string{fmt.Sprintf("%s", autoscaling.InitialScaleAnnotationKey)},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "Valid initial scale when cluster allows zero",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+			ctx := context.Background()
+			if test.ctx != nil {
+				ctx = test.ctx
+			}
+			ctx = apis.WithinParent(ctx, metav1.ObjectMeta{
 				Name: "parent",
 			})
-
 			got := test.rts.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got): \n%s", diff)
@@ -887,4 +926,12 @@ func TestRevisionProtocolType(t *testing.T) {
 			t.Errorf("Got = %v, want: %v, diff: %s", got, want, cmp.Diff(got, want))
 		}
 	}
+}
+
+func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.Context {
+	testConfigs := &config.Config{}
+	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{})
+	testConfigs.Autoscaler.AllowZeroInitialScale = allowInitialScaleZero
+	testConfigs.Autoscaler.InitialScale = int32(initialScale)
+	return config.ToContext(context.Background(), testConfigs)
 }

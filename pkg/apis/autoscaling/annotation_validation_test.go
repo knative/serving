@@ -26,9 +26,10 @@ import (
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
 	cases := []struct {
-		name        string
-		annotations map[string]string
-		expectErr   string
+		name               string
+		annotations        map[string]string
+		expectErr          string
+		allowInitScaleZero bool
 	}{{
 		name:        "nil annotations",
 		annotations: nil,
@@ -235,10 +236,15 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "other than HPA and KPA class",
 		annotations: map[string]string{ClassAnnotationKey: "other", MetricAnnotationKey: RPS},
+	}, {
+		name:               "initial scale is zero but cluster doesn't allow",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
+		expectErr:          "invalid value: 0: autoscaling.knative.dev/initialScale",
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got, want := ValidateAnnotations(c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
+			if got, want := ValidateAnnotations(c.allowInitScaleZero, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
 				t.Errorf("Err = %q, want: %q, diff:\n%s", got, want, cmp.Diff(got, want))
 			}
 		})
