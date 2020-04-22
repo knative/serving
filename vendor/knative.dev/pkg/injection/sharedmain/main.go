@@ -474,6 +474,7 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 				logger.Fatal("leaderelection lost")
 			},
 		},
+		ReleaseOnCancel: true,
 		// TODO: use health check watchdog, knative/pkg#1048
 		Name: component,
 	})

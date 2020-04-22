@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/test"
 )
 
@@ -34,7 +35,7 @@ const (
 )
 
 func init() {
-	// Properly seed the random number generator so AppendRandomString() is actually random.
+	// Properly seed the random number generator so RandomString() is actually random.
 	// Otherwise, rerunning tests will generate the same names for the test resources, causing conflicts with
 	// already existing resources.
 	seed := time.Now().UTC().UnixNano()
@@ -49,7 +50,7 @@ func ObjectPrefixForTest(t test.T) string {
 
 // ObjectNameForTest generates a random object name based on the test name.
 func ObjectNameForTest(t test.T) string {
-	return AppendRandomString(ObjectPrefixForTest(t))
+	return kmeta.ChildName(ObjectPrefixForTest(t), string(sep)+RandomString())
 }
 
 // AppendRandomString will generate a random string that begins with prefix.
@@ -58,13 +59,17 @@ func ObjectNameForTest(t test.T) string {
 // This method will use "-" as the separator between the prefix and
 // the random suffix.
 func AppendRandomString(prefix string) string {
+	return strings.Join([]string{prefix, RandomString()}, string(sep))
+}
+
+// RandomString will generate a random string.
+func RandomString() string {
 	suffix := make([]byte, randSuffixLen)
 
 	for i := range suffix {
 		suffix[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
-
-	return strings.Join([]string{prefix, string(suffix)}, string(sep))
+	return string(suffix)
 }
 
 // MakeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash

@@ -966,7 +966,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:848ae8fad4b88bbe3e0944f2a68052e14c4e1bb345d7b32f9d0a0ffdc2c90b46"
+  digest = "1:518e5e7cb6aa149f3ea33bbfdfd367e4ab413d3405e33d85e09ac1f9b7a74c1f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -986,18 +986,18 @@
     "reconciler",
   ]
   pruneopts = "T"
-  revision = "4e57475bc87c1aba3e7fcc0207b593dc7186eb83"
+  revision = "9320e44d1bf75c228b98b30cedcb98bb6e1424ee"
 
 [[projects]]
   branch = "master"
-  digest = "1:dc73d65f40ea05b1d0db96ae5491b6ebc162bb59b3ac5a252cdf87848bc7a4b7"
+  digest = "1:8a965ebe2d83033f6a07e926357f7341b6c7f42e165a3e13c7c8113b953a265b"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "74b24ca44778c3a69ecc193250cdddb5d0e64b88"
+  revision = "891d25bbf859bfc829b515068cc3e167a7fcc528"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
