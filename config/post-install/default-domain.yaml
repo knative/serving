@@ -51,7 +51,6 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
       restartPolicy: OnFailure
-  backoffLimit: 10
 
 ---
 apiVersion: v1
