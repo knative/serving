@@ -278,11 +278,8 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
 	}
 
-	if lc.InitialScale < 0 {
+	if lc.InitialScale < 0 || (lc.InitialScale == 0 && !lc.AllowZeroInitialScale) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
-	}
-	if lc.InitialScale == 0 && !lc.AllowZeroInitialScale {
-		return nil, fmt.Errorf("initial-scale = %v, must be at least 1 since allow-zero-initial-scale is false", lc.InitialScale)
 	}
 	return lc, nil
 }
