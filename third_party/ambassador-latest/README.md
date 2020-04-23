@@ -1,7 +1,7 @@
 ### Ambassador
 
-`ambassador-rbac.yaml` and `ambassador-service.yaml` are required to install Ambassador.
-These need to be updated every time Ambassador's version is bumped.
+`ambassador-rbac.yaml` and `ambassador-service.yaml` are required to install
+Ambassador. These need to be updated every time Ambassador's version is bumped.
 Detailed instructions on installing Ambassador are available
 [here](https://www.getambassador.io/user-guide/getting-started/).
 
