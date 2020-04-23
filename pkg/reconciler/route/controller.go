@@ -69,8 +69,6 @@ func newControllerWithClock(
 	ingressInformer := ingressinformer.Get(ctx)
 	certificateInformer := certificateinformer.Get(ctx)
 
-	// No need to lock domainConfigMutex yet since the informers that can modify
-	// domainConfig haven't started yet.
 	c := &Reconciler{
 		kubeclient:          kubeclient.Get(ctx),
 		client:              servingclient.Get(ctx),
