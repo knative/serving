@@ -67,13 +67,13 @@ type Config struct {
 	// the number of activators per revision.
 	ActivatorCapacity float64
 
-	// AllowZeroInitialScale indicates whether DefaultInitialScale and
+	// AllowZeroInitialScale indicates whether InitialScale and
 	// autoscaling.internal.knative.dev/initialScale are allowed to be set to 0.
 	AllowZeroInitialScale bool
 
-	// DefaultInitialScale is the cluster-wide initial revision size for newly deployed
+	// InitialScale is the cluster-wide default initial revision size for newly deployed
 	// services. This can be set to 0 iff AllowZeroInitialScale is true.
-	DefaultInitialScale int32
+	InitialScale int32
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
@@ -108,7 +108,7 @@ func defaultConfig() *Config {
 		TickInterval:             2 * time.Second,
 		PodAutoscalerClass:       autoscaling.KPA,
 		AllowZeroInitialScale:    false,
-		DefaultInitialScale:      1,
+		InitialScale:             1,
 	}
 }
 
@@ -184,8 +184,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field        *int32
 		defaultValue int32
 	}{{
-		key:          "default-initial-scale",
-		field:        &lc.DefaultInitialScale,
+		key:          "initial-scale",
+		field:        &lc.InitialScale,
 		defaultValue: 1,
 	}} {
 		if raw, ok := data[i.key]; !ok {
@@ -280,11 +280,11 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
 	}
 
-	if lc.DefaultInitialScale < 0 {
-		return nil, fmt.Errorf("default-initial-scale = %v, must be greater than 0", lc.DefaultInitialScale)
+	if lc.InitialScale < 0 {
+		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
 	}
-	if lc.DefaultInitialScale == 0 && !lc.AllowZeroInitialScale {
-		return nil, fmt.Errorf("default-initial-scale = %v, must be greater than 1 when allow-zero-initial-scale = %v", lc.DefaultInitialScale, lc.AllowZeroInitialScale)
+	if lc.InitialScale == 0 && !lc.AllowZeroInitialScale {
+		return nil, fmt.Errorf("initial-scale = %v, must be at least 1 since allow-zero-initial-scale is false", lc.InitialScale)
 	}
 	return lc, nil
 }
