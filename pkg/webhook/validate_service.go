@@ -62,7 +62,7 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 
 	if apis.IsInUpdate(ctx) {
 		if uns, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apis.GetBaseline(ctx)); err == nil {
-			if oldVal, found, err := unstructured.NestedFieldNoCopy(uns, "spec", "template"); found && err == nil &&
+			if oldVal, found, _ := unstructured.NestedFieldNoCopy(uns, "spec", "template"); found &&
 				equality.Semantic.DeepEqual(val, oldVal) {
 				return nil // Don't validate no-change updates.
 			}

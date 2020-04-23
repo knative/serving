@@ -101,7 +101,7 @@ func TestServiceValidation(t *testing.T) {
 			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
-					t.Errorf("Validate got='%v', want='%v'", got, test.want)
+					t.Errorf("Validate got=nil, want='%q'", test.want)
 				}
 			} else if !strings.Contains(got.Error(), test.want) {
 				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
@@ -150,12 +150,11 @@ func TestSkipUpdate(t *testing.T) {
 			},
 		},
 		want: "dry run failed with kubeclient error: spec.template",
-	},
-		{
-			name: "skip_identical_old",
-			new:  validServiceUns,
-			old:  validService,
-		}}
+	}, {
+		name: "skip_identical_old",
+		new:  validServiceUns,
+		old:  validService,
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -170,7 +169,7 @@ func TestSkipUpdate(t *testing.T) {
 			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
-					t.Errorf("Validate got='%v', want='%v'", got, test.want)
+					t.Errorf("Validate got=nil, want='%q'", test.want)
 				}
 			} else if got.Error() != test.want {
 				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
