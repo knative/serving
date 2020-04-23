@@ -32,21 +32,22 @@ import (
 // Constants for test images located in test/test_images.
 const (
 	// Test image names
-	Autoscale           = "autoscale"
-	Failing             = "failing"
-	HelloVolume         = "hellovolume"
-	HelloWorld          = "helloworld"
-	HTTPProxy           = "httpproxy"
-	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
-	PizzaPlanet1        = "pizzaplanetv1"
-	PizzaPlanet2        = "pizzaplanetv2"
-	Protocols           = "protocols"
-	Runtime             = "runtime"
-	SingleThreadedImage = "singlethreaded"
-	Timeout             = "timeout"
-	WorkingDir          = "workingdir"
-	ServingContainer    = "servingcontainer"
-	SidecarContainer    = "sidecarcontainer"
+	Autoscale                 = "autoscale"
+	Failing                   = "failing"
+	HelloVolume               = "hellovolume"
+	HelloServiceAccountVolume = "helloserviceaccount"
+	HelloWorld                = "helloworld"
+	HTTPProxy                 = "httpproxy"
+	InvalidHelloWorld         = "invalidhelloworld" // Not a real image
+	PizzaPlanet1              = "pizzaplanetv1"
+	PizzaPlanet2              = "pizzaplanetv2"
+	Protocols                 = "protocols"
+	Runtime                   = "runtime"
+	SingleThreadedImage       = "singlethreaded"
+	Timeout                   = "timeout"
+	WorkingDir                = "workingdir"
+	ServingContainer          = "servingcontainer"
+	SidecarContainer          = "sidecarcontainer"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

@@ -403,3 +403,47 @@ func TestProjectedComplex(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// TestProjectedServiceAccountToken tests that validates the default service token mounted
+func TestProjectedServiceAccountToken(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloserviceaccount",
+	}
+
+	tokenPath := "token"
+	saPath := filepath.Join(filepath.Dir(test.HelloVolumePath), tokenPath)
+
+	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+		Projected: &corev1.ProjectedVolumeSource{
+			Sources: []corev1.VolumeProjection{{
+				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+					Audience: "api",
+					Path:     tokenPath,
+				},
+			}},
+		},
+	})
+	withSubpath := func(svc *v1.Service) {
+		vm := &svc.Spec.Template.Spec.Containers[0].VolumeMounts[0]
+		vm.MountPath = saPath
+		vm.SubPath = filepath.Base(saPath)
+	}
+
+	// Setup initial Service
+	if _, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withSubpath); err != nil {
+		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+	}
+
+	// Validate State after Creation
+	if err := validateControlPlane(t, clients, names, "1"); err != nil {
+		t.Error(err)
+	}
+
+	if err := validateDataPlane(t, clients, names, ""); err != nil {
+		t.Error(err)
+	}
+}
