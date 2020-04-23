@@ -61,7 +61,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: ambassador
-  namespace: default
+  namespace: ambassador
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -92,6 +92,8 @@ spec:
             weight: 100
       containers:
       - env:
+        - name: AMBASSADOR_KNATIVE_SUPPORT
+          value: "true"
         - name: AMBASSADOR_NAMESPACE
           valueFrom:
             fieldRef:
