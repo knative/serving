@@ -20,8 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -63,7 +62,8 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 
 	if apis.IsInUpdate(ctx) {
 		if uns, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apis.GetBaseline(ctx)); err == nil {
-			if oldVal, found, err := unstructured.NestedFieldNoCopy(uns, "spec", "template"); found && err == nil && cmp.Equal(val, oldVal) {
+			if oldVal, found, err := unstructured.NestedFieldNoCopy(uns, "spec", "template"); found && err == nil &&
+				equality.Semantic.DeepEqual(val, oldVal) {
 				return nil // Don't validate no-change updates.
 			}
 		}
