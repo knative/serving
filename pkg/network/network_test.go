@@ -327,25 +327,19 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 func TestLabelsInDomainTemplate(t *testing.T) {
 	networkConfigTests := []struct {
 		name               string
+		data               map[string]string
+		templateValue      DomainTemplateValues
 		wantErr            bool
 		wantDomainTemplate string
-		config             *corev1.ConfigMap
-		data               DomainTemplateValues
 	}{{
 		name:               "network configuration with labels in template",
 		wantErr:            false,
 		wantDomainTemplate: "foo.sub1.baz.com",
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      `{{.Name}}.{{ index .Labels "sub"}}.{{.Domain}}`,
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{ index .Labels "sub"}}.{{.Domain}}`,
 		},
-		data: DomainTemplateValues{
+		templateValue: DomainTemplateValues{
 			Name:      "foo",
 			Namespace: "bar",
 			Labels: map[string]string{
@@ -355,17 +349,11 @@ func TestLabelsInDomainTemplate(t *testing.T) {
 		name:               "network configuration without labels in template",
 		wantErr:            false,
 		wantDomainTemplate: "foo.bar.baz.com",
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				DefaultIngressClassKey: "foo-ingress",
-				DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
-			},
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
 		},
-		data: DomainTemplateValues{
+		templateValue: DomainTemplateValues{
 			Name:      "foo",
 			Namespace: "bar",
 			Domain:    "baz.com"},
@@ -373,18 +361,19 @@ func TestLabelsInDomainTemplate(t *testing.T) {
 
 	for _, tt := range networkConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualConfig, err := NewConfigFromConfigMap(tt.config)
+			actualConfig, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+				Data: tt.data,
+			})
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromConfigMap() error = %v, WantErr %v",
-					tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromConfigMap() error = %v, WantErr? %v", err, tt.wantErr)
 			}
 			if tt.wantErr {
 				return
 			}
 
-			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.data)
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.templateValue)
 			if got != tt.wantDomainTemplate {
-				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, tt.wantDomainTemplate)
+				t.Errorf("DomainTemplate(data) = %s, want: %s", got, tt.wantDomainTemplate)
 			}
 		})
 	}
@@ -394,7 +383,7 @@ func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string
 	t.Helper()
 	buf := bytes.Buffer{}
 	if err := tmpl.Execute(&buf, data); err != nil {
-		t.Errorf("Error executing the DomainTemplate: %v", err)
+		t.Error("Error executing the DomainTemplate:", err)
 	}
 	return buf.String()
 }
@@ -402,7 +391,7 @@ func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string
 func TestIsKubeletProbe(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if IsKubeletProbe(req) {
 		t.Error("Not a kubelet probe but counted as such")
@@ -424,7 +413,7 @@ func TestIsKubeletProbe(t *testing.T) {
 func TestKnativeProbeHeader(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if h := KnativeProbeHeader(req); h != "" {
 		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
@@ -443,7 +432,7 @@ func TestKnativeProbeHeader(t *testing.T) {
 func TestKnativeProxyHeader(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if h := KnativeProxyHeader(req); h != "" {
 		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
@@ -463,7 +452,7 @@ func TestIsProbe(t *testing.T) {
 	// Not a probe
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if IsProbe(req) {
 		t.Error("Not a probe but counted as such")

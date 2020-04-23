@@ -33,6 +33,11 @@ func TestSecret(t *testing.T) {
 	cert, cancel := utils.CreateCertificate(t, clients, []string{certName})
 	defer cancel()
 
+	t.Logf("Waiting for Certificate %q to transition to Ready", cert.Name)
+	if err := utils.WaitForCertificateState(clients.NetworkingClient, cert.Name, utils.IsCertificateReady, "CertificateIsReady"); err != nil {
+		t.Fatalf("Error waiting for the certificate to become ready for the latest revision: %v", err)
+	}
+
 	err := utils.WaitForCertificateSecret(t, clients, cert, t.Name())
 	if err != nil {
 		t.Errorf("Failed to wait for secret: %v", err)

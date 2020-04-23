@@ -66,6 +66,7 @@ const (
 )
 
 func TestScaler(t *testing.T) {
+	const activationTimeout = progressDeadline + activationTimeoutBuffer
 	tests := []struct {
 		label               string
 		startReplicas       int

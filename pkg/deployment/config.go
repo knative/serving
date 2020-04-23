@@ -34,7 +34,7 @@ const (
 	QueueSidecarImageKey = "queueSidecarImage"
 
 	// ProgressDeadlineDefault is the default value for the config's
-	// ProgressDeadlineSeconds.
+	// ProgressDeadlineSeconds. This does not match the K8s default value of 600s.
 	ProgressDeadlineDefault = 120 * time.Second
 
 	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"

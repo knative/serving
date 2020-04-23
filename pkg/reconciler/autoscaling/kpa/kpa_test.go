@@ -92,6 +92,7 @@ const (
 	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
 	defaultTU                = 0.5
+	progressDeadline         = 121 * time.Second
 )
 
 func defaultConfigMapData() map[string]string {
@@ -110,7 +111,7 @@ func defaultConfig() *config.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
-		deployment.ProgressDeadlineKey:  "2112ms",
+		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
