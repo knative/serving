@@ -19,18 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
-	"math/big"
-	"net"
-	"time"
 
 	"knative.dev/pkg/apis/duck"
 
@@ -361,58 +352,4 @@ func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
 func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
 	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
-}
-
-// generateCertificate generates a self-signed certificate for the provided host and returns
-// the PEM encoded certificate and private key.
-func generateCertificate(host string) ([]byte, []byte, error) {
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate private key: %v", err)
-	}
-
-	notBefore := time.Now().Add(-5 * time.Minute)
-	notAfter := notBefore.Add(2 * time.Hour)
-
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate serial number: %v", err)
-	}
-
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{"Knative Serving"},
-		},
-		NotBefore: notBefore,
-		NotAfter:  notAfter,
-
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-	}
-
-	if ip := net.ParseIP(host); ip != nil {
-		template.IPAddresses = append(template.IPAddresses, ip)
-	} else {
-		template.DNSNames = append(template.DNSNames, host)
-	}
-
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create the certificate: %v", err)
-	}
-
-	var certBuf bytes.Buffer
-	if err := pem.Encode(&certBuf, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode the certificate: %v", err)
-	}
-
-	var keyBuf bytes.Buffer
-	if err := pem.Encode(&keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode the private key: %v", err)
-	}
-
-	return certBuf.Bytes(), keyBuf.Bytes(), nil
 }
