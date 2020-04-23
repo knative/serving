@@ -115,3 +115,9 @@ func TestForwardedShimHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkForwardedShimHandler(b *testing.B) {
+	for j := 0; j < b.N; j++ {
+		generateForwarded("127.0.0.1,127.0.0.2,::1", "http", "localhost")
+	}
+}
