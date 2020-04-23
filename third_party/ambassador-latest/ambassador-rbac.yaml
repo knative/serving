@@ -4,6 +4,7 @@ kind: Service
 metadata:
   labels:
     service: ambassador-admin
+    app.kubernetes.io/managed-by: getambassador.io
   name: ambassador-admin
 spec:
   type: NodePort
@@ -38,7 +39,7 @@ rules:
   resources: [ "ingresses/status", "clusteringresses/status" ]
   verbs: ["update"]
 - apiGroups: [ "extensions", "networking.k8s.io" ]
-  resources: [ "ingresses" ]
+  resources: [ "ingresses", "ingressclasses" ]
   verbs: ["get", "list", "watch"]
 - apiGroups: [ "extensions", "networking.k8s.io" ]
   resources: [ "ingresses/status" ]
@@ -78,6 +79,7 @@ spec:
         sidecar.istio.io/inject: 'false'
       labels:
         service: ambassador
+        app.kubernetes.io/managed-by: getambassador.io
     spec:
       affinity:
         podAntiAffinity:
@@ -94,7 +96,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/datawire/ambassador:1.2.0
+        image: quay.io/datawire/ambassador:1.4.2
         livenessProbe:
           httpGet:
             path: /ambassador/v0/check_alive
