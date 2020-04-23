@@ -24,6 +24,7 @@ import (
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/pkg/webhook"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -49,14 +50,15 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 
 	// Setup Service
 	t.Logf("Creating a new Service %s", names.Service)
-	service, err := v1test.CreateService(t, clients, names, WithPodSpecDryRunEnabled())
+	service, err := v1test.CreateService(t, clients, names, WithServiceAnnotations(
+		map[string]string{webhook.PodSpecDryRunAnnotation: "enabled"}))
 	if err != nil {
 		t.Fatal("Create Service:", err)
 	}
 
 	_, err = v1test.PatchService(t, clients, service, withInvalidContainer())
 	if err == nil {
-		t.Fatal("Expected Service creation to fail")
+		t.Fatal("Expected Service patch to fail")
 	}
 	if got, want := err.Error(), "validation callback failed"; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
