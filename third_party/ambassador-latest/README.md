@@ -30,4 +30,3 @@ subjects:
 
 Make sure the modifications are done as per the
 [installation documentation](https://knative.dev/docs/install/).
-Make sure the modifications are done as per the [installation documentation](https://knative.dev/docs/install/).
