@@ -101,10 +101,10 @@ func TestServiceValidation(t *testing.T) {
 			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
-					t.Errorf("Validate got=nil, want='%q'", test.want)
+					t.Errorf("Validate got=nil, want=%q", test.want)
 				}
 			} else if !strings.Contains(got.Error(), test.want) {
-				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
+				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
 			}
 		})
 	}
@@ -169,10 +169,10 @@ func TestSkipUpdate(t *testing.T) {
 			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
-					t.Errorf("Validate got=nil, want='%q'", test.want)
+					t.Errorf("Validate got=nil, want=%q", test.want)
 				}
 			} else if got.Error() != test.want {
-				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
+				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
 			}
 		})
 	}
