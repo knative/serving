@@ -51,7 +51,7 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	t.Logf("Creating a new Service %s", names.Service)
 	service, err := v1test.CreateService(t, clients, names, WithPodSpecDryRunEnabled())
 	if err != nil {
-		t.Fatalf("Expected Service creation to succeed, got=%s", err)
+		t.Fatal("Create Service:", err)
 	}
 
 	_, err = v1test.PatchService(t, clients, service, withInvalidContainer())

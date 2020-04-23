@@ -20,12 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
@@ -68,6 +71,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) 
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
 func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
+	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 	pods := client.CoreV1().Pods(pod.GetNamespace())
 
@@ -75,11 +79,10 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
 		// Ignore failures for implementations that don't support dry-run.
 		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
-		// TODO(whaught): reinstate this after testing.
-		/*if strings.Contains(err.Error(), "does not support dry run") {
+		if strings.Contains(err.Error(), "does not support dry run") {
 			logger.Warnw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
 			return nil
-		}*/
+		}
 
 		return apis.ErrGeneric("dry run failed with "+err.Error(), "spec.template")
 	}

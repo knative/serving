@@ -56,5 +56,8 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	if templ == nil || templ == (&v1.RevisionTemplateSpec{}) {
 		return nil // Don't need to validate empty templates
 	}
-	return validatePodSpec(ctx, templ.Spec, namespace)
+	if err := validatePodSpec(ctx, templ.Spec, namespace); err != nil {
+		return err
+	}
+	return nil
 }
