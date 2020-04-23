@@ -132,7 +132,7 @@ func CreateRuntimeService(t *testing.T, clients *test.Clients, portName string) 
 			Ports: []corev1.ServicePort{{
 				Name:       portName,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -196,7 +196,7 @@ func CreateProxyService(t *testing.T, clients *test.Clients, target string, gate
 			Type: "ClusterIP",
 			Ports: []corev1.ServicePort{{
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -287,7 +287,7 @@ func CreateTimeoutService(t *testing.T, clients *test.Clients) (string, int, con
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -361,7 +361,7 @@ func CreateFlakyService(t *testing.T, clients *test.Clients, period int) (string
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -435,7 +435,7 @@ func CreateWebsocketService(t *testing.T, clients *test.Clients, suffix string) 
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -508,7 +508,7 @@ func CreateGRPCService(t *testing.T, clients *test.Clients, suffix string) (stri
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameH2C,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,

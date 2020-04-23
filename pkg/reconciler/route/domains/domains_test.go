@@ -47,7 +47,7 @@ func testConfig() *config.Config {
 			DomainTemplate:      network.DefaultDomainTemplate,
 		},
 		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

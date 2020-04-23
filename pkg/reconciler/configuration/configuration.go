@@ -165,7 +165,7 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 		} else {
 			start := lrr.Generation
 			var generations []string
-			for i := start; i <= int64(config.Generation); i++ {
+			for i := start; i <= config.Generation; i++ {
 				generations = append(generations, strconv.FormatInt(i, 10))
 			}
 

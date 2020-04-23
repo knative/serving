@@ -1057,7 +1057,7 @@ func testNetworkConfig() *config.Config {
 			TagTemplate:         network.DefaultTagTemplate,
 		},
 		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

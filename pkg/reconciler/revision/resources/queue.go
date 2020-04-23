@@ -138,7 +138,7 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 
 func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	value, err := strconv.ParseFloat(m[k], 64)
-	return float64(value / 100), err == nil
+	return value / 100, err == nil
 }
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
