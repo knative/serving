@@ -7,7 +7,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,7 @@ const (
 	invalidServiceAccountName = "foo@bar.baz"
 )
 
-func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
+func TestServiceAccountValidation(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -44,8 +44,10 @@ func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Logf("Creating a new Service %s", names.Service)
-	_, err := v1test.CreateService(t, clients, names, WithServiceAccountName(invalidServiceAccountName))
+	service := v1test.Service(names, WithServiceAccountName(invalidServiceAccountName))
+	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 
+	_, err := clients.ServingClient.Services.Create(service)
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
