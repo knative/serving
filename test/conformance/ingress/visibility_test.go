@@ -207,3 +207,149 @@ func TestVisibilitySplit(t *testing.T) {
 		}
 	}
 }
+
+func TestVisibilityPath(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	// For /foo
+	fooName, fooPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	// For /bar
+	barName, barPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	// For /baz
+	bazName, bazPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	mainName, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	// Use a post-split injected header to establish which split we are sending traffic to.
+	const headerName = "Which-Backend"
+
+	name := test.ObjectNameForTest(t)
+	privateHostName := fmt.Sprintf("%s.%s.%s", name, test.ServingNamespace, "svc.cluster.local")
+	localIngress, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{privateHostName},
+			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Path: "/foo",
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      fooName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(fooPort),
+						},
+						// Append different headers to each split, which lets us identify
+						// which backend we hit.
+						AppendHeaders: map[string]string{
+							headerName: fooName,
+						},
+						Percent: 100,
+					}},
+				}, {
+					Path: "/bar",
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      barName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(barPort),
+						},
+						// Append different headers to each split, which lets us identify
+						// which backend we hit.
+						AppendHeaders: map[string]string{
+							headerName: barName,
+						},
+						Percent: 100,
+					}},
+				}, {
+					Path: "/baz",
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      bazName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(bazPort),
+						},
+						// Append different headers to each split, which lets us identify
+						// which backend we hit.
+						AppendHeaders: map[string]string{
+							headerName: bazName,
+						},
+						Percent: 100,
+					}},
+				}, {
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      mainName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(port),
+						},
+						// Append different headers to each split, which lets us identify
+						// which backend we hit.
+						AppendHeaders: map[string]string{
+							headerName: mainName,
+						},
+						Percent: 100,
+					}},
+				}},
+			},
+		}},
+	})
+	defer cancel()
+
+	// Ensure we can't connect to the private resources
+	for _, path := range []string{"", "/foo", "/bar", "/baz"} {
+		RuntimeRequestWithExpectations(t, client, "http://"+privateHostName+path, []ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusNotFound))}, true)
+	}
+
+	loadbalancerAddress := localIngress.Status.PrivateLoadBalancer.Ingress[0].DomainInternal
+	proxyName, proxyPort, cancel := CreateProxyService(t, clients, privateHostName, loadbalancerAddress)
+	defer cancel()
+
+	publicHostName := fmt.Sprintf("%s.%s", name, "example.com")
+	_, client, cancel = CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{publicHostName},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      proxyName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(proxyPort),
+						},
+					}},
+				}},
+			},
+		}},
+	})
+	defer cancel()
+
+	tests := map[string]string{
+		"/foo":  fooName,
+		"/bar":  barName,
+		"/baz":  bazName,
+		"":      mainName,
+		"/asdf": mainName,
+	}
+
+	for path, want := range tests {
+		t.Run(path, func(t *testing.T) {
+			ri := RuntimeRequest(t, client, "http://"+publicHostName+path)
+			if ri == nil {
+				return
+			}
+
+			got := ri.Request.Headers.Get(headerName)
+			if got != want {
+				t.Errorf("Header[%q] = %q, wanted %q", headerName, got, want)
+			}
+		})
+	}
+}
