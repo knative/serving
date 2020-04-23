@@ -63,7 +63,7 @@ func generateForwarded(xff, xfp, xfh string) string {
 	fwd.Grow(len(xff) + len(xfp) + len(xfh) + 6 + 7 + 9*(strings.Count(xff, ",")+1))
 
 	node, next := consumeNode(xff, 0)
-	if node != "" {
+	if xff != "" {
 		fwd.WriteString("for=")
 		writeNode(fwd, node)
 	}
