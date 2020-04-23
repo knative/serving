@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
@@ -325,12 +326,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
 
-	var selectors []string
-	for k, v := range gw.Spec.Selector {
-		selectors = append(selectors, k+"="+v)
-	}
-	selector := strings.Join(selectors, ",")
-
+	selector := labels.SelectorFromSet(gw.Spec.Selector).String()
 	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
