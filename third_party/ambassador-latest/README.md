@@ -23,9 +23,9 @@ roleRef:
   kind: ClusterRole
   name: ambassador
 subjects:
-- kind: ServiceAccount
-  name: ambassador
-  namespace: ambassador
+  - kind: ServiceAccount
+    name: ambassador
+    namespace: ambassador
 ```
 
 Make sure the modifications are done as per the
