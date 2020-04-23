@@ -9,10 +9,14 @@ These files are hosted at:
 - https://www.getambassador.io/yaml/ambassador/ambassador-crds.yaml
 - https://www.getambassador.io/yaml/ambassador/ambassador-rbac.yaml
 
-After updating the files, make sure any other modifications required to run Knative with Ambassador are made as well.
-For instance:
-- Set the environment variable `AMBASSADOR_KNATIVE_SUPPORT` to `true` in the deployment `ambassador`.
-- Update the namespace in the ClusterRoleBinding `ambassador` to `ambassador`. It should look like:
+After updating the files, make sure any other modifications required to run
+Knative with Ambassador are made as well. For instance:
+
+- Set the environment variable `AMBASSADOR_KNATIVE_SUPPORT` to `true` in the
+  deployment `ambassador`.
+- Update the namespace in the ClusterRoleBinding `ambassador` to `ambassador`.
+  It should look like:
+
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
