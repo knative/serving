@@ -180,19 +180,17 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 	// Process int fields
 	for _, i := range []struct {
-		key          string
-		field        *int32
-		defaultValue int32
+		key   string
+		field *int32
 	}{{
-		key:          "initial-scale",
-		field:        &lc.InitialScale,
-		defaultValue: 1,
+		key:   "initial-scale",
+		field: &lc.InitialScale,
 	}} {
-		if raw, ok := data[i.key]; !ok {
-			*i.field = i.defaultValue
-		} else if val, err := strconv.ParseInt(raw, 10, 32); err != nil {
-			return nil, err
-		} else {
+		if raw, ok := data[i.key]; ok {
+			val, err := strconv.ParseInt(raw, 10, 32)
+			if err != nil {
+				return nil, err
+			}
 			*i.field = int32(val)
 		}
 	}
