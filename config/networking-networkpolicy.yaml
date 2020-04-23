@@ -25,6 +25,7 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-    ports:
-    - protocol: TCP
-      port: queue-port
+    - from:
+      ports:
+      - protocol: TCP
+        port: queue-port
