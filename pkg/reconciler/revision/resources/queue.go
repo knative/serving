@@ -307,7 +307,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: strconv.FormatBool(tracingConfig.Debug),
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: fmt.Sprintf("%f", tracingConfig.SampleRate),
+			Value: fmt.Sprint(tracingConfig.SampleRate),
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
