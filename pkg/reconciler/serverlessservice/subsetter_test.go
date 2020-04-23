@@ -84,7 +84,7 @@ func TestChooseSubset(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := chooseSubset(tc.from, tc.wantNum, tc.target)
-			if !cmp.Equal(got, tc.want) {
+			if !got.Equal(tc.want) {
 				t.Errorf("Chose = %v, want = %v, diff(-want,+got):\n%s", got, tc.want, cmp.Diff(tc.want, got))
 			}
 		})
