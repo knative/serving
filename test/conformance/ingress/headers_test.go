@@ -146,7 +146,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
 		// Check what we saw.
-		if !cmp.Equal(names, seen) {
+		if !names.Equal(seen) {
 			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
 				headerName, cmp.Diff(names, seen))
 		}
@@ -169,7 +169,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
 		// Check what we saw.
-		if !cmp.Equal(names, seen) {
+		if !names.Equal(seen) {
 			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
 				headerName, cmp.Diff(names, seen))
 		}

@@ -174,7 +174,7 @@ func TestGRPCSplit(t *testing.T) {
 		}
 	}
 
-	if !cmp.Equal(want, got) {
+	if !want.Equal(got) {
 		t.Errorf("(-want, +got) = %s", cmp.Diff(want, got))
 	}
 }
