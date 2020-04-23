@@ -2692,7 +2692,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			HTTPProtocol:            network.HTTPEnabled,
 		},
 		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

@@ -495,7 +495,7 @@ func writeCertFile(dir, path string, contents []byte) (string, error) {
 }
 
 func containsSubject(t *testing.T, subjects [][]byte, contents []byte) bool {
-	block, _ := pem.Decode([]byte(contents))
+	block, _ := pem.Decode(contents)
 	if block == nil {
 		t.Fatal("failed to parse certificate PEM")
 	}

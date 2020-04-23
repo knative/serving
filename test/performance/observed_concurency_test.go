@@ -102,8 +102,8 @@ func parseResponse(body string) (*event, *event, error) {
 		return nil, nil, fmt.Errorf("failed to parse end timestamp, body %q: %w", body, err)
 	}
 
-	startEvent := &event{1, time.Unix(0, int64(start))}
-	endEvent := &event{-1, time.Unix(0, int64(end))}
+	startEvent := &event{1, time.Unix(0, start)}
+	endEvent := &event{-1, time.Unix(0, end)}
 
 	return startEvent, endEvent, nil
 }
