@@ -73,8 +73,10 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 	if err != nil || len(endpoints.Items) != 1 {
 		return nil, fmt.Errorf("no endpoints or error: %w", err)
 	}
-	var hosts []string
-	for _, addr := range endpoints.Items[0].Subsets[0].Addresses {
+
+	addresses := endpoints.Items[0].Subsets[0].Addresses
+	hosts := make([]string, 0, len(addresses))
+	for _, addr := range addresses {
 		hosts = append(hosts, addr.IP)
 	}
 	return hosts, nil

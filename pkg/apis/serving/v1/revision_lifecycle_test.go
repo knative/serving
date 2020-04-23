@@ -280,7 +280,7 @@ func TestRevisionInitializeConditions(t *testing.T) {
 	rs := &RevisionStatus{}
 	rs.InitializeConditions()
 
-	var types []string
+	types := make([]string, 0, len(rs.Conditions))
 	for _, cond := range rs.Conditions {
 		types = append(types, string(cond.Type))
 	}
