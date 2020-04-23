@@ -70,6 +70,12 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 	return cert, cleanup
 }
 
+// IsCertificateReady will check the status conditions of the certificate and return true if the certificate is
+// ready.
+func IsCertificateReady(c *v1alpha1.Certificate) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
+}
+
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate
 // until it exists or the timeout is exceeded. It then validates its contents
 func WaitForCertificateSecret(t *testing.T, client *test.Clients, cert *v1alpha1.Certificate, desc string) error {
