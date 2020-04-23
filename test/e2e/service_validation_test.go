@@ -50,8 +50,8 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 
 	// Setup Service
 	t.Logf("Creating a new Service %s", names.Service)
-	service, err := v1test.CreateService(t, clients, names, WithServiceAnnotations(
-		map[string]string{webhook.PodSpecDryRunAnnotation: "enabled"}))
+	service, err := v1test.CreateService(t, clients, names,
+		WithServiceAnnotation(webhook.PodSpecDryRunAnnotation, "enabled"))
 	if err != nil {
 		t.Fatal("Create Service:", err)
 	}
