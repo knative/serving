@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
@@ -69,7 +68,6 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) 
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
 func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
-	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 	pods := client.CoreV1().Pods(pod.GetNamespace())
 
