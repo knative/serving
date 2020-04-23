@@ -34,27 +34,6 @@ func withInvalidContainer() ServiceOption {
 	}
 }
 
-func TestServiceValidationWithValidPodSpec(t *testing.T) {
-	t.Parallel()
-	clients := test.Setup(t)
-
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.PizzaPlanet1,
-	}
-
-	// Clean up on test failure or interrupt
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-
-	// Setup Service
-	t.Logf("Creating a new Service %s", names.Service)
-	_, err := v1test.CreateService(t, clients, names, WithPodSpecDryRunEnabled())
-	if err != nil {
-		t.Fatalf("Expected Service creation to succeed, got=%s", err)
-	}
-}
-
 func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
@@ -70,8 +49,12 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 
 	// Setup Service
 	t.Logf("Creating a new Service %s", names.Service)
-	_, err := v1test.CreateService(t, clients, names, withInvalidContainer(), WithPodSpecDryRunEnabled())
+	service, err := v1test.CreateService(t, clients, names, WithPodSpecDryRunEnabled())
+	if err != nil {
+		t.Fatalf("Expected Service creation to succeed, got=%s", err)
+	}
 
+	_, err = v1test.PatchService(t, clients, service, withInvalidContainer())
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
