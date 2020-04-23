@@ -56,7 +56,7 @@ func TestMakeSKS(t *testing.T) {
 	}
 
 	const mode = nv1a1.SKSOperationModeServe
-	const na = int32(42)
+	const na = 42
 
 	want := &nv1a1.ServerlessService{
 		ObjectMeta: metav1.ObjectMeta{

@@ -522,7 +522,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				Ports: []corev1.ContainerPort{{
-					ContainerPort: int32(userPort),
+					ContainerPort: userPort,
 				}},
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -611,7 +611,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -702,7 +702,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{

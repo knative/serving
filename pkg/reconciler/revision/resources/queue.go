@@ -51,27 +51,27 @@ const (
 var (
 	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTPPort),
+		ContainerPort: networking.BackendHTTPPort,
 	}
 	queueHTTP2Port = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTP2Port),
+		ContainerPort: networking.BackendHTTP2Port,
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
 		Name:          v1.QueueAdminPortName,
-		ContainerPort: int32(networking.QueueAdminPort),
+		ContainerPort: networking.QueueAdminPort,
 	}, {
 		Name:          v1.AutoscalingQueueMetricsPortName,
-		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
+		ContainerPort: networking.AutoscalingQueueMetricsPort,
 	}, {
 		Name:          v1.UserQueueMetricsPortName,
-		ContainerPort: int32(networking.UserQueueMetricsPort),
+		ContainerPort: networking.UserQueueMetricsPort,
 	}}
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: int32(profiling.ProfilingPort),
+		ContainerPort: profiling.ProfilingPort,
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
