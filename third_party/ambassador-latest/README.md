@@ -7,7 +7,6 @@ Detailed instructions on installing Ambassador are available
 
 These files are hosted at:
 
-
 - https://www.getambassador.io/yaml/ambassador/ambassador-crds.yaml
 - https://www.getambassador.io/yaml/ambassador/ambassador-rbac.yaml
 
