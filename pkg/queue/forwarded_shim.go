@@ -96,7 +96,7 @@ func consumeNode(xff string, from int) (string, int) {
 		return "", 0
 	}
 	// The x-forwarded-header consists of multiple nodes, split by ","
-	rest := xff[from:len(xff)]
+	rest := xff[from:]
 	i := strings.Index(rest, ",")
 	if i == -1 {
 		i = len(rest)
