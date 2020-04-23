@@ -250,11 +250,11 @@ function install_ambassador() {
   kubectl apply -n ambassador -f ${AMBASSADOR_MANIFESTS_PATH} || return 1
   UNINSTALL_LIST+=( "${AMBASSADOR_MANIFESTS_PATH}" )
 
-  echo ">> Fixing Ambassador's permissions"
-  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
+#  echo ">> Fixing Ambassador's permissions"
+#  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
 
-  echo ">> Enabling Knative support in Ambassador"
-  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
+#  echo ">> Enabling Knative support in Ambassador"
+#  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
 
   echo ">> Patching Ambassador"
   # Scale replicas of the Ambassador gateway to handle large qps
