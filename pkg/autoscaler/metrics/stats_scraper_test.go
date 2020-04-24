@@ -75,11 +75,16 @@ func testStatsWithTime(n int, youngestSecs float64) []Stat {
 }
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
-	client := newTestScrapeClient(testStats, []error{nil})
-	if scraper, err := serviceScraperForTest(client); err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	} else if scraper.url != testURL {
-		t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
+	metric := testMetric()
+	counter := resources.NewScopedEndpointsCounter(
+		fake.KubeInformer.Core().V1().Endpoints().Lister(),
+		fake.TestNamespace, fake.TestService)
+	sc, err := NewServiceScraper(metric, counter)
+	if err != nil {
+		t.Fatal("NewServiceScraper =", err)
+	}
+	if svcS := sc.(*serviceScraper); svcS.url != testURL {
+		t.Errorf("scraper.url = %s, want: %s", svcS.url, testURL)
 	}
 }
 
@@ -233,7 +238,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
 	if got.Time.Before(now) {
@@ -329,14 +334,14 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("scraper.Scrape() returned error: %v", err)
+		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if stat != emptyStat {
 		t.Error("Received unexpected Stat.")
 	}
 }
 
-func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
+func serviceScraperForTest(sClient scrapeClient) (*serviceScraper, error) {
 	metric := testMetric()
 	counter := resources.NewScopedEndpointsCounter(fake.KubeInformer.Core().V1().Endpoints().Lister(), fake.TestNamespace, fake.TestService)
 	return newServiceScraperWithClient(metric, counter, sClient)
@@ -352,6 +357,7 @@ func testMetric() *av1alpha1.Metric {
 			},
 		},
 		Spec: av1alpha1.MetricSpec{
+			StableWindow: time.Minute,
 			ScrapeTarget: fake.TestRevision + "-zhudex",
 		},
 	}
@@ -365,19 +371,19 @@ func newTestScrapeClient(stats []Stat, errs []error) scrapeClient {
 }
 
 type fakeScrapeClient struct {
-	i     int
-	stats []Stat
-	errs  []error
-	mutex sync.Mutex
+	curIdx int
+	stats  []Stat
+	errs   []error
+	mutex  sync.Mutex
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
 func (c *fakeScrapeClient) Scrape(url string) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	ans := c.stats[c.i%len(c.stats)]
-	err := c.errs[c.i%len(c.errs)]
-	c.i++
+	ans := c.stats[c.curIdx%len(c.stats)]
+	err := c.errs[c.curIdx%len(c.errs)]
+	c.curIdx++
 	return ans, err
 }
 
