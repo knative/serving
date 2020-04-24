@@ -281,11 +281,11 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
-	// The request will sleep for more than 15 seconds.
-	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
+	// The request will sleep for more than 12 seconds.
+	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("sleep", "15001")
+	q.Set("sleep", "12001")
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
