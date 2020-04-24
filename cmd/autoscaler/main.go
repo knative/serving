@@ -221,7 +221,7 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) asme
 	return func(metric *av1alpha1.Metric) (asmetrics.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(
 			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return asmetrics.NewServiceScraper(metric, podCounter)
+		return asmetrics.NewStatsScraper(metric, podCounter)
 	}
 }
 
