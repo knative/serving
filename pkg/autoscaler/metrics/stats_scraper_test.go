@@ -79,7 +79,7 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	counter := resources.NewScopedEndpointsCounter(
 		fake.KubeInformer.Core().V1().Endpoints().Lister(),
 		fake.TestNamespace, fake.TestService)
-	sc, err := NewServiceScraper(metric, counter)
+	sc, err := NewStatsScraper(metric, counter)
 	if err != nil {
 		t.Fatal("NewServiceScraper =", err)
 	}

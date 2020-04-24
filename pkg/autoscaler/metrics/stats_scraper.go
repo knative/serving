@@ -116,9 +116,9 @@ type serviceScraper struct {
 	statsCtx context.Context
 }
 
-// NewServiceScraper creates a new StatsScraper for the Revision which
+// NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (StatsScraper, error) {
+func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (StatsScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
