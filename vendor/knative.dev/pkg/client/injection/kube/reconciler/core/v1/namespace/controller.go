@@ -72,10 +72,11 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	}
 
 	rec := &reconcilerImpl{
-		Client:     client.Get(ctx),
-		Lister:     namespaceInformer.Lister(),
-		Recorder:   recorder,
-		reconciler: r,
+		Client:        client.Get(ctx),
+		Lister:        namespaceInformer.Lister(),
+		Recorder:      recorder,
+		reconciler:    r,
+		finalizerName: defaultFinalizerName,
 	}
 	impl := controller.NewImpl(rec, logger, defaultQueueName)
 
@@ -84,6 +85,9 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		opts := fn(impl)
 		if opts.ConfigStore != nil {
 			rec.configStore = opts.ConfigStore
+		}
+		if opts.FinalizerName != "" {
+			rec.finalizerName = opts.FinalizerName
 		}
 	}
 

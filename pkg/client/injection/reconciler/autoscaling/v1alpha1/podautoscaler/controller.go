@@ -77,11 +77,12 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 	}
 
 	rec := &reconcilerImpl{
-		Client:     injectionclient.Get(ctx),
-		Lister:     podautoscalerInformer.Lister(),
-		Recorder:   recorder,
-		reconciler: r,
-		classValue: classValue,
+		Client:        injectionclient.Get(ctx),
+		Lister:        podautoscalerInformer.Lister(),
+		Recorder:      recorder,
+		reconciler:    r,
+		finalizerName: defaultFinalizerName,
+		classValue:    classValue,
 	}
 	impl := controller.NewImpl(rec, logger, defaultQueueName)
 
@@ -90,6 +91,9 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		opts := fn(impl)
 		if opts.ConfigStore != nil {
 			rec.configStore = opts.ConfigStore
+		}
+		if opts.FinalizerName != "" {
+			rec.finalizerName = opts.FinalizerName
 		}
 	}
 

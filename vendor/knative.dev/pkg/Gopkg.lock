@@ -165,12 +165,12 @@
   version = "v0.1.1"
 
 [[projects]]
-  digest = "1:53151cc4366e3945282d4b783fd41f35222cabbc75601e68d8133648c63498d1"
+  digest = "1:416b666cb79f02526f115d16aba8b318b854f3c964107081311e9df6a08b39a9"
   name = "github.com/gobuffalo/envy"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "043cb4b8af871b49563291e32c66bb84378a60ac"
-  version = "v1.7.0"
+  revision = "3dbe4c98c1c77e4a8fac053251c262a85e048f21"
+  version = "v1.9.0"
 
 [[projects]]
   digest = "1:2b0e6c0bea11257c646616ebd6a62be0ef2b6a0fd8210ac3caeaf57ee136123b"
@@ -1376,7 +1376,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "891d25bbf859bfc829b515068cc3e167a7fcc528"
+  revision = "1be83cfc7702b712d4dcec6209105b012e930308"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"

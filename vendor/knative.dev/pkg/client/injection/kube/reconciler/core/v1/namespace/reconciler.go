@@ -80,6 +80,9 @@ type reconcilerImpl struct {
 
 	// reconciler is the implementation of the business logic of the resource.
 	reconciler Interface
+
+	// finalizerName is the name of the finalizer to reconcile.
+	finalizerName string
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -92,15 +95,19 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client kubern
 	}
 
 	rec := &reconcilerImpl{
-		Client:     client,
-		Lister:     lister,
-		Recorder:   recorder,
-		reconciler: r,
+		Client:        client,
+		Lister:        lister,
+		Recorder:      recorder,
+		reconciler:    r,
+		finalizerName: defaultFinalizerName,
 	}
 
 	for _, opts := range options {
 		if opts.ConfigStore != nil {
 			rec.configStore = opts.ConfigStore
+		}
+		if opts.FinalizerName != "" {
+			rec.finalizerName = opts.FinalizerName
 		}
 	}
 
@@ -136,7 +143,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("resource %q no longer exists", key)
+		logger.Debugf("resource %q no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
@@ -230,9 +237,8 @@ func (r *reconcilerImpl) updateStatus(existing *v1.Namespace, desired *v1.Namesp
 
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
-// updates defaultFinalizerName.
+// updates defaultFinalizerName or its override.
 func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1.Namespace) (*v1.Namespace, error) {
-	finalizerName := defaultFinalizerName
 
 	getter := r.Lister
 
@@ -250,20 +256,20 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	existingFinalizers := sets.NewString(existing.Finalizers...)
 	desiredFinalizers := sets.NewString(resource.Finalizers...)
 
-	if desiredFinalizers.Has(finalizerName) {
-		if existingFinalizers.Has(finalizerName) {
+	if desiredFinalizers.Has(r.finalizerName) {
+		if existingFinalizers.Has(r.finalizerName) {
 			// Nothing to do.
 			return resource, nil
 		}
 		// Add the finalizer.
-		finalizers = append(existing.Finalizers, finalizerName)
+		finalizers = append(existing.Finalizers, r.finalizerName)
 	} else {
-		if !existingFinalizers.Has(finalizerName) {
+		if !existingFinalizers.Has(r.finalizerName) {
 			// Nothing to do.
 			return resource, nil
 		}
 		// Remove the finalizer.
-		existingFinalizers.Delete(finalizerName)
+		existingFinalizers.Delete(r.finalizerName)
 		finalizers = existingFinalizers.List()
 	}
 
@@ -301,12 +307,12 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 
 	// If this resource is not being deleted, mark the finalizer.
 	if resource.GetDeletionTimestamp().IsZero() {
-		finalizers.Insert(defaultFinalizerName)
+		finalizers.Insert(r.finalizerName)
 	}
 
 	resource.Finalizers = finalizers.List()
 
-	// Synchronize the finalizers filtered by defaultFinalizerName.
+	// Synchronize the finalizers filtered by r.finalizerName.
 	return r.updateFinalizersFiltered(ctx, resource)
 }
 
@@ -324,15 +330,15 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1.Namesp
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
 			if event.EventType == v1.EventTypeNormal {
-				finalizers.Delete(defaultFinalizerName)
+				finalizers.Delete(r.finalizerName)
 			}
 		}
 	} else {
-		finalizers.Delete(defaultFinalizerName)
+		finalizers.Delete(r.finalizerName)
 	}
 
 	resource.Finalizers = finalizers.List()
 
-	// Synchronize the finalizers filtered by defaultFinalizerName.
+	// Synchronize the finalizers filtered by r.finalizerName.
 	return r.updateFinalizersFiltered(ctx, resource)
 }
