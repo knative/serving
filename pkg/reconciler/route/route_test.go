@@ -155,7 +155,7 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = newControllerWithClock(ctx, configMapWatcher, system.RealClock{}, opts...)
 
-	cms := []*corev1.ConfigMap{{
+	for _, cfg := range []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
 			Namespace: system.Namespace(),
@@ -169,16 +169,12 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string{},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string{},
-	}}
-
-	for _, cfg := range cms {
+	}} {
 		configMapWatcher.OnChange(cfg)
 	}
 	return
@@ -207,7 +203,6 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Rout
 func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
 	t.Helper()
 	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	t.Helper()
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
 	}
