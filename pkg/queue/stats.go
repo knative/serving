@@ -44,11 +44,11 @@ const (
 func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	go func() {
 		var (
-			// State variables that track the current state. Not resettet after reporting.
+			// State variables that track the current state. Not reset after reporting.
 			concurrency, proxiedConcurrency float64
 			lastChange                      = startedAt
 
-			// Reporting variables that track state over the current window. Resettet after
+			// Reporting variables that track state over the current window. Reset after
 			// reporting.
 			requestCount, proxiedCount                      float64
 			computedConcurrency, computedProxiedConcurrency float64
