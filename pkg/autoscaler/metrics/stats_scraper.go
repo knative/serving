@@ -181,7 +181,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 
 // scrapeService scrapes the metrics using service endpoint
 // as its target, rather than individual pods.
-func (s *serviceScraper) scrapeService(scrapeService time.Duration, readyPods int) (Stat, error) {
+func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Stat, error) {
 	frpc := float64(readyPods)
 
 	sampleSizeF := populationMeanSampleSize(frpc)
@@ -191,7 +191,7 @@ func (s *serviceScraper) scrapeService(scrapeService time.Duration, readyPods in
 	scrapedPods := &sync.Map{}
 
 	grp := errgroup.Group{}
-	youngPodCutOffSecs := scrapeService.Seconds()
+	youngPodCutOffSecs := window.Seconds()
 	startTime := time.Now()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
