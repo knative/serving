@@ -186,6 +186,7 @@ func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoi
 
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
+	dlogger := logger.Desugar()
 
 	var (
 		srcEps                *corev1.Endpoints
@@ -195,7 +196,10 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	if err != nil {
 		return fmt.Errorf("failed to get activator service endpoints: %w", err)
 	}
-	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
+	if dlogger.Core().Enabled(zap.DebugLevel) {
+		// Spew is expensive and there might be a lof of activator endpoints.
+		logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
+	}
 
 	psn := sks.Status.PrivateServiceName
 	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
@@ -214,9 +218,9 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	//   if len(private_service_endpoints) > 0:
 	//     srcEps = private_service_endpoints
 	//   else:
-	//     srcEps = activator_endpoints
+	//     srcEps = subset(activator_endpoints)
 	// else:
-	//    srcEps = activator_endpoints
+	//    srcEps = subset(activator_endpoints)
 	// The reason for this is, we don't want to leave the public service endpoints empty,
 	// since those endpoints are the ones programmed into the VirtualService.
 	//
@@ -224,7 +228,10 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	case netv1alpha1.SKSOperationModeServe:
 		// We should have successfully reconciled the private service if we're here
 		// which means that we'd have the name assigned in Status.
-		logger.Debugf("Private endpoints: %s", spew.Sprint(pvtEps))
+		if dlogger.Core().Enabled(zap.DebugLevel) {
+			// Spew is expensive and there might be a lof of  endpoints.
+			logger.Debug("Private endpoints: ", spew.Sprint(pvtEps))
+		}
 		// Serving but no ready endpoints.
 		if pvtReady == 0 {
 			logger.Info(psn + " is in mode Serve but has no endpoints, using Activator endpoints for now")
@@ -235,6 +242,11 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		}
 	case netv1alpha1.SKSOperationModeProxy:
 		srcEps = subsetEndpoints(activatorEps, sks.Name, int(sks.Spec.NumActivators))
+		if dlogger.Core().Enabled(zap.DebugLevel) {
+			// Spew is expensive and there might be a lof of  endpoints.
+			logger.Debugf("Subset of activator endpoints (needed %d): %s",
+				sks.Spec.NumActivators, spew.Sprint(pvtEps))
+		}
 	}
 
 	sn := sks.Name
