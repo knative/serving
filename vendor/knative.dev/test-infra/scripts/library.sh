@@ -489,11 +489,11 @@ function run_go_tool() {
       local install_failed=0
       # Swallow the output as we are returning the stdout in the end.
       pushd "${temp_dir}" > /dev/null 2>&1
-      go ${action} $1 || install_failed=1
+      GOFLAGS="" go ${action} $1 || install_failed=1
       popd > /dev/null 2>&1
       (( install_failed )) && return ${install_failed}
     else
-      go ${action} $1
+      GOFLAGS="" go ${action} $1
     fi
   fi
   shift 2
@@ -515,7 +515,7 @@ function update_licenses() {
 function check_licenses() {
   # Fetch the google/licenseclassifier for its license db
   rm -fr ${GOPATH}/src/github.com/google/licenseclassifier
-  go get -u github.com/google/licenseclassifier
+  GOFLAGS="" go get -u github.com/google/licenseclassifier
   # Check that we don't have any forbidden licenses in our images.
   run_go_tool knative.dev/test-infra/tools/dep-collector dep-collector -check $@
 }
