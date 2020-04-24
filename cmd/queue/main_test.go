@@ -535,15 +535,13 @@ func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
-	reportTicker := time.NewTicker(reportingPeriod)
-	defer reportTicker.Stop()
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
 		"ns", "testksvc", "testksvc",
 		"pod", reportingPeriod)
 	if err != nil {
 		b.Fatalf("Failed to create stats reporter: %v", err)
 	}
-	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	queue.NewStats(time.Now(), reqChan, time.Second, promStatReporter.Report)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
