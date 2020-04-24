@@ -68,9 +68,9 @@ func TestSingleRequestHalfTime(t *testing.T) {
 	s := newTestStats(now)
 
 	s.requestStart(now)
-	now = now.Add(500 * time.Millisecond)
+	now = now.Add(1 * time.Second)
 	s.requestEnd(now)
-	now = now.Add(500 * time.Millisecond)
+	now = now.Add(1 * time.Second)
 	got := s.report(now)
 
 	want := reportedStat{
@@ -256,7 +256,7 @@ func newTestStats(now time.Time) *testStats {
 			ProxiedRequestCount: prc,
 		}
 	}
-	newStatsWithTicker(now, reqChan, 1*time.Second, (<-chan time.Time)(reportBiChan), report)
+	NewStats(now, reqChan, (<-chan time.Time)(reportBiChan), report)
 	t := &testStats{
 		reqChan:      reqChan,
 		reportBiChan: reportBiChan,

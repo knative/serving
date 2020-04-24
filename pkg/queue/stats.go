@@ -41,25 +41,18 @@ const (
 )
 
 // NewStats instantiates a new instance of Stats.
-func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportInterval time.Duration,
-	report func(float64, float64, float64, float64)) {
-	newStatsWithTicker(startedAt, reqCh, reportInterval, time.NewTicker(reportInterval).C, report)
-}
-
-func newStatsWithTicker(startedAt time.Time, reqCh chan ReqEvent, reportInterval time.Duration,
-	ticker <-chan time.Time, report func(float64, float64, float64, float64)) {
-
+func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	go func() {
 		var (
-			intervalSecs = reportInterval.Seconds()
-
 			// State variables that track the current state. Not resettet after reporting.
 			concurrency, proxiedConcurrency float64
 			lastChange                      = startedAt
 
 			// Reporting variables that track state over the current window. Resettet after
 			// reporting.
-			requestCount, proxiedCount, averageConcurrency, averageProxiedConcurrency float64
+			requestCount, proxiedCount                      float64
+			computedConcurrency, computedProxiedConcurrency float64
+			secondsInUse                                    float64
 		)
 
 		// Updates the lastChanged/timeOnConcurrency state
@@ -70,8 +63,9 @@ func newStatsWithTicker(startedAt time.Time, reqCh chan ReqEvent, reportInterval
 		updateState := func(time time.Time) {
 			if durationSinceChange := time.Sub(lastChange); durationSinceChange > 0 {
 				durationSecs := durationSinceChange.Seconds()
-				averageConcurrency += concurrency * durationSecs / intervalSecs
-				averageProxiedConcurrency += proxiedConcurrency * durationSecs / intervalSecs
+				secondsInUse += durationSecs
+				computedConcurrency += concurrency * durationSecs
+				computedProxiedConcurrency += proxiedConcurrency * durationSecs
 				lastChange = time
 			}
 		}
@@ -95,14 +89,21 @@ func newStatsWithTicker(startedAt time.Time, reqCh chan ReqEvent, reportInterval
 				case ReqOut:
 					concurrency--
 				}
-			case now := <-ticker:
+			case now := <-reportCh:
 				updateState(now)
+
+				var averageConcurrency, averageProxiedConcurrency float64
+				if secondsInUse > 0 {
+					averageConcurrency = computedConcurrency / secondsInUse
+					averageProxiedConcurrency = computedProxiedConcurrency / secondsInUse
+				}
 
 				report(averageConcurrency, averageProxiedConcurrency, requestCount, proxiedCount)
 
 				// Reset the stat counts which have been reported.
-				averageConcurrency, averageProxiedConcurrency = 0, 0
+				computedConcurrency, computedProxiedConcurrency = 0, 0
 				requestCount, proxiedCount = 0, 0
+				secondsInUse = 0
 			}
 		}
 	}()

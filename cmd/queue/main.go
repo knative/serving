@@ -370,7 +370,10 @@ func main() {
 	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 
-	queue.NewStats(time.Now(), reqChan, reportingPeriod, promStatReporter.Report)
+	reportTicker := time.NewTicker(reportingPeriod)
+	defer reportTicker.Stop()
+
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)
