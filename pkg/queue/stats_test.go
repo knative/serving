@@ -318,13 +318,12 @@ func newTestStats(now time.Time) *testStats {
 			ProxiedRequestCount: prc,
 		}
 	}
-	NewStats(now, reqChan, (<-chan time.Time)(reportBiChan), report)
-	t := &testStats{
+	NewStats(now, reqChan, reportBiChan, report)
+	return &testStats{
 		reqChan:      reqChan,
 		reportBiChan: reportBiChan,
 		statChan:     statChan,
 	}
-	return t
 }
 
 func (s *testStats) requestStart(now time.Time) {
