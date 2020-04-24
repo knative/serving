@@ -18,6 +18,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -449,4 +450,53 @@ func (r *requestor) processSuccessfully(t *testing.T) {
 	if !<-r.acceptedCh {
 		t.Error("expected request to succeed but it failed")
 	}
+}
+
+func BenchmarkBreakerMaybe(b *testing.B) {
+	op := func() {}
+
+	for _, c := range []int{1, 10, 100, 1000} {
+		breaker := NewBreaker(BreakerParams{QueueDepth: 10000000, MaxConcurrency: c, InitialCapacity: c})
+
+		b.Run(fmt.Sprintf("%d-sequential", c), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
+				breaker.Maybe(context.Background(), op)
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d-parallel", c), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					breaker.Maybe(context.Background(), op)
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkBreakerReserve(b *testing.B) {
+	op := func() {}
+	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 10000000, InitialCapacity: 10000000})
+
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			free, got := breaker.Reserve(context.Background())
+			op()
+			if got {
+				free()
+			}
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				free, got := breaker.Reserve(context.Background())
+				op()
+				if got {
+					free()
+				}
+			}
+		})
+	})
 }
