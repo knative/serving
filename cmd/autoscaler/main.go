@@ -164,7 +164,7 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	go controller.StartAll(ctx.Done(), controllers...)
+	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {

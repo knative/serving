@@ -18,10 +18,10 @@ package mako
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
@@ -119,7 +119,7 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 	if err != nil {
 		return nil, err
 	}
-	tags = append(tags, "nodes="+fmt.Sprintf("%d", len(nodes.Items)))
+	tags = append(tags, "nodes="+strconv.Itoa(len(nodes.Items)))
 
 	// Decorate GCP metadata as tags (when we're running on GCP).
 	if projectID, err := metadata.ProjectID(); err != nil {
