@@ -1092,7 +1092,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		t.Fatalf("failed to start configmap watcher: %v", err)
 	}
 
-	grp.Go(func() error { controller.StartAll(ctx.Done(), ctl); return nil })
+	grp.Go(func() error { controller.StartAll(ctx, ctl); return nil })
 
 	rev := newTestRevision(testNamespace, testRevision)
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
