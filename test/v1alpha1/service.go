@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 
@@ -114,6 +115,66 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, err
+	}
+
+	t.Log("Checking to ensure Service Status is populated for Ready service")
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, err
+	}
+
+	t.Log("Getting latest objects Created by Service")
+	resources, err := GetResourceObjects(clients, *names)
+	if err == nil {
+		t.Log("Successfully created Service", names.Service)
+	}
+	return resources, err
+}
+
+// CreateRunLatestServiceReadyWithNumPods creates a new Service in state 'Ready' with the provided number of pods running.
+// This function expects Service and Image name passed in through 'names'. Names is updated with the Route and
+// Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateRunLatestServiceReadyWithNumPods(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, numPods int, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+	}
+
+	t.Log("Creating a new Service.", "service", names.Service)
+	svc, err := CreateLatestService(t, clients, *names, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	// If the Service name was not specified, populate it
+	if names.Service == "" {
+		names.Service = svc.Name
+	}
+
+	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, numPods)
+	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (b bool, e error) {
+		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
+		podList, err := pods.List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service),
+		})
+		if err != nil {
+			return false, err
+		}
+		gotPods := len(podList.Items)
+		if gotPods == numPods {
+			return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+		}
+		if gotPods > numPods {
+			return false, fmt.Errorf("expected %d pods created, got %d", numPods, gotPods)
+		}
+		// Continue to check if numPods > gotPods
+		return false, nil
+	}, "ServiceIsReadyWithNumPods"); err != nil {
 		return nil, err
 	}
 

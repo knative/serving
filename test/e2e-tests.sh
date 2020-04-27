@@ -78,6 +78,9 @@ if (( HTTPS )); then
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}'
+
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
