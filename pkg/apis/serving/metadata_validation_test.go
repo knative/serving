@@ -151,6 +151,36 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 	}, {
+		name: "revision initial scale not parseable",
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "invalid",
+			},
+		},
+		expectErr: (&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+			(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+				(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+					(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+						apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
+					)))),
+	}, {
+		name: "negative revision initial scale",
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "-2",
+			},
+		},
+		expectErr: (&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+			(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+				(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+					(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
+						apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
+					)))),
+	}, {
 		name: "cluster allows zero revision initial scale",
 		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
