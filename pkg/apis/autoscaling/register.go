@@ -44,6 +44,11 @@ const (
 	//   autoscaling.knative.dev/maxScale: "10"
 	MaxScaleAnnotationKey = GroupName + "/maxScale"
 
+	// InitialScaleAnnotationKey is the annotation to specify the initial scale of
+	// a revision when a service is initially deployed. This number can be set to 0 iff
+	// allow-zero-initial-scale of config-autoscaler is true.
+	InitialScaleAnnotationKey = GroupName + "/initialScale"
+
 	// MetricAnnotationKey is the annotation to specify what metric the PodAutoscaler
 	// should be scaled on. For example,
 	//   autoscaling.knative.dev/metric: cpu
@@ -164,9 +169,4 @@ const (
 	// by the autoscaler as a candidate for removal. Once the label is set to "true", it
 	// signals the QueueProxy to fail readiness on the pod
 	PreferForScaleDownLabelKey = GroupName + "/prefer-for-scale-down"
-
-	// InitialScaleAnnotationKey is the annotation to specify the initial scale of
-	// a revision when a service is initially deployed. This number can be set to 0 iff
-	// allow-zero-initial-scale of config-autoscaler is true.
-	InitialScaleAnnotationKey = GroupName + "/initialScale"
 )

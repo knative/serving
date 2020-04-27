@@ -59,12 +59,8 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	allowZeroInitialScale := false
-	if apisconfig.FromContext(ctx) != nil {
-		autoscalerConfig := apisconfig.FromContext(ctx).Autoscaler
-		if autoscalerConfig != nil {
-			allowZeroInitialScale = autoscalerConfig.AllowZeroInitialScale
-		}
-	}
+	autoscalerConfig := apisconfig.FromContextOrDefaults(ctx).Autoscaler
+	allowZeroInitialScale = autoscalerConfig.AllowZeroInitialScale
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
 	errs = errs.Also(autoscaling.ValidateAnnotations(allowZeroInitialScale, rt.GetAnnotations()).ViaField("metadata.annotations"))
 	// If the DeprecatedRevisionTemplate has a name specified, then check that

@@ -152,9 +152,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		},
 	}, {
 		name: "cluster allows zero revision initial scale",
-		ctx: config.ToContext(context.Background(), asCfg(map[string]string{
-			"allow-zero-initial-scale": "true",
-		})),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
@@ -175,7 +173,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.ctx == nil {
-				c.ctx = context.Background()
+				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: false}})
 			}
 			err := ValidateObjectMetadata(c.ctx, c.objectMeta)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {
@@ -263,13 +261,6 @@ func cfg(m map[string]string) *config.Config {
 	d, _ := config.NewDefaultsConfigFromMap(m)
 	return &config.Config{
 		Defaults: d,
-	}
-}
-
-func asCfg(m map[string]string) *config.Config {
-	as, _ := autoscalerconfig.NewConfigFromMap(m)
-	return &config.Config{
-		Autoscaler: as,
 	}
 }
 

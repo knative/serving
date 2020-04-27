@@ -42,7 +42,8 @@ func ValidateAnnotations(allowInitScaleZero bool, anns map[string]string) *apis.
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns).Also(validateInitialScale(allowInitScaleZero, anns))))
+	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns).
+		Also(validateInitialScale(allowInitScaleZero, anns))))
 }
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
