@@ -209,7 +209,7 @@ func TestMakeImageCache(t *testing.T) {
 				}},
 			},
 			Spec: caching.ImageSpec{
-				Image: "ubuntu",
+				Image: "",
 			},
 		},
 	}, {
@@ -230,9 +230,15 @@ func TestMakeImageCache(t *testing.T) {
 					}},
 				},
 			},
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatuses{{
+					Name:        "user-container",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+			},
 		},
 		containerName: "user-container",
-		image:         "",
+		image:         "busybox@sha256:deadbeef",
 		want: &caching.Image{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -253,7 +259,7 @@ func TestMakeImageCache(t *testing.T) {
 				}},
 			},
 			Spec: caching.ImageSpec{
-				Image:              "busybox",
+				Image:              "busybox@sha256:deadbeef",
 				ServiceAccountName: "privilegeless",
 			},
 		},
