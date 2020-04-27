@@ -53,13 +53,12 @@ type EndpointsCounter interface {
 }
 
 type scopedEndpointCounter struct {
-	endpointsLister corev1listers.EndpointsLister
-	namespace       string
+	endpointsLister corev1listers.EndpointsNamespaceLister
 	serviceName     string
 }
 
 func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
-	endpoints, err := eac.endpointsLister.Endpoints(eac.namespace).Get(eac.serviceName)
+	endpoints, err := eac.endpointsLister.Get(eac.serviceName)
 	if err != nil {
 		return 0, err
 	}
@@ -67,7 +66,7 @@ func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
 }
 
 func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {
-	endpoints, err := eac.endpointsLister.Endpoints(eac.namespace).Get(eac.serviceName)
+	endpoints, err := eac.endpointsLister.Get(eac.serviceName)
 	if err != nil {
 		return 0, err
 	}
@@ -82,8 +81,7 @@ func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {
 // scope of namespace/serviceName.
 func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) EndpointsCounter {
 	return &scopedEndpointCounter{
-		endpointsLister: lister,
-		namespace:       namespace,
+		endpointsLister: lister.Endpoints(namespace),
 		serviceName:     serviceName,
 	}
 }
