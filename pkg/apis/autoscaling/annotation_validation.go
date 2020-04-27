@@ -149,7 +149,8 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 
 func validateInitialScale(allowInitScaleZero bool, annotations map[string]string) *apis.FieldError {
 	if initialScale, ok := annotations[InitialScaleAnnotationKey]; ok {
-		if !allowInitScaleZero && initialScale == "0" {
+		initScaleInt, err := strconv.Atoi(initialScale)
+		if err != nil || (!allowInitScaleZero && initScaleInt == 0) {
 			return apis.ErrInvalidValue(initialScale, InitialScaleAnnotationKey)
 		}
 	}
