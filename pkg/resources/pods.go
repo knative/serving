@@ -27,9 +27,8 @@ import (
 // RUNNING state. The interface exempts users from needing to
 // know how counts are performed.
 type notRunningPodCounter struct {
-	podsLister   corev1listers.PodLister
-	namespace    string
-	revisionName string
+	podsLister corev1listers.PodNamespaceLister
+	selector   labels.Selector
 }
 
 // NewNotRunningPodsCounter creates a NotRunningPodCounter that counts
@@ -37,27 +36,26 @@ type notRunningPodCounter struct {
 // TerminatingCount() and PendingCount() will vary over time.
 func NewNotRunningPodsCounter(lister corev1listers.PodLister, namespace, revisionName string) notRunningPodCounter {
 	return notRunningPodCounter{
-		podsLister:   lister,
-		namespace:    namespace,
-		revisionName: revisionName,
+		podsLister: lister.Pods(namespace),
+		selector: labels.SelectorFromSet(labels.Set{
+			serving.RevisionLabelKey: revisionName,
+		}),
 	}
 }
 
 // PendingTerminatingCount returns the number of pods in a Pending or
 // Terminating state
 func (pc *notRunningPodCounter) PendingTerminatingCount() (int, int, error) {
-	pods, err := pc.podsLister.Pods(pc.namespace).List(labels.SelectorFromSet(labels.Set{
-		serving.RevisionLabelKey: pc.revisionName,
-	}))
+	pods, err := pc.podsLister.List(pc.selector)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	pending, terminating := pendingTerminatingCount(pods)
-	return pending, terminating, nil
+	return pendingTerminatingCount(pods)
 }
 
-func pendingTerminatingCount(pods []*corev1.Pod) (int, int) {
+// no error is returned, but is here for code nicety.
+func pendingTerminatingCount(pods []*corev1.Pod) (int, int, error) {
 	pending, terminating := 0, 0
 	for _, pod := range pods {
 		switch pod.Status.Phase {
@@ -69,5 +67,5 @@ func pendingTerminatingCount(pods []*corev1.Pod) (int, int) {
 			pending++
 		}
 	}
-	return pending, terminating
+	return pending, terminating, nil
 }
