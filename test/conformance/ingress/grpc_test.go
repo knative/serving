@@ -155,8 +155,9 @@ func TestGRPCSplit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	const maxRequests = 100
 	got := sets.NewString()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < maxRequests; i++ {
 		stream, err := pc.PingStream(ctx)
 		if err != nil {
 			t.Errorf("PingStream() = %v", err)
@@ -172,11 +173,15 @@ func TestGRPCSplit(t *testing.T) {
 		for j := 0; j < 10; j++ {
 			checkGRPCRoundTrip(t, stream, suffix)
 		}
+
+		if want.Equal(got) {
+			// Short circuit if we've seen all splits.
+			return
+		}
 	}
 
-	if !want.Equal(got) {
-		t.Errorf("(-want, +got) = %s", cmp.Diff(want, got))
-	}
+	// Us getting here means we haven't seen splits.
+	t.Errorf("(over %d requests) (-want, +got) = %s", maxRequests, cmp.Diff(want, got))
 }
 
 func findGRPCSuffix(t *testing.T, stream ping.PingService_PingStreamClient) string {
