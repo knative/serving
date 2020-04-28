@@ -104,6 +104,11 @@ func newControllerWithClock(
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
+	// Make sure trackers are deleted once the observers are removed.
+	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.tracker.OnDeletedObserver,
+	})
+
 	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
 		// coming through this path missing TypeMeta, so ensure it is properly
