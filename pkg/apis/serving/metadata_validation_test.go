@@ -19,7 +19,6 @@ package serving
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -36,7 +35,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 	cases := []struct {
 		name       string
 		objectMeta metav1.Object
-		expectErr  error
+		expectErr  *apis.FieldError
 	}{{
 		name: "invalid name - dots",
 		objectMeta: &metav1.ObjectMeta{
@@ -69,13 +68,11 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "valid generateName - trailing dash",
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name-",
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "invalid generateName - dots",
 		objectMeta: &metav1.ObjectMeta{
@@ -109,7 +106,6 @@ func TestValidateObjectMetadata(t *testing.T) {
 				"serving.knative.dev/forceUpgrade": "true",
 			},
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "valid creator annotation label",
 		objectMeta: &metav1.ObjectMeta{
@@ -118,8 +114,6 @@ func TestValidateObjectMetadata(t *testing.T) {
 				CreatorAnnotation: "svc-creator",
 			},
 		},
-
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "valid lastModifier annotation label",
 		objectMeta: &metav1.ObjectMeta{
@@ -128,7 +122,6 @@ func TestValidateObjectMetadata(t *testing.T) {
 				UpdaterAnnotation: "svc-modifier",
 			},
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "valid lastPinned annotation label",
 		objectMeta: &metav1.ObjectMeta{
@@ -137,7 +130,6 @@ func TestValidateObjectMetadata(t *testing.T) {
 				RevisionLastPinnedAnnotationKey: "pinned-val",
 			},
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "invalid knative prefix annotation",
 		objectMeta: &metav1.ObjectMeta{
@@ -146,11 +138,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 				"serving.knative.dev/testAnnotation": "value",
 			},
 		},
-		expectErr: (&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-			(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-				(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-					apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "annotations"),
-				))),
+		expectErr: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", "annotations"),
 	}, {
 		name: "valid non-knative prefix annotation label",
 		objectMeta: &metav1.ObjectMeta{
@@ -159,15 +147,13 @@ func TestValidateObjectMetadata(t *testing.T) {
 				"testAnnotation": "testValue",
 			},
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := ValidateObjectMetadata(c.objectMeta)
-
-			if !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
@@ -177,7 +163,7 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
 		annotation map[string]string
-		expectErr  error
+		expectErr  *apis.FieldError
 	}{{
 		name: "Queue sidecar resource percentage annotation more than 100",
 		annotation: map[string]string{
@@ -199,26 +185,23 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}, {
 		name:       "empty annotation",
 		annotation: map[string]string{},
-		expectErr:  (*apis.FieldError)(nil),
 	}, {
 		name: "different annotation other than QueueSideCarResourcePercentageAnnotation",
 		annotation: map[string]string{
 			CreatorAnnotation: "",
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			QueueSideCarResourcePercentageAnnotation: "100",
 		},
-		expectErr: (*apis.FieldError)(nil),
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := ValidateQueueSidecarAnnotation(c.annotation)
-			if !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
@@ -228,7 +211,7 @@ func TestValidateTimeoutSecond(t *testing.T) {
 	cases := []struct {
 		name      string
 		timeout   *int64
-		expectErr error
+		expectErr *apis.FieldError
 	}{{
 		name:    "exceed max timeout",
 		timeout: ptr.Int64(6000),
@@ -236,17 +219,15 @@ func TestValidateTimeoutSecond(t *testing.T) {
 			6000, 0, config.DefaultMaxRevisionTimeoutSeconds,
 			"timeoutSeconds"),
 	}, {
-		name:      "valid timeout value",
-		timeout:   ptr.Int64(100),
-		expectErr: (*apis.FieldError)(nil),
+		name:    "valid timeout value",
+		timeout: ptr.Int64(100),
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := context.Background()
-			err := ValidateTimeoutSeconds(ctx, *c.timeout)
-			if !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			err := ValidateTimeoutSeconds(context.Background(), *c.timeout)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
@@ -264,11 +245,10 @@ func TestValidateContainerConcurrency(t *testing.T) {
 		name                 string
 		containerConcurrency *int64
 		ctx                  context.Context
-		expectErr            error
+		expectErr            *apis.FieldError
 	}{{
 		name:                 "empty containerConcurrency",
 		containerConcurrency: nil,
-		expectErr:            (*apis.FieldError)(nil),
 	}, {
 		name:                 "invalid containerConcurrency value",
 		containerConcurrency: ptr.Int64(2000),
@@ -285,11 +265,9 @@ func TestValidateContainerConcurrency(t *testing.T) {
 	}, {
 		name:                 "valid containerConcurrency value",
 		containerConcurrency: ptr.Int64(10),
-		expectErr:            (*apis.FieldError)(nil),
 	}, {
 		name:                 "valid containerConcurrency value huge",
 		containerConcurrency: ptr.Int64(2019),
-		expectErr:            (*apis.FieldError)(nil),
 		ctx: config.ToContext(context.Background(), cfg(map[string]string{
 			"container-concurrency-max-limit": "2021",
 		})),
@@ -300,8 +278,8 @@ func TestValidateContainerConcurrency(t *testing.T) {
 				tc.ctx = context.Background()
 			}
 			err := ValidateContainerConcurrency(tc.ctx, tc.containerConcurrency)
-			if !reflect.DeepEqual(tc.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", tc.expectErr, err)
+			if got, want := err.Error(), tc.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
@@ -311,15 +289,14 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 	tests := []struct {
 		name      string
 		label     string
-		expectErr error
+		expectErr *apis.FieldError
 	}{{
 		name:      "empty label",
 		label:     "",
 		expectErr: apis.ErrInvalidValue("", VisibilityLabelKey),
 	}, {
-		name:      "valid label",
-		label:     VisibilityClusterLocal,
-		expectErr: (*apis.FieldError)(nil),
+		name:  "valid label",
+		label: VisibilityClusterLocal,
 	}, {
 		name:      "invalid label",
 		label:     "not-cluster-local",
@@ -329,8 +306,8 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := ValidateClusterVisibilityLabel(test.label)
-			if !reflect.DeepEqual(test.expectErr, err) {
-				t.Errorf("ValidateClusterVisibilityLabel(%s) = %#v, Want: '%#v'", test.label, err, test.expectErr)
+			if got, want := err.Error(), test.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
@@ -394,8 +371,9 @@ func TestAnnotationCreate(t *testing.T) {
 				Username: test.user,
 			})
 			SetUserInfo(ctx, nil, test.this.Spec, test.this)
-			if !reflect.DeepEqual(test.this.Annotations, test.want) {
-				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", test.this.Annotations, test.want, cmp.Diff(test.this.Annotations, test.want))
+			if !cmp.Equal(test.this.Annotations, test.want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-want, +got):\n%s", test.this.Annotations, test.want,
+					cmp.Diff(test.want, test.this.Annotations))
 			}
 		})
 	}
@@ -460,8 +438,8 @@ func TestAnnotationUpdate(t *testing.T) {
 				ctx = apis.WithinUpdate(ctx, test.prev)
 			}
 			SetUserInfo(ctx, test.prev.Spec, test.this.Spec, test.this)
-			if !reflect.DeepEqual(test.this.Annotations, test.want) {
-				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", test.this.Annotations, test.want, cmp.Diff(test.this.Annotations, test.want))
+			if !cmp.Equal(test.this.Annotations, test.want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-want, +got):\n%s", test.this.Annotations, test.want, cmp.Diff(test.want, test.this.Annotations))
 			}
 		})
 	}
@@ -473,7 +451,7 @@ func TestValidateRevisionName(t *testing.T) {
 		revName         string
 		revGenerateName string
 		objectMeta      metav1.ObjectMeta
-		expectErr       error
+		expectErr       *apis.FieldError
 	}{{
 		name:            "invalid revision generateName - dots",
 		revGenerateName: "foo.bar",
@@ -504,16 +482,15 @@ func TestValidateRevisionName(t *testing.T) {
 		objectMeta: metav1.ObjectMeta{
 			Name: "valid",
 		},
-		revName:   "valid-name",
-		expectErr: (*apis.FieldError)(nil),
+		revName: "valid-name",
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := context.Background()
-			ctx = apis.WithinParent(ctx, c.objectMeta)
-			if err := ValidateRevisionName(ctx, c.revName, c.revGenerateName); !reflect.DeepEqual(c.expectErr, err) {
-				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			ctx := apis.WithinParent(context.Background(), c.objectMeta)
+			err := ValidateRevisionName(ctx, c.revName, c.revGenerateName)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
 			}
 		})
 	}
