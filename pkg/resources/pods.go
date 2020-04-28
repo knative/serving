@@ -25,7 +25,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
-// PodAccessor interface provides access to various dimensions of pods listing
+// PodAccessor provides access to various dimensions of pods listing
 // and querying for a given bound revision.
 type PodAccessor struct {
 	podsLister corev1listers.PodNamespaceLister
