@@ -51,11 +51,10 @@ func TestObservabilityConfiguration(t *testing.T) {
 		name:    "observability configuration with all inputs",
 		wantErr: false,
 		wantController: &metrics.ObservabilityConfig{
-			LoggingURLTemplate:     "https://logging.io",
-			EnableVarLogCollection: true,
-			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
-			EnableProbeRequestLog:  true,
-			RequestMetricsBackend:  "stackdriver",
+			LoggingURLTemplate:    "https://logging.io",
+			RequestLogTemplate:    `{"requestMethod": "{{.Request.Method}}"}`,
+			EnableProbeRequestLog: true,
+			RequestMetricsBackend: "stackdriver",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -63,7 +62,6 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",
 				"logging.enable-probe-request-log":            "true",
 				"logging.write-request-logs":                  "true",
@@ -75,10 +73,9 @@ func TestObservabilityConfiguration(t *testing.T) {
 		name:    "observability config with no map",
 		wantErr: false,
 		wantController: &metrics.ObservabilityConfig{
-			EnableVarLogCollection: false,
-			LoggingURLTemplate:     metrics.DefaultLogURLTemplate,
-			RequestLogTemplate:     "",
-			RequestMetricsBackend:  "prometheus",
+			LoggingURLTemplate:    metrics.DefaultLogURLTemplate,
+			RequestLogTemplate:    "",
+			RequestMetricsBackend: "prometheus",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
