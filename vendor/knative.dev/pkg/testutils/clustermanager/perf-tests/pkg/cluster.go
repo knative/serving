@@ -61,7 +61,7 @@ func NewClient(environment string) (*gkeClient, error) {
 	endpointOption := option.WithEndpoint(endpoint)
 	operations, err := gke.NewSDKClient(endpointOption)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up GKE client: %v", err)
+		return nil, fmt.Errorf("failed to set up GKE client: %w", err)
 	}
 
 	client := &gkeClient{
@@ -112,11 +112,11 @@ func (gc *gkeClient) processClusters(
 ) error {
 	curtClusters, err := gc.listClustersForRepo(gcpProject, repo)
 	if err != nil {
-		return fmt.Errorf("failed getting clusters for the repo %q: %v", repo, err)
+		return fmt.Errorf("failed getting clusters for the repo %q: %w", repo, err)
 	}
 	clusterConfigs, err := benchmarkClusters(repo, benchmarkRoot)
 	if err != nil {
-		return fmt.Errorf("failed getting cluster configs for benchmarks in repo %q: %v", repo, err)
+		return fmt.Errorf("failed getting cluster configs for benchmarks in repo %q: %w", repo, err)
 	}
 
 	errCh := make(chan error, len(curtClusters)+len(clusterConfigs))
@@ -129,7 +129,7 @@ func (gc *gkeClient) processClusters(
 		go func() {
 			defer wg.Done()
 			if err := handleExistingCluster(cluster, configExists, config); err != nil {
-				errCh <- fmt.Errorf("failed handling cluster %v: %v", cluster, err)
+				errCh <- fmt.Errorf("failed handling cluster %v: %w", cluster, err)
 			}
 		}()
 		// remove the cluster from clusterConfigs as it's already been handled
@@ -144,7 +144,7 @@ func (gc *gkeClient) processClusters(
 		go func() {
 			defer wg.Done()
 			if err := handleNewClusterConfig(name, config); err != nil {
-				errCh <- fmt.Errorf("failed handling new cluster config %v: %v", config, err)
+				errCh <- fmt.Errorf("failed handling new cluster config %v: %w", config, err)
 			}
 		}()
 	}
@@ -152,11 +152,9 @@ func (gc *gkeClient) processClusters(
 	wg.Wait()
 	close(errCh)
 
-	errs := make([]error, 0)
+	errs := make([]error, len(errCh))
 	for err := range errCh {
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, err)
 	}
 
 	return helpers.CombineErrors(errs)
@@ -189,7 +187,7 @@ func (gc *gkeClient) handleExistingClusterHelper(
 	}
 
 	if err := gc.deleteClusterWithRetries(gcpProject, cluster); err != nil {
-		return fmt.Errorf("failed deleting cluster %q in %q: %v", cluster.Name, cluster.Location, err)
+		return fmt.Errorf("failed deleting cluster %q in %q: %w", cluster.Name, cluster.Location, err)
 	}
 	if configExists {
 		return gc.createClusterWithRetries(gcpProject, cluster.Name, config)
@@ -201,7 +199,7 @@ func (gc *gkeClient) handleExistingClusterHelper(
 func (gc *gkeClient) listClustersForRepo(gcpProject, repo string) ([]container.Cluster, error) {
 	allClusters, err := gc.ops.ListClustersInProject(gcpProject)
 	if err != nil {
-		return nil, fmt.Errorf("failed listing clusters in project %q: %v", gcpProject, err)
+		return nil, fmt.Errorf("failed listing clusters in project %q: %w", gcpProject, err)
 	}
 
 	clusters := make([]container.Cluster, 0)
@@ -227,7 +225,7 @@ func (gc *gkeClient) deleteClusterWithRetries(gcpProject string, cluster contain
 	}
 	if err != nil {
 		return fmt.Errorf(
-			"failed deleting cluster %q in %q after retrying %d times: %v",
+			"failed deleting cluster %q in %q after retrying %d times: %w",
 			cluster.Name, cluster.Location, retryTimes, err)
 	}
 
@@ -255,7 +253,7 @@ func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config Cl
 	}
 	creq, err := gke.NewCreateClusterRequest(req)
 	if err != nil {
-		return fmt.Errorf("cannot create cluster with request %v: %v", req, err)
+		return fmt.Errorf("cannot create cluster with request %v: %w", req, err)
 	}
 
 	region, zone := gke.RegionZoneFromLoc(config.Location)
@@ -274,7 +272,7 @@ func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config Cl
 	}
 	if err != nil {
 		return fmt.Errorf(
-			"failed creating cluster %q in %q after retrying %d times: %v",
+			"failed creating cluster %q in %q after retrying %d times: %w",
 			name, config.Location, retryTimes, err)
 	}
 

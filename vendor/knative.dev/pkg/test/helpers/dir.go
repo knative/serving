@@ -36,7 +36,7 @@ func CreateDir(dirPath string) error {
 func CreateDirWithFileMode(dirPath string, perm os.FileMode) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		if err = os.MkdirAll(dirPath, perm); err != nil {
-			return fmt.Errorf("error creating directory: %v", err)
+			return fmt.Errorf("error creating directory: %w", err)
 		}
 	}
 	return nil

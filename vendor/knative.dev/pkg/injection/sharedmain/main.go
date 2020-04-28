@@ -143,6 +143,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// Adjust our client's rate limits based on the number of controllers we are running.
 	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
 	cfg.Burst = len(ctors) * rest.DefaultBurst
+	ctx = injection.WithConfig(ctx, cfg)
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 

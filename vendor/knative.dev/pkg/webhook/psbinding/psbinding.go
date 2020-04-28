@@ -333,7 +333,7 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 
 	configuredWebhook, err := ac.MWHLister.Get(ac.Name)
 	if err != nil {
-		return fmt.Errorf("error retrieving webhook: %v", err)
+		return fmt.Errorf("error retrieving webhook: %w", err)
 	}
 	webhook := configuredWebhook.DeepCopy()
 
@@ -357,12 +357,12 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
-		return fmt.Errorf("error diffing webhooks: %v", err)
+		return fmt.Errorf("error diffing webhooks: %w", err)
 	} else if !ok {
 		logging.FromContext(ctx).Info("Updating webhook")
 		mwhclient := ac.Client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if _, err := mwhclient.Update(webhook); err != nil {
-			return fmt.Errorf("failed to update webhook: %v", err)
+			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
 		logging.FromContext(ctx).Info("Webhook is valid")

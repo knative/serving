@@ -146,7 +146,7 @@ func (gc *GithubClient) depaginate(message string, maxRetries int, options *gith
 	for ; options.Page <= lastPage; options.Page++ {
 		resp, err := gc.retry(message, maxRetries, wrapper)
 		if err != nil {
-			return allItems, fmt.Errorf("error while depaginating page %d/%d: %v", options.Page, lastPage, err)
+			return allItems, fmt.Errorf("error while depaginating page %d/%d: %w", options.Page, lastPage, err)
 		}
 		if resp.LastPage > 0 {
 			lastPage = resp.LastPage
