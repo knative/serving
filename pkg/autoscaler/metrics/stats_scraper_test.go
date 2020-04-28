@@ -79,7 +79,10 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	counter := resources.NewScopedEndpointsCounter(
 		fake.KubeInformer.Core().V1().Endpoints().Lister(),
 		fake.TestNamespace, fake.TestService)
-	sc, err := NewStatsScraper(metric, counter)
+	accessor := resources.NewPodAccessor(
+		fake.KubeInformer.Core().V1().Pods().Lister(),
+		fake.TestNamespace, fake.TestRevision)
+	sc, err := NewStatsScraper(metric, counter, accessor)
 	if err != nil {
 		t.Fatal("NewServiceScraper =", err)
 	}
@@ -94,41 +97,49 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
 	lister := fake.KubeInformer.Core().V1().Endpoints().Lister()
+	podLister := fake.KubeInformer.Core().V1().Pods().Lister()
 	counter := resources.NewScopedEndpointsCounter(lister, fake.TestNamespace, fake.TestService)
+	podAccessor := resources.NewPodAccessor(podLister, fake.TestNamespace, fake.TestRevision)
 
 	testCases := []struct {
 		name        string
 		metric      *av1alpha1.Metric
 		client      scrapeClient
 		counter     resources.EndpointsCounter
+		accessor    resources.PodAccessor
 		expectedErr string
 	}{{
 		name:        "Empty Decider",
 		client:      client,
 		counter:     counter,
+		accessor:    podAccessor,
 		expectedErr: "metric must not be nil",
 	}, {
 		name:        "Missing revision label in Decider",
 		metric:      invalidMetric,
 		client:      client,
 		counter:     counter,
+		accessor:    podAccessor,
 		expectedErr: "no Revision label found for Metric test-revision",
 	}, {
 		name:        "Empty scrape client",
 		metric:      metric,
 		counter:     counter,
+		accessor:    podAccessor,
 		expectedErr: "scrape client must not be nil",
 	}, {
-		name:        "Empty lister",
+		name:        "Empty counter",
 		metric:      metric,
 		client:      client,
+		accessor:    podAccessor,
 		counter:     nil,
 		expectedErr: "counter must not be nil",
 	}}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client); err != nil {
+			if _, err := newServiceScraperWithClient(test.metric, test.counter,
+				test.accessor, test.client); err != nil {
 				got := err.Error()
 				want := test.expectedErr
 				if got != want {
@@ -343,8 +354,13 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*serviceScraper, error) {
 	metric := testMetric()
-	counter := resources.NewScopedEndpointsCounter(fake.KubeInformer.Core().V1().Endpoints().Lister(), fake.TestNamespace, fake.TestService)
-	return newServiceScraperWithClient(metric, counter, sClient)
+	counter := resources.NewScopedEndpointsCounter(
+		fake.KubeInformer.Core().V1().Endpoints().Lister(),
+		fake.TestNamespace, fake.TestService)
+	accessor := resources.NewPodAccessor(
+		fake.KubeInformer.Core().V1().Pods().Lister(),
+		fake.TestNamespace, fake.TestRevision)
+	return newServiceScraperWithClient(metric, counter, accessor, sClient)
 }
 
 func testMetric() *av1alpha1.Metric {

@@ -37,10 +37,12 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -138,8 +140,10 @@ func main() {
 		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
-	collector := asmetrics.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	collector := asmetrics.NewMetricCollector(
+		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
 	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
 
 	// Set up scalers.
@@ -217,11 +221,15 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
+	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric) (asmetrics.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(
 			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return asmetrics.NewStatsScraper(metric, podCounter)
+		// TODO(vagababov): while metric name == revision name, we should utilize the proper
+		// values from the labels.
+		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, metric.Name)
+		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor)
 	}
 }
 
