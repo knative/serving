@@ -159,7 +159,7 @@ func TestRequestStats(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// All tests are relative to epoch.
-			stats := NewRequestStats(time.Unix(0, 0))
+			stats := NewRequestStats(time.Time{})
 			reports := make([]RequestStatsReport, 0, len(test.want))
 			test.events(
 				eventFunc(stats, ReqIn),
@@ -167,12 +167,12 @@ func TestRequestStats(t *testing.T) {
 				eventFunc(stats, ProxiedIn),
 				eventFunc(stats, ProxiedOut),
 				func(ms int64) {
-					reports = append(reports, stats.Report(time.Unix(0, ms*int64(time.Millisecond))))
+					reports = append(reports, stats.Report(time.Time{}.Add(time.Duration(ms)*time.Millisecond)))
 				},
 			)
 
 			if !cmp.Equal(reports, test.want) {
-				t.Errorf("Got = %v, want = %v, diff %s", reports, test.want, cmp.Diff(reports, test.want))
+				t.Errorf("Got = %v, want = %v, diff(-want,+got): %s", reports, test.want, cmp.Diff(test.want, reports))
 			}
 		})
 	}
@@ -181,7 +181,7 @@ func TestRequestStats(t *testing.T) {
 func eventFunc(stats *RequestStats, typ ReqEventType) func(int64) {
 	return func(ms int64) {
 		stats.HandleEvent(ReqEvent{
-			Time: time.Unix(0, ms*int64(time.Millisecond)),
+			Time: time.Time{}.Add(time.Duration(ms) * time.Millisecond),
 			Type: typ,
 		})
 	}

@@ -92,7 +92,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.Type != network.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v\n", e.Type, network.ProxiedIn)
+			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
