@@ -47,6 +47,23 @@ func NewRequestStats(startedAt time.Time) *RequestStats {
 }
 
 // RequestStats collects statistics about requests as they flow in and out of the system.
+// It's usually used in a flow where events are generated asynchronously and fed into
+// the object by reading from a channel. Report is likewise called from a different
+// channel so the pattern usually looks like:
+//
+// stats := NewRequestStats(time)
+// for {
+//   switch {
+//   case e <- reqChan:
+//     stats.HandleEvent(e)
+//   case now <- reportChan:
+//     stats.Report(now)
+//   }
+// }
+//
+// The individual functions are not thread-safe. They are safe to use in the
+// single-threaded pattern shown above.
+//
 // +k8s:deepcopy-gen=false
 type RequestStats struct {
 	// State variables that track the current state. Not reset after reporting.
@@ -60,6 +77,12 @@ type RequestStats struct {
 	secondsInUse                                    float64
 }
 
+// compute updates the internal state since the last computed change.
+//
+// Note: Due to the async nature in which compute can be called, for
+// example via HandleEvent and Report, the individual timestamps are not
+// guaranteed to be monotonic. We ignore negative changes as they are likely
+// benign and are rounding errors at most if the proposed pattern is used.
 func (s *RequestStats) compute(now time.Time) {
 	if durationSinceChange := now.Sub(s.lastChange); durationSinceChange > 0 {
 		durationSecs := durationSinceChange.Seconds()
