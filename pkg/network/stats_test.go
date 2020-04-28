@@ -23,24 +23,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-type report struct {
-	Concurrency, ProxiedConcurrency float64
-	Count, ProxiedCount             float64
-}
-
 func TestRequestStats(t *testing.T) {
 	tests := []struct {
 		name   string
 		events func(in, out, inP, outP, report func(int64))
-		want   []report
+		want   []RequestStatsReport
 	}{{
 		name: "no requests",
 		events: func(in, out, inP, outP, report func(int64)) {
 			report(1000)
 		},
-		want: []report{{
-			Concurrency: 0,
-			Count:       0,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 0,
+			RequestCount:       0,
 		}},
 	}, {
 		name: "1 request, entire time",
@@ -49,9 +44,9 @@ func TestRequestStats(t *testing.T) {
 			out(1000)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency: 1,
-			Count:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 1,
+			RequestCount:       1,
 		}},
 	}, {
 		name: "1 request, half the time",
@@ -60,9 +55,9 @@ func TestRequestStats(t *testing.T) {
 			out(3000)
 			report(6000)
 		},
-		want: []report{{
-			Concurrency: 0.5,
-			Count:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 0.5,
+			RequestCount:       1,
 		}},
 	}, {
 		name: "very short request",
@@ -71,9 +66,9 @@ func TestRequestStats(t *testing.T) {
 			out(1)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency: float64(1) / float64(1000),
-			Count:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency: float64(1) / float64(1000),
+			RequestCount:       1,
 		}},
 	}, {
 		name: "3 requests, fill entire time",
@@ -86,9 +81,9 @@ func TestRequestStats(t *testing.T) {
 			out(1000)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency: 1,
-			Count:       3,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 1,
+			RequestCount:       3,
 		}},
 	}, {
 		name: "interleaved requests",
@@ -99,9 +94,9 @@ func TestRequestStats(t *testing.T) {
 			out(1000)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency: 1.5,
-			Count:       2,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 1.5,
+			RequestCount:       2,
 		}},
 	}, {
 		name: "request across reporting",
@@ -111,12 +106,12 @@ func TestRequestStats(t *testing.T) {
 			out(1500)
 			report(2000)
 		},
-		want: []report{{
-			Concurrency: 1,
-			Count:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency: 1,
+			RequestCount:       1,
 		}, {
-			Concurrency: 0.5,
-			Count:       0,
+			AverageConcurrency: 0.5,
+			RequestCount:       0,
 		}},
 	}, {
 		name: "1 request, proxied, entire time",
@@ -125,11 +120,11 @@ func TestRequestStats(t *testing.T) {
 			outP(1000)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency:        1,
-			ProxiedConcurrency: 1,
-			Count:              1,
-			ProxiedCount:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency:        1,
+			AverageProxiedConcurrency: 1,
+			RequestCount:              1,
+			ProxiedRequestCount:       1,
 		}},
 	}, {
 		name: "1 request, proxied, half the time",
@@ -138,11 +133,11 @@ func TestRequestStats(t *testing.T) {
 			outP(500)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency:        0.5,
-			ProxiedConcurrency: 0.5,
-			Count:              1,
-			ProxiedCount:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency:        0.5,
+			AverageProxiedConcurrency: 0.5,
+			RequestCount:              1,
+			ProxiedRequestCount:       1,
 		}},
 	}, {
 		name: "2 requests, proxied and non proxied",
@@ -153,11 +148,11 @@ func TestRequestStats(t *testing.T) {
 			out(1000)
 			report(1000)
 		},
-		want: []report{{
-			Concurrency:        1.5,
-			ProxiedConcurrency: 0.5,
-			Count:              2,
-			ProxiedCount:       1,
+		want: []RequestStatsReport{{
+			AverageConcurrency:        1.5,
+			AverageProxiedConcurrency: 0.5,
+			RequestCount:              2,
+			ProxiedRequestCount:       1,
 		}},
 	}}
 
@@ -165,20 +160,14 @@ func TestRequestStats(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// All tests are relative to epoch.
 			stats := NewRequestStats(time.Unix(0, 0))
-			reports := make([]report, 0, len(test.want))
+			reports := make([]RequestStatsReport, 0, len(test.want))
 			test.events(
 				eventFunc(stats, ReqIn),
 				eventFunc(stats, ReqOut),
 				eventFunc(stats, ProxiedIn),
 				eventFunc(stats, ProxiedOut),
 				func(ms int64) {
-					aC, aPC, rC, pC := stats.Report(time.Unix(0, ms*int64(time.Millisecond)))
-					reports = append(reports, report{
-						Concurrency:        aC,
-						ProxiedConcurrency: aPC,
-						Count:              rC,
-						ProxiedCount:       pC,
-					})
+					reports = append(reports, stats.Report(time.Unix(0, ms*int64(time.Millisecond))))
 				},
 			)
 

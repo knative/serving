@@ -32,8 +32,13 @@ func NewStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-chan 
 			case event := <-reqCh:
 				state.HandleEvent(event)
 			case now := <-reportCh:
-				avgC, avgPC, rC, pC := state.Report(now)
-				report(avgC, avgPC, rC, pC)
+				stats := state.Report(now)
+				report(
+					stats.AverageConcurrency,
+					stats.AverageProxiedConcurrency,
+					stats.RequestCount,
+					stats.ProxiedRequestCount,
+				)
 			}
 		}
 	}()

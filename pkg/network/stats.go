@@ -77,6 +77,25 @@ type RequestStats struct {
 	secondsInUse                                    float64
 }
 
+// RequestStatsReport are the metrics reported from the the request stats collector
+// at a given time.
+type RequestStatsReport struct {
+	// AverageConcurrency is the average concurrency over the reporting timeframe.
+	// This is calculated via the utilization at a given concurrency. For example:
+	// 2 requests each taking 500ms over a 1s reporting window generate an average
+	// concurrency of 1.
+	AverageConcurrency float64
+	// AverageProxiedConcurrency is the average concurrency of all proxied requests.
+	// The same calculation as above applies.
+	AverageProxiedConcurrency float64
+	// RequestCount is the number of requests that arrived in the current reporting
+	// timeframe.
+	RequestCount float64
+	// ProxiedRequestCount is the number of proxied requests that arrived in the current
+	// reporting timeframe.
+	ProxiedRequestCount float64
+}
+
 // compute updates the internal state since the last computed change.
 //
 // Note: Due to the async nature in which compute can be called, for
@@ -116,15 +135,20 @@ func (s *RequestStats) HandleEvent(event ReqEvent) {
 
 // Report returns averageConcurrency, averageProxiedConcurrency, requestCount and proxiedCount
 // relative to the given time. The state will be reset for another reporting cycle afterwards.
-func (s *RequestStats) Report(now time.Time) (avgC float64, avgPC float64, rC float64, pC float64) {
+func (s *RequestStats) Report(now time.Time) RequestStatsReport {
 	s.compute(now)
 	defer s.reset()
 
-	if s.secondsInUse > 0 {
-		avgC = s.computedConcurrency / s.secondsInUse
-		avgPC = s.computedProxiedConcurrency / s.secondsInUse
+	report := RequestStatsReport{
+		RequestCount:        s.requestCount,
+		ProxiedRequestCount: s.proxiedCount,
 	}
-	return avgC, avgPC, s.requestCount, s.proxiedCount
+
+	if s.secondsInUse > 0 {
+		report.AverageConcurrency = s.computedConcurrency / s.secondsInUse
+		report.AverageProxiedConcurrency = s.computedProxiedConcurrency / s.secondsInUse
+	}
+	return report
 }
 
 // reset resets the state so a new reporting cycle can start.
