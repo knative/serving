@@ -23,7 +23,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -169,32 +168,6 @@ func TestProbeHandler(t *testing.T) {
 				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
 			}
 		})
-	}
-}
-
-func TestCreateVarLogLink(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
-	if err != nil {
-		t.Errorf("Failed to created temporary directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-	var env = config{
-		ServingNamespace:   "default",
-		ServingPod:         "service-7f97f9465b-5kkm5",
-		UserContainerName:  "user-container",
-		VarLogVolumeName:   "knative-var-log",
-		InternalVolumePath: dir,
-	}
-	createVarLogLink(env)
-
-	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
-	want := "../knative-var-log"
-	got, err := os.Readlink(source)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if got != want {
-		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
 

@@ -27,9 +27,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -110,12 +108,6 @@ type config struct {
 	ServingPod                   string `split_words:"true" required:"true"`
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
-
-	// /var/log configuration
-	EnableVarLogCollection bool   `split_words:"true"` // optional
-	UserContainerName      string `split_words:"true"` // optional
-	VarLogVolumeName       string `split_words:"true"` // optional
-	InternalVolumePath     string `split_words:"true"` // optional
 
 	// DownwardAPI configuration for pod labels
 	DownwardAPILabelsPath string `split_words:"true"`
@@ -348,10 +340,6 @@ func main() {
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
-	if err := validateEnv(env); err != nil {
-		logger.Fatal(err.Error())
-	}
-
 	// Report stats on Go memory usage every 30 seconds.
 	msp := metrics.NewMemStatsAll()
 	msp.Start(context.Background(), 30*time.Second)
@@ -403,15 +391,6 @@ func main() {
 		}(name, server)
 	}
 
-	// Setup /var/log.
-	// Logic that isn't required to be executed before the critical path
-	// and should be started last to not impact start up latency
-	go func() {
-		if env.EnableVarLogCollection {
-			createVarLogLink(env)
-		}
-	}()
-
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exit unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.
@@ -445,21 +424,6 @@ func main() {
 		}
 		logger.Info("Shutdown complete, exiting...")
 	}
-}
-
-func validateEnv(env config) error {
-	if !env.EnableVarLogCollection {
-		return nil
-	}
-
-	if env.VarLogVolumeName == "" {
-		return errors.New("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-	if env.InternalVolumePath == "" {
-		return errors.New("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-
-	return nil
 }
 
 func buildProbe(probeJSON string) *readiness.Probe {
@@ -578,17 +542,6 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter) *http.S
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
-	}
-}
-
-// createVarLogLink creates a symlink allowing the fluentd daemon set to capture the
-// logs from the user container /var/log. See fluentd config for more details.
-func createVarLogLink(env config) {
-	link := strings.Join([]string{env.ServingNamespace, env.ServingPod, env.UserContainerName}, "_")
-	target := path.Join("..", env.VarLogVolumeName)
-	source := path.Join(env.InternalVolumePath, link)
-	if err := os.Symlink(target, source); err != nil {
-		logger.Errorw("Failed to create /var/log symlink. Log collection will not work.", zap.Error(err))
 	}
 }
 

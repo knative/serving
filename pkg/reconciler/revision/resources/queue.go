@@ -220,9 +220,6 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
-	if observabilityConfig.EnableVarLogCollection {
-		volumeMounts = append(volumeMounts, internalVolumeMount)
-	}
 
 	if autoscalerConfig.EnableGracefulScaledown {
 		volumeMounts = append(volumeMounts, labelVolumeMount)
@@ -317,18 +314,6 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 		}, {
 			Name:  pkgmetrics.DomainEnv,
 			Value: pkgmetrics.Domain(),
-		}, {
-			Name:  "USER_CONTAINER_NAME",
-			Value: rev.Spec.GetContainer().Name,
-		}, {
-			Name:  "ENABLE_VAR_LOG_COLLECTION",
-			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
-		}, {
-			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
-		}, {
-			Name:  "INTERNAL_VOLUME_PATH",
-			Value: internalVolumePath,
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
 			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),

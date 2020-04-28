@@ -42,10 +42,6 @@ import (
 )
 
 const (
-	varLogVolumeName   = "knative-var-log"
-	varLogVolumePath   = "/var/log"
-	internalVolumeName = "knative-internal"
-	internalVolumePath = "/var/knative-internal"
 	podInfoVolumeName  = "podinfo"
 	podInfoVolumePath  = "/etc/podinfo"
 	metadataLabelsRef  = "metadata.labels"
@@ -53,18 +49,6 @@ const (
 )
 
 var (
-	varLogVolume = corev1.Volume{
-		Name: varLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	varLogVolumeMount = corev1.VolumeMount{
-		Name:      varLogVolumeName,
-		MountPath: varLogVolumePath,
-	}
-
 	labelVolume = corev1.Volume{
 		Name: podInfoVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -84,18 +68,6 @@ var (
 	labelVolumeMount = corev1.VolumeMount{
 		Name:      podInfoVolumeName,
 		MountPath: podInfoVolumePath,
-	}
-
-	internalVolume = corev1.Volume{
-		Name: internalVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	internalVolumeMount = corev1.VolumeMount{
-		Name:      internalVolumeName,
-		MountPath: internalVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -144,11 +116,6 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	userContainer := BuildUserContainer(rev)
 	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
 
-	// Add the Knative internal volume only if /var/log collection is enabled
-	if observabilityConfig.EnableVarLogCollection {
-		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
-	}
-
 	if autoscalerConfig.EnableGracefulScaledown {
 		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 	}
@@ -162,7 +129,6 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
@@ -201,7 +167,7 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
 	return &corev1.PodSpec{
 		Containers:                    containers,
-		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
+		Volumes:                       rev.Spec.Volumes,
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
 		ImagePullSecrets:              rev.Spec.ImagePullSecrets,

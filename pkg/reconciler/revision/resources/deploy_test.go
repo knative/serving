@@ -49,7 +49,6 @@ var (
 		Name:                     containerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1.DefaultUserPort),
-		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -148,18 +147,6 @@ var (
 			Name:  "METRICS_DOMAIN",
 			Value: metrics.Domain(),
 		}, {
-			Name:  "USER_CONTAINER_NAME",
-			Value: containerName,
-		}, {
-			Name:  "ENABLE_VAR_LOG_COLLECTION",
-			Value: "false",
-		}, {
-			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
-		}, {
-			Name:  "INTERNAL_VOLUME_PATH",
-			Value: internalVolumePath,
-		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
 			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 		}, {
@@ -175,7 +162,6 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 	}
 
@@ -273,12 +259,6 @@ func withEnvVar(name, value string) containerOption {
 			Name:  name,
 			Value: value,
 		})
-	}
-}
-
-func withInternalVolumeMount() containerOption {
-	return func(container *corev1.Container) {
-		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
 	}
 }
 
@@ -635,30 +615,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 				),
 			}),
-	}, {
-		name: "with /var/log collection",
-		rev: revision("bar", "foo", withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			}),
-		oc: metrics.ObservabilityConfig{
-			EnableVarLogCollection: true,
-		},
-		want: podSpec(
-			[]corev1.Container{
-				userContainer(),
-				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
-					withInternalVolumeMount(),
-				),
-			},
-			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
-			},
-		),
 	}, {
 		name: "with graceful scaledown enabled",
 		rev: revision("bar", "foo", func(revision *v1.Revision) {
