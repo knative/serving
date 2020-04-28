@@ -1066,6 +1066,18 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			}
 			addRouteToInformers(t, ctx, route)
 
+			// Wait initial reconcile to finish.
+			rl := fakerouteinformer.Get(ctx).Lister()
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if err != nil {
+					return false, err
+				}
+				return !cmp.Equal(r.Status, route.Status), nil
+			}); err != nil {
+				t.Fatal("Failed to see route initial reconcile propagation:", err)
+			}
+
 			tc.apply(route, watcher)
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			if _, err := routeClient.Update(route); err != nil {
@@ -1076,7 +1088,6 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("Reconcile() =", err)
 			}
 
-			rl := fakerouteinformer.Get(ctx).Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 				r, err := rl.Routes(route.Namespace).Get(route.Name)
 				if err != nil {
@@ -1091,7 +1102,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
 			if route.Status.URL.Host != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
+				t.Errorf("Domain = %q, want: %q", route.Status.URL.Host, expectedDomain)
 			}
 		})
 	}
