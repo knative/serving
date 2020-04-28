@@ -29,6 +29,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
@@ -207,7 +208,10 @@ func TestDestroyPodTimely(t *testing.T) {
 	var latestPodState *corev1.Pod
 	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
 		pod, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Get(podToDelete, metav1.GetOptions{})
-		if err != nil {
+		if apierrs.IsNotFound(err) {
+			// The podToDelete must be deleted.
+			return true, nil
+		} else if err != nil {
 			return false, nil
 		}
 
