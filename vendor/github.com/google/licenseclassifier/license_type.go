@@ -316,6 +316,7 @@ var (
 	// fall into this category.
 	byExceptionOnlyType = sets.NewStringSet(
 		Beerware,
+		OFL,
 	)
 
 	// forbidden - Licenses that are forbidden to be used.

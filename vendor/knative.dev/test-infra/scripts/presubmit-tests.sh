@@ -49,6 +49,9 @@ function pr_only_contains() {
 # List changed files in the current PR.
 # This is implemented as a function so it can be mocked in unit tests.
 function list_changed_files() {
+  # Avoid warning when there are more than 1085 files renamed:
+  # https://stackoverflow.com/questions/7830728/warning-on-diff-renamelimit-variable-when-doing-git-push
+  git config diff.renames 0
   git --no-pager diff --name-only ${PULL_BASE_SHA}..${PULL_SHA}
 }
 

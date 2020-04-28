@@ -32,7 +32,7 @@ cleanup
 
 # Save working tree state
 mkdir -p "${TMP_DIFFROOT}/pkg"
-cp -aR "${REPO_ROOT_DIR}/Gopkg.lock" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
 
 # We symlink a few testdata files from config, so copy it as well.
 mkdir -p "${TMP_DIFFROOT}/config"
@@ -48,7 +48,7 @@ diff -Nupr --no-dereference "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" |
 
 # Restore working tree state
 rm -fr "${TMP_DIFFROOT}/config"
-rm -fr "${REPO_ROOT_DIR}/Gopkg.lock" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor"
+rm -fr "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor"
 cp -aR "${TMP_DIFFROOT}"/* "${REPO_ROOT_DIR}"
 
 if [[ $ret -eq 0 ]]

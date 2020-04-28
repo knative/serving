@@ -89,7 +89,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
-	var rules []admissionregistrationv1beta1.RuleWithOperations
+	rules := make([]admissionregistrationv1beta1.RuleWithOperations, 0, len(ac.handlers))
 	for gvk := range ac.handlers {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
 

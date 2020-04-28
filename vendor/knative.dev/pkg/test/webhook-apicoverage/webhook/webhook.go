@@ -153,7 +153,7 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 }
 
 func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVersionKind]resourcesemantics.GenericCRD) []admissionregistrationv1beta1.RuleWithOperations {
-	var rules []admissionregistrationv1beta1.RuleWithOperations
+	rules := make([]admissionregistrationv1beta1.RuleWithOperations, 0, len(resources))
 	for gvk := range resources {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
 

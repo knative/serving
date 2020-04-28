@@ -20,6 +20,9 @@ package podautoscaler
 
 import (
 	context "context"
+	fmt "fmt"
+	reflect "reflect"
+	strings "strings"
 
 	corev1 "k8s.io/api/core/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -37,7 +40,6 @@ import (
 const (
 	defaultControllerAgentName = "podautoscaler-controller"
 	defaultFinalizerName       = "podautoscalers.autoscaling.internal.knative.dev"
-	defaultQueueName           = "podautoscalers"
 
 	// ClassAnnotationKey points to the annotation for the class of this resource.
 	ClassAnnotationKey = "autoscaling.knative.dev/class"
@@ -84,7 +86,11 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		finalizerName: defaultFinalizerName,
 		classValue:    classValue,
 	}
-	impl := controller.NewImpl(rec, logger, defaultQueueName)
+
+	t := reflect.TypeOf(r).Elem()
+	queueName := fmt.Sprintf("%s.%s", strings.ReplaceAll(t.PkgPath(), "/", "-"), t.Name())
+
+	impl := controller.NewImpl(rec, logger, queueName)
 
 	// Pass impl to the options. Save any optional results.
 	for _, fn := range optionsFns {
