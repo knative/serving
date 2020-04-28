@@ -23,6 +23,12 @@ metadata:
   namespace: contour-external
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy
+  namespace: contour-external
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: contour
@@ -397,6 +403,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -1191,6 +1214,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -1362,14 +1402,18 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        # This version is set to latest because Job specs are immutable;
+        # if we change this on each version, you can no longer upgrade
+        # just by applying the deployment YAML.
+        # See #2423, #2395, #2150, and #2030 for earlier questions about this.
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --namespace=contour-external
         - --incluster
         - --kube
+        - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
@@ -1416,7 +1460,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - extensions
+  - "networking.k8s.io"
   resources:
   - ingresses
   verbs:
@@ -1426,11 +1470,14 @@ rules:
 - apiGroups:
   - "networking.k8s.io"
   resources:
-  - ingresses
+  - "ingresses/status"
   verbs:
   - get
   - list
   - watch
+  - patch
+  - post
+  - update
 - apiGroups: ["contour.heptio.com"]
   resources: ["ingressroutes", "tlscertificatedelegations"]
   verbs:
@@ -1588,7 +1635,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         name: contour
         ports:
@@ -1618,6 +1665,11 @@ spec:
           mountPath: /config
           readOnly: true
         env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -1674,7 +1726,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -1697,7 +1749,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.13.1
+        image: docker.io/envoyproxy/envoy:v1.14.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -1750,7 +1802,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -1767,7 +1819,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-      automountServiceAccountToken: false
+      serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
@@ -1805,6 +1857,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: contour
+  namespace: contour-internal
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy
   namespace: contour-internal
 ---
 apiVersion: v1
@@ -2182,6 +2240,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -2976,6 +3051,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -3147,14 +3239,18 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        # This version is set to latest because Job specs are immutable;
+        # if we change this on each version, you can no longer upgrade
+        # just by applying the deployment YAML.
+        # See #2423, #2395, #2150, and #2030 for earlier questions about this.
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --namespace=contour-internal
         - --incluster
         - --kube
+        - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
@@ -3201,7 +3297,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - extensions
+  - "networking.k8s.io"
   resources:
   - ingresses
   verbs:
@@ -3211,11 +3307,14 @@ rules:
 - apiGroups:
   - "networking.k8s.io"
   resources:
-  - ingresses
+  - "ingresses/status"
   verbs:
   - get
   - list
   - watch
+  - patch
+  - post
+  - update
 - apiGroups: ["contour.heptio.com"]
   resources: ["ingressroutes", "tlscertificatedelegations"]
   verbs:
@@ -3373,7 +3472,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         name: contour
         ports:
@@ -3403,6 +3502,11 @@ spec:
           mountPath: /config
           readOnly: true
         env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -3459,7 +3563,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -3482,7 +3586,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.13.1
+        image: docker.io/envoyproxy/envoy:v1.14.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -3535,7 +3639,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:be0aa3325f145805c654a00f6fcf36da9a6c8866911a1cc03e8a6c960078ed48
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -3552,7 +3656,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-      automountServiceAccountToken: false
+      serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
