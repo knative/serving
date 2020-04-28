@@ -129,7 +129,7 @@ type config struct {
 }
 
 // Make handler a closure for testing.
-func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
@@ -143,13 +143,13 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 		}
 
 		// Metrics for autoscaling.
-		in, out := queue.ReqIn, queue.ReqOut
+		in, out := network.ReqIn, network.ReqOut
 		if activator.Name == network.KnativeProxyHeader(r) {
-			in, out = queue.ProxiedIn, queue.ProxiedOut
+			in, out = network.ProxiedIn, network.ProxiedOut
 		}
-		reqChan <- queue.ReqEvent{Time: time.Now(), EventType: in}
+		reqChan <- network.ReqEvent{Time: time.Now(), Type: in}
 		defer func() {
-			reqChan <- queue.ReqEvent{Time: time.Now(), EventType: out}
+			reqChan <- network.ReqEvent{Time: time.Now(), Type: out}
 		}()
 		network.RewriteHostOut(r)
 
@@ -367,7 +367,7 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 
 	reportTicker := time.NewTicker(reportingPeriod)
@@ -470,7 +470,7 @@ func buildProbe(probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan queue.ReqEvent,
+func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan network.ReqEvent,
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
