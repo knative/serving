@@ -114,21 +114,25 @@ type serviceScraper struct {
 	counter  resources.EndpointsCounter
 	url      string
 	statsCtx context.Context
+
+	podAccessor resources.PodAccessor
 }
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (StatsScraper, error) {
+func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter,
+	podAccessor resources.PodAccessor) (StatsScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, sClient)
+	return newServiceScraperWithClient(metric, counter, podAccessor, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
 	counter resources.EndpointsCounter,
+	podAccessor resources.PodAccessor,
 	sClient scrapeClient) (*serviceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
@@ -152,10 +156,11 @@ func newServiceScraperWithClient(
 	}
 
 	return &serviceScraper{
-		sClient:  sClient,
-		counter:  counter,
-		url:      urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		statsCtx: ctx,
+		sClient:     sClient,
+		counter:     counter,
+		url:         urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		podAccessor: podAccessor,
+		statsCtx:    ctx,
 	}, nil
 }
 
