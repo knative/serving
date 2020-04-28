@@ -439,7 +439,8 @@ func TestAnnotationUpdate(t *testing.T) {
 			}
 			SetUserInfo(ctx, test.prev.Spec, test.this.Spec, test.this)
 			if !cmp.Equal(test.this.Annotations, test.want) {
-				t.Errorf("Annotations = %v, want: %v, diff (-want, +got):\n%s", test.this.Annotations, test.want, cmp.Diff(test.want, test.this.Annotations))
+				t.Errorf("Annotations = %v, want: %v, diff (-want, +got):\n%s", test.this.Annotations, test.want,
+					cmp.Diff(test.want, test.this.Annotations))
 			}
 		})
 	}
