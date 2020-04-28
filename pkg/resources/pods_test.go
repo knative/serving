@@ -67,7 +67,7 @@ func TestPodsSortedByAge(t *testing.T) {
 		name: "more than 1 pod, unsorted, preserve order",
 		pods: []*corev1.Pod{
 			pod("nothing-else-matters", withStartTime(aTime), withIP("1.2.3.4")),
-			pod("whereever-i-may-roam", withStartTime(aTime.Add(-time.Second)), withIP("2.3.4.5")),
+			pod("wherever-i-may-roam", withStartTime(aTime.Add(-time.Second)), withIP("2.3.4.5")),
 			pod("sad-but-true", withStartTime(time.Now().Add(time.Minute)), withIP("3.4.5.6")),
 			pod("enter-sandman", withStartTime(time.Now()), withIP("1.2.3.5")),
 		},
