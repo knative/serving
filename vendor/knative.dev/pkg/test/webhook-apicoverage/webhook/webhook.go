@@ -87,12 +87,12 @@ type APICoverageWebhook struct {
 func (acw *APICoverageWebhook) generateServerConfig() (*tls.Config, error) {
 	serverKey, serverCert, caCert, err := certresources.CreateCerts(context.Background(), acw.ServiceName, acw.Namespace, time.Now().AddDate(1, 0, 0))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating webhook certificates: %v", err)
+		return nil, fmt.Errorf("Error creating webhook certificates: %w", err)
 	}
 
 	cert, err := tls.X509KeyPair(serverCert, serverKey)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating X509 Key pair for webhook server: %v", err)
+		return nil, fmt.Errorf("Error creating X509 Key pair for webhook server: %w", err)
 	}
 
 	acw.CaCert = caCert
@@ -139,14 +139,14 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 
 	deployment, err := acw.KubeClient.ExtensionsV1beta1().Deployments(namespace).Get(acw.DeploymentName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("Error retrieving Deployment Extension object: %v", err)
+		return fmt.Errorf("Error retrieving Deployment Extension object: %w", err)
 	}
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
 
 	_, err = acw.KubeClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
 	if err != nil {
-		return fmt.Errorf("Error creating ValidatingWebhookConfigurations object: %v", err)
+		return fmt.Errorf("Error creating ValidatingWebhookConfigurations object: %w", err)
 	}
 
 	return nil
@@ -177,14 +177,14 @@ func (acw *APICoverageWebhook) SetupWebhook(handler http.Handler, resources map[
 	server, err := acw.getWebhookServer(handler)
 	rules := acw.getValidationRules(resources)
 	if err != nil {
-		return fmt.Errorf("Webhook server object creation failed: %v", err)
+		return fmt.Errorf("Webhook server object creation failed: %w", err)
 	}
 
 	select {
 	case <-time.After(acw.RegistrationDelay):
 		err = acw.registerWebhook(rules, namespace)
 		if err != nil {
-			return fmt.Errorf("Webhook registration failed: %v", err)
+			return fmt.Errorf("Webhook registration failed: %w", err)
 		}
 		acw.Logger.Info("Successfully registered webhook")
 	case <-stop:

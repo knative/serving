@@ -90,7 +90,7 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 		if enable, ok := cfgMap[enableKey]; ok {
 			enableBool, err := strconv.ParseBool(enable)
 			if err != nil {
-				return nil, fmt.Errorf("failed parsing tracing config %q: %v", enableKey, err)
+				return nil, fmt.Errorf("failed parsing tracing config %q: %w", enableKey, err)
 			}
 			if enableBool {
 				tc.Backend = Zipkin
@@ -109,7 +109,7 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 	} else if tc.Backend == Stackdriver {
 		projectID, err := metadata.ProjectID()
 		if err != nil {
-			return nil, fmt.Errorf("stackdriver tracing enabled without a project-id specified: %v", err)
+			return nil, fmt.Errorf("stackdriver tracing enabled without a project-id specified: %w", err)
 		}
 		tc.StackdriverProjectID = projectID
 	}

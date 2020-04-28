@@ -121,7 +121,7 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 
 	configuredWebhook, err := ac.vwhlister.Get(ac.name)
 	if err != nil {
-		return fmt.Errorf("error retrieving webhook: %v", err)
+		return fmt.Errorf("error retrieving webhook: %w", err)
 	}
 
 	webhook := configuredWebhook.DeepCopy()
@@ -143,12 +143,12 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
-		return fmt.Errorf("error diffing webhooks: %v", err)
+		return fmt.Errorf("error diffing webhooks: %w", err)
 	} else if !ok {
 		logger.Info("Updating webhook")
 		vwhclient := ac.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 		if _, err := vwhclient.Update(webhook); err != nil {
-			return fmt.Errorf("failed to update webhook: %v", err)
+			return fmt.Errorf("failed to update webhook: %w", err)
 		}
 	} else {
 		logger.Info("Webhook is valid")
