@@ -187,7 +187,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 				ServiceName:      t.ServiceName,
 				// Port on the public service must match port on the activator.
 				// Otherwise, the serverless services can't guarantee seamless positive handoff.
-				ServicePort: intstr.FromInt(int(networking.ServicePort(t.Protocol))),
+				ServicePort: intstr.FromInt(networking.ServicePort(t.Protocol)),
 			},
 			Percent: int(*t.Percent),
 			AppendHeaders: map[string]string{

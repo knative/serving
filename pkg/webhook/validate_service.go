@@ -28,6 +28,11 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
+var (
+	// PodSpecDryRunAnnotation gates the podspec dryrun feature and runs with the value 'enabled'
+	PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
+)
+
 // ValidateRevisionTemplate runs extra validation on Service resources
 func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
@@ -35,7 +40,7 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
 	// of this are well-tested. Only run extra validation for the dry-run test.
 	// This will be in place to while the feature is tested for compatibility and later removed.
-	if uns.GetAnnotations()["features.knative.dev/podspec-dryrun"] != "enabled" {
+	if uns.GetAnnotations()[PodSpecDryRunAnnotation] != "enabled" {
 		return nil
 	}
 
@@ -68,5 +73,9 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 			}
 		}
 	}
-	return validatePodSpec(ctx, templ.Spec, namespace)
+
+	if err := validatePodSpec(ctx, templ.Spec, namespace); err != nil {
+		return err
+	}
+	return nil
 }

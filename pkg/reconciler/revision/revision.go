@@ -85,7 +85,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		return nil
 	}
 
-	var imagePullSecrets []string
+	imagePullSecrets := make([]string, 0, len(rev.Spec.ImagePullSecrets))
 	for _, s := range rev.Spec.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, s.Name)
 	}

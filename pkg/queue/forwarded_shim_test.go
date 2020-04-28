@@ -69,6 +69,10 @@ func TestForwardedShimHandler(t *testing.T) {
 		xfp:  "p",
 		want: "host=h;proto=p",
 	}, {
+		name: "broken for",
+		xff:  ",,,",
+		want: "for=, for=, for=",
+	}, {
 		name: "existing fwd",
 		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
@@ -113,5 +117,11 @@ func TestForwardedShimHandler(t *testing.T) {
 				t.Errorf("Wrong header value. Want %q, got %q", test.want, got)
 			}
 		})
+	}
+}
+
+func BenchmarkForwardedShimHandler(b *testing.B) {
+	for j := 0; j < b.N; j++ {
+		generateForwarded("127.0.0.1,127.0.0.2,::1", "http", "localhost")
 	}
 }

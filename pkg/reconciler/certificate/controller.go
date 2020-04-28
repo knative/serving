@@ -87,6 +87,11 @@ func NewController(
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
+	// Make sure trackers are deleted once the observers are removed.
+	knCertificateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.tracker.OnDeletedObserver,
+	})
+
 	svcInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,

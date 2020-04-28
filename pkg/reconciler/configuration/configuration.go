@@ -110,10 +110,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 
 	case rc.Status == corev1.ConditionFalse:
 		logger.Infof("Revision %q of configuration has failed", revName)
-		// TODO(mattmoor): Only emit the event the first time we see this.
+		beforeReady := config.Status.GetCondition(v1.ConfigurationConditionReady)
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
-		recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
-			"Latest created revision %q has failed", lcr.Name)
+
+		if !equality.Semantic.DeepEqual(beforeReady, config.Status.GetCondition(v1.ConfigurationConditionReady)) {
+			recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
+				"Latest created revision %q has failed", lcr.Name)
+		}
 
 	default:
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
@@ -165,7 +168,7 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 		} else {
 			start := lrr.Generation
 			var generations []string
-			for i := start; i <= int64(config.Generation); i++ {
+			for i := start; i <= config.Generation; i++ {
 				generations = append(generations, strconv.FormatInt(i, 10))
 			}
 

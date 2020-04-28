@@ -315,7 +315,7 @@ func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, muta
 			fb.GetBindingStatus().MarkBindingUnavailable("SubjectMissing", err.Error())
 			return err
 		} else if err != nil {
-			return fmt.Errorf("error fetching Pod Speccable %v: %v", subject, err)
+			return fmt.Errorf("error fetching Pod Speccable %v: %w", subject, err)
 		}
 		err = r.labelNamespace(ctx, subject)
 		if err != nil {
@@ -331,7 +331,7 @@ func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, muta
 		}
 		psObjs, err := lister.ByNamespace(subject.Namespace).List(selector)
 		if err != nil {
-			return fmt.Errorf("error fetching Pod Speccable %v: %v", subject, err)
+			return fmt.Errorf("error fetching Pod Speccable %v: %w", subject, err)
 		}
 		err = r.labelNamespace(ctx, subject)
 		if err != nil {

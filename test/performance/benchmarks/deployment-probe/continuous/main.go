@@ -58,7 +58,7 @@ func readTemplate() (*v1beta1.Service, error) {
 		return nil, err
 	}
 	svc := &v1beta1.Service{}
-	if err := yaml.Unmarshal([]byte(b), svc); err != nil {
+	if err := yaml.Unmarshal(b, svc); err != nil {
 		return nil, err
 	}
 

@@ -104,7 +104,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 	createdServiceNames := sets.String{}
 
-	var services []*corev1.Service
+	services := make([]*corev1.Service, 0, names.Len())
 	for _, name := range names.List() {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {

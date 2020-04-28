@@ -95,11 +95,15 @@ func TestPostSplitSetHeaders(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	const headerName = "Foo-Bar-Baz"
+	const (
+		headerName  = "Foo-Bar-Baz"
+		splits      = 4
+		maxRequests = 100
+	)
 
-	backends := make([]v1alpha1.IngressBackendSplit, 0, 10)
+	backends := make([]v1alpha1.IngressBackendSplit, 0, splits)
 	names := sets.NewString()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < splits; i++ {
 		name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 		defer cancel()
 		backends = append(backends, v1alpha1.IngressBackendSplit{
@@ -113,7 +117,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			AppendHeaders: map[string]string{
 				headerName: name,
 			},
-			Percent: 10,
+			Percent: 100 / splits,
 		})
 		names.Insert(name)
 	}
@@ -138,18 +142,20 @@ func TestPostSplitSetHeaders(t *testing.T) {
 		// but don't check the distribution of requests, as that isn't the point of this
 		// particular test.
 		seen := sets.NewString()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < maxRequests; i++ {
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com")
 			if ri == nil {
 				return
 			}
 			seen.Insert(ri.Request.Headers.Get(headerName))
+			if seen.Equal(names) {
+				// Short circuit if we've seen all headers.
+				return
+			}
 		}
-		// Check what we saw.
-		if !cmp.Equal(names, seen) {
-			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
-				headerName, cmp.Diff(names, seen))
-		}
+		// Us getting here means we haven't seen all headers, print the diff.
+		t.Errorf("(over %d requests) Header[%q] (-want, +got) = %s",
+			maxRequests, headerName, cmp.Diff(names, seen))
 	})
 
 	t.Run("Check with passing header", func(t *testing.T) {
@@ -157,7 +163,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 		// but don't check the distribution of requests, as that isn't the point of this
 		// particular test.
 		seen := sets.NewString()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < maxRequests; i++ {
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com", func(req *http.Request) {
 				// Specify a value for the header to verify that implementations
 				// use set vs. append semantics.
@@ -167,11 +173,13 @@ func TestPostSplitSetHeaders(t *testing.T) {
 				return
 			}
 			seen.Insert(ri.Request.Headers.Get(headerName))
+			if seen.Equal(names) {
+				// Short circuit if we've seen all headers.
+				return
+			}
 		}
-		// Check what we saw.
-		if !cmp.Equal(names, seen) {
-			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
-				headerName, cmp.Diff(names, seen))
-		}
+		// Us getting here means we haven't seen all headers, print the diff.
+		t.Errorf("(over %d requests) Header[%q] (-want, +got) = %s",
+			maxRequests, headerName, cmp.Diff(names, seen))
 	})
 }

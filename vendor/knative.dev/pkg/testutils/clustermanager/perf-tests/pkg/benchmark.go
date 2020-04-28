@@ -64,7 +64,7 @@ func benchmarkNames(benchmarkRoot string) ([]string, error) {
 	names := make([]string, 0)
 	dirs, err := ioutil.ReadDir(benchmarkRoot)
 	if err != nil {
-		return names, fmt.Errorf("failed to list all benchmarks under %q: %v", benchmarkRoot, err)
+		return names, fmt.Errorf("failed to list all benchmarks under %q: %w", benchmarkRoot, err)
 	}
 
 	for _, dir := range dirs {
@@ -150,8 +150,5 @@ func repoPrefix(repo string) string {
 // fileExists returns if the file exists or not
 func fileExists(fileName string) bool {
 	info, err := os.Stat(fileName)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
+	return err == nil && !info.IsDir()
 }

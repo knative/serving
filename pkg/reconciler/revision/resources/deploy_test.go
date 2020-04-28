@@ -137,7 +137,7 @@ var (
 			Value: "false",
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: "0.000000",
+			Value: "0",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",

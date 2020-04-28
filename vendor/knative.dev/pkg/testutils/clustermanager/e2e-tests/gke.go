@@ -238,7 +238,7 @@ func (gc *GKECluster) checkEnvironment() error {
 					}
 					cluster, err := client.GetCluster(project, region, zone, clusterName)
 					if err != nil {
-						return fmt.Errorf("couldn't find cluster %s in %s in %s, does it exist? %v", clusterName, project, location, err)
+						return fmt.Errorf("couldn't find cluster %s in %s in %s, does it exist? %w", clusterName, project, location, err)
 					}
 					gc.Cluster = cluster
 					gc.Project = project
@@ -251,7 +251,7 @@ func (gc *GKECluster) checkEnvironment() error {
 	// If output isn't empty then this is unexpected error, should shout out
 	// directly
 	if err != nil && len(output) > 0 {
-		return fmt.Errorf("failed running kubectl config current-context: '%s'", string(output))
+		return fmt.Errorf("failed running kubectl config current-context: %q", string(output))
 	}
 
 	if gc.Project != "" {
@@ -261,11 +261,10 @@ func (gc *GKECluster) checkEnvironment() error {
 	// if gcloud is pointing to a project, use it
 	output, err = common.StandardExec("gcloud", "config", "get-value", "project")
 	if err != nil {
-		return fmt.Errorf("failed getting gcloud project: '%v'", err)
+		return fmt.Errorf("failed getting gcloud project: %w", err)
 	}
-	if string(output) != "" {
-		project := strings.Trim(strings.TrimSpace(string(output)), "\n\r")
-		gc.Project = project
+	if os := string(output); os != "" {
+		gc.Project = strings.TrimSpace(os)
 	}
 	return nil
 }

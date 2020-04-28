@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -104,20 +105,20 @@ var cacheDisabledClient = &http.Client{
 	Timeout: httpClientTimeout,
 }
 
-// ServiceScraper scrapes Revision metrics via a K8S service by sampling. Which
+// serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
 // pod to be picked up to serve the request is decided by K8S. Please see
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
-type ServiceScraper struct {
+type serviceScraper struct {
 	sClient  scrapeClient
 	counter  resources.EndpointsCounter
 	url      string
 	statsCtx context.Context
 }
 
-// NewServiceScraper creates a new StatsScraper for the Revision which
+// NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (*ServiceScraper, error) {
+func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (StatsScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
@@ -128,7 +129,7 @@ func NewServiceScraper(metric *av1alpha1.Metric, counter resources.EndpointsCoun
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
 	counter resources.EndpointsCounter,
-	sClient scrapeClient) (*ServiceScraper, error) {
+	sClient scrapeClient) (*serviceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -140,7 +141,7 @@ func newServiceScraperWithClient(
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
-		return nil, fmt.Errorf("no Revision label found for Metric %s", metric.Name)
+		return nil, errors.New("no Revision label found for Metric " + metric.Name)
 	}
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
@@ -150,7 +151,7 @@ func newServiceScraperWithClient(
 		return nil, err
 	}
 
-	return &ServiceScraper{
+	return &serviceScraper{
 		sClient:  sClient,
 		counter:  counter,
 		url:      urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
@@ -158,15 +159,15 @@ func newServiceScraperWithClient(
 	}, nil
 }
 
+var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"
+
 func urlFromTarget(t, ns string) string {
-	return fmt.Sprintf(
-		"http://%s.%s:%d/metrics",
-		t, ns, networking.AutoscalingQueueMetricsPort)
+	return fmt.Sprintf("http://%s.%s:", t, ns) + portAndPath
 }
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
+func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
 		return emptyStat, ErrFailedGetEndpoints
@@ -175,7 +176,13 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	if readyPodsCount == 0 {
 		return emptyStat, nil
 	}
-	frpc := float64(readyPodsCount)
+	return s.scrapeService(window, readyPodsCount)
+}
+
+// scrapeService scrapes the metrics using service endpoint
+// as its target, rather than individual pods.
+func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Stat, error) {
+	frpc := float64(readyPods)
 
 	sampleSizeF := populationMeanSampleSize(frpc)
 	sampleSize := int(sampleSizeF)
@@ -287,7 +294,7 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
 // seen before. An error otherwise or if scraping failed.
-func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
+func (s *serviceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
 		return emptyStat, err

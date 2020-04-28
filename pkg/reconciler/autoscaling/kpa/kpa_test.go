@@ -87,19 +87,19 @@ import (
 )
 
 const (
-	gracePeriod              = 60 * time.Second
-	stableWindow             = 5 * time.Minute
-	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
 	defaultTU                = 0.5
+	gracePeriod              = 60 * time.Second
+	paStableWindow           = 45 * time.Second
 	progressDeadline         = 121 * time.Second
+	stableWindow             = 5 * time.Minute
 )
 
 func defaultConfigMapData() map[string]string {
 	return map[string]string{
 		"max-scale-up-rate":                       "12.0",
-		"container-concurrency-target-percentage": fmt.Sprintf("%f", defaultTU),
-		"container-concurrency-target-default":    fmt.Sprintf("%f", defaultConcurrencyTarget),
+		"container-concurrency-target-percentage": fmt.Sprint(defaultTU),
+		"container-concurrency-target-default":    fmt.Sprint(defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
@@ -423,7 +423,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error scaling target: failed to apply scale to scale target test-revision-deployment: inducing failure for patch deployments`),
+				`error scaling target: failed to apply scale 11 to scale target test-revision-deployment: inducing failure for patch deployments`),
 		},
 	}, {
 		Name: "can't read endpoints",
@@ -1092,7 +1092,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		t.Fatalf("failed to start configmap watcher: %v", err)
 	}
 
-	grp.Go(func() error { controller.StartAll(ctx.Done(), ctl); return nil })
+	grp.Go(func() error { controller.StartAll(ctx, ctl); return nil })
 
 	rev := newTestRevision(testNamespace, testRevision)
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1109,14 +1109,14 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
-		t.Fatalf("Failed to get decider: %v", err)
+		t.Fatal("Failed to get decider:", err)
 	} else if got, want := decider.Spec.TargetValue, defaultConcurrencyTarget*defaultTU; got != want {
 		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
 
 	const concurrencyTargetAfterUpdate = 100.0
 	data := defaultConfigMapData()
-	data["container-concurrency-target-default"] = fmt.Sprintf("%f", concurrencyTargetAfterUpdate)
+	data["container-concurrency-target-default"] = fmt.Sprint(concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalerconfig.ConfigName,
@@ -1145,7 +1145,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		cancel()
-		t.Fatalf("StartInformers() = %v", err)
+		t.Fatal("StartInformers() =", err)
 	}
 
 	var eg errgroup.Group

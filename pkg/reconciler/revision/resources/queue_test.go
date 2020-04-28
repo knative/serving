@@ -522,7 +522,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				Ports: []corev1.ContainerPort{{
-					ContainerPort: int32(userPort),
+					ContainerPort: userPort,
 				}},
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -611,7 +611,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -702,7 +702,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -776,7 +776,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_BACKEND":                "",
 	"TRACING_CONFIG_ZIPKIN_ENDPOINT":        "",
 	"TRACING_CONFIG_STACKDRIVER_PROJECT_ID": "",
-	"TRACING_CONFIG_SAMPLE_RATE":            "0.000000",
+	"TRACING_CONFIG_SAMPLE_RATE":            "0",
 	"TRACING_CONFIG_DEBUG":                  "false",
 	"SERVING_REQUEST_LOG_TEMPLATE":          "",
 	"SERVING_REQUEST_METRICS_BACKEND":       "",

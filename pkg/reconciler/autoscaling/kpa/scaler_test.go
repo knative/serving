@@ -370,7 +370,7 @@ func TestScaler(t *testing.T) {
 			}
 
 			ctx = config.ToContext(ctx, defaultConfig())
-			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
@@ -455,7 +455,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)

@@ -37,7 +37,7 @@ func NewAccessorError(err error, reason string) Error {
 }
 
 func (a Error) Error() string {
-	return strings.ToLower(string(a.errorReason)) + ": " + a.err.Error()
+	return strings.ToLower(a.errorReason) + ": " + a.err.Error()
 }
 
 // IsNotOwned returns true if the error is caused by NotOwnResource.

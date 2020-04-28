@@ -29,6 +29,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
@@ -207,7 +208,10 @@ func TestDestroyPodTimely(t *testing.T) {
 	var latestPodState *corev1.Pod
 	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
 		pod, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Get(podToDelete, metav1.GetOptions{})
-		if err != nil {
+		if apierrs.IsNotFound(err) {
+			// The podToDelete must be deleted.
+			return true, nil
+		} else if err != nil {
 			return false, nil
 		}
 
@@ -281,11 +285,11 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
-	// The request will sleep for more than 15 seconds.
-	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
+	// The request will sleep for more than 12 seconds.
+	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("sleep", "15001")
+	q.Set("sleep", "12001")
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {

@@ -227,7 +227,7 @@ func getStackdriverSecret(sdconfig *StackdriverClientConfig) (*corev1.Secret, er
 	sec, secErr := kubeclient.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
 
 	if secErr != nil {
-		return nil, fmt.Errorf("Error getting Secret [%v] in namespace [%v]: %v", secretName, secretNamespace, secErr)
+		return nil, fmt.Errorf("Error getting Secret [%s] in namespace [%s]: %w", secretName, secretNamespace, secErr)
 	}
 
 	return sec, nil
@@ -238,7 +238,7 @@ func convertSecretToExporterOption(secret *corev1.Secret) (option.ClientOption, 
 	if data, ok := secret.Data[secretDataFieldKey]; ok {
 		return option.WithCredentialsJSON(data), nil
 	}
-	return nil, fmt.Errorf("Expected Secret to store key in data field named [%v]", secretDataFieldKey)
+	return nil, fmt.Errorf("Expected Secret to store key in data field named [%s]", secretDataFieldKey)
 }
 
 // ensureKubeclient is the lazy initializer for kubeclient.

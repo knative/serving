@@ -109,7 +109,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
+	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
@@ -123,8 +123,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
 	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == -1 && pa.Status.IsInactive() {
-		logger.Infof("SKS should be in proxy mode: want = %d, ebc = %d, PA Inactive? = %v",
-			want, decider.Status.ExcessBurstCapacity, pa.Status.IsInactive())
+		logger.Infof("SKS should be in proxy mode: want = %d, ebc = %d, #act's = %d PA Inactive? = %v",
+			want, decider.Status.ExcessBurstCapacity, decider.Status.NumActivators,
+			pa.Status.IsInactive())
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
@@ -156,7 +157,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		}
 	}
 
-	podCounter := resourceutil.NewNotRunningPodsCounter(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	pending, terminating, err := podCounter.PendingTerminatingCount()
 	if err != nil {
 		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
