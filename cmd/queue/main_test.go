@@ -77,7 +77,7 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	reqChan := make(chan queue.ReqEvent, 10)
+	reqChan := make(chan network.ReqEvent, 10)
 	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
@@ -91,8 +91,8 @@ func TestHandlerReqEvent(t *testing.T) {
 	h(writer, req)
 	select {
 	case e := <-reqChan:
-		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn)
+		if e.Type != network.ProxiedIn {
+			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -482,7 +482,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				if !tc.infiniteCC {
 					breaker = queue.NewBreaker(params)
 				}
-				reqChan := make(chan queue.ReqEvent, 10)
+				reqChan := make(chan network.ReqEvent, 10)
 
 				proxy.Transport = &ochttp.Transport{
 					Base: pkgnet.AutoTransport,
@@ -533,7 +533,7 @@ func TestQueueTraceSpans(t *testing.T) {
 
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()

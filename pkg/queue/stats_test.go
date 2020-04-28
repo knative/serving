@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/serving/pkg/network"
 )
 
 type reportedStat struct {
@@ -239,14 +240,14 @@ func TestTwoRequestsOneProxied(t *testing.T) {
 
 // Test type to hold the bi-directional time channels
 type testStats struct {
-	reqChan      chan ReqEvent
+	reqChan      chan network.ReqEvent
 	reportBiChan chan time.Time
 	statChan     chan reportedStat
 }
 
 func newTestStats(now time.Time) *testStats {
 	reportBiChan := make(chan time.Time)
-	reqChan := make(chan ReqEvent)
+	reqChan := make(chan network.ReqEvent)
 	statChan := make(chan reportedStat)
 	report := func(acr float64, apcr float64, rc float64, prc float64) {
 		statChan <- reportedStat{
@@ -265,19 +266,19 @@ func newTestStats(now time.Time) *testStats {
 }
 
 func (s *testStats) requestStart(now time.Time) {
-	s.reqChan <- ReqEvent{Time: now, EventType: ReqIn}
+	s.reqChan <- network.ReqEvent{Time: now, Type: network.ReqIn}
 }
 
 func (s *testStats) requestEnd(now time.Time) {
-	s.reqChan <- ReqEvent{Time: now, EventType: ReqOut}
+	s.reqChan <- network.ReqEvent{Time: now, Type: network.ReqOut}
 }
 
 func (s *testStats) proxiedStart(now time.Time) {
-	s.reqChan <- ReqEvent{Time: now, EventType: ProxiedIn}
+	s.reqChan <- network.ReqEvent{Time: now, Type: network.ProxiedIn}
 }
 
 func (s *testStats) proxiedEnd(now time.Time) {
-	s.reqChan <- ReqEvent{Time: now, EventType: ProxiedOut}
+	s.reqChan <- network.ReqEvent{Time: now, Type: network.ProxiedOut}
 }
 
 func (s *testStats) report(now time.Time) reportedStat {
