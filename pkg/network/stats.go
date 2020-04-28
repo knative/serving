@@ -79,6 +79,7 @@ type RequestStats struct {
 
 // RequestStatsReport are the metrics reported from the the request stats collector
 // at a given time.
+// +k8s:deepcopy-gen=false
 type RequestStatsReport struct {
 	// AverageConcurrency is the average concurrency over the reporting timeframe.
 	// This is calculated via the utilization at a given concurrency. For example:
