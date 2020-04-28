@@ -157,7 +157,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		}
 	}
 
-	podCounter := resourceutil.NewNotRunningPodsCounter(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	pending, terminating, err := podCounter.PendingTerminatingCount()
 	if err != nil {
 		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
