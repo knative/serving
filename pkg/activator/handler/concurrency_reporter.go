@@ -62,7 +62,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 	}
 }
 
-func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency int64) {
+func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency float64) {
 	ns := key.Namespace
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
@@ -153,7 +153,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 						RequestCount:              requestCount,
 					},
 				})
-				cr.reportToMetricsBackend(key, int64(concurrency))
+				cr.reportToMetricsBackend(key, concurrency)
 			}
 			if len(messages) > 0 {
 				cr.statCh <- messages
