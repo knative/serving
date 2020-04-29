@@ -241,6 +241,19 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		allowInitScaleZero: false,
 		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
 		expectErr:          "invalid value: 0: autoscaling.knative.dev/initialScale",
+	}, {
+		name:               "initial scale is zero and cluster allows",
+		allowInitScaleZero: true,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
+	}, {
+		name:               "initial scale is greater than 0",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "2"},
+	}, {
+		name:               "initial scale non-parseable",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "invalid"},
+		expectErr:          "invalid value: invalid: autoscaling.knative.dev/initialScale",
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
