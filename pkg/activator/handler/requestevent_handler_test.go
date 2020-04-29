@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/activator/util"
+	"knative.dev/serving/pkg/network"
 )
 
 func TestRequestEventHandler(t *testing.T) {
@@ -32,7 +33,7 @@ func TestRequestEventHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	reqChan := make(chan ReqEvent, 2)
+	reqChan := make(chan network.ReqEvent, 2)
 	handler := NewRequestEventHandler(reqChan, baseHandler)
 
 	resp := httptest.NewRecorder()
@@ -40,20 +41,20 @@ func TestRequestEventHandler(t *testing.T) {
 	ctx := util.WithRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 
-	in := <-handler.ReqChan
-	wantIn := ReqEvent{
-		Key:       types.NamespacedName{Namespace: namespace, Name: revision},
-		EventType: ReqIn,
+	in := <-handler.reqChan
+	wantIn := network.ReqEvent{
+		Key:  types.NamespacedName{Namespace: namespace, Name: revision},
+		Type: network.ReqIn,
 	}
 
 	if !cmp.Equal(wantIn, in) {
 		t.Errorf("Unexpected event (-want +got): %s", cmp.Diff(wantIn, in))
 	}
 
-	out := <-handler.ReqChan
-	wantOut := ReqEvent{
-		Key:       wantIn.Key,
-		EventType: ReqOut,
+	out := <-handler.reqChan
+	wantOut := network.ReqEvent{
+		Key:  wantIn.Key,
+		Type: network.ReqOut,
 	}
 
 	if !cmp.Equal(wantOut, out) {

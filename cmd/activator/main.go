@@ -168,7 +168,7 @@ func main() {
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
-	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	reqCh := make(chan network.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
 	// Start throttler.
