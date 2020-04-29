@@ -20,6 +20,9 @@ package ingress
 
 import (
 	context "context"
+	fmt "fmt"
+	reflect "reflect"
+	strings "strings"
 
 	corev1 "k8s.io/api/core/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -37,7 +40,6 @@ import (
 const (
 	defaultControllerAgentName = "ingress-controller"
 	defaultFinalizerName       = "ingresses.networking.internal.knative.dev"
-	defaultQueueName           = "ingresses"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
@@ -80,7 +82,11 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 	}
-	impl := controller.NewImpl(rec, logger, defaultQueueName)
+
+	t := reflect.TypeOf(r).Elem()
+	queueName := fmt.Sprintf("%s.%s", strings.ReplaceAll(t.PkgPath(), "/", "-"), t.Name())
+
+	impl := controller.NewImpl(rec, logger, queueName)
 
 	// Pass impl to the options. Save any optional results.
 	for _, fn := range optionsFns {

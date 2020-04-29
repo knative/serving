@@ -18,6 +18,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+export GO111MODULE=on
+# If we run with -mod=vendor here, then generate-groups.sh looks for vendor files in the wrong place.
+export GOFLAGS=-mod=
+
 if [ -z "${GOPATH:-}" ]; then
   export GOPATH=$(go env GOPATH)
 fi
@@ -27,6 +31,9 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
+
+chmod +x ${CODEGEN_PKG}/generate-groups.sh
+chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
