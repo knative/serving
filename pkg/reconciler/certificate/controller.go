@@ -29,6 +29,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
+	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
 	cmchallengeinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1alpha2/challenge"
 	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha2/certificate"
@@ -76,14 +77,15 @@ func NewController(
 		})
 
 	logger.Info("Setting up event handlers")
-	classFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
-	certHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: classFilterFunc,
+	knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true),
 		Handler:    controller.HandleAll(impl.Enqueue),
-	}
-	knCertificateInformer.Informer().AddEventHandler(certHandler)
+	})
 
-	cmCertificateInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
+	cmCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterGroupVersionKind(nv1alpha1.SchemeGroupVersion.WithKind("Certificate")),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
