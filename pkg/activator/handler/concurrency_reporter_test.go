@@ -33,6 +33,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -243,9 +244,9 @@ func TestStats(t *testing.T) {
 			for _, op := range tc.ops {
 				switch op.op {
 				case requestOpStart:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
+					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqIn}
 				case requestOpEnd:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
+					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqOut}
 				case requestOpTick:
 					s.reportBiChan <- time.Time{}
 				}
@@ -297,10 +298,10 @@ func TestMetricsReported(t *testing.T) {
 		close(s.reportBiChan)
 	}()
 
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
 	s.reportBiChan <- time.Time{}
 	<-s.statChan // The scale from 0 quick-report
 	<-s.statChan // The actual report we want to see
@@ -318,7 +319,7 @@ func TestMetricsReported(t *testing.T) {
 
 // Test type to hold the bi-directional time channels
 type testStats struct {
-	reqChan      chan ReqEvent
+	reqChan      chan network.ReqEvent
 	statChan     chan []metrics.StatMessage
 	reportBiChan chan time.Time
 }
@@ -326,7 +327,7 @@ type testStats struct {
 func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
-		reqChan: make(chan ReqEvent),
+		reqChan: make(chan network.ReqEvent),
 		// Buffered channel permits avoiding sending the test commands on the separate go routine
 		// simplifying main test process.
 		statChan:     make(chan []metrics.StatMessage, 10),

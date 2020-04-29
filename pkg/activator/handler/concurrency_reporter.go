@@ -32,6 +32,7 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
 )
 
 const reportInterval = time.Second
@@ -42,7 +43,7 @@ type ConcurrencyReporter struct {
 	podName string
 
 	// Ticks with every request arrived/completed respectively
-	reqCh chan ReqEvent
+	reqCh chan network.ReqEvent
 	// Stat reporting channel
 	statCh chan []asmetrics.StatMessage
 
@@ -52,7 +53,7 @@ type ConcurrencyReporter struct {
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
+	reqCh chan network.ReqEvent, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:  logging.FromContext(ctx),
 		podName: podName,
@@ -100,8 +101,8 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	for {
 		select {
 		case event := <-cr.reqCh:
-			switch event.EventType {
-			case ReqIn:
+			switch event.Type {
+			case network.ReqIn:
 				incomingRequestsPerKey[event.Key]++
 
 				// Report the first request for a key immediately.
@@ -128,7 +129,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 					}}
 				}
 				outstandingRequestsPerKey[event.Key]++
-			case ReqOut:
+			case network.ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
 		case <-reportCh:

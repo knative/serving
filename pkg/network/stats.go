@@ -18,13 +18,20 @@ package network
 
 import (
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // ReqEvent represents either an incoming or closed request.
 // +k8s:deepcopy-gen=false
 type ReqEvent struct {
+	// Time is the time the request event happened.
 	Time time.Time
+	// Type is the type of the request event.
 	Type ReqEventType
+	// Key is the revision the event is associated with.
+	// +optional
+	Key types.NamespacedName
 }
 
 // ReqEventType denotes the type (incoming/closed) of a ReqEvent.
