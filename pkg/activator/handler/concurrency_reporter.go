@@ -147,8 +147,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 					Key: key,
 					Stat: asmetrics.Stat{
 						// Stat time is unset by design. The receiver will set the time.
-						PodName: cr.podName,
-						// Subtract the request we already reported when first seeing the revision.
+						PodName:                   cr.podName,
 						AverageConcurrentRequests: averageConcurrentRequests,
 						RequestCount:              requestCount,
 					},
