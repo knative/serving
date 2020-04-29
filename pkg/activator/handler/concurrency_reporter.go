@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"go.uber.org/zap"
@@ -86,81 +87,77 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 }
 
 func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
-	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[types.NamespacedName]float64)
-	// Contains the number of incoming requests in the current
-	// reporting period, per key.
-	incomingRequestsPerKey := make(map[types.NamespacedName]float64)
+	// This map holds the concurrency and request count accounting across revisions.
+	stats := make(map[types.NamespacedName]*network.RequestStats)
 	// This map holds whether during this reporting period we reported "first" request
 	// for the revision. Our reporting period is 1s, so there is a high chance that
-	// they will end up in the same metrics bucket.
-	// This is important because for small concurrencies, e.g. 1,
-	// autoscaler might cause noticeable overprovisioning.
+	// they will end up in the same metrics bucket and values in the same bucket are
+	// summed.
+	// This is important because for small concurrencies, e.g. 1, autoscaler might cause
+	// noticeable overprovisioning.
 	reportedFirstRequest := make(map[types.NamespacedName]float64)
 
 	for {
 		select {
 		case event := <-cr.reqCh:
-			switch event.Type {
-			case network.ReqIn:
-				incomingRequestsPerKey[event.Key]++
+			stat := stats[event.Key]
+			if stat == nil {
+				stat = network.NewRequestStats(event.Time)
+				stats[event.Key] = stat
 
-				// Report the first request for a key immediately.
-				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					reportedFirstRequest[event.Key] = 1.
+				// Only generate a from 0 event if this is an incoming request.
+				if event.Type == network.ReqIn {
+					reportedFirstRequest[event.Key] = 1
 					cr.statCh <- []asmetrics.StatMessage{{
 						Key: event.Key,
 						Stat: asmetrics.Stat{
-							// Stat time is unset by design. The receiver will set the time.
+							// Stat time is unset by design. Will be set by receiver.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
 							// The way the check above is written, this cannot ever be
-							// anything else but 1.
-							// In theory consider the situation where within the same
-							// reporting period a request arrived and terminated
-							// (making outstandingRequestsPerKey for that key 0) and
-							// then the same situation happened again, and again...
-							// Thus this might be > 1, but we only check for `!ok` not
-							// `!ok || val==0`, which means this is not reported until
-							// the reporting period channel ticks.
-							// Thus this will always be 1.
+							// anything else but 1. The stats map key is only deleted
+							// after a reporting period, so we see this code path at most
+							// once per period.
 							RequestCount: 1,
 						},
 					}}
 				}
-				outstandingRequestsPerKey[event.Key]++
-			case network.ReqOut:
-				outstandingRequestsPerKey[event.Key]--
 			}
-		case <-reportCh:
-			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
-			for key, concurrency := range outstandingRequestsPerKey {
-				firstAdj := reportedFirstRequest[key]
-				averageConcurrentRequests := concurrency - firstAdj
-				requestCount := incomingRequestsPerKey[key] - firstAdj
 
-				if concurrency == 0 {
-					delete(outstandingRequestsPerKey, key)
-					averageConcurrentRequests = 0
+			stat.HandleEvent(event)
+		case now := <-reportCh:
+			messages := make([]asmetrics.StatMessage, 0, len(stats))
+			for key, stat := range stats {
+				report := stat.Report(now)
+				firstAdj := reportedFirstRequest[key]
+
+				// This is only 0 if we have seen no activity for the entire reporting
+				// period at all.
+				if report.AverageConcurrency == 0 {
+					delete(stats, key)
 				}
 
+				// Subtract the request we already reported when first seeing the
+				// revision. We report a min of 0 here because the initial report is
+				// always a concurrency of 1 and the actual concurrency reported over
+				// the reporting period might be < 1.
+				adjustedConcurrency := math.Max(report.AverageConcurrency-firstAdj, 0)
+				adjustedCount := report.RequestCount - firstAdj
 				messages = append(messages, asmetrics.StatMessage{
 					Key: key,
 					Stat: asmetrics.Stat{
 						// Stat time is unset by design. The receiver will set the time.
-						PodName: cr.podName,
-						// Subtract the request we already reported when first seeing the revision.
-						AverageConcurrentRequests: averageConcurrentRequests,
-						RequestCount:              requestCount,
+						PodName:                   cr.podName,
+						AverageConcurrentRequests: adjustedConcurrency,
+						RequestCount:              adjustedCount,
 					},
 				})
-				cr.reportToMetricsBackend(key, concurrency)
+				cr.reportToMetricsBackend(key, report.AverageConcurrency)
 			}
 			if len(messages) > 0 {
 				cr.statCh <- messages
 			}
 
-			incomingRequestsPerKey = make(map[types.NamespacedName]float64)
 			reportedFirstRequest = make(map[types.NamespacedName]float64)
 		case <-stopCh:
 			return

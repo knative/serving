@@ -15,6 +15,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
@@ -40,9 +41,9 @@ type RequestEventHandler struct {
 func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	revisionKey := util.RevIDFrom(r.Context())
 
-	h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqIn}
+	h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()}
 	defer func() {
-		h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqOut}
+		h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()}
 	}()
 	h.nextHandler.ServeHTTP(w, r)
 }
