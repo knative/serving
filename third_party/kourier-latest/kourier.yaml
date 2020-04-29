@@ -148,7 +148,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:ae4a141cd17c5b814bcc33d63a5e0697c924cebadc2f5e0ce83ae9cfbe3489ea
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:ff94854437b1270bb05217fe046cd46f8c66bae59f2486748c2d423b3dbd6c18
         imagePullPolicy: Always
         name: kourier-control
         env:
