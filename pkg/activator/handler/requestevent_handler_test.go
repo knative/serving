@@ -20,9 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
-	pkgTest "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 )
@@ -30,46 +28,41 @@ import (
 func TestRequestEventHandler(t *testing.T) {
 	namespace := "testspace"
 	revision := "testrevision"
-	fakeClock := &pkgTest.FakeClock{}
+	timeOffset := 1 * time.Millisecond
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fakeClock.Time = fakeClock.Time.Add(1 * time.Second)
+		time.Sleep(timeOffset)
 	})
 
 	reqChan := make(chan network.ReqEvent, 2)
-	handler := &RequestEventHandler{
-		nextHandler: baseHandler,
-		reqChan:     reqChan,
-		clock:       fakeClock,
-	}
+	handler := NewRequestEventHandler(reqChan, baseHandler)
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-	ctx := util.WithRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
-
-	before := fakeClock.Time
+	key := types.NamespacedName{Namespace: namespace, Name: revision}
+	ctx := util.WithRevID(context.Background(), key)
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 
 	in := <-handler.reqChan
-	wantIn := network.ReqEvent{
-		Key:  types.NamespacedName{Namespace: namespace, Name: revision},
-		Type: network.ReqIn,
-		Time: before,
+	if in.Key != key {
+		t.Errorf("in.Key = %v, want %v", in.Key, key)
 	}
-
-	if !cmp.Equal(wantIn, in) {
-		t.Errorf("Unexpected in event (-want +got): %s", cmp.Diff(wantIn, in))
+	if in.Type != network.ReqIn {
+		t.Errorf("in.Type = %v, want %v", in.Type, network.ReqIn)
+	}
+	if in.Time.IsZero() {
+		t.Error("in.Time = Time{}, want something real")
 	}
 
 	out := <-handler.reqChan
-	wantOut := network.ReqEvent{
-		Key:  wantIn.Key,
-		Type: network.ReqOut,
-		Time: before.Add(1 * time.Second),
+	if out.Key != key {
+		t.Errorf("out.Key = %v, want %v", in.Key, key)
 	}
-
-	if !cmp.Equal(wantOut, out) {
-		t.Errorf("Unexpected out event (-want +got): %s", cmp.Diff(wantOut, out))
+	if out.Type != network.ReqOut {
+		t.Errorf("in.Type = %v, want %v", in.Type, network.ReqIn)
+	}
+	if out.Time.Sub(in.Time) < timeOffset {
+		t.Errorf("out.Time.Sub(in.Time) = %v, want > %v", out.Time.Sub(in.Time), timeOffset)
 	}
 }
