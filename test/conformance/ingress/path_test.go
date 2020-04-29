@@ -19,13 +19,16 @@ limitations under the License.
 package ingress
 
 import (
+	"fmt"
 	"math"
+	"sync"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/pool"
 	"knative.dev/serving/test"
 )
 
@@ -210,21 +213,30 @@ func TestPathAndPercentageSplit(t *testing.T) {
 	defer cancel()
 
 	const (
-		total     = 100
+		total     = 1000
 		totalHalf = total / 2
-		tolerance = total * 0.20
+		tolerance = total * 0.15
 	)
 	got := make(map[string]float64, 2)
 	wantKeys := sets.NewString(fooName, barName)
-	for i := 0; i < total; i++ {
-		ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
-		if ri == nil {
-			return
-		}
+	wg := pool.New(total)
 
-		gotH := ri.Request.Headers.Get(headerName)
-		got[gotH]++
+	var mu sync.Mutex
+	for i := 0; i < total; i++ {
+		wg.Go(func() error {
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
+			if ri == nil {
+				return fmt.Errorf("failed to request")
+			}
+			gotH := ri.Request.Headers.Get(headerName)
+			mu.Lock()
+			defer mu.Unlock()
+			got[gotH]++
+			return nil
+		})
 	}
+	wg.Wait()
+	actual := 0.0
 	for k, v := range got {
 		if !wantKeys.Has(k) {
 			t.Errorf("%s is not in the expected header say %v", k, wantKeys)
@@ -232,5 +244,9 @@ func TestPathAndPercentageSplit(t *testing.T) {
 		if math.Abs(v-totalHalf) > tolerance {
 			t.Errorf("Header %s got: %v times, want in [%v, %v] range", k, v, totalHalf-tolerance, totalHalf+tolerance)
 		}
+		actual += v
+	}
+	if actual != total {
+		t.Errorf("got %d requests, want %d", int(actual), total)
 	}
 }
