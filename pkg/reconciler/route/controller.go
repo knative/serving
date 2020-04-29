@@ -95,12 +95,13 @@ func newControllerWithClock(
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	handleControllerOf := cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	ingressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
+	}
+	serviceInformer.Informer().AddEventHandler(handleControllerOf)
+	certificateInformer.Informer().AddEventHandler(handleControllerOf)
+	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
@@ -128,11 +129,6 @@ func newControllerWithClock(
 			v1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
-
-	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 
 	for _, opt := range opts {
 		opt(c)
