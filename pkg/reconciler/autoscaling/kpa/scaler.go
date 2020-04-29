@@ -180,12 +180,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		sw := aresources.StableWindow(pa, cfgAS)
 		af := pa.Status.ActiveFor(now)
 		if af >= sw {
-			// If SKS currently is in Serving mode, we do not need to enqueue PA here,
-			// since SKS will reconcile to change the mode and when it's done,
-			// PA will be reconciled again.
-			// Othwerwise, SKS might not meaningfully change and thus
-			// PA will not be re-enqueued in time.
-			// So enqueue PA for reconcile again in a few seconds.
+			// If SKS is in proxy mode, then there is high probability
+			// of SKS not changing its spec/statu and thus not triggering
+			// a new reconciliation of PA.
 			if sks.Spec.Mode == nv1a1.SKSOperationModeProxy {
 				logger.Debug("SKS is already in proxy mode, auto-re-enqueue PA")
 				// Long enough to ensure current iteration is finished.
