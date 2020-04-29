@@ -165,7 +165,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 
 	now := time.Now()
 	logger := logging.FromContext(ctx)
-	if pa.Status.IsActivating() { // Active=Unknown
+	switch {
+	case pa.Status.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
@@ -173,14 +174,20 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
-	} else if pa.Status.IsReady() { // Active=True
+	case pa.Status.IsReady(): // Active=True
 		// Don't scale-to-zero if the PA is active
 		// but return `(0, false)` to mark PA inactive, instead.
 		sw := aresources.StableWindow(pa, cfgAS)
 		af := pa.Status.ActiveFor(now)
 		if af >= sw {
-			// We do not need to enqueue PA here, since this will
-			// make SKS reconcile and when it's done, PA will be reconciled again.
+			// If SKS is in proxy mode, then there is high probability
+			// of SKS not changing its spec/statu and thus not triggering
+			// a new reconciliation of PA.
+			if sks.Spec.Mode == nv1a1.SKSOperationModeProxy {
+				logger.Debug("SKS is already in proxy mode, auto-re-enqueue PA")
+				// Long enough to ensure current iteration is finished.
+				ks.enqueueCB(pa, 3*time.Second)
+			}
 			logger.Info("Can deactivate PA, was active for ", af)
 			return desiredScale, false
 		}
@@ -188,8 +195,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		// reconcile PA again.
 		logger.Infof("Sleeping additionally for %v before can scale to 0", sw-af)
 		ks.enqueueCB(pa, sw-af)
-		desiredScale = 1
-	} else { // Active=False
+		return 1, true
+	default: // Active=False
 		// Probe synchronously, to see if Activator is already in the path.
 		r, err := ks.activatorProbe(pa, ks.transport)
 		logger.Infof("Probing activator = %v, err = %v", r, err)
@@ -227,8 +234,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		return desiredScale, false
 	}
-
-	return desiredScale, true
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32,

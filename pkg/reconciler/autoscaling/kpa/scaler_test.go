@@ -132,6 +132,19 @@ func TestScaler(t *testing.T) {
 			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
+		label:         "waits to scale to zero after idle period; sks in proxy mode",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow))
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			s.Spec.Mode = nv1a1.SKSOperationModeProxy
+		},
+		wantCBCount: 1,
+	}, {
 		label:         "waits to scale to zero after idle period (custom PA window)",
 		startReplicas: 1,
 		scaleTo:       0,
@@ -353,7 +366,7 @@ func TestScaler(t *testing.T) {
 				func(action clientgotesting.Action) (bool, runtime.Object, error) {
 					patch := action.(clientgotesting.PatchAction)
 					if !test.wantScaling {
-						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+						t.Error("Don't want scaling, but got patch:", string(patch.GetPatch()))
 					}
 					gotScaling = true
 					return true, nil, nil
