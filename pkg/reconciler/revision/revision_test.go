@@ -111,7 +111,7 @@ func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	return pa
 }
 
-func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
+func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
 	context.Context,
 	[]controller.Informer,
 	*controller.Impl,
@@ -233,12 +233,14 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 	}
 
-	imageName := resourcenames.ImageCache(rev)
-	image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
-	} else {
-		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
+	for _, v := range rev.Spec.Containers {
+		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+v.Name)
+		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
+		} else {
+			fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
+		}
 	}
 
 	deploymentName := resourcenames.Deployment(rev)
@@ -299,8 +301,7 @@ func TestResolutionFailed(t *testing.T) {
 
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	deploymentConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -341,16 +342,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 }
 
 func TestRevWithImageDigests(t *testing.T) {
-	deploymentConfig := getTestDeploymentConfig()
-	ctx, _, controller, _ := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.DefaultsConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			"container-name-template": "user-container",
-		},
-	}})
+	ctx, _, controller, _ := newTestControllerWithConfig(t, nil)
 
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
@@ -541,8 +533,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
@@ -678,8 +669,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}

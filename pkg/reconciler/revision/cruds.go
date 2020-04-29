@@ -109,8 +109,8 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	return d, nil
 }
 
-func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision) (*caching.Image, error) {
-	image := resources.MakeImageCache(rev)
+func (c *Reconciler) createImageCache(rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
+	image := resources.MakeImageCache(rev, containerName, imageDigest)
 
 	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
