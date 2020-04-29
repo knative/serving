@@ -232,11 +232,11 @@ func TestPathAndPercentageSplit(t *testing.T) {
 		})
 	}
 	if err := wg.Wait(); err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Errorf("Error while sending requests: %v", err)
 	}
 	close(resultCh)
 
-	got := make(map[string]float64, 2)
+	got := make(map[string]float64, len(wantKeys))
 	for r := range resultCh {
 		got[r]++
 	}
