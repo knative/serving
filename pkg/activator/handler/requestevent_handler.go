@@ -16,6 +16,7 @@ package handler
 import (
 	"net/http"
 
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 )
@@ -26,6 +27,7 @@ func NewRequestEventHandler(reqChan chan network.ReqEvent, next http.Handler) *R
 	handler := &RequestEventHandler{
 		nextHandler: next,
 		reqChan:     reqChan,
+		clock:       system.RealClock{},
 	}
 
 	return handler
@@ -35,14 +37,15 @@ func NewRequestEventHandler(reqChan chan network.ReqEvent, next http.Handler) *R
 type RequestEventHandler struct {
 	nextHandler http.Handler
 	reqChan     chan network.ReqEvent
+	clock       system.Clock
 }
 
 func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	revisionKey := util.RevIDFrom(r.Context())
 
-	h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqIn}
+	h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: h.clock.Now()}
 	defer func() {
-		h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqOut}
+		h.reqChan <- network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: h.clock.Now()}
 	}()
 	h.nextHandler.ServeHTTP(w, r)
 }

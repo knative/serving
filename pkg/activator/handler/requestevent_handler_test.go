@@ -18,9 +18,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
+	pkgTest "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 )
@@ -28,36 +30,46 @@ import (
 func TestRequestEventHandler(t *testing.T) {
 	namespace := "testspace"
 	revision := "testrevision"
+	fakeClock := &pkgTest.FakeClock{}
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		fakeClock.Time = fakeClock.Time.Add(1 * time.Second)
 	})
 
 	reqChan := make(chan network.ReqEvent, 2)
-	handler := NewRequestEventHandler(reqChan, baseHandler)
+	handler := &RequestEventHandler{
+		nextHandler: baseHandler,
+		reqChan:     reqChan,
+		clock:       fakeClock,
+	}
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
 	ctx := util.WithRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
+
+	before := fakeClock.Time
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 
 	in := <-handler.reqChan
 	wantIn := network.ReqEvent{
 		Key:  types.NamespacedName{Namespace: namespace, Name: revision},
 		Type: network.ReqIn,
+		Time: before,
 	}
 
 	if !cmp.Equal(wantIn, in) {
-		t.Errorf("Unexpected event (-want +got): %s", cmp.Diff(wantIn, in))
+		t.Errorf("Unexpected in event (-want +got): %s", cmp.Diff(wantIn, in))
 	}
 
 	out := <-handler.reqChan
 	wantOut := network.ReqEvent{
 		Key:  wantIn.Key,
 		Type: network.ReqOut,
+		Time: before.Add(1 * time.Second),
 	}
 
 	if !cmp.Equal(wantOut, out) {
-		t.Errorf("Unexpected event (-want +got): %s", cmp.Diff(wantOut, out))
+		t.Errorf("Unexpected out event (-want +got): %s", cmp.Diff(wantOut, out))
 	}
 }
