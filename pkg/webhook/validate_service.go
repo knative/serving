@@ -40,7 +40,8 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
 	// of this are well-tested. Only run extra validation for the dry-run test.
 	// This will be in place to while the feature is tested for compatibility and later removed.
-	if uns.GetAnnotations()[PodSpecDryRunAnnotation] != "enabled" {
+	mode := uns.GetAnnotations()[PodSpecDryRunAnnotation]
+	if mode != "enabled" && mode != "strict" {
 		return nil
 	}
 
@@ -74,7 +75,7 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 		}
 	}
 
-	if err := validatePodSpec(ctx, templ.Spec, namespace); err != nil {
+	if err := validatePodSpec(ctx, templ.Spec, namespace, mode); err != nil {
 		return err
 	}
 	return nil
