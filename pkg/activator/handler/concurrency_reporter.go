@@ -141,15 +141,15 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 				// revision. We report a min of 0 here because the initial report is
 				// always a concurrency of 1 and the actual concurrency reported over
 				// the reporting period might be < 1.
-				averageConcurrency := math.Max(report.AverageConcurrency-firstAdj, 0)
-				requestCount := report.RequestCount - firstAdj
+				adjustedConcurrency := math.Max(report.AverageConcurrency-firstAdj, 0)
+				adjustedCount := report.RequestCount - firstAdj
 				messages = append(messages, asmetrics.StatMessage{
 					Key: key,
 					Stat: asmetrics.Stat{
 						// Stat time is unset by design. The receiver will set the time.
 						PodName:                   cr.podName,
-						AverageConcurrentRequests: averageConcurrency,
-						RequestCount:              requestCount,
+						AverageConcurrentRequests: adjustedConcurrency,
+						RequestCount:              adjustedCount,
 					},
 				})
 				cr.reportToMetricsBackend(key, report.AverageConcurrency)
