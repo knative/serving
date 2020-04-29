@@ -212,7 +212,7 @@ func TestPathAndPercentageSplit(t *testing.T) {
 	const (
 		total     = 100
 		totalHalf = total / 2
-		tolerance = total * 0.15
+		tolerance = total * 0.20
 	)
 	got := make(map[string]float64, 2)
 	wantKeys := sets.NewString(fooName, barName)
