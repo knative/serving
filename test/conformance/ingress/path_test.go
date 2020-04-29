@@ -19,9 +19,8 @@ limitations under the License.
 package ingress
 
 import (
-	"fmt"
+	"errors"
 	"math"
-	"sync"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -217,26 +216,30 @@ func TestPathAndPercentageSplit(t *testing.T) {
 		totalHalf = total / 2
 		tolerance = total * 0.15
 	)
-	got := make(map[string]float64, 2)
 	wantKeys := sets.NewString(fooName, barName)
-	wg := pool.New(total)
+	resultCh := make(chan string, total)
 
-	var mu sync.Mutex
+	wg := pool.New(8)
+
 	for i := 0; i < total; i++ {
 		wg.Go(func() error {
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
 			if ri == nil {
-				return fmt.Errorf("failed to request")
+				return errors.New("failed to request")
 			}
-			gotH := ri.Request.Headers.Get(headerName)
-			mu.Lock()
-			defer mu.Unlock()
-			got[gotH]++
+			resultCh <- ri.Request.Headers.Get(headerName)
 			return nil
 		})
 	}
-	wg.Wait()
-	actual := 0.0
+	if err := wg.Wait(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	close(resultCh)
+
+	got := make(map[string]float64, 2)
+	for r := range resultCh {
+		got[r]++
+	}
 	for k, v := range got {
 		if !wantKeys.Has(k) {
 			t.Errorf("%s is not in the expected header say %v", k, wantKeys)
@@ -244,9 +247,5 @@ func TestPathAndPercentageSplit(t *testing.T) {
 		if math.Abs(v-totalHalf) > tolerance {
 			t.Errorf("Header %s got: %v times, want in [%v, %v] range", k, v, totalHalf-tolerance, totalHalf+tolerance)
 		}
-		actual += v
-	}
-	if actual != total {
-		t.Errorf("got %d requests, want %d", int(actual), total)
 	}
 }
