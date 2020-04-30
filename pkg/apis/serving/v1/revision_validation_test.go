@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -953,8 +954,9 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.Context {
 	testConfigs := &config.Config{}
-	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{})
-	testConfigs.Autoscaler.AllowZeroInitialScale = allowInitialScaleZero
-	testConfigs.Autoscaler.InitialScale = int32(initialScale)
+	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{
+		"allow-zero-initial-scale": strconv.FormatBool(allowInitialScaleZero),
+		"initial-scale":            strconv.Itoa(initialScale),
+	})
 	return config.ToContext(context.Background(), testConfigs)
 }
