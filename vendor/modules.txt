@@ -202,13 +202,6 @@ github.com/google/go-github/v27/github
 github.com/google/go-querystring/query
 # github.com/google/gofuzz v1.1.0
 github.com/google/gofuzz
-# github.com/google/licenseclassifier v0.0.0-20190103191631-c2a262e3078a
-github.com/google/licenseclassifier
-github.com/google/licenseclassifier/internal/sets
-github.com/google/licenseclassifier/stringclassifier
-github.com/google/licenseclassifier/stringclassifier/internal/pq
-github.com/google/licenseclassifier/stringclassifier/searchset
-github.com/google/licenseclassifier/stringclassifier/searchset/tokenizer
 # github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto
 github.com/google/mako/clients/proto/analyzers/utest_analyzer_go_proto
@@ -322,8 +315,6 @@ github.com/prometheus/procfs/internal/util
 github.com/rogpeppe/go-internal/modfile
 github.com/rogpeppe/go-internal/module
 github.com/rogpeppe/go-internal/semver
-# github.com/sergi/go-diff v1.0.0
-github.com/sergi/go-diff/diffmatchpatch
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
 # github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3
@@ -1256,7 +1247,6 @@ knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
 # knative.dev/test-infra v0.0.0-20200429211942-f4c4853375cf
 knative.dev/test-infra/scripts
-knative.dev/test-infra/tools/dep-collector
 # sigs.k8s.io/structured-merge-diff v1.0.1
 sigs.k8s.io/structured-merge-diff/fieldpath
 sigs.k8s.io/structured-merge-diff/merge
