@@ -87,6 +87,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
@@ -135,6 +136,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
