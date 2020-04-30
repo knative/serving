@@ -159,12 +159,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 				autoscaling.InitialScaleAnnotationKey: "invalid",
 			},
 		},
-		expectErr: (&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-			(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-				(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-					(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-						apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
-					)))),
+		expectErr: apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
 		name: "negative revision initial scale",
 		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
@@ -174,12 +169,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 				autoscaling.InitialScaleAnnotationKey: "-2",
 			},
 		},
-		expectErr: (&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-			(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-				(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-					(&apis.FieldError{Message: "", Paths: []string(nil), Details: ""}).Also(
-						apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
-					)))),
+		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
 	}, {
 		name: "cluster allows zero revision initial scale",
 		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
