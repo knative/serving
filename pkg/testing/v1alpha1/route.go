@@ -232,7 +232,7 @@ func WithRouteLabel(labels map[string]string) RouteOption {
 func WithIngressClass(ingressClass string) RouteOption {
 	return func(r *v1alpha1.Route) {
 		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
+			r.Annotations = make(map[string]string, 1)
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}

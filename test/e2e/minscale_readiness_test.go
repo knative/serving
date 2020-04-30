@@ -142,7 +142,7 @@ func lt(m int) func(int) bool {
 func withMinScale(minScale int) func(cfg *v1.Configuration) {
 	return func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
-			cfg.Spec.Template.Annotations = make(map[string]string)
+			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
 		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
@@ -161,7 +161,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 
 	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
+		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
 
 	return config.Status.LatestCreatedRevisionName

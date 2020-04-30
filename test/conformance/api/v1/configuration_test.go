@@ -97,14 +97,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"annotationA": "123",
 		"annotationB": "456",
 	}
-	if cfg.Annotations == nil {
-		cfg.Annotations = newAnnotations
-	} else {
-		// Copy over new annotations.
-		for k, v := range newAnnotations {
-			cfg.Annotations[k] = v
-		}
-	}
+	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
 	cfg, err = clients.ServingClient.Configs.Update(cfg)
 	if err != nil {
 		t.Fatalf("Failed to update annotations for Configuration %s: %v", names.Config, err)
