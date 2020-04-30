@@ -81,7 +81,7 @@ func TestPodsSortedByAge(t *testing.T) {
 	}, {
 		name: "one pod, but can't use II",
 		pods: []*corev1.Pod{
-			pod("unforgiven-ii", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodPending),
+			pod("unforgiven-ii", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodRunning),
 				func(p *corev1.Pod) {
 					n := metav1.Now()
 					p.DeletionTimestamp = &n // Pod deleted.
