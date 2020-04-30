@@ -72,6 +72,37 @@ func TestPodsSortedByAge(t *testing.T) {
 			pod("enter-sandman", withStartTime(time.Now()), withIP("1.2.3.5")),
 		},
 		want: []string{"2.3.4.5", "1.2.3.4", "1.2.3.5", "3.4.5.6"},
+	}, {
+		name: "one pod, but can't use",
+		pods: []*corev1.Pod{
+			pod("unforgiven", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodPending)),
+		},
+		want: []string{},
+	}, {
+		name: "one pod, but can't use II",
+		pods: []*corev1.Pod{
+			pod("unforgiven-ii", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodRunning),
+				func(p *corev1.Pod) {
+					n := metav1.Now()
+					p.DeletionTimestamp = &n // Pod deleted.
+				},
+			),
+		},
+		want: []string{},
+	}, {
+		name: "lock step",
+		pods: []*corev1.Pod{
+			pod("hit-the-lights", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodRunning),
+				func(p *corev1.Pod) {
+					n := metav1.Now()
+					p.DeletionTimestamp = &n
+				},
+			),
+			pod("whiplash", withStartTime(aTime), withIP("1.2.3.4")),
+			pod("unforgiven", withStartTime(aTime), withIP("1.3.4.5"), withPhase(corev1.PodFailed)),
+			pod("motorbreath", withStartTime(aTime.Add(-time.Second)), withIP("1.2.3.9")),
+		},
+		want: []string{"1.2.3.9", "1.2.3.4"},
 	}}
 
 	for _, tc := range tests {
@@ -164,7 +195,9 @@ func pod(name string, pos ...podOption) *corev1.Pod {
 			Namespace: testNamespace,
 			Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
 		},
-		Status: corev1.PodStatus{},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
 	}
 	for _, po := range pos {
 		po(p)
