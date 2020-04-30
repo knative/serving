@@ -84,7 +84,7 @@ func TestPodsSortedByAge(t *testing.T) {
 			pod("unforgiven-ii", withStartTime(aTime), withIP("1.1.1.1"), withPhase(corev1.PodPending),
 				func(p *corev1.Pod) {
 					n := metav1.Now()
-					p.DeletionTimestamp = &n
+					p.DeletionTimestamp = &n // Pod deleted.
 				},
 			),
 		},
