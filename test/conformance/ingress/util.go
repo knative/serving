@@ -824,7 +824,6 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		t.Fatal("Service does not have any ingresses (not type LoadBalancer?).")
 	}
 	ingress := svc.Status.LoadBalancer.Ingress[0]
-	dial := network.DialWithBackOff
 
 	return func(ctx context.Context, _ string, address string) (net.Conn, error) {
 		_, port, err := net.SplitHostPort(address)
@@ -834,13 +833,13 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
 		// this is required in minikube-like environments.
 		if pkgTest.Flags.IngressEndpoint != "" {
-			return dial(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
+			return network.DialWithBackOff(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
 		}
 		if ingress.IP != "" {
-			return dial(ctx, "tcp", ingress.IP+":"+port)
+			return network.DialWithBackOff(ctx, "tcp", ingress.IP+":"+port)
 		}
 		if ingress.Hostname != "" {
-			return dial(ctx, "tcp", ingress.Hostname+":"+port)
+			return network.DialWithBackOff(ctx, "tcp", ingress.Hostname+":"+port)
 		}
 		return nil, errors.New("service ingress does not contain dialing information")
 	}
