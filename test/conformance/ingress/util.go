@@ -47,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -824,7 +825,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	}
 	ingress := svc.Status.LoadBalancer.Ingress[0]
 
-	return func(_ context.Context, _ string, address string) (net.Conn, error) {
+	return func(ctx context.Context, _ string, address string) (net.Conn, error) {
 		_, port, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, err
@@ -832,13 +833,13 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
 		// this is required in minikube-like environments.
 		if pkgTest.Flags.IngressEndpoint != "" {
-			return net.Dial("tcp", pkgTest.Flags.IngressEndpoint)
+			return network.DialWithBackOff(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
 		}
 		if ingress.IP != "" {
-			return net.Dial("tcp", ingress.IP+":"+port)
+			return network.DialWithBackOff(ctx, "tcp", ingress.IP+":"+port)
 		}
 		if ingress.Hostname != "" {
-			return net.Dial("tcp", ingress.Hostname+":"+port)
+			return network.DialWithBackOff(ctx, "tcp", ingress.Hostname+":"+port)
 		}
 		return nil, errors.New("service ingress does not contain dialing information")
 	}

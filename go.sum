@@ -380,7 +380,6 @@ github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+
 github.com/googleapis/gax-go/v2 v2.0.5 h1:sjZBwGj9Jlw33ImPtvFviGYvseOtDM7hkSKB7+Tv3SM=
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d/go.mod h1:sJBsCZ4ayReDTBIg8b9dl28c5xFWyhBTVRp3pOg5EKY=
-github.com/googleapis/gnostic v0.2.0/go.mod h1:sJBsCZ4ayReDTBIg8b9dl28c5xFWyhBTVRp3pOg5EKY=
 github.com/googleapis/gnostic v0.2.2/go.mod h1:sJBsCZ4ayReDTBIg8b9dl28c5xFWyhBTVRp3pOg5EKY=
 github.com/googleapis/gnostic v0.3.1 h1:WeAefnSUHlBb0iJKwxFDZdbfGwkd7xRNuV+IpXMJhYk=
 github.com/googleapis/gnostic v0.3.1/go.mod h1:on+2t9HRStVgn95RSsFWFz+6Q0Snyqv1awfrALZdbtU=
@@ -622,7 +621,6 @@ github.com/prometheus/procfs v0.0.0-20180612222113-7d6f385de8be/go.mod h1:c3At6R
 github.com/prometheus/procfs v0.0.0-20180725123919-05ee40e3a273/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
-github.com/prometheus/procfs v0.0.1/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.2 h1:6LJUbpNm42llc4HRCuvApCSWB/WfhuNo9K98Q9sNGfs=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.8/go.mod h1:7Qr8sr6344vo1JqZ6HhLceV9o3AJ1Ff+GxbHq6oeK9A=
@@ -1131,14 +1129,13 @@ k8s.io/utils v0.0.0-20190801114015-581e00157fb1/go.mod h1:sZAwmy6armz5eXlNoLmJcl
 k8s.io/utils v0.0.0-20190907131718-3d4f5b7dea0b/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
 k8s.io/utils v0.0.0-20191114184206-e782cd3c129f h1:GiPwtSzdP43eI1hpPCbROQCCIgCuiMMNF8YUVLF3vJo=
 k8s.io/utils v0.0.0-20191114184206-e782cd3c129f/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
-knative.dev/caching v0.0.0-20200428162951-987a2b12a9e8 h1:5oBUck+2UKQ/FL6yG2+k4ZA870X2qV/HcyF3gz1P5A0=
-knative.dev/caching v0.0.0-20200428162951-987a2b12a9e8/go.mod h1:iW8XDdGwwOrw9tC+6hqo1SVB8wDV7MCHQe8oqkw+YY4=
+knative.dev/caching v0.0.0-20200430160343-6345caf6fef6 h1:Ed0gEMwRL9jGpGT+3E6VwdYiKnDQP0GzYhE/AlmeGN8=
+knative.dev/caching v0.0.0-20200430160343-6345caf6fef6/go.mod h1:WTc/aPpv4UaGCs2Wi+u7/t8iQoUPkoVChu7rCTLgId4=
 knative.dev/pkg v0.0.0-20191101194912-56c2594e4f11/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
-knative.dev/pkg v0.0.0-20200428133551-22b961371934/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
-knative.dev/pkg v0.0.0-20200428194351-90fc61bae7f7 h1:rxALStc3xq30qGIU6rrTn+uvUOeQnvixDLR5Y1jjX7M=
-knative.dev/pkg v0.0.0-20200428194351-90fc61bae7f7/go.mod h1:o+e8OVEJKIuvXPsGVPIautjXgs05xbos7G+QMRjuUps=
-knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
-knative.dev/test-infra v0.0.0-20200427211351-bf3e6802597a/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
+knative.dev/pkg v0.0.0-20200429233442-1ebb4d56f726/go.mod h1:WRkhFA44sWhFk+p94IPkW5zaiX3DZUfftw7eqmY/74I=
+knative.dev/pkg v0.0.0-20200430190142-3d369cddd573 h1:lIMuTVK2gMKsKIQvqwGLs0hi2PHDgmY1X0jppEnA2UU=
+knative.dev/pkg v0.0.0-20200430190142-3d369cddd573/go.mod h1:X4wmXb4xUR+1eDBoP6AeVfAqsyxl1yATnRdSgFdjhQw=
+knative.dev/test-infra v0.0.0-20200429132042-cb2fc4ae428f/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200429211942-f4c4853375cf h1:rNWg3NiXNLjZC9C1EJf2qKA+mRnrWMLW1KONsEusLYg=
 knative.dev/test-infra v0.0.0-20200429211942-f4c4853375cf/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 launchpad.net/gocheck v0.0.0-20140225173054-000000000087/go.mod h1:hj7XX3B/0A+80Vse0e+BUHsHMTEhd0O4cpUHr/e/BUM=
