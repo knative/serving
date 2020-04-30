@@ -205,7 +205,7 @@ func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 func WithServiceLabel(key, value string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Labels == nil {
-			service.Labels = make(map[string]string)
+			service.Labels = make(map[string]string, 1)
 		}
 		service.Labels[key] = value
 	}

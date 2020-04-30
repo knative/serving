@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -59,13 +60,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"labelY": "def",
 	}
 	// Copy over new labels.
-	if cfg.Labels == nil {
-		cfg.Labels = newLabels
-	} else {
-		for k, v := range newLabels {
-			cfg.Labels[k] = v
-		}
-	}
+	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
 	cfg, err := clients.ServingClient.Configs.Update(cfg)
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)

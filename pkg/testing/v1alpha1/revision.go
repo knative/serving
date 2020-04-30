@@ -171,7 +171,7 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 func WithRevisionLabel(key, value string) RevisionOption {
 	return func(config *v1alpha1.Revision) {
 		if config.Labels == nil {
-			config.Labels = make(map[string]string)
+			config.Labels = make(map[string]string, 1)
 		}
 		config.Labels[key] = value
 	}
