@@ -40,7 +40,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -82,7 +82,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -115,7 +115,7 @@ func BenchmarkNewRequestMetricsHandler(b *testing.B) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker, "test-ns",
 		"test-svc", "test-cfg", "test-rev", "test-pod")
 	if err != nil {
-		b.Fatalf("failed to create request metric handler: %v", err)
+		b.Fatal("failed to create request metric handler:", err)
 	}
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, targetURI, nil)
@@ -144,7 +144,7 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
 		"ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -176,7 +176,7 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
 		"ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()

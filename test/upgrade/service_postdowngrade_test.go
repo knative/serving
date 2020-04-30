@@ -42,7 +42,7 @@ func TestServicePostDowngrade(t *testing.T) {
 	t.Logf("Getting service %q", names.Service)
 	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Service: %v", err)
+		t.Fatal("Failed to get Service:", err)
 	}
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)

@@ -121,7 +121,7 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 	}
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopt...)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)

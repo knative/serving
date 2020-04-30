@@ -70,7 +70,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		}
 		if resp == nil {
 			// We don't have an HTTP response, probably TCP errors.
-			t.Logf("Connection failed: %v", err)
+			t.Log("Connection failed:", err)
 			return false, nil
 		}
 

@@ -180,7 +180,7 @@ func main() {
 	// If there is a catch-all domain configured, then bail out (successfully) here.
 	defaultDomain := domainConfig.LookupDomainForLabels(map[string]string{})
 	if defaultDomain != routecfg.DefaultDomain {
-		logger.Infof("Domain is configured as: %v", defaultDomain)
+		logger.Info("Domain is configured as:", defaultDomain)
 		return
 	}
 

@@ -42,18 +42,18 @@ func main() {
 
 	cfg, err := sharedmain.GetConfig("", "")
 	if err != nil {
-		log.Fatalf("Failed to build config: %v", err)
+		log.Fatal("Failed to build config:", err)
 	}
 	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
 	if err != nil {
-		log.Fatalf("Failed to create clients: %v", err)
+		log.Fatal("Failed to create clients:", err)
 	}
 	whiteLists := sets.String{}
 	if len(env.NamespaceWithCert) != 0 {
 		whiteLists.Insert(env.NamespaceWithCert)
 	}
 	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
-		log.Fatalf("Failed to disable namespace cert: %v", err)
+		log.Fatal("Failed to disable namespace cert:", err)
 	}
 }
 

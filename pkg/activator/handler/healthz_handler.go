@@ -30,7 +30,7 @@ type HealthHandler struct {
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if network.IsKubeletProbe(r) {
 		if err := h.HealthCheck(); err != nil {
-			h.Logger.Warnf("Healthcheck failed: %v", err)
+			h.Logger.Warn("Healthcheck failed:", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)

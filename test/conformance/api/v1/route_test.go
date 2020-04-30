@@ -113,13 +113,13 @@ func TestRouteCreation(t *testing.T) {
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1test.CreateConfiguration(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	objects.Config = config
 
 	route, err := v1test.CreateRoute(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 	objects.Route = route
 

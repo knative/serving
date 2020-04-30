@@ -40,7 +40,7 @@ func TestControllerHA(t *testing.T) {
 
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
+		t.Fatal("Failed to get leader:", err)
 	}
 
 	service1Names, resources := createPizzaPlanetService(t)
@@ -55,7 +55,7 @@ func TestControllerHA(t *testing.T) {
 
 	// Make sure a new leader has been elected
 	if _, err = getLeader(t, clients, controllerDeploymentName); err != nil {
-		t.Fatalf("Failed to find new leader: %v", err)
+		t.Fatal("Failed to find new leader:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)

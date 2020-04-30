@@ -44,13 +44,13 @@ func pong(req *ping.Request) *ping.Response {
 type server struct{}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
-	log.Printf("Received ping: %v", req.Msg)
+	log.Print("Received ping:", req.Msg)
 
 	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	resp := pong(req)
 
-	log.Printf("Sending pong: %v", resp.Msg)
+	log.Print("Sending pong:", resp.Msg)
 	return resp, nil
 }
 
@@ -63,18 +63,18 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 			return nil
 		}
 		if err != nil {
-			log.Printf("Failed to receive ping: %v", err)
+			log.Print("Failed to receive ping:", err)
 			return err
 		}
 
-		log.Printf("Received ping: %v", req.Msg)
+		log.Print("Received ping:", req.Msg)
 
 		resp := pong(req)
 
-		log.Printf("Sending pong: %v", resp.Msg)
+		log.Print("Sending pong:", resp.Msg)
 		err = stream.Send(resp)
 		if err != nil {
-			log.Printf("Failed to send pong: %v", err)
+			log.Print("Failed to send pong:", err)
 			return err
 		}
 	}

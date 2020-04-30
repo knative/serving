@@ -62,7 +62,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Logf("Creating a new Service %s", names.Service)
 	svc, err := createService(t, clients, names, 2)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	names.Config = serviceresourcenames.Configuration(svc)

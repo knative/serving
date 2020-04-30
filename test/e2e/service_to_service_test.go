@@ -98,7 +98,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		if gatewayTarget == "" {
 			var err error
 			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-				t.Fatalf("Failed to get gateway IP: %v", err)
+				t.Fatal("Failed to get gateway IP:", err)
 			}
 		}
 		envVars = append(envVars, corev1.EnvVar{
@@ -137,7 +137,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
-		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
+		t.Fatal("Failed to start endpoint of httpproxy:", err)
 	}
 	t.Log("httpproxy is ready.")
 
@@ -150,7 +150,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 			// to resolve the shorter domain(s) off-cluster.
 			return
 		}
-		t.Fatalf("Unexpected error when sending request to helloworld: %v", err)
+		t.Fatal("Unexpected error when sending request to helloworld:", err)
 	}
 	expectedStatus := http.StatusNotFound
 	if accessibleExternal {
@@ -242,12 +242,12 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
 	// Send request to helloworld app via httpproxy service

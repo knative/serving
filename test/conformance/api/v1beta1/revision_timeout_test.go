@@ -113,7 +113,7 @@ func TestRevisionTimeout(t *testing.T) {
 	t.Log("Creating a new Service ")
 	svc, err := createService(t, clients, names, 2)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -170,7 +170,7 @@ func TestRevisionTimeout(t *testing.T) {
 			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")

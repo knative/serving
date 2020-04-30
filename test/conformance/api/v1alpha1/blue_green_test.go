@@ -106,7 +106,7 @@ func TestBlueGreenRoute(t *testing.T) {
 			},
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -164,6 +164,6 @@ func TestBlueGreenRoute(t *testing.T) {
 		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
+		t.Fatal("Error sending requests:", err)
 	}
 }

@@ -56,7 +56,7 @@ func main() {
 	artifactsDir := prow.GetLocalArtifactsDir()
 	if _, err := os.Stat(artifactsDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(artifactsDir, 0777); err != nil {
-			log.Fatalf("Failed to create directory: %v", err)
+			log.Fatal("Failed to create directory:", err)
 		}
 	}
 	tools.CleanupJunitFiles(artifactsDir)
@@ -72,12 +72,12 @@ func main() {
 	}
 
 	if kubeConfigPath, err = tools.GetDefaultKubePath(); err != nil {
-		log.Fatalf("Error retrieving kubeConfig path: %v", err)
+		log.Fatal("Error retrieving kubeConfig path:", err)
 	}
 
 	if serviceIP, err = tools.GetWebhookServiceIP(kubeConfigPath, "",
 		common.WebhookNamespace, common.CommonComponentName); err != nil {
-		log.Fatalf("Error retrieving Service IP: %v", err)
+		log.Fatal("Error retrieving Service IP:", err)
 	}
 
 	for resource := range common.ResourceMap {
@@ -92,7 +92,7 @@ func main() {
 
 	if err := tools.GetAndWriteTotalCoverage(serviceIP, path.Join(artifactsDir,
 		"totalcoverage.html")); err != nil {
-		log.Fatalf("total coverage retrieval failed: %v", err)
+		log.Fatal("total coverage retrieval failed:", err)
 	}
 
 	if coverage, err := tools.GetResourcePercentages(serviceIP); err != nil {

@@ -48,7 +48,7 @@ func TestSingleConcurrency(t *testing.T) {
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithContainerConcurrency(1))
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := objects.Service.Status.URL.URL()
 
@@ -68,7 +68,7 @@ func TestSingleConcurrency(t *testing.T) {
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	concurrency := 5

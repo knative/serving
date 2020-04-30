@@ -65,10 +65,10 @@ func TestDestroyPodInflight(t *testing.T) {
 
 	t.Log("Creating a new Route and Configuration")
 	if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
@@ -90,7 +90,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	if err != nil {
-		t.Fatalf("Error obtaining Revision's name %v", err)
+		t.Fatal("Error obtaining Revision's name", err)
 	}
 
 	if _, err = pkgTest.WaitForEndpointState(
@@ -107,7 +107,7 @@ func TestDestroyPodInflight(t *testing.T) {
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
@@ -117,7 +117,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		t.Fatalf("Error creating http request: %v", err)
+		t.Fatal("Error creating http request:", err)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
@@ -176,7 +176,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	objects, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
@@ -196,7 +196,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
-		t.Fatalf("No pods or error: %v", err)
+		t.Fatal("No pods or error:", err)
 	}
 	t.Logf("Saw %d pods", len(pods.Items))
 
@@ -261,7 +261,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	objects, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
@@ -281,7 +281,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
-		t.Fatalf("No pods or error: %v", err)
+		t.Fatal("No pods or error:", err)
 	}
 	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
@@ -293,11 +293,11 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		t.Fatalf("Error creating HTTP request: %v", err)
+		t.Fatal("Error creating HTTP request:", err)
 	}
 	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// Start several requests staggered with 1s delay.

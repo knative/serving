@@ -76,7 +76,7 @@ import (
 func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, namespaceName)
 	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
+		t.Fatal("Couldn't initialize clients:", err)
 	}
 	return clients
 }

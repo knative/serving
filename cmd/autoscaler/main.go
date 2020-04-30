@@ -85,7 +85,7 @@ func main() {
 	msp := metrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatalf("Error exporting go memstats view: %v", err)
+		log.Fatal("Error exporting go memstats view:", err)
 	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
@@ -109,7 +109,7 @@ func main() {
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-			log.Printf("Failed to get k8s version %v", err)
+			log.Print("Failed to get k8s version", err)
 		}
 		return err == nil, nil
 	}); perr != nil {

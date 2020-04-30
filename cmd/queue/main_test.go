@@ -283,7 +283,7 @@ func TestProbeFailFast(t *testing.T) {
 
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
-			t.Fatalf("Failed to process downward API labels: %v", err)
+			t.Fatal("Failed to process downward API labels:", err)
 		} else if preferScaledown {
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -541,7 +541,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		"ns", "testksvc", "testksvc",
 		"pod", reportingPeriod)
 	if err != nil {
-		b.Fatalf("Failed to create stats reporter: %v", err)
+		b.Fatal("Failed to create stats reporter:", err)
 	}
 	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)

@@ -87,7 +87,7 @@ func TestProbeRuntime(t *testing.T) {
 			}
 			// Check if scaling down works even if access from liveness probe exists.
 			if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-				t.Fatalf("Could not scale to zero: %v", err)
+				t.Fatal("Could not scale to zero:", err)
 			}
 		})
 	}

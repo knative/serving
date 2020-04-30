@@ -151,7 +151,7 @@ func TestActivationHandler(t *testing.T) {
 
 			gotBody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Fatalf("Error reading body: %v", err)
+				t.Fatal("Error reading body:", err)
 			}
 			if string(gotBody) != test.wantBody {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
@@ -237,7 +237,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 			cfg, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
 			if err != nil {
-				t.Fatalf("Failed to generate config: %v", err)
+				t.Fatal("Failed to generate config:", err)
 			}
 			if err := oct.ApplyConfig(cfg); err != nil {
 				t.Errorf("Failed to apply tracer config: %v", err)

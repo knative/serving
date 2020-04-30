@@ -54,7 +54,7 @@ type digestible interface {
 func mustDigest(t *testing.T, d digestible) v1.Hash {
 	h, err := d.Digest()
 	if err != nil {
-		t.Fatalf("Digest() = %v", err)
+		t.Fatal("Digest() =", err)
 	}
 	return h
 }
@@ -62,7 +62,7 @@ func mustDigest(t *testing.T, d digestible) v1.Hash {
 func mustRawManifest(t *testing.T, img partial.WithRawManifest) []byte {
 	m, err := img.RawManifest()
 	if err != nil {
-		t.Fatalf("RawManifest() = %v", err)
+		t.Fatal("RawManifest() =", err)
 	}
 	return m
 }
@@ -98,7 +98,7 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image, i
 			w.Header().Set("Docker-Content-Digest", mustDigest(t, idx).String())
 			w.Write([]byte("{}"))
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Fatal("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -109,7 +109,7 @@ func fakeRegistryPingFailure(t *testing.T) *httptest.Server {
 		case "/v2/":
 			http.Error(w, "Oops", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Fatal("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -125,7 +125,7 @@ func fakeRegistryManifestFailure(t *testing.T, repo string) *httptest.Server {
 		case manifestPath:
 			http.Error(w, "Boom", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Fatal("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -136,11 +136,11 @@ func TestResolve(t *testing.T) {
 
 	idx, err := random.Index(1, 3, 1024)
 	if err != nil {
-		t.Fatalf("random.Index() = %v", err)
+		t.Fatal("random.Index() =", err)
 	}
 	manifest, err := idx.IndexManifest()
 	if err != nil {
-		t.Fatalf("idx.IndexManifest() = %v", err)
+		t.Fatal("idx.IndexManifest() =", err)
 	}
 	img, err := idx.Image(manifest.Manifests[0].Digest)
 	if err != nil {
@@ -170,7 +170,7 @@ func TestResolve(t *testing.T) {
 		// Create a tag pointing to an image on our fake registry
 		tag, err := name.NewTag(fmt.Sprintf("%s/%s:%s", u.Host, expectedRepo, ref), name.WeakValidation)
 		if err != nil {
-			t.Fatalf("NewTag() = %v", err)
+			t.Fatal("NewTag() =", err)
 		}
 
 		// Set up a fake service account with pull secrets for our fake registry
@@ -204,13 +204,13 @@ func TestResolve(t *testing.T) {
 		}
 		resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
 		if err != nil {
-			t.Fatalf("Resolve() = %v", err)
+			t.Fatal("Resolve() =", err)
 		}
 
 		// Make sure that we get back the appropriate digest.
 		digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
 		if err != nil {
-			t.Fatalf("NewDigest() = %v", err)
+			t.Fatal("NewDigest() =", err)
 		}
 		if got, want := digest.DigestStr(), dgst.String(); got != want {
 			t.Fatalf("Resolve() = %v, want %v", got, want)
@@ -234,7 +234,7 @@ func TestResolveWithDigest(t *testing.T) {
 	}
 	resolvedDigest, err := dr.Resolve(originalDigest, opt, emptyRegistrySet)
 	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
+		t.Fatal("Resolve() =", err)
 	}
 
 	if diff := cmp.Diff(originalDigest, resolvedDigest); diff != "" {
@@ -279,7 +279,7 @@ func TestResolveWithPingFailure(t *testing.T) {
 	// Create a tag pointing to an image on our fake registry
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
+		t.Fatal("NewTag() =", err)
 	}
 
 	// Set up a fake service account with pull secrets for our fake registry
@@ -316,7 +316,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 	// Create a tag pointing to an image on our fake registry
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
+		t.Fatal("NewTag() =", err)
 	}
 
 	// Set up a fake service account with pull secrets for our fake registry
@@ -392,7 +392,7 @@ func TestResolveSkippingRegistry(t *testing.T) {
 
 	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", opt, registriesToSkip)
 	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
+		t.Fatal("Resolve() =", err)
 	}
 
 	if got, want := resolvedDigest, ""; got != want {
@@ -454,7 +454,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 
 	tmpDir, err := ioutil.TempDir("", "TestNewResolverTransport-")
 	if err != nil {
-		t.Fatalf("failed to create tempdir for certs: %v", err)
+		t.Fatal("failed to create tempdir for certs:", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -464,7 +464,7 @@ yE+vPxsiUkvQHdO2fojCkY8jg70jxM+gu59tPDNbw3Uh/2Ij310FgTHsnGQMyA==
 			// Setup.
 			path, err := writeCertFile(tmpDir, tc.certBundle, tc.certBundleContents)
 			if err != nil {
-				t.Fatalf("Failed to write cert bundle file: %v", err)
+				t.Fatal("Failed to write cert bundle file:", err)
 			}
 
 			// The actual test.
@@ -501,7 +501,7 @@ func containsSubject(t *testing.T, subjects [][]byte, contents []byte) bool {
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		t.Fatalf("failed to parse certificate: %v", err)
+		t.Fatal("failed to parse certificate:", err)
 	}
 
 	for _, b := range subjects {

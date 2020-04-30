@@ -248,12 +248,12 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 		waitInformers()
 	}()
@@ -263,7 +263,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	})
 
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Fatalf("Error creating revision: %v", err)
+		t.Fatal("Error creating revision:", err)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
