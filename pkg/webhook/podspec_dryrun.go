@@ -58,9 +58,9 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 	}
 	rev.SetDefaults(ctx)
 	userContainer := resources.BuildUserContainer(rev)
-	podSpec := resources.BuildPodSpec(rev, []corev1.Container{*userContainer})
+	podSpec := resources.BuildPodSpec(rev, userContainer)
 
-	// Make a dummy pod with the template Revions & PodSpec and dryrun call to API-server
+	// Make a dummy pod with the template Revisions & PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{
 		ObjectMeta: om,
 		Spec:       *podSpec,

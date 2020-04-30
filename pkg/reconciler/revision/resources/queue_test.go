@@ -93,7 +93,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			func(revision *v1.Revision) {
 				revision.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 1955,
@@ -250,7 +250,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			if len(test.rev.Spec.PodSpec.Containers) == 0 {
 				test.rev.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 					}},
 				}
@@ -287,7 +287,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.QueueSideCarResourcePercentageAnnotation: "20",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
-					Name:           containerName,
+					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -313,7 +313,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
-					Name:           containerName,
+					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -339,7 +339,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.QueueSideCarResourcePercentageAnnotation: "foo",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
-					Name:           containerName,
+					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -364,7 +364,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					serving.QueueSideCarResourcePercentageAnnotation: "100",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
-					Name:           containerName,
+					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -406,7 +406,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
-				Name: containerName,
+				Name: servingContainerName,
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
@@ -477,7 +477,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
-				Name: containerName,
+				Name: servingContainerName,
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: userPort,
 				}},
@@ -565,7 +565,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: userPort,
 					}},
@@ -601,7 +601,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							TCPSocket: &corev1.TCPSocketAction{},
@@ -656,7 +656,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: userPort,
 					}},

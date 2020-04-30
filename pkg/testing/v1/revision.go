@@ -182,10 +182,3 @@ func WithRevisionLabel(key, value string) RevisionOption {
 		config.Labels[key] = value
 	}
 }
-
-// WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
-func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.ContainerStatuses = containerStatus
-	}
-}

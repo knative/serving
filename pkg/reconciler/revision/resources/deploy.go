@@ -126,8 +126,8 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	userContainer := BuildUserContainer(rev)
-	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
+	container := append(BuildUserContainer(rev), *queueContainer)
+	podSpec := BuildPodSpec(rev, container)
 
 	if autoscalerConfig.EnableGracefulScaledown {
 		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
@@ -137,8 +137,32 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 }
 
 // BuildUserContainer makes a container from the Revision template.
-func BuildUserContainer(rev *v1.Revision) *corev1.Container {
-	userContainer := rev.Spec.GetContainer().DeepCopy()
+func BuildUserContainer(rev *v1.Revision) []corev1.Container {
+	containers := []corev1.Container{}
+
+	for i := range rev.Spec.PodSpec.Containers {
+		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
+			servingContainer := makeServingContainer(rev.Spec.GetContainer().DeepCopy(), rev)
+			updateImage(rev, &servingContainer)
+			containers = append(containers, servingContainer)
+		} else {
+			multiContainer := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+			updateImage(rev, &multiContainer)
+			containers = append(containers, multiContainer)
+		}
+	}
+	return containers
+}
+
+func updateImage(rev *v1.Revision, container *corev1.Container) {
+	for _, digest := range rev.Status.ContainerStatuses {
+		if digest.Name == container.Name {
+			container.Image = digest.ImageDigest
+		}
+	}
+}
+
+func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 	varLogMount := varLogVolumeMount.DeepCopy()
@@ -146,6 +170,17 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, *varLogMount)
 	userContainer.Lifecycle = userLifecycle
+	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
+	// Explicitly disable stdin and tty allocation
+	container.Stdin = false
+	container.TTY = false
+	if container.TerminationMessagePolicy == "" {
+		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+	}
+	return *container
+}
+
+func makeServingContainer(servingContainer *corev1.Container, rev *v1.Revision) corev1.Container {
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
 	userPortStr := strconv.Itoa(userPortInt)
@@ -170,15 +205,19 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 
 	if userContainer.ReadinessProbe != nil {
 		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+	servingContainer.Ports = buildContainerPorts(userPort)
+	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
+	container := makeContainer(servingContainer, rev)
+	if container.ReadinessProbe != nil {
+		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {
 			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
 			// user-container instead of via kubelet.
-			userContainer.ReadinessProbe = nil
+			container.ReadinessProbe = nil
 		}
 	}
-
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
-	return userContainer
+	rewriteUserProbe(container.LivenessProbe, userPortInt)
+	return container
 }
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
