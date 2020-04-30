@@ -120,6 +120,8 @@ kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=m
 add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 # Delete HPA to stabilize HA tests
 kubectl -n "${SYSTEM_NAMESPACE}" delete hpa activator
+# Make sure all pods run in leader-elected mode.
+kubectl delete pods --all -n "${SYSTEM_NAMESPACE}"
 # Scale up components for HA tests
 for deployment in controller autoscaler-hpa activator; do
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
