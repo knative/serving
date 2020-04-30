@@ -28,22 +28,18 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
+// PodSpecDryRunAnnotation gates the podspec dryrun feature and runs with the value 'enabled'
+var PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
+
 // DryRunMode represents possible values of the PodSpecDryRunAnnotation
 type DryRunMode string
 
 const (
 	// Enabled will run the dryrun logic. Will succeed if dryrun is unsupported.
-	Enabled DryRunMode = "enabled"
+	DryRunEnabled DryRunMode = "enabled"
 
 	// Strict will run the dryrun logic and fails if dryrun is not supported.
-	Strict DryRunMode = "strict"
-)
-
-// PodSpecDryRunAnnotation gates the podspec dryrun feature and runs with the value 'enabled'
-var (
-	PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
-
-	toMode = map[string]DryRunMode{"enabled": Enabled, "strict": Strict}
+	DryRunStrict DryRunMode = "strict"
 )
 
 // ValidateRevisionTemplate runs extra validation on Service resources
@@ -53,8 +49,8 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
 	// of this are well-tested. Only run extra validation for the dry-run test.
 	// This will be in place to while the feature is tested for compatibility and later removed.
-	mode, has := toMode[uns.GetAnnotations()[PodSpecDryRunAnnotation]]
-	if !has {
+	mode := DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
+	if mode != DryRunStrict && mode != DryRunEnabled {
 		return nil
 	}
 

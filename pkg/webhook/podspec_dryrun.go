@@ -79,7 +79,7 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) *apis.
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
 		// Ignore failures for implementations that don't support dry-run.
 		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
-		if mode != Strict && strings.Contains(err.Error(), "does not support dry run") {
+		if mode != DryRunStrict && strings.Contains(err.Error(), "does not support dry run") {
 			logger.Warnw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
 			return nil
 		}
