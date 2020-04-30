@@ -60,7 +60,7 @@ func pendingTerminatingCount(pods []*corev1.Pod) (int, int, error) {
 	for _, pod := range pods {
 		switch pod.Status.Phase {
 		case corev1.PodRunning:
-			if pod.ObjectMeta.DeletionTimestamp != nil {
+			if pod.DeletionTimestamp != nil {
 				terminating++
 			}
 		case corev1.PodPending:
@@ -75,6 +75,16 @@ func (pc PodAccessor) PodIPsByAge() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Keep only running ones.
+	write := 0
+	for _, p := range pods {
+		if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
+			pods[write] = p
+			write++
+		}
+	}
+	pods = pods[:write]
+
 	if len(pods) > 1 {
 		// This results in a few reflection calls, which we can easily avoid.
 		sort.SliceStable(pods, func(i, j int) bool {
