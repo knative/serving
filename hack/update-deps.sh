@@ -67,7 +67,6 @@ rm -rf $(find vendor/ -name '*_test.go')
 
 export GOFLAGS=-mod=vendor
 
-# Do this for every package under "cmd" except kodata and cmd itself.
-update_licenses third_party/VENDOR-LICENSE "$(find ./cmd -type d | grep -v kodata | grep -vE 'cmd$')"
+update_licenses third_party/VENDOR-LICENSE "./..."
 
 remove_broken_symlinks ./vendor

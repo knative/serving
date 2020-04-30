@@ -201,7 +201,7 @@ function default_build_test_runner() {
   create_junit_xml _build_tests Build_Go "${errors_go}"
   # Check that we don't have any forbidden licenses in our images.
   subheader "Checking for forbidden licenses"
-  report_build_test Check_Licenses check_licenses ${go_pkg_dirs} || failed=1
+  report_build_test Check_Licenses check_licenses || failed=1
   return ${failed}
 }
 
