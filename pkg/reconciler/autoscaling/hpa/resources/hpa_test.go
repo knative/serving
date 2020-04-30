@@ -239,7 +239,7 @@ type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 func withAnnotationValue(key, value string) hpaOption {
 	return func(pa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
+			pa.Annotations = make(map[string]string, 1)
 		}
 		pa.Annotations[key] = value
 	}
