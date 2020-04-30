@@ -77,12 +77,9 @@ func (pc PodAccessor) PodIPsByAge() ([]string, error) {
 	}
 	// Keep only running ones.
 	write := 0
-	for i := range pods {
-		p := pods[i]
+	for _, p := range pods {
 		if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
-			if write != i {
-				pods[write] = p
-			}
+			pods[write] = p
 			write++
 		}
 	}
