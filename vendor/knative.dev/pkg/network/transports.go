@@ -57,8 +57,15 @@ var errDialTimeout = errors.New("timed out dialing")
 
 // DialWithBackOff executes `net.Dialer.DialContext()` with exponentially increasing
 // dial timeouts. In addition it sleeps with random jitter between tries.
-func DialWithBackOff(ctx context.Context, network, address string) (net.Conn, error) {
-	return dialBackOffHelper(ctx, network, address, backOffTemplate, sleepTO)
+var DialWithBackOff = NewBackoffDialer(backOffTemplate)
+
+// NewBackoffDialer returns a dialer that executes `net.Dialer.DialContext()` with
+// exponentially increasing dial timeouts. In addition it sleeps with random jitter
+// between tries.
+func NewBackoffDialer(backoffConfig wait.Backoff) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		return dialBackOffHelper(ctx, network, address, backoffConfig, sleepTO)
+	}
 }
 
 func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Backoff, sleep time.Duration) (net.Conn, error) {
