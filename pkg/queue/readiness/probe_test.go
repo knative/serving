@@ -492,7 +492,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 func TestKnTCPProbeSuccess(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
@@ -553,7 +553,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
@@ -583,7 +583,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	addr := listener.Addr().(*net.TCPAddr)
 
@@ -610,7 +610,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}()
 
 	if _, err = listener.Accept(); err != nil {
-		t.Fatalf("Failed to accept TCP conn: %v", err)
+		t.Fatal("Failed to accept TCP conn:", err)
 	}
 	connCount++
 
@@ -621,13 +621,13 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 
 	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 
 	for {
 		if connCount < desiredConnCount {
 			if _, err = listener2.Accept(); err != nil {
-				t.Fatalf("Failed to accept TCP conn: %v", err)
+				t.Fatal("Failed to accept TCP conn:", err)
 			}
 			connCount++
 		} else {

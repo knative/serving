@@ -83,7 +83,7 @@ func getTestRevision(name string) *v1.Revision {
 func getTestRevisionWithCondition(name string, cond apis.Condition) *v1.Revision {
 	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/serving/v1/namespaces/test/revisions/%s", name),
+			SelfLink:  fmt.Sprint("/apis/serving/v1/namespaces/test/revisions/", name),
 			Name:      name,
 			Namespace: testNamespace,
 		},
@@ -353,7 +353,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ctx, informers, ctl, _, cf := newTestSetup(t)
 	wicb, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	defer func() {
 		cf()
@@ -1189,7 +1189,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cf()
@@ -1200,7 +1200,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("failed to start configuration manager: %v", err)
+				t.Fatal("failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })

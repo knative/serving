@@ -105,7 +105,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	}
 
 	// If what comes back has a different spec, then signal the change.
-	logger.Infof("Reconciled deployment diff (-desired, +observed): %v", diff)
+	logger.Info("Reconciled deployment diff (-desired, +observed): ", diff)
 	return d, nil
 }
 

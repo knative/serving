@@ -56,9 +56,9 @@ func TestConfigMapVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create configmap: %v", err)
+		t.Fatal("Failed to create configmap:", err)
 	}
-	t.Logf("Successfully created configMap: %v", configMap)
+	t.Log("Successfully created configMap:", configMap)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -127,9 +127,9 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create configmap: %v", err)
+		t.Fatal("Failed to create configmap:", err)
 	}
-	t.Logf("Successfully created configMap: %v", configMap)
+	t.Log("Successfully created configMap:", configMap)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -200,9 +200,9 @@ func TestSecretVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create secret: %v", err)
+		t.Fatal("Failed to create secret:", err)
 	}
-	t.Logf("Successfully created secret: %v", secret)
+	t.Log("Successfully created secret:", secret)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -267,9 +267,9 @@ func TestProjectedSecretVolume(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create secret: %v", err)
+		t.Fatal("Failed to create secret:", err)
 	}
-	t.Logf("Successfully created secret: %v", secret)
+	t.Log("Successfully created secret:", secret)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
@@ -341,9 +341,9 @@ func TestProjectedComplex(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create configmap: %v", err)
+		t.Fatal("Failed to create configmap:", err)
 	}
-	t.Logf("Successfully created configMap: %v", configMap)
+	t.Log("Successfully created configMap:", configMap)
 
 	// Create the Secret with random text.
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
@@ -355,9 +355,9 @@ func TestProjectedComplex(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to create secret: %v", err)
+		t.Fatal("Failed to create secret:", err)
 	}
-	t.Logf("Successfully created secret: %v", secret)
+	t.Log("Successfully created secret:", secret)
 
 	cleanup := func() {
 		test.TearDown(clients, names)

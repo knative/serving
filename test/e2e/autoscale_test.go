@@ -576,7 +576,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {
-		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 	var (
 		grp    errgroup.Group
@@ -594,7 +594,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
 	// Start second load generator.
@@ -611,7 +611,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 		// We want exactly 2. Not 1, not panicing 3, just 2.
 		return x == 2, nil
 	}); err != nil {
-		t.Fatalf("Desired scale of 2 never achieved: %v", err)
+		t.Fatal("Desired scale of 2 never achieved:", err)
 	}
 
 	// Now read the service endpoints and make sure there are 2 endpoints there.
@@ -643,18 +643,18 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 
 	_, err := autoscalerCM(ctx.clients)
 	if err != nil {
-		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
 		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error getting activator endpoints: %v", err)
+		t.Fatal("Error getting activator endpoints:", err)
 	}
-	t.Logf("Activator endpoints: %v", aeps)
+	t.Log("Activator endpoints:", aeps)
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 }
 
@@ -672,7 +672,7 @@ func TestFastScaleToZero(t *testing.T) {
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {
-		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
+		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
 	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
@@ -682,7 +682,7 @@ func TestFastScaleToZero(t *testing.T) {
 		),
 	})
 	if err != nil || len(epsL.Items) == 0 {
-		t.Fatalf("No endpoints or error: %v", err)
+		t.Fatal("No endpoints or error:", err)
 	}
 
 	epsN := epsL.Items[0].Name

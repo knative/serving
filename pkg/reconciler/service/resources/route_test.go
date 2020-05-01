@@ -33,7 +33,7 @@ func TestRouteSpec(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := MakeRoute(s)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Fatal("Unexpected error:", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("Expected %q for service name got %q", want, got)
@@ -66,7 +66,7 @@ func TestRouteHasNoKubectlAnnotation(t *testing.T) {
 	s := createServiceWithKubectlAnnotation()
 	r, err := MakeRoute(s)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Fatal("Unexpected error:", err)
 	}
 	if v, ok := r.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
 		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)

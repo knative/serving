@@ -62,7 +62,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						t.Logf("Error sending request: %v", err)
+						t.Log("Error sending request:", err)
 					}
 					resChannel <- res
 				}
@@ -132,14 +132,14 @@ func TestObservedConcurrency(t *testing.T) {
 		})
 	}
 	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
+		t.Fatal("Cannot create output xml:", err)
 	}
 }
 
 func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
-		t.Fatalf("Cannot initialize performance client: %v", err)
+		t.Fatal("Cannot initialize performance client:", err)
 	}
 
 	names := test.ResourceNames{
@@ -161,7 +161,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		}),
 		v1opts.WithContainerConcurrency(1))
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	baseURL := objs.Route.Status.URL.URL()
@@ -179,7 +179,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// This just helps with preallocation.
@@ -204,7 +204,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			}
 			start, end, err := parseResponse(string(response.Body))
 			if err != nil {
-				t.Logf("Failed to parse the body: %v", err)
+				t.Log("Failed to parse the body:", err)
 				failedRequests++
 				continue
 			}
@@ -218,7 +218,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	})
 
 	if err := eg.Wait(); err != nil {
-		t.Fatalf("Failed to generate traffic and process responses: %v", err)
+		t.Fatal("Failed to generate traffic and process responses:", err)
 	}
 	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
 

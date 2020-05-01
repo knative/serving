@@ -66,7 +66,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 		pkgTest.Flags.Cluster,
 		namespace)
 	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
+		t.Fatal("Couldn't initialize clients:", err)
 	}
 	return clients
 }

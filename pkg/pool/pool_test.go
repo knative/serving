@@ -212,7 +212,7 @@ func TestWithContextWaitCancels(t *testing.T) {
 		})
 	}
 	if err := pool.Wait(); err != nil {
-		t.Fatalf("pool.Wait = %v", err)
+		t.Fatal("pool.Wait =", err)
 	}
 	select {
 	case <-ctx.Done():

@@ -1078,7 +1078,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	grp := errgroup.Group{}
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("failed to start informers: %v", err)
+		t.Fatal("failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1089,7 +1089,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start configmap watcher: %v", err)
+		t.Fatal("failed to start configmap watcher:", err)
 	}
 
 	grp.Go(func() error { controller.StartAll(ctx, ctl); return nil })
@@ -1130,7 +1130,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
-		t.Fatalf("Failed to get decider: %v", err)
+		t.Fatal("Failed to get decider:", err)
 	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
 		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
@@ -1175,7 +1175,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		// We only create a single SKS object.
 		return len(l) > 0, err
 	}); err != nil {
-		t.Fatalf("Failed to see SKS propagation: %v", err)
+		t.Fatal("Failed to see SKS propagation:", err)
 	}
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1197,7 +1197,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		}
 		return newKPA.Status.IsReady(), nil
 	}); err != nil {
-		t.Fatalf("PA failed to become ready: %v", err)
+		t.Fatal("PA failed to become ready:", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -1289,7 +1289,7 @@ func TestControllerCreateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1325,7 +1325,7 @@ func TestControllerUpdateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1361,7 +1361,7 @@ func TestControllerGetError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1396,7 +1396,7 @@ func TestScaleFailure(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()

@@ -52,7 +52,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	handler, err := pkghttp.NewRequestLogHandler(baseHandler, buf, "",
 		requestLogTemplateInputGetter(revisionLister(t, true)), false /*enableProbeRequestLog*/)
 	if err != nil {
-		t.Fatalf("want: no error, got: %v", err)
+		t.Fatal("want: no error, got:", err)
 	}
 
 	tests := []struct {

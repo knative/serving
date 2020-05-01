@@ -118,7 +118,7 @@ func main() {
 	tbcTag := "tbc=" + *flavor
 	mc, err := mako.Setup(ctx, tbcTag)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar

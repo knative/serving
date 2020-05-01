@@ -752,7 +752,7 @@ func TestMakePodSpec(t *testing.T) {
 			})
 			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &test.ac, &deploymentConfig)
 			if err != nil {
-				t.Fatalf("makePodSpec returned error: %v", err)
+				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -834,13 +834,13 @@ func TestMakeDeployment(t *testing.T) {
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
 				&obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
-				t.Fatalf("makePodSpec returned error: %v", err)
+				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
 				&network.Config{}, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
-				t.Fatalf("got unexpected error: %v", err)
+				t.Fatal("got unexpected error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
 				t.Error("MakeDeployment (-want, +got) =", diff)

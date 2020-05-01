@@ -235,7 +235,7 @@ func TestTemplateCaching(t *testing.T) {
 		DomainTemplateKey: anotherTemplate,
 	})
 	if err != nil {
-		t.Fatalf("Config parsing failure = %v", err)
+		t.Fatal("Config parsing failure =", err)
 	}
 	if got, want := actualConfig.DomainTemplate, anotherTemplate; got != want {
 		t.Errorf("DomainTemplate = %q, want: %q", got, want)
@@ -247,7 +247,7 @@ func TestTemplateCaching(t *testing.T) {
 	// Reset to default. And make sure it is cached.
 	actualConfig, err = NewConfigFromMap(map[string]string{})
 	if err != nil {
-		t.Fatalf("Config parsing failure = %v", err)
+		t.Fatal("Config parsing failure =", err)
 	}
 
 	if got, want := actualConfig.DomainTemplate, DefaultDomainTemplate; got != want {

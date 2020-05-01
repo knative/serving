@@ -70,7 +70,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		}
 		if resp == nil {
 			// We don't have an HTTP response, probably TCP errors.
-			t.Logf("Connection failed: %v", err)
+			t.Log("Connection failed:", err)
 			return false, nil
 		}
 
@@ -123,10 +123,10 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 					}
 
 					if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
-						t.Logf("New pod has been discovered: %s", host)
+						t.Log("New pod has been discovered:", host)
 						return nil
 					} else {
-						t.Logf("Existing pod has been returned: %s", host)
+						t.Log("Existing pod has been returned:", host)
 						conn.Close()
 					}
 				}
