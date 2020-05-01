@@ -63,10 +63,10 @@ var (
 	// stat from an unscraped pod
 	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
 
-	// Sentinel error to return from pod scraping routine, when we could not
+	// Sentinel error to retrun from pod scraping routine, when we could not
 	// scrape even a single pod.
 	errNoPodsScraped = errors.New("no pods scraped")
-	errPodsExahusted = errors.New("pods exhausted")
+	errPodsExhausted = errors.New("pods exhausted")
 
 	scrapeTimeM = stats.Float64(
 		"scrape_time",
@@ -238,7 +238,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 				myIdx := int(atomic.AddInt32(&idx, 1))
 				// All out?
 				if myIdx >= len(pods) {
-					return errPodsExahusted
+					return errPodsExhausted
 				}
 
 				// Scrape!
@@ -261,7 +261,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 		// Got some successful pods.
 		// TODO(vagababov): perhaps separate |pods| == 1 case here as well?
 		if len(results) > 0 {
-			return emptyStat, errPodsExahusted
+			return emptyStat, errPodsExhausted
 		}
 		// Didn't scrape a single pod, switch to service scraping.
 		return emptyStat, errNoPodsScraped
