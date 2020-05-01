@@ -62,7 +62,8 @@ var dialBackoff = wait.Backoff{
 	Duration: 50 * time.Millisecond,
 	Factor:   1.4,
 	Jitter:   0.1, // At most 10% jitter.
-	Steps:    18,
+	Steps:    100,
+	Cap:      10 * time.Second,
 }
 
 // uaRoundTripper wraps the given http.RoundTripper and
