@@ -24,8 +24,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeinformers "k8s.io/client-go/informers"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/resources"
@@ -91,6 +96,30 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	}
 }
 
+func checkBaseStat(t *testing.T, got Stat) {
+	if got.PodName != scraperPodName {
+		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
+	}
+	// (3.0 + 5.0 + 3.0) / 3.0 * 3 = 11
+	if got.AverageConcurrentRequests != 11.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 11.0)
+	}
+	// ((5 + 7 + 5) / 3.0) * 3 = 17
+	if got.RequestCount != 17 {
+		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 15)
+	}
+	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
+	if got.AverageProxiedConcurrentRequests != 8.0 {
+		t.Errorf("stat.AverageProxiedConcurrentRequests=%v, want %v",
+			got.AverageProxiedConcurrentRequests, 8.0)
+	}
+	// ((4 + 6 + 4) / 3.0) * 3 = 14
+	if got.ProxiedRequestCount != 14 {
+		t.Errorf("stat.ProxiedCount=%v, want %v", got.ProxiedRequestCount, 12)
+	}
+}
+
 func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	metric := testMetric()
 	invalidMetric := testMetric()
@@ -152,11 +181,133 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	}
 }
 
+func TestPodDirectScrapeSuccess(t *testing.T) {
+	// Easier to reset, than to delete pods.
+	fake.KubeClient = fakek8s.NewSimpleClientset()
+	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper, err := serviceScraperForTest(client, true)
+	if err != nil {
+		t.Fatal("serviceScraperForTest:", err)
+	}
+	fake.Endpoints(3, fake.TestService)
+	makePods(3)
+	now := time.Now()
+
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
+	}
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestPodDirectScrape1Failure(t *testing.T) {
+	fake.KubeClient = fakek8s.NewSimpleClientset()
+	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
+
+	// For 5 pods, we need 4 successes.
+	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil, nil})
+	scraper, err := serviceScraperForTest(client, true)
+	if err != nil {
+		t.Fatal("serviceScraperForTest:", err)
+	}
+	fake.Endpoints(5, fake.TestService)
+	makePods(5)
+	now := time.Now()
+
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
+	}
+	// Checking one of the metrics is enough here.
+	if got.AverageConcurrentRequests != 20.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 20.0)
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestPodDirectScrapeAllFail(t *testing.T) {
+	fake.KubeClient = fakek8s.NewSimpleClientset()
+	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
+
+	// For 5 pods, we need 4 successes.
+	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
+	client := newTestScrapeClient(testStats, []error{
+		// Pods fail.
+		errors.New("okay"), errors.New("okay"), errors.New("okay"), errors.New("okay"),
+		// Service succeeds.
+		nil, nil, nil, nil,
+	})
+	scraper, err := serviceScraperForTest(client, true)
+	if err != nil {
+		t.Fatal("serviceScraperForTest:", err)
+	}
+	fake.Endpoints(4, fake.TestService)
+	makePods(4)
+	now := time.Now()
+
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
+	}
+	// Checking one of the metrics is enough here.
+	if got.AverageConcurrentRequests != 20.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 20.0)
+	}
+
+	if scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
+func TestPodDirectScrapeSomeFail(t *testing.T) {
+	fake.KubeClient = fakek8s.NewSimpleClientset()
+	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
+
+	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil})
+	scraper, err := serviceScraperForTest(client, true)
+	if err != nil {
+		t.Fatal("serviceScraperForTest:", err)
+	}
+	// Make an Endpoints with 3 pods.
+	fake.Endpoints(4, fake.TestService)
+	makePods(4)
+
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err == nil {
+		t.Fatal("Expected an error")
+	}
+
+	if !scraper.podsAddressable {
+		t.Error("PodAddressable switched to false")
+	}
+}
+
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
-		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+		t.Fatal("serviceScraperForTest:", err)
 	}
 
 	// Make an Endpoints with 3 pods.
@@ -166,33 +317,13 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
 	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
+		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
 	}
-	if got.PodName != scraperPodName {
-		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
-	}
-	// (3.0 + 5.0 + 3.0) / 3.0 * 3 = 11
-	if got.AverageConcurrentRequests != 11.0 {
-		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
-			got.AverageConcurrentRequests, 11.0)
-	}
-	// ((5 + 7 + 5) / 3.0) * 3 = 17
-	if got.RequestCount != 17 {
-		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 15)
-	}
-	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
-	if got.AverageProxiedConcurrentRequests != 8.0 {
-		t.Errorf("stat.AverageProxiedConcurrentRequests=%v, want %v",
-			got.AverageProxiedConcurrentRequests, 8.0)
-	}
-	// ((4 + 6 + 4) / 3.0) * 3 = 14
-	if got.ProxiedRequestCount != 14 {
-		t.Errorf("stat.ProxiedCount=%v, want %v", got.ProxiedRequestCount, 12)
-	}
+	checkBaseStat(t, got)
 }
 
 var youngPodCutOffDuration = defaultMetric.Spec.StableWindow
@@ -206,7 +337,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, 0. /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -238,7 +369,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -271,7 +402,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -299,7 +430,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	client := newTestScrapeClient(testStats[2:], []error{nil})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -319,7 +450,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// 1 success and 10 failures so one scrape fails permanently through retries.
 	client := newTestScrapeClient(testStats, []error{nil,
 		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -335,7 +466,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	client := newTestScrapeClient(testStats, nil)
-	scraper, err := serviceScraperForTest(client)
+	scraper, err := serviceScraperForTest(client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -352,7 +483,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 }
 
-func serviceScraperForTest(sClient scrapeClient) (*serviceScraper, error) {
+func serviceScraperForTest(sClient scrapeClient, podsAddressable bool) (*serviceScraper, error) {
 	metric := testMetric()
 	counter := resources.NewScopedEndpointsCounter(
 		fake.KubeInformer.Core().V1().Endpoints().Lister(),
@@ -360,7 +491,11 @@ func serviceScraperForTest(sClient scrapeClient) (*serviceScraper, error) {
 	accessor := resources.NewPodAccessor(
 		fake.KubeInformer.Core().V1().Pods().Lister(),
 		fake.TestNamespace, fake.TestRevision)
-	return newServiceScraperWithClient(metric, counter, accessor, sClient)
+	ss, err := newServiceScraperWithClient(metric, counter, accessor, sClient)
+	if ss != nil {
+		ss.podsAddressable = podsAddressable
+	}
+	return ss, err
 }
 
 func testMetric() *av1alpha1.Metric {
@@ -406,5 +541,24 @@ func (c *fakeScrapeClient) Scrape(url string) (Stat, error) {
 func TestURLFromTarget(t *testing.T) {
 	if got, want := "http://dance.now:9090/metrics", urlFromTarget("dance", "now"); got != want {
 		t.Errorf("urlFromTarget = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func makePods(n int) {
+	for i := 0; i < n; i++ {
+		p := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod-" + strconv.Itoa(i),
+				Namespace: fake.TestNamespace,
+				Labels:    map[string]string{serving.RevisionLabelKey: fake.TestRevision},
+			},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				PodIP: "1.2.3.4",
+			},
+		}
+
+		fake.KubeClient.CoreV1().Pods(fake.TestNamespace).Create(p)
+		fake.KubeInformer.Core().V1().Pods().Informer().GetIndexer().Add(p)
 	}
 }
