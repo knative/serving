@@ -107,7 +107,7 @@ func checkBaseStat(t *testing.T, got Stat) {
 	}
 	// ((5 + 7 + 5) / 3.0) * 3 = 17
 	if got.RequestCount != 17 {
-		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 15)
+		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 17)
 	}
 	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
 	if got.AverageProxiedConcurrentRequests != 8.0 {
@@ -116,7 +116,7 @@ func checkBaseStat(t *testing.T, got Stat) {
 	}
 	// ((4 + 6 + 4) / 3.0) * 3 = 14
 	if got.ProxiedRequestCount != 14 {
-		t.Errorf("stat.ProxiedCount=%v, want %v", got.ProxiedRequestCount, 12)
+		t.Errorf("stat.ProxiedRequestCount=%v, want %v", got.ProxiedRequestCount, 14)
 	}
 }
 
