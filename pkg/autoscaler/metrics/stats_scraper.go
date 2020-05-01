@@ -250,9 +250,12 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 		})
 	}
 
+	err = grp.Wait()
+	close(results)
+
 	// We only get here if one of the scrapers failed to scrape
 	// at least one pod.
-	if err := grp.Wait(); err != nil {
+	if err != nil {
 		// Got some successful pods.
 		// TODO(vagababov): perhaps separate |pods| == 1 case here as well?
 		if len(results) > 0 {
@@ -261,7 +264,6 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 		// Didn't scrape a single pod, switch to service scraping.
 		return emptyStat, errNoPodsScraped
 	}
-	close(results)
 
 	var (
 		avgConcurrency        float64

@@ -276,7 +276,7 @@ func TestPodDirectScrapeAllFail(t *testing.T) {
 	}
 
 	if scraper.podsAddressable {
-		t.Error("PodAddressable switched to false")
+		t.Error("PodAddressable didn't switch to true")
 	}
 }
 
