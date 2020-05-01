@@ -208,7 +208,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	}
 }
 
-func TestPodDirectScrape1Failure(t *testing.T) {
+func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	fake.KubeClient = fakek8s.NewSimpleClientset()
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
@@ -241,7 +241,7 @@ func TestPodDirectScrape1Failure(t *testing.T) {
 	}
 }
 
-func TestPodDirectScrapeAllExhausted(t *testing.T) {
+func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 	fake.KubeClient = fakek8s.NewSimpleClientset()
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
@@ -279,7 +279,7 @@ func TestPodDirectScrapeAllExhausted(t *testing.T) {
 	}
 }
 
-func TestPodDirectScrapeSomeFail(t *testing.T) {
+func TestPodDirectScrapePodsExhausted(t *testing.T) {
 	fake.KubeClient = fakek8s.NewSimpleClientset()
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
