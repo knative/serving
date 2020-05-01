@@ -241,11 +241,10 @@ func TestPodDirectScrape1Failure(t *testing.T) {
 	}
 }
 
-func TestPodDirectScrapeAllFail(t *testing.T) {
+func TestPodDirectScrapeAllExhausted(t *testing.T) {
 	fake.KubeClient = fakek8s.NewSimpleClientset()
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
-	// For 5 pods, we need 4 successes.
 	testStats := testStatsWithTime(4, youngPodCutOffDuration.Seconds() /*youngest*/)
 	client := newTestScrapeClient(testStats, []error{
 		// Pods fail.
@@ -276,7 +275,7 @@ func TestPodDirectScrapeAllFail(t *testing.T) {
 	}
 
 	if scraper.podsAddressable {
-		t.Error("PodAddressable didn't switch to true")
+		t.Error("PodAddressable didn't switch to false")
 	}
 }
 
@@ -289,7 +288,6 @@ func TestPodDirectScrapeSomeFail(t *testing.T) {
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
-	// Make an Endpoints with 3 pods.
 	fake.Endpoints(4, fake.TestService)
 	makePods(4)
 
