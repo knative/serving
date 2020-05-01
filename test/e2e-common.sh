@@ -329,6 +329,7 @@ function install_knative_serving_standard() {
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
   readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
   echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
+  local CERT_YAML_NAME=${TMP_DIR}/${NET_CERTMANAGER_YAML##*/}
   sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${NET_CERTMANAGER_YAML} > ${CERT_YAML_NAME}
   kubectl apply \
       -f "${CERT_YAML_NAME}" || return 1
