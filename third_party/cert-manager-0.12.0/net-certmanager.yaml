@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20200430-9306860"
+    serving.knative.dev/release: "v20200501-507f8f4"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -50,7 +50,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200430-9306860"
+    serving.knative.dev/release: "v20200501-507f8f4"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -97,7 +97,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200430-9306860"
+    serving.knative.dev/release: "v20200501-507f8f4"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -109,14 +109,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20200430-9306860"
+        serving.knative.dev/release: "v20200501-507f8f4"
     spec:
       serviceAccountName: controller
       containers:
       - name: networking-certmanager
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:48d2adc3471d700780b7c8dda52401bfd825d7988c2f9ee044292fe916411810
+        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:4906e7b85bdd1427c3e2281bd1344a6b1d7e717fdca62a40e8bd1a04ab8461b2
         resources:
           requests:
             cpu: 30m
@@ -149,7 +149,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20200430-9306860"
+    serving.knative.dev/release: "v20200501-507f8f4"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
