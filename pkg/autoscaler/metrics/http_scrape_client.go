@@ -50,7 +50,7 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCodeo < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 
