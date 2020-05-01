@@ -23,8 +23,8 @@ import "net/http"
 // If there are no values associated with the key, Get returns "".
 func LastHeaderValue(header http.Header, key string) string {
 	v := header.Values(key)
-	if len(v) == 0 {
-		return ""
+	if l := len(v); l > 0 {
+		return v[l-1]
 	}
-	return v[len(v)-1]
+	return ""
 }
