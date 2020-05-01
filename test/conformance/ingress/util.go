@@ -58,6 +58,13 @@ import (
 
 var rootCAs = x509.NewCertPool()
 
+var dialBackoff = wait.Backoff{
+	Duration: 50 * time.Millisecond,
+	Factor:   1.4,
+	Jitter:   0.1, // At most 10% jitter.
+	Steps:    18,
+}
+
 // uaRoundTripper wraps the given http.RoundTripper and
 // sets a custom UserAgent.
 type uaRoundTripper struct {
@@ -824,7 +831,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		t.Fatal("Service does not have any ingresses (not type LoadBalancer?).")
 	}
 	ingress := svc.Status.LoadBalancer.Ingress[0]
-
+	dial := network.NewBackoffDialer(dialBackoff)
 	return func(ctx context.Context, _ string, address string) (net.Conn, error) {
 		_, port, err := net.SplitHostPort(address)
 		if err != nil {
@@ -833,13 +840,13 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
 		// this is required in minikube-like environments.
 		if pkgTest.Flags.IngressEndpoint != "" {
-			return network.DialWithBackOff(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
+			return dial(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
 		}
 		if ingress.IP != "" {
-			return network.DialWithBackOff(ctx, "tcp", ingress.IP+":"+port)
+			return dial(ctx, "tcp", ingress.IP+":"+port)
 		}
 		if ingress.Hostname != "" {
-			return network.DialWithBackOff(ctx, "tcp", ingress.Hostname+":"+port)
+			return dial(ctx, "tcp", ingress.Hostname+":"+port)
 		}
 		return nil, errors.New("service ingress does not contain dialing information")
 	}
