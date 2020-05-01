@@ -231,8 +231,11 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 
 	grp := errgroup.Group{}
 	idx := int32(-1)
+	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
+			// If a given pod failed to scrape, we want to continue
+			// scanning pods down the line.
 			for {
 				// Acquire next pod.
 				myIdx := int(atomic.AddInt32(&idx, 1))
