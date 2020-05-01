@@ -25,6 +25,7 @@ import (
 
 	// Inject the informers this controller depends on.
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/reconciler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
@@ -41,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
@@ -181,6 +183,12 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	}} {
 		configMapWatcher.OnChange(cfg)
 	}
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctrl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	return
 }
 

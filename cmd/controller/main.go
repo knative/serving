@@ -28,10 +28,11 @@ import (
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
 )
 
 func main() {
-	sharedmain.Main("controller",
+	sharedmain.WebhookMainWithContext(signals.NewContext(), "controller",
 		configuration.NewController,
 		labeler.NewController,
 		revision.NewController,

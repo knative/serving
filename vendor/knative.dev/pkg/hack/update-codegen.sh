@@ -19,6 +19,12 @@ set -o nounset
 set -o pipefail
 
 export GO111MODULE=on
+# If we run with -mod=vendor here, then generate-groups.sh looks for vendor files in the wrong place.
+export GOFLAGS=-mod=
+
+if [ -z "${GOPATH:-}" ]; then
+  export GOPATH=$(go env GOPATH)
+fi
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 

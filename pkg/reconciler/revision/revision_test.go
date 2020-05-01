@@ -34,6 +34,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/reconciler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
@@ -47,6 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
@@ -178,6 +180,12 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 	for _, configMap := range cms {
 		configMapWatcher.OnChange(configMap)
 	}
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := controller.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	return ctx, informers, controller, configMapWatcher
 }
 

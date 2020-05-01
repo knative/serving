@@ -24,6 +24,10 @@ spec:
     matchLabels:
       app: webhook
       role: webhook
+
+  # TODO(mattmoor): DO NOT SUBMIT
+  replicas: 10
+
   template:
     metadata:
       annotations:

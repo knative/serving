@@ -33,6 +33,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	"knative.dev/pkg/reconciler"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
@@ -1249,6 +1250,11 @@ func TestUpdate(t *testing.T) {
 
 	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, sks.Status.PrivateServiceName)
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	// Wait for the Reconcile to complete.
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -1316,6 +1322,11 @@ func TestControllerCreateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
@@ -1352,6 +1363,11 @@ func TestControllerUpdateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
@@ -1387,6 +1403,11 @@ func TestControllerGetError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	got := ctl.Reconciler.Reconcile(context.Background(), key)
 	if !errors.Is(got, want) {
 		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
@@ -1412,6 +1433,11 @@ func TestScaleFailure(t *testing.T) {
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.AllBuckets(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err == nil {
 		t.Error("Reconcile() = nil, wanted error")

@@ -34,6 +34,7 @@ import (
 const controllerDeploymentName = "controller"
 
 func TestControllerHA(t *testing.T) {
+	t.Skip("This doesn't make sense anymore")
 	clients := e2e.Setup(t)
 	cancel := logstream.Start(t)
 	defer cancel()

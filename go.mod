@@ -78,5 +78,8 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	k8s.io/metrics => k8s.io/metrics v0.17.6
 
+	// TODO(mattmoor): DO NOT SUBMIT
+	knative.dev/pkg => github.com/mattmoor/pkg v0.0.0-20200606205049-91cbf7083dca
+
 	knative.dev/serving/vendor/k8s.io/code-generator/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
 )
