@@ -34,7 +34,6 @@ import (
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -55,7 +54,7 @@ func NewController(
 	hpaInformer := hpainformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
-	onlyHPAClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+	onlyHpaClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -74,7 +73,7 @@ func NewController(
 			&deployment.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-			impl.FilteredGlobalResync(onlyHPAClass, paInformer.Informer())
+			impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
 		})
 		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
@@ -83,19 +82,26 @@ func NewController(
 
 	logger.Info("Setting up hpa-class event handlers")
 
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHPAClass,
+	paHandler := cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
+	}
+	paInformer.Informer().AddEventHandler(paHandler)
+
+	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	onlyPAControlled := controller.FilterGroupVersionKind(av1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	hpaInformer.Informer().AddEventHandler(handleMatchingControllers)
-	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
-	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
+	})
+
+	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	return impl
 }
