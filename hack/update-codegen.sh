@@ -62,18 +62,6 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   "networking:v1alpha3" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-# Generate our own client for cert-manager (otherwise injection won't work)
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  knative.dev/serving/pkg/client/certmanager github.com/jetstack/cert-manager/pkg/apis \
-  "certmanager:v1alpha2 acme:v1alpha2" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
-# Knative Injection (for cert-manager)
-${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
-  knative.dev/serving/pkg/client/certmanager github.com/jetstack/cert-manager/pkg/apis \
-  "certmanager:v1alpha2 acme:v1alpha2" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
