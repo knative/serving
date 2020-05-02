@@ -138,19 +138,23 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 
 // BuildUserContainer makes a container from the Revision template.
 func BuildUserContainer(rev *v1.Revision) []corev1.Container {
-	containers := []corev1.Container{}
+	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 
 	for i := range rev.Spec.PodSpec.Containers {
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
 			servingContainer := makeServingContainer(rev.Spec.GetContainer().DeepCopy(), rev)
-			updateImage(rev, &servingContainer)
-			containers = append(containers, servingContainer)
+			containers = appendContainer(rev, containers, servingContainer)
 		} else {
-			multiContainer := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
-			updateImage(rev, &multiContainer)
-			containers = append(containers, multiContainer)
+			nonServingContainer := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+			containers = appendContainer(rev, containers, nonServingContainer)
 		}
 	}
+	return containers
+}
+
+func appendContainer(rev *v1.Revision, containers []corev1.Container, container corev1.Container) []corev1.Container {
+	updateImage(rev, &container)
+	containers = append(containers, container)
 	return containers
 }
 
@@ -158,6 +162,7 @@ func updateImage(rev *v1.Revision, container *corev1.Container) {
 	for _, digest := range rev.Status.ContainerStatuses {
 		if digest.Name == container.Name {
 			container.Image = digest.ImageDigest
+			return
 		}
 	}
 }
@@ -182,8 +187,7 @@ func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Contain
 
 func makeServingContainer(servingContainer *corev1.Container, rev *v1.Revision) corev1.Container {
 	userPort := getUserPort(rev)
-	userPortInt := int(userPort)
-	userPortStr := strconv.Itoa(userPortInt)
+	userPortStr := strconv.Itoa(int(userPort))
 	// Replacement is safe as only up to a single port is allowed on the Revision
 	userContainer.Ports = buildContainerPorts(userPort)
 	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
@@ -216,7 +220,7 @@ func makeServingContainer(servingContainer *corev1.Container, rev *v1.Revision) 
 		}
 	}
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(container.LivenessProbe, userPortInt)
+	rewriteUserProbe(container.LivenessProbe, int(userPort))
 	return container
 }
 
