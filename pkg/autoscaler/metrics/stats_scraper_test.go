@@ -31,6 +31,7 @@ import (
 	fakek8s "k8s.io/client-go/kubernetes/fake"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/resources"
@@ -87,7 +88,7 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	accessor := resources.NewPodAccessor(
 		fake.KubeInformer.Core().V1().Pods().Lister(),
 		fake.TestNamespace, fake.TestRevision)
-	sc, err := NewStatsScraper(metric, counter, accessor)
+	sc, err := NewStatsScraper(metric, counter, accessor, logtesting.TestLogger(t))
 	if err != nil {
 		t.Fatal("NewServiceScraper =", err)
 	}
@@ -129,6 +130,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	podLister := fake.KubeInformer.Core().V1().Pods().Lister()
 	counter := resources.NewScopedEndpointsCounter(lister, fake.TestNamespace, fake.TestService)
 	podAccessor := resources.NewPodAccessor(podLister, fake.TestNamespace, fake.TestRevision)
+	logger := logtesting.TestLogger(t)
 
 	testCases := []struct {
 		name        string
@@ -168,7 +170,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := newServiceScraperWithClient(test.metric, test.counter,
-				test.accessor, test.client); err != nil {
+				test.accessor, test.client, logger); err != nil {
 				got := err.Error()
 				want := test.expectedErr
 				if got != want {
@@ -187,7 +189,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, true)
+	scraper, err := serviceScraperForTest(t, client, true)
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
@@ -214,7 +216,7 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 
 	// For 5 pods, we need 4 successes.
 	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil, nil})
-	scraper, err := serviceScraperForTest(client, true)
+	scraper, err := serviceScraperForTest(t, client, true)
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
@@ -252,7 +254,7 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 		// Service succeeds.
 		nil, nil, nil, nil,
 	})
-	scraper, err := serviceScraperForTest(client, true)
+	scraper, err := serviceScraperForTest(t, client, true)
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
@@ -284,7 +286,7 @@ func TestPodDirectScrapePodsExhausted(t *testing.T) {
 	fake.KubeInformer = kubeinformers.NewSharedInformerFactory(fake.KubeClient, 0)
 
 	client := newTestScrapeClient(testStats, []error{nil, nil, errors.New("okay"), nil})
-	scraper, err := serviceScraperForTest(client, true)
+	scraper, err := serviceScraperForTest(t, client, true)
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
@@ -303,7 +305,7 @@ func TestPodDirectScrapePodsExhausted(t *testing.T) {
 
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatal("serviceScraperForTest:", err)
 	}
@@ -335,7 +337,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, 0. /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -367,7 +369,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -400,7 +402,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -428,7 +430,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	client := newTestScrapeClient(testStats[2:], []error{nil})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -448,7 +450,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// 1 success and 10 failures so one scrape fails permanently through retries.
 	client := newTestScrapeClient(testStats, []error{nil,
 		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -464,7 +466,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	client := newTestScrapeClient(testStats, nil)
-	scraper, err := serviceScraperForTest(client, false)
+	scraper, err := serviceScraperForTest(t, client, false)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -481,7 +483,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 }
 
-func serviceScraperForTest(sClient scrapeClient, podsAddressable bool) (*serviceScraper, error) {
+func serviceScraperForTest(t *testing.T, sClient scrapeClient, podsAddressable bool) (*serviceScraper, error) {
 	metric := testMetric()
 	counter := resources.NewScopedEndpointsCounter(
 		fake.KubeInformer.Core().V1().Endpoints().Lister(),
@@ -489,7 +491,8 @@ func serviceScraperForTest(sClient scrapeClient, podsAddressable bool) (*service
 	accessor := resources.NewPodAccessor(
 		fake.KubeInformer.Core().V1().Pods().Lister(),
 		fake.TestNamespace, fake.TestRevision)
-	ss, err := newServiceScraperWithClient(metric, counter, accessor, sClient)
+	logger := logtesting.TestLogger(t)
+	ss, err := newServiceScraperWithClient(metric, counter, accessor, sClient, logger)
 	if ss != nil {
 		ss.podsAddressable = podsAddressable
 	}

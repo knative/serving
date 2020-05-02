@@ -28,6 +28,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	pkgmetrics "knative.dev/pkg/metrics"
@@ -120,6 +121,7 @@ type serviceScraper struct {
 	counter  resources.EndpointsCounter
 	url      string
 	statsCtx context.Context
+	logger   *zap.SugaredLogger
 
 	podAccessor     resources.PodAccessor
 	podsAddressable bool
@@ -128,19 +130,20 @@ type serviceScraper struct {
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter,
-	podAccessor resources.PodAccessor) (StatsScraper, error) {
+	podAccessor resources.PodAccessor, logger *zap.SugaredLogger) (StatsScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, podAccessor, sClient)
+	return newServiceScraperWithClient(metric, counter, podAccessor, sClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
 	counter resources.EndpointsCounter,
 	podAccessor resources.PodAccessor,
-	sClient scrapeClient) (*serviceScraper, error) {
+	sClient scrapeClient,
+	logger *zap.SugaredLogger) (*serviceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -169,6 +172,7 @@ func newServiceScraperWithClient(
 		podAccessor:     podAccessor,
 		podsAddressable: true,
 		statsCtx:        ctx,
+		logger:          logger,
 	}, nil
 }
 
@@ -206,6 +210,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	}
 	stat, err := s.scrapeService(window, readyPodsCount)
 	if err == nil {
+		s.logger.Info("Direct pod scraping off, service scraping, on")
 		// If err == nil, this means that we failed to scrape all pods, but service worked
 		// thus it is probably a mesh case.
 		s.podsAddressable = false
@@ -216,11 +221,13 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 	pods, err := s.podAccessor.PodIPsByAge()
 	if err != nil {
+		s.logger.Info("Error querying pods by age: ", err)
 		return emptyStat, err
 	}
 	// Race condition when scaling to 0, where the check above
 	// for endpoint count worked, but here we had no ready pods.
 	if len(pods) == 0 {
+		s.logger.Infof("For %s ready pods found 0 pods, are we scaling to 0?", readyPods)
 		return emptyStat, nil
 	}
 
@@ -251,6 +258,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 					results <- stat
 					return nil
 				}
+				s.logger.Infof("Pod %s failed scraping: %v", pods[myIdx], err)
 			}
 		})
 	}
@@ -264,8 +272,10 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 		// Got some successful pods.
 		// TODO(vagababov): perhaps separate |pods| == 1 case here as well?
 		if len(results) > 0 {
+			s.logger.Warn("Too many pods failed scraping for meaningful interpolation")
 			return emptyStat, errPodsExhausted
 		}
+		s.logger.Warn("0 pods were successfully scraped out of ", strconv.Itoa(len(pods)))
 		// Didn't scrape a single pod, switch to service scraping.
 		return emptyStat, errNoPodsScraped
 	}
