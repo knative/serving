@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.13
+go 1.14
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
