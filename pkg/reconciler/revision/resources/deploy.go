@@ -142,10 +142,10 @@ func BuildUserContainer(rev *v1.Revision) []corev1.Container {
 
 	for i := range rev.Spec.PodSpec.Containers {
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
-			servingContainer := makeServingContainer(rev.Spec.GetContainer().DeepCopy(), rev)
+			servingContainer := makeServingContainer(*rev.Spec.GetContainer(), rev)
 			containers = appendContainer(rev, containers, servingContainer)
 		} else {
-			nonServingContainer := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+			nonServingContainer := makeContainer(rev.Spec.PodSpec.Containers[i], rev)
 			containers = appendContainer(rev, containers, nonServingContainer)
 		}
 	}
@@ -167,7 +167,7 @@ func updateImage(rev *v1.Revision, container *corev1.Container) {
 	}
 }
 
-func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Container {
+func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 	varLogMount := varLogVolumeMount.DeepCopy()
@@ -182,10 +182,10 @@ func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Contain
 	if container.TerminationMessagePolicy == "" {
 		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
-	return *container
+	return container
 }
 
-func makeServingContainer(servingContainer *corev1.Container, rev *v1.Revision) corev1.Container {
+func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) corev1.Container {
 	userPort := getUserPort(rev)
 	userPortStr := strconv.Itoa(int(userPort))
 	// Replacement is safe as only up to a single port is allowed on the Revision
