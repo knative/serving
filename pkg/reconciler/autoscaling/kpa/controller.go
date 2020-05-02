@@ -38,7 +38,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
-	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -95,11 +94,12 @@ func NewController(
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	logger.Info("Setting up KPA-Class event handlers")
-
-	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// Handle only PodAutoscalers that have KPA annotation.
+	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKPAClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
-	})
+	}
+	paInformer.Informer().AddEventHandler(paHandler)
 
 	// When we see PodAutoscalers deleted, clean up the decider.
 	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -113,18 +113,20 @@ func NewController(
 		},
 	})
 
-	onlyPAControlled := controller.FilterGroupVersionKind(nv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyKPAClass, onlyPAControlled),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
-	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
-
 	// Watch all the private service endpoints.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
 		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+	})
+
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKPAClass,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+
+	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKPAClass,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.
