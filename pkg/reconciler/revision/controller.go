@@ -115,17 +115,24 @@ func newControllerWithOptions(
 	logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
+	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
-	paInformer.Informer().AddEventHandler(handleMatchingControllers)
-	configMapInformer.Informer().AddEventHandler(handleMatchingControllers)
+	})
+
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
+
+	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	for _, opt := range opts {
 		opt(c)
