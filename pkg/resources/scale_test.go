@@ -101,7 +101,7 @@ func TestGetScaleResource(t *testing.T) {
 	}
 	scale, err := GetScaleResource(testNamespace, objectRef, psInformerFactory)
 	if err != nil {
-		t.Fatalf("GetScale got error = %v", err)
+		t.Fatal("GetScale got error =", err)
 	}
 	if got, want := scale.Status.Replicas, int32(5); got != want {
 		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
@@ -143,12 +143,12 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Resource: "deployments",
 	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Create() = %v", err)
+		t.Fatal("Create() =", err)
 	}
 
 	deployment := &v1.Deployment{}
 	if err := duck.FromUnstructured(u, deployment); err != nil {
-		t.Fatalf("FromUnstructured() = %v", err)
+		t.Fatal("FromUnstructured() =", err)
 	}
 	return deployment
 }

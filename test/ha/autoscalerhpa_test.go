@@ -45,7 +45,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	leaderController, err := getLeader(t, clients, autoscalerHPALease)
 	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
+		t.Fatal("Failed to get leader:", err)
 	}
 
 	names, resources := createPizzaPlanetService(t,
@@ -65,7 +65,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	// Make sure a new leader has been elected
 	if _, err = getLeader(t, clients, autoscalerHPALease); err != nil {
-		t.Fatalf("Failed to find new leader: %v", err)
+		t.Fatal("Failed to find new leader:", err)
 	}
 
 	url := resources.Service.Status.URL.URL()
@@ -81,7 +81,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	t.Log("Service should be able to generate a new revision after changing the leader controller")
 	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText2)

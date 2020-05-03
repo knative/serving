@@ -438,11 +438,11 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	}
 	ctx, err := smetrics.RevisionContext(fake.TestNamespace, fake.TestService, fake.TestConfig, fake.TestRevision)
 	if err != nil {
-		t.Fatalf("Error creating context: %v", err)
+		t.Fatal("Error creating context:", err)
 	}
 	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, ctx)
 	if err != nil {
-		t.Fatalf("Error creating test autoscaler: %v", err)
+		t.Fatal("Error creating test autoscaler:", err)
 	}
 	fake.Endpoints(1, fake.TestService)
 	return a
@@ -474,7 +474,7 @@ func TestStartInPanicMode(t *testing.T) {
 		fake.Endpoints(i, fake.TestService)
 		a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 		if err != nil {
-			t.Fatalf("Error creating test autoscaler: %v", err)
+			t.Fatal("Error creating test autoscaler:", err)
 		}
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
@@ -488,7 +488,7 @@ func TestStartInPanicMode(t *testing.T) {
 	fake.Endpoints(2, fake.TestService)
 	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if err != nil {
-		t.Fatalf("Error creating test autoscaler: %v", err)
+		t.Fatal("Error creating test autoscaler:", err)
 	}
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")

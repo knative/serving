@@ -367,7 +367,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll.Record(metricKey, stat)
 	stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
-		t.Fatalf("StableAndPanicConcurrency: %v", err)
+		t.Fatal("StableAndPanicConcurrency:", err)
 	}
 	// Scale to the window sizes.
 	const (
@@ -380,7 +380,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
-		t.Fatalf("StableAndPanicRPS: %v", err)
+		t.Fatal("StableAndPanicRPS:", err)
 	}
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
 		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)

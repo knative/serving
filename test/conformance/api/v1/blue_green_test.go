@@ -102,7 +102,7 @@ func TestBlueGreenRoute(t *testing.T) {
 			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -133,7 +133,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	t.Logf("Probing %s", greenURL)
+	t.Log("Probing", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -160,6 +160,6 @@ func TestBlueGreenRoute(t *testing.T) {
 		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
+		t.Fatal("Error sending requests:", err)
 	}
 }

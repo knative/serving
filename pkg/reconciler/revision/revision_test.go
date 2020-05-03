@@ -278,7 +278,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
+		t.Fatal("Couldn't get revision:", err)
 	}
 
 	// Ensure that the Revision status is updated.
@@ -332,7 +332,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
+		t.Fatal("Couldn't get revision:", err)
 	}
 
 	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
@@ -358,7 +358,7 @@ func TestRevWithImageDigests(t *testing.T) {
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
+		t.Fatal("Couldn't get revision:", err)
 	}
 	if len(rev.Status.ContainerStatuses) < 2 {
 		t.Error("Revision status does not have imageDigests")
@@ -549,7 +549,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -560,7 +560,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("Failed to start configuration manager: %v", err)
+				t.Fatal("Failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
@@ -690,7 +690,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -701,7 +701,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("Failed to start configuration manager: %v", err)
+				t.Fatal("Failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })

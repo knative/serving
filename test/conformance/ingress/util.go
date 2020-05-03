@@ -537,7 +537,7 @@ func createService(t *testing.T, clients *test.Clients, svc *corev1.Service) con
 	})
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
 	if err != nil {
-		t.Fatalf("Error creating Service: %v", err)
+		t.Fatal("Error creating Service:", err)
 	}
 
 	return func() {
@@ -556,7 +556,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
 	pod, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(pod)
 	if err != nil {
-		t.Fatalf("Error creating Pod: %v", err)
+		t.Fatal("Error creating Pod:", err)
 	}
 	cancel := func() {
 		err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
@@ -571,7 +571,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	svc, err = clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
 	if err != nil {
 		cancel()
-		t.Fatalf("Error creating Service: %v", err)
+		t.Fatal("Error creating Service:", err)
 	}
 
 	// Wait for the Pod to show up in the Endpoints resource.
@@ -591,7 +591,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	})
 	if waitErr != nil {
 		cancel()
-		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", waitErr)
+		t.Fatal("Error waiting for Endpoints to contain a Pod IP:", waitErr)
 	}
 
 	return func() {
@@ -623,7 +623,7 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 	test.CleanupOnInterrupt(func() { clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{}) })
 	ing, err := clients.NetworkingClient.Ingresses.Create(ing)
 	if err != nil {
-		t.Fatalf("Error creating Ingress: %v", err)
+		t.Fatal("Error creating Ingress:", err)
 	}
 
 	return ing, func() {
@@ -640,12 +640,12 @@ func CreateIngressReadyDialContext(t *testing.T, clients *test.Clients, spec v1a
 
 	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, ing.Name, v1a1test.IsIngressReady, t.Name()); err != nil {
 		cancel()
-		t.Fatalf("Error waiting for ingress state: %v", err)
+		t.Fatal("Error waiting for ingress state:", err)
 	}
 	ing, err := clients.NetworkingClient.Ingresses.Get(ing.Name, metav1.GetOptions{})
 	if err != nil {
 		cancel()
-		t.Fatalf("Error getting Ingress: %v", err)
+		t.Fatal("Error getting Ingress:", err)
 	}
 
 	// Create a dialer based on the Ingress' public load balancer.
@@ -684,12 +684,12 @@ func UpdateIngress(t *testing.T, clients *test.Clients, name string, spec v1alph
 
 	ing, err := clients.NetworkingClient.Ingresses.Get(name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error getting Ingress: %v", err)
+		t.Fatal("Error getting Ingress:", err)
 	}
 
 	ing.Spec = spec
 	if _, err := clients.NetworkingClient.Ingresses.Update(ing); err != nil {
-		t.Fatalf("Error updating Ingress: %v", err)
+		t.Fatal("Error updating Ingress:", err)
 	}
 }
 
@@ -698,7 +698,7 @@ func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v
 	UpdateIngress(t, clients, name, spec)
 
 	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
-		t.Fatalf("Error waiting for ingress state: %v", err)
+		t.Fatal("Error waiting for ingress state:", err)
 	}
 }
 
@@ -713,13 +713,13 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 	if err != nil {
-		t.Fatalf("ecdsa.GenerateKey() = %v", err)
+		t.Fatal("ecdsa.GenerateKey() =", err)
 	}
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := cryptorand.Int(cryptorand.Reader, serialNumberLimit)
 	if err != nil {
-		t.Fatalf("Failed to generate serial number: %v", err)
+		t.Fatal("Failed to generate serial number:", err)
 	}
 
 	template := x509.Certificate{
@@ -742,12 +742,12 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	derBytes, err := x509.CreateCertificate(cryptorand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		t.Fatalf("x509.CreateCertificate() = %v", err)
+		t.Fatal("x509.CreateCertificate() =", err)
 	}
 
 	cert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
-		t.Fatalf("ParseCertificate() = %v", err)
+		t.Fatal("ParseCertificate() =", err)
 	}
 	// Ideally we'd undo this in "cancel", but there doesn't
 	// seem to be a mechanism to remove things from a pool.
@@ -755,16 +755,16 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	certPEM := &bytes.Buffer{}
 	if err := pem.Encode(certPEM, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		t.Fatalf("Failed to write data to cert.pem: %s", err)
+		t.Fatal("Failed to write data to cert.pem:", err)
 	}
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		t.Fatalf("Unable to marshal private key: %v", err)
+		t.Fatal("Unable to marshal private key:", err)
 	}
 	privPEM := &bytes.Buffer{}
 	if err := pem.Encode(privPEM, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		t.Fatalf("Failed to write data to key.pem: %s", err)
+		t.Fatal("Failed to write data to key.pem:", err)
 	}
 
 	name := test.ObjectNameForTest(t)
@@ -786,7 +786,7 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 		clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
 	})
 	if _, err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Create(secret); err != nil {
-		t.Fatalf("Error creating Secret: %v", err)
+		t.Fatal("Error creating Secret:", err)
 	}
 	return name, func() {
 		err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
@@ -820,7 +820,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
 	parts := strings.SplitN(internalDomain, ".", 3)
 	if len(parts) < 3 {
-		t.Fatalf("Too few parts in internal domain: %s", internalDomain)
+		t.Fatal("Too few parts in internal domain:", internalDomain)
 	}
 	name, namespace := parts[0], parts[1]
 

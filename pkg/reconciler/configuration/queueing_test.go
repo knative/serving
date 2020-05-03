@@ -86,7 +86,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 	}()
 

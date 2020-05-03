@@ -164,7 +164,7 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
 				"revisions", i))
 		}
 	}

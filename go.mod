@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.13
+go 1.14
 
 require (
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect

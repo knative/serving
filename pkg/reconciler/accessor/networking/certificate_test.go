@@ -101,7 +101,7 @@ func TestReconcileCertificateCreate(t *testing.T) {
 	h.OnCreate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha1.Certificate)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Certificate (-want, +got): %v", diff)
+			t.Log("Unexpected Certificate (-want, +got):", diff)
 			return HookIncomplete
 		}
 		return HookComplete
@@ -134,7 +134,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	h.OnUpdate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha1.Certificate)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Certificate (-want, +got): %v", diff)
+			t.Log("Unexpected Certificate (-want, +got):", diff)
 			return HookIncomplete
 		}
 		return HookComplete
@@ -159,7 +159,7 @@ func setup(ctx context.Context, certs []*v1alpha1.Certificate,
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), certInformer.Informer())
 	if err != nil {
-		t.Fatalf("failed to start Certificate informer: %v", err)
+		t.Fatal("failed to start Certificate informer:", err)
 	}
 
 	return &FakeAccessor{

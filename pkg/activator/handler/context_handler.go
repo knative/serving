@@ -72,7 +72,7 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendError(err error, w http.ResponseWriter) {
-	msg := fmt.Sprintf("Error getting active endpoint: %v", err)
+	msg := fmt.Sprint("Error getting active endpoint: ", err)
 	if k8serrors.IsNotFound(err) {
 		http.Error(w, msg, http.StatusNotFound)
 		return

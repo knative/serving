@@ -58,6 +58,6 @@ func SetupWebhookServer() {
 
 	err := webhookConf.SetupWebhook(m, ac.ResourceMap, namespace, signals.SetupSignalHandler())
 	if err != nil {
-		log.Fatalf("Encountered error setting up Webhook: %v", err)
+		log.Fatal("Encountered error setting up Webhook: ", err)
 	}
 }
