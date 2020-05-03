@@ -118,10 +118,11 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 					digestError: err,
 				}
 			} else {
+				isServingContainer := len(rev.Spec.Containers) == 1 || len(container.Ports) != 0
 				digests <- digestData{
 					digestValue:        digest,
 					containerName:      container.Name,
-					isServingContainer: len(rev.Spec.Containers) == 1 || len(container.Ports) != 0,
+					isServingContainer: isServingContainer,
 				}
 			}
 			return nil
