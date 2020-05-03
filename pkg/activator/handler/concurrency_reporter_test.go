@@ -340,7 +340,7 @@ func TestStats(t *testing.T) {
 			// Verify we're not getting extra events.
 			select {
 			case x := <-s.statChan:
-				t.Fatalf("Extra events received: %v", x)
+				t.Fatal("Extra events received:", x)
 			case <-time.After(5 * time.Millisecond):
 				// Lookin' good.
 			}

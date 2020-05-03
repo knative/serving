@@ -116,6 +116,6 @@ func TestClusterLocalAuthorization(t *testing.T) {
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
-		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
+		t.Fatal("Failed to start endpoint of httpproxy:", err)
 	}
 }

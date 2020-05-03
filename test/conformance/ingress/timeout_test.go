@@ -101,7 +101,7 @@ func checkTimeout(t *testing.T, client *http.Client, name string, code int, init
 	resp, err := client.Get(fmt.Sprintf("http://%s.example.com?initialTimeout=%d&timeout=%d",
 		name, initial.Milliseconds(), timeout.Milliseconds()))
 	if err != nil {
-		t.Fatalf("Error making GET request: %v", err)
+		t.Fatal("Error making GET request:", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != code {

@@ -348,7 +348,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
 	if got.Time.Before(now) {
@@ -413,7 +413,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
 	if got.Time.Before(now) {

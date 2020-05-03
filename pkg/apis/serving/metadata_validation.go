@@ -140,14 +140,14 @@ func ValidateRevisionName(ctx context.Context, name, generateName string) *apis.
 	if generateName != "" {
 		if msgs := validation.NameIsDNS1035Label(generateName, true); len(msgs) > 0 {
 			return apis.ErrInvalidValue(
-				fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
+				fmt.Sprint("not a DNS 1035 label prefix: ", msgs),
 				"metadata.generateName")
 		}
 	}
 	if name != "" {
 		if msgs := validation.NameIsDNS1035Label(name, false); len(msgs) > 0 {
 			return apis.ErrInvalidValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
 				"metadata.name")
 		}
 		om := apis.ParentMeta(ctx)

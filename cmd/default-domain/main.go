@@ -180,7 +180,7 @@ func main() {
 	// If there is a catch-all domain configured, then bail out (successfully) here.
 	defaultDomain := domainConfig.LookupDomainForLabels(map[string]string{})
 	if defaultDomain != routecfg.DefaultDomain {
-		logger.Infof("Domain is configured as: %v", defaultDomain)
+		logger.Info("Domain is configured as: ", defaultDomain)
 		return
 	}
 
@@ -220,6 +220,6 @@ func main() {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 
-	logger.Infof("Updated default domain to: %s", domain)
+	logger.Info("Updated default domain to: ", domain)
 	server.Shutdown(context.Background())
 }

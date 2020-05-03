@@ -292,7 +292,7 @@ func TestNewConfig(t *testing.T) {
 			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
-			t.Logf("Error = %v", err)
+			t.Log("Error =", err)
 			if (err != nil) != test.wantErr {
 				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)
 			}

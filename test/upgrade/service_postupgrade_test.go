@@ -75,7 +75,7 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 			Percent:      ptr.Int64(100),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 }
 
@@ -105,7 +105,7 @@ func updateService(serviceName string, t *testing.T) {
 	t.Logf("Getting service %q", names.Service)
 	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Service: %v", err)
+		t.Fatal("Failed to get Service:", err)
 	}
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)

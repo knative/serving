@@ -59,7 +59,7 @@ func TestProbeLifecycle(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
 	hash, err := ingress.InsertProbe(ing)
 	if err != nil {
-		t.Fatalf("Failed to insert probe: %v", err)
+		t.Fatal("Failed to insert probe:", err)
 	}
 
 	// Simulate that the latest configuration is not applied yet by returning a different
@@ -130,7 +130,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The first call to IsReady must succeed and return false
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -152,7 +152,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The subsequent calls to IsReady must succeed and return true
 	for i := 0; i < 5; i++ {
 		if ok, err = prober.IsReady(context.Background(), ing); err != nil {
-			t.Fatalf("IsReady failed: %v", err)
+			t.Fatal("IsReady failed:", err)
 		}
 		if !ok {
 			t.Fatal("IsReady() returned false")
@@ -175,7 +175,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The state has been removed and IsReady must return False
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -276,7 +276,7 @@ func TestCancelPodProbing(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -299,7 +299,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 		ok, err = prober.IsReady(context.Background(), copy)
 		if err != nil {
-			t.Fatalf("IsReady failed: %v", err)
+			t.Fatal("IsReady failed:", err)
 		}
 		if ok {
 			t.Fatal("IsReady() returned true")
@@ -315,7 +315,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -353,7 +353,7 @@ func TestPartialPodCancellation(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
 	hash, err := ingress.InsertProbe(ing)
 	if err != nil {
-		t.Fatalf("Failed to insert probe: %v", err)
+		t.Fatal("Failed to insert probe:", err)
 	}
 
 	// Simulate a probe target returning HTTP 200 OK and the correct hash
@@ -414,7 +414,7 @@ func TestPartialPodCancellation(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -484,7 +484,7 @@ func TestCancelIngressProbing(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")
@@ -508,7 +508,7 @@ func TestCancelIngressProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatal("IsReady failed:", err)
 	}
 	if ok {
 		t.Fatal("IsReady() returned true")

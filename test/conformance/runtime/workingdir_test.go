@@ -40,7 +40,7 @@ func TestWorkingDirService(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients, withWorkingDir(wd))
 	if err != nil {
-		t.Fatalf("Failed to fetch runtime info: %v", err)
+		t.Fatal("Failed to fetch runtime info:", err)
 	}
 
 	if ri.Host.User.Cwd.Directory != wd {

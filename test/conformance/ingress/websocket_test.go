@@ -75,7 +75,7 @@ func TestWebsocket(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: domain, Path: "/"}
 	conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 	if err != nil {
-		t.Fatalf("Dial() = %v", err)
+		t.Fatal("Dial() =", err)
 	}
 	defer conn.Close()
 
@@ -142,7 +142,7 @@ func TestWebsocketSplit(t *testing.T) {
 	for i := 0; i < maxRequests; i++ {
 		conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err != nil {
-			t.Fatalf("Dial() = %v", err)
+			t.Fatal("Dial() =", err)
 		}
 		defer conn.Close()
 

@@ -40,7 +40,7 @@ func main() {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	if err := setupDNSRecord(); err != nil {
-		log.Fatalf("Failed to setup DNS record: %v", err)
+		log.Fatal("Failed to setup DNS record: ", err)
 	}
 }
 
