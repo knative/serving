@@ -3,6 +3,7 @@ module knative.dev/serving
 go 1.13
 
 require (
+	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
@@ -19,10 +20,11 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/jetstack/cert-manager v0.12.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
+	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
+	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
