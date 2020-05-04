@@ -141,6 +141,10 @@ add_trap "for deployment in controller autoscaler-hpa; do \
 
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
 wait_for_leader_controller || failed=1
+
+# Give the controller time to sync with the rest of the system components.
+sleep 30
+
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 
