@@ -83,7 +83,7 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 }
 
 func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string, origEndpoints []string) error {
-	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
+	return wait.PollImmediate(time.Second, 2*time.Minute, func() (bool, error) {
 		newEndpoints, err := getPublicEndpoints(t, clients, revision)
 		return !cmp.Equal(origEndpoints, newEndpoints), err
 	})
