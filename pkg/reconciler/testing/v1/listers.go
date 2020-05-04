@@ -17,8 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	acmev1alpha2 "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2"
-	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	istiov1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -36,8 +34,6 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	networking "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1alpha2"
-	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha2"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	fakeistioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned/fake"
 	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
@@ -51,8 +47,6 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakeistioclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
-	cmv1alpha2.AddToScheme,
-	acmev1alpha2.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
 }
 
@@ -104,11 +98,6 @@ func (l *Listers) GetServingObjects() []runtime.Object {
 
 func (l *Listers) GetIstioObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeistioclientset.AddToScheme)
-}
-
-// GetCMCertificateObjects gets a list of Cert-Manager Certificate objects.
-func (l *Listers) GetCMCertificateObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(cmv1alpha2.AddToScheme)
 }
 
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
@@ -168,21 +157,6 @@ func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
 // GetKnCertificateLister gets lister for Knative Certificate resource.
 func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
-}
-
-// GetCMCertificateLister gets lister for Cert Manager Certificate resource.
-func (l *Listers) GetCMCertificateLister() certmanagerlisters.CertificateLister {
-	return certmanagerlisters.NewCertificateLister(l.IndexerFor(&cmv1alpha2.Certificate{}))
-}
-
-// GetCMClusterIssuerLister gets lister for Cert Manager ClusterIssuer resource.
-func (l *Listers) GetCMClusterIssuerLister() certmanagerlisters.ClusterIssuerLister {
-	return certmanagerlisters.NewClusterIssuerLister(l.IndexerFor(&cmv1alpha2.ClusterIssuer{}))
-}
-
-// GetCMChallengeLister gets lister for Cert Manager Challenge resource.
-func (l *Listers) GetCMChallengeLister() acmelisters.ChallengeLister {
-	return acmelisters.NewChallengeLister(l.IndexerFor(&acmev1alpha2.Challenge{}))
 }
 
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
