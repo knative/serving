@@ -181,7 +181,7 @@ func ResourceNotOwnedMessage(kind, name string) string {
 
 // ExitCodeReason constructs the status message from an exit code
 func ExitCodeReason(exitCode int32) string {
-	return fmt.Sprintf("ExitCode%d", exitCode)
+	return fmt.Sprint("ExitCode", exitCode)
 }
 
 // RevisionContainerExitingMessage constructs the status message if a container
