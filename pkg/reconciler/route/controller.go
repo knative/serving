@@ -96,7 +96,7 @@ func newControllerWithClock(
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
@@ -130,7 +130,7 @@ func newControllerWithClock(
 	))
 
 	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

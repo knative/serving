@@ -61,12 +61,12 @@ func NewController(
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Service")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Service")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Service")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Service")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
