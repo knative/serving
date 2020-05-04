@@ -19,6 +19,7 @@ limitations under the License.
 package ha
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"testing"
@@ -93,10 +94,13 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
+	fmt.Printf("Orig endpoints: %v\n", origEndpoints)
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
-	})
+	}); err != nil {
+		t.Fatal("Failed to delete pod: ", err)
+	}
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
@@ -129,10 +133,13 @@ func TestActivatorHA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
+	fmt.Printf("Orig endpoints: %v\n", origEndpoints)
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
-	})
+	}); err != nil {
+		t.Fatal("Failed to delete pod: ", err)
+	}
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
