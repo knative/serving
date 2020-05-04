@@ -57,9 +57,8 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		nsInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 		knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterGroupVersionKind(
-				corev1.SchemeGroupVersion.WithKind("Namespace")),
-			Handler: controller.HandleAll(impl.EnqueueControllerOf),
+			FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
+			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 
 		logger.Info("Setting up ConfigMap receivers")
