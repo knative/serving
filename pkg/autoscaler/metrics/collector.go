@@ -417,6 +417,7 @@ func (dst *Stat) add(src Stat) {
 
 // average reduces the aggregate stat from `sample` pods to an averaged one over
 // `total` pods.
+// The method performs no checks on the data, i.e. that total is > 0.
 //
 // Assumption: A particular pod can stand for other pods, i.e. other pods
 // have similar concurrency and QPS.
