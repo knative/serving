@@ -44,7 +44,7 @@ var (
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
+type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
@@ -136,7 +136,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 // it already exist.
 // Map access optimized via double-checked locking.
 func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	scraper, err := c.statsScraperFactory(metric)
+	scraper, err := c.statsScraperFactory(metric, c.logger)
 	if err != nil {
 		return err
 	}

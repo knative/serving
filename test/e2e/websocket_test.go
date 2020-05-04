@@ -138,7 +138,7 @@ func TestWebSocket(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Validate the websocket connection.
@@ -170,12 +170,12 @@ func TestWebSocketViaActivator(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
@@ -238,7 +238,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service route spec: %v", err)
+		t.Fatal("Failed to update Service route spec:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -267,7 +267,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// But since Istio network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
 	if err := validateWebSocketConnection(t, clients, green); err != nil {
-		t.Fatalf("Error initializing WS connection: %v", err)
+		t.Fatal("Error initializing WS connection:", err)
 	}
 
 	// The actual test.

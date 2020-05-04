@@ -1,8 +1,9 @@
 module knative.dev/serving
 
-go 1.13
+go 1.14
 
 require (
+	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
@@ -18,10 +19,11 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/jetstack/cert-manager v0.12.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
+	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
+	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
@@ -44,9 +46,9 @@ require (
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
 	k8s.io/metrics v0.16.4
-	knative.dev/caching v0.0.0-20200428162951-987a2b12a9e8
-	knative.dev/pkg v0.0.0-20200428194351-90fc61bae7f7
-	knative.dev/test-infra v0.0.0-20200429211942-f4c4853375cf
+	knative.dev/caching v0.0.0-20200430160343-6345caf6fef6
+	knative.dev/pkg v0.0.0-20200501005942-d980c0865972
+	knative.dev/test-infra v0.0.0-20200430225942-f7c1fafc1cde
 )
 
 replace (

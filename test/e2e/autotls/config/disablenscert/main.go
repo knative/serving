@@ -37,23 +37,23 @@ var env config
 
 func main() {
 	if err := envconfig.Process("", &env); err != nil {
-		log.Fatal("Failed to process environment variable:", err)
+		log.Fatal("Failed to process environment variable: ", err)
 	}
 
 	cfg, err := sharedmain.GetConfig("", "")
 	if err != nil {
-		log.Fatal("Failed to build config:", err)
+		log.Fatal("Failed to build config: ", err)
 	}
 	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
 	if err != nil {
-		log.Fatal("Failed to create clients:", err)
+		log.Fatal("Failed to create clients: ", err)
 	}
 	whiteLists := sets.String{}
 	if env.NamespaceWithCert != "" {
 		whiteLists.Insert(env.NamespaceWithCert)
 	}
 	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
-		log.Fatal("Failed to disable namespace cert:", err)
+		log.Fatal("Failed to disable namespace cert: ", err)
 	}
 }
 

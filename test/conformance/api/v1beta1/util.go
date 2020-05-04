@@ -64,14 +64,14 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		// Check for each of the responses we expect from the base domain.
 		resp := resp
 		g.Go(func() error {
-			t.Logf("Waiting for route to update %s", baseDomain)
+			t.Log("Waiting for route to update", baseDomain)
 			return waitForExpectedResponse(t, clients, baseDomain, resp)
 		})
 	}
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
-			t.Logf("Waiting for route to update %s", s)
+			t.Log("Waiting for route to update", s)
 			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
 		})
 	}
@@ -197,7 +197,7 @@ func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, erro
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, expectedText string) error {
-	t.Logf("Checking that the endpoint vends the expected text: %s", expectedText)
+	t.Log("Checking that the endpoint vends the expected text:", expectedText)
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,

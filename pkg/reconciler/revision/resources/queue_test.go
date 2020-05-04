@@ -270,7 +270,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			}
 			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, &asConfig, &test.cc)
 			if err != nil {
-				t.Fatalf("makeQueueContainer returned error: %v", err)
+				t.Fatal("makeQueueContainer returned error:", err)
 			}
 
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
@@ -412,7 +412,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &cc)
 			if err != nil {
-				t.Fatalf("makeQueueContainer returned error: %v", err)
+				t.Fatal("makeQueueContainer returned error:", err)
 			}
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
 				Name:  "SERVING_READINESS_PROBE",

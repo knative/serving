@@ -19,6 +19,7 @@ limitations under the License.
 package ingress
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/pool"
 	"knative.dev/serving/test"
 )
 
@@ -210,20 +212,33 @@ func TestPathAndPercentageSplit(t *testing.T) {
 	defer cancel()
 
 	const (
-		total     = 100
+		total     = 1000
 		totalHalf = total / 2
 		tolerance = total * 0.15
 	)
-	got := make(map[string]float64, 2)
 	wantKeys := sets.NewString(fooName, barName)
-	for i := 0; i < total; i++ {
-		ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
-		if ri == nil {
-			return
-		}
+	resultCh := make(chan string, total)
 
-		gotH := ri.Request.Headers.Get(headerName)
-		got[gotH]++
+	wg := pool.New(8)
+
+	for i := 0; i < total; i++ {
+		wg.Go(func() error {
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
+			if ri == nil {
+				return errors.New("failed to request")
+			}
+			resultCh <- ri.Request.Headers.Get(headerName)
+			return nil
+		})
+	}
+	if err := wg.Wait(); err != nil {
+		t.Errorf("Error while sending requests: %v", err)
+	}
+	close(resultCh)
+
+	got := make(map[string]float64, len(wantKeys))
+	for r := range resultCh {
+		got[r]++
 	}
 	for k, v := range got {
 		if !wantKeys.Has(k) {

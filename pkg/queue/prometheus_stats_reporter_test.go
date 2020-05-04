@@ -194,12 +194,12 @@ func getData(t *testing.T, gv *prometheus.GaugeVec) float64 {
 		destinationPodLabel:    pod,
 	})
 	if err != nil {
-		t.Fatalf("GaugeVec.GetMetricWith() error = %v", err)
+		t.Fatal("GaugeVec.GetMetricWith() error =", err)
 	}
 
 	m := dto.Metric{}
 	if err := g.Write(&m); err != nil {
-		t.Fatalf("Gauge.Write() error = %v", err)
+		t.Fatal("Gauge.Write() error =", err)
 	}
 	return m.Gauge.GetValue()
 }

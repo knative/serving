@@ -261,7 +261,7 @@ func RevisionContainerMissingMessage(image string, message string) string {
 // RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
+	return "Container failed with: " + message
 }
 
 // ResourceNotOwnedMessage constructs the status message if ownership on the
@@ -295,7 +295,7 @@ func RevisionLastPinnedString(t time.Time) string {
 
 func (r *Revision) SetLastPinned(t time.Time) {
 	if r.ObjectMeta.Annotations == nil {
-		r.ObjectMeta.Annotations = make(map[string]string)
+		r.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
 
 	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)

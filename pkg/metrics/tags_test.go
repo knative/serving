@@ -42,7 +42,7 @@ func register(t *testing.T) func() {
 			Aggregation: view.LastValue(),
 			TagKeys:     append(CommonRevisionKeys, ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey),
 		}); err != nil {
-		t.Fatalf("Failed to register view: %v", err)
+		t.Fatal("Failed to register view:", err)
 	}
 
 	return func() {
@@ -201,7 +201,7 @@ func mustCtx(t *testing.T, f func() (context.Context, error)) context.Context {
 
 	ctx, err := f()
 	if err != nil {
-		t.Fatalf("Failed to create a new context: %v", err)
+		t.Fatal("Failed to create a new context:", err)
 	}
 	return ctx
 }

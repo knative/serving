@@ -116,7 +116,7 @@ func newControllerWithOptions(
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleMatchingControllers := cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)

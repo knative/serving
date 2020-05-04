@@ -285,8 +285,6 @@ function install_contour() {
 # Parameters: $1 - Knative Serving YAML file
 #             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving_standard() {
-  readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
-
   echo ">> Creating ${SYSTEM_NAMESPACE} namespace if it does not exist"
   kubectl get ns ${SYSTEM_NAMESPACE} || kubectl create namespace ${SYSTEM_NAMESPACE}
   if (( MESH )); then
@@ -325,9 +323,17 @@ function install_knative_serving_standard() {
   fi
 
   echo ">> Installing Cert-Manager"
+  readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
+  readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
+  echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
+  local CERT_YAML_NAME=${TMP_DIR}/${NET_CERTMANAGER_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${NET_CERTMANAGER_YAML} > ${CERT_YAML_NAME}
+  kubectl apply \
+      -f "${CERT_YAML_NAME}" || return 1
+  UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
@@ -340,14 +346,6 @@ function install_knative_serving_standard() {
 	    -f "${CORE_YAML_NAME}" \
 	    -f "${HPA_YAML_NAME}" || return 1
     UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
-
-    # ${SERVING_CERT_MANAGER_YAML} is set when calling
-    # build_knative_from_source
-    local CERT_YAML_NAME=${TMP_DIR}/${SERVING_CERT_MANAGER_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML} > ${CERT_YAML_NAME}
-    echo "Knative TLS YAML: ${CERT_YAML_NAME}"
-    kubectl apply \
-      -f "${CERT_YAML_NAME}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"

@@ -52,7 +52,7 @@ func TestEgressTraffic(t *testing.T) {
 		}))
 
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 	if service.Route.Status.URL == nil {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")

@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -283,7 +284,7 @@ func TestProbeFailFast(t *testing.T) {
 
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
-			t.Fatalf("Failed to process downward API labels: %v", err)
+			t.Fatal("Failed to process downward API labels:", err)
 		} else if preferScaledown {
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -541,7 +542,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		"ns", "testksvc", "testksvc",
 		"pod", reportingPeriod)
 	if err != nil {
-		b.Fatalf("Failed to create stats reporter: %v", err)
+		b.Fatal("Failed to create stats reporter:", err)
 	}
 	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
