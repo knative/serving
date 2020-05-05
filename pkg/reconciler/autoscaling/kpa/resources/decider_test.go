@@ -42,11 +42,11 @@ func TestMakeDecider(t *testing.T) {
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
-		want: decider(withTarget(80), withPanicThreshold(160.0), withTotal(100)),
+		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -54,7 +54,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "scale up and scale down rates",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			withScaleUpDownRates(19.84, 19.88)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.MaxScaleUpRate = 19.84
@@ -72,7 +72,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
-		want: decider(withTarget(80), withTotal(100), withPanicThreshold(160)), // PanicThreshold depends on TCC.
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -80,7 +80,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with burst capacity set",
 		pa:   pa(WithPAContainerConcurrency(120)),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192), withTargetBurstCapacity(63)),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
@@ -89,7 +89,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with activator capacity override",
 		pa:   pa(),
-		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ActivatorCapacity = 420
 			return &c
@@ -97,7 +97,7 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with burst capacity set on the annotation",
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
@@ -116,7 +116,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with higher panic target",
 		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
 		want: decider(
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10),
+			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with service name",
@@ -124,12 +124,12 @@ func TestMakeDecider(t *testing.T) {
 		svc:  "rock-solid",
 		want: decider(
 			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10.0),
+			withTarget(10.0), withPanicThreshold(4.0), withTotal(10.0),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
 	}}
 
 	for _, tc := range cases {
