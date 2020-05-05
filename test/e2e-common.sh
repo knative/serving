@@ -505,7 +505,7 @@ function test_setup() {
   echo ">> Waiting for Ingress provider to be running..."
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_ip istio-system istio-ingressgateway
+    wait_until_service_has_external_http_address istio-system istio-ingressgateway
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
@@ -513,7 +513,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=knative-external-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system knative-external-proxy
+    wait_until_service_has_external_http_address gloo-system knative-external-proxy
   fi
   if [[ -n "${KOURIER_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kourier
@@ -521,7 +521,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=kourier
     export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
     wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_ip kourier-system kourier
+    wait_until_service_has_external_http_address kourier-system kourier
   fi
   if [[ -n "${AMBASSADOR_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Ambassador
@@ -529,7 +529,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=ambassador
     export GATEWAY_NAMESPACE_OVERRIDE=ambassador
     wait_until_pods_running ambassador || return 1
-    wait_until_service_has_external_ip ambassador ambassador
+    wait_until_service_has_external_http_address ambassador ambassador
   fi
   if [[ -n "${CONTOUR_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Contour
@@ -538,7 +538,7 @@ function test_setup() {
     export GATEWAY_NAMESPACE_OVERRIDE=contour-external
     wait_until_pods_running contour-external || return 1
     wait_until_pods_running contour-internal || return 1
-    wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
+    wait_until_service_has_external_http_address "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
   fi
 
   if (( INSTALL_MONITORING )); then
