@@ -136,6 +136,8 @@ data:
     enable-scale-to-zero: "true"
 
     # Tick interval is the time between autoscaling calculations.
+    # Deprecated. Do not set. Will be removed in 0.15.
+    # TODO(vagababov): actually remove it (#7848).
     tick-interval: "2s"
 
     # Scale to zero grace period is the time an inactive revision is left
