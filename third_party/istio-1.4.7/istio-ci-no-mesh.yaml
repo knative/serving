@@ -8,6 +8,85 @@ metadata:
     istio-injection: disabled
 # PATCH #1 ends.
 ---
+# Source: istio/charts/galley/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-galley-service-account
+  namespace: istio-system
+  labels:
+    app: galley
+    chart: galley
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-local-gateway-service-account
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway-service-account
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    chart: gateways
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/pilot/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-system
+  labels:
+    app: pilot
+    chart: pilot
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/security/templates/create-custom-resources-job.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-security-post-install-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/security/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-citadel-service-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-multi
+  namespace: istio-system
+---
 # Source: istio/charts/galley/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -18,7 +97,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 data:
   validatingwebhookconfiguration.yaml: |-
@@ -30,7 +109,7 @@ data:
         app: galley
         chart: galley
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: galley
     webhooks:
       - name: pilot.validation.istio.io
@@ -158,7 +237,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 data:
   custom-resources.yaml: |-
@@ -171,7 +250,7 @@ data:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
     spec:
       peers:
       - mtls:
@@ -218,7 +297,7 @@ metadata:
     app: istio
     chart: istio
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by Mixer.
@@ -363,85 +442,6 @@ data:
   meshNetworks: |-
     networks: {}
 ---
-# Source: istio/charts/galley/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-galley-service-account
-  namespace: istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingressgateway-service-account
-  namespace: istio-system
-  labels:
-    app: istio-ingressgateway
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cluster-local-gateway-service-account
-  namespace: istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/pilot/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-security-post-install-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/security/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-multi
-  namespace: istio-system
----
 # Source: istio/charts/galley/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -451,7 +451,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
   # For reading Istio resources
 - apiGroups: [
@@ -500,7 +500,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -548,7 +548,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -572,7 +572,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -609,7 +609,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -628,7 +628,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -647,7 +647,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -666,7 +666,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -727,7 +727,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 spec:
   ports:
@@ -744,21 +744,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
+  name: cluster-local-gateway
   namespace: istio-system
   annotations:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
+    release: 1.4.7
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
+    release: 1.4.7
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
   ports:
     -
       name: status-port
@@ -774,21 +774,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cluster-local-gateway
+  name: istio-ingressgateway
   namespace: istio-system
   annotations:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
+    release: 1.4.7
+    app: istio-ingressgateway
+    istio: ingressgateway
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
-    release: RELEASE-NAME
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
+    release: 1.4.7
+    app: istio-ingressgateway
+    istio: ingressgateway
   ports:
     -
       name: status-port
@@ -810,7 +810,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: pilot
 spec:
   ports:
@@ -837,7 +837,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 spec:
   ports:
@@ -860,7 +860,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 spec:
   replicas: 1
@@ -877,7 +877,7 @@ spec:
         app: galley
         chart: galley
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -993,7 +993,7 @@ metadata:
     chart: gateways
     heritage: Helm
     istio: cluster-local-gateway
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   replicas: 2
   selector:
@@ -1011,7 +1011,7 @@ spec:
         chart: gateways
         heritage: Helm
         istio: cluster-local-gateway
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -1106,7 +1106,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
+              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"1.4.7"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -1184,7 +1184,7 @@ metadata:
     chart: gateways
     heritage: Helm
     istio: ingressgateway
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   selector:
     matchLabels:
@@ -1201,7 +1201,7 @@ spec:
         chart: gateways
         heritage: Helm
         istio: ingressgateway
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -1322,7 +1322,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {"app":"istio-ingressgateway","chart":"gateways","heritage":"Helm","istio":"ingressgateway","release":"RELEASE-NAME"}
+              {"app":"istio-ingressgateway","chart":"gateways","heritage":"Helm","istio":"ingressgateway","release":"1.4.7"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -1409,7 +1409,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: pilot
 spec:
   strategy:
@@ -1425,7 +1425,7 @@ spec:
         app: pilot
         chart: pilot
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -1538,7 +1538,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 spec:
   replicas: 1
@@ -1555,7 +1555,7 @@ spec:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
@@ -1622,7 +1622,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
@@ -1648,7 +1648,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   maxReplicas: 10
   minReplicas: 3
@@ -1675,7 +1675,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   template:
     metadata:
@@ -1684,7 +1684,7 @@ spec:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

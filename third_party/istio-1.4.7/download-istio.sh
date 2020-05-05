@@ -30,33 +30,34 @@ cd istio-${ISTIO_VERSION} || exit
 
 # Create CRDs template
 helm template --namespace=istio-system \
+  --name-template=${ISTIO_VERSION} \
   install/kubernetes/helm/istio-init \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-crds.yaml
 
 # Create a custom cluster local gateway, based on the Istio custom-gateway template.
-helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-extras.yaml \
+helm template --name-template=${ISTIO_VERSION} --namespace=istio-system install/kubernetes/helm/istio --values ../values-extras.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-knative-extras.yaml
 
 # A template with sidecar injection enabled.
-helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \
+helm template --name-template=${ISTIO_VERSION} --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-ci-mesh.yaml
 
 # A lighter template, with just pilot/gateway.
 # Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
-helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-lean.yaml \
+helm template --name-template=${ISTIO_VERSION} --namespace=istio-system install/kubernetes/helm/istio --values ../values-lean.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-ci-no-mesh.yaml
 
 # An even lighter template, with just pilot/gateway and small resource requests.
 # Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
-helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-local.yaml \
+helm template --name-template=${ISTIO_VERSION} --namespace=istio-system install/kubernetes/helm/istio --values ../values-local.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-minimal.yaml

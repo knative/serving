@@ -18,7 +18,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 spec:
 
@@ -26,29 +26,8 @@ spec:
   selector:
     matchLabels:
       app: galley
-      release: RELEASE-NAME
+      release: 1.4.7
       istio: galley
----
-# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
-spec:
-
-  minAvailable: 1
-  selector:
-    matchLabels:
-      release: RELEASE-NAME
-      app: istio-ingressgateway
-      istio: ingressgateway
 ---
 # Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
@@ -59,7 +38,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
@@ -67,33 +46,30 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
-      release: RELEASE-NAME
+      release: 1.4.7
       app: cluster-local-gateway
       istio: cluster-local-gateway
 ---
-# Source: istio/charts/mixer/templates/poddisruptionbudget.yaml
+# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  name: istio-telemetry
+  name: istio-ingressgateway
   namespace: istio-system
   labels:
-    app: telemetry
-    chart: mixer
+    chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
-    version: 1.4.7
-    istio: mixer
-    istio-mixer-type: telemetry
+    release: 1.4.7
+    app: istio-ingressgateway
+    istio: ingressgateway
 spec:
 
   minAvailable: 1
   selector:
     matchLabels:
-      app: telemetry
-      release: RELEASE-NAME
-      istio: mixer
-      istio-mixer-type: telemetry
+      release: 1.4.7
+      app: istio-ingressgateway
+      istio: ingressgateway
 ---
 # Source: istio/charts/mixer/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
@@ -105,7 +81,7 @@ metadata:
     app: policy
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     version: 1.4.7
     istio: mixer
     istio-mixer-type: policy
@@ -115,9 +91,33 @@ spec:
   selector:
     matchLabels:
       app: policy
-      release: RELEASE-NAME
+      release: 1.4.7
       istio: mixer
       istio-mixer-type: policy
+---
+# Source: istio/charts/mixer/templates/poddisruptionbudget.yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+  labels:
+    app: telemetry
+    chart: mixer
+    heritage: Helm
+    release: 1.4.7
+    version: 1.4.7
+    istio: mixer
+    istio-mixer-type: telemetry
+spec:
+
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: telemetry
+      release: 1.4.7
+      istio: mixer
+      istio-mixer-type: telemetry
 ---
 # Source: istio/charts/pilot/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
@@ -129,7 +129,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: pilot
 spec:
 
@@ -137,7 +137,7 @@ spec:
   selector:
     matchLabels:
       app: pilot
-      release: RELEASE-NAME
+      release: 1.4.7
       istio: pilot
 ---
 # Source: istio/charts/security/templates/poddisruptionbudget.yaml
@@ -150,7 +150,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 spec:
 
@@ -158,7 +158,7 @@ spec:
   selector:
     matchLabels:
       app: security
-      release: RELEASE-NAME
+      release: 1.4.7
       istio: citadel
 ---
 # Source: istio/charts/sidecarInjectorWebhook/templates/poddisruptionbudget.yaml
@@ -169,7 +169,7 @@ metadata:
   namespace: istio-system
   labels:
     app: sidecarInjectorWebhook
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 spec:
 
@@ -177,8 +177,112 @@ spec:
   selector:
     matchLabels:
       app: sidecarInjectorWebhook
-      release: RELEASE-NAME
+      release: 1.4.7
       istio: sidecar-injector
+---
+# Source: istio/charts/galley/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-galley-service-account
+  namespace: istio-system
+  labels:
+    app: galley
+    chart: galley
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-local-gateway-service-account
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway-service-account
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    chart: gateways
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/mixer/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/pilot/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-system
+  labels:
+    app: pilot
+    chart: pilot
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/security/templates/create-custom-resources-job.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-security-post-install-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/security/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-citadel-service-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: 1.4.7
+---
+# Source: istio/charts/sidecarInjectorWebhook/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-sidecar-injector-service-account
+  namespace: istio-system
+  labels:
+    app: sidecarInjectorWebhook
+    chart: sidecarInjectorWebhook
+    heritage: Helm
+    release: 1.4.7
+    istio: sidecar-injector
+---
+# Source: istio/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-multi
+  namespace: istio-system
 ---
 # Source: istio/charts/galley/templates/configmap.yaml
 apiVersion: v1
@@ -190,7 +294,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 data:
   validatingwebhookconfiguration.yaml: |-
@@ -202,7 +306,7 @@ data:
         app: galley
         chart: galley
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: galley
     webhooks:
       - name: pilot.validation.istio.io
@@ -330,7 +434,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 data:
   custom-resources.yaml: |-
@@ -343,7 +447,7 @@ data:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
     spec:
       peers:
       - mtls:
@@ -390,7 +494,7 @@ metadata:
     app: istio
     chart: istio
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by Mixer.
@@ -552,7 +656,7 @@ metadata:
     app: istio
     chart: istio
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 data:
   values: |-
@@ -714,6 +818,10 @@ data:
         - --zipkinAddress
         - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
+        # PATCH #2: Increase termination drain duration.
+        - name: TERMINATION_DRAIN_DURATION_SECONDS
+          value: "20"
+        # PATCH #2 ends.
         - --datadogAgentAddress
         - "{{ .ProxyConfig.GetTracing.GetDatadog.GetAddress }}"
       {{- end }}
@@ -818,10 +926,6 @@ data:
               fieldPath: metadata.namespace
         - name: SDS_ENABLED
           value: {{ $.Values.global.sds.enabled }}
-        # PATCH #2: Increase termination drain duration.
-        - name: TERMINATION_DRAIN_DURATION_SECONDS
-          value: "20"
-        # PATCH #2 ends.
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -1024,110 +1128,6 @@ data:
          traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     injectedAnnotations:
 ---
-# Source: istio/charts/galley/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-galley-service-account
-  namespace: istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingressgateway-service-account
-  namespace: istio-system
-  labels:
-    app: istio-ingressgateway
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cluster-local-gateway-service-account
-  namespace: istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/mixer/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-mixer-service-account
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/pilot/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-security-post-install-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/security/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/sidecarInjectorWebhook/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-sidecar-injector-service-account
-  namespace: istio-system
-  labels:
-    app: sidecarInjectorWebhook
-    chart: sidecarInjectorWebhook
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: sidecar-injector
----
-# Source: istio/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-multi
-  namespace: istio-system
----
 # Source: istio/charts/galley/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1137,7 +1137,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
   # For reading Istio resources
 - apiGroups: [
@@ -1186,7 +1186,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
@@ -1210,7 +1210,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -1258,7 +1258,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -1282,7 +1282,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -1306,7 +1306,7 @@ metadata:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 rules:
 - apiGroups: [""]
@@ -1338,7 +1338,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1357,7 +1357,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1376,7 +1376,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1395,7 +1395,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1414,7 +1414,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1433,7 +1433,7 @@ metadata:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -1495,7 +1495,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 spec:
   ports:
@@ -1518,13 +1518,13 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
   type: ClusterIP
   selector:
-    release: RELEASE-NAME
+    release: 1.4.7
     app: cluster-local-gateway
     istio: cluster-local-gateway
   ports:
@@ -1548,13 +1548,13 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
   type: LoadBalancer
   selector:
-    release: RELEASE-NAME
+    release: 1.4.7
     app: istio-ingressgateway
     istio: ingressgateway
   ports:
@@ -1572,6 +1572,32 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: istio-policy
+  namespace: istio-system
+  annotations:
+   networking.istio.io/exportTo: "*"
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: 1.4.7
+    istio: mixer
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  selector:
+    istio: mixer
+    istio-mixer-type: policy
+---
+# Source: istio/charts/mixer/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
   name: istio-telemetry
   namespace: istio-system
   annotations:
@@ -1580,7 +1606,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: mixer
 spec:
   ports:
@@ -1596,32 +1622,6 @@ spec:
     istio: mixer
     istio-mixer-type: telemetry
 ---
-# Source: istio/charts/mixer/templates/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-policy
-  namespace: istio-system
-  annotations:
-   networking.istio.io/exportTo: "*"
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: mixer
-spec:
-  ports:
-  - name: grpc-mixer
-    port: 9091
-  - name: grpc-mixer-mtls
-    port: 15004
-  - name: http-monitoring
-    port: 15014
-  selector:
-    istio: mixer
-    istio-mixer-type: policy
----
 # Source: istio/charts/pilot/templates/service.yaml
 apiVersion: v1
 kind: Service
@@ -1632,7 +1632,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: pilot
 spec:
   ports:
@@ -1659,7 +1659,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 spec:
   ports:
@@ -1682,7 +1682,7 @@ metadata:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 spec:
   ports:
@@ -1703,7 +1703,7 @@ metadata:
     app: galley
     chart: galley
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: galley
 spec:
   replicas: 1
@@ -1720,7 +1720,7 @@ spec:
         app: galley
         chart: galley
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -1835,7 +1835,7 @@ metadata:
     chart: gateways
     heritage: Helm
     istio: cluster-local-gateway
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   replicas: 2
   selector:
@@ -1853,7 +1853,7 @@ spec:
         chart: gateways
         heritage: Helm
         istio: cluster-local-gateway
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -1948,7 +1948,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
+              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"1.4.7"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -2026,7 +2026,7 @@ metadata:
     chart: gateways
     heritage: Helm
     istio: ingressgateway
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   selector:
     matchLabels:
@@ -2043,7 +2043,7 @@ spec:
         chart: gateways
         heritage: Helm
         istio: ingressgateway
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -2164,7 +2164,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {"app":"istio-ingressgateway","chart":"gateways","heritage":"Helm","istio":"ingressgateway","release":"RELEASE-NAME"}
+              {"app":"istio-ingressgateway","chart":"gateways","heritage":"Helm","istio":"ingressgateway","release":"1.4.7"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED
@@ -2244,13 +2244,187 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: istio-policy
+  namespace: istio-system
+  labels:
+    app: istio-mixer
+    chart: mixer
+    heritage: Helm
+    release: 1.4.7
+    istio: mixer
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: mixer
+      istio-mixer-type: policy
+  template:
+    metadata:
+      labels:
+        app: policy
+        chart: mixer
+        heritage: Helm
+        release: 1.4.7
+        security.istio.io/tlsMode: "istio"
+        istio: mixer
+        istio-mixer-type: policy
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
+      - name: uds-socket
+        emptyDir: {}
+      - name: policy-adapter-secret
+        secret:
+          secretName: policy-adapter-secret
+          optional: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
+      containers:
+      - name: mixer
+        image: "docker.io/istio/mixer:1.4.7"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15014
+        - containerPort: 42422
+        args:
+          - --monitoringPort=15014
+          - --address
+          - unix:///sock/mixer.socket
+          - --log_output_level=default:info
+          - --configStoreURL=mcp://istio-galley.istio-system.svc:9901
+          - --configDefaultNamespace=istio-system
+          - --useAdapterCRDs=false
+          - --useTemplateCRDs=false
+          - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GOMAXPROCS
+          value: "6"
+        resources:
+          requests:
+            cpu: 10m
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: uds-socket
+          mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      - name: istio-proxy
+        image: "docker.io/istio/proxyv2:1.4.7"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 15004
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+        args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-policy
+        - --templateFile
+        - /etc/istio/proxy/envoy_policy.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --log_output_level=default:info
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "false"
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: uds-socket
+          mountPath: /sock
+        - name: policy-adapter-secret
+          mountPath: /var/run/secrets/istio.io/policy/adapter
+          readOnly: true
+---
+# Source: istio/charts/mixer/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
     app: istio-mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: mixer
 spec:
   strategy:
@@ -2267,7 +2441,7 @@ spec:
         app: telemetry
         chart: mixer
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         security.istio.io/tlsMode: "istio"
         istio: mixer
         istio-mixer-type: telemetry
@@ -2421,180 +2595,6 @@ spec:
         - name: uds-socket
           mountPath: /sock
 ---
-# Source: istio/charts/mixer/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-policy
-  namespace: istio-system
-  labels:
-    app: istio-mixer
-    chart: mixer
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: mixer
-spec:
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  selector:
-    matchLabels:
-      istio: mixer
-      istio-mixer-type: policy
-  template:
-    metadata:
-      labels:
-        app: policy
-        chart: mixer
-        heritage: Helm
-        release: RELEASE-NAME
-        security.istio.io/tlsMode: "istio"
-        istio: mixer
-        istio-mixer-type: policy
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: istio-mixer-service-account
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-mixer-service-account
-          optional: true
-      - name: uds-socket
-        emptyDir: {}
-      - name: policy-adapter-secret
-        secret:
-          secretName: policy-adapter-secret
-          optional: true
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
-      containers:
-      - name: mixer
-        image: "docker.io/istio/mixer:1.4.7"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 15014
-        - containerPort: 42422
-        args:
-          - --monitoringPort=15014
-          - --address
-          - unix:///sock/mixer.socket
-          - --log_output_level=default:info
-          - --configStoreURL=mcp://istio-galley.istio-system.svc:9901
-          - --configDefaultNamespace=istio-system
-          - --useAdapterCRDs=false
-          - --useTemplateCRDs=false
-          - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: GOMAXPROCS
-          value: "6"
-        resources:
-          requests:
-            cpu: 10m
-        volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-        - name: uds-socket
-          mountPath: /sock
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15014
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      - name: istio-proxy
-        image: "docker.io/istio/proxyv2:1.4.7"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9091
-        - containerPort: 15004
-        - containerPort: 15090
-          protocol: TCP
-          name: http-envoy-prom
-        args:
-        - proxy
-        - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - istio-policy
-        - --templateFile
-        - /etc/istio/proxy/envoy_policy.yaml.tmpl
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --log_output_level=default:info
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-        - name: uds-socket
-          mountPath: /sock
-        - name: policy-adapter-secret
-          mountPath: /var/run/secrets/istio.io/policy/adapter
-          readOnly: true
----
 # Source: istio/charts/pilot/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -2606,7 +2606,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: pilot
 spec:
   strategy:
@@ -2622,7 +2622,7 @@ spec:
         app: pilot
         chart: pilot
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -2782,7 +2782,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: citadel
 spec:
   replicas: 1
@@ -2799,7 +2799,7 @@ spec:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
@@ -2867,7 +2867,7 @@ metadata:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     istio: sidecar-injector
 spec:
   replicas: 1
@@ -2884,7 +2884,7 @@ spec:
         app: sidecarInjectorWebhook
         chart: sidecarInjectorWebhook
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
         istio: sidecar-injector
       annotations:
         sidecar.istio.io/inject: "false"
@@ -2992,7 +2992,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
@@ -3012,20 +3012,20 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-telemetry
+  name: istio-policy
   namespace: istio-system
   labels:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
     maxReplicas: 5
     minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
-      name: istio-telemetry
+      name: istio-policy
     metrics:
     - type: Resource
       resource:
@@ -3036,20 +3036,20 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-policy
+  name: istio-telemetry
   namespace: istio-system
   labels:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
     maxReplicas: 5
     minReplicas: 1
     scaleTargetRef:
       apiVersion: apps/v1
       kind: Deployment
-      name: istio-policy
+      name: istio-telemetry
     metrics:
     - type: Resource
       resource:
@@ -3066,7 +3066,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   maxReplicas: 10
   minReplicas: 3
@@ -3084,18 +3084,21 @@ spec:
 ---
 ---
 # Source: istio/charts/mixer/templates/config.yaml
+# Configuration needed by Mixer.
+# Mixer cluster is delivered via CDS
+# Specify mixer cluster settings
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: istio-telemetry
+  name: istio-policy
   namespace: istio-system
   labels:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
-  host: istio-telemetry.istio-system.svc.cluster.local
+  host: istio-policy.istio-system.svc.cluster.local
   trafficPolicy:
     portLevelSettings:
     - port:
@@ -3112,21 +3115,18 @@ spec:
         maxRequestsPerConnection: 10000
 ---
 # Source: istio/charts/mixer/templates/config.yaml
-# Configuration needed by Mixer.
-# Mixer cluster is delivered via CDS
-# Specify mixer cluster settings
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: istio-policy
+  name: istio-telemetry
   namespace: istio-system
   labels:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
-  host: istio-policy.istio-system.svc.cluster.local
+  host: istio-telemetry.istio-system.svc.cluster.local
   trafficPolicy:
     portLevelSettings:
     - port:
@@ -3151,7 +3151,7 @@ metadata:
     app: sidecarInjectorWebhook
     chart: sidecarInjectorWebhook
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
@@ -3180,7 +3180,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   attributes:
     origin.ip:
@@ -3323,7 +3323,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   attributes:
     source.ip:
@@ -3389,7 +3389,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -3410,7 +3410,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   compiledTemplate: kubernetes
   params:
@@ -3454,7 +3454,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   actions:
   - handler: kubernetesenv
@@ -3471,7 +3471,7 @@ metadata:
     app: mixer
     chart: mixer
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -3492,7 +3492,7 @@ metadata:
     app: security
     chart: security
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   template:
     metadata:
@@ -3501,7 +3501,7 @@ spec:
         app: security
         chart: security
         heritage: Helm
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

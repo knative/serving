@@ -9,7 +9,7 @@ metadata:
     app: cluster-local-gateway
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
 ---
 # Source: istio/templates/serviceaccount.yaml
 apiVersion: v1
@@ -57,13 +57,13 @@ metadata:
   labels:
     chart: gateways
     heritage: Helm
-    release: RELEASE-NAME
+    release: 1.4.7
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
   type: ClusterIP
   selector:
-    release: RELEASE-NAME
+    release: 1.4.7
     app: cluster-local-gateway
     istio: cluster-local-gateway
   ports:
@@ -88,7 +88,7 @@ metadata:
     chart: gateways
     heritage: Helm
     istio: cluster-local-gateway
-    release: RELEASE-NAME
+    release: 1.4.7
 spec:
   replicas: 1
   selector:
@@ -106,7 +106,7 @@ spec:
         chart: gateways
         heritage: Helm
         istio: cluster-local-gateway
-        release: RELEASE-NAME
+        release: 1.4.7
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -200,7 +200,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_METAJSON_LABELS
             value: |
-              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
+              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Helm","istio":"cluster-local-gateway","release":"1.4.7"}
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           - name: SDS_ENABLED

@@ -8,6 +8,16 @@ metadata:
     istio-injection: disabled
 # PATCH #1 ends.
 ---
+# Source: istio-init/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-init-service-account
+  namespace: istio-system
+  labels:
+    app: istio-init
+    istio: init
+---
 # Source: istio-init/templates/configmap-crd-10.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -5108,16 +5118,6 @@ data:
         storage: true
 
     ---
----
-# Source: istio-init/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-init-service-account
-  namespace: istio-system
-  labels:
-    app: istio-init
-    istio: init
 ---
 # Source: istio-init/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
