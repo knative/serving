@@ -32,8 +32,8 @@ function setup_auto_tls_env_variables() {
 
   export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
 
-  local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE}
-  if [[ -z "${GATEWAY_NAMESPACE}" ]]; then
+  local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE_OVERRIDE}
+  if [[ -z "${GATEWAY_NAMESPACE_OVERRIDE}" ]]; then
     INGRESS_NAMESPACE="istio-system"
   fi
   local INGRESS_SERVICE=${GATEWAY_OVERRIDE}
