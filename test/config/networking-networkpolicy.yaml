@@ -16,7 +16,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: knative-serving-user-container-policy
-  namespace: default
+  namespace: serving-tests
 spec:
   podSelector:
     matchExpressions:
