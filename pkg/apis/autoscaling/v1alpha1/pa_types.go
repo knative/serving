@@ -69,7 +69,7 @@ const (
 	// ReachabilityReachable means the `ScaleTarget` is reachable, ie. it has an active route.
 	ReachabilityReachable ReachabilityType = "Reachable"
 
-	// ReachabilityReachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
+	// ReachabilityUnreachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
 	ReachabilityUnreachable ReachabilityType = "Unreachable"
 )
 
