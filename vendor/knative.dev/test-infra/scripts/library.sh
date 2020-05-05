@@ -219,6 +219,42 @@ function wait_until_service_has_external_ip() {
   return 1
 }
 
+# Waits until the given service has an external address (IP/hostname) that allow HTTP connections.
+# Parameters: $1 - namespace.
+#             $2 - service name.
+function wait_until_service_has_external_http_address() {
+  local ns=$1
+  local svc=$2
+  local sleep_seconds=6
+  local attempts=150
+
+  echo -n "Waiting until service $ns/$svc has an external address (IP/hostname)"
+  for attempt in $(seq 1 $attempts); do  # timeout after 15 minutes
+    local address=$(kubectl get svc $svc -n $ns -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+    if [[ -n "${address}" ]]; then
+      echo -e "Service $ns/$svc has IP $address"
+    else
+      address=$(kubectl get svc $svc -n $ns -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+      if [[ -n "${hostname}" ]]; then
+        echo -e "Service $ns/$svc has hostname $address"
+      fi
+    fi
+    if [[ -n "${address}" ]]; then
+      local status=$(curl -s -o /dev/null -w "%{http_code}" http://"${address}")
+      if [[ $status != "" && $status != "000" ]]; then
+        echo -e "$address is ready: prober observed HTTP $status"
+        return 0
+      else
+        echo -e "$address is not ready: prober observed HTTP $status"
+      fi
+    fi
+    echo -n "."
+    sleep $sleep_seconds
+  done
+  echo -e "\n\nERROR: timeout waiting for service $ns/$svc to have an external HTTP address"
+  return 1
+}
+
 # Waits for the endpoint to be routable.
 # Parameters: $1 - External ingress IP address.
 #             $2 - cluster hostname.
@@ -357,7 +393,7 @@ function create_junit_xml() {
   local failure=""
   if [[ "$3" != "" ]]; then
     # Transform newlines into HTML code.
-    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48, 
+    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48,
     # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
     # which should be obsolete once Test-infra 2.0 is in place
     local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | sed 's/&/\\u0026/' | tr -d '\n')"
