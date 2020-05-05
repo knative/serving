@@ -513,7 +513,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=knative-external-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_http_address gloo-system knative-external-proxy
+    wait_until_service_has_external_ip gloo-system knative-external-proxy
   fi
   if [[ -n "${KOURIER_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kourier
