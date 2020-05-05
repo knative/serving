@@ -280,35 +280,22 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 		return emptyStat, errNoPodsScraped
 	}
 
-	var (
-		avgConcurrency        float64
-		avgProxiedConcurrency float64
-		reqCount              float64
-		proxiedReqCount       float64
-	)
+	return computeAverages(results, sampleSizeF, frpc), nil
+}
 
-	// Process the stats from individual pods.
-	for stat := range results {
-		avgConcurrency += stat.AverageConcurrentRequests
-		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-		reqCount += stat.RequestCount
-		proxiedReqCount += stat.ProxiedRequestCount
-	}
-
-	avgConcurrency = avgConcurrency / sampleSizeF
-	avgProxiedConcurrency = avgProxiedConcurrency / sampleSizeF
-	reqCount = reqCount / sampleSizeF
-	proxiedReqCount = proxiedReqCount / sampleSizeF
-
+func computeAverages(results <-chan Stat, sample, total float64) Stat {
 	ret := Stat{
-		Time:                             time.Now(),
-		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        avgConcurrency * frpc,
-		AverageProxiedConcurrentRequests: avgProxiedConcurrency * frpc,
-		RequestCount:                     reqCount * frpc,
-		ProxiedRequestCount:              proxiedReqCount * frpc,
+		Time:    time.Now(),
+		PodName: scraperPodName,
 	}
-	return ret, nil
+
+	// Sum the stats from individual pods.
+	for stat := range results {
+		ret.add(stat)
+	}
+
+	ret.average(sample, total)
+	return ret
 }
 
 // scrapeService scrapes the metrics using service endpoint
@@ -375,49 +362,23 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	close(oldStatCh)
 	close(youngStatCh)
 
-	var (
-		avgConcurrency        float64
-		avgProxiedConcurrency float64
-		reqCount              float64
-		proxiedReqCount       float64
-	)
+	ret := Stat{
+		Time:    time.Now(),
+		PodName: scraperPodName,
+	}
 
+	// Sum the stats from individual pods.
 	oldCnt := len(oldStatCh)
 	for stat := range oldStatCh {
-		avgConcurrency += stat.AverageConcurrentRequests
-		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-		reqCount += stat.RequestCount
-		proxiedReqCount += stat.ProxiedRequestCount
+		ret.add(stat)
 	}
 	for i := oldCnt; i < sampleSize; i++ {
 		// This will always succeed, see reasoning above.
-		stat := <-youngStatCh
-		avgConcurrency += stat.AverageConcurrentRequests
-		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-		reqCount += stat.RequestCount
-		proxiedReqCount += stat.ProxiedRequestCount
+		ret.add(<-youngStatCh)
 	}
 
-	avgConcurrency = avgConcurrency / sampleSizeF
-	avgProxiedConcurrency = avgProxiedConcurrency / sampleSizeF
-	reqCount = reqCount / sampleSizeF
-	proxiedReqCount = proxiedReqCount / sampleSizeF
-
-	// Assumption: A particular pod can stand for other pods, i.e. other pods
-	// have similar concurrency and QPS.
-	//
-	// Hide the actual pods behind scraper and send only one stat for all the
-	// customer pods per scraping. The pod name is set to a unique value, i.e.
-	// scraperPodName so in autoscaler all stats are either from activator or
-	// scraper.
-	return Stat{
-		Time:                             time.Now(),
-		PodName:                          scraperPodName,
-		AverageConcurrentRequests:        avgConcurrency * frpc,
-		AverageProxiedConcurrentRequests: avgProxiedConcurrency * frpc,
-		RequestCount:                     reqCount * frpc,
-		ProxiedRequestCount:              proxiedReqCount * frpc,
-	}, nil
+	ret.average(sampleSizeF, frpc)
+	return ret, nil
 }
 
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
