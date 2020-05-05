@@ -14,7 +14,6 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-containerregistry v0.0.0-20200331213917-3d03ed9b1ca2
 	github.com/google/gofuzz v1.1.0
-	github.com/google/licenseclassifier v0.0.0-20190103191631-c2a262e3078a
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.0
