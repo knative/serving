@@ -52,6 +52,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Metric.
 	_ kmeta.OwnerRefable = (*Metric)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Metric)(nil)
 )
 
 // MetricSpec contains all values a metric collector needs to operate.

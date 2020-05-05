@@ -60,6 +60,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Ingress.
 	_ kmeta.OwnerRefable = (*Ingress)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Ingress)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -55,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*PodAutoscaler)(nil)
 )
 
 // ReachabilityType is the enumeration type for the different states of reachability

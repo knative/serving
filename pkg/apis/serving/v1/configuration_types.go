@@ -55,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Configuration)(nil)
 )
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).

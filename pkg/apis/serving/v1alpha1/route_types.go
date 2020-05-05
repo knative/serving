@@ -61,6 +61,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Route.
 	_ kmeta.OwnerRefable = (*Route)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Route)(nil)
 )
 
 // TrafficTarget holds a single entry of the routing table for a Route.

@@ -57,6 +57,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Certificate..
 	_ kmeta.OwnerRefable = (*Certificate)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Certificate)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

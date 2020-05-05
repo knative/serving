@@ -60,6 +60,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Revision.
 	_ kmeta.OwnerRefable = (*Revision)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Revision)(nil)
 )
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.

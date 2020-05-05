@@ -63,6 +63,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Service)(nil)
 )
 
 // ServiceSpec represents the configuration for the Service object.
