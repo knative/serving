@@ -193,7 +193,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger.With(zap.String("mode", "panic")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue)
 
-	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
 	a.stateMux.Lock()
 	defer a.stateMux.Unlock()
