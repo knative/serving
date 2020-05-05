@@ -126,7 +126,7 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	container := append(BuildUserContainer(rev), *queueContainer)
+	container := append(BuildUserContainers(rev), *queueContainer)
 	podSpec := BuildPodSpec(rev, container)
 
 	if autoscalerConfig.EnableGracefulScaledown {
@@ -136,23 +136,23 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	return podSpec, nil
 }
 
-// BuildUserContainer makes a container from the Revision template.
-func BuildUserContainer(rev *v1.Revision) []corev1.Container {
+// BuildUserContainers makes a container from the Revision template.
+func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 
+	var container corev1.Container
 	for i := range rev.Spec.PodSpec.Containers {
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
-			servingContainer := makeServingContainer(*rev.Spec.GetContainer(), rev)
-			containers = appendContainer(rev, containers, servingContainer)
+			container = makeServingContainer(*rev.Spec.GetContainer(), rev)
 		} else {
-			nonServingContainer := makeContainer(rev.Spec.PodSpec.Containers[i], rev)
-			containers = appendContainer(rev, containers, nonServingContainer)
+			container = makeContainer(rev.Spec.PodSpec.Containers[i], rev)
 		}
+		containers = appendContainers(rev, containers, container)
 	}
 	return containers
 }
 
-func appendContainer(rev *v1.Revision, containers []corev1.Container, container corev1.Container) []corev1.Container {
+func appendContainers(rev *v1.Revision, containers []corev1.Container, container corev1.Container) []corev1.Container {
 	updateImage(rev, &container)
 	containers = append(containers, container)
 	return containers

@@ -369,7 +369,7 @@ func appsv1deployment(opts ...deploymentOption) *appsv1.Deployment {
 }
 
 func revision(name, ns string, opts ...revisionOption) *v1.Revision {
-	revision := defaultRevision().DeepCopy()
+	revision := defaultRevision()
 	revision.ObjectMeta.Name = name
 	revision.ObjectMeta.Namespace = ns
 	for _, option := range opts {
@@ -400,7 +400,8 @@ func withOwnerReference(name string) revisionOption {
 	}
 }
 
-func withPodSpec(containers []corev1.Container) revisionOption {
+// withContainers function helps to provide a podSpec to the revision for both single and multiple containers
+func withContainers(containers []corev1.Container) revisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec = v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
@@ -446,15 +447,15 @@ func TestMakePodSpec(t *testing.T) {
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
 			}}),
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
-					ContainerPort: 8888,
-				}}
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
@@ -477,19 +478,19 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "volumes passed through",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:      "asdf",
+					MountPath: "/asdf",
+				}},
 			}}),
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
-					ContainerPort: 8888,
-				}}
-				revision.Spec.GetContainer().VolumeMounts = []corev1.VolumeMount{{
-					Name:      "asdf",
-					MountPath: "/asdf",
-				}}
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
@@ -531,7 +532,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 no owner",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -552,7 +553,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 no owner digest resolved",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -582,7 +583,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 with owner",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -605,7 +606,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with http readiness probe",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -628,7 +629,7 @@ func TestMakePodSpec(t *testing.T) {
 			container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 		}),
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -653,7 +654,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with shell readiness probe",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -674,7 +675,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with http liveness probe",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -709,7 +710,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with tcp liveness probe",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -737,7 +738,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with graceful scaledown enabled",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -764,7 +765,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "with graceful scaledown enabled for multi container",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
@@ -798,7 +799,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "busybox",
 			}}),
@@ -843,7 +844,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec for multiple containers with container data to all containers",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{
+			withContainers([]corev1.Container{
 				{
 					Name:  servingContainerName,
 					Image: "busybox",
@@ -919,7 +920,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec for multiple containers with container data only to serving containers",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{
+			withContainers([]corev1.Container{
 				{
 					Name:  servingContainerName,
 					Image: "busybox",
@@ -1012,7 +1013,7 @@ func TestMakeDeployment(t *testing.T) {
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{
+			withContainers([]corev1.Container{
 				{
 					Name:  servingContainerName,
 					Image: "busybox",
@@ -1033,7 +1034,7 @@ func TestMakeDeployment(t *testing.T) {
 	}, {
 		name: "with owner",
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "ubuntu",
 			}}),
@@ -1053,7 +1054,7 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 		rev: revision("bar", "foo",
-			withPodSpec([]corev1.Container{{
+			withContainers([]corev1.Container{{
 				Name:  servingContainerName,
 				Image: "ubuntu",
 			}}),
@@ -1110,7 +1111,7 @@ func TestMakeDeployment(t *testing.T) {
 
 func TestProgressDeadlineOverride(t *testing.T) {
 	rev := revision("bar", "foo",
-		withPodSpec([]corev1.Container{
+		withContainers([]corev1.Container{
 			{
 				Name:  servingContainerName,
 				Image: "busybox",
