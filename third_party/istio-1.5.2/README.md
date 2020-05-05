@@ -12,7 +12,7 @@ To install istio by using these manifest, you can use `istioctl` (v1.5.1 or
 later is required):
 
 ```
-istioctl manifest apply -f istio-minimal.yaml
+istioctl manifest apply -f istio-minimal-operator.yaml
 ```
 
 or `kubectl`:

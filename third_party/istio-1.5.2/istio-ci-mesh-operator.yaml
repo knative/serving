@@ -81,7 +81,7 @@ spec:
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
             # https://github.com/istio/istio/issues/22095
             - kind: Gateway
-              name: ingressgateway
+              name: istio-ingressgateway
               patches:
                 - path: spec.selector.istio
                   value:
@@ -145,7 +145,7 @@ spec:
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
             # https://github.com/istio/istio/issues/22095
             - kind: Gateway
-              name: ingressgateway
+              name: cluster-local-gateway
               patches:
                 - path: spec.selector.istio
                   value:

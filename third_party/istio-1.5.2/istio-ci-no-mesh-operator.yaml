@@ -26,6 +26,15 @@ spec:
       # The third-party-jwt is not enabled on all k8s.
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
+    pilot:
+      autoscaleMin: 3
+      autoscaleMax: 10
+      cpu:
+        targetAverageUtilization: 60
+    gateways:
+      istio-ingressgateway:
+        autoscaleMin: 2
+        autoscaleMax: 5
 
   addonComponents:
     pilot:
@@ -38,6 +47,13 @@ spec:
       - name: istio-ingressgateway
         enabled: true
         k8s:
+          resources:
+            limits:
+              cpu: 3000m
+              memory: 2048Mi
+            requests:
+              cpu: 1000m
+              memory: 1024Mi
           service:
             type: LoadBalancer
             ports:
@@ -51,7 +67,7 @@ spec:
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
             # https://github.com/istio/istio/issues/22095
             - kind: Gateway
-              name: ingressgateway
+              name: istio-ingressgateway
               patches:
                 - path: spec.selector.istio
                   value:
@@ -59,6 +75,13 @@ spec:
       - name: cluster-local-gateway
         enabled: true
         k8s:
+          resources:
+            limits:
+              cpu: 3000m
+              memory: 2048Mi
+            requests:
+              cpu: 1000m
+              memory: 1024Mi
           service:
             type: ClusterIP
             ports:
@@ -108,7 +131,7 @@ spec:
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
             # https://github.com/istio/istio/issues/22095
             - kind: Gateway
-              name: ingressgateway
+              name: cluster-local-gateway
               patches:
                 - path: spec.selector.istio
                   value:
