@@ -67,13 +67,17 @@ func DeleteDNSRecord(record *DNSRecord, svcAccountKeyFile, dnsProject, dnsZone s
 
 // ChangeDNSRecord changes the given DNS record.
 func ChangeDNSRecord(change *dns.Change, svc *dns.Service, dnsProject, dnsZone string) error {
+	chg, err := svc.Changes.Create(dnsProject, dnsZone, change).Do()
+	if err != nil {
+		return err
+	}
 	// Wait for change to be acknowledged.
 	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
-		chg, err := svc.Changes.Create(dnsProject, dnsZone, change).Do()
+		tmp, err := svc.Changes.Get(dnsProject, dnsZone, chg.Id).Do()
 		if err != nil {
 			return false, err
 		}
-		return chg.Status != "pending", nil
+		return tmp.Status != "pending", nil
 	})
 }
 

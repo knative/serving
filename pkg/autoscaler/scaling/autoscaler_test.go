@@ -421,7 +421,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		TargetValue:         targetValue,
 		TotalValue:          targetValue / targetUtilization, // For UTs presume 75% utilization
 		TargetBurstCapacity: targetBurstCapacity,
-		PanicThreshold:      2 * targetValue,
+		PanicThreshold:      2,
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		ActivatorCapacity:   activatorCapacity,
