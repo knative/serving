@@ -121,6 +121,7 @@ func UpdateExporterFromConfigMapWithOpts(opts ExporterOptions, logger *zap.Sugar
 			Component:      opts.Component,
 			ConfigMap:      configMap.Data,
 			PrometheusPort: opts.PrometheusPort,
+			Secrets:        opts.Secrets,
 		}, logger)
 	}, nil
 }
@@ -130,6 +131,7 @@ func UpdateExporterFromConfigMapWithOpts(opts ExporterOptions, logger *zap.Sugar
 // to prevent a race condition between reading the current configuration
 // and updating the current exporter.
 func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
+	// TODO(https://github.com/knative/pkg/issues/1273): check if ops.secrets is `nil` after new metrics plan lands
 	newConfig, err := createMetricsConfig(ops, logger)
 	if err != nil {
 		if getCurMetricsConfig() == nil {
@@ -141,28 +143,33 @@ func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
 		return err
 	}
 
+	// Updating the metrics config and the metrics exporters needs to be atomic to
+	// avoid using an outdated metrics config with new exporters.
+	metricsMux.Lock()
+	defer metricsMux.Unlock()
+
 	if isNewExporterRequired(newConfig) {
 		logger.Info("Flushing the existing exporter before setting up the new exporter.")
-		FlushExporter()
+		flushGivenExporter(curMetricsExporter)
 		e, err := newMetricsExporter(newConfig, logger)
 		if err != nil {
 			logger.Errorf("Failed to update a new metrics exporter based on metric config %v. error: %v", newConfig, err)
 			return err
 		}
-		existingConfig := getCurMetricsConfig()
-		setCurMetricsExporter(e)
+		existingConfig := curMetricsConfig
+		curMetricsExporter = e
 		logger.Infof("Successfully updated the metrics exporter; old config: %v; new config %v", existingConfig, newConfig)
 	}
 
-	setCurMetricsConfig(newConfig)
+	setCurMetricsConfigUnlocked(newConfig)
 	return nil
 }
 
 // isNewExporterRequired compares the non-nil newConfig against curMetricsConfig. When backend changes,
 // or stackdriver project ID changes for stackdriver backend, we need to update the metrics exporter.
-// This function is not implicitly thread-safe.
+// This function must be called with the metricsMux reader (or writer) locked.
 func isNewExporterRequired(newConfig *metricsConfig) bool {
-	cc := getCurMetricsConfig()
+	cc := curMetricsConfig
 	if cc == nil || newConfig.backendDestination != cc.backendDestination {
 		return true
 	}
@@ -177,15 +184,14 @@ func isNewExporterRequired(newConfig *metricsConfig) bool {
 }
 
 // newMetricsExporter gets a metrics exporter based on the config.
-// This function is not implicitly thread-safe.
+// This function must be called with the metricsMux reader (or writer) locked.
 func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
-	ce := getCurMetricsExporter()
 	// If there is a Prometheus Exporter server running, stop it.
 	resetCurPromSrv()
 
 	// TODO(https://github.com/knative/pkg/issues/866): Move Stackdriver and Promethus
 	// operations before stopping to an interface.
-	if se, ok := ce.(stoppable); ok {
+	if se, ok := curMetricsExporter.(stoppable); ok {
 		se.StopMetricsExporter()
 	}
 
@@ -230,6 +236,10 @@ func getCurMetricsConfig() *metricsConfig {
 func setCurMetricsConfig(c *metricsConfig) {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
+	setCurMetricsConfigUnlocked(c)
+}
+
+func setCurMetricsConfigUnlocked(c *metricsConfig) {
 	if c != nil {
 		view.SetReportingPeriod(c.reportingPeriod)
 	} else {
@@ -244,6 +254,10 @@ func setCurMetricsConfig(c *metricsConfig) {
 // Return value indicates whether the exporter is flushable or not.
 func FlushExporter() bool {
 	e := getCurMetricsExporter()
+	return flushGivenExporter(e)
+}
+
+func flushGivenExporter(e view.Exporter) bool {
 	if e == nil {
 		return false
 	}
