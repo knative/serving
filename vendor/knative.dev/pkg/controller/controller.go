@@ -96,7 +96,7 @@ func Filter(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 // cache.FilteringResourceEventHandler that filter based on the
 // schema.GroupVersionKind of the controlling resources.
 //
-// Deprecated: Use FilterControlledByGVK instead.
+// Deprecated: Use FilterControllerGVK instead.
 func FilterGroupVersionKind(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 	return FilterControllerGVK(gvk)
 }
@@ -122,7 +122,7 @@ func FilterControllerGVK(gvk schema.GroupVersionKind) func(obj interface{}) bool
 // cache.FilteringResourceEventHandler that filter based on the
 // schema.GroupKind of the controlling resources.
 //
-// Deprecated: Use FilterControlledByGK instead
+// Deprecated: Use FilterControllerGK instead
 func FilterGroupKind(gk schema.GroupKind) func(obj interface{}) bool {
 	return FilterControllerGK(gk)
 }

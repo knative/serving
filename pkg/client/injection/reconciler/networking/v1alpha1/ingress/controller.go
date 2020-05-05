@@ -29,11 +29,11 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	record "k8s.io/client-go/tools/record"
-	client "knative.dev/pkg/client/injection/kube/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
 	versionedscheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
-	injectionclient "knative.dev/serving/pkg/client/injection/client"
+	client "knative.dev/serving/pkg/client/injection/client"
 	ingress "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 )
 
@@ -56,29 +56,9 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 
 	ingressInformer := ingress.Get(ctx)
 
-	recorder := controller.GetEventRecorder(ctx)
-	if recorder == nil {
-		// Create event broadcaster
-		logger.Debug("Creating event broadcaster")
-		eventBroadcaster := record.NewBroadcaster()
-		watches := []watch.Interface{
-			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
-			eventBroadcaster.StartRecordingToSink(
-				&v1.EventSinkImpl{Interface: client.Get(ctx).CoreV1().Events("")}),
-		}
-		recorder = eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: defaultControllerAgentName})
-		go func() {
-			<-ctx.Done()
-			for _, w := range watches {
-				w.Stop()
-			}
-		}()
-	}
-
 	rec := &reconcilerImpl{
-		Client:        injectionclient.Get(ctx),
+		Client:        client.Get(ctx),
 		Lister:        ingressInformer.Lister(),
-		Recorder:      recorder,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 	}
@@ -87,6 +67,7 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	queueName := fmt.Sprintf("%s.%s", strings.ReplaceAll(t.PkgPath(), "/", "-"), t.Name())
 
 	impl := controller.NewImpl(rec, logger, queueName)
+	agentName := defaultControllerAgentName
 
 	// Pass impl to the options. Save any optional results.
 	for _, fn := range optionsFns {
@@ -97,9 +78,39 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		if opts.FinalizerName != "" {
 			rec.finalizerName = opts.FinalizerName
 		}
+		if opts.AgentName != "" {
+			agentName = opts.AgentName
+		}
 	}
 
+	rec.Recorder = createRecorder(ctx, agentName)
+
 	return impl
+}
+
+func createRecorder(ctx context.Context, agentName string) record.EventRecorder {
+	logger := logging.FromContext(ctx)
+
+	recorder := controller.GetEventRecorder(ctx)
+	if recorder == nil {
+		// Create event broadcaster
+		logger.Debug("Creating event broadcaster")
+		eventBroadcaster := record.NewBroadcaster()
+		watches := []watch.Interface{
+			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
+			eventBroadcaster.StartRecordingToSink(
+				&v1.EventSinkImpl{Interface: kubeclient.Get(ctx).CoreV1().Events("")}),
+		}
+		recorder = eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: agentName})
+		go func() {
+			<-ctx.Done()
+			for _, w := range watches {
+				w.Stop()
+			}
+		}()
+	}
+
+	return recorder
 }
 
 func init() {

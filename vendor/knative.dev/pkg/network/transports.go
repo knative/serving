@@ -19,6 +19,7 @@ package network
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -74,6 +75,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		KeepAlive: 5 * time.Second,
 		DualStack: true,
 	}
+	start := time.Now()
 	for {
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
@@ -89,7 +91,8 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		}
 		return c, nil
 	}
-	return nil, errDialTimeout
+	elapsed := time.Now().Sub(start)
+	return nil, fmt.Errorf("timed out dialing after %.2fs", elapsed.Seconds())
 }
 
 func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.RoundTripper {
