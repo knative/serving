@@ -538,7 +538,7 @@ function test_setup() {
     export GATEWAY_NAMESPACE_OVERRIDE=contour-external
     wait_until_pods_running contour-external || return 1
     wait_until_pods_running contour-internal || return 1
-    wait_until_service_has_external_http_address "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
+    wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
   fi
 
   if (( INSTALL_MONITORING )); then
