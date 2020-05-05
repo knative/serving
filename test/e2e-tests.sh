@@ -62,7 +62,11 @@ failed=0
 # Run tests serially in the mesh and https scenarios
 parallelism=""
 use_https=""
-(( MESH )) && parallelism="-parallel 1"
+if (( MESH )); then
+  parallelism="-parallel 1"
+  # This is a workaround until Istio fixes https://github.com/istio/istio/issues/23485.
+  kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
+fi
 
 if [[ "${ISTIO_VERSION}" == "1.5-latest" ]]; then
   parallelism="-parallel 1"
