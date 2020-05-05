@@ -226,3 +226,18 @@ type RevisionList struct {
 
 	Items []Revision `json:"items"`
 }
+
+// GetTypeMeta retrieves the ObjectMeta of the Revision. Implements the KRShaped interface.
+func (t *Revision) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetObjectMeta retrieves the ObjectMeta of the Revision. Implements the KRShaped interface.
+func (t *Revision) GetObjectMeta() *metav1.ObjectMeta {
+	return &t.ObjectMeta
+}
+
+// GetStatus retrieves the status of the Revision. Implements the KRShaped interface.
+func (t *Revision) GetStatus() *Status {
+	return &t.Status.Status
+}

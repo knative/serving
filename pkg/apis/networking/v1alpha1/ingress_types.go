@@ -345,3 +345,18 @@ const (
 	// IngressConditionLoadBalancerReady is set when the Ingress has a ready LoadBalancer.
 	IngressConditionLoadBalancerReady apis.ConditionType = "LoadBalancerReady"
 )
+
+// GetTypeMeta retrieves the ObjectMeta of the Ingress. Implements the KRShaped interface.
+func (t *Ingress) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetObjectMeta retrieves the ObjectMeta of the Ingress. Implements the KRShaped interface.
+func (t *Ingress) GetObjectMeta() *metav1.ObjectMeta {
+	return &t.ObjectMeta
+}
+
+// GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
+func (t *Ingress) GetStatus() *Status {
+	return &t.Status.Status
+}

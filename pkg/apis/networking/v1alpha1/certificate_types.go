@@ -119,3 +119,18 @@ type HTTP01Challenge struct {
 	// ServicePort is the port of the service to serve HTTP01 challenge requests.
 	ServicePort intstr.IntOrString `json:"servicePort,omitempty"`
 }
+
+// GetTypeMeta retrieves the ObjectMeta of the Certificate. Implements the KRShaped interface.
+func (t *Certificate) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetObjectMeta retrieves the ObjectMeta of the Certificate. Implements the KRShaped interface.
+func (t *Certificate) GetObjectMeta() *metav1.ObjectMeta {
+	return &t.ObjectMeta
+}
+
+// GetStatus retrieves the status of the Certificate. Implements the KRShaped interface.
+func (t *Certificate) GetStatus() *Status {
+	return &t.Status.Status
+}

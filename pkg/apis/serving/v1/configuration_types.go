@@ -108,3 +108,18 @@ type ConfigurationList struct {
 
 	Items []Configuration `json:"items"`
 }
+
+// GetTypeMeta retrieves the ObjectMeta of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetObjectMeta retrieves the ObjectMeta of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetObjectMeta() *metav1.ObjectMeta {
+	return &t.ObjectMeta
+}
+
+// GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetStatus() *Status {
+	return &t.Status.Status
+}
