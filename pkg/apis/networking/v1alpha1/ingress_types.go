@@ -357,6 +357,6 @@ func (t *Ingress) GetObjectMeta() *metav1.ObjectMeta {
 }
 
 // GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
-func (t *Ingress) GetStatus() *Status {
-	return &t.Status.Status
+func (t *Ingress) GetStatus() *duckv1.Status {
+	return &t.Status
 }

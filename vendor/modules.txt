@@ -1147,7 +1147,7 @@ k8s.io/utils/integer
 k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20200504165444-f7d206ca4a12
+# knative.dev/caching v0.0.0-20200505155344-08192258fa45
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1168,7 +1168,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/pkg v0.0.0-20200504180943-4a2ba059b008
+# knative.dev/pkg v0.0.0-20200505163645-1b41d4f0413d
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1280,7 +1280,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200505013344-199a8f6ecdc7
+# knative.dev/test-infra v0.0.0-20200505164144-1ba935a2f524
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff v1.0.1

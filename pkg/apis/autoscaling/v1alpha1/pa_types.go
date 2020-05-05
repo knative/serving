@@ -72,7 +72,7 @@ const (
 	// ReachabilityReachable means the `ScaleTarget` is reachable, ie. it has an active route.
 	ReachabilityReachable ReachabilityType = "Reachable"
 
-	// ReachabilityReachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
+	// ReachabilityUnreachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
 	ReachabilityUnreachable ReachabilityType = "Unreachable"
 )
 
@@ -143,4 +143,19 @@ type PodAutoscalerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PodAutoscaler `json:"items"`
+}
+
+// GetTypeMeta retrieves the ObjectMeta of the PodAutoscaler. Implements the KRShaped interface.
+func (t *PodAutoscaler) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetObjectMeta retrieves the ObjectMeta of the PodAutoscaler. Implements the KRShaped interface.
+func (t *PodAutoscaler) GetObjectMeta() *metav1.ObjectMeta {
+	return &t.ObjectMeta
+}
+
+// GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
+func (t *PodAutoscaler) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }

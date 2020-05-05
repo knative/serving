@@ -154,6 +154,6 @@ func (t *ServerlessService) GetObjectMeta() *metav1.ObjectMeta {
 }
 
 // GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
-func (t *ServerlessService) GetStatus() *Status {
+func (t *ServerlessService) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }

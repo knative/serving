@@ -235,7 +235,7 @@ function wait_until_service_has_external_http_address() {
       echo -e "Service $ns/$svc has IP $address"
     else
       address=$(kubectl get svc $svc -n $ns -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
-      if [[ -n "${hostname}" ]]; then
+      if [[ -n "${address}" ]]; then
         echo -e "Service $ns/$svc has hostname $address"
       fi
     fi

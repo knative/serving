@@ -131,6 +131,6 @@ func (t *Certificate) GetObjectMeta() *metav1.ObjectMeta {
 }
 
 // GetStatus retrieves the status of the Certificate. Implements the KRShaped interface.
-func (t *Certificate) GetStatus() *Status {
+func (t *Certificate) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
