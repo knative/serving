@@ -148,11 +148,6 @@ func (t *ServerlessService) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }
 
-// GetObjectMeta retrieves the ObjectMeta of the ServerlessService. Implements the KRShaped interface.
-func (t *ServerlessService) GetObjectMeta() *metav1.ObjectMeta {
-	return &t.ObjectMeta
-}
-
 // GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
 func (t *ServerlessService) GetStatus() *duckv1.Status {
 	return &t.Status.Status

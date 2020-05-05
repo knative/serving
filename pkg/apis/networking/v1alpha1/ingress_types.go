@@ -351,12 +351,7 @@ func (t *Ingress) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }
 
-// GetObjectMeta retrieves the ObjectMeta of the Ingress. Implements the KRShaped interface.
-func (t *Ingress) GetObjectMeta() *metav1.ObjectMeta {
-	return &t.ObjectMeta
-}
-
 // GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
 func (t *Ingress) GetStatus() *duckv1.Status {
-	return &t.Status
+	return &t.Status.Status
 }

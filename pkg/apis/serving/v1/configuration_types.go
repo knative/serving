@@ -114,12 +114,7 @@ func (t *Configuration) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }
 
-// GetObjectMeta retrieves the ObjectMeta of the Configuration. Implements the KRShaped interface.
-func (t *Configuration) GetObjectMeta() *metav1.ObjectMeta {
-	return &t.ObjectMeta
-}
-
 // GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
-func (t *Configuration) GetStatus() *Status {
+func (t *Configuration) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
