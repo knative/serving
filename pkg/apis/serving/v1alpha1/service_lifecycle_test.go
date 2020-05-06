@@ -53,6 +53,14 @@ func TestServiceDuckTypes(t *testing.T) {
 	}
 }
 
+func TestServiceGetTopLevelConditionType(t *testing.T) {
+	r := &Service{}
+	want := apis.ConditionReady
+	if got := r.GetTopLevelConditionType(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
 func TestServiceGeneration(t *testing.T) {
 	service := Service{}
 	if got, want := service.GetGeneration(), int64(0); got != want {

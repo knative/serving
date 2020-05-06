@@ -56,6 +56,14 @@ func TestRevisionDuckTypes(t *testing.T) {
 	}
 }
 
+func TestRevisionGetTopLevelConditionType(t *testing.T) {
+	r := &Revision{}
+	want := apis.ConditionReady
+	if got := r.GetTopLevelConditionType(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
 func TestIsActivationRequired(t *testing.T) {
 	cases := []struct {
 		name                 string

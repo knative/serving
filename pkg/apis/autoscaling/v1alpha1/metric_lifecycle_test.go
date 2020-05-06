@@ -48,6 +48,14 @@ func TestMetricDuckTypes(t *testing.T) {
 	}
 }
 
+func TestMetricGetTopLevelConditionType(t *testing.T) {
+	r := &Metric{}
+	want := apis.ConditionReady
+	if got := r.GetTopLevelConditionType(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
 func TestMetricIsReady(t *testing.T) {
 	cases := []struct {
 		name    string

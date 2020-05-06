@@ -45,6 +45,14 @@ func TestIngressDuckTypes(t *testing.T) {
 	}
 }
 
+func TestIngressGetTopLevelConditionType(t *testing.T) {
+	r := &Ingress{}
+	want := apis.ConditionReady
+	if got := r.GetTopLevelConditionType(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
 func TestIngressGetGroupVersionKind(t *testing.T) {
 	ci := Ingress{}
 	expected := SchemeGroupVersion.WithKind("Ingress")
