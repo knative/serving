@@ -118,3 +118,8 @@ func (t *Configuration) GetTypeMeta() *metav1.TypeMeta {
 func (t *Configuration) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
+
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Configuration) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}

@@ -1,12 +1,9 @@
 /*
 Copyright 2020 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,6 +30,8 @@ type KRShaped interface {
 	GetTypeMeta() *metav1.TypeMeta
 
 	GetStatus() *Status
+
+	GetTopLevelConditionType() apis.ConditionType
 }
 
 // Asserts KResource conformance with KRShaped
@@ -87,4 +86,14 @@ func (t *KResource) GetTypeMeta() *metav1.TypeMeta {
 // GetStatus retrieves the status of the KResource. Implements the KRShaped interface.
 func (t *KResource) GetStatus() *Status {
 	return &t.Status
+}
+
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (t *KResource) GetTopLevelConditionType() apis.ConditionType {
+	// Note: KResources are unmarshalled from existing resources. This will only work properly for resources that
+	// have already been initialized to their type.
+	if cond := t.Status.GetCondition(apis.ConditionSucceeded); cond != nil {
+		return apis.ConditionSucceeded
+	}
+	return apis.ConditionReady
 }
