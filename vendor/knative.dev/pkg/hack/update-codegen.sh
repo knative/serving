@@ -24,8 +24,6 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
-go install $(dirname $0)/../vendor/k8s.io/code-generator/cmd/deepcopy-gen
-
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
@@ -64,7 +62,7 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
-${GOPATH}/bin/deepcopy-gen --input-dirs \
+go run k8s.io/code-generator/cmd/deepcopy-gen  --input-dirs \
   $(echo \
   knative.dev/pkg/apis \
   knative.dev/pkg/tracker \
