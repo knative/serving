@@ -55,6 +55,7 @@ aliases:
   - yt3liu
 
   networking-approvers:
+  - JRBANCEL
   - markusthoemmes
   - mdemirhan
   - nak3
