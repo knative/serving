@@ -130,20 +130,31 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 	digestGrp.Wait()
 	close(digests)
+
+	digestSlice := make([]digestData, len(digests))
 	for v := range digests {
-		if v.digestError != nil {
-			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-				v1.RevisionContainerMissingMessage(
-					v.image, v.digestError.Error()))
-			return v.digestError
+		digestSlice = append(digestSlice, v)
+	}
+	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	for i, container := range rev.Spec.Containers {
+		for _, v := range digestSlice {
+			if v.digestError != nil {
+				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+					v1.RevisionContainerMissingMessage(
+						v.image, v.digestError.Error()))
+				return v.digestError
+			}
+			if container.Name != v.containerName {
+				continue
+			}
+			if v.isServingContainer {
+				rev.Status.DeprecatedImageDigest = v.digestValue
+			}
+			rev.Status.ContainerStatuses[i] = v1.ContainerStatuses{
+				Name:        v.containerName,
+				ImageDigest: v.digestValue,
+			}
 		}
-		if v.isServingContainer {
-			rev.Status.DeprecatedImageDigest = v.digestValue
-		}
-		rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
-			Name:        v.containerName,
-			ImageDigest: v.digestValue,
-		})
 	}
 	return nil
 }
