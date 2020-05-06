@@ -70,7 +70,7 @@ func (e LastPinnedParseError) Error() string {
 
 // GetContainer returns a pointer to the relevant corev1.Container field.
 // It is never nil and should be exactly the specified container if len(containers) == 1 or
-// If there are multiple containers it returns the container which has Ports
+// if there are multiple containers it returns the container which has Ports
 // as guaranteed by validation.
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	switch {

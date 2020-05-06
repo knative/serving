@@ -140,21 +140,16 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 
-	var container corev1.Container
 	for i := range rev.Spec.PodSpec.Containers {
+		var container corev1.Container
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
 			container = makeServingContainer(*rev.Spec.GetContainer(), rev)
 		} else {
 			container = makeContainer(rev.Spec.PodSpec.Containers[i], rev)
 		}
-		containers = appendContainers(rev, containers, container)
+		updateImage(rev, &container)
+		containers = append(containers, container)
 	}
-	return containers
-}
-
-func appendContainers(rev *v1.Revision, containers []corev1.Container, container corev1.Container) []corev1.Container {
-	updateImage(rev, &container)
-	containers = append(containers, container)
 	return containers
 }
 
