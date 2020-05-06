@@ -20,6 +20,7 @@ import (
 	"context"
 	"sort"
 
+	"github.com/golang/protobuf/ptypes/duration"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -176,10 +177,17 @@ func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domain
 func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
 	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
+	duration *metava.Duration := nil
+
 	for _, t := range targets {
 		if t.Percent == nil || *t.Percent == 0 {
 			continue
 		}
+
+		if duration == nil || duration.Duration.Seconds() < t.Timeout.Duration.Seconds() {
+			duration = t.Timeout.Duration
+		}
+
 
 		splits = append(splits, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
@@ -203,8 +211,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 		HTTP: &v1alpha1.HTTPIngressRuleValue{
 			Paths: []v1alpha1.HTTPIngressPath{{
 				Splits: splits,
-				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
-				// Timeout: metav1.Duration
+				Timeout: duration
 			}},
 		},
 	}

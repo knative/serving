@@ -18,9 +18,11 @@ package traffic
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
@@ -44,6 +46,7 @@ type RevisionTarget struct {
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
+	Timeout     metav1.Duration
 }
 
 // RevisionTargets is a collection of revision targets.
@@ -255,6 +258,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
+		Timeout:       metav1.Duration{rev.Spec.TimeoutSeconds * time.Second},
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -275,6 +279,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
+		Timeout:       metav1.Duration{rev.Spec.TimeoutSeconds * time.Second},
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
