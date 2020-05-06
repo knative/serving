@@ -97,70 +97,35 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	var digestGrp errgroup.Group
-	type digestData struct {
-		digestValue        string
-		containerName      string
-		isServingContainer bool
-		image              string
-		digestError        error
-	}
-
-	digests := make(chan digestData, len(rev.Spec.Containers))
-	containerIndexMap := map[string]int{}
+	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
 	for i, container := range rev.Spec.Containers {
-		containerIndexMap[container.Name] = i
 		container := container // Standard Go concurrency pattern.
+		i := i
 		digestGrp.Go(func() error {
 			digest, err := c.resolver.Resolve(container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
 				err = fmt.Errorf("failed to resolve image to digest: %w", err)
-				digests <- digestData{
-					image:       container.Image,
-					digestError: err,
-				}
+				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+					v1.RevisionContainerMissingMessage(
+						container.Image, err.Error()))
+				return err
 			} else {
-				isServingContainer := len(rev.Spec.Containers) == 1 || len(container.Ports) != 0
-				digests <- digestData{
-					digestValue:        digest,
-					containerName:      container.Name,
-					isServingContainer: isServingContainer,
+				if container.Name == "" {
+					return nil
+				}
+				if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
+					rev.Status.DeprecatedImageDigest = digest
+				}
+				rev.Status.ContainerStatuses[i] = v1.ContainerStatuses{
+					Name:        container.Name,
+					ImageDigest: digest,
 				}
 			}
 			return nil
 		})
 	}
-	digestGrp.Wait()
-	close(digests)
-
-	digestSlice := make([]digestData, 0, len(digests))
-	for v := range digests {
-		digestSlice = append(digestSlice, v)
-	}
-	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
-	for _, v := range digestSlice {
-		if v.digestError != nil {
-			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-				v1.RevisionContainerMissingMessage(
-					v.image, v.digestError.Error()))
-			return v.digestError
-		}
-		if v.containerName == "" {
-			continue
-		}
-		if v.isServingContainer {
-			rev.Status.DeprecatedImageDigest = v.digestValue
-		}
-		index, ok := containerIndexMap[v.containerName]
-		if !ok {
-			return fmt.Errorf("error sorting container statuses")
-		}
-		rev.Status.ContainerStatuses[index] = v1.ContainerStatuses{
-			Name:        v.containerName,
-			ImageDigest: v.digestValue,
-		}
-	}
-	return nil
+	return digestGrp.Wait()
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
