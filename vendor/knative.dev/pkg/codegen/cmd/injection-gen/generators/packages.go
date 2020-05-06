@@ -193,13 +193,13 @@ func extractCommentTags(t *types.Type) map[string]map[string]string {
 	return ExtractCommentTags("+", comments)
 }
 
-func extractReconcilerClassTag(tags map[string]map[string]string) (classname string, has bool) {
-	vals, has := tags["genreconciler"]
-	if !has {
-		return
+func extractReconcilerClassTag(tags map[string]map[string]string) (string, bool) {
+	vals, ok := tags["genreconciler"]
+	if !ok {
+		return "", false
 	}
-	classname, _ = vals["class"]
-	return
+	classname, has := vals["class"]
+	return classname, has
 }
 
 func isNonNamespaced(tags map[string]map[string]string) bool {
