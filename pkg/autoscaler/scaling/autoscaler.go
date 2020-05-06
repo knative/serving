@@ -47,9 +47,7 @@ type Autoscaler struct {
 	lister       corev1listers.EndpointsLister
 	reporterCtx  context.Context
 
-	// State in panic mode. Carries over multiple Scale calls. Guarded
-	// by the stateMux.
-	stateMux     sync.Mutex
+	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
 
@@ -195,8 +193,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
-	a.stateMux.Lock()
-	defer a.stateMux.Unlock()
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING.")
