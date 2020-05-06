@@ -106,7 +106,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	digests := make(chan digestData, len(rev.Spec.Containers))
-	for _, container := range rev.Spec.Containers {
+	containerIndexMap := map[string]int{}
+	for i, container := range rev.Spec.Containers {
+		containerIndexMap[container.Name] = i
 		container := container // Standard Go concurrency pattern.
 		digestGrp.Go(func() error {
 			digest, err := c.resolver.Resolve(container.Image,
@@ -136,24 +138,26 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		digestSlice = append(digestSlice, v)
 	}
 	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
-	for i, container := range rev.Spec.Containers {
-		for _, v := range digestSlice {
-			if v.digestError != nil {
-				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-					v1.RevisionContainerMissingMessage(
-						v.image, v.digestError.Error()))
-				return v.digestError
-			}
-			if container.Name != v.containerName {
-				continue
-			}
-			if v.isServingContainer {
-				rev.Status.DeprecatedImageDigest = v.digestValue
-			}
-			rev.Status.ContainerStatuses[i] = v1.ContainerStatuses{
-				Name:        v.containerName,
-				ImageDigest: v.digestValue,
-			}
+	for _, v := range digestSlice {
+		if v.digestError != nil {
+			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+				v1.RevisionContainerMissingMessage(
+					v.image, v.digestError.Error()))
+			return v.digestError
+		}
+		if v.containerName == "" {
+			continue
+		}
+		if v.isServingContainer {
+			rev.Status.DeprecatedImageDigest = v.digestValue
+		}
+		index, ok := containerIndexMap[v.containerName]
+		if !ok {
+			return fmt.Errorf("error sorting container statuses")
+		}
+		rev.Status.ContainerStatuses[index] = v1.ContainerStatuses{
+			Name:        v.containerName,
+			ImageDigest: v.digestValue,
 		}
 	}
 	return nil
