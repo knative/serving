@@ -16,13 +16,6 @@ limitations under the License.
 
 /*
 Package autoscaler calculates the number of pods necessary for the desired
-level of concurrency per pod. It operates in two modes, stable mode and panic
-mode.
-
-The stable mode is for general operation while the panic mode has, by default,
-a much shorter window and will be used to quickly scale a revision up if a
-burst of traffic comes in. As the panic window is a lot shorter, it will react
-more quickly to load. The revision will not scale down while in panic mode to
-avoid a lot of churn.
+level of concurrency per pod.
 */
 package autoscaler
