@@ -24,6 +24,11 @@ import (
 
 var confCondSet = apis.NewLivingConditionSet()
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Configuration) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }

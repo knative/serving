@@ -31,6 +31,11 @@ var condSet = apis.NewLivingConditionSet(
 	MetricConditionReady,
 )
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Metric) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 // GetGroupVersionKind implements OwnerRefable.
 func (m *Metric) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Metric")

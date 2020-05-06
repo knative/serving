@@ -35,6 +35,11 @@ var serviceCondSet = apis.NewLivingConditionSet(
 	ServiceConditionRoutesReady,
 )
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Service) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")

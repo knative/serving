@@ -28,6 +28,11 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Ingress) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")

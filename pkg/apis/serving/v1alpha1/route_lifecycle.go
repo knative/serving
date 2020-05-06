@@ -31,6 +31,11 @@ var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionIngressReady,
 )
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Route) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
 }

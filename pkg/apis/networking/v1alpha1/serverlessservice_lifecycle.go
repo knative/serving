@@ -29,6 +29,10 @@ var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
 )
 
+func (*ServerlessService) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 // GetGroupVersionKind returns the GVK for the ServerlessService.
 func (ss *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ServerlessService")

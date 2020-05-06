@@ -52,6 +52,11 @@ var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
+func (*Revision) GetTopLevelConditionType() apis.ConditionType {
+	return apis.ConditionReady
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
