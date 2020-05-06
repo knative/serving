@@ -127,6 +127,8 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
+// Scale is not thread safe in regards to panic state, but it's thread safe in
+// regards to acquiring the decider spec.
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
