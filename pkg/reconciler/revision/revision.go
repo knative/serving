@@ -133,7 +133,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	digestGrp.Wait()
 	close(digests)
 
-	digestSlice := make([]digestData, len(digests))
+	digestSlice := make([]digestData, 0, len(digests))
 	for v := range digests {
 		digestSlice = append(digestSlice, v)
 	}
