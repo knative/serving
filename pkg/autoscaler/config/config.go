@@ -237,8 +237,9 @@ func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, got %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
 	}
+
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {
-		return nil, fmt.Errorf("target-burst-capacity must be non-negative, got %f", lc.TargetBurstCapacity)
+		return nil, fmt.Errorf("target-burst-capacity must be either non-negative or -1 (for unlimited), got %f", lc.TargetBurstCapacity)
 	}
 
 	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {
