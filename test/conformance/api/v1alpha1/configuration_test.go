@@ -151,7 +151,7 @@ func checkNoKeysPresent(expected map[string]string, actual map[string]string, t 
 		}
 	}
 	if len(present) != 0 {
-		t.Logf("Unexpected keys: %v", present)
+		t.Log("Unexpected keys:", present)
 	}
 	return len(present) == 0
 }

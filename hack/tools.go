@@ -21,7 +21,6 @@ package tools
 import (
 	_ "k8s.io/code-generator"
 	_ "knative.dev/test-infra/scripts"
-	_ "knative.dev/test-infra/tools/dep-collector"
 
 	// codegen: hack/generate-knative.sh
 	_ "knative.dev/pkg/hack"
@@ -39,9 +38,6 @@ import (
 
 	// caching resource
 	_ "knative.dev/caching/config"
-
-	// Licenseclassifier
-	_ "github.com/google/licenseclassifier"
 
 	// For load testing
 	_ "github.com/tsenart/vegeta"

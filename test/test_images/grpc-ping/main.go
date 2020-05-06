@@ -63,7 +63,7 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 			return nil
 		}
 		if err != nil {
-			log.Printf("Failed to receive ping: %v", err)
+			log.Print("Failed to receive ping: ", err)
 			return err
 		}
 
@@ -74,7 +74,7 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 		log.Printf("Sending pong: %v", resp.Msg)
 		err = stream.Send(resp)
 		if err != nil {
-			log.Printf("Failed to send pong: %v", err)
+			log.Print("Failed to send pong: ", err)
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func main() {
 
 	if wantHostname, _ := strconv.ParseBool(os.Getenv("HOSTNAME")); wantHostname {
 		hostname, _ = os.Hostname()
-		log.Printf("Setting hostname in response %s", hostname)
+		log.Print("Setting hostname in response ", hostname)
 	}
 
 	g := grpc.NewServer()

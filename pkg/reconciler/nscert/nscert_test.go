@@ -75,7 +75,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
 	wf, err := controller.RunInformers(ctx.Done(), ifs...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	cancel := func() {
 		ccl()
@@ -110,12 +110,12 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		configMapWatcher.OnChange(cfg)
 	}
 	if err := configMapWatcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start config manager: %v", err)
+		t.Fatal("failed to start config manager:", err)
 	}
 
 	certEvents := make(chan *v1alpha1.Certificate)
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
+		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
 			certEvents <- obj.(*v1alpha1.Certificate)
 		}),
@@ -477,7 +477,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			ctx, ccl, ifs := SetupFakeContextWithCancel(t)
 			wf, err := controller.RunInformers(ctx.Done(), ifs...)
 			if err != nil {
-				t.Fatalf("Error starting informers: %v", err)
+				t.Fatal("Error starting informers:", err)
 			}
 			defer func() {
 				ccl()
@@ -500,7 +500,7 @@ func TestDomainConfigDomain(t *testing.T) {
 
 			cert, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
 			if err != nil {
-				t.Fatalf("Could not get certificate: %v", err)
+				t.Fatal("Could not get certificate:", err)
 			}
 			if got, want := cert.Spec.DNSNames[0], test.wantDNSName; got != want {
 				t.Errorf("DNSName[0] = %s, want %s", got, want)

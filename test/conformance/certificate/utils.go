@@ -64,7 +64,7 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 
 	cert, err := clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
-		t.Fatalf("Error creating Certificate: %v", err)
+		t.Fatal("Error creating Certificate:", err)
 	}
 
 	return cert, cleanup

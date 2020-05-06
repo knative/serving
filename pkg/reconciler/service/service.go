@@ -211,7 +211,7 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 		logger.Errorw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
+	logger.Info("Reconciling configuration diff (-desired, +observed):\n", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
@@ -260,7 +260,7 @@ func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bo
 		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
+	logger.Info("Reconciling route diff (-desired, +observed):\n", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&

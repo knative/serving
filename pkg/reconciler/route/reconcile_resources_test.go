@@ -129,21 +129,21 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 	// after reconciliation
 	beforeTimestamp, err := getLastPinnedTimestamp(t, rev)
 	if err != nil {
-		t.Fatalf("Error getting last pinned: %v", err)
+		t.Fatal("Error getting last pinned:", err)
 	}
 
 	if err = reconciler.reconcileTargetRevisions(ctx, &tc, r); err != nil {
-		t.Fatalf("Error reconciling target revisions: %v", err)
+		t.Fatal("Error reconciling target revisions:", err)
 	}
 
 	// Verify last pinned annotation is updated correctly
 	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error getting revision: %v", err)
+		t.Fatal("Error getting revision:", err)
 	}
 	afterTimestamp, err := getLastPinnedTimestamp(t, newRev)
 	if err != nil {
-		t.Fatalf("Error getting last pinned timestamps: %v", err)
+		t.Fatal("Error getting last pinned timestamps:", err)
 	}
 	if beforeTimestamp == afterTimestamp {
 		t.Fatal("The last pinned timestamp is not updated")
@@ -177,7 +177,7 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 
 	// Try reconciling target revisions for a revision that does not exist. No err should be returned
 	if err := reconciler.reconcileTargetRevisions(ctx, &tcInvalidRev, r); err != nil {
-		t.Fatalf("Error reconciling target revisions: %v", err)
+		t.Fatal("Error reconciling target revisions:", err)
 	}
 }
 

@@ -47,7 +47,7 @@ func TestMustRunAsUser(t *testing.T) {
 	// default user's working dir.
 	_, ri, err := fetchRuntimeInfo(t, clients, WithSecurityContext(securityContext), WithWorkingDir("/"))
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	if ri.Host == nil {
@@ -78,7 +78,7 @@ func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	_, ri, err := fetchRuntimeInfo(t, clients)
 
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	if ri.Host == nil {

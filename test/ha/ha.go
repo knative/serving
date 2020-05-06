@@ -83,7 +83,7 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 }
 
 func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string, origEndpoints []string) error {
-	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
+	return wait.PollImmediate(time.Second, 2*time.Minute, func() (bool, error) {
 		newEndpoints, err := getPublicEndpoints(t, clients, revision)
 		return !cmp.Equal(origEndpoints, newEndpoints), err
 	})
@@ -121,7 +121,7 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 	}
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopt...)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
@@ -132,7 +132,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 	t.Helper()
 	// Wait for the Service to be ready.
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatal("Service not ready: ", err)
+		t.Fatal("Service not ready:", err)
 	}
 	// Wait for the Service to serve the expected text.
 	if _, err := pkgTest.WaitForEndpointState(

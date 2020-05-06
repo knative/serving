@@ -57,13 +57,13 @@ func TestMinScale(t *testing.T) {
 
 	t.Log("Creating route")
 	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 
 	t.Log("Creating configuration")
 	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
@@ -88,7 +88,7 @@ func TestMinScale(t *testing.T) {
 
 	t.Log("Updating configuration")
 	if _, err := v1test.PatchConfig(t, clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
-		t.Fatalf("Failed to update Configuration: %v", err)
+		t.Fatal("Failed to update Configuration:", err)
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)

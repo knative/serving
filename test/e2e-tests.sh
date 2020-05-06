@@ -118,17 +118,44 @@ fi
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"enabledComponents":"controller,hpaautoscaler"}}'
 add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-# Delete HPA to stabilize HA tests
-kubectl -n "${SYSTEM_NAMESPACE}" delete hpa activator
-# Scale up components for HA tests
-for deployment in controller autoscaler-hpa activator; do
+
+# Save activator HPA original values for later use.
+min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
+max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
+kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
+  --type 'merge' \
+  --patch '{"spec": {"maxReplicas": '2', "minReplicas": '2'}}'
+add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
+  --type 'merge' \
+  --patch '{\"spec\": {\"maxReplicas\": '$max_replicas', \"minReplicas\": '$minReplicas'}}'" SIGKILL SIGTERM SIGQUIT
+
+for deployment in controller autoscaler-hpa; do
+  # Make sure all pods run in leader-elected mode.
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
+  # Scale up components for HA tests
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
 done
+add_trap "for deployment in controller autoscaler-hpa; do \
+  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
+  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
+
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
 wait_for_leader_controller || failed=1
+
+# Give the controller time to sync with the rest of the system components.
+sleep 30
+
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+
 kubectl get cm config-leader-election -n "${SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
+for deployment in controller autoscaler-hpa; do
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=1
+done
+kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
+  --type 'merge' \
+  --patch '{"spec": {"maxReplicas": '$max_replicas', "minReplicas": '$min_replicas'}}'
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state

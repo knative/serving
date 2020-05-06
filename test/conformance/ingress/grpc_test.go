@@ -75,7 +75,7 @@ func TestGRPC(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Dial() = %v", err)
+		t.Fatal("Dial() =", err)
 	}
 	defer conn.Close()
 	pc := ping.NewPingServiceClient(conn)
@@ -85,7 +85,7 @@ func TestGRPC(t *testing.T) {
 
 	stream, err := pc.PingStream(ctx)
 	if err != nil {
-		t.Fatalf("PingStream() = %v", err)
+		t.Fatal("PingStream() =", err)
 	}
 
 	for i := 0; i < 100; i++ {
@@ -147,7 +147,7 @@ func TestGRPCSplit(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Dial() = %v", err)
+		t.Fatal("Dial() =", err)
 	}
 	defer conn.Close()
 	pc := ping.NewPingServiceClient(conn)

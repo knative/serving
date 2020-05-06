@@ -64,7 +64,7 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		}
 		if msgs := validation.IsDNS1035Label(tt.Tag); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
 				"tag", i))
 		}
 		if idx, ok := trafficMap[tt.Tag]; ok {

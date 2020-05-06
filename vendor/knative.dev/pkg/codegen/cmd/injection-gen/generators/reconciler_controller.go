@@ -185,29 +185,9 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 
 	{{.type|lowercaseSingular}}Informer := {{.informerGet|raw}}(ctx)
 
-	recorder := {{.controllerGetEventRecorder|raw}}(ctx)
-	if recorder == nil {
-		// Create event broadcaster
-		logger.Debug("Creating event broadcaster")
-		eventBroadcaster := {{.recordNewBroadcaster|raw}}()
-		watches := []{{.watchInterface|raw}}{
-			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
-			eventBroadcaster.StartRecordingToSink(
-				&{{.typedcorev1EventSinkImpl|raw}}{Interface: {{.kubeclientGet|raw}}(ctx).CoreV1().Events("")}),
-		}
-		recorder = eventBroadcaster.NewRecorder({{.schemeScheme|raw}}, {{.corev1EventSource|raw}}{Component: defaultControllerAgentName})
-		go func() {
-			<-ctx.Done()
-			for _, w := range watches {
-				w.Stop()
-			}
-		}()
-	}
-
 	rec := &reconcilerImpl{
 		Client:  {{.clientGet|raw}}(ctx),
 		Lister:  {{.type|lowercaseSingular}}Informer.Lister(),
-		Recorder: recorder,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 		{{if .hasClass}}classValue: classValue,{{end}}
@@ -217,6 +197,7 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 	queueName := {{.fmtSprintf|raw}}("%s.%s", {{.stringsReplaceAll|raw}}(t.PkgPath(), "/", "-"), t.Name())
 
 	impl := {{.controllerNewImpl|raw}}(rec, logger, queueName)
+	agentName := defaultControllerAgentName
 
 	// Pass impl to the options. Save any optional results.
 	for _, fn := range optionsFns {
@@ -227,9 +208,39 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 		if opts.FinalizerName != "" {
 			rec.finalizerName = opts.FinalizerName
 		}
+		if opts.AgentName != "" {
+			agentName = opts.AgentName
+		}
 	}
 
+	rec.Recorder = createRecorder(ctx, agentName)
+
 	return impl
+}
+
+func createRecorder(ctx context.Context, agentName string) record.EventRecorder {
+	logger := {{.loggingFromContext|raw}}(ctx)
+
+	recorder := {{.controllerGetEventRecorder|raw}}(ctx)
+	if recorder == nil {
+		// Create event broadcaster
+		logger.Debug("Creating event broadcaster")
+		eventBroadcaster := {{.recordNewBroadcaster|raw}}()
+		watches := []{{.watchInterface|raw}}{
+			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
+			eventBroadcaster.StartRecordingToSink(
+				&{{.typedcorev1EventSinkImpl|raw}}{Interface: {{.kubeclientGet|raw}}(ctx).CoreV1().Events("")}),
+		}
+		recorder = eventBroadcaster.NewRecorder({{.schemeScheme|raw}}, {{.corev1EventSource|raw}}{Component: agentName})
+		go func() {
+			<-ctx.Done()
+			for _, w := range watches {
+				w.Stop()
+			}
+		}()
+	}
+
+	return recorder
 }
 
 func init() {

@@ -202,7 +202,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	revisions := fakerevisioninformer.Get(ctx)
 	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -254,7 +254,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	revisions := fakerevisioninformer.Get(ctx)
 	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -386,7 +386,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(),
 				revisions.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -435,7 +435,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			rt, err := throttler.getOrCreateRevisionThrottler(revID)
 			if err != nil {
-				t.Fatalf("RevisionThrottler can't be found: %v", err)
+				t.Fatal("RevisionThrottler can't be found:", err)
 			}
 
 			// Make sure our informer event has fired.
@@ -589,7 +589,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -637,7 +637,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
 	if err != nil {
-		t.Fatalf("RevisionThrottler can't be found: %v", err)
+		t.Fatal("RevisionThrottler can't be found:", err)
 	}
 
 	// Verify capacity gets updated. This is the very last thing we update
@@ -685,7 +685,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
@@ -733,7 +733,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
 	if err != nil {
-		t.Fatalf("RevisionThrottler can't be found: %v", err)
+		t.Fatal("RevisionThrottler can't be found:", err)
 	}
 
 	// Verify capacity gets updated. This is the very last thing we update

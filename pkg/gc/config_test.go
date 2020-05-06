@@ -98,7 +98,7 @@ func TestOurConfig(t *testing.T) {
 			got, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(
 				&corev1.ConfigMap{Data: tt.data})
 			if tt.fail != (err != nil) {
-				t.Fatalf("Unexpected error value: %v", err)
+				t.Fatal("Unexpected error value:", err)
 			}
 
 			if !cmp.Equal(tt.want, got) {

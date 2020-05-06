@@ -59,8 +59,10 @@ type DeciderSpec struct {
 	TargetBurstCapacity float64
 	// ActivatorCapacity is the single activator capacity, for subsetting.
 	ActivatorCapacity float64
-	// PanicThreshold is the threshold value of panic to stable concurrency
-	// ratio to transition into panic mode.
+	// PanicThreshold is the threshold at which panic mode is entered. It represents
+	// a factor of the currently observed load over the panic window over the ready
+	// pods. I.e. if this is 2, panic mode will be entered if the observed metric
+	// is twice as high as the current population can handle.
 	PanicThreshold float64
 	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration

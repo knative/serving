@@ -17,7 +17,6 @@ limitations under the License.
 package helpers
 
 import (
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -39,7 +38,6 @@ func init() {
 	// Otherwise, rerunning tests will generate the same names for the test resources, causing conflicts with
 	// already existing resources.
 	seed := time.Now().UTC().UnixNano()
-	log.Printf("Using '%d' to seed the random number generator", seed)
 	rand.Seed(seed)
 }
 

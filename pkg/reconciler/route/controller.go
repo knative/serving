@@ -96,7 +96,7 @@ func newControllerWithClock(
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
 	serviceInformer.Informer().AddEventHandler(handleControllerOf)

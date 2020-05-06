@@ -385,7 +385,7 @@ func TestScaler(t *testing.T) {
 			ctx = config.ToContext(ctx, defaultConfig())
 			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -471,7 +471,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			desiredScale, err := revisionScaler.scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -553,12 +553,12 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Resource: "deployments",
 	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Create() = %v", err)
+		t.Fatal("Create() =", err)
 	}
 
 	deployment := &appsv1.Deployment{}
 	if err := duck.FromUnstructured(u, deployment); err != nil {
-		t.Fatalf("FromUnstructured() = %v", err)
+		t.Fatal("FromUnstructured() =", err)
 	}
 	return deployment
 }

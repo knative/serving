@@ -50,7 +50,7 @@ func main() {
 	// Use the benchmark key created
 	mc, err := mako.Setup(ctx)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar

@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
 )
 
 var defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
@@ -57,7 +56,7 @@ func TestIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "split-timeout-retry-defaulting",
+		name: "split-timeout-defaulting",
 		in: &Ingress{
 			Spec: IngressSpec{
 				Rules: []IngressRule{{
@@ -92,10 +91,6 @@ func TestIngressDefaulting(t *testing.T) {
 							}},
 							// Timeout and Retries are filled in.
 							Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
-							Retries: &HTTPRetry{
-								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
-								Attempts:      networking.DefaultRetryCount,
-							},
 						}},
 					},
 				}},
@@ -161,73 +156,6 @@ func TestIngressDefaulting(t *testing.T) {
 							Timeout: &metav1.Duration{Duration: 10 * time.Second},
 							Retries: &HTTPRetry{
 								PerTryTimeout: &metav1.Duration{Duration: 10 * time.Second},
-								Attempts:      2,
-							},
-						}},
-					},
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-	}, {
-		name: "perTryTimeout-in-retry-defaulting",
-		in: &Ingress{
-			Spec: IngressSpec{
-				Rules: []IngressRule{{
-					HTTP: &HTTPIngressRuleValue{
-						Paths: []HTTPIngressPath{{
-							Splits: []IngressBackendSplit{{
-								IngressBackend: IngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								Percent: 30,
-							}, {
-								IngressBackend: IngressBackend{
-									ServiceName:      "revision-001",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								Percent: 70,
-							}},
-							Timeout: &metav1.Duration{Duration: 10 * time.Second},
-							Retries: &HTTPRetry{
-								Attempts: 2,
-							},
-						}},
-					},
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-		want: &Ingress{
-			Spec: IngressSpec{
-				Rules: []IngressRule{{
-					HTTP: &HTTPIngressRuleValue{
-						Paths: []HTTPIngressPath{{
-							Splits: []IngressBackendSplit{{
-								IngressBackend: IngressBackend{
-									ServiceName:      "revision-000",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								// Percent is kept intact.
-								Percent: 30,
-							}, {
-								IngressBackend: IngressBackend{
-									ServiceName:      "revision-001",
-									ServiceNamespace: "default",
-									ServicePort:      intstr.FromInt(8080),
-								},
-								// Percent is kept intact.
-								Percent: 70,
-							}},
-							// Timeout and Retries are kept intact.
-							Timeout: &metav1.Duration{Duration: 10 * time.Second},
-							Retries: &HTTPRetry{
-								// PerTryTimeout is filled in.
-								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
 								Attempts:      2,
 							},
 						}},

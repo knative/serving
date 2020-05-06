@@ -40,7 +40,7 @@ func main() {
 	if len(args) > 0 && args[0] == "probe" {
 		url := "http://localhost:" + port
 		if _, err := http.Get(url); err != nil {
-			log.Fatalf("Failed to probe %v", err)
+			log.Fatal("Failed to probe ", err)
 		}
 		return
 	}
@@ -48,6 +48,6 @@ func main() {
 	mux := http.NewServeMux()
 	handlers.InitHandlers(mux)
 
-	log.Printf("Server starting on port %s", port)
+	log.Print("Server starting on port ", port)
 	test.ListenAndServeGracefullyWithHandler(":"+port, mux)
 }

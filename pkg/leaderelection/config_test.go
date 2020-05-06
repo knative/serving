@@ -96,8 +96,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 func TestServingConfig(t *testing.T) {
-	actual, example := ConfigMapsFromTestFile(t, "config-leader-election",
-		"resourceLock", "leaseDuration", "renewDeadline", "retryPeriod")
+	actual, example := ConfigMapsFromTestFile(t, "config-leader-election")
 	for _, test := range []struct {
 		name string
 		data *corev1.ConfigMap
@@ -125,7 +124,7 @@ func TestServingConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cm, err := ValidateConfig(test.data)
 			if err != nil {
-				t.Fatalf("Error parsing config = %v", err)
+				t.Fatal("Error parsing config =", err)
 			}
 			if got, want := cm, test.want; !cmp.Equal(got, want) {
 				t.Errorf("Config mismatch: (-want,+got):\n%s", cmp.Diff(want, got))

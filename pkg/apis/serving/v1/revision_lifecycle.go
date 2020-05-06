@@ -181,13 +181,13 @@ func ResourceNotOwnedMessage(kind, name string) string {
 
 // ExitCodeReason constructs the status message from an exit code
 func ExitCodeReason(exitCode int32) string {
-	return fmt.Sprintf("ExitCode%d", exitCode)
+	return fmt.Sprint("ExitCode", exitCode)
 }
 
 // RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
+	return fmt.Sprint("Container failed with: ", message)
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image
