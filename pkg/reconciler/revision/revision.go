@@ -98,6 +98,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 
 	var digestGrp errgroup.Group
 	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	var failedContainerImage string
 	for i, container := range rev.Spec.Containers {
 		container := container // Standard Go concurrency pattern.
 		i := i
@@ -105,11 +106,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			digest, err := c.resolver.Resolve(container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
-				err = fmt.Errorf("failed to resolve image to digest: %w", err)
-				rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-					v1.RevisionContainerMissingMessage(
-						container.Image, err.Error()))
-				return err
+				failedContainerImage = container.Image
+				return fmt.Errorf("failed to resolve image to digest: %w", err)
 			} else {
 				if container.Name == "" {
 					return nil
@@ -125,7 +123,12 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			return nil
 		})
 	}
-	return digestGrp.Wait()
+	if err := digestGrp.Wait(); err != nil {
+		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+			v1.RevisionContainerMissingMessage(failedContainerImage, err.Error()))
+		return err
+	}
+	return nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
