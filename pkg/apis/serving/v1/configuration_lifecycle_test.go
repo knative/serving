@@ -48,9 +48,9 @@ func TestConfigurationDuckTypes(t *testing.T) {
 
 func TestConfigurationGetConditionSet(t *testing.T) {
 	r := &Configuration{}
-	want := apis.ConditionReady
-	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GotTopLevelCondition=%v, want=%v", got, want)
 	}
 }
 
