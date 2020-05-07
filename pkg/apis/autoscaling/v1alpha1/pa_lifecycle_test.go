@@ -54,7 +54,7 @@ func TestPodAutoscalerGetConditionSet(t *testing.T) {
 	r := &PodAutoscaler{}
 	want := apis.ConditionReady
 	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+		t.Errorf("GetTopLevelConditionType=%v, want=%v", got, want)
 	}
 }
 

@@ -27,7 +27,7 @@ func TestPodAutoscalerGetStatus(t *testing.T) {
 	}
 	want := &r.Status.Status
 	if got := r.GetStatus(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+		t.Errorf("GotStatus=%v, want=%v", got, want)
 	}
 }
 
@@ -37,6 +37,6 @@ func TestPodAutoscalerGetObjectMeta(t *testing.T) {
 	}
 	want := &r.TypeMeta
 	if got := r.GetTypeMeta(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+		t.Errorf("GetTypeMeta=%v, want=%v", got, want)
 	}
 }
