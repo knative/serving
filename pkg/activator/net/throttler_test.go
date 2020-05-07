@@ -281,7 +281,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -449,14 +449,14 @@ func TestThrottlerSuccesses(t *testing.T) {
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
 
-			results := tryThrottler(throttler, tryContext, tc.requests, func(string) error {
+			resultChan := throttler.try(tryContext, tc.requests, func(string) error {
 				// Simulate proxying.
 				time.Sleep(50 * time.Millisecond)
 				return nil
 			})
 			gotDests := sets.NewString()
 			for i := 0; i < tc.requests; i++ {
-				result := <-results
+				result := <-resultChan
 				gotDests.Insert(result.dest)
 			}
 
@@ -752,7 +752,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -778,14 +778,14 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	}
 }
 
-func tryThrottler(throttler *Throttler, ctx context.Context, requests int, try func(string) error) chan tryResult {
+func (t *Throttler) try(ctx context.Context, requests int, try func(string) error) chan tryResult {
 	resultChan := make(chan tryResult)
 
 	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevision})
 	for i := 0; i < requests; i++ {
 		go func() {
 			var result tryResult
-			if err := throttler.Try(ctx, func(dest string) error {
+			if err := t.Try(ctx, func(dest string) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {
