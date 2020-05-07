@@ -32,6 +32,11 @@ var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*PodAutoscaler) GetConditionSet() apis.ConditionSet {
+	return podCondSet
+}
+
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("PodAutoscaler")
 }
