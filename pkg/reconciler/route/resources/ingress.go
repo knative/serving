@@ -177,8 +177,11 @@ func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domain
 func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
 	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
-	// TODO: What should be the minimum duration?
-	var duration time.Duration = 10 * time.Millisecond
+	var (
+		// TODO: What should be the minimum duration?
+		duration    time.Duration = 10 * time.Millisecond
+		sawDuration bool          = false
+	)
 
 	for _, t := range targets {
 		if t.Percent == nil || *t.Percent == 0 {
@@ -187,6 +190,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 
 		if duration.Nanoseconds() < t.Timeout.Nanoseconds() {
 			duration = t.Timeout
+			sawDuration = true
 		}
 
 		splits = append(splits, v1alpha1.IngressBackendSplit{
@@ -205,14 +209,17 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 		})
 	}
 
+	var timeout *metav1.Duration = nil
+	if sawDuration {
+		timeout = &metav1.Duration{Duration: duration}
+	}
 	return &v1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &v1alpha1.HTTPIngressRuleValue{
 			Paths: []v1alpha1.HTTPIngressPath{{
-				Splits: splits,
-				// TODO: should this only be present if there was a non-default timeout specified?
-				Timeout: &metav1.Duration{Duration: duration},
+				Splits:  splits,
+				Timeout: timeout,
 			}},
 		},
 	}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,6 +122,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 			},
 			ServiceName: "jobim",
 			Active:      true,
+			Timeout:     10 * time.Minute,
 		}},
 	}
 
@@ -186,6 +188,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 10 * time.Minute},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -207,6 +210,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 10 * time.Minute},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
