@@ -50,8 +50,8 @@ func TestMetricDuckTypes(t *testing.T) {
 
 func TestMetricGetConditionSet(t *testing.T) {
 	r := &Metric{}
-	want := apis.ConditionReady
-	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
 		t.Errorf("GetTopLevelConditionType=%v, want=%v", got, want)
 	}
 }
