@@ -98,7 +98,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	var digestGrp errgroup.Group
-	rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	containerStatuses := make([]v1.ContainerStatuses, len(rev.Spec.Containers))
 	for i, container := range rev.Spec.Containers {
 		container := container // Standard Go concurrency pattern.
 		i := i
@@ -107,23 +107,22 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
 				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
-			} else {
-				if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
-					rev.Status.DeprecatedImageDigest = digest
-				}
-				rev.Status.ContainerStatuses[i] = v1.ContainerStatuses{
-					Name:        container.Name,
-					ImageDigest: digest,
-				}
+			}
+			if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
+				rev.Status.DeprecatedImageDigest = digest
+			}
+			containerStatuses[i] = v1.ContainerStatuses{
+				Name:        container.Name,
+				ImageDigest: digest,
 			}
 			return nil
 		})
 	}
 	if err := digestGrp.Wait(); err != nil {
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0)
 		return err
 	}
+	rev.Status.ContainerStatuses = containerStatuses
 	return nil
 }
 
