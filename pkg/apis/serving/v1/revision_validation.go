@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
