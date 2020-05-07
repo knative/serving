@@ -55,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Configuration)(nil)
 )
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
@@ -104,4 +107,14 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
+}
+
+// GetTypeMeta retrieves the ObjectMeta of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
+func (t *Configuration) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }
