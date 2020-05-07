@@ -25,8 +25,8 @@ func TestMetricGetStatus(t *testing.T) {
 	r := &Metric{
 		Status: MetricStatus{},
 	}
-	want := &r.Status.Status
-	if got := r.GetStatus(); got != want {
+
+	if got, want := r.GetStatus(), &r.Status.Status; got != want {
 		t.Errorf("GotStatus=%v, want=%v", got, want)
 	}
 }
@@ -35,8 +35,8 @@ func TestMetricGetObjectMeta(t *testing.T) {
 	r := &Metric{
 		TypeMeta: metav1.TypeMeta{},
 	}
-	want := &r.TypeMeta
-	if got := r.GetTypeMeta(); got != want {
+
+	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
 		t.Errorf("GetTypeMeta=%v, want=%v", got, want)
 	}
 }
