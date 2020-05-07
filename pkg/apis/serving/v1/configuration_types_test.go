@@ -19,7 +19,20 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
+
+func TestIsConfigurationCondition(t *testing.T) {
+	cType := apis.ConditionType("DefinitelyNotConfigurationType")
+
+	if IsConfigurationCondition(cType) {
+		t.Error("Not expected to be a configuration type")
+	}
+
+	if !IsConfigurationCondition(ConfigurationConditionReady) {
+		t.Error("Expected to be a configuration type")
+	}
+}
 
 func TestConfigurationGetStatus(t *testing.T) {
 	r := &Configuration{

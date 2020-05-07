@@ -19,7 +19,20 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
+
+func TestIsServiceCondition(t *testing.T) {
+	cType := apis.ConditionType("DefinitelyNotServiceType")
+
+	if IsServiceCondition(cType) {
+		t.Error("Not expected to be a service type")
+	}
+
+	if !IsServiceCondition(ServiceConditionReady) {
+		t.Error("Expected to be a service type")
+	}
+}
 
 func TestServiceGetStatus(t *testing.T) {
 	r := &Service{

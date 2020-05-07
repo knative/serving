@@ -19,7 +19,20 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
+
+func TestIsRouteCondition(t *testing.T) {
+	cType := apis.ConditionType("DefinitelyNotRouteType")
+
+	if IsRouteCondition(cType) {
+		t.Error("Not expected to be a route type")
+	}
+
+	if !IsRouteCondition(RouteConditionReady) {
+		t.Error("Expected to be a route type")
+	}
+}
 
 func TestRouteGetStatus(t *testing.T) {
 	r := &Route{
