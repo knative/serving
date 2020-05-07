@@ -210,7 +210,8 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 		Visibility: visibility,
 		HTTP: &v1alpha1.HTTPIngressRuleValue{
 			Paths: []v1alpha1.HTTPIngressPath{{
-				Splits:  splits,
+				Splits: splits,
+				// TODO: should this only be present if there was a non-default timeout specified?
 				Timeout: &metav1.Duration{Duration: duration},
 			}},
 		},
