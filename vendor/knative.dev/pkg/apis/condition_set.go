@@ -142,6 +142,11 @@ type conditionsImpl struct {
 	accessor ConditionsAccessor
 }
 
+// GetTopLevelConditionType is an accessor for the top-level happy condition.
+func (r ConditionSet) GetTopLevelConditionType() ConditionType {
+	return r.happy
+}
+
 // Manage creates a ConditionManager from an accessor object using the original
 // ConditionSet as a reference. Status must be a pointer to a struct.
 func (r ConditionSet) Manage(status ConditionsAccessor) ConditionManager {
