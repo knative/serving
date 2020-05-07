@@ -25,9 +25,9 @@ func TestServerlessServiceGetStatus(t *testing.T) {
 	r := &ServerlessService{
 		Status: ServerlessServiceStatus{},
 	}
-	want := &r.Status.Status
-	if got := r.GetStatus(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+
+	if got, want := r.GetStatus(), &r.Status.Status; got != want {
+		t.Errorf("GotStatus=%v, want=%v", got, want)
 	}
 }
 
@@ -35,8 +35,8 @@ func TestServerlessServiceGetObjectMeta(t *testing.T) {
 	r := &ServerlessService{
 		TypeMeta: metav1.TypeMeta{},
 	}
-	want := &r.TypeMeta
-	if got := r.GetTypeMeta(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+
+	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
+		t.Errorf("GotTypeMeta=%v, want=%v", got, want)
 	}
 }

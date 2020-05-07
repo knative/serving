@@ -47,11 +47,10 @@ func TestServerlessServiceDuckTypes(t *testing.T) {
 
 func TestServerlessServiceGetConditionSet(t *testing.T) {
 	r := &ServerlessService{}
-	want := apis.ConditionReady
-	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+	
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GotConditionSet=%v, want=%v", got, want)
 	}
-}
 
 func TestGetGroupVersionKind(t *testing.T) {
 	ss := ServerlessService{}
