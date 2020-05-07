@@ -16,7 +16,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: varlog.test.image
+  name: varlog-test-image
   namespace: default
 spec:
   template:
