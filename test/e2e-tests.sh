@@ -94,6 +94,9 @@ if (( HTTPS )); then
   turn_off_auto_tls
 fi
 
+# Reset allow-zero-initial-scale
+kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"false"}}'
+
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
 kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/

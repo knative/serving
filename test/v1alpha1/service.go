@@ -151,16 +151,13 @@ func CreateRunLatestServiceReadyWithNumPods(t pkgTest.TLegacy, clients *test.Cli
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	// If the Service name was not specified, populate it
-	if names.Service == "" {
-		names.Service = svc.Name
-	}
-
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, numPods)
+	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service)
 	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (b bool, e error) {
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service),
+			LabelSelector: selector,
+			FieldSelector: "status.phase=Running",
 		})
 		if err != nil {
 			return false, err
