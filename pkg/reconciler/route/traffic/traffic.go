@@ -46,7 +46,7 @@ type RevisionTarget struct {
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
-	Timeout     metav1.Duration
+	Timeout     time.Duration
 }
 
 // RevisionTargets is a collection of revision targets.
