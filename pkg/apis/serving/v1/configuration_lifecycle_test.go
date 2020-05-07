@@ -46,10 +46,10 @@ func TestConfigurationDuckTypes(t *testing.T) {
 	}
 }
 
-func TestConfigurationGetTopLevelConditionType(t *testing.T) {
+func TestConfigurationGetConditionSet(t *testing.T) {
 	r := &Configuration{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

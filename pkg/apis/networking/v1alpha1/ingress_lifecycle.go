@@ -28,9 +28,9 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
-// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
-func (*Ingress) GetTopLevelConditionType() apis.ConditionType {
-	return apis.ConditionReady
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Ingress) GetConditionSet() apis.ConditionSet {
+	return ingressCondSet
 }
 
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress

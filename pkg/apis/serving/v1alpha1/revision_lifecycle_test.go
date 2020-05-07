@@ -56,10 +56,10 @@ func TestRevisionDuckTypes(t *testing.T) {
 	}
 }
 
-func TestRevisionGetTopLevelConditionType(t *testing.T) {
+func TestRevisionGetConditionSet(t *testing.T) {
 	r := &Revision{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

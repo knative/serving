@@ -46,10 +46,10 @@ func TestRouteDuckTypes(t *testing.T) {
 	}
 }
 
-func TestRouteGetTopLevelConditionType(t *testing.T) {
+func TestRouteGetConditionSet(t *testing.T) {
 	r := &Route{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

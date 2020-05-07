@@ -45,10 +45,10 @@ func TestIngressDuckTypes(t *testing.T) {
 	}
 }
 
-func TestIngressGetTopLevelConditionType(t *testing.T) {
+func TestIngressGetConditionSet(t *testing.T) {
 	r := &Ingress{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

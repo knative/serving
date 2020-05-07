@@ -32,9 +32,9 @@ var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
 
-// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
-func (*PodAutoscaler) GetTopLevelConditionType() apis.ConditionType {
-	return apis.ConditionReady
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*PodAutoscaler) GetConditionSet() apis.ConditionSet {
+	return podCondSet
 }
 
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {

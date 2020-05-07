@@ -29,8 +29,9 @@ var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
 )
 
-func (*ServerlessService) GetTopLevelConditionType() apis.ConditionType {
-	return apis.ConditionReady
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*ServerlessService) GetConditionSet() apis.ConditionSet {
+	return serverlessServiceCondSet
 }
 
 // GetGroupVersionKind returns the GVK for the ServerlessService.

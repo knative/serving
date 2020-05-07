@@ -45,10 +45,10 @@ func TestCertificateDuckTypes(t *testing.T) {
 	}
 }
 
-func TestCertificateGetTopLevelConditionType(t *testing.T) {
+func TestCertificateGetConditionSet(t *testing.T) {
 	r := &Certificate{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

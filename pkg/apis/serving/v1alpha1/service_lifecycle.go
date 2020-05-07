@@ -30,9 +30,9 @@ var serviceCondSet = apis.NewLivingConditionSet(
 	ServiceConditionRoutesReady,
 )
 
-// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
-func (*Service) GetTopLevelConditionType() apis.ConditionType {
-	return apis.ConditionReady
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Service) GetConditionSet() apis.ConditionSet {
+	return serviceCondSet
 }
 
 // GetGroupVersionKind returns the GetGroupVersionKind.

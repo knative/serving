@@ -45,10 +45,10 @@ func TestServerlessServiceDuckTypes(t *testing.T) {
 	}
 }
 
-func TestServerlessServiceGetTopLevelConditionType(t *testing.T) {
+func TestServerlessServiceGetConditionSet(t *testing.T) {
 	r := &ServerlessService{}
 	want := apis.ConditionReady
-	if got := r.GetTopLevelConditionType(); got != want {
+	if got := r.GetConditionSet().GetTopLevelConditionType(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }
