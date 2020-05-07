@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -105,7 +106,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			digest, err := c.resolver.Resolve(container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
-				return fmt.Errorf(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
+				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
 			} else {
 				if container.Name == "" {
 					return nil
