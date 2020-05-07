@@ -108,9 +108,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 			if err != nil {
 				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
 			} else {
-				if container.Name == "" {
-					return nil
-				}
 				if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
 					rev.Status.DeprecatedImageDigest = digest
 				}
@@ -124,6 +121,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 	if err := digestGrp.Wait(); err != nil {
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0)
 		return err
 	}
 	return nil
