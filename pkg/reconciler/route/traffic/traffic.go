@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
@@ -258,7 +257,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
-		Timeout:       metav1.Duration{rev.Spec.TimeoutSeconds * time.Second},
+		Timeout:       time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second)),
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -279,7 +278,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
-		Timeout:       metav1.Duration{rev.Spec.TimeoutSeconds * time.Second},
+		Timeout:       time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second)),
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
