@@ -23,10 +23,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
@@ -68,6 +70,16 @@ type dests struct {
 
 func (d dests) becameNonReady(prev dests) sets.String {
 	return prev.ready.Intersection(d.notReady)
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler interface.
+// This permits logging dests as Fields and permits evaluation of the
+// string lazily only if we need to log, vs always if it's passed as a formatter
+// string argument.
+func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("ready", strings.Join(d.ready.UnsortedList(), ","))
+	enc.AddString("notReady", strings.Join(d.notReady.UnsortedList(), ","))
+	return nil
 }
 
 const (
@@ -118,7 +130,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		destsCh:         destsCh,
 		serviceLister:   serviceLister,
 		podsAddressable: true, // By default we presume we can talk to pods directly.
-		logger:          logger.With(zap.String(logkey.Key, rev.String())),
+		logger:          logger.With(zap.Object(logkey.Key, logging.NamespacedName(rev))),
 	}
 }
 
@@ -259,7 +271,8 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// so they have to be re-probed.
 		reprobe := curDests.becameNonReady(prevDests)
 		if len(reprobe) > 0 {
-			rw.logger.Infof("Need to reprobe pods who became non-ready: %+v", reprobe)
+			rw.logger.Infow("Need to reprobe pods who became non-ready",
+				zap.Object("repobeIPs", logging.StringSet(reprobe)))
 			// Trim the pods that migrated to the non-ready set from the
 			// ready set from the healthy pods. They will automatically
 			// probed below.
@@ -272,7 +285,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// precise load balancing in the throttler.
 		hs, noop, err := rw.probePodIPs(curDests.ready.Union(curDests.notReady))
 		if err != nil {
-			rw.logger.With(zap.Error(err)).Warnf("Failed probing: %+v", curDests)
+			rw.logger.Warnw("Failed probing pods", zap.Object("curDests", curDests), zap.Error(err))
 			// We dont want to return here as an error still affects health states.
 		}
 
@@ -332,8 +345,9 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		// If we have at least one pod and either there are pods that have not been
 		// successfully probed or clusterIP has not been probed (no pod addressability),
 		// then we want to probe on timer.
-		rw.logger.Debugf("Dests: %+v, healthy dests: %+v, clusterIP: %v",
-			curDests, rw.healthyPods, rw.clusterIPHealthy)
+		rw.logger.Debugw("Revision state", zap.Object("dests", curDests),
+			zap.Object("healthy", logging.StringSet(rw.healthyPods)),
+			zap.Bool("clusterIPHealthy", rw.clusterIPHealthy))
 		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.clusterIPHealthy ||
 			curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
 			rw.logger.Debug("Probing on timer")
@@ -468,13 +482,13 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	}
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
-	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
+	logger := rbm.logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
 
 	logger.Debugf("Endpoints updated: %#v", newObj)
 
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
-		logger.With(zap.Error(err)).Error("Failed to get revision watcher")
+		logger.Errorw("Failed to get revision watcher", zap.Error(err))
 		return
 	}
 	ready, notReady := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
@@ -504,9 +518,8 @@ func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
 	}
 	ep := obj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: ep.Namespace, Name: ep.Labels[serving.RevisionLabelKey]}
-	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
 
-	logger.Debug("Deleting endpoint")
+	rbm.logger.Debugw("Deleting endpoint", zap.Object(logkey.Key, logging.NamespacedName(revID)))
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 	rbm.deleteRevisionWatcher(revID)
