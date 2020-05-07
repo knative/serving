@@ -41,9 +41,10 @@ var (
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
-func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
+func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.FieldError {
+	allowZeroInitialScale := config.FromContextOrDefaults(ctx).Autoscaler.AllowZeroInitialScale
 	return apis.ValidateObjectMetadata(meta).
-		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).
+		Also(autoscaling.ValidateAnnotations(allowZeroInitialScale, meta.GetAnnotations()).
 			Also(validateKnativeAnnotations(meta.GetAnnotations())).
 			ViaField("annotations"))
 }
