@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-// KRShaped is an interface for retrieving the duck elements of an arbitraty resource.
+// KRShaped is an interface for retrieving the duck elements of an arbitrary resource.
 type KRShaped interface {
 	metav1.ObjectMetaAccessor
 
@@ -34,7 +34,7 @@ type KRShaped interface {
 
 	GetStatus() *Status
 
-	GetTopLevelConditionType() apis.ConditionType
+	GetConditionSet() apis.ConditionSet
 }
 
 // Asserts KResource conformance with KRShaped
@@ -91,12 +91,12 @@ func (t *KResource) GetStatus() *Status {
 	return &t.Status
 }
 
-// GetTopLevelConditionType retrieves the happy condition of this resource. Implements the KRShaped interface.
-func (t *KResource) GetTopLevelConditionType() apis.ConditionType {
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (t *KResource) GetConditionSet() apis.ConditionSet {
 	// Note: KResources are unmarshalled from existing resources. This will only work properly for resources that
 	// have already been initialized to their type.
 	if cond := t.Status.GetCondition(apis.ConditionSucceeded); cond != nil {
-		return apis.ConditionSucceeded
+		return apis.NewBatchConditionSet()
 	}
-	return apis.ConditionReady
+	return apis.NewLivingConditionSet()
 }
