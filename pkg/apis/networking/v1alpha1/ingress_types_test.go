@@ -39,3 +39,4 @@ func TestIngressGetObjectMeta(t *testing.T) {
 	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
 		t.Errorf("GotTypeMeta=%v, want=%v", got, want)
 	}
+}

@@ -50,6 +50,7 @@ func TestServerlessServiceGetConditionSet(t *testing.T) {
 	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
 		t.Errorf("GotConditionSet=%v, want=%v", got, want)
 	}
+}
 
 func TestGetGroupVersionKind(t *testing.T) {
 	ss := ServerlessService{}
