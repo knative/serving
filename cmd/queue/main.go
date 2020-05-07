@@ -342,14 +342,14 @@ func main() {
 	defer flush(logger)
 
 	logger = logger.With(
-		zap.String(logkey.Key, types.NamespacedName{
+		zap.Object(logkey.Key, pkglogging.NamespacedName(types.NamespacedName{
 			Namespace: env.ServingNamespace,
 			Name:      env.ServingRevision,
-		}.String()),
+		})),
 		zap.String(logkey.Pod, env.ServingPod))
 
 	if err := validateEnv(env); err != nil {
-		logger.Fatal(err.Error())
+		logger.Fatalw("Error validating env", zap.Error(err))
 	}
 
 	// Report stats on Go memory usage every 30 seconds.
@@ -438,7 +438,7 @@ func main() {
 		})
 
 		for serverName, srv := range servers {
-			logger.Infof("Shutting down %s server", serverName)
+			logger.Info("Shutting down server: ", serverName)
 			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
 			}
