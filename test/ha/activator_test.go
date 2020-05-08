@@ -38,7 +38,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
-	minProbes               = 250  // We want to send at least 250 requests.
+	minProbes               = 400  // We want to send at least 400 requests.
 	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
 )
 
