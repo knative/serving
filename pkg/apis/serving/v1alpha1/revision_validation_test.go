@@ -103,9 +103,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			DeprecatedBuildName: "banana",
 		},
-		want: apis.ErrDisallowedFields("buildName", "container", "generation", "servingState"),
+		want: apis.ErrDisallowedFields("container", "generation", "servingState"),
 	}, {
 		name: "missing container",
 		rs: &RevisionSpec{
@@ -209,15 +208,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Message: `duplicate volume name "the-name"`,
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
-	}, {
-		name: "has build ref (disallowed)",
-		rs: &RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "helloworld",
-			},
-			DeprecatedBuildRef: &corev1.ObjectReference{},
-		},
-		want: apis.ErrDisallowedFields("buildRef"),
 	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{

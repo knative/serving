@@ -116,18 +116,7 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// DeprecatedBuildName optionally holds the name of the Build responsible for
-	// producing the container image for its Revision.
-	// DEPRECATED: Use DeprecatedBuildRef instead.
-	// +optional
-	DeprecatedBuildName string `json:"buildName,omitempty"`
-
-	// DeprecatedBuildRef holds the reference to the build (if there is one) responsible
-	// for producing the container image for this Revision. Otherwise, nil
-	// +optional
-	DeprecatedBuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
-
-	// Container defines the unit of execution for this Revision.
+	// DeprecatedContainer defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
 	// this Container, including: name and lifecycle.
 	// See also the runtime contract for more information about the execution

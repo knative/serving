@@ -120,10 +120,6 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
 
-	if rs.DeprecatedBuildRef != nil {
-		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
-	}
-
 	if rs.ContainerConcurrency != nil {
 		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 	}

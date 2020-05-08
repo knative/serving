@@ -305,11 +305,6 @@ func (in *RevisionList) DeepCopyObject() runtime.Object {
 func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 	*out = *in
 	in.RevisionSpec.DeepCopyInto(&out.RevisionSpec)
-	if in.DeprecatedBuildRef != nil {
-		in, out := &in.DeprecatedBuildRef, &out.DeprecatedBuildRef
-		*out = new(v1.ObjectReference)
-		**out = **in
-	}
 	if in.DeprecatedContainer != nil {
 		in, out := &in.DeprecatedContainer, &out.DeprecatedContainer
 		*out = new(v1.Container)
