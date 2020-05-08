@@ -39,43 +39,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-func TestConcurrencyModelValidation(t *testing.T) {
-	tests := []struct {
-		name string
-		cm   DeprecatedRevisionRequestConcurrencyModelType
-		want *apis.FieldError
-	}{{
-		name: "single",
-		cm:   DeprecatedRevisionRequestConcurrencyModelSingle,
-		want: nil,
-	}, {
-		name: "multi",
-		cm:   DeprecatedRevisionRequestConcurrencyModelMulti,
-		want: nil,
-	}, {
-		name: "empty",
-		cm:   "",
-		want: nil,
-	}, {
-		name: "bogus",
-		cm:   "bogus",
-		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
-	}, {
-		name: "balderdash",
-		cm:   "balderdash",
-		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.cm.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got): \n%s", diff)
-			}
-		})
-	}
-}
-
 func TestServingStateType(t *testing.T) {
 	tests := []struct {
 		name string
