@@ -76,17 +76,20 @@ type RevisionTemplateSpec struct {
 type DeprecatedRevisionServingStateType string
 
 const (
-	// The revision is ready to serve traffic. It should have Kubernetes
-	// resources, and the Istio route should be pointed to the given resources.
+	// DeprecatedRevisionServingStateActive is set when the revision is ready to
+	// serve traffic. It should have Kubernetes resources, and the Istio route
+	// should be pointed to the given resources.
 	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
-	// The revision is not currently serving traffic, but could be made to serve
-	// traffic quickly. It should have Kubernetes resources, but the Istio route
-	// should be pointed to the activator.
+	// DeprecatedRevisionServingStateReserve is set when the revision is not
+	// currently serving traffic, but could be made to serve traffic quickly. It
+	// should have Kubernetes resources, but the Istio route should be pointed to
+	// the activator.
 	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
-	// The revision has been decommissioned and is not needed to serve traffic
-	// anymore. It should not have any Istio routes or Kubernetes resources.
-	// A Revision may be brought out of retirement, but it may take longer than
-	// it would from a "Reserve" state.
+	// DeprecatedRevisionServingStateRetired is set when the revision has been
+	// decommissioned and is not needed to serve traffic anymore. It should not
+	// have any Istio routes or Kubernetes resources.  A Revision may be brought
+	// out of retirement, but it may take longer than it would from a "Reserve"
+	// state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
@@ -102,9 +105,9 @@ const (
 	// request will be handled at a time (concurrently) per instance
 	// of Revision Container.
 	DeprecatedRevisionRequestConcurrencyModelSingle DeprecatedRevisionRequestConcurrencyModelType = "Single"
-	// DeprecatedRevisionRequestConcurencyModelMulti allows more than one request to
-	// be handled at a time (concurrently) per instance of Revision
-	// Container.
+	// DeprecatedRevisionRequestConcurrencyModelMulti allows more than one
+	// request to be handled at a time (concurrently) per instance
+	// of Revision Container.
 	DeprecatedRevisionRequestConcurrencyModelMulti DeprecatedRevisionRequestConcurrencyModelType = "Multi"
 )
 
