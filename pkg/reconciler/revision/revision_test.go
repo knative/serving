@@ -345,12 +345,17 @@ func TestRevWithImageDigests(t *testing.T) {
 
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
+			Name:  "first",
 			Image: "gcr.io/repo/image",
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8888,
 			}},
 		}, {
+			Name:  "second",
 			Image: "docker.io/repo/image",
+		}, {
+			Name:  "third",
+			Image: "docker.io/anotherrepo/image",
 		}},
 	})
 	createRevision(t, ctx, controller, rev)
@@ -367,6 +372,11 @@ func TestRevWithImageDigests(t *testing.T) {
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
 		t.Error("Image digests does not match with the provided containers")
+	}
+	for i, c := range rev.Spec.Containers {
+		if c.Name != rev.Status.ContainerStatuses[i].Name {
+			t.Error("Container statuses do not match the order of containers in spec")
+		}
 	}
 	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
 	updateRevision(t, ctx, controller, rev)
