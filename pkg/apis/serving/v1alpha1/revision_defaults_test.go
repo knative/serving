@@ -272,31 +272,6 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "fall back to concurrency model",
-		in: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				DeprecatedContainer:        &corev1.Container{},
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: nil, // unspecified
-				},
-			},
-		},
-		want: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
-					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				},
-				DeprecatedContainer: &corev1.Container{
-					Name:           config.DefaultUserContainerName,
-					Resources:      defaultResources,
-					ReadinessProbe: defaultProbe,
-				},
-			},
-		},
-	}, {
 		name: "multiple containers",
 		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Revision{
