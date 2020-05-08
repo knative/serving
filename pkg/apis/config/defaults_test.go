@@ -46,7 +46,7 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 		// So for this test we ignore those, but verify the other fields.
 		got.RevisionCPULimit, got.RevisionCPURequest = nil, nil
 		got.RevisionMemoryLimit, got.RevisionMemoryRequest = nil, nil
-		if want := defaultConfig(); !cmp.Equal(got, want) {
+		if want := defaultDefaultsConfig(); !cmp.Equal(got, want) {
 			t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
 				cmp.Diff(want, got))
 		}
@@ -64,22 +64,19 @@ func TestDefaultsConfiguration(t *testing.T) {
 	}{{
 		name:         "default configuration",
 		wantErr:      false,
-		wantDefaults: defaultConfig(),
+		wantDefaults: defaultDefaultsConfig(),
 		data:         map[string]string{},
 	}, {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			EnableMultiContainer:          true,
-			RevisionTimeoutSeconds:        123,
-			MaxRevisionTimeoutSeconds:     456,
-			ContainerConcurrencyMaxLimit:  1984,
-			RevisionCPURequest:            &oneTwoThree,
-			UserContainerNameTemplate:     "{{.Name}}",
-			AllowContainerConcurrencyZero: false,
+			RevisionTimeoutSeconds:       123,
+			MaxRevisionTimeoutSeconds:    456,
+			ContainerConcurrencyMaxLimit: 1984,
+			RevisionCPURequest:           &oneTwoThree,
+			UserContainerNameTemplate:    "{{.Name}}",
 		},
 		data: map[string]string{
-			"enable-multi-container":           "true",
 			"revision-timeout-seconds":         "123",
 			"max-revision-timeout-seconds":     "456",
 			"revision-cpu-request":             "123m",
@@ -91,7 +88,6 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "invalid multi container flag value",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			EnableMultiContainer:          false,
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
 			UserContainerNameTemplate:     DefaultUserContainerName,
