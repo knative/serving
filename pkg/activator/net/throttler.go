@@ -645,7 +645,7 @@ func inferIndex(eps []string, ipAddress string) int {
 
 func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
-	t.logger.Infof("Public Endpoints %s updated", endpoints.Name)
+	t.logger.Info("Updated public Endpoints updated" + endpoints.Name)
 	t.epsUpdateCh <- endpoints
 }
 
