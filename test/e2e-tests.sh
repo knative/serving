@@ -88,10 +88,6 @@ if (( MESH )); then
   kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
 fi
 
-if [[ "${ISTIO_VERSION}" == "1.5-latest" ]]; then
-  parallelism="-parallel 1"
-fi
-
 if (( HTTPS )); then
   use_https="--https"
   # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
