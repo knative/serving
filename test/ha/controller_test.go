@@ -22,19 +22,17 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 )
 
-const controllerDeploymentName = "controller"
+const (
+	controllerDeploymentName = "controller"
+)
 
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)

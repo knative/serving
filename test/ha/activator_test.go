@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/logstream"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
@@ -48,8 +47,6 @@ const (
 // that we can scale from zero after activator restart.
 func TestActivatorHA(t *testing.T) {
 	clients := e2e.Setup(t)
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
