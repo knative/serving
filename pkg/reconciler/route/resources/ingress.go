@@ -177,6 +177,7 @@ func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domain
 func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
 	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
+
 	var (
 		// TODO: What should be the minimum duration?
 		duration    time.Duration = 10 * time.Millisecond
@@ -188,8 +189,8 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 			continue
 		}
 
-		if duration.Nanoseconds() < t.Timeout.Nanoseconds() {
-			duration = t.Timeout
+		if t.Timeout != nil && duration.Nanoseconds() < t.Timeout.Nanoseconds() {
+			duration = *t.Timeout
 			sawDuration = true
 		}
 

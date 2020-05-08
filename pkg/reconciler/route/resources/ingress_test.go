@@ -104,6 +104,8 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 }
 
 func TestMakeIngressSpec_CorrectRules(t *testing.T) {
+	longDuration := 10 * time.Minute
+
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -122,7 +124,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 			},
 			ServiceName: "jobim",
 			Active:      true,
-			Timeout:     10 * time.Minute,
+			Timeout:     &longDuration,
 		}},
 	}
 

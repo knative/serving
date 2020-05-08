@@ -45,7 +45,7 @@ type RevisionTarget struct {
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
-	Timeout     time.Duration
+	Timeout     *time.Duration
 }
 
 // RevisionTargets is a collection of revision targets.
@@ -237,6 +237,14 @@ func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	return err
 }
 
+func timeoutFromRevSpec(rev *v1.Revision) *time.Duration {
+	if rev.Spec.TimeoutSeconds != nil {
+		temp := time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second))
+		return &temp
+	}
+	return nil
+}
+
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
 // on the referred Configuration.  It adds both to the lists of directly referred targets.
 func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
@@ -257,7 +265,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
-		Timeout:       time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second)),
+		Timeout:       timeoutFromRevSpec(rev),
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -278,7 +286,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 		Active:        !rev.Status.IsActivationRequired(),
 		Protocol:      rev.GetProtocol(),
 		ServiceName:   rev.Status.ServiceName,
-		Timeout:       time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second)),
+		Timeout:       timeoutFromRevSpec(rev),
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
