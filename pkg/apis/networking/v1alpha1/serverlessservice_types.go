@@ -59,6 +59,9 @@ var (
 
 	// Check that we can create OwnerReferences to a ServerlessService.
 	_ kmeta.OwnerRefable = (*ServerlessService)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*ServerlessService)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -139,3 +142,13 @@ const (
 	// (e.g. due to target burst capacity settings).
 	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )
+
+// GetTypeMeta retrieves the ObjectMeta of the ServerlessService. Implements the KRShaped interface.
+func (t *ServerlessService) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
+func (t *ServerlessService) GetStatus() *duckv1.Status {
+	return &t.Status.Status
+}
