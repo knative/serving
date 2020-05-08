@@ -145,6 +145,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "context",
 			Name:    "Context",
 		}),
+		"reflectDeepEqual":    c.Universe.Package("reflect").Function("DeepEqual"),
+		"equalitySemantic":    c.Universe.Package("k8s.io/apimachinery/pkg/api/equality").Variable("Semantic"),
+		"jsonMarshal":         c.Universe.Package("encoding/json").Function("Marshal"),
+		"typesMergePatchType": c.Universe.Package("k8s.io/apimachinery/pkg/types").Constant("MergePatchType"),
 	}
 
 	sw.Do(reconcilerInterfaceFactory, m)
@@ -321,7 +325,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	}
 
 	// Synchronize the status.
-	if equality.Semantic.DeepEqual(original.Status, resource.Status) {
+	if {{.equalitySemantic|raw}}.DeepEqual(original.Status, resource.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the injectionInformer's
 		// cache may be stale and we don't want to overwrite a prior update
@@ -368,7 +372,7 @@ func (r *reconcilerImpl) updateStatus(existing *{{.type|raw}}, desired *{{.type|
 		}
 
 		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
+		if {{.reflectDeepEqual|raw}}(existing.Status, desired.Status) {
 			return nil
 		}
 
@@ -433,7 +437,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 		},
 	}
 
-	patch, err := json.Marshal(mergePatch)
+	patch, err := {{.jsonMarshal|raw}}(mergePatch)
 	if err != nil {
 		return resource, err
 	}
@@ -443,7 +447,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 	{{else}}
 	patcher := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(resource.Namespace)
 	{{end}}
-	resource, err = patcher.Patch(resource.Name, types.MergePatchType, patch)
+	resource, err = patcher.Patch(resource.Name, {{.typesMergePatchType|raw}}, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resource.Name, err)
