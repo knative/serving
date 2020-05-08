@@ -25,8 +25,8 @@ import (
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
-	return errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return serving.ValidateObjectMetadata(ctx, pa.GetObjectMeta()).ViaField("metadata").
+		Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
 // Validate validates PodAutoscaler Spec.

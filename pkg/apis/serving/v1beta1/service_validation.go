@@ -31,7 +31,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).Also(
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta()).Also(
 			s.validateLabels().ViaField("labels")).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))

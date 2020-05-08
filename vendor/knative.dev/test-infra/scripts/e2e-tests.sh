@@ -167,11 +167,11 @@ function resolve_k8s_version() {
   local gke_versions=($(echo -n "${versions//;/ }"))
   echo "Available GKE versions in $2 are [${versions//;/, }]"
   if [[ "${target_version}" == "gke-latest" ]]; then
-    # Get first (latest) version, excluding the "-gke.#" suffix
+    # Get first (latest) version
     E2E_CLUSTER_VERSION="${gke_versions[0]}"
     echo "Using latest version, ${E2E_CLUSTER_VERSION}"
   else
-    local latest="$(echo "${gke_versions[@]}" | tr ' ' '\n' | grep -E ^${target_version} | cut -f1 -d- | sort | tail -1)"
+    local latest="$(echo "${gke_versions[@]}" | tr ' ' '\n' | grep -E ^${target_version} | sort -V | tail -1)"
     if [[ -z "${latest}" ]]; then
       echo "ERROR: version ${target_version} is not available"
       return 1

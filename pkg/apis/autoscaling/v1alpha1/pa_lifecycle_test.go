@@ -50,6 +50,14 @@ func TestPodAutoscalerDuckTypes(t *testing.T) {
 	}
 }
 
+func TestPodAutoscalerGetConditionSet(t *testing.T) {
+	r := &PodAutoscaler{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelConditionType=%v, want=%v", got, want)
+	}
+}
+
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
 	if a := r.GetGeneration(); a != 0 {

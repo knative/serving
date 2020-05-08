@@ -57,6 +57,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 }
 
 func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
+	defer reset()
 	metrics := &fake.MetricClient{
 		ErrF: func(key types.NamespacedName, now time.Time) error {
 			return errors.New("no metrics")
@@ -78,6 +79,7 @@ func expectedNA(a *Autoscaler, numP float64) int32 {
 }
 
 func TestAutoscalerStartMetrics(t *testing.T) {
+	defer reset()
 	metricClient := &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient,
 		"concurrency", true /*startInPanic*/)
@@ -91,6 +93,7 @@ func TestAutoscalerStartMetrics(t *testing.T) {
 }
 
 func TestAutoscalerMetrics(t *testing.T) {
+	defer reset()
 	wantTags := map[string]string{
 		metricskey.LabelConfigurationName: fake.TestConfig,
 		metricskey.LabelNamespaceName:     fake.TestNamespace,
@@ -116,6 +119,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 }
 
 func TestAutoscalerMetricsWithRPS(t *testing.T) {
+	defer reset()
 	metricClient := &fake.MetricClient{PanicConcurrency: 50.0, StableRPS: 100}
 	a := newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient, "rps", false /*startInPanic*/)
 	ebc := expectedEBC(10, 100, 100, 1)
@@ -520,4 +524,14 @@ func TestNewFail(t *testing.T) {
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}
+}
+
+func reset() {
+	metricstest.Unregister(desiredPodCountM.Name(), excessBurstCapacityM.Name(),
+		stableRequestConcurrencyM.Name(),
+		panicRequestConcurrencyM.Name(),
+		targetRequestConcurrencyM.Name(),
+		stableRPSM.Name(), panicRPSM.Name(),
+		targetRPSM.Name(), panicM.Name())
+	register()
 }
