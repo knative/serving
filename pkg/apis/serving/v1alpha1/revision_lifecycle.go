@@ -97,27 +97,6 @@ func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 	return *rs.ContainerConcurrency
 }
 
-func (r *Revision) DeprecatedBuildRef() *corev1.ObjectReference {
-	if r.Spec.DeprecatedBuildRef != nil {
-		buildRef := r.Spec.DeprecatedBuildRef.DeepCopy()
-		if buildRef.Namespace == "" {
-			buildRef.Namespace = r.Namespace
-		}
-		return buildRef
-	}
-
-	if r.Spec.DeprecatedBuildName != "" {
-		return &corev1.ObjectReference{
-			APIVersion: "build.knative.dev/v1alpha1",
-			Kind:       "Build",
-			Namespace:  r.Namespace,
-			Name:       r.Spec.DeprecatedBuildName,
-		}
-	}
-
-	return nil
-}
-
 // GetProtocol returns the app level network protocol.
 func (r *Revision) GetProtocol() net.ProtocolType {
 	ports := r.Spec.GetContainer().Ports
