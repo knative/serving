@@ -163,7 +163,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
 	}
 
-	logger.Infof("PA scale got=%d, want=%d, ebc=%d", ready, want, decider.Status.ExcessBurstCapacity)
+	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
+		decider.Status.DesiredScale, decider.Status.ExcessBurstCapacity)
 
 	pc := podCounts{
 		want:        int(want),
