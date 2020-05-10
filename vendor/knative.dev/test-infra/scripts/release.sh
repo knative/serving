@@ -17,7 +17,7 @@
 # This is a helper script for Knative release scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname ${BASH_SOURCE})/library.sh
+source $(dirname "${BASH_SOURCE[0]}")/library.sh
 
 # Organization name in GitHub; defaults to Knative.
 readonly ORG_NAME="${ORG_NAME:-knative}"
@@ -50,9 +50,9 @@ function tag_images_in_yamls() {
   for file in $@; do
     [[ "${file##*.}" != "yaml" ]] && continue
     echo "Inspecting ${file}"
-    for image in $(grep -o "${DOCKER_BASE}/[a-z\./-]\+@sha256:[0-9a-f]\+" ${file}); do
+    for image in $(grep -o "${DOCKER_BASE}/[a-z\./-]\+@sha256:[0-9a-f]\+" "${file}"); do
       for region in "" ${GEO_REGIONS// /. }; do
-        gcloud -q container images add-tag ${image} ${region}${image%%@*}:${TAG}
+        gcloud -q container images add-tag "${image}" "${region}${image%%@*}:${TAG}"
       done
     done
   done
@@ -66,16 +66,16 @@ function publish_to_gcs() {
     local DEST="gs://${RELEASE_GCS_BUCKET}/$1/"
     shift
     echo "Publishing [$@] to ${DEST}"
-    gsutil -m cp $@ ${DEST}
+    gsutil -m cp $@ "${DEST}"
   }
   # Before publishing the files, cleanup the `latest` dir if it exists.
   local latest_dir="gs://${RELEASE_GCS_BUCKET}/latest"
-  if [[ -n "$(gsutil ls ${latest_dir} 2> /dev/null)" ]]; then
+  if [[ -n "$(gsutil ls "${latest_dir}" 2> /dev/null)" ]]; then
     echo "Cleaning up '${latest_dir}' first"
-    gsutil -m rm ${latest_dir}/**
+    gsutil -m rm "${latest_dir}"/**
   fi
   verbose_gsutil_cp latest $@
-  [[ -n ${TAG} ]] && verbose_gsutil_cp previous/${TAG} $@
+  [[ -n ${TAG} ]] && verbose_gsutil_cp previous/"${TAG}" $@
 }
 
 # These are global environment variables.
@@ -113,7 +113,7 @@ function hub_tool() {
 function git_push() {
   local repo_url="${REPO_UPSTREAM}"
   [[ -n "${GITHUB_TOKEN}}" ]] && repo_url="${repo_url/:\/\//:\/\/${GITHUB_TOKEN}@}"
-  git push ${repo_url} $@
+  git push "${repo_url}" $@
 }
 
 # Return the master version of a release.
@@ -148,14 +148,14 @@ function setup_upstream() {
   echo "Remote upstream URL is '${upstream}'"
   if [[ -z "${upstream}" ]]; then
     echo "Setting remote upstream URL to '${REPO_UPSTREAM}'"
-    git remote add upstream ${REPO_UPSTREAM}
+    git remote add upstream "${REPO_UPSTREAM}"
   fi
 }
 
 # Fetch the release branch, so we can check it out.
 function setup_branch() {
   [[ -z "${RELEASE_BRANCH}" ]] && return
-  git fetch ${REPO_UPSTREAM} ${RELEASE_BRANCH}:upstream/${RELEASE_BRANCH}
+  git fetch "${REPO_UPSTREAM}" "${RELEASE_BRANCH}:upstream/${RELEASE_BRANCH}"
 }
 
 # Setup version, branch and release notes for a auto release.
@@ -168,8 +168,8 @@ function prepare_auto_release() {
   local tags="$(git tag | cut -d 'v' -f2 | cut -d '.' -f1-2 | sort -V | uniq)"
   local branches="$( { (git branch -r | grep upstream/release-) ; (git branch | grep release-); } | cut -d '-' -f2 | sort -V | uniq)"
 
-  echo "Versions released (from tags): [" ${tags} "]"
-  echo "Versions released (from branches): [" ${branches} "]"
+  echo "Versions released (from tags): [" "${tags}" "]"
+  echo "Versions released (from branches): [" "${branches}" "]"
 
   local release_number=""
   for i in ${branches}; do
@@ -192,7 +192,7 @@ function prepare_auto_release() {
   # If --release-notes not used, add a placeholder
   if [[ -z "${RELEASE_NOTES}" ]]; then
     RELEASE_NOTES="$(mktemp)"
-    echo "[add release notes here]" > ${RELEASE_NOTES}
+    echo "[add release notes here]" > "${RELEASE_NOTES}"
   fi
 }
 
@@ -218,7 +218,7 @@ function prepare_dot_release() {
   if [[ -z "${RELEASE_BRANCH}" ]]; then
     echo "Last release is ${last_version}"
     # Determine branch
-    major_minor_version="$(master_version ${last_version})"
+    major_minor_version="$(master_version "${last_version}")"
     RELEASE_BRANCH="release-${major_minor_version}"
     echo "Last release branch is ${RELEASE_BRANCH}"
   else
@@ -227,8 +227,8 @@ function prepare_dot_release() {
   [[ -n "${major_minor_version}" ]] || abort "cannot get release major/minor version"
   # Ensure there are new commits in the branch, otherwise we don't create a new release
   setup_branch
-  local last_release_commit="$(git rev-list -n 1 ${last_version})"
-  local release_branch_commit="$(git rev-list -n 1 upstream/${RELEASE_BRANCH})"
+  local last_release_commit="$(git rev-list -n 1 "${last_version}")"
+  local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
   echo "Version ${last_version} is at commit ${last_release_commit}"
@@ -239,13 +239,13 @@ function prepare_dot_release() {
     exit 0
   fi
   # Create new release version number
-  local last_build="$(release_build_number ${last_version})"
+  local last_build="$(release_build_number "${last_version}")"
   RELEASE_VERSION="${major_minor_version}.$(( last_build + 1 ))"
   echo "Will create release ${RELEASE_VERSION} at commit ${release_branch_commit}"
   # If --release-notes not used, copy from the latest release
   if [[ -z "${RELEASE_NOTES}" ]]; then
     RELEASE_NOTES="$(mktemp)"
-    hub_tool release show -f "%b" ${last_version} > ${RELEASE_NOTES}
+    hub_tool release show -f "%b" "${last_version}" > "${RELEASE_NOTES}"
     echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
   fi
 }
@@ -274,14 +274,14 @@ function build_from_nightly_release() {
   for yaml in ${yamls_dir}/*.yaml; do
     sed -i -e "s#${NIGHTLY_GCR}#${RELEASE_GCR}#" "${yaml}"
   done
-  ARTIFACTS_TO_PUBLISH="$(find ${yamls_dir} -name '*.yaml' -printf '%p ')"
+  ARTIFACTS_TO_PUBLISH="$(find "${yamls_dir}" -name '*.yaml' -printf '%p ')"
   echo "Copying nightly images"
   copy_nightly_images_to_release_gcr "${NIGHTLY_GCR}" "${FROM_NIGHTLY_RELEASE}"
   # Create a release branch from the nightly release tag.
-  local commit="$(hash_from_tag ${FROM_NIGHTLY_RELEASE})"
+  local commit="$(hash_from_tag "${FROM_NIGHTLY_RELEASE}")"
   echo "Creating release branch ${RELEASE_BRANCH} at commit ${commit}"
-  git checkout -b ${RELEASE_BRANCH} ${commit} || abort "cannot create branch"
-  git_push upstream ${RELEASE_BRANCH} || abort "cannot push branch"
+  git checkout -b "${RELEASE_BRANCH}" "${commit}" || abort "cannot create branch"
+  git_push upstream "${RELEASE_BRANCH}" || abort "cannot push branch"
 }
 
 # Build a release from source.
@@ -338,7 +338,7 @@ function parse_flags() {
   local is_dot_release=0
   local is_auto_release=0
 
-  cd ${REPO_ROOT_DIR}
+  cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do
     local parameter=$1
     case ${parameter} in
@@ -357,7 +357,7 @@ function parse_flags() {
           --github-token)
             [[ ! -f "$1" ]] && abort "file $1 doesn't exist"
             # Remove any trailing newline/space from token
-            GITHUB_TOKEN="$(echo -n $(cat $1))"
+            GITHUB_TOKEN="$(echo -n $(cat "$1"))"
             [[ -n "${GITHUB_TOKEN}" ]] || abort "file $1 is empty"
             ;;
           --release-gcr)
@@ -416,7 +416,7 @@ function parse_flags() {
     # TODO(adrcunha): "dot" releases from release branches require releasing nightlies
     # for such branches, which we don't do yet.
     [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.0$ ]] || abort "version format must be 'X.Y.0'"
-    RELEASE_BRANCH="release-$(master_version ${RELEASE_VERSION})"
+    RELEASE_BRANCH="release-$(master_version "${RELEASE_VERSION}")"
     prepare_from_nightly_release
     setup_upstream
   fi
@@ -487,12 +487,12 @@ function run_validation_tests() {
 # Parameters: $1..$n - files to add to the release.
 function publish_artifacts() {
   (( ! PUBLISH_RELEASE )) && return
-  tag_images_in_yamls ${ARTIFACTS_TO_PUBLISH}
+  tag_images_in_yamls "${ARTIFACTS_TO_PUBLISH}"
   if [[ -n "${RELEASE_DIR}" ]]; then
-    cp ${ARTIFACTS_TO_PUBLISH} ${RELEASE_DIR} || abort "cannot copy release to '${RELEASE_DIR}'"
+    cp "${ARTIFACTS_TO_PUBLISH}" "${RELEASE_DIR}" || abort "cannot copy release to '${RELEASE_DIR}'"
   fi
-  [[ -n "${RELEASE_GCS_BUCKET}" ]] && publish_to_gcs ${ARTIFACTS_TO_PUBLISH}
-  publish_to_github ${ARTIFACTS_TO_PUBLISH}
+  [[ -n "${RELEASE_GCS_BUCKET}" ]] && publish_to_gcs "${ARTIFACTS_TO_PUBLISH}"
+  publish_to_github "${ARTIFACTS_TO_PUBLISH}"
   banner "New release published successfully"
 }
 
@@ -581,24 +581,24 @@ function publish_to_github() {
   local commitish=""
   # Copy files to a separate dir
   for artifact in $@; do
-    cp ${artifact} ${attachments_dir}/
+    cp ${artifact} "${attachments_dir}"/
     attachments+=("--attach=${artifact}#$(basename ${artifact})")
   done
-  echo -e "${title}\n" > ${description}
+  echo -e "${title}\n" > "${description}"
   if [[ -n "${RELEASE_NOTES}" ]]; then
-    cat ${RELEASE_NOTES} >> ${description}
+    cat "${RELEASE_NOTES}" >> "${description}"
   fi
-  git tag -a ${TAG} -m "${title}"
-  git_push tag ${TAG}
+  git tag -a "${TAG}" -m "${title}"
+  git_push tag "${TAG}"
 
   [[ -n "${RELEASE_BRANCH}" ]] && commitish="--commitish=${RELEASE_BRANCH}"
   for i in {2..0}; do
     hub_tool release create \
         --prerelease \
         ${attachments[@]} \
-        --file=${description} \
-        ${commitish} \
-        ${TAG} && return 0
+        --file="${description}" \
+        "${commitish}" \
+        "${TAG}" && return 0
     if [[ "${i}" -gt 0 ]]; then
       echo "Error publishing the release, retrying in 15s..."
       sleep 15
