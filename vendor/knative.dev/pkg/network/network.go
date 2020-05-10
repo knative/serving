@@ -17,6 +17,8 @@ limitations under the License.
 package network
 
 import (
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -42,4 +44,18 @@ const (
 	// with this header will not be passed to the user container or
 	// included in request metrics.
 	ProbeHeaderName = "K-Network-Probe"
+
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	KubeProbeUAPrefix = "kube-probe/"
+
+	// Istio with mTLS rewrites probes, but their probes pass a different
+	// user-agent.  So we augment the probes with this header.
+	KubeletProbeHeaderName = "K-Kubelet-Probe"
 )
+
+// IsKubeletProbe returns true if the request is a Kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeHeaderName) != ""
+}
