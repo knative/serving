@@ -270,7 +270,7 @@ function default_integration_test_runner() {
   local failed=0
   for e2e_test in $(find test/ -name e2e-*tests.sh); do
     echo "Running integration test ${e2e_test}"
-    if ! ${e2e_test} "${options}"; then
+    if ! ${e2e_test} ${options}; then
       failed=1
       step_failed "${e2e_test} ${options}"
     fi

@@ -1281,7 +1281,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200509000045-c7114387eed5 => github.com/chizhg/test-infra v0.0.0-20200508171251-79a2a343e9cd
+# knative.dev/test-infra v0.0.0-20200509000045-c7114387eed5 => github.com/chizhg/test-infra v0.0.0-20200510211416-72455a1523f5
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff v1.0.1
@@ -1306,4 +1306,4 @@ sigs.k8s.io/yaml
 # k8s.io/code-generator => k8s.io/code-generator v0.16.4
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20190816220812-743ec37842bf
 # knative.dev/serving/vendor/k8s.io/code-generator/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
-# knative.dev/test-infra => github.com/chizhg/test-infra v0.0.0-20200508171251-79a2a343e9cd
+# knative.dev/test-infra => github.com/chizhg/test-infra v0.0.0-20200510211416-72455a1523f5

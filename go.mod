@@ -69,5 +69,5 @@ replace (
 
 	knative.dev/serving/vendor/k8s.io/code-generator/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
 
-	knative.dev/test-infra => github.com/chizhg/test-infra v0.0.0-20200508171251-79a2a343e9cd
+	knative.dev/test-infra => github.com/chizhg/test-infra v0.0.0-20200510211416-72455a1523f5
 )
