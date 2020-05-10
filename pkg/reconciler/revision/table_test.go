@@ -62,150 +62,6 @@ func TestReconcile(t *testing.T) {
 		// Make sure Reconcile handles good keys that don't exist.
 		Key: "foo/not-found",
 	}, {
-		Name: "nop deletion reconcile",
-		// Test that with a DeletionTimestamp we do nothing.
-		Objects: []runtime.Object{
-			rev("foo", "delete-pending", WithRevisionDeletionTimestamp),
-		},
-		Key: "foo/delete-pending",
-	}, {
-		Name: "first revision reconciliation",
-		// Test the simplest successful reconciliation flow.
-		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we expect it to create them and initialize the Revision's status.
-		Objects: []runtime.Object{
-			rev("foo", "first-reconcile", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "first-reconcile",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-		},
-		WantCreates: []runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			pa("foo", "first-reconcile"),
-			deploy(t, "foo", "first-reconcile", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "first-reconcile",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-			image("foo", "first-reconcile"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "first-reconcile",
-				// The first reconciliation Populates the following status properties.
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), withContainerStatuses([]v1.ContainerStatuses{
-					{Name: "first-reconcile",
-						ImageDigest: "busybox@sha256:deadbeef"},
-				})),
-		}},
-		Key: "foo/first-reconcile",
-	}, {
-		Name: "failure updating revision status",
-		// This starts from the first reconciliation case above and induces a failure
-		// updating the revision status.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "revisions"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "update-status-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "update-status-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-			pa("foo", "update-status-failure"),
-		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			deploy(t, "foo", "update-status-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "update-status-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-			image("foo", "update-status-failure"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "update-status-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), withContainerStatuses([]v1.ContainerStatuses{
-					{Name: "update-status-failure",
-						ImageDigest: "busybox@sha256:deadbeef"},
-				})),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
-				"update-status-failure", "inducing failure for update revisions"),
-		},
-		Key: "foo/update-status-failure",
-	}, {
-		Name: "failure creating pa",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the PA.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "podautoscalers"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "create-pa-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "create-pa-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			pa("foo", "create-pa-failure"),
-			deploy(t, "foo", "create-pa-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "create-pa-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-			image("foo", "create-pa-failure"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-pa-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withContainerStatuses([]v1.ContainerStatuses{
-					{Name: "create-pa-failure",
-						ImageDigest: "busybox@sha256:deadbeef"},
-				})),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create PA "create-pa-failure": inducing failure for create podautoscalers`),
-		},
-		Key: "foo/create-pa-failure",
-	}, {
-		Name: "failure creating user deployment",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the user's deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "deployments"),
-		},
-		Objects: []runtime.Object{
-			rev("foo", "create-user-deploy-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "create-user-deploy-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-			pa("foo", "create-user-deploy-failure"),
-		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			deploy(t, "foo", "create-user-deploy-failure", withContainerStatuses([]v1.ContainerStatuses{
-				{Name: "create-user-deploy-failure",
-					ImageDigest: "busybox@sha256:deadbeef"},
-			})),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "create-user-deploy-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withContainerStatuses([]v1.ContainerStatuses{
-					{Name: "create-user-deploy-failure",
-						ImageDigest: "busybox@sha256:deadbeef"},
-				})),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				`failed to create deployment "create-user-deploy-failure-deployment": inducing failure for create deployments`),
-		},
-		Key: "foo/create-user-deploy-failure",
-	}, {
 		Name: "stable revision reconciliation",
 		// Test a simple stable reconciliation of an Active Revision.
 		// We feed in a Revision and the resources it controls in a steady
@@ -213,13 +69,13 @@ func TestReconcile(t *testing.T) {
 		// are necessary.
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile", WithLogURL, AllUnknownConditions,
-				withContainerStatuses([]v1.ContainerStatuses{
+				WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "stable-reconcile",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "stable-reconcile", WithReachability(asv1a1.ReachabilityUnknown)),
 
-			deploy(t, "foo", "stable-reconcile", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "stable-reconcile", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "stable-reconcile",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -233,16 +89,19 @@ func TestReconcile(t *testing.T) {
 		// with our desired spec.
 		Objects: []runtime.Object{
 			rev("foo", "fix-containers",
-				WithLogURL, AllUnknownConditions, withContainerStatuses([]v1.ContainerStatuses{
+				WithLogURL, AllUnknownConditions, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "fix-containers",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "fix-containers", WithReachability(asv1a1.ReachabilityUnknown)),
-			changeContainers(deploy(t, "foo", "fix-containers")),
+			changeContainers(deploy(t, "foo", "fix-containers", WithContainerStatuses([]v1.ContainerStatuses{
+				{Name: "fix-containers",
+					ImageDigest: "busybox@sha256:deadbeef"},
+			}))),
 			image("foo", "fix-containers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy(t, "foo", "fix-containers", withContainerStatuses([]v1.ContainerStatuses{
+			Object: deploy(t, "foo", "fix-containers", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "fix-containers",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -257,16 +116,19 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			rev("foo", "failure-update-deploy",
-				withK8sServiceName("whateves"), WithLogURL, AllUnknownConditions, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("whateves"), WithLogURL, AllUnknownConditions, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "failure-update-deploy",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "failure-update-deploy"),
-			changeContainers(deploy(t, "foo", "failure-update-deploy")),
+			changeContainers(deploy(t, "foo", "failure-update-deploy", WithContainerStatuses([]v1.ContainerStatuses{
+				{Name: "failure-update-deploy",
+					ImageDigest: "busybox@sha256:deadbeef"},
+			}))),
 			image("foo", "failure-update-deploy"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy(t, "foo", "failure-update-deploy", withContainerStatuses([]v1.ContainerStatuses{
+			Object: deploy(t, "foo", "failure-update-deploy", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "failure-update-deploy",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -284,13 +146,13 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "stable-deactivation",
 				WithLogURL, MarkRevisionReady,
-				MarkInactive("NoTraffic", "This thing is inactive."), withContainerStatuses([]v1.ContainerStatuses{
+				MarkInactive("NoTraffic", "This thing is inactive."), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "stable-deactivation",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "stable-deactivation",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy(t, "foo", "stable-deactivation", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "stable-deactivation", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "stable-deactivation",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -301,12 +163,12 @@ func TestReconcile(t *testing.T) {
 		Name: "pa is ready",
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
-				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachability(asv1a1.ReachabilityUnknown)),
-			deploy(t, "foo", "pa-ready", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "pa-ready", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pa-ready",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -317,7 +179,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL,
 				// When the endpoint and pa are ready, then we will see the
 				// Revision become ready.
-				MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -332,14 +194,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-not-ready",
 				withK8sServiceName("somebody-told-me"), WithLogURL,
-				MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-not-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic("Something", "This is something longer")),
-			readyDeploy(deploy(t, "foo", "pa-not-ready", withContainerStatuses([]v1.ContainerStatuses{
+			readyDeploy(deploy(t, "foo", "pa-not-ready", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pa-not-ready",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			}))),
@@ -347,7 +209,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pa-not-ready",
-				WithLogURL, MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				WithLogURL, MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-not-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				}),
@@ -363,13 +225,13 @@ func TestReconcile(t *testing.T) {
 		// Test propagating the inactivity signal from the pa to the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "pa-inactive",
-				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-inactive",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			readyDeploy(deploy(t, "foo", "pa-inactive", withContainerStatuses([]v1.ContainerStatuses{
+			readyDeploy(deploy(t, "foo", "pa-inactive", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pa-inactive",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			}))),
@@ -377,7 +239,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pa-inactive",
-				WithLogURL, MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				WithLogURL, MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-inactive",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				}),
@@ -391,7 +253,7 @@ func TestReconcile(t *testing.T) {
 		// Test propagating the inactivity signal from the pa to the Revision.
 		// But propagate the service name.
 		Objects: []runtime.Object{
-			rev("foo", "pa-inactive", withContainerStatuses([]v1.ContainerStatuses{
+			rev("foo", "pa-inactive", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pa-inactive",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			}),
@@ -399,7 +261,7 @@ func TestReconcile(t *testing.T) {
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithPAStatusService("pa-inactive-svc")),
-			readyDeploy(deploy(t, "foo", "pa-inactive", withContainerStatuses([]v1.ContainerStatuses{
+			readyDeploy(deploy(t, "foo", "pa-inactive", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pa-inactive",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			}))),
@@ -411,7 +273,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("pa-inactive-svc"),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."), withContainerStatuses([]v1.ContainerStatuses{
+				MarkInactive("NoTraffic", "This thing is inactive."), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pa-inactive",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -424,13 +286,13 @@ func TestReconcile(t *testing.T) {
 		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-pa",
-				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "fix-mutated-pa",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
 				WithTraffic, WithPAStatusService("fix-mutated-pa")),
-			deploy(t, "foo", "fix-mutated-pa", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "fix-mutated-pa", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "fix-mutated-pa",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -441,7 +303,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				withK8sServiceName("fix-mutated-pa"), WithLogURL, MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("fix-mutated-pa"), WithLogURL, MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "fix-mutated-pa",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -457,12 +319,12 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-pa-fail",
 				withK8sServiceName("some-old-stuff"),
-				WithLogURL, AllUnknownConditions, withContainerStatuses([]v1.ContainerStatuses{
+				WithLogURL, AllUnknownConditions, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "fix-mutated-pa-fail",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachability(asv1a1.ReachabilityUnknown)),
-			deploy(t, "foo", "fix-mutated-pa-fail", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "fix-mutated-pa-fail", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "fix-mutated-pa-fail",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -488,12 +350,12 @@ func TestReconcile(t *testing.T) {
 		// status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "deploy-timeout",
-				withK8sServiceName("the-taxman"), WithLogURL, MarkActive, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActive, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "deploy-timeout",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "deploy-timeout"), // pa can't be ready since deployment times out.
-			timeoutDeploy(deploy(t, "foo", "deploy-timeout", withContainerStatuses([]v1.ContainerStatuses{
+			timeoutDeploy(deploy(t, "foo", "deploy-timeout", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "deploy-timeout",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})), "I timed out!"),
@@ -504,7 +366,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
-				MarkProgressDeadlineExceeded("I timed out!"), withContainerStatuses([]v1.ContainerStatuses{
+				MarkProgressDeadlineExceeded("I timed out!"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "deploy-timeout",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -518,12 +380,12 @@ func TestReconcile(t *testing.T) {
 		// It then verifies that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "deploy-replica-failure",
-				withK8sServiceName("the-taxman"), WithLogURL, MarkActive, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActive, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "deploy-replica-failure",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "deploy-replica-failure"),
-			replicaFailureDeploy(deploy(t, "foo", "deploy-replica-failure", withContainerStatuses([]v1.ContainerStatuses{
+			replicaFailureDeploy(deploy(t, "foo", "deploy-replica-failure", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "deploy-replica-failure",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})), "I replica failed!"),
@@ -534,7 +396,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the FailedCreate state.
-				MarkResourcesUnavailable("FailedCreate", "I replica failed!"), withContainerStatuses([]v1.ContainerStatuses{
+				MarkResourcesUnavailable("FailedCreate", "I replica failed!"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "deploy-replica-failure",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -545,13 +407,13 @@ func TestReconcile(t *testing.T) {
 		// Test the propagation of ImagePullBackoff from user container.
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
-				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", ""), withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("the-taxman"), WithLogURL, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pull-backoff",
 						ImageDigest: "busybox@sha256:deadbeef"},
-				})),
+				}), MarkActivating("Deploying", "")),
 			pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnknown)), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
-			timeoutDeploy(deploy(t, "foo", "pull-backoff", withContainerStatuses([]v1.ContainerStatuses{
+			timeoutDeploy(deploy(t, "foo", "pull-backoff", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pull-backoff",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})), "Timed out!"),
@@ -560,7 +422,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pull-backoff",
 				WithLogURL, AllUnknownConditions,
-				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withContainerStatuses([]v1.ContainerStatuses{
+				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pull-backoff",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -577,13 +439,13 @@ func TestReconcile(t *testing.T) {
 		// that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "pod-error",
-				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("a-pod-error"), WithLogURL, AllUnknownConditions, MarkActive, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pod-error",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "pod-error"), // PA can't be ready, since no traffic.
 			pod(t, "foo", "pod-error", WithFailingContainer("pod-error", 5, "I failed man!")),
-			deploy(t, "foo", "pod-error", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "pod-error", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pod-error",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -592,7 +454,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
 				WithLogURL, AllUnknownConditions, MarkContainerExiting(5,
-					v1.RevisionContainerExitingMessage("I failed man!")), withContainerStatuses([]v1.ContainerStatuses{
+					v1.RevisionContainerExitingMessage("I failed man!")), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pod-error",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -605,13 +467,13 @@ func TestReconcile(t *testing.T) {
 		// that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "pod-schedule-error",
-				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive, withContainerStatuses([]v1.ContainerStatuses{
+				withK8sServiceName("a-pod-schedule-error"), WithLogURL, AllUnknownConditions, MarkActive, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pod-schedule-error",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "pod-schedule-error"), // PA can't be ready, since no traffic.
 			pod(t, "foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
-			deploy(t, "foo", "pod-schedule-error", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "pod-schedule-error", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "pod-schedule-error",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -620,7 +482,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-schedule-error",
 				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy",
-					"Unschedulable"), withContainerStatuses([]v1.ContainerStatuses{
+					"Unschedulable"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "pod-schedule-error",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -635,12 +497,12 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL,
-				withContainerStatuses([]v1.ContainerStatuses{
+				WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "steady-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
-			deploy(t, "foo", "steady-ready", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "steady-ready", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "steady-ready",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -650,7 +512,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "steady-ready", withK8sServiceName("steadier-even"), WithLogURL,
 				// All resources are ready to go, we should see the revision being
 				// marked ready
-				MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "steady-ready",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -664,12 +526,12 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
-				MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "missing-owners",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
-			deploy(t, "foo", "missing-owners", withContainerStatuses([]v1.ContainerStatuses{
+			deploy(t, "foo", "missing-owners", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "missing-owners",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})),
@@ -679,7 +541,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
-				MarkResourceNotOwned("PodAutoscaler", "missing-owners"), withContainerStatuses([]v1.ContainerStatuses{
+				MarkResourceNotOwned("PodAutoscaler", "missing-owners"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "missing-owners",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -693,12 +555,12 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
-				MarkRevisionReady, withContainerStatuses([]v1.ContainerStatuses{
+				MarkRevisionReady, WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "missing-owners",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 			pa("foo", "missing-owners", WithTraffic),
-			noOwner(deploy(t, "foo", "missing-owners", withContainerStatuses([]v1.ContainerStatuses{
+			noOwner(deploy(t, "foo", "missing-owners", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "missing-owners",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			}))),
@@ -708,7 +570,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for Deployment we see this update.
-				MarkResourceNotOwned("Deployment", "missing-owners-deployment"), withContainerStatuses([]v1.ContainerStatuses{
+				MarkResourceNotOwned("Deployment", "missing-owners-deployment"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "missing-owners",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -722,14 +584,14 @@ func TestReconcile(t *testing.T) {
 		// This test case tests that the image pull secrets from revision propagate to deployment and image
 		Objects: []runtime.Object{
 			rev("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret"),
-				withContainerStatuses([]v1.ContainerStatuses{
+				WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "image-pull-secrets",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
 		},
 		WantCreates: []runtime.Object{
 			pa("foo", "image-pull-secrets"),
-			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets", withContainerStatuses([]v1.ContainerStatuses{
+			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets", WithContainerStatuses([]v1.ContainerStatuses{
 				{Name: "image-pull-secrets",
 					ImageDigest: "busybox@sha256:deadbeef"},
 			})), "foo-secret"),
@@ -738,7 +600,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "image-pull-secrets",
 				WithImagePullSecrets("foo-secret"),
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), withContainerStatuses([]v1.ContainerStatuses{
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), WithContainerStatuses([]v1.ContainerStatuses{
 					{Name: "image-pull-secrets",
 						ImageDigest: "busybox@sha256:deadbeef"},
 				})),
@@ -847,13 +709,6 @@ func rev(namespace, name string, ro ...RevisionOption) *v1.Revision {
 func withK8sServiceName(sn string) RevisionOption {
 	return func(r *v1.Revision) {
 		r.Status.ServiceName = sn
-	}
-}
-
-// withContainerStatuses sets the .Status.ContainerStatuses to the Revision.
-func withContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.ContainerStatuses = containerStatus
 	}
 }
 

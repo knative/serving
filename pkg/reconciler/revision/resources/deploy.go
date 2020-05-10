@@ -139,7 +139,6 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 // BuildUserContainers makes a container from the Revision template.
 func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
-
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
@@ -147,30 +146,24 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 		} else {
 			container = makeContainer(rev.Spec.PodSpec.Containers[i], rev)
 		}
-		updateImage(rev, &container)
+		if rev.Status.ContainerStatuses != nil {
+			container.Image = rev.Status.ContainerStatuses[i].ImageDigest
+		}
 		containers = append(containers, container)
 	}
 	return containers
-}
-
-func updateImage(rev *v1.Revision, container *corev1.Container) {
-	for _, digest := range rev.Status.ContainerStatuses {
-		if digest.Name == container.Name {
-			container.Image = digest.ImageDigest
-			return
-		}
-	}
 }
 
 func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 	varLogMount := varLogVolumeMount.DeepCopy()
-	varLogMount.SubPathExpr += userContainer.Name
+	varLogMount.SubPathExpr += container.Name
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, *varLogMount)
-	userContainer.Lifecycle = userLifecycle
+	container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
+	container.Lifecycle = userLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
+	container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
 	// Explicitly disable stdin and tty allocation
 	container.Stdin = false
 	container.TTY = false
@@ -184,26 +177,6 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	userPort := getUserPort(rev)
 	userPortStr := strconv.Itoa(int(userPort))
 	// Replacement is safe as only up to a single port is allowed on the Revision
-	userContainer.Ports = buildContainerPorts(userPort)
-	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
-	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
-	userContainer.Env = append(userContainer.Env, buildVarLogSubpathEnvs()...)
-
-	// Explicitly disable stdin and tty allocation
-	userContainer.Stdin = false
-	userContainer.TTY = false
-
-	// Prefer imageDigest from revision if available
-	if rev.Status.DeprecatedImageDigest != "" {
-		userContainer.Image = rev.Status.DeprecatedImageDigest
-	}
-
-	if userContainer.TerminationMessagePolicy == "" {
-		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
-	}
-
-	if userContainer.ReadinessProbe != nil {
-		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
 	servingContainer.Ports = buildContainerPorts(userPort)
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 	container := makeContainer(servingContainer, rev)
