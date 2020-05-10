@@ -40,6 +40,7 @@ type reconcilerReconcilerGenerator struct {
 	reconcilerClass    string
 	hasReconcilerClass bool
 	nonNamespaced      bool
+	isKRShaped         bool
 
 	groupGoName  string
 	groupVersion clientgentypes.GroupVersion
@@ -74,6 +75,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 		"version":       namer.IC(g.groupVersion.Version.String()),
 		"class":         g.reconcilerClass,
 		"hasClass":      g.hasReconcilerClass,
+		"isKRShaped":    g.isKRShaped,
 		"nonNamespaced": g.nonNamespaced,
 		"controllerImpl": c.Universe.Type(types.Name{
 			Package: "knative.dev/pkg/controller",
@@ -309,9 +311,17 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 			logger.Warnw("Failed to set finalizers", zap.Error(err))
 		}
 
+		{{if .isKRShaped}}
+		reconciler.PreProcessReconcile(ctx, resource)
+		{{end}}
+
 		// Reconcile this copy of the resource and then write back any status
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
+		{{if .isKRShaped}}
+		reconciler.PostProcessReconcile(ctx, resource)
+		{{end}}
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.
 		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
@@ -343,13 +353,19 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		if reconciler.EventAs(reconcileEvent, &event) {
 			logger.Infow("Returned an event", zap.Any("event", reconcileEvent))
 			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)
+
+			// the event was wrapped inside an error, consider the reconciliation as failed
+			if _, isEvent := reconcileEvent.(*reconciler.ReconcilerEvent); !isEvent {
+				return reconcileEvent
+			}
 			return nil
-		} else {
-			logger.Errorw("Returned an error", zap.Error(reconcileEvent))
-			r.Recorder.Event(resource, {{.corev1EventTypeWarning|raw}}, "InternalError", reconcileEvent.Error())
-			return reconcileEvent
 		}
+
+		logger.Errorw("Returned an error", zap.Error(reconcileEvent))
+		r.Recorder.Event(resource, {{.corev1EventTypeWarning|raw}}, "InternalError", reconcileEvent.Error())
+		return reconcileEvent
 	}
+
 	return nil
 }
 `

@@ -178,6 +178,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// Reconcile this copy of the resource and then write back any status
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.
 		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
@@ -209,13 +210,19 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		if reconciler.EventAs(reconcileEvent, &event) {
 			logger.Infow("Returned an event", zap.Any("event", reconcileEvent))
 			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)
+
+			// the event was wrapped inside an error, consider the reconciliation as failed
+			if _, isEvent := reconcileEvent.(*reconciler.ReconcilerEvent); !isEvent {
+				return reconcileEvent
+			}
 			return nil
-		} else {
-			logger.Errorw("Returned an error", zap.Error(reconcileEvent))
-			r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
-			return reconcileEvent
 		}
+
+		logger.Errorw("Returned an error", zap.Error(reconcileEvent))
+		r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
+		return reconcileEvent
 	}
+
 	return nil
 }
 
