@@ -212,6 +212,13 @@ type HTTPIngressPath struct {
 	// +optional
 	Path string `json:"path,omitempty"`
 
+	// RewriteHost rewrites the incoming request's host header. The request will
+	// then be re-evaluated based on the new host header.
+	//
+	// This field is currently experimental and not supported by all Ingress
+	// implementations.
+	RewriteHost string `json:"rewriteHost,omitempty"`
+
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
 	Splits []IngressBackendSplit `json:"splits"`
