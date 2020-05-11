@@ -53,7 +53,7 @@ func TestInitScaleZero(t *testing.T) {
 	createRunLatestServiceReadyWithNumPods(t, clients, names, 0,
 		v1a1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.InitialScaleAnnotationKey: "0",
-	}))
+		}))
 }
 
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
@@ -76,7 +76,7 @@ func TestInitScalePositive(t *testing.T) {
 	createRunLatestServiceReadyWithNumPods(t, clients, names, 3,
 		v1a1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.InitialScaleAnnotationKey: "3",
-	}))
+		}))
 }
 
 func createRunLatestServiceReadyWithNumPods(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int, fopt ...v1a1testing.ServiceOption) {
