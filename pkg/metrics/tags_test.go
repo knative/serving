@@ -24,6 +24,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"

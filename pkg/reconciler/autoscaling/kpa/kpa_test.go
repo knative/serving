@@ -63,6 +63,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
