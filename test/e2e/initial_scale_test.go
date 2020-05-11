@@ -50,12 +50,10 @@ func TestInitScaleZero(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
-	if _, err := v1a1test.CreateRunLatestServiceReadyWithNumPods(t, clients, &names, 0,
+	createRunLatestServiceReadyWithNumPods(t, clients, names, 0,
 		v1a1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.InitialScaleAnnotationKey: "0",
-		})); err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
-	}
+	}))
 }
 
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
@@ -75,13 +73,19 @@ func TestInitScalePositive(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
-	if _, err := v1a1test.CreateLatestService(t, clients, names,
+	createRunLatestServiceReadyWithNumPods(t, clients, names, 3,
 		v1a1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.InitialScaleAnnotationKey: "3",
-		})); err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}))
+}
+
+func createRunLatestServiceReadyWithNumPods(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int, fopt ...v1a1testing.ServiceOption) {
+	t.Log("Creating a new Service.", "service", names.Service)
+	_, err := v1a1test.CreateLatestService(t, clients, names, fopt...)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
-	wantPods := 3
+
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
 	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service)
 	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (b bool, e error) {
@@ -100,9 +104,8 @@ func TestInitScalePositive(t *testing.T) {
 		if gotPods > wantPods {
 			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)
 		}
-		// Continue to check if numPods > gotPods
 		return false, nil
-	}, "ServiceIsReadyWithNumPods"); err != nil {
+	}, "ServiceIsReadyWithWantPods"); err != nil {
 		t.Fatal(err.Error())
 	}
 }
