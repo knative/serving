@@ -83,7 +83,7 @@ func createRunLatestServiceReadyWithNumPods(t *testing.T, clients *test.Clients,
 	t.Log("Creating a new Service.", "service", names.Service)
 	_, err := v1a1test.CreateLatestService(t, clients, names, fopt...)
 	if err != nil {
-		t.Fatal(err.Error())
+		t.Fatal("Failed creating initial service:", err)
 	}
 
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
@@ -106,6 +106,6 @@ func createRunLatestServiceReadyWithNumPods(t *testing.T, clients *test.Clients,
 		}
 		return false, nil
 	}, "ServiceIsReadyWithWantPods"); err != nil {
-		t.Fatal(err.Error())
+		t.Fatal("Service does not have the desired number of pods running:", err)
 	}
 }
