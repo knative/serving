@@ -115,10 +115,6 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
-kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler"}}'
-add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-
 # Save activator HPA original values for later use.
 min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
 max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
@@ -130,13 +126,10 @@ add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
   --patch '{\"spec\": {\"maxReplicas\": '$max_replicas', \"minReplicas\": '$minReplicas'}}'" SIGKILL SIGTERM SIGQUIT
 
 for deployment in controller autoscaler-hpa; do
-  # Make sure all pods run in leader-elected mode.
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
   # Scale up components for HA tests
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
 done
 add_trap "for deployment in controller autoscaler-hpa; do \
-  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
   kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
 
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
@@ -148,9 +141,7 @@ sleep 30
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 
-kubectl get cm config-leader-election -n "${SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
 for deployment in controller autoscaler-hpa; do
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=1
 done
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \

@@ -62,3 +62,4 @@ data:
     # - istiocontroller
     # - nscontroller
     enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"
+  enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"
