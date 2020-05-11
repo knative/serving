@@ -19,12 +19,14 @@ limitations under the License.
 package ingress
 
 import (
+	"errors"
 	"math"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/pool"
 	"knative.dev/serving/test"
 )
 
@@ -95,15 +97,29 @@ func TestPercentage(t *testing.T) {
 		// The increment to make for each request, so that the values of seen reflect the
 		// percentage of the total number of requests we are making.
 		increment = 100.0 / totalRequests
-		// Allow the Ingress to be within 5% of the configured value.
-		margin = 5.0
+		// Allow the Ingress to be within 10% of the configured value.
+		margin = 10.0
 	)
+	wg := pool.New(8)
+	resultCh := make(chan string, totalRequests)
+
 	for i := 0.0; i < totalRequests; i++ {
-		ri := RuntimeRequest(t, client, "http://"+name+".example.com")
-		if ri == nil {
-			continue
-		}
-		seen[ri.Request.Headers.Get(headerName)] += increment
+		wg.Go(func() error {
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com")
+			if ri == nil {
+				return errors.New("failed to request")
+			}
+			resultCh <- ri.Request.Headers.Get(headerName)
+			return nil
+		})
+	}
+	if err := wg.Wait(); err != nil {
+		t.Errorf("Error while sending requests: %v", err)
+	}
+	close(resultCh)
+
+	for r := range resultCh {
+		seen[r] += increment
 	}
 
 	for name, want := range weights {
