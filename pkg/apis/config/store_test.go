@@ -37,9 +37,11 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 
 	store.OnConfigChanged(defaultsConfig)
+	store.OnConfigChanged(featuresConfig)
 	store.OnConfigChanged(autoscalerConfig)
 
 	config := FromContextOrDefaults(store.ToContext(context.Background()))
@@ -48,6 +50,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
 			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+		}
+	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got): %v", diff)
 		}
 	})
 
@@ -61,6 +70,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	config := FromContextOrDefaults(context.Background())
 
@@ -68,6 +78,13 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
 			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+		}
+	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got): %v", diff)
 		}
 	})
 
@@ -83,17 +100,23 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DefaultsConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, FeaturesConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 
 	config := store.Load()
 
 	config.Defaults.RevisionTimeoutSeconds = 1234
+	config.Features.EnableMultiContainer = true
 	config.Autoscaler.TargetBurstCapacity = 99
 
 	newConfig := store.Load()
 
 	if newConfig.Defaults.RevisionTimeoutSeconds == 1234 {
 		t.Error("Defaults config is not immutable")
+	}
+
+	if newConfig.Features.EnableMultiContainer == true {
+		t.Error("Features config is not immutable")
 	}
 
 	if newConfig.Autoscaler.TargetBurstCapacity == 99 {

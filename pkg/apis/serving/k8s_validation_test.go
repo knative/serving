@@ -34,7 +34,7 @@ import (
 
 func enableMultiContainer(ctx context.Context, t *testing.T) context.Context {
 	return config.ToContext(ctx, &config.Config{
-		Defaults: &config.Defaults{
+		Features: &config.Features{
 			EnableMultiContainer: true,
 		},
 	})
