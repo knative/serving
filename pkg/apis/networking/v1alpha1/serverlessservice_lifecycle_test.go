@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
@@ -41,6 +42,13 @@ func TestServerlessServiceDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(ServerlessService, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestServerlessServiceGetConditionSet(t *testing.T) {
+	r := &ServerlessService{}
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GotConditionSet=%v, want=%v", got, want)
 	}
 }
 

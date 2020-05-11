@@ -67,10 +67,6 @@ func (source *RevisionSpec) ConvertTo(ctx context.Context, sink *v1.RevisionSpec
 	default:
 		return apis.ErrMissingOneOf("container", "containers")
 	}
-	if source.DeprecatedBuildRef != nil {
-		return ConvertErrorf("buildRef",
-			"buildRef cannot be migrated forward, got: %#v", source.DeprecatedBuildRef)
-	}
 	return nil
 }
 

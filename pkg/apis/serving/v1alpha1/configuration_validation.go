@@ -61,11 +61,6 @@ func (cs *ConfigurationSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	errs := apis.CheckDeprecated(ctx, cs)
 
-	// Build support is now disabled.
-	if cs.DeprecatedBuild != nil {
-		errs = errs.Also(apis.ErrDisallowedFields("build"))
-	}
-
 	var templateField string
 	switch {
 	case cs.DeprecatedRevisionTemplate != nil && cs.Template != nil:

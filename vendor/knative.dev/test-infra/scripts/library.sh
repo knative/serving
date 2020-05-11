@@ -26,7 +26,7 @@ readonly SERVING_GKE_VERSION=gke-latest
 readonly SERVING_GKE_IMAGE=cos
 
 # Conveniently set GOPATH if unset
-if [[ -z "${GOPATH:-}" ]]; then
+if [[ ! -v GOPATH ]]; then
   export GOPATH="$(go env GOPATH)"
   if [[ -z "${GOPATH}" ]]; then
     echo "WARNING: GOPATH not set and go binary unable to provide it"
@@ -34,9 +34,9 @@ if [[ -z "${GOPATH:-}" ]]; then
 fi
 
 # Useful environment variables
-[[ -n "${PROW_JOB_ID:-}" ]] && IS_PROW=1 || IS_PROW=0
+[[ -v PROW_JOB_ID ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
-[[ -z "${REPO_ROOT_DIR:-}" ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+[[ ! -v REPO_ROOT_DIR ]] && REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly REPO_ROOT_DIR
 readonly REPO_NAME="$(basename ${REPO_ROOT_DIR})"
 
@@ -389,8 +389,25 @@ function mktemp_with_extension() {
 #             $2 - check name as an identifier (e.g., GoBuild)
 #             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
-  local xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
-  run_kntest junit --suite="$1" --name="$2" --err-msg="$3" --dest="${xml}" || return 1
+  local xml="$(mktemp_with_extension ${ARTIFACTS}/junit_XXXXXXXX xml)"
+  local failure=""
+  if [[ "$3" != "" ]]; then
+    # Transform newlines into HTML code.
+    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48,
+    # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
+    # which should be obsolete once Test-infra 2.0 is in place
+    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | sed 's/&/\\u0026/' | tr -d '\n')"
+    failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
+  fi
+  cat << EOF > "${xml}"
+<testsuites>
+	<testsuite tests="1" failures="1" time="0.000" name="$1">
+		<testcase classname="" name="$2" time="0.0">
+			${failure}
+		</testcase>
+	</testsuite>
+</testsuites>
+EOF
 }
 
 # Runs a go test and generate a junit summary.
@@ -499,40 +516,24 @@ function start_latest_knative_eventing() {
 function run_go_tool() {
   local tool=$2
   local install_failed=0
-  local action="get"
-  [[ $1 =~ ^[\./].* ]] && action="install"
-  # Install the tool in the following situations:
-  #   - The tool does not exist.
-  #   - The tool needs to be installed from a local path.
-  #   - Version of the tool is specificied in the given tool path.
-  # TODO(chizhg): derive a better versioning story for the tools being used.
-  if [[ -z "$(which "${tool}")" || "${action}" == "install" || "${tool}" =~ "@" ]]; then
+  if [[ -z "$(which ${tool})" ]]; then
+    local action=get
+    [[ $1 =~ ^[\./].* ]] && action=install
     # Avoid running `go get` from root dir of the repository, as it can change go.sum and go.mod files.
     # See discussions in https://github.com/golang/go/issues/27643.
     if [[ ${action} == "get" && $(pwd) == "${REPO_ROOT_DIR}" ]]; then
       local temp_dir="$(mktemp -d)"
       # Swallow the output as we are returning the stdout in the end.
       pushd "${temp_dir}" > /dev/null 2>&1
-      GOFLAGS="" go ${action} $1 || install_failed=1
+      GOFLAGS="" go ${action} "$1" || install_failed=1
       popd > /dev/null 2>&1
     else
-      GOFLAGS="" go ${action} $1 || install_failed=1
+      GOFLAGS="" go ${action} "$1" || install_failed=1
     fi
   fi
   (( install_failed )) && return ${install_failed}
   shift 2
   ${tool} "$@"
-}
-
-# Run "kntest" tool
-# Parameters: $1..$n - parameters passed to the tool
-function run_kntest() {
-  if [[ "${REPO_NAME}" == "test-infra" ]]; then
-    go run "${REPO_ROOT_DIR}"/kntest/cmd/kntest "$@"
-  else
-    # Always run the latest version.
-    run_go_tool knative.dev/test-infra/kntest/cmd/kntest@master "$@"
-  fi
 }
 
 # Run go-licenses to update licenses.
@@ -652,6 +653,21 @@ function get_canonical_path() {
   echo "$(cd ${path%/*} && echo $PWD/${path##*/})"
 }
 
+# List changed files in the current PR.
+# This is implemented as a function so it can be mocked in unit tests.
+# It will fail if a file name ever contained a newline character (which is bad practice anyway)
+function list_changed_files() {
+  if [[ -v PULL_BASE_SHA ]] && [[ -v PULL_PULL_SHA ]]; then
+    # Avoid warning when there are more than 1085 files renamed:
+    # https://stackoverflow.com/questions/7830728/warning-on-diff-renamelimit-variable-when-doing-git-push
+    git config diff.renames 0
+    git --no-pager diff --name-only ${PULL_BASE_SHA}..${PULL_PULL_SHA}
+  else
+    # Do our best if not running in Prow
+    git diff --name-only HEAD^
+  fi
+}
+
 # Returns the current branch.
 function current_branch() {
   local branch_name=""
@@ -692,6 +708,29 @@ function get_latest_knative_yaml_source() {
     # Otherwise, fall back to nightly.
   fi
   echo "https://storage.googleapis.com/knative-nightly/${repo_name}/latest/${yaml_name}.yaml"
+}
+
+function shellcheck_new_files() {
+  declare -a array_of_files
+  local failed=0
+  readarray -t -d '\n' array_of_files < <(list_changed_files)
+  for filename in "${array_of_files[@]}"; do
+    if echo "${filename}" | grep -q "^vendor/"; then
+      continue
+    fi
+    if file "${filename}" | grep -q "shell script"; then
+      # SC1090 is "Can't follow non-constant source"; we will scan files individually
+      if shellcheck -e SC1090 "${filename}"; then
+        echo "--- PASS: shellcheck on ${filename}"
+      else
+        echo "--- FAIL: shellcheck on ${filename}"
+        failed=1
+      fi
+    fi
+  done
+  if [[ ${failed} -eq 1 ]]; then
+    fail_script "shellcheck failures"
+  fi
 }
 
 # Initializations that depend on previous functions.

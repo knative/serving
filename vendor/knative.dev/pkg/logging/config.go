@@ -52,7 +52,7 @@ var (
 func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*zap.SugaredLogger, zap.AtomicLevel) {
 	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride, opts)
 	if err == nil {
-		return enrichLoggerWithCommitID(logger.Sugar()), atomicLevel
+		return enrichLoggerWithCommitID(logger), atomicLevel
 	}
 
 	loggingCfg := zap.NewProductionConfig()
@@ -66,18 +66,18 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) (*za
 	if err2 != nil {
 		panic(err2)
 	}
-	return enrichLoggerWithCommitID(logger.Named(fallbackLoggerName).Sugar()), loggingCfg.Level
+	return enrichLoggerWithCommitID(logger.Named(fallbackLoggerName)), loggingCfg.Level
 }
 
-func enrichLoggerWithCommitID(logger *zap.SugaredLogger) *zap.SugaredLogger {
+func enrichLoggerWithCommitID(logger *zap.Logger) *zap.SugaredLogger {
 	commmitID, err := changeset.Get()
 	if err == nil {
 		// Enrich logs with GitHub commit ID.
-		return logger.With(zap.String(logkey.GitHubCommitID, commmitID))
+		return logger.With(zap.String(logkey.GitHubCommitID, commmitID)).Sugar()
 	}
 
-	logger.Infof("Fetch GitHub commit ID from kodata failed: %v", err)
-	return logger
+	logger.Info("Fetch GitHub commit ID from kodata failed", zap.Error(err))
+	return logger.Sugar()
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config

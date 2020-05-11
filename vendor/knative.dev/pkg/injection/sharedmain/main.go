@@ -189,7 +189,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// Set up leader election config
 	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
 	if err != nil {
-		logger.Fatalf("Error loading leader election configuration: %v", err)
+		logger.Fatalw("Error loading leader election configuration", zap.Error(err))
 	}
 	leConfig := leaderElectionConfig.GetComponentConfig(component)
 
@@ -343,9 +343,9 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 	if cmLabel := system.ResourceLabel(); cmLabel != "" {
 		req, err := configmap.FilterConfigByLabelExists(cmLabel)
 		if err != nil {
-			logger.With(zap.Error(err)).Fatalf("Failed to generate requirement for label %q")
+			logger.Fatalw("Failed to generate requirement for label "+cmLabel, zap.Error(err))
 		}
-		logger.Infof("Setting up ConfigMap watcher with label selector %q", req)
+		logger.Info("Setting up ConfigMap watcher with label selector: ", req)
 		cmLabelReqs = append(cmLabelReqs, *req)
 	}
 	// TODO(mattmoor): This should itself take a context and be injection-based.
@@ -360,7 +360,7 @@ func WatchLoggingConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	} else if !apierrors.IsNotFound(err) {
-		logger.With(zap.Error(err)).Fatalf("Error reading ConfigMap %q", logging.ConfigMapName())
+		logger.Fatalw("Error reading ConfigMap "+logging.ConfigMapName(), zap.Error(err))
 	}
 }
 
@@ -374,7 +374,7 @@ func WatchObservabilityConfigOrDie(ctx context.Context, cmw *configmap.InformedW
 			metrics.ConfigMapWatcher(component, SecretFetcher(ctx), logger),
 			profilingHandler.UpdateFromConfigMap)
 	} else if !apierrors.IsNotFound(err) {
-		logger.With(zap.Error(err)).Fatalf("Error reading ConfigMap %q", metrics.ConfigMapName())
+		logger.Fatalw("Error reading ConfigMap "+metrics.ConfigMapName(), zap.Error(err))
 	}
 }
 
@@ -457,7 +457,7 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 			EventRecorder: recorder,
 		})
 	if err != nil {
-		logger.Fatalw("Error creating lock: %v", err)
+		logger.Fatalw("Error creating lock", zap.Error(err))
 	}
 
 	// Execute the `run` function when we have the lock.
@@ -469,7 +469,7 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: run,
 			OnStoppedLeading: func() {
-				logger.Fatal("leaderelection lost")
+				logger.Fatal("Leader election lost")
 			},
 		},
 		ReleaseOnCancel: true,

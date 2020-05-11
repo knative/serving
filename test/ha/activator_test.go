@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/logstream"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
@@ -37,7 +38,7 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
-	minProbes               = 100  // We want to send at least 100 requests.
+	minProbes               = 400  // We want to send at least 400 requests.
 	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
 )
 
@@ -47,6 +48,8 @@ const (
 // that we can scale from zero after activator restart.
 func TestActivatorHA(t *testing.T) {
 	clients := e2e.Setup(t)
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)

@@ -19,10 +19,10 @@ package autoscaling
 import "time"
 
 const (
-	// The internal autoscaling group name. This is used for CRDs.
+	// InternalGroupName is the internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
-	// The public autoscaling group name. This is used for annotations, labels, etc.
+	// GroupName is the the public autoscaling group name. This is used for annotations, labels, etc.
 	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
@@ -165,7 +165,7 @@ const (
 	// which services/endpoints should trigger reconciles.
 	KPALabelKey = GroupName + "/kpa"
 
-	// PreferForScaleDownLabel is the label key set on a pod which is selected
+	// PreferForScaleDownLabelKey is the label key set on a pod which is selected
 	// by the autoscaler as a candidate for removal. Once the label is set to "true", it
 	// signals the QueueProxy to fail readiness on the pod
 	PreferForScaleDownLabelKey = GroupName + "/prefer-for-scale-down"

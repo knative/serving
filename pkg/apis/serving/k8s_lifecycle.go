@@ -32,7 +32,7 @@ var depCondSet = apis.NewLivingConditionSet(
 const (
 	// DeploymentConditionReady means the underlying deployment is ready.
 	DeploymentConditionReady = apis.ConditionReady
-	// DeploymentConditionReplicaSetready inverts the underlying deployment's
+	// DeploymentConditionReplicaSetReady inverts the underlying deployment's
 	// ReplicaSetFailure condition.
 	DeploymentConditionReplicaSetReady apis.ConditionType = "ReplicaSetReady"
 	// DeploymentConditionProgressing reflects the underlying deployment's
