@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -61,8 +60,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		withInternalVisibility,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s",    // shortest permitted; this is not required here, but for uniformity.
-			"sidecar.istio.io/inject":       "false", // Do not enable injection otherwise get authentication error.
+			"sidecar.istio.io/inject": "false", // Do not enable injection otherwise get authentication error.
 		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -99,8 +97,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 	resources, err = v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s",    // shortest permitted; this is not required here, but for uniformity.
-			"sidecar.istio.io/inject":       "false", // Do not enable injection otherwise get authentication error.
+			"sidecar.istio.io/inject": "false", // Do not enable injection otherwise get authentication error.
 		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
