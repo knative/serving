@@ -140,6 +140,13 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
+func durationMax(d1, d2 time.Duration) time.Duration {
+	if d1 < d2 {
+		return d2
+	}
+	return d1
+}
+
 func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 	sks *nv1a1.ServerlessService, desiredScale int32) (int32, bool) {
 	if desiredScale != 0 {
@@ -203,10 +210,24 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		if r {
 			// This enforces that the revision has been backed by the Activator for at least
 			// ScaleToZeroGracePeriod time.
+			// And at least ScaleToZeroPodRetentionPeriod since PA became inactive.
 
 			// Most conservative check, if it passes we're good.
-			if pa.Status.CanScaleToZero(now, cfgAS.ScaleToZeroGracePeriod) {
+			lastPodTimeout := cfgAS.ScaleToZeroPodRetentionPeriod
+			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
+			if pa.Status.CanScaleToZero(now, lastPodMaxTimeout) {
 				return desiredScale, true
+			}
+
+			// Now check last pod retention timeout. Since it's a hard deadline, regardless
+			// of network programming state we should circle back after that time period.
+			if lastPodTimeout > 0 {
+				if inactiveTime := pa.Status.InactiveFor(now); inactiveTime < lastPodTimeout {
+					logger.Infof("Can't scale to 0; InactiveFor %v < ScaleToZeroPodRetentionPeriod = %v",
+						inactiveTime, lastPodTimeout)
+					ks.enqueueCB(pa, lastPodTimeout-inactiveTime)
+					return desiredScale, false
+				}
 			}
 
 			// Otherwise check how long SKS was in proxy mode.
