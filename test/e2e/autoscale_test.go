@@ -57,7 +57,7 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	RunAutoscaleUpCountPods(t, autoscaling.KPA)
+	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
@@ -65,7 +65,7 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	RunTestRPSBasedAutoscaleUpCountPods(t, autoscaling.KPA)
+	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {

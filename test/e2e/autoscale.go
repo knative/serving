@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -382,25 +382,15 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	}
 }
 
-func RunAutoscaleUpCountPods(t *testing.T, class string) {
-	ctx := setup(t, class, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
+// RunAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// metric tracks the given target.
+func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
+	target := containerConcurrency
+	if metric == autoscaling.RPS {
+		target = 10
+	}
 
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
-}
-
-func RunTestRPSBasedAutoscaleUpCountPods(t *testing.T, class string) {
-	ctx := setup(t, class, autoscaling.RPS, 10, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")

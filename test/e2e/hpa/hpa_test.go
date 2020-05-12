@@ -31,7 +31,7 @@ func TestAutoscaleUpCountPodsHPA(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	e2e.RunAutoscaleUpCountPods(t, autoscaling.HPA)
+	e2e.RunAutoscaleUpCountPods(t, autoscaling.HPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPodsHPA(t *testing.T) {
@@ -39,5 +39,5 @@ func TestRPSBasedAutoscaleUpCountPodsHPA(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	e2e.RunTestRPSBasedAutoscaleUpCountPods(t, autoscaling.HPA)
+	e2e.RunAutoscaleUpCountPods(t, autoscaling.HPA, autoscaling.RPS)
 }
