@@ -228,6 +228,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 					ks.enqueueCB(pa, lastPodTimeout-inactiveTime)
 					return desiredScale, false
 				}
+				logger.Debug("Last pod timeout satisfied")
 			}
 
 			// Otherwise check how long SKS was in proxy mode.

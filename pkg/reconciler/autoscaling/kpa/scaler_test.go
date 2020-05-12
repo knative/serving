@@ -78,6 +78,7 @@ func TestScaler(t *testing.T) {
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
+		configMutator       func(*config.Config)
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -148,12 +149,37 @@ func TestScaler(t *testing.T) {
 		label:         "waits to scale to zero after idle period (custom PA window)",
 		startReplicas: 1,
 		scaleTo:       0,
-		wantReplicas:  0,
-		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
+		wantReplicas: 0,
+		wantScaling:  false,
+	}, {
+		label:         "scale to zero after grace period, but before last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  false,
+		wantCBCount:  1,
+	}, {
+		label:         "scale to zero after grace period, and after last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  true,
 	}, {
 		label:         "scale to zero after grace period",
 		startReplicas: 1,
@@ -186,6 +212,21 @@ func TestScaler(t *testing.T) {
 			markSKSInProxyFor(s, gracePeriod-time.Second)
 		},
 		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before grace period, sks in proxy long) and last pod timeout positive",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 42 * time.Second
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			markSKSInProxyFor(s, gracePeriod)
+		},
 	}, {
 		label:         "waits to scale to zero (just before grace period, sks in proxy long)",
 		startReplicas: 1,
@@ -382,7 +423,11 @@ func TestScaler(t *testing.T) {
 				test.sks(sks)
 			}
 
-			ctx = config.ToContext(ctx, defaultConfig())
+			cfg := defaultConfig()
+			if test.configMutator != nil {
+				test.configMutator(cfg)
+			}
+			ctx = config.ToContext(ctx, cfg)
 			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error:", err)
