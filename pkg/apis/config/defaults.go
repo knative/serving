@@ -53,26 +53,32 @@ const (
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
 	DefaultMaxRevisionContainerConcurrency int64 = 1000
+
+	// DefaultAllowContainerConcurrencyZero is whether, by default,
+	// containerConcurrency can be set to zero (i.e. unbounded) by users.
+	DefaultAllowContainerConcurrencyZero bool = true
 )
 
 func defaultConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
-		UserContainerNameTemplate:    DefaultUserContainerName,
-		ContainerConcurrency:         DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
+		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+		UserContainerNameTemplate:     DefaultUserContainerName,
+		ContainerConcurrency:          DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
 	}
 }
 
-// NewDefaultsConfigFromMap creates a Defaults from the supplied Map
+// NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
 
-	// Process bool field.
+	// Process bool fields.
 	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
+	nc.AllowContainerConcurrencyZero = !strings.EqualFold(data["allow-container-concurrency-zero"], "false")
 
-	// Process int64 fields
+	// Process int64 fields.
 	for _, i64 := range []struct {
 		key   string
 		field *int64
@@ -153,14 +159,14 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	return nc, nil
 }
 
-// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap
+// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap.
 func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error) {
 	return NewDefaultsConfigFromMap(config.Data)
 }
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
-	// Feature flag to enable multi container support
+	// Feature flag to enable multi container support.
 	EnableMultiContainer bool
 
 	RevisionTimeoutSeconds int64
@@ -175,6 +181,10 @@ type Defaults struct {
 	// ContainerConcurrencyMaxLimit is the maximum permitted container concurrency
 	// or target value in the system.
 	ContainerConcurrencyMaxLimit int64
+
+	// AllowContainerConcurrencyZero determines whether users are permitted to specify
+	// a containerConcurrency of 0 (i.e. unbounded).
+	AllowContainerConcurrencyZero bool
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
