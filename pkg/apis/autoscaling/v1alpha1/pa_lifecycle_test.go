@@ -125,6 +125,22 @@ func TestCanScaleToZero(t *testing.T) {
 		result: true,
 		grace:  10 * time.Second,
 	}, {
+		name: "inactive condition (LTT exact grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
 		name: "inactive condition (LTT less than grace period ago)",
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
@@ -151,6 +167,90 @@ func TestCanScaleToZero(t *testing.T) {
 	}
 }
 
+func TestInactiveFor(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: -1,
+	}, {
+		name: "unknown condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		result: -1,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		result: -1,
+	}, {
+		name: "inactive condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					// No LTT = beginning of time, so for sure we can.
+				}},
+			},
+		},
+		result: time.Since(time.Time{}),
+	}, {
+		name: "inactive condition (LTT longer than idle period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: 30 * time.Second,
+	}, {
+		name: "inactive condition (LTT less than idle period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
+					},
+					// LTT = 10 seconds ago.
+				}},
+			},
+		},
+		result: 10 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.InactiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
+				t.Errorf("InactiveFor = %v, want: %v", got, want)
+			}
+		})
+	}
+}
 func TestActiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -228,9 +328,11 @@ func TestActiveFor(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
-			t.Errorf("ActiveFor = %v, want: %v", got, want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
+				t.Errorf("ActiveFor = %v, want: %v", got, want)
+			}
+		})
 	}
 }
 
