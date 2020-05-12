@@ -136,7 +136,7 @@ type ServiceList struct {
 	Items []Service `json:"items"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the Service. Implements the KRShaped interface.
+// GetTypeMeta retrieves the TypeMeta of the Service. Implements the KRShaped interface.
 func (t *Service) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }

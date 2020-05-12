@@ -109,7 +109,7 @@ type ConfigurationList struct {
 	Items []Configuration `json:"items"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the Configuration. Implements the KRShaped interface.
+// GetTypeMeta retrieves the TypeMeta of the Configuration. Implements the KRShaped interface.
 func (t *Configuration) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }

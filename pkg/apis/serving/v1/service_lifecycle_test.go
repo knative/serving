@@ -51,7 +51,7 @@ func TestServiceGetConditionSet(t *testing.T) {
 	r := &Service{}
 
 	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
-		t.Errorf("GotTopLevelCondition=%v, want=%v", got, want)
+		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
 	}
 }
 

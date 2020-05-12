@@ -50,7 +50,7 @@ func TestRouteGetConditionSet(t *testing.T) {
 	r := &Route{}
 
 	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
-		t.Errorf("GotTopLevelCondition=%v, want=%v", got, want)
+		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
 	}
 }
 
