@@ -28,7 +28,7 @@ import (
 // Metric represents a resource to configure the metric collector with.
 //
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true,
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Metric struct {
 	metav1.TypeMeta `json:",inline"`
@@ -82,7 +82,7 @@ type MetricList struct {
 	Items []Metric `json:"items"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the Metric. Implements the KRShaped interface.
+// GetTypeMeta retrieves the TypeMeta of the Metric. Implements the KRShaped interface.
 func (t *Metric) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }
