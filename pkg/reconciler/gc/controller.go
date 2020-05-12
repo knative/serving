@@ -78,6 +78,7 @@ func NewController(
 
 		return controller.Options{
 			ConfigStore: configStore,
+			AgentName:   controllerAgentName,
 		}
 	})
 }
