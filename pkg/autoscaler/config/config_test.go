@@ -96,6 +96,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-threshold-percentage":              "200",
 			"pod-autoscaler-class":                    "some.class",
 			"activator-capacity":                      "905",
+			"scale-to-zero-pod-retention-period":      "2m3s",
 		},
 		want: func() *Config {
 			c := defaultConfig()
@@ -108,6 +109,7 @@ func TestNewConfig(t *testing.T) {
 			c.StableWindow = 5 * time.Minute
 			c.ActivatorCapacity = 905
 			c.PodAutoscalerClass = "some.class"
+			c.ScaleToZeroPodRetentionPeriod = 2*time.Minute + 3*time.Second
 			return c
 		}(),
 	}, {
@@ -145,6 +147,12 @@ func TestNewConfig(t *testing.T) {
 		name: "malformed float",
 		input: map[string]string{
 			"max-scale-up-rate": "not a float",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid pod retention period",
+		input: map[string]string{
+			"scale-to-zero-pod-retention-period": "-4m11s",
 		},
 		wantErr: true,
 	}, {

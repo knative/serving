@@ -83,7 +83,8 @@ type Config struct {
 	PanicThresholdPercentage float64
 	TickInterval             time.Duration
 
-	ScaleToZeroGracePeriod time.Duration
+	ScaleToZeroGracePeriod        time.Duration
+	ScaleToZeroPodRetentionPeriod time.Duration
 
 	PodAutoscalerClass string
 }
@@ -95,20 +96,21 @@ func defaultConfig() *Config {
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
 		ContainerConcurrencyTargetDefault:  100,
 		// TODO(#1956): Tune target usage based on empirical data.
-		TargetUtilization:        defaultTargetUtilization,
-		RPSTargetDefault:         200,
-		MaxScaleUpRate:           1000,
-		MaxScaleDownRate:         2,
-		TargetBurstCapacity:      200,
-		PanicWindowPercentage:    10,
-		ActivatorCapacity:        100,
-		PanicThresholdPercentage: 200,
-		StableWindow:             60 * time.Second,
-		ScaleToZeroGracePeriod:   30 * time.Second,
-		TickInterval:             2 * time.Second,
-		PodAutoscalerClass:       autoscaling.KPA,
-		AllowZeroInitialScale:    false,
-		InitialScale:             1,
+		TargetUtilization:             defaultTargetUtilization,
+		RPSTargetDefault:              200,
+		MaxScaleUpRate:                1000,
+		MaxScaleDownRate:              2,
+		TargetBurstCapacity:           200,
+		PanicWindowPercentage:         10,
+		ActivatorCapacity:             100,
+		PanicThresholdPercentage:      200,
+		StableWindow:                  60 * time.Second,
+		ScaleToZeroGracePeriod:        30 * time.Second,
+		ScaleToZeroPodRetentionPeriod: 0 * time.Second,
+		TickInterval:                  2 * time.Second,
+		PodAutoscalerClass:            autoscaling.KPA,
+		AllowZeroInitialScale:         false,
+		InitialScale:                  1,
 	}
 }
 
@@ -214,6 +216,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "scale-to-zero-grace-period",
 		field: &lc.ScaleToZeroGracePeriod,
 	}, {
+		key:   "scale-to-zero-pod-retention-period",
+		field: &lc.ScaleToZeroPodRetentionPeriod,
+	}, {
 		key:   "tick-interval",
 		field: &lc.TickInterval,
 	}} {
@@ -236,6 +241,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
 		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, got %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
+	}
+
+	if lc.ScaleToZeroPodRetentionPeriod < 0 {
+		return nil, fmt.Errorf("scale-to-zero-pod-retention-period cannot be negative, was: %v", lc.ScaleToZeroPodRetentionPeriod)
 	}
 
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {

@@ -132,7 +132,7 @@ data:
     # least N to N-1, if Autoscaler needs to scale down.
     max-scale-down-rate: "2.0"
 
-    # Scale to zero feature flag
+    # Scale to zero feature flag.
     enable-scale-to-zero: "true"
 
     # Tick interval is the time between autoscaling calculations.
@@ -149,7 +149,19 @@ data:
     # then the system will only wait that amount of time before scaling to 0.
     # NOTE: this period might actually be 0, if activator has been
     # in the request path sufficiently long.
+    # If there is necessity for the last pod to linger longer use
+    # scale-to-zero-pod-retention-period flag.
     scale-to-zero-grace-period: "30s"
+
+    # Scale to zero pod retention period defines the minimum amount
+    # of time the last pod will remain after Autoscaler has decided to
+    # scale to zero.
+    # This flag is for the situations where the pod starup is very expensive
+    # and the traffic is bursty (requiring smaller windows for fast action),
+    # but patchy.
+    # The larger of this flag and `scale-to-zero-grace-period` will effectively
+    # detemine how the last pod will hang around.
+    scale-to-zero-pod-retention-period: "0s"
 
     # Enable graceful scaledown feature flag.
     # Once enabled, it allows the autoscaler to prioritize pods processing
