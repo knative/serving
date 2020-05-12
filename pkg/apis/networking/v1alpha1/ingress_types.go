@@ -25,7 +25,7 @@ import (
 )
 
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Ingress is a collection of rules that allow inbound connections to reach the endpoints defined
@@ -346,7 +346,7 @@ const (
 	IngressConditionLoadBalancerReady apis.ConditionType = "LoadBalancerReady"
 )
 
-// GetTypeMeta retrieves the ObjectMeta of the Ingress. Implements the KRShaped interface.
+// GetTypeMeta retrieves the TypeMeta of the Ingress. Implements the KRShaped interface.
 func (t *Ingress) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }

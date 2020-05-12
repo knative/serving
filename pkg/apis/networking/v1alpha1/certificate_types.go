@@ -25,7 +25,7 @@ import (
 )
 
 // +genclient
-// +genreconciler:class=networking.knative.dev/certificate.class
+// +genreconciler:class=networking.knative.dev/certificate.class,krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Certificate is responsible for provisioning a SSL certificate for the
@@ -120,7 +120,7 @@ type HTTP01Challenge struct {
 	ServicePort intstr.IntOrString `json:"servicePort,omitempty"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the Certificate. Implements the KRShaped interface.
+// GetTypeMeta retrieves the TypeMeta of the Certificate. Implements the KRShaped interface.
 func (t *Certificate) GetTypeMeta() *metav1.TypeMeta {
 	return &t.TypeMeta
 }
