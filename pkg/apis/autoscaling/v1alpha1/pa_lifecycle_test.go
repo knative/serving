@@ -134,7 +134,7 @@ func TestCanScaleToZero(t *testing.T) {
 					LastTransitionTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
-					// LTT = 30 seconds ago.
+					// LTT = 10 seconds ago.
 				}},
 			},
 		},
