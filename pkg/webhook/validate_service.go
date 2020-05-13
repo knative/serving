@@ -35,10 +35,10 @@ const PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
 type DryRunMode string
 
 const (
-	// Enabled will run the dryrun logic. Will succeed if dryrun is unsupported.
+	// DryRunEnabled will run the dryrun logic. Will succeed if dryrun is unsupported.
 	DryRunEnabled DryRunMode = "enabled"
 
-	// Strict will run the dryrun logic and fail if dryrun is not supported.
+	// DryRunStrict will run the dryrun logic and fail if dryrun is not supported.
 	DryRunStrict DryRunMode = "strict"
 )
 
