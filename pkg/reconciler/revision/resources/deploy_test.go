@@ -81,7 +81,6 @@ var (
 		}},
 	}
 
-	//defaultSidecarContainer =
 	defaultQueueContainer = &corev1.Container{
 		Name:      QueueContainerName,
 		Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
@@ -314,36 +313,32 @@ func withPodLabelsVolumeMount() containerOption {
 	}
 }
 
-func withReadinessProbe(handler corev1.Handler) containerOption {
-	return func(container *corev1.Container) {
-		container.ReadinessProbe = &corev1.Probe{Handler: handler}
-	}
+func withTCPReadinessProbe(port int) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Host: "127.0.0.1",
+				Port: intstr.FromInt(port),
+			}}}
 }
 
-func withTCPReadinessProbe() containerOption {
-	return withReadinessProbe(corev1.Handler{
-		TCPSocket: &corev1.TCPSocketAction{
-			Host: "127.0.0.1",
-			Port: intstr.FromInt(v1.DefaultUserPort),
-		},
-	})
+func withHTTPReadinessProbe(port int) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(port),
+				Path: "/",
+			},
+		}}
 }
 
-func withHTTPReadinessProbe(port int) containerOption {
-	return withReadinessProbe(corev1.Handler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.FromInt(port),
-			Path: "/",
-		},
-	})
-}
-
-func withExecReadinessProbe(command []string) containerOption {
-	return withReadinessProbe(corev1.Handler{
-		Exec: &corev1.ExecAction{
-			Command: command,
-		},
-	})
+func withExecReadinessProbe(command []string) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: command,
+			},
+		}}
 }
 
 func withLivenessProbe(handler corev1.Handler) containerOption {
@@ -427,7 +422,32 @@ func withContainers(containers []corev1.Container) RevisionOption {
 	}
 }
 
-func withContainer() containerOption {
+func getContainer() containerOption {
+	return func(container *corev1.Container) {
+		container.Command = []string{"/bin/bash"}
+		container.Args = []string{"-c", "echo Hello world"}
+		container.Env = append([]corev1.EnvVar{{
+			Name:  "FOO",
+			Value: "bar",
+		}, {
+			Name:  "BAZ",
+			Value: "blah",
+		}}, container.Env...)
+		container.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("666Mi"),
+				corev1.ResourceCPU:    resource.MustParse("666m"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("888Mi"),
+				corev1.ResourceCPU:    resource.MustParse("888m"),
+			},
+		}
+		container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+	}
+}
+
+func updateContainer() containerOption {
 	return func(container *corev1.Container) {
 		container.Command = []string{"/bin/bash"}
 		container.Args = []string{"-c", "echo Hello world"}
@@ -468,16 +488,12 @@ func TestMakePodSpec(t *testing.T) {
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			},
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -492,8 +508,7 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
-				),
-			}),
+				)}),
 	}, {
 		name: "volumes passed through",
 		rev: revision("bar", "foo",
@@ -507,15 +522,13 @@ func TestMakePodSpec(t *testing.T) {
 					Name:      "asdf",
 					MountPath: "/asdf",
 				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf",
 					VolumeSource: corev1.VolumeSource{
@@ -556,18 +569,14 @@ func TestMakePodSpec(t *testing.T) {
 		name: "concurrency=1 no owner",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			},
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -582,18 +591,14 @@ func TestMakePodSpec(t *testing.T) {
 		name: "concurrency=1 no owner digest resolved",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			},
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -608,19 +613,15 @@ func TestMakePodSpec(t *testing.T) {
 		name: "concurrency=1 with owner",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			},
 		),
 		want: podSpec(
 			[]corev1.Container{
@@ -636,17 +637,14 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with http readiness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withHTTPReadinessProbe(v1.DefaultUserPort),
-				)
-			}),
+		),
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
@@ -664,22 +662,14 @@ func TestMakePodSpec(t *testing.T) {
 		}),
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
-			}),
+		),
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
@@ -694,24 +684,21 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with shell readiness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withExecReadinessProbe([]string{"echo", "hello"}),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withExecReadinessProbe([]string{"echo", "hello"}),
-				)
-			}),
+		),
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
-					},
-					withExecReadinessProbe([]string{"echo", "hello"})),
+						container.ReadinessProbe = withExecReadinessProbe([]string{"echo", "hello"})
+					}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
@@ -721,22 +708,21 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with http liveness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-					withLivenessProbe(corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-						},
-					}),
-				)
-			}),
+		),
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(
@@ -762,20 +748,18 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with tcp liveness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
-			}}),
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{},
+					}}}},
+			),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-					withLivenessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{},
-					}),
-				)
-			}),
+		),
 		want: podSpec(
 			[]corev1.Container{
 				servingContainer(
@@ -796,17 +780,14 @@ func TestMakePodSpec(t *testing.T) {
 		name: "with graceful scaledown enabled",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			}),
+		),
 		ac: autoscalerconfig.Config{
 			EnableGracefulScaledown: true,
 		},
@@ -831,8 +812,9 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  servingContainerName,
 				Image: "busybox",
 				Ports: []corev1.ContainerPort{{
-					ContainerPort: 8080,
+					ContainerPort: v1.DefaultUserPort,
 				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}, {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
@@ -842,11 +824,7 @@ func TestMakePodSpec(t *testing.T) {
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
 			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			}),
+		),
 		ac: autoscalerconfig.Config{
 			EnableGracefulScaledown: true,
 		},
@@ -871,8 +849,9 @@ func TestMakePodSpec(t *testing.T) {
 		name: "complex pod spec",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
@@ -883,24 +862,7 @@ func TestMakePodSpec(t *testing.T) {
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
-				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
-				revision.Spec.GetContainer().Args = []string{"-c", "echo Hello world"}
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-					withEnvVar("FOO", "bar"),
-					withEnvVar("BAZ", "blah"),
-				)
-				revision.Spec.GetContainer().Resources = corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("666Mi"),
-						corev1.ResourceCPU:    resource.MustParse("666m"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("888Mi"),
-						corev1.ResourceCPU:    resource.MustParse("888m"),
-					},
-				}
-				revision.Spec.GetContainer().TerminationMessagePolicy = corev1.TerminationMessageReadFile
+				container(revision.Spec.GetContainer(), updateContainer())
 			},
 		),
 		want: podSpec(
@@ -909,33 +871,31 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withContainer(),
+					getContainer(),
 					withEnvVar("K_CONFIGURATION", "cfg"),
 					withEnvVar("K_SERVICE", "svc"),
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", "svc"),
-				),
-			}),
+				)}),
 	}, {
 		name: "complex pod spec for multiple containers with container data to all containers",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{
-				{
-					Name:  servingContainerName,
-					Image: "busybox",
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: 8080,
-					}},
-				}, {
-					Name:  sidecarContainerName,
-					Image: "ubuntu",
-				}, {
-					Name:  "sidecar-container-2",
-					Image: "alpine",
-				},
-			}),
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: v1.DefaultUserPort,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}, {
+				Name:  "sidecar-container-2",
+				Image: "alpine",
+			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -949,29 +909,8 @@ func TestMakePodSpec(t *testing.T) {
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
-				// When there are multiple containers then only serving container will have readinessProbe. here
-				// container[0] acts as a serving container because of the provided containerPort so using withTCPReadinessProbe.
-				container(&revision.Spec.Containers[0],
-					withTCPReadinessProbe(),
-				)
 				for i := range revision.Spec.Containers {
-					revision.Spec.Containers[i].Command = []string{"/bin/bash"}
-					revision.Spec.Containers[i].Args = []string{"-c", "echo Hello world"}
-					container(&revision.Spec.Containers[i],
-						withEnvVar("FOO", "bar"),
-						withEnvVar("BAZ", "blah"),
-					)
-					revision.Spec.Containers[i].Resources = corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("666Mi"),
-							corev1.ResourceCPU:    resource.MustParse("666m"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("888Mi"),
-							corev1.ResourceCPU:    resource.MustParse("888m"),
-						},
-					}
-					revision.Spec.Containers[i].TerminationMessagePolicy = corev1.TerminationMessageReadFile
+					container(&revision.Spec.Containers[i], updateContainer())
 				}
 			},
 		),
@@ -981,7 +920,7 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withContainer(),
+					getContainer(),
 					withEnvVar("K_CONFIGURATION", "cfg"),
 					withEnvVar("K_SERVICE", "svc"),
 				),
@@ -989,12 +928,12 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "ubuntu@sha256:deadbffe"
 					},
-					withContainer(),
+					getContainer(),
 					withEnvVar("K_CONFIGURATION", "cfg"),
 					withEnvVar("K_SERVICE", "svc"),
 				),
 				sidecarContainer(sidecarContainerName2,
-					withContainer(),
+					getContainer(),
 					func(container *corev1.Container) {
 						container.Name = "sidecar-container-2"
 						container.Image = "alpine@sha256:deadbfff"
@@ -1010,17 +949,17 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec for multiple containers with container data only to serving containers",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{
-				{
-					Name:  servingContainerName,
-					Image: "busybox",
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: 8888,
-					}},
-				}, {
-					Name:  sidecarContainerName,
-					Image: "ubuntu",
-				}}),
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1032,24 +971,7 @@ func TestMakePodSpec(t *testing.T) {
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
-				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
-				revision.Spec.GetContainer().Args = []string{"-c", "echo Hello world"}
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-					withEnvVar("FOO", "bar"),
-					withEnvVar("BAZ", "blah"),
-				)
-				revision.Spec.GetContainer().Resources = corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("666Mi"),
-						corev1.ResourceCPU:    resource.MustParse("666m"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("888Mi"),
-						corev1.ResourceCPU:    resource.MustParse("888m"),
-					},
-				}
-				revision.Spec.GetContainer().TerminationMessagePolicy = corev1.TerminationMessageReadFile
+				container(revision.Spec.GetContainer(), updateContainer())
 			},
 		),
 		want: podSpec(
@@ -1058,7 +980,7 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Image = "busybox@sha256:deadbeef"
 					},
-					withContainer(),
+					getContainer(),
 					func(container *corev1.Container) {
 						container.Ports[0].ContainerPort = 8888
 					},
@@ -1114,18 +1036,17 @@ func TestMakeDeployment(t *testing.T) {
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{
-				{
-					Name:  servingContainerName,
-					Image: "busybox",
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: 8888,
-					}},
-				}, {
-					Name:  sidecarContainerName,
-					Image: "ubuntu",
-				},
-			}),
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}, {
+				Name:  sidecarContainerName,
+				Image: "ubuntu",
+			}}),
 			withoutLabels,
 			withContainerConcurrency(1),
 			WithContainerStatuses([]v1.ContainerStatuses{{
@@ -1137,12 +1058,15 @@ func TestMakeDeployment(t *testing.T) {
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: appsv1deployment(),
+		),
+		want: makeDeployment(),
 	}, {
 		name: "with owner",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "ubuntu",
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			withoutLabels,
 			withOwnerReference("parent-config"),
@@ -1153,6 +1077,8 @@ func TestMakeDeployment(t *testing.T) {
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: appsv1deployment(),
+		),
+		want: makeDeployment(),
 	}, {
 		name: "with sidecar annotation override",
 		rev: revision("bar", "foo", withoutLabels, func(revision *v1.Revision) {
@@ -1164,8 +1090,9 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "ubuntu",
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1174,18 +1101,10 @@ func TestMakeDeployment(t *testing.T) {
 				revision.ObjectMeta.Annotations = map[string]string{
 					sidecarIstioInjectAnnotation: "false",
 				}
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
 			}),
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
-			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Spec.Template.Annotations[sidecarIstioInjectAnnotation] = "false"
 		}),
 	}, {
 		name: "with ProgressDeadline override",
@@ -1223,34 +1142,23 @@ func TestMakeDeployment(t *testing.T) {
 
 func TestProgressDeadlineOverride(t *testing.T) {
 	rev := revision("bar", "foo",
-		withContainers([]corev1.Container{
-			{
-				Name:  servingContainerName,
-				Image: "busybox",
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: 8888,
-				}},
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
-			},
-		}),
+		withContainers([]corev1.Container{{
+			Name:  servingContainerName,
+			Image: "busybox",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
+			ReadinessProbe: withTCPReadinessProbe(12345),
+		}, {
+			Name:  sidecarContainerName,
+			Image: "ubuntu",
+		}}),
 		withoutLabels,
 		WithContainerStatuses([]v1.ContainerStatuses{{
 			ImageDigest: "busybox@sha256:deadbeef",
 		}, {
 			ImageDigest: "ubuntu@sha256:deadbffe",
 		}}),
-		func(revision *v1.Revision) {
-			container(revision.Spec.GetContainer(),
-				withReadinessProbe(corev1.Handler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Host: "127.0.0.1",
-						Port: intstr.FromInt(12345),
-					},
-				}),
-			)
-		},
 	)
 	want := makeDeployment(func(d *appsv1.Deployment) {
 		d.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
