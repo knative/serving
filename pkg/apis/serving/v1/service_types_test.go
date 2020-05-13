@@ -18,7 +18,6 @@ package v1
 import (
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 )
 
@@ -31,15 +30,5 @@ func TestIsServiceCondition(t *testing.T) {
 
 	if !IsServiceCondition(ServiceConditionReady) {
 		t.Error("Expected to be a service type")
-	}
-}
-
-func TestServiceGetObjectMeta(t *testing.T) {
-	r := &Service{
-		TypeMeta: metav1.TypeMeta{},
-	}
-
-	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
-		t.Errorf("GotTypeMeta=%v, want=%v", got, want)
 	}
 }
