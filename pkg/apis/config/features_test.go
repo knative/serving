@@ -29,11 +29,11 @@ func TestFeaturesConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, FeaturesConfigName)
 
 	if _, err := NewFeaturesConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewDefaultsConfigFromConfigMap(actual) = %v", err)
+		t.Error("NewDefaultsConfigFromConfigMap(actual) =", err)
 	}
 
 	if got, err := NewFeaturesConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewDefaultsConfigFromConfigMap(example) = %v", err)
+		t.Error("NewDefaultsConfigFromConfigMap(example) =", err)
 	} else {
 		// Those are in example, to show usage,
 		// but default is nil, i.e. inheriting k8s.
