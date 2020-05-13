@@ -131,7 +131,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	original, err := r.Lister.Ingresses(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("resource %q no longer exists", key)
+		logger.Debugf("resource %q no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
