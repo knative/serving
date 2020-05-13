@@ -29,7 +29,7 @@ import (
 )
 
 // PodSpecDryRunAnnotation gates the podspec dryrun feature and runs with the value 'enabled'
-var PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
+const PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
 
 // DryRunMode represents possible values of the PodSpecDryRunAnnotation
 type DryRunMode string
@@ -38,7 +38,7 @@ const (
 	// Enabled will run the dryrun logic. Will succeed if dryrun is unsupported.
 	DryRunEnabled DryRunMode = "enabled"
 
-	// Strict will run the dryrun logic and fails if dryrun is not supported.
+	// Strict will run the dryrun logic and fail if dryrun is not supported.
 	DryRunStrict DryRunMode = "strict"
 )
 
