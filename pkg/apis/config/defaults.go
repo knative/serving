@@ -75,8 +75,22 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
 
 	// Process bool fields.
-	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
-	nc.AllowContainerConcurrencyZero = !strings.EqualFold(data["allow-container-concurrency-zero"], "false")
+	for _, b := range []struct {
+		key   string
+		field *bool
+	}{
+		{
+			key:   "enable-multi-container",
+			field: &nc.EnableMultiContainer,
+		},
+		{
+			key:   "allow-container-concurrency-zero",
+			field: &nc.AllowContainerConcurrencyZero,
+		}} {
+		if raw, ok := data[b.key]; ok {
+			*b.field = strings.EqualFold(raw, "true")
+		}
+	}
 
 	// Process int64 fields.
 	for _, i64 := range []struct {

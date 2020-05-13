@@ -110,7 +110,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
-			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+			AllowContainerConcurrencyZero: false,
 		},
 		data: map[string]string{
 			"allow-container-concurrency-zero": "invalid",
