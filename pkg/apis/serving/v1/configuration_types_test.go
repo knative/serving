@@ -34,16 +34,6 @@ func TestIsConfigurationCondition(t *testing.T) {
 	}
 }
 
-func TestConfigurationGetStatus(t *testing.T) {
-	r := &Configuration{
-		Status: ConfigurationStatus{},
-	}
-
-	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GotStatus=%v, want=%v", got, want)
-	}
-}
-
 func TestConfigurationGetObjectMeta(t *testing.T) {
 	r := &Configuration{
 		TypeMeta: metav1.TypeMeta{},

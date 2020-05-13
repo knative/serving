@@ -34,16 +34,6 @@ func TestIsServiceCondition(t *testing.T) {
 	}
 }
 
-func TestServiceGetStatus(t *testing.T) {
-	r := &Service{
-		Status: ServiceStatus{},
-	}
-
-	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GotStatus=%v, want=%v", got, want)
-	}
-}
-
 func TestServiceGetObjectMeta(t *testing.T) {
 	r := &Service{
 		TypeMeta: metav1.TypeMeta{},

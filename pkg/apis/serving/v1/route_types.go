@@ -188,11 +188,6 @@ type RouteList struct {
 	Items []Route `json:"items"`
 }
 
-// GetTypeMeta retrieves the TypeMeta of the Route. Implements the KRShaped interface.
-func (t *Route) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the Route. Implements the KRShaped interface.
 func (t *Route) GetStatus() *duckv1.Status {
 	return &t.Status.Status

@@ -136,11 +136,6 @@ type ServiceList struct {
 	Items []Service `json:"items"`
 }
 
-// GetTypeMeta retrieves the TypeMeta of the Service. Implements the KRShaped interface.
-func (t *Service) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the Service. Implements the KRShaped interface.
 func (t *Service) GetStatus() *duckv1.Status {
 	return &t.Status.Status

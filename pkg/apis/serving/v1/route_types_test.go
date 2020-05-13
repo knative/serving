@@ -34,16 +34,6 @@ func TestIsRouteCondition(t *testing.T) {
 	}
 }
 
-func TestRouteGetStatus(t *testing.T) {
-	r := &Route{
-		Status: RouteStatus{},
-	}
-
-	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GotStatus=%v, want=%v", got, want)
-	}
-}
-
 func TestRouteGetObjectMeta(t *testing.T) {
 	r := &Route{
 		TypeMeta: metav1.TypeMeta{},

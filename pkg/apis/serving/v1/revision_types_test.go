@@ -34,16 +34,6 @@ func TestIsRevisionCondition(t *testing.T) {
 	}
 }
 
-func TestRevisionGetStatus(t *testing.T) {
-	r := &Revision{
-		Status: RevisionStatus{},
-	}
-
-	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GotStatus=%v, want=%v", got, want)
-	}
-}
-
 func TestRevisionGetObjectMeta(t *testing.T) {
 	r := &Revision{
 		TypeMeta: metav1.TypeMeta{},

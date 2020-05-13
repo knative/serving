@@ -171,11 +171,6 @@ type RevisionList struct {
 	Items []Revision `json:"items"`
 }
 
-// GetTypeMeta retrieves the TypeMeta of the Revision. Implements the KRShaped interface.
-func (t *Revision) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the Revision. Implements the KRShaped interface.
 func (t *Revision) GetStatus() *duckv1.Status {
 	return &t.Status.Status
