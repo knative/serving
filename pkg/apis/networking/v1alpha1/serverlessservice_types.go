@@ -143,11 +143,6 @@ const (
 	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )
 
-// GetTypeMeta retrieves the TypeMeta of the ServerlessService. Implements the KRShaped interface.
-func (t *ServerlessService) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
 func (t *ServerlessService) GetStatus() *duckv1.Status {
 	return &t.Status.Status
