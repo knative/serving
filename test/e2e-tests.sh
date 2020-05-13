@@ -80,6 +80,7 @@ fi
 
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}'
+add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
 # Run conformance and e2e tests.
 
@@ -94,8 +95,6 @@ if (( HTTPS )); then
   turn_off_auto_tls
 fi
 
-# Reset allow-zero-initial-scale
-add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
