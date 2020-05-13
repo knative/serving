@@ -156,7 +156,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas: 0,
 		wantScaling:  false,
 	}, {
-		label:         "scale to zero after grace period, but before last pod retention",
+		label:         "can't scale to zero after grace period, but before last pod retention",
 		startReplicas: 1,
 		scaleTo:       0,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
@@ -222,6 +222,7 @@ func TestScaler(t *testing.T) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
 		},
 		configMutator: func(c *config.Config) {
+			// This is shorter than gracePeriod=60s.
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 42 * time.Second
 		},
 		sks: func(s *nv1a1.ServerlessService) {
