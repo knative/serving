@@ -78,8 +78,8 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 	t.Log("Creating a new Service.", "service", names.Service)
 	_, err := v1test.CreateService(t, clients, names,
 		v1testing.WithConfigAnnotations(map[string]string{
-		autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
-	}))
+			autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
+		}))
 	if err != nil {
 		t.Fatal("Failed creating initial service:", err)
 	}
