@@ -54,6 +54,7 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
+	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/pkg/system/testing"
 
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
