@@ -126,8 +126,7 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	container := append(BuildUserContainers(rev), *queueContainer)
-	podSpec := BuildPodSpec(rev, container)
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
 
 	if autoscalerConfig.EnableGracefulScaledown {
 		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
@@ -142,7 +141,7 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
-			container = makeServingContainer(*rev.Spec.GetContainer(), rev)
+			container = makeServingContainer(rev.Spec.PodSpec.Containers[i], rev)
 		} else {
 			container = makeContainer(rev.Spec.PodSpec.Containers[i], rev)
 		}

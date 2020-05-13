@@ -273,8 +273,6 @@ type containerOption func(*corev1.Container)
 type podSpecOption func(*corev1.PodSpec)
 type deploymentOption func(*appsv1.Deployment)
 
-//type revisionOption func(*v1.Revision)
-
 func container(container *corev1.Container, opts ...containerOption) corev1.Container {
 	for _, option := range opts {
 		option(container)
