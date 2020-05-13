@@ -32,6 +32,10 @@ required = [
   name = "knative.dev/pkg"
   branch = "release-0.13"
 
+[[override]]
+  name = "knative.dev/test-infra"
+  revision = "c7c50ccd8082344a5f8ea85a5ae8de59308d325c"
+
 [[constraint]]
   name = "knative.dev/caching"
   branch = "master"

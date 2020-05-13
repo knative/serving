@@ -1841,7 +1841,7 @@
 
 [[projects]]
   branch = "release-0.13"
-  digest = "1:333539485c96ddf9d1ac20c5141a27044890c7d5b7f5de85f28a9267120acb4c"
+  digest = "1:605acc9403e00e16ab0c5d8963f4e6224a0c06e1096c7cba307f149e1e7fdea0"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1949,10 +1949,9 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a56a6ea3fa56b9c9c2482a5bda0005dd2364d183"
+  revision = "87426b54db6f1200e2cb9086055fdf7fe90307dc"
 
 [[projects]]
-  branch = "revert-1682-autobump"
   digest = "1:a6825e0c1abd44ce942d424e28faf9b5b4ee1af8d0d30ffc3d8a778579fafc84"
   name = "knative.dev/test-infra"
   packages = [
@@ -1966,7 +1965,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "f911c664103ea1187cc0d50e5029ec02fab2f64a"
+  revision = "c7c50ccd8082344a5f8ea85a5ae8de59308d325c"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
