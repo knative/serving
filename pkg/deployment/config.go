@@ -17,13 +17,14 @@ limitations under the License.
 package deployment
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -53,25 +54,19 @@ func defaultConfig() *Config {
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := defaultConfig()
-	qsideCarImage, ok := configMap[QueueSidecarImageKey]
-	if !ok {
-		return nil, errors.New("queue sidecar image is missing")
-	}
-	nc.QueueSidecarImage = qsideCarImage
 
-	if pd, ok := configMap[ProgressDeadlineKey]; ok {
-		v, err := time.ParseDuration(pd)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", ProgressDeadlineKey, pd, err)
-		} else if v <= 0 {
-			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", ProgressDeadlineKey, v)
-		}
-		nc.ProgressDeadline = v
+	if err := cm.Parse(configMap,
+		asRequiredString(QueueSidecarImageKey, &nc.QueueSidecarImage),
+		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
+		asStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
+	); err != nil {
+		return nil, err
 	}
 
-	if registries, ok := configMap[registriesSkippingTagResolvingKey]; ok {
-		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
+	if nc.ProgressDeadline <= 0 {
+		return nil, fmt.Errorf("ProgressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
 	}
+
 	return nc, nil
 }
 
@@ -92,4 +87,27 @@ type Config struct {
 	// ProgressDeadline is the time in seconds we wait for the deployment to
 	// be ready before considering it failed.
 	ProgressDeadline time.Duration
+}
+
+// asRequiredString is the same as cm.AsString but errors if the key is not present.
+func asRequiredString(key string, target *string) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = raw
+		} else {
+			return fmt.Errorf("%q is missing", key)
+		}
+		return nil
+	}
+}
+
+// asStringSet parses the value at key as a sets.String (splitting at ',') into the
+// target, if it exists.
+func asStringSet(key string, target *sets.String) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = sets.NewString(strings.Split(raw, ",")...)
+		}
+		return nil
+	}
 }
