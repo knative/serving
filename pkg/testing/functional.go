@@ -21,6 +21,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
@@ -252,6 +253,9 @@ func WithSubsets(ep *corev1.Endpoints) {
 func WithEndpointsOwnersRemoved(eps *corev1.Endpoints) {
 	eps.OwnerReferences = nil
 }
+
+// NetworkPolicyOption is an option that can be applied to a NetworkPolicy.
+type NetworkPolicyOption func(*netv1.NetworkPolicy)
 
 // PodOption enables further configuration of a Pod.
 type PodOption func(*corev1.Pod)

@@ -128,6 +128,25 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	return nil
 }
 
+func (c *Reconciler) reconcileNetworkPolicy(ctx context.Context, rev *v1.Revision) error {
+	logger := logging.FromContext(ctx)
+
+	ns := rev.Namespace
+	networkPolicy := resourcenames.NetworkPolicy(rev)
+	_, err := c.networkPolicyLister.NetworkPolicies(ns).Get(networkPolicy)
+	if apierrs.IsNotFound(err) {
+		_, err := c.createNetworkPolicy(ctx, rev)
+		if err != nil {
+			return fmt.Errorf("failed to create network policy %q: %w", networkPolicy, err)
+		}
+		logger.Infof("Created netowrk policy %q", networkPolicy)
+	} else if err != nil {
+		return fmt.Errorf("failed to get network policy %q: %w", networkPolicy, err)
+	}
+
+	return nil
+}
+
 func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
 	paName := resourcenames.PA(rev)

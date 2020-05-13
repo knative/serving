@@ -26,6 +26,7 @@ import (
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	networkpolicyinformer "knative.dev/pkg/client/injection/kube/informers/networking/v1/networkpolicy"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -73,6 +74,7 @@ func newControllerWithOptions(
 	logger := logging.FromContext(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	networkPolicyInformer := networkpolicyinformer.Get(ctx)
 	configMapInformer := configmapinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -86,6 +88,7 @@ func newControllerWithOptions(
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
+		networkPolicyLister: networkPolicyInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),

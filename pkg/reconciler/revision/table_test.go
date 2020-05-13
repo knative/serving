@@ -22,6 +22,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
@@ -80,6 +81,7 @@ func TestReconcile(t *testing.T) {
 			pa("foo", "first-reconcile"),
 			deploy(t, "foo", "first-reconcile"),
 			image("foo", "first-reconcile"),
+			networkpolicy("foo", "first-reconcile"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile",
@@ -698,6 +700,15 @@ func image(namespace, name string, co ...configOption) *caching.Image {
 	}
 
 	return resources.MakeImageCache(rev(namespace, name))
+}
+
+func networkpolicy(namespace, name string, np ...NetworkPolicyOption) *netv1.NetworkPolicy {
+	rev := rev(namespace, name)
+	k := resources.MakeNetworkPolicy(rev)
+	for _, opt := range np {
+		opt(k)
+	}
+	return k
 }
 
 func pa(namespace, name string, ko ...PodAutoscalerOption) *asv1a1.PodAutoscaler {

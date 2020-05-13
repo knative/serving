@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	netv1listers "k8s.io/client-go/listers/networking/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -55,6 +56,7 @@ type Reconciler struct {
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
 	serviceLister       corev1listers.ServiceLister
+	networkPolicyLister netv1listers.NetworkPolicyLister
 
 	resolver resolver
 }
@@ -119,6 +121,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	}, {
 		name: "PA",
 		f:    c.reconcilePA,
+	}, {
+		name: "network policy",
+		f:    c.reconcileNetworkPolicy,
 	}}
 
 	for _, phase := range phases {

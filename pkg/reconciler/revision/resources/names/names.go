@@ -28,6 +28,11 @@ func ImageCache(rev kmeta.Accessor) string {
 	return kmeta.ChildName(rev.GetName(), "-cache")
 }
 
+// NetworkPolicy returns the name for the revision
+func NetworkPolicy(rev kmeta.Accessor) string {
+	return kmeta.ChildName(rev.GetName(), "-networkpolicy")
+}
+
 // PA returns the PA name for the revision.
 func PA(rev kmeta.Accessor) string {
 	return rev.GetName()

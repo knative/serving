@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmeta"
@@ -113,6 +114,12 @@ func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision) (*c
 	image := resources.MakeImageCache(rev)
 
 	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(image)
+}
+
+func (c *Reconciler) createNetworkPolicy(ctx context.Context, rev *v1.Revision) (*netv1.NetworkPolicy, error) {
+	np := resources.MakeNetworkPolicy(rev)
+
+	return c.kubeclient.NetworkingV1().NetworkPolicies(np.Namespace).Create(np)
 }
 
 func (c *Reconciler) createPA(ctx context.Context, rev *v1.Revision) (*autoscaling.PodAutoscaler, error) {
