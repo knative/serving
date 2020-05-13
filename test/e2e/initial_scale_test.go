@@ -20,16 +20,17 @@ package e2e
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	v1testing "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // TestInitScaleZero tests setting of annotation initialScale to 0 on
@@ -50,10 +51,7 @@ func TestInitScaleZero(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
-	createRunLatestServiceReadyWithNumPods(t, clients, names, 0,
-		v1a1testing.WithConfigAnnotations(map[string]string{
-			autoscaling.InitialScaleAnnotationKey: "0",
-		}))
+	createAndVerifyInitialScaleService(t, clients, names, 0)
 }
 
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
@@ -73,22 +71,22 @@ func TestInitScalePositive(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
-	createRunLatestServiceReadyWithNumPods(t, clients, names, 3,
-		v1a1testing.WithConfigAnnotations(map[string]string{
-			autoscaling.InitialScaleAnnotationKey: "3",
-		}))
+	createAndVerifyInitialScaleService(t, clients, names, 3)
 }
 
-func createRunLatestServiceReadyWithNumPods(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int, fopt ...v1a1testing.ServiceOption) {
+func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
 	t.Log("Creating a new Service.", "service", names.Service)
-	_, err := v1a1test.CreateLatestService(t, clients, names, fopt...)
+	_, err := v1test.CreateService(t, clients, names,
+		v1testing.WithConfigAnnotations(map[string]string{
+		autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
+	}))
 	if err != nil {
 		t.Fatal("Failed creating initial service:", err)
 	}
 
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
 	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service)
-	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (b bool, e error) {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
