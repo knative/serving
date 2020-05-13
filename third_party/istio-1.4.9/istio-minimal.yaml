@@ -292,7 +292,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.7
+    chart: istio-1.4.9
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -448,7 +448,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.4.7"
+          image: "docker.io/istio/node-agent-k8s:1.4.9"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -471,7 +471,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.7"
+          image: "docker.io/istio/proxyv2:1.4.9"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -674,7 +674,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.7"
+          image: "docker.io/istio/proxyv2:1.4.9"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -865,7 +865,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.4.7"
+          image: "docker.io/istio/pilot:1.4.9"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
