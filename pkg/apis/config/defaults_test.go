@@ -35,21 +35,22 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, DefaultsConfigName)
 
 	if _, err := NewDefaultsConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewDefaultsConfigFromConfigMap(actual) = %v", err)
+		t.Error("NewDefaultsConfigFromConfigMap(actual) =", err)
 	}
 
-	if got, err := NewDefaultsConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewDefaultsConfigFromConfigMap(example) = %v", err)
-	} else {
-		// Those are in example, to show usage,
-		// but default is nil, i.e. inheriting k8s.
-		// So for this test we ignore those, but verify the other fields.
-		got.RevisionCPULimit, got.RevisionCPURequest = nil, nil
-		got.RevisionMemoryLimit, got.RevisionMemoryRequest = nil, nil
-		if want := defaultDefaultsConfig(); !cmp.Equal(got, want) {
-			t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
-				cmp.Diff(want, got))
-		}
+	got, err := NewDefaultsConfigFromConfigMap(example)
+	if err != nil {
+		t.Fatal("NewDefaultsConfigFromConfigMap(example) =", err)
+	}
+
+	// Those are in example, to show usage,
+	// but default is nil, i.e. inheriting k8s.
+	// So for this test we ignore those, but verify the other fields.
+	got.RevisionCPULimit, got.RevisionCPURequest = nil, nil
+	got.RevisionMemoryLimit, got.RevisionMemoryRequest = nil, nil
+	if want := defaultDefaultsConfig(); !cmp.Equal(got, want) {
+		t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
+			cmp.Diff(want, got))
 	}
 }
 
@@ -101,7 +102,6 @@ func TestDefaultsConfiguration(t *testing.T) {
 		name:    "invalid allow container concurrency zero flag value",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			EnableMultiContainer:          false,
 			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
 			UserContainerNameTemplate:     DefaultUserContainerName,
@@ -208,7 +208,7 @@ func TestTemplating(t *testing.T) {
 				},
 			})
 			if err != nil {
-				t.Errorf("Error parsing defaults: %v", err)
+				t.Fatal("Error parsing defaults:", err)
 			}
 
 			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{

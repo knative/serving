@@ -32,17 +32,18 @@ func TestFeaturesConfigurationFromFile(t *testing.T) {
 		t.Error("NewDefaultsConfigFromConfigMap(actual) =", err)
 	}
 
-	if got, err := NewFeaturesConfigFromConfigMap(example); err != nil {
-		t.Error("NewDefaultsConfigFromConfigMap(example) =", err)
-	} else {
-		// Those are in example, to show usage,
-		// but default is nil, i.e. inheriting k8s.
-		// So for this test we ignore those, but verify the other fields.
-		got.EnableMultiContainer = false
-		if want := defaultFeaturesConfig(); !cmp.Equal(got, want) {
-			t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
-				cmp.Diff(want, got))
-		}
+	got, err := NewFeaturesConfigFromConfigMap(example)
+	if err != nil {
+		t.Fatal("NewDefaultsConfigFromConfigMap(example) =", err)
+	}
+
+	// Those are in example, to show usage,
+	// but default is nil, i.e. inheriting k8s.
+	// So for this test we ignore those, but verify the other fields.
+	got.EnableMultiContainer = false
+	if want := defaultFeaturesConfig(); !cmp.Equal(got, want) {
+		t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
+			cmp.Diff(want, got))
 	}
 }
 
