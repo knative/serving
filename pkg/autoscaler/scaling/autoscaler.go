@@ -247,7 +247,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		// numAct stays 1, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - observedStableValue -
+		excessBCF = math.Floor(totCap - observedPanicValue -
 			a.deciderSpec.TargetBurstCapacity)
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
