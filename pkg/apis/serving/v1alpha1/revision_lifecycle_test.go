@@ -759,6 +759,22 @@ func TestGetContainer(t *testing.T) {
 			Image: "foo",
 		},
 	}, {
+		name: "get container info",
+		status: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "servingContainer",
+						Image: "firstImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "servingContainer",
+			Image: "firstImage",
+		},
+	}, {
 		name: "get serving container info even if there are multiple containers",
 		status: RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
