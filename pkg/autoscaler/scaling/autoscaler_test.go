@@ -277,12 +277,6 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
-		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
-		as:        newTestAutoscaler(t, 10, 100, &fake.MetricClient{StableConcurrency: 50.0}),
-		baseScale: 5,
-		wantScale: 5,
-		wantEBC:   expectedEBC(10, 100, 50, 5),
-	}, {
 		label:     "AutoscalerStableModeIncreaseWithSmallScaleUpRate",
 		as:        newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 3}),
 		baseScale: 2,
