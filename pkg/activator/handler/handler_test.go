@@ -266,7 +266,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
 
-			spanNames := []string{"throttler_try", "/", "proxy"}
+			spanNames := []string{"throttler_try", "/", "activator_proxy"}
 			for i, spanName := range spanNames[0:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
 					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)

@@ -93,6 +93,7 @@ spec:
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
+          failureThreshold: 12
         livenessProbe: *probe
 
       # The activator (often) sits on the dataplane, and may proxy long (e.g.
