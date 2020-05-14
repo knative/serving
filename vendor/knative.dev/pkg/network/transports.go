@@ -18,7 +18,6 @@ package network
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -53,8 +52,6 @@ var backOffTemplate = wait.Backoff{
 	Jitter:   0.1, // At most 10% jitter.
 	Steps:    15,
 }
-
-var errDialTimeout = errors.New("timed out dialing")
 
 // DialWithBackOff executes `net.Dialer.DialContext()` with exponentially increasing
 // dial timeouts. In addition it sleeps with random jitter between tries.
@@ -91,7 +88,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		}
 		return c, nil
 	}
-	elapsed := time.Now().Sub(start)
+	elapsed := time.Since(start)
 	return nil, fmt.Errorf("timed out dialing after %.2fs", elapsed.Seconds())
 }
 
