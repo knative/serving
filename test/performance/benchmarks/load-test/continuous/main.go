@@ -35,6 +35,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
+
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 const namespace = "default"

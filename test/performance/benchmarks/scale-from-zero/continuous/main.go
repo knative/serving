@@ -27,27 +27,27 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/apps/v1"
-
 	"github.com/google/mako/go/quickstore"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/watch"
-	"knative.dev/pkg/test/mako"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/test/performance"
-
 	"golang.org/x/sync/errgroup"
 
-	"knative.dev/pkg/injection/sharedmain"
-	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/autoscaling"
-	ktest "knative.dev/serving/pkg/testing/v1"
-	"knative.dev/serving/test"
-	v1test "knative.dev/serving/test/v1"
-
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"knative.dev/pkg/injection/sharedmain"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
+	ktest "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/performance"
+	v1test "knative.dev/serving/test/v1"
+
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 var (

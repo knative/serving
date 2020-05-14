@@ -43,6 +43,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 var (
