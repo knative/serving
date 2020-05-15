@@ -22,15 +22,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
 )
 
 // KRShaped is an interface for retrieving the duck elements of an arbitrary resource.
 type KRShaped interface {
-	metav1.ObjectMetaAccessor
-
-	GetTypeMeta() *metav1.TypeMeta
+	metav1.Object
+	schema.ObjectKind
 
 	GetStatus() *Status
 
@@ -79,11 +79,6 @@ type KResourceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []KResource `json:"items"`
-}
-
-// GetTypeMeta retrieves the ObjectMeta of the KResource. Implements the KRShaped interface.
-func (t *KResource) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
 }
 
 // GetStatus retrieves the status of the KResource. Implements the KRShaped interface.
