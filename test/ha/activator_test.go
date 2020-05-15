@@ -42,27 +42,24 @@ const (
 )
 
 func TestActivatorHAGraceful(t *testing.T) {
-	testActivatorHA(t, true, 1)
+	testActivatorHA(t, nil, 1)
 }
 
 func TestActivatorHANonGraceful(t *testing.T) {
-	testActivatorHA(t, false, 0.95)
+	// For non-graceful tests, we want the pod to receive a SIGKILL straight away.
+	testActivatorHA(t, ptr.Int64(0), 0.95)
 }
 
 // The Activator does not have leader election enabled.
 // The test ensures that stopping one of the activator pods doesn't affect user applications.
 // One service is probed during activator restarts and another service is used for testing
 // that we can scale from zero after activator restart.
-func testActivatorHA(t *testing.T, allowGraceful bool, slo float64) {
+func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	clients := e2e.Setup(t)
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	podDeleteOptions := &metav1.DeleteOptions{}
-	if !allowGraceful {
-		// For non-graceful tests, we want the pod to receive a SIGKILL straight away.
-		podDeleteOptions.GracePeriodSeconds = ptr.Int64(0)
-	}
+	podDeleteOptions := &metav1.DeleteOptions{GracePeriodSeconds: gracePeriod}
 
 	if err := waitForDeploymentScale(clients, activatorDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
