@@ -38,7 +38,7 @@ const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
 	minProbes               = 400 // We want to send at least 400 requests.
-	slo                     = 100 // We should see 0 failed requests or else we have a bug.
+	slo                     = 1   // We should see 0 failed requests or else we have a bug.
 )
 
 // The Activator does not have leader election enabled.
