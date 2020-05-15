@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/test/logstream"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -38,8 +37,8 @@ import (
 const (
 	activatorDeploymentName = "activator"
 	activatorLabel          = "app=activator"
-	minProbes               = 400  // We want to send at least 400 requests.
-	SLO                     = 0.99 // We permit 0.01 of requests to fail due to killing the Activator.
+	minProbes               = 400 // We want to send at least 400 requests.
+	slo                     = 100 // We should see 0 failed requests or else we have a bug.
 )
 
 // The Activator does not have leader election enabled.
@@ -97,9 +96,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
-		GracePeriodSeconds: ptr.Int64(0),
-	})
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
@@ -133,9 +130,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{
-		GracePeriodSeconds: ptr.Int64(0),
-	})
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, &metav1.DeleteOptions{})
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForChangedPublicEndpoints(t, clients, resourcesScaleToZero.Revision.Name, origEndpoints); err != nil {
@@ -150,7 +145,7 @@ func assertSLO(t *testing.T, p test.Prober) {
 	if err := p.Stop(); err != nil {
 		t.Error("Failed to stop prober:", err)
 	}
-	if err := test.CheckSLO(SLO, t.Name(), p); err != nil {
+	if err := test.CheckSLO(slo, t.Name(), p); err != nil {
 		t.Error("CheckSLO failed:", err)
 	}
 }
