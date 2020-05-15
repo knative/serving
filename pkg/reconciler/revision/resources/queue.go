@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -311,8 +310,8 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Name:  system.NamespaceEnvKey,
 			Value: system.Namespace(),
 		}, {
-			Name:  pkgmetrics.DomainEnv,
-			Value: pkgmetrics.Domain(),
+			Name:  metrics.DomainEnv,
+			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
 			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
