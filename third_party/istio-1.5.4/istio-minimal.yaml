@@ -617,7 +617,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.5.2"
+          image: "docker.io/istio/pilot:1.5.4"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -930,7 +930,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.5.2",
+        "tag": "1.5.4",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -1934,7 +1934,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1964,7 +1964,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -1994,7 +1994,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -8531,7 +8531,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.5.2"
+          image: "docker.io/istio/proxyv2:1.5.4"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -8969,7 +8969,7 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: docker.io/istio/proxyv2:1.5.2
+        image: docker.io/istio/proxyv2:1.5.4
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -9847,7 +9847,7 @@ spec:
         - configMapRef:
             name: istiod
             optional: true
-        image: docker.io/istio/pilot:1.5.2
+        image: docker.io/istio/pilot:1.5.4
         imagePullPolicy: IfNotPresent
         name: discovery
         ports:
@@ -10074,7 +10074,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.5.2",
+        "tag": "1.5.4",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -11078,7 +11078,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_inbound
+                  vm_id: tcp_stats_inbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -11108,7 +11108,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
@@ -11138,7 +11138,7 @@ spec:
                     "stat_prefix": "istio",
                   }
                 vm_config:
-                  vm_id: stats_outbound
+                  vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:

@@ -86,8 +86,17 @@ data:
     # the individual revisions cannot have arbitrary large concurrency
     # values, or autoscaling targets. `container-concurrency` default setting
     # must be at or below this value.
+    #
     # Must be greater than 1.
+    #
+    # Note: even with this set, a user can choose a containerConcurrency
+    # of 0 (i.e. unbounded) unless allow-container-concurrency-zero is
+    # set to "false".
     container-concurrency-max-limit: "1000"
+
+    # allow-container-concurrency-zero controls whether users can
+    # specify 0 (i.e. unbounded) for containerConcurrency.
+    allow-container-concurrency-zero: "true"
 
     # feature flag indicates whether to enable multi container support or not
     enable-multi-container: "false"

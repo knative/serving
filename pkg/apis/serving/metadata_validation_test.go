@@ -307,8 +307,19 @@ func TestValidateContainerConcurrency(t *testing.T) {
 		expectErr: apis.ErrOutOfBoundsValue(
 			2000, 0, 1950, apis.CurrentField),
 	}, {
+		name:                 "invalid containerConcurrency value, zero but allow-container-concurrency-zero is false",
+		containerConcurrency: ptr.Int64(0),
+		ctx: config.ToContext(context.Background(), cfg(map[string]string{
+			"allow-container-concurrency-zero": "false",
+		})),
+		expectErr: apis.ErrOutOfBoundsValue(
+			0, 1, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField),
+	}, {
 		name:                 "valid containerConcurrency value",
 		containerConcurrency: ptr.Int64(10),
+	}, {
+		name:                 "valid containerConcurrency value zero",
+		containerConcurrency: ptr.Int64(0),
 	}, {
 		name:                 "valid containerConcurrency value huge",
 		containerConcurrency: ptr.Int64(2019),
