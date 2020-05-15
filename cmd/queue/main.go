@@ -129,7 +129,7 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		}
 
 		if tracingEnabled {
-			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "queue_proxy")
 			r = r.WithContext(proxyCtx)
 			defer proxySpan.End()
 		}
@@ -149,7 +149,7 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		if breaker != nil {
 			var waitSpan *trace.Span
 			if tracingEnabled {
-				_, waitSpan = trace.StartSpan(r.Context(), "queueWait")
+				_, waitSpan = trace.StartSpan(r.Context(), "queue_wait")
 			}
 			if err := breaker.Maybe(r.Context(), func() {
 				waitSpan.End()

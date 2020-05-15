@@ -75,7 +75,7 @@ func readTemplate() (*v1beta1.Service, error) {
 }
 
 func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
-	seen *sets.String, metric string) {
+	seen sets.String, metric string) {
 	if seen.Has(svc.GetName()) {
 		return
 	}
@@ -233,7 +233,7 @@ func main() {
 					break
 				}
 				svc := event.Object.(*v1beta1.Service)
-				handle(q, svc, svc.Status.Status, &serviceSeen, "dl")
+				handle(q, svc, svc.Status.Status, serviceSeen, "dl")
 
 			case event := <-configurationWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -241,7 +241,7 @@ func main() {
 					break
 				}
 				cfg := event.Object.(*v1beta1.Configuration)
-				handle(q, cfg, cfg.Status.Status, &configurationSeen, "cl")
+				handle(q, cfg, cfg.Status.Status, configurationSeen, "cl")
 
 			case event := <-routeWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -249,7 +249,7 @@ func main() {
 					break
 				}
 				rt := event.Object.(*v1beta1.Route)
-				handle(q, rt, rt.Status.Status, &routeSeen, "rl")
+				handle(q, rt, rt.Status.Status, routeSeen, "rl")
 
 			case event := <-revisionWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -257,7 +257,7 @@ func main() {
 					break
 				}
 				rev := event.Object.(*v1beta1.Revision)
-				handle(q, rev, rev.Status.Status, &revisionSeen, "rvl")
+				handle(q, rev, rev.Status.Status, revisionSeen, "rvl")
 
 			case event := <-ingressWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -265,7 +265,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.Ingress)
-				handle(q, ing, ing.Status.Status, &ingressSeen, "il")
+				handle(q, ing, ing.Status.Status, ingressSeen, "il")
 
 			case event := <-sksWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -273,7 +273,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.ServerlessService)
-				handle(q, ing, ing.Status.Status, &sksSeen, "sksl")
+				handle(q, ing, ing.Status.Status, sksSeen, "sksl")
 
 			case event := <-paWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -281,7 +281,7 @@ func main() {
 					break
 				}
 				pa := event.Object.(*asv1alpha1.PodAutoscaler)
-				handle(q, pa, pa.Status.Status, &paSeen, "pal")
+				handle(q, pa, pa.Status.Status, paSeen, "pal")
 			}
 		}
 	}()
