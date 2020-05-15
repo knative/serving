@@ -237,10 +237,14 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	noTargetMetric := defaultMetric
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
-	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	mtp.Channel <- now
-	mtp.Channel <- now
-	mtp.Channel <- now
+
+	// Try ticking but nothing reacts as we're not scraping
+	select {
+	case mtp.Channel <- now:
+		t.Fatalf("Unexpected reaction to tick")
+	case <-time.After(50 * time.Millisecond):
+		// All good.
+	}
 
 	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
@@ -283,6 +287,63 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	}
 	if gotConcurrency != wantAverageRC {
 		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantAverageRC)
+	}
+}
+
+func TestMetricCollectorScraperOffOnOff(t *testing.T) {
+	logger := TestLogger(t)
+
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	now := time.Now()
+	stat := Stat{
+		Time:                      now,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: 1,
+		RequestCount:              1,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+
+	coll := NewMetricCollector(factory, logger)
+	coll.tickProvider = mtp.NewTicker // custom ticker.
+
+	noTargetMetric := defaultMetric
+	noTargetMetric.Spec.ScrapeTarget = ""
+	coll.CreateOrUpdate(&noTargetMetric)
+
+	// Try ticking but nothing reacts as we're not scraping
+	select {
+	case mtp.Channel <- now:
+		t.Fatalf("Unexpected reaction to tick")
+	case <-time.After(50 * time.Millisecond):
+		// All good.
+	}
+
+	// Turn the scraper on.
+	coll.CreateOrUpdate(&defaultMetric)
+
+	select {
+	case mtp.Channel <- now:
+		// All good.
+	case <-time.After(50 * time.Millisecond):
+		t.Fatalf("Expected tick to be accepted")
+	}
+
+	// Turn scraper off again
+	coll.CreateOrUpdate(&noTargetMetric)
+
+	// Try ticking but nothing reacts as we're not scraping
+	select {
+	case mtp.Channel <- now:
+		t.Fatalf("Unexpected reaction to tick")
+	case <-time.After(50 * time.Millisecond):
+		// All good.
 	}
 }
 

@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
@@ -162,7 +161,7 @@ func (c *MetricCollector) Delete(namespace, name string) error {
 
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
-		collection.close()
+		collection.stopScraping()
 		delete(c.collections, key)
 	}
 	return nil
@@ -239,6 +238,8 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
+	callback func(types.NamespacedName)
+
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
 
@@ -251,6 +252,7 @@ type collection struct {
 	// Fields relevant for metric scraping specifically.
 	scraperMutex sync.RWMutex
 	scraper      StatsScraper
+	tickFactory  func(time.Duration) *time.Ticker
 	errMutex     sync.RWMutex
 	lastErr      error
 	grp          sync.WaitGroup
@@ -274,6 +276,8 @@ func (c *collection) getScraper() StatsScraper {
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker,
 	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
 	c := &collection{
+		callback: callback,
+
 		metric: metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
 			metric.Spec.StableWindow, config.BucketSize),
@@ -285,44 +289,12 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
-		stopCh: make(chan struct{}),
+		tickFactory: tickFactory,
 	}
 
-	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	logger = logger.Named("collector").With(zap.String(logkey.Key, key.String()))
-
-	c.grp.Add(1)
-	go func() {
-		defer c.grp.Done()
-
-		scrapeTicker := tickFactory(scrapeTickInterval)
-		defer scrapeTicker.Stop()
-		for {
-			select {
-			case <-c.stopCh:
-				return
-			case <-scrapeTicker.C:
-				currentMetric := c.currentMetric()
-				if currentMetric.Spec.ScrapeTarget == "" {
-					// Don't scrape empty target service.
-					if c.updateLastError(nil) {
-						callback(key)
-					}
-					continue
-				}
-				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
-				if err != nil {
-					logger.Errorw("Failed to scrape metrics", zap.Error(err))
-				}
-				if c.updateLastError(err) {
-					callback(key)
-				}
-				if stat != emptyStat {
-					c.record(stat)
-				}
-			}
-		}
-	}()
+	if metric.Spec.ScrapeTarget != "" {
+		c.startScraping()
+	}
 
 	return c
 }
@@ -337,6 +309,19 @@ func (c *collection) close() {
 func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	c.metricMutex.Lock()
 	defer c.metricMutex.Unlock()
+
+	if c.metric.Spec.ScrapeTarget == "" && metric.Spec.ScrapeTarget != "" {
+		// Start scraping if we switch from no target to a target.
+		c.startScraping()
+	} else if c.metric.Spec.ScrapeTarget != "" && metric.Spec.ScrapeTarget == "" {
+		// Stop scraping if we switch from a target to no target.
+		c.stopScraping()
+
+		// Nilify any possible errors during scraping.
+		if c.updateLastError(nil) {
+			c.callback(types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name})
+		}
+	}
 
 	c.metric = metric
 	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
@@ -383,6 +368,41 @@ func (c *collection) record(stat Stat) {
 	rps := stat.RequestCount - stat.ProxiedRequestCount
 	c.rpsBuckets.Record(stat.Time, rps)
 	c.rpsPanicBuckets.Record(stat.Time, rps)
+}
+
+// startScraping starts scraping metrics.
+// This is only run from inside a lock, it can't race with a stopScraping call.
+func (c *collection) startScraping() {
+	c.stopCh = make(chan struct{})
+	c.grp.Add(1)
+	go func() {
+		defer c.grp.Done()
+
+		scrapeTicker := c.tickFactory(scrapeTickInterval)
+		defer scrapeTicker.Stop()
+		for {
+			select {
+			case <-c.stopCh:
+				return
+			case <-scrapeTicker.C:
+				metric := c.currentMetric()
+				stat, err := c.getScraper().Scrape(metric.Spec.StableWindow)
+				if c.updateLastError(err) {
+					c.callback(types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name})
+				}
+				if stat != emptyStat {
+					c.record(stat)
+				}
+			}
+		}
+	}()
+}
+
+// stopScraping stops the scraper.
+// This is only run from inside a lock, it can't race with a startScraping call.
+func (c *collection) stopScraping() {
+	close(c.stopCh)
+	c.grp.Wait()
 }
 
 // add adds the stats from `src` to `dst`.
