@@ -135,15 +135,15 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	return podSpec, nil
 }
 
-// BuildUserContainers makes a container from the Revision template.
+// BuildUserContainers makes an array of containers from the Revision template.
 func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
-			container = makeServingContainer(rev.Spec.PodSpec.Containers[i], rev)
+			container = makeServingContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 		} else {
-			container = makeContainer(rev.Spec.PodSpec.Containers[i], rev)
+			container = makeContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 		}
 		if rev.Status.ContainerStatuses != nil {
 			container.Image = rev.Status.ContainerStatuses[i].ImageDigest
