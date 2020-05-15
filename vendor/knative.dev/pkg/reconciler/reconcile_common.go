@@ -29,7 +29,7 @@ const failedGenerationBump = "NewObservedGenFailure"
 func PreProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 	newStatus := resource.GetStatus()
 
-	if newStatus.ObservedGeneration != resource.GetObjectMeta().GetGeneration() {
+	if newStatus.ObservedGeneration != resource.GetGeneration() {
 		condSet := resource.GetConditionSet()
 		manager := condSet.Manage(newStatus)
 
@@ -46,7 +46,7 @@ func PostProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 
 	// Bump observed generation to denote that we have processed this
 	// generation regardless of success or failure.
-	newStatus.ObservedGeneration = resource.GetObjectMeta().GetGeneration()
+	newStatus.ObservedGeneration = resource.GetGeneration()
 
 	rc := mgr.GetTopLevelCondition()
 	if rc.Reason == failedGenerationBump {
