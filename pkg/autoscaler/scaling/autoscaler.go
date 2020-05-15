@@ -226,7 +226,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
-	// - the excess burst capacity based on stable value for now, since we don't want to
+	// - the excess burst capacity based on panic value, since we don't want to
 	//   be making knee-jerk decisions about Activator in the request path.
 	//   Negative EBC means that the deployment does not have enough capacity to serve
 	//   the desired burst off hand.
