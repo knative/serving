@@ -18,10 +18,9 @@ package config
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
+	cm "knative.dev/pkg/configmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 
 	corev1 "k8s.io/api/core/v1"
@@ -118,83 +117,31 @@ func defaultConfig() *Config {
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	lc := defaultConfig()
 
-	// Process bool fields.
-	for _, b := range []struct {
-		key   string
-		field *bool
-	}{
-		{
-			key:   "enable-scale-to-zero",
-			field: &lc.EnableScaleToZero,
-		},
-		{
-			key:   "enable-graceful-scaledown",
-			field: &lc.EnableGracefulScaledown,
-		}, {
-			key:   "allow-zero-initial-scale",
-			field: &lc.AllowZeroInitialScale,
-		}} {
-		if raw, ok := data[b.key]; ok {
-			*b.field = strings.EqualFold(raw, "true")
-		}
-	}
+	if err := cm.Parse(data,
+		cm.AsString("pod-autoscaler-class", &lc.PodAutoscalerClass),
 
-	// Process Float64 fields
-	for _, f64 := range []struct {
-		key   string
-		field *float64
-	}{{
-		key:   "max-scale-up-rate",
-		field: &lc.MaxScaleUpRate,
-	}, {
-		key:   "max-scale-down-rate",
-		field: &lc.MaxScaleDownRate,
-	}, {
-		key:   "container-concurrency-target-percentage",
-		field: &lc.ContainerConcurrencyTargetFraction,
-	}, {
-		key:   "container-concurrency-target-default",
-		field: &lc.ContainerConcurrencyTargetDefault,
-	}, {
-		key:   "requests-per-second-target-default",
-		field: &lc.RPSTargetDefault,
-	}, {
-		key:   "target-burst-capacity",
-		field: &lc.TargetBurstCapacity,
-	}, {
-		key:   "panic-window-percentage",
-		field: &lc.PanicWindowPercentage,
-	}, {
-		key:   "activator-capacity",
-		field: &lc.ActivatorCapacity,
-	}, {
-		key:   "panic-threshold-percentage",
-		field: &lc.PanicThresholdPercentage,
-	}} {
-		if raw, ok := data[f64.key]; ok {
-			val, err := strconv.ParseFloat(raw, 64)
-			if err != nil {
-				return nil, err
-			}
-			*f64.field = val
-		}
-	}
+		cm.AsBool("enable-scale-to-zero", &lc.EnableScaleToZero),
+		cm.AsBool("enable-graceful-scaledown", &lc.EnableGracefulScaledown),
+		cm.AsBool("allow-zero-initial-scale", &lc.AllowZeroInitialScale),
 
-	// Process int fields
-	for _, i := range []struct {
-		key   string
-		field *int32
-	}{{
-		key:   "initial-scale",
-		field: &lc.InitialScale,
-	}} {
-		if raw, ok := data[i.key]; ok {
-			val, err := strconv.ParseInt(raw, 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			*i.field = int32(val)
-		}
+		cm.AsFloat64("max-scale-up-rate", &lc.MaxScaleUpRate),
+		cm.AsFloat64("max-scale-down-rate", &lc.MaxScaleDownRate),
+		cm.AsFloat64("container-concurrency-target-percentage", &lc.ContainerConcurrencyTargetFraction),
+		cm.AsFloat64("container-concurrency-target-default", &lc.ContainerConcurrencyTargetDefault),
+		cm.AsFloat64("requests-per-second-target-default", &lc.RPSTargetDefault),
+		cm.AsFloat64("target-burst-capacity", &lc.TargetBurstCapacity),
+		cm.AsFloat64("panic-window-percentage", &lc.PanicWindowPercentage),
+		cm.AsFloat64("activator-capacity", &lc.ActivatorCapacity),
+		cm.AsFloat64("panic-threshold-percentage", &lc.PanicThresholdPercentage),
+
+		cm.AsInt32("initial-scale", &lc.InitialScale),
+
+		cm.AsDuration("stable-window", &lc.StableWindow),
+		cm.AsDuration("scale-to-zero-grace-period", &lc.ScaleToZeroGracePeriod),
+		cm.AsDuration("scale-to-zero-pod-retention-period", &lc.ScaleToZeroPodRetentionPeriod),
+		cm.AsDuration("tick-interval", &lc.TickInterval),
+	); err != nil {
+		return nil, fmt.Errorf("failed to parse data: %w", err)
 	}
 
 	// Adjust % ⇒ fractions: for legacy reasons we allow values in the
@@ -203,36 +150,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	// to perform division on each computation.
 	if lc.ContainerConcurrencyTargetFraction > 1.0 {
 		lc.ContainerConcurrencyTargetFraction /= 100.0
-	}
-
-	// Process Duration fields
-	for _, dur := range []struct {
-		key   string
-		field *time.Duration
-	}{{
-		key:   "stable-window",
-		field: &lc.StableWindow,
-	}, {
-		key:   "scale-to-zero-grace-period",
-		field: &lc.ScaleToZeroGracePeriod,
-	}, {
-		key:   "scale-to-zero-pod-retention-period",
-		field: &lc.ScaleToZeroPodRetentionPeriod,
-	}, {
-		key:   "tick-interval",
-		field: &lc.TickInterval,
-	}} {
-		if raw, ok := data[dur.key]; ok {
-			val, err := time.ParseDuration(raw)
-			if err != nil {
-				return nil, err
-			}
-			*dur.field = val
-		}
-	}
-
-	if pac, ok := data["pod-autoscaler-class"]; ok {
-		lc.PodAutoscalerClass = pac
 	}
 
 	return validate(lc)
