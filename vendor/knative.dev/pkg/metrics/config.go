@@ -21,12 +21,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -119,8 +117,6 @@ type metricsConfig struct {
 	stackdriverClientConfig StackdriverClientConfig
 }
 
-var logOnce sync.Once
-
 // StackdriverClientConfig encapsulates the metadata required to configure a Stackdriver client.
 type StackdriverClientConfig struct {
 	// ProjectID is the stackdriver project ID to which data is uploaded.
@@ -156,15 +152,6 @@ func NewStackdriverClientConfigFromMap(config map[string]string) *StackdriverCli
 // measurements in the metricsConfig's designated backend.
 func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
 	if mc == nil {
-		logOnce.Do(func() {
-			log.Println(`The metricsConfig has not been initialized yet.
-If this is a Go unit test consuming metric.Record(...) or metric.RecordBatch(...) then
-it should add the following import:
-import (
-	_ "knative.dev/pkg/metrics/testing"
-)`)
-		})
-
 		// Don't record data points if the metric config is not initialized yet.
 		// At this point, it's unclear whether should record or not.
 		return nil
