@@ -197,8 +197,7 @@ err := v1testing.WaitForConfigurationState(clients.ServingClient, configName, fu
 }, "ConfigurationUpdatedWithRevision")
 ```
 
-  _v1testing is alias for package
-`knative.dev/serving/pkg/testing/v1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 We also have `Check*` variants of many of these methods with identical
 signatures, same example:
@@ -214,8 +213,7 @@ err := v1testing.CheckConfigurationState(clients.ServingClient, configName, func
 })
 ```
 
-  _v1testing is alias for package
-`knative.dev/serving/pkg/testing/v1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 _For knative crd state, for example `Config`. You can see the code in
 [configuration.go](./v1/configuration.go). For kubernetes objects see
@@ -242,8 +240,7 @@ if err != nil {
 }
 ```
 
-  _v1testing is alias for package
-`knative.dev/serving/pkg/testing/v1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 Once the `Revision` is created, all traffic for a `Route` should be routed to
 it. This can be polled with `v1testing.AllRouteTrafficAtRevision`:
