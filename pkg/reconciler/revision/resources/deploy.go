@@ -22,17 +22,18 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,35 +42,45 @@ import (
 )
 
 const (
-	varLogVolumeName   = "knative-var-log"
-	varLogVolumePath   = "/var/log"
-	internalVolumeName = "knative-internal"
-	internalVolumePath = "/var/knative-internal"
+	podInfoVolumeName  = "podinfo"
+	podInfoVolumePath  = "/etc/podinfo"
+	metadataLabelsRef  = "metadata.labels"
+	metadataLabelsPath = "labels"
 )
 
 var (
 	varLogVolume = corev1.Volume{
-		Name: varLogVolumeName,
+		Name: "knative-var-log",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
 	varLogVolumeMount = corev1.VolumeMount{
-		Name:      varLogVolumeName,
-		MountPath: varLogVolumePath,
+		Name:        varLogVolume.Name,
+		MountPath:   "/var/log",
+		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
-	internalVolume = corev1.Volume{
-		Name: internalVolumeName,
+	labelVolume = corev1.Volume{
+		Name: podInfoVolumeName,
 		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{
+					{
+						Path: metadataLabelsPath,
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
+						},
+					},
+				},
+			},
 		},
 	}
 
-	internalVolumeMount = corev1.VolumeMount{
-		Name:      internalVolumeName,
-		MountPath: internalVolumePath,
+	labelVolumeMount = corev1.VolumeMount{
+		Name:      podInfoVolumeName,
+		MountPath: podInfoVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -108,18 +119,32 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
+	userContainer := BuildUserContainer(rev)
+	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
+
+	if autoscalerConfig.EnableGracefulScaledown {
+		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
+	}
+
+	return podSpec, nil
+}
+
+// BuildUserContainer makes a container from the Revision template.
+func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
+	varLogMount := varLogVolumeMount.DeepCopy()
+	varLogMount.SubPathExpr += userContainer.Name
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, *varLogMount)
 	userContainer.Lifecycle = userLifecycle
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
@@ -128,13 +153,15 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 	userContainer.Ports = buildContainerPorts(userPort)
 	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+	userContainer.Env = append(userContainer.Env, buildVarLogSubpathEnvs()...)
+
 	// Explicitly disable stdin and tty allocation
 	userContainer.Stdin = false
 	userContainer.TTY = false
 
 	// Prefer imageDigest from revision if available
-	if rev.Status.ImageDigest != "" {
-		userContainer.Image = rev.Status.ImageDigest
+	if rev.Status.DeprecatedImageDigest != "" {
+		userContainer.Image = rev.Status.DeprecatedImageDigest
 	}
 
 	if userContainer.TerminationMessagePolicy == "" {
@@ -151,41 +178,52 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 
 	// If the client provides probes, we should fill in the port for them.
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
+	return userContainer
+}
 
-	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{
-			*userContainer,
-			*queueContainer,
-		},
+// BuildPodSpec creates a PodSpec from the given revision and containers.
+func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		Containers:                    containers,
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
+		ImagePullSecrets:              rev.Spec.ImagePullSecrets,
 	}
-
-	// Add the Knative internal volume only if /var/log collection is enabled
-	if observabilityConfig.EnableVarLogCollection {
-		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
-	}
-
-	return podSpec, nil
 }
 
-func getUserPort(rev *v1alpha1.Revision) int32 {
+func getUserPort(rev *v1.Revision) int32 {
 	ports := rev.Spec.GetContainer().Ports
 
 	if len(ports) > 0 && ports[0].ContainerPort != 0 {
 		return ports[0].ContainerPort
 	}
 
-	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value
-
-	return v1alpha1.DefaultUserPort
+	return v1.DefaultUserPort
 }
 
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
-		Name:          v1alpha1.UserPortName,
+		Name:          v1.UserPortName,
 		ContainerPort: userPort,
+	}}
+}
+
+func buildVarLogSubpathEnvs() []corev1.EnvVar {
+	return []corev1.EnvVar{{
+		Name: "K_INTERNAL_POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	}, {
+		Name: "K_INTERNAL_POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
 	}}
 }
 
@@ -197,37 +235,15 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
-func MakeDeployment(rev *v1alpha1.Revision,
+func MakeDeployment(rev *v1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
-	deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
+	autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
 
-	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+	podTemplateAnnotations := kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 
-	// TODO(nghia): Remove the need for this
-	// Only force-set the inject annotation if the revision does not state otherwise.
-	if _, ok := podTemplateAnnotations[sidecarIstioInjectAnnotation]; !ok {
-		podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
-	}
-	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
-	// out via annotation) we should explicitly disable that here to avoid redundant Image
-	// resources.
-
-	// Inject the IP ranges for istio sidecar configuration.
-	// We will inject this value only if all of the following are true:
-	// - the config map contains a non-empty value
-	// - the user doesn't specify this annotation in configuration's pod template
-	// - configured values are valid CIDR notation IP addresses
-	// If these conditions are not met, this value will be left untouched.
-	// * is a special value that is accepted as a valid.
-	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
-	if _, ok := podTemplateAnnotations[IstioOutboundIPRangeAnnotation]; !ok {
-		if len(networkConfig.IstioOutboundIPRanges) > 0 {
-			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
-		}
-	}
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
@@ -237,7 +253,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			Name:      names.Deployment(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Exclude the heartbeat label, which can have high variance.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
@@ -246,7 +262,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(1),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeLabels(rev),

@@ -22,31 +22,7 @@ package test
 import (
 	"flag"
 
-	"knative.dev/pkg/test"
-	"knative.dev/pkg/test/logging"
-)
-
-const (
-	// ServingNamespace is the default namespace for serving e2e tests
-	ServingNamespace = "serving-tests"
-
-	// AlternativeServingNamespace is a different namepace to run cross-
-	// namespace tests in.
-	AlternativeServingNamespace = "serving-tests-alt"
-
-	// E2EMetricExporter is the name for the metrics exporter logger
-	E2EMetricExporter = "e2e-metrics"
-
-	// Environment propagation conformance test objects
-
-	// ConformanceConfigMap is the name of the configmap to propagate env variables from
-	ConformanceConfigMap = "conformance-test-configmap"
-	// ConformanceSecret is the name of the secret to propagate env variables from
-	ConformanceSecret = "conformance-test-secret"
-	// EnvKey is the configmap/secret key which contains test value
-	EnvKey = "testKey"
-	// EnvValue is the configmap/secret test value to match env variable with
-	EnvValue = "testValue"
+	"knative.dev/serving/pkg/network"
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
@@ -54,23 +30,26 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	Https            bool   // Indicates where the test service will be created with https
+	IngressClass     string // Indicates the class of Ingress provider to test.
+	CertificateClass string // Indicates the class of Certificate provider to test.
+	SystemNamespace  string // Indicates the system namespace, in which Knative Serving is installed.
 }
 
-// initializeServingFlags registers flags used by e2e tests, calling flag.Parse() here would fail in
-// go1.13+, see https://github.com/knative/test-infra/issues/1329 for details
 func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
+	// Only define and set flags here. Flag values cannot be read at package init time.
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	flag.BoolVar(&f.Https, "https", false,
+		"Set this flag to true to run all tests with https.")
 
-	flag.Set("alsologtostderr", "true")
-	logging.InitializeLogger(test.Flags.LogVerbose)
-
-	if test.Flags.EmitMetrics {
-		logging.InitializeMetricExporter(E2EMetricExporter)
-	}
+	flag.StringVar(&f.IngressClass, "ingressClass", network.IstioIngressClassName,
+		"Set this flag to the ingress class to test against.")
+	flag.StringVar(&f.CertificateClass, "certificateClass", network.CertManagerCertificateClassName,
+		"Set this flag to the certificate class to test against.")
 
 	return &f
 }

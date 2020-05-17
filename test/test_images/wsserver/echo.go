@@ -19,12 +19,23 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/test"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+const suffixMessageEnv = "SUFFIX"
+
+// Gets the message suffix from envvar. Empty by default.
+func messageSuffix() string {
+	value := os.Getenv(suffixMessageEnv)
+	if value == "" {
+		return ""
+	}
+	return value
+}
 
 var upgrader = websocket.Upgrader{
 	// Allow any origin, since we are spoofing requests anyway.
@@ -34,6 +45,10 @@ var upgrader = websocket.Upgrader{
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	if network.IsKubeletProbe(r) {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Error upgrading websocket:", err)
@@ -53,6 +68,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		if suffix := messageSuffix(); suffix != "" {
+			respMes := string(message) + " " + suffix
+			message = []byte(respMes)
+		}
+
 		log.Printf("Successfully received: %q", message)
 		if err = conn.WriteMessage(messageType, message); err != nil {
 			log.Println("Failed to write message:", err)
@@ -65,5 +85,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
-	test.ListenAndServeGracefully(*addr, handler)
+	h := network.NewProbeHandler(http.HandlerFunc(handler))
+	test.ListenAndServeGracefully(":"+os.Getenv("PORT"), h.ServeHTTP)
 }

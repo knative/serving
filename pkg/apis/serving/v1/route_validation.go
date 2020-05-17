@@ -24,15 +24,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).Also(
 		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
+
+	if apis.IsInUpdate(ctx) {
+		original := apis.GetBaseline(ctx).(*Route)
+		// Don't validate annotations(creator and lastModifier) when route owned by service
+		// validate only when route created independently.
+		if r.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+				r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
+	}
 	return errs
 }
 
@@ -53,7 +62,11 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		if tt.Tag == "" {
 			continue
 		}
-
+		if msgs := validation.IsDNS1035Label(tt.Tag); len(msgs) > 0 {
+			errs = errs.Also(apis.ErrInvalidArrayValue(
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
+				"tag", i))
+		}
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
@@ -151,7 +164,7 @@ func (tt *TrafficTarget) validateLatestRevision(ctx context.Context) *apis.Field
 		if pinned == lr {
 			// The senses for whether to pin to a particular revision or
 			// float forward to the latest revision must match.
-			return apis.ErrInvalidValue(lr, "latestRevision")
+			return apis.ErrGeneric(fmt.Sprintf("may not set revisionName %q when latestRevision is %t", tt.RevisionName, lr), "latestRevision")
 		}
 	}
 	return nil
@@ -194,8 +207,8 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
-	if label != config.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
+	if label != serving.VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, serving.VisibilityLabelKey)
 	}
 	return
 }
@@ -204,7 +217,7 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))

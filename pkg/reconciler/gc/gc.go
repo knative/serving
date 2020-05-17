@@ -18,75 +18,40 @@ package gc
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
 // reconciler implements controller.Reconciler for Garbage Collection resources.
 type reconciler struct {
-	*pkgreconciler.Base
+	client clientset.Interface
 
 	// listers index properties about resources
-	configurationLister listers.ConfigurationLister
-	revisionLister      listers.RevisionLister
-
-	configStore pkgreconciler.ConfigStore
+	revisionLister listers.RevisionLister
 }
 
-// Check that our reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+// Check that our reconciler implements configreconciler.Interface
+var _ configreconciler.Interface = (*reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Garbage Collection
-// resource with the current status of the resource.
-func (c *reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Configuration resource with this namespace/name.
-	config, err := c.configurationLister.Configurations(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		// The resource no longer exists, in which case we stop processing.
-		logger.Errorf("Configuration %q in work queue no longer exists", key)
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	reconcileErr := c.reconcile(ctx, config)
-	if reconcileErr != nil {
-		c.Recorder.Event(config, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-	}
-	return reconcileErr
-}
-
-func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
+func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
-	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
+	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
 	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
 		return err
@@ -105,9 +70,9 @@ func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	for _, rev := range revs[gcSkipOffset:] {
 		if isRevisionStale(ctx, rev, config) {
-			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
-				logger.Errorw(fmt.Sprintf("Failed to delete stale revision %q", rev.Name), zap.Error(err))
+				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
 			}
 		}
@@ -115,7 +80,7 @@ func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
@@ -131,7 +96,7 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 
 	lastPin, err := rev.GetLastPinned()
 	if err != nil {
-		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+		if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
 			logger.Errorw("Failed to determine revision last pinned", zap.Error(err))
 		} else {
 			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.

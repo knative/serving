@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
@@ -27,26 +26,26 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Revision) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (source *Revision) ConvertTo(ctx context.Context, obj apis.Convertible) error {
 	switch sink := obj.(type) {
 	case *v1beta1.Revision:
 		sink.ObjectMeta = source.ObjectMeta
-		source.Status.ConvertUp(ctx, &sink.Status)
-		return source.Spec.ConvertUp(ctx, &sink.Spec)
+		source.Status.ConvertTo(ctx, &sink.Status)
+		return source.Spec.ConvertTo(ctx, &sink.Spec)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertToViaProxy(ctx, source, &v1beta1.Revision{}, sink)
 	}
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1.RevisionTemplateSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionTemplateSpec) ConvertTo(ctx context.Context, sink *v1.RevisionTemplateSpec) error {
 	sink.ObjectMeta = source.ObjectMeta
-	return source.Spec.ConvertUp(ctx, &sink.Spec)
+	return source.Spec.ConvertTo(ctx, &sink.Spec)
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionSpec) ConvertTo(ctx context.Context, sink *v1.RevisionSpec) error {
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)
 	}
@@ -61,59 +60,72 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 			ServiceAccountName: source.ServiceAccountName,
 			Containers:         []corev1.Container{*source.DeprecatedContainer},
 			Volumes:            source.Volumes,
+			ImagePullSecrets:   source.ImagePullSecrets,
 		}
-	case len(source.Containers) == 1:
+	case len(source.Containers) != 0:
 		sink.PodSpec = source.PodSpec
-	case len(source.Containers) > 1:
-		return apis.ErrMultipleOneOf("containers")
 	default:
 		return apis.ErrMissingOneOf("container", "containers")
-	}
-	if source.DeprecatedBuildRef != nil {
-		return ConvertErrorf("buildRef",
-			"buildRef cannot be migrated forward, got: %#v", source.DeprecatedBuildRef)
 	}
 	return nil
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionStatus) ConvertUp(ctx context.Context, sink *v1.RevisionStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionStatus) {
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	// TODO(mattmoor): ImageDigest?
-}
-
-// ConvertDown implements apis.Convertible
-func (sink *Revision) ConvertDown(ctx context.Context, obj apis.Convertible) error {
-	switch source := obj.(type) {
-	case *v1beta1.Revision:
-		sink.ObjectMeta = source.ObjectMeta
-		sink.Status.ConvertDown(ctx, source.Status)
-		return sink.Spec.ConvertDown(ctx, source.Spec)
-	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
+	sink.ContainerStatuses = make([]v1.ContainerStatuses, len(source.ContainerStatuses))
+	for i := range source.ContainerStatuses {
+		source.ContainerStatuses[i].ConvertTo(ctx, &sink.ContainerStatuses[i])
 	}
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionTemplateSpec) ConvertDown(ctx context.Context, source v1.RevisionTemplateSpec) error {
-	sink.ObjectMeta = source.ObjectMeta
-	return sink.Spec.ConvertDown(ctx, source.Spec)
+// ConvertTo helps implement apis.Convertible
+func (source *ContainerStatuses) ConvertTo(ctx context.Context, sink *v1.ContainerStatuses) {
+	sink.Name = source.Name
+	sink.ImageDigest = source.ImageDigest
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionSpec) ConvertDown(ctx context.Context, source v1.RevisionSpec) error {
+// ConvertFrom implements apis.Convertible
+func (sink *Revision) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
+	switch source := obj.(type) {
+	case *v1beta1.Revision:
+		sink.ObjectMeta = source.ObjectMeta
+		sink.Status.ConvertFrom(ctx, source.Status)
+		return sink.Spec.ConvertFrom(ctx, source.Spec)
+	default:
+		return apis.ConvertFromViaProxy(ctx, source, &v1beta1.Revision{}, sink)
+	}
+}
+
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionTemplateSpec) ConvertFrom(ctx context.Context, source v1.RevisionTemplateSpec) error {
+	sink.ObjectMeta = source.ObjectMeta
+	return sink.Spec.ConvertFrom(ctx, source.Spec)
+}
+
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionSpec) ConvertFrom(ctx context.Context, source v1.RevisionSpec) error {
 	sink.RevisionSpec = *source.DeepCopy()
 	return nil
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionStatus) ConvertDown(ctx context.Context, source v1.RevisionStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionStatus) {
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	// TODO(mattmoor): ImageDigest?
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
+	sink.ContainerStatuses = make([]ContainerStatuses, len(source.ContainerStatuses))
+	for i := range sink.ContainerStatuses {
+		sink.ContainerStatuses[i].ConvertFrom(ctx, &source.ContainerStatuses[i])
+	}
+}
+
+// ConvertFrom helps implement apis.Convertible
+func (sink *ContainerStatuses) ConvertFrom(ctx context.Context, source *v1.ContainerStatuses) {
+	sink.Name = source.Name
+	sink.ImageDigest = source.ImageDigest
 }

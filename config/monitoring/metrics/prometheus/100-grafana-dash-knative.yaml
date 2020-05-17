@@ -657,7 +657,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
+              "format": "ms",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -790,7 +790,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
+              "format": "ms",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -811,7 +811,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 16,
       "style": "dark",
-      "tags": [],
+      "tags": ["Knative"],
       "templating": {
         "list": [
           {
@@ -968,10 +968,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision.*\", container_name != \"POD\"}[1m])) by (container_name)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"$revision.*\", container != \"POD\", container != \"\"}[1m])) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}}",
+              "legendFormat": "{{container}}",
               "refId": "A"
             }
           ],
@@ -1048,10 +1048,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$revision.*\", container_name != \"POD\"}) by (container_name)",
+              "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod=~\"$revision.*\", container != \"POD\", container != \"\"}) by (container)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{container_name}}",
+              "legendFormat": "{{container}}",
               "refId": "A"
             }
           ],
@@ -1095,7 +1095,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 16,
       "style": "dark",
-      "tags": [],
+      "tags": ["Knative"],
       "templating": {
         "list": [
           {

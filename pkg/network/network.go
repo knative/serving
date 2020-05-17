@@ -18,17 +18,19 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"text/template"
-	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -58,11 +60,16 @@ const (
 
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
+	//
+	// DEPRECATED: This will be completely removed in the future release.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
+
+	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
+	DeprecatedDefaultIngressClassKey = "clusteringress.class"
 
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
-	DefaultIngressClassKey = "clusteringress.class"
+	DefaultIngressClassKey = "ingress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
@@ -74,7 +81,7 @@ const (
 
 	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
 	// Certificate reconciler.
-	CertManagerCertificateClassName = "cert-manager.certificate.networking.internal.knative.dev"
+	CertManagerCertificateClassName = "cert-manager.certificate.networking.knative.dev"
 
 	// DomainTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
@@ -86,26 +93,15 @@ const (
 	// hostname for a Route's tag.
 	TagTemplateKey = "tagTemplate"
 
+	// KubeProbeUAPrefix is the user agent prefix of the probe.
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	KubeProbeUAPrefix = "kube-probe/"
 
-	// Istio with mTLS rewrites probes, but their probes pass a different
-	// user-agent.  So we augment the probes with this header.
+	// KubeletProbeHeaderName is the name of the header supplied by kubelet
+	// probes.  Istio with mTLS rewrites probes, but their probes pass a
+	// different user-agent.  So we augment the probes with this header.
 	KubeletProbeHeaderName = "K-Kubelet-Probe"
-
-	// DefaultConnTimeout specifies a short default connection timeout
-	// to avoid hitting the issue fixed in
-	// https://github.com/kubernetes/kubernetes/pull/72534 but only
-	// avalailable after Kubernetes 1.14.
-	//
-	// Our connections are usually between pods in the same cluster
-	// like activator <-> queue-proxy, or even between containers
-	// within the same pod queue-proxy <-> user-container, so a
-	// smaller connect timeout would be justifiable.
-	//
-	// We should consider exposing this as a configuration.
-	DefaultConnTimeout = 200 * time.Millisecond
 
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
@@ -133,6 +129,14 @@ const (
 	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
 	// from queue-proxy.
 	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
+
+	// IngressReadinessUserAgent is the user-agent header value
+	// set in probe requests for Ingress status.
+	IngressReadinessUserAgent = "Knative-Ingress-Probe"
+
+	// AutoscalingUserAgent is the user-agent header value set in probe
+	// requests sent by autoscaling implementations.
+	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -144,6 +148,7 @@ type DomainTemplateValues struct {
 	Namespace   string
 	Domain      string
 	Annotations map[string]string
+	Labels      map[string]string
 }
 
 // TagTemplateValues are the available properties people can choose from
@@ -153,13 +158,23 @@ type TagTemplateValues struct {
 	Tag  string
 }
 
+var (
+	templateCache *lru.Cache
+
+	// Verify the default templates are valid.
+	_ = template.Must(template.New("domain-template").Parse(DefaultDomainTemplate))
+	_ = template.Must(template.New("tag-template").Parse(DefaultTagTemplate))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store ~10 latest templates per template type.
+	templateCache, _ = lru.New(10 * 2)
+}
+
 // Config contains the networking configuration defined in the
 // network config map.
 type Config struct {
-	// IstioOutboundIPRange specifies the IP ranges to intercept
-	// by Istio sidecar.
-	IstioOutboundIPRanges string
-
 	// DefaultIngressClass specifies the default Ingress class.
 	DefaultIngressClass string
 
@@ -197,99 +212,75 @@ const (
 	HTTPRedirected HTTPProtocol = "redirected"
 )
 
-func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
-	s = strings.TrimSpace(s)
-
-	// * is a valid value
-	if s == "*" {
-		return s, nil
+func defaultConfig() *Config {
+	return &Config{
+		DefaultIngressClass:     IstioIngressClassName,
+		DefaultCertificateClass: CertManagerCertificateClassName,
+		DomainTemplate:          DefaultDomainTemplate,
+		TagTemplate:             DefaultTagTemplate,
+		AutoTLS:                 false,
+		HTTPProtocol:            HTTPEnabled,
 	}
-
-	cidrs := strings.Split(s, ",")
-	var normalized []string
-	for _, cidr := range cidrs {
-		cidr = strings.TrimSpace(cidr)
-		if len(cidr) == 0 {
-			continue
-		}
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return "", err
-		}
-
-		normalized = append(normalized, cidr)
-	}
-
-	return strings.Join(normalized, ","), nil
 }
 
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
-	nc := &Config{}
-	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
-		// It is OK for this to be absent, we will elide the annotation.
-		nc.IstioOutboundIPRanges = "*"
-	} else if normalizedIpr, err := validateAndNormalizeOutboundIPRanges(ipr); err != nil {
+	return NewConfigFromMap(configMap.Data)
+}
+
+// NewConfigFromMap creates a Config from the supplied data.
+func NewConfigFromMap(data map[string]string) (*Config, error) {
+	nc := defaultConfig()
+	if _, ok := data[IstioOutboundIPRangesKey]; ok {
+		// TODO(0.15): Until the next version is released, the validation check is
+		// enabled to notify users who configure this value.
+		logger := logging.FromContext(context.Background()).Named("config-network")
+		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
+	}
+
+	if err := cm.Parse(data,
+		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),
+		// New key takes precedence.
+		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
+		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
+		cm.AsString(DomainTemplateKey, &nc.DomainTemplate),
+		cm.AsString(TagTemplateKey, &nc.TagTemplate),
+	); err != nil {
 		return nil, err
-	} else {
-		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 
-	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; !ok {
-		nc.DefaultIngressClass = IstioIngressClassName
-	} else {
-		nc.DefaultIngressClass = ingressClass
+	// Verify domain-template and add to the cache.
+	t, err := template.New("domain-template").Parse(nc.DomainTemplate)
+	if err != nil {
+		return nil, err
 	}
-
-	nc.DefaultCertificateClass = CertManagerCertificateClassName
-	if certClass, ok := configMap.Data[DefaultCertificateClassKey]; ok {
-		nc.DefaultCertificateClass = certClass
+	if err := checkDomainTemplate(t); err != nil {
+		return nil, err
 	}
+	templateCache.Add(nc.DomainTemplate, t)
 
-	// Blank DomainTemplate makes no sense so use our default
-	if dt, ok := configMap.Data[DomainTemplateKey]; !ok {
-		nc.DomainTemplate = DefaultDomainTemplate
-	} else {
-		t, err := template.New("domain-template").Parse(dt)
-		if err != nil {
-			return nil, err
-		}
-		if err := checkDomainTemplate(t); err != nil {
-			return nil, err
-		}
-
-		nc.DomainTemplate = dt
+	// Verify tag-template and add to the cache.
+	t, err = template.New("tag-template").Parse(nc.TagTemplate)
+	if err != nil {
+		return nil, err
 	}
-
-	// Blank TagTemplate makes no sense so use our default
-	if tt, ok := configMap.Data[TagTemplateKey]; !ok {
-		nc.TagTemplate = DefaultTagTemplate
-	} else {
-		t, err := template.New("tag-template").Parse(tt)
-		if err != nil {
-			return nil, err
-		}
-		if err := checkTagTemplate(t); err != nil {
-			return nil, err
-		}
-
-		nc.TagTemplate = tt
+	if err := checkTagTemplate(t); err != nil {
+		return nil, err
 	}
+	templateCache.Add(nc.TagTemplate, t)
 
-	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
+	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
 
-	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
-	case string(HTTPEnabled):
-		nc.HTTPProtocol = HTTPEnabled
-	case "":
-		// If HTTPProtocol is not set in the config-network, we set the default value
-		// to HTTPEnabled.
-		nc.HTTPProtocol = HTTPEnabled
+	switch strings.ToLower(data[HTTPProtocolKey]) {
+	case "", string(HTTPEnabled):
+		// If HTTPProtocol is not set in the config-network, default is already
+		// set to HTTPEnabled.
 	case string(HTTPDisabled):
 		nc.HTTPProtocol = HTTPDisabled
 	case string(HTTPRedirected):
 		nc.HTTPProtocol = HTTPRedirected
 	default:
-		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])
+		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", data[HTTPProtocolKey])
 	}
 	return nc, nil
 }
@@ -298,8 +289,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // or panics (the value is validated during CM validation and at
 // this point guaranteed to be parseable).
 func (c *Config) GetDomainTemplate() *template.Template {
-	return template.Must(template.New("domain-template").Parse(
-		c.DomainTemplate))
+	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("domain-template").Parse(
+			c.DomainTemplate))
+		templateCache.Add(c.DomainTemplate, nt)
+		return nt
+	}
 }
 
 func checkDomainTemplate(t *template.Template) error {
@@ -310,6 +308,7 @@ func checkDomainTemplate(t *template.Template) error {
 		Namespace:   "bar",
 		Domain:      "baz.com",
 		Annotations: nil,
+		Labels:      nil,
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {
@@ -333,8 +332,15 @@ func checkDomainTemplate(t *template.Template) error {
 }
 
 func (c *Config) GetTagTemplate() *template.Template {
-	return template.Must(template.New("tag-template").Parse(
-		c.TagTemplate))
+	if tt, ok := templateCache.Get(c.TagTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("tag-template").Parse(
+			c.TagTemplate))
+		templateCache.Add(c.TagTemplate, nt)
+		return nt
+	}
 }
 
 func checkTagTemplate(t *template.Template) error {
@@ -393,4 +399,24 @@ func RewriteHostOut(r *http.Request) {
 		r.Header.Del("Host")
 		r.Header.Del(OriginalHostHeader)
 	}
+}
+
+// NameForPortNumber finds the name for a given port as defined by a Service.
+func NameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Port == portNumber {
+			return port.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no port with number %d found", portNumber)
+}
+
+// PortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
+func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
+	for _, subPort := range sub.Ports {
+		if subPort.Name == portName {
+			return subPort.Port, nil
+		}
+	}
+	return 0, fmt.Errorf("no port for name %q found", portName)
 }

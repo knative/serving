@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,65 +17,36 @@ limitations under the License.
 package handler
 
 import (
-	"context"
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/types"
-
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/metrics"
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
-func NewMetricHandler(ctx context.Context, r activator.StatsReporter, next http.Handler) *MetricHandler {
-	handler := &MetricHandler{
-		nextHandler:    next,
-		revisionLister: revisioninformer.Get(ctx).Lister(),
-		reporter:       r,
-		logger:         logging.FromContext(ctx),
+func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
+	return &MetricHandler{
+		nextHandler: next,
+		podName:     podName,
 	}
-
-	return handler
 }
 
 // MetricHandler sends metrics via reporter
 type MetricHandler struct {
-	revisionLister servinglisters.RevisionLister
-	reporter       activator.StatsReporter
-	logger         *zap.SugaredLogger
-	nextHandler    http.Handler
+	podName     string
+	nextHandler http.Handler
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rev := util.RevisionFrom(r.Context())
+	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
+		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
 
-	// Filter out probe and healthy requests
-	if network.IsProbe(r) {
-		h.nextHandler.ServeHTTP(w, r)
-		return
-	}
-
-	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
-	name := r.Header.Get(activator.RevisionHeaderName)
-
-	revID := types.NamespacedName{Namespace: namespace, Name: name}
-	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
-
-	revision, err := h.revisionLister.Revisions(namespace).Get(name)
-	if err != nil {
-		logger.Errorw("Error while getting revision", zap.Error(err))
-		sendError(err, w)
-		return
-	}
-	configurationName := revision.Labels[serving.ConfigurationLabelKey]
-	serviceName := revision.Labels[serving.ServiceLabelKey]
 	start := time.Now()
 
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
@@ -82,10 +54,12 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(start)
 		if err != nil {
-			h.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, http.StatusInternalServerError, latency)
+			reporterCtx := metrics.AugmentWithResponse(reporterCtx, http.StatusInternalServerError)
+			pkgmetrics.RecordBatch(reporterCtx, responseTimeInMsecM.M(float64(latency.Milliseconds())), requestCountM.M(1))
 			panic(err)
 		}
-		h.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, rr.ResponseCode, latency)
+		reporterCtx := metrics.AugmentWithResponse(reporterCtx, rr.ResponseCode)
+		pkgmetrics.RecordBatch(reporterCtx, responseTimeInMsecM.M(float64(latency.Milliseconds())), requestCountM.M(1))
 	}()
 
 	h.nextHandler.ServeHTTP(rr, r)

@@ -17,6 +17,7 @@ limitations under the License.
 package resourcetree
 
 //test_util contains types defined and used by types and their corresponding verification methods.
+//lint:file-ignore U1000 Ignore all unused code, it's needed
 
 import (
 	"container/list"
@@ -48,11 +49,13 @@ type arrayType struct {
 	baseArr   []bool
 }
 
+//nolint:structcheck,unused // Disable warnings about unused fields.
 type otherType struct {
 	structMap map[string]baseType
 	baseMap   map[string]string
 }
 
+//nolint:structcheck,unused // Disable warnings about unused fields.
 type combinedNodeType struct {
 	b baseType
 	a arrayType

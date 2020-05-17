@@ -24,11 +24,6 @@ import (
 	"knative.dev/pkg/apis"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
-)
-
-var (
-	defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
 )
 
 // SetDefaults populates default values in Ingress
@@ -51,14 +46,9 @@ func (s *IngressSpec) SetDefaults(ctx context.Context) {
 
 // SetDefaults populates default values in IngressTLS
 func (t *IngressTLS) SetDefaults(ctx context.Context) {
-	// Default Secret key for ServerCertificate is `tls.crt`.
-	if t.ServerCertificate == "" {
-		t.ServerCertificate = "tls.crt"
-	}
-	// Default Secret key for PrivateKey is `tls.key`.
-	if t.PrivateKey == "" {
-		t.PrivateKey = "tls.key"
-	}
+	// Deprecated, do not use.
+	t.DeprecatedServerCertificate = ""
+	t.DeprecatedPrivateKey = ""
 }
 
 // SetDefaults populates default values in IngressRule
@@ -85,15 +75,5 @@ func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
 
 	if p.Timeout == nil {
 		p.Timeout = &metav1.Duration{Duration: maxTimeout}
-	}
-
-	if p.Retries == nil {
-		p.Retries = &HTTPRetry{
-			PerTryTimeout: &metav1.Duration{Duration: maxTimeout},
-			Attempts:      networking.DefaultRetryCount,
-		}
-	}
-	if p.Retries.PerTryTimeout == nil {
-		p.Retries.PerTryTimeout = &metav1.Duration{Duration: maxTimeout}
 	}
 }

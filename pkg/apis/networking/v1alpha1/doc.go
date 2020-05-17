@@ -19,6 +19,6 @@ limitations under the License.
 package v1alpha1
 
 // Ingress is heavily based on K8s Ingress
-// https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress with some
+// https://godoc.org/k8s.io/api/networking/v1beta1#Ingress with some
 // highlighted modifications.  See ingress_types.go for more
 // information about the modifications that we made.

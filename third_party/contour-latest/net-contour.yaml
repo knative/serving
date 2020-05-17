@@ -1,0 +1,120 @@
+# Not used directly, this lets the knative-serving service account reconcile
+# HTTPProxy resources.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: knative-contour-core
+  labels:
+    serving.knative.dev/controller: "true"
+rules:
+- apiGroups: ["projectcontour.io"]
+  resources: ["httpproxies"]
+  verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch",
+    "watch"]
+
+---
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-contour
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: "v20200515-4f1d7e1"
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # visibility contains the configuration for how to expose services
+    # of assorted visibilities.  Each entry is keyed by the visibility
+    # and contains two keys:
+    #  1. the "class" value to pass to the Contour class annotations,
+    #  2. the namespace/name of the Contour Envoy service.
+    visibility: |
+      ExternalIP:
+        class: contour-external
+        service: contour-external/envoy
+      ClusterLocal:
+        class: contour-internal
+        service: contour-internal/envoy
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contour-ingress-controller
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contour-ingress-controller
+  template:
+    metadata:
+      labels:
+        app: contour-ingress-controller
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: controller
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:3c263d0e17d1d42185fe14c2bd1def154df7a4a2c15236c13d844c102145b3bd
+        resources:
+          requests:
+            cpu: 40m
+            memory: 40Mi
+          limits:
+            cpu: 400m
+            memory: 400Mi
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - name: METRICS_DOMAIN
+          value: knative.dev/net-contour
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        securityContext:
+          allowPrivilegeEscalation: false
+
+---

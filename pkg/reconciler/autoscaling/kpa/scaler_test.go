@@ -29,24 +29,24 @@ import (
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/network"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	presources "knative.dev/serving/pkg/resources"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,9 +62,11 @@ import (
 const (
 	testNamespace = "test-namespace"
 	testRevision  = "test-revision"
+	key           = testNamespace + "/" + testRevision
 )
 
 func TestScaler(t *testing.T) {
+	const activationTimeout = progressDeadline + activationTimeoutBuffer
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -76,6 +78,7 @@ func TestScaler(t *testing.T) {
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
+		configMutator       func(*config.Config)
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -130,15 +133,53 @@ func TestScaler(t *testing.T) {
 			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
-		label:         "waits to scale to zero after idle period (custom PA window)",
+		label:         "waits to scale to zero after idle period; sks in proxy mode",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow))
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			s.Spec.Mode = nv1a1.SKSOperationModeProxy
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero after idle period (custom PA window)",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
+		wantReplicas: 0,
+		wantScaling:  false,
+	}, {
+		label:         "can't scale to zero after grace period, but before last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  false,
+		wantCBCount:  1,
+	}, {
+		label:         "scale to zero after grace period, and after last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  true,
 	}, {
 		label:         "scale to zero after grace period",
 		startReplicas: 1,
@@ -171,6 +212,22 @@ func TestScaler(t *testing.T) {
 			markSKSInProxyFor(s, gracePeriod-time.Second)
 		},
 		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before grace period, sks in proxy long) and last pod timeout positive",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+		},
+		configMutator: func(c *config.Config) {
+			// This is shorter than gracePeriod=60s.
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 42 * time.Second
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			markSKSInProxyFor(s, gracePeriod)
+		},
 	}, {
 		label:         "waits to scale to zero (just before grace period, sks in proxy long)",
 		startReplicas: 1,
@@ -333,7 +390,7 @@ func TestScaler(t *testing.T) {
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
-			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
+			revisionScaler := newScaler(ctx, podscalable.Get(ctx), func(interface{}, time.Duration) {
 				cbCount++
 			})
 			if test.proberfunc != nil {
@@ -351,7 +408,7 @@ func TestScaler(t *testing.T) {
 				func(action clientgotesting.Action) (bool, runtime.Object, error) {
 					patch := action.(clientgotesting.PatchAction)
 					if !test.wantScaling {
-						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+						t.Error("Don't want scaling, but got patch:", string(patch.GetPatch()))
 					}
 					gotScaling = true
 					return true, nil, nil
@@ -367,10 +424,14 @@ func TestScaler(t *testing.T) {
 				test.sks(sks)
 			}
 
-			ctx = config.ToContext(ctx, defaultConfig())
-			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
+			cfg := defaultConfig()
+			if test.configMutator != nil {
+				test.configMutator(cfg)
+			}
+			ctx = config.ToContext(ctx, cfg)
+			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -444,7 +505,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
-				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
+				psInformerFactory: podscalable.Get(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
@@ -453,10 +514,10 @@ func TestDisableScaleToZero(t *testing.T) {
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -471,17 +532,19 @@ func TestDisableScaleToZero(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
+func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *pav1alpha1.PodAutoscaler {
+	t.Helper()
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
-		t.Fatal("Failed to create PA.", err)
+		t.Fatal("Failed to create PA:", err)
 	}
 	return pa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1alpha1.Revision {
+func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
+	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
@@ -489,22 +552,22 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	if maxScale > 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
 	}
-	rev := &v1alpha1.Revision{
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   testNamespace,
 			Name:        testRevision,
 			Annotations: annotations,
 		},
 	}
-	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	rev, err := servingClient.ServingV1().Revisions(testNamespace).Create(rev)
 	if err != nil {
-		t.Fatal("Failed to create revision.", err)
+		t.Fatal("Failed to create revision:", err)
 	}
 
 	return rev
 }
 
-func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
+func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
 	t.Helper()
 
 	uns := &unstructured.Unstructured{
@@ -536,12 +599,12 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Resource: "deployments",
 	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Create() = %v", err)
+		t.Fatal("Create() =", err)
 	}
 
-	deployment := &v1.Deployment{}
+	deployment := &appsv1.Deployment{}
 	if err := duck.FromUnstructured(u, deployment); err != nil {
-		t.Fatalf("FromUnstructured() = %v", err)
+		t.Fatal("FromUnstructured() =", err)
 	}
 	return deployment
 }
@@ -567,7 +630,7 @@ func paMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *v1.Deployment, expectedScale int32) {
+func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *appsv1.Deployment, expectedScale int32) {
 	t.Helper()
 
 	found := false
@@ -587,7 +650,7 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 	}
 
 	if !found {
-		t.Errorf("Did not see scale update for %v", deployment.Name)
+		t.Errorf("Did not see scale update for %q", deployment.Name)
 	}
 }
 
@@ -620,7 +683,6 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("wrong header, I guess?"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "wrong body",
@@ -629,14 +691,12 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
-		wantRes: false,
 		wantErr: true,
 	}}
 

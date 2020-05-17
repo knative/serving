@@ -17,18 +17,93 @@ limitations under the License.
 package testing
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/tracker"
 )
 
-// NullTracker implements Tracker.
-type NullTracker struct{}
+// NullTracker implements Tracker
+//
+// Alias is preserved for backwards compatibility
+type NullTracker = FakeTracker
 
-var _ tracker.Interface = (*NullTracker)(nil)
+// FakeTracker implements Tracker.
+type FakeTracker struct {
+	sync.Mutex
+	references map[tracker.Reference]map[types.NamespacedName]struct{}
+}
+
+var _ tracker.Interface = (*FakeTracker)(nil)
 
 // OnChanged implements OnChanged.
-func (*NullTracker) OnChanged(interface{}) {}
+func (*FakeTracker) OnChanged(interface{}) {}
 
-// Track implements Track.
-func (*NullTracker) Track(corev1.ObjectReference, interface{}) error { return nil }
+// OnDeletedObserver implements OnDeletedObserver.
+func (n *FakeTracker) OnDeletedObserver(obj interface{}) {
+	item, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
+		return
+	}
+	key := types.NamespacedName{Namespace: item.GetNamespace(), Name: item.GetName()}
+
+	n.Lock()
+	defer n.Unlock()
+
+	for ref, objs := range n.references {
+		delete(objs, key)
+		if len(objs) == 0 {
+			delete(n.references, ref)
+		}
+	}
+}
+
+// Track implements tracker.Interface.
+func (n *FakeTracker) Track(ref corev1.ObjectReference, obj interface{}) error {
+	return n.TrackReference(tracker.Reference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+	}, obj)
+}
+
+// TrackReference implements tracker.Interface.
+func (n *FakeTracker) TrackReference(ref tracker.Reference, obj interface{}) error {
+	item, err := kmeta.DeletionHandlingAccessor(obj)
+	if err != nil {
+		return err
+	}
+	key := types.NamespacedName{Namespace: item.GetNamespace(), Name: item.GetName()}
+
+	n.Lock()
+	defer n.Unlock()
+
+	if n.references == nil {
+		n.references = make(map[tracker.Reference]map[types.NamespacedName]struct{}, 1)
+	}
+
+	objs := n.references[ref]
+	if objs == nil {
+		objs = make(map[types.NamespacedName]struct{}, 1)
+	}
+	objs[key] = struct{}{}
+	n.references[ref] = objs
+
+	return nil
+}
+
+// References returns the list of objects being tracked
+func (n *FakeTracker) References() []tracker.Reference {
+	n.Lock()
+	defer n.Unlock()
+
+	refs := make([]tracker.Reference, 0, len(n.references))
+	for ref := range n.references {
+		refs = append(refs, ref)
+	}
+
+	return refs
+}

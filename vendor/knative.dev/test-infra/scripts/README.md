@@ -1,6 +1,6 @@
 # Helper scripts
 
-This directory contains helper scripts used by Prow test jobs, as well and local
+This directory contains helper scripts used by Prow test jobs, as well as local
 development scripts.
 
 ## Using the `presubmit-tests.sh` helper script
@@ -61,16 +61,20 @@ This is a helper script to run the presubmit tests. To use it:
    the integration tests (either your custom one or the default action) and will
    cause the test to fail if they don't return success.
 
-1. Call the `main()` function passing `$@` (without quotes).
+1. Call the `main()` function passing `"$@"` (with quotes).
 
 Running the script without parameters, or with the `--all-tests` flag causes all
 tests to be executed, in the right order (i.e., build, then unit, then
 integration tests).
 
 Use the flags `--build-tests`, `--unit-tests` and `--integration-tests` to run a
-specific set of tests. The flag `--emit-metrics` is used to emit metrics when
-running the tests, and is automatically handled by the default action for
-integration tests (see above).
+specific set of tests.
+
+To run specific programs as a test, use the `--run-test` flag, and provide the
+program as the argument. If arguments are required for the program, pass
+everything as a single quotes argument. For example,
+`./presubmit-tests.sh --run-test "test/my/test data"`. This flag can be used
+repeatedly, and each one will be ran in sequential order.
 
 The script will automatically skip all presubmit tests for PRs where all changed
 files are exempt of tests (e.g., a PR changing only the `OWNERS` file).
@@ -99,7 +103,7 @@ function pre_integration_tests() {
 
 # We use the default integration test runner.
 
-main $@
+main "$@"
 ```
 
 ## Using the `e2e-tests.sh` helper script
@@ -118,7 +122,7 @@ This is a helper script for Knative E2E test scripts. To use it:
      cluster creation in case of stockout. If defined,
      `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
    - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to
-     `n1-standard-4}`.
+     `e2-standard-4}`.
    - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when
      autoscaling, defaults to 1.
    - `E2E_MAX_CLUSTER_NODES`: Maximum number of nodes in the cluster when
@@ -162,12 +166,7 @@ This is a helper script for Knative E2E test scripts. To use it:
    (or `report_go_test()` if you need a more fine-grained control) and call
    `fail_test()` or `success()` if any of them failed. The environment variable
    `KO_DOCKER_REPO` and `E2E_PROJECT_ID` will be set according to the test
-   cluster. You can also use the following boolean (0 is false, 1 is true)
-   environment variables for the logic:
-
-   - `EMIT_METRICS`: true if `--emit-metrics` was passed.
-
-   All environment variables above are marked read-only.
+   cluster.
 
 **Notes:**
 
@@ -177,6 +176,9 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
    will immediately start the tests against the cluster currently configured for
    `kubectl`.
+
+1. By default `knative_teardown()` and `test_teardown()` will be called after
+   the tests finish, use `--skip-teardowns` if you don't want them to be called.
 
 1. By default Istio is installed on the cluster via Addon, use
    `--skip-istio-addon` if you choose not to have it preinstalled.
@@ -224,6 +226,64 @@ kubectl get pods || fail_test
 success
 ```
 
+## Using the `performance-tests.sh` helper script
+
+This is a helper script for Knative performance test scripts. In combination
+with specific Prow jobs, it can automatically manage the environment for running
+benchmarking jobs for each repo. To use it:
+
+1. Source the script.
+
+1. [optional] Customize GCP project settings for the benchmarks. Set the
+   following environment variables if the default value doesn't fit your needs:
+
+   - `PROJECT_NAME`: GCP project name for keeping the clusters that run the
+     benchmarks. Defaults to `knative-performance`.
+   - `SERVICE_ACCOUNT_NAME`: Service account name for controlling GKE clusters
+     and interacting with [Mako](https://github.com/google/mako) server. It MUST
+     have `Kubernetes Engine Admin` and `Storage Admin` role, and be
+     [whitelisted](https://github.com/google/mako/blob/master/docs/ACCESS.md) by
+     Mako admin. Defaults to `mako-job`.
+
+1. [optional] Customize root path of the benchmarks. This root folder should
+   contain and only contain all benchmarks you want to run continuously. Set the
+   following environment variable if the default value doesn't fit your needs:
+
+   - `BENCHMARK_ROOT_PATH`: Benchmark root path, defaults to
+     `test/performance/benchmarks`. Each repo can decide which folder to put its
+     benchmarks in, and override this environment variable to be the path of
+     that folder.
+
+1. [optional] Write the `update_knative` function, which will update your system
+   under test (e.g. Knative Serving).
+
+1. [optional] Write the `update_benchmark` function, which will update the
+   underlying resources for the benchmark (usually Knative resources and
+   Kubernetes cronjobs for benchmarking). This function accepts a parameter,
+   which is the benchmark name in the current repo.
+
+1. Call the `main()` function with all parameters (e.g. `$@`).
+
+### Sample performance test script
+
+This script will update `Knative serving` and the given benchmark.
+
+```bash
+source vendor/knative.dev/test-infra/scripts/performance-tests.sh
+
+function update_knative() {
+  echo ">> Updating serving"
+  ko apply -f config/ || abort "failed to apply serving"
+}
+
+function update_benchmark() {
+  echo ">> Updating benchmark $1"
+  ko apply -f ${BENCHMARK_ROOT_PATH}/$1 || abort "failed to apply benchmark $1"
+}
+
+main $@
+```
+
 ## Using the `release.sh` helper script
 
 This is a helper script for Knative release scripts. To use it:
@@ -251,6 +311,9 @@ This is a helper script for Knative release scripts. To use it:
      if `--release-gcs` was passed, otherwise the default value
      `knative-nightly/<repo>` will be used. It is empty if `--publish` was not
      passed.
+   - `RELEASE_DIR`: contains the directory to store the manifests if
+     `--release-dir` was passed. Defaults to empty value, but if `--nopublish`
+     was passed then points to the repository root directory.
    - `BUILD_COMMIT_HASH`: the commit short hash for the current repo. If the
      current git tree is dirty, it will have `-dirty` appended to it.
    - `BUILD_YYYYMMDD`: current UTC date in `YYYYMMDD` format.
@@ -276,7 +339,7 @@ This is a helper script for Knative release scripts. To use it:
    All environment variables above, except `KO_FLAGS`, are marked read-only once
    `main()` is called (see below).
 
-1. Call the `main()` function passing `$@` (without quotes).
+1. Call the `main()` function passing `"$@"` (with quotes).
 
 ### Sample release script
 
@@ -289,5 +352,5 @@ function build_release() {
   ARTIFACTS_TO_PUBLISH="release.yaml"
 }
 
-main $@
+main "$@"
 ```

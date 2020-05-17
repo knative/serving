@@ -20,7 +20,8 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/deployment"
 )
 
 type cfgKey struct{}
@@ -28,7 +29,8 @@ type cfgKey struct{}
 // Config of the Autoscaler.
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Autoscaler *autoscaler.Config
+	Autoscaler *autoscalerconfig.Config
+	Deployment *deployment.Config
 }
 
 // FromContext fetch config from context.
@@ -62,12 +64,12 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"autoscaler",
 			logger,
 			configmap.Constructors{
-				autoscaler.ConfigName: autoscaler.NewConfigFromConfigMap,
+				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
+				deployment.ConfigName:       deployment.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
 	}
-
 	return store
 }
 
@@ -79,6 +81,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load fetches config from Store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Autoscaler: s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
+		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+		Deployment: s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 	}
 }

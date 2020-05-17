@@ -31,6 +31,9 @@ const (
 
 // Config defines the mako configuration options.
 type Config struct {
+	// Organization holds the name of the organization for the current repository.
+	Organization string
+
 	// Repository holds the name of the repository that runs the benchmarks.
 	Repository string
 
@@ -53,6 +56,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		AdditionalTags: []string{},
 	}
 
+	if raw, ok := data["organization"]; ok {
+		lc.Organization = raw
+	}
 	if raw, ok := data["repository"]; ok {
 		lc.Repository = raw
 	}

@@ -22,10 +22,9 @@ import (
 	"testing"
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
-	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
@@ -36,11 +35,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/reconciler"
 )
 
 const (
@@ -55,7 +54,7 @@ type Ctor func(context.Context, *Listers, configmap.Watcher) controller.Reconcil
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
 func MakeFactory(ctor Ctor) rtesting.Factory {
 	return func(t *testing.T, r *rtesting.TableRow) (
-		controller.Reconciler, rtesting.ActionRecorderList, rtesting.EventList, *rtesting.FakeStatsReporter) {
+		controller.Reconciler, rtesting.ActionRecorderList, rtesting.EventList) {
 		ls := NewListers(r.Objects)
 
 		ctx := r.Ctx
@@ -66,12 +65,11 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = logging.WithLogger(ctx, logger)
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-		ctx, sharedClient := fakesharedclient.With(ctx, ls.GetSharedObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
-		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
+		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -83,8 +81,6 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
-		statsReporter := &rtesting.FakeStatsReporter{}
-		ctx = reconciler.WithStatsReporter(ctx, statsReporter)
 
 		// This is needed for the tests that use generated names and
 		// the object cannot be created beforehand.
@@ -106,11 +102,9 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
-			sharedClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
-			certManagerClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
@@ -123,10 +117,10 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, client, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
-		return c, actionRecorderList, eventList, statsReporter
+		return c, actionRecorderList, eventList
 	}
 }
 
@@ -140,25 +134,64 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		// Determine and set the TypeMeta for this object based on our test scheme.
 		gvks, _, err := sch.ObjectKinds(obj)
 		if err != nil {
-			t.Fatalf("Unable to determine kind for type: %v", err)
+			t.Fatal("Unable to determine kind for type:", err)
 		}
 		apiv, k := gvks[0].ToAPIVersionAndKind()
 		ta, err := meta.TypeAccessor(obj)
 		if err != nil {
-			t.Fatalf("Unable to create type accessor: %v", err)
+			t.Fatal("Unable to create type accessor:", err)
 		}
 		ta.SetAPIVersion(apiv)
 		ta.SetKind(k)
 
 		b, err := json.Marshal(obj)
 		if err != nil {
-			t.Fatalf("Unable to marshal: %v", err)
+			t.Fatal("Unable to marshal:", err)
 		}
 		u := &unstructured.Unstructured{}
 		if err := json.Unmarshal(b, u); err != nil {
-			t.Fatalf("Unable to unmarshal: %v", err)
+			t.Fatal("Unable to unmarshal:", err)
 		}
 		us = append(us, u)
 	}
 	return
+}
+
+type key struct{}
+
+// TrackerKey is used to looking a FakeTracker in a context.Context
+var TrackerKey key = struct{}{}
+
+// AssertTrackingConfig will ensure the provided Configuration is being tracked
+func AssertTrackingConfig(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingRevision will ensure the provided Revision is being tracked
+func AssertTrackingRevision(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Revision")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingObject will ensure the following objects are being tracked
+func AssertTrackingObject(gvk schema.GroupVersionKind, namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+
+	return func(t *testing.T, r *rtesting.TableRow) {
+		tracker := r.Ctx.Value(TrackerKey).(*rtesting.FakeTracker)
+		refs := tracker.References()
+
+		for _, ref := range refs {
+			if ref.APIVersion == apiVersion &&
+				ref.Name == name &&
+				ref.Namespace == namespace &&
+				ref.Kind == kind {
+				return
+			}
+		}
+
+		t.Errorf("Object was not tracked - %s, Name=%s, Namespace=%s", gvk.String(), name, namespace)
+	}
+
 }

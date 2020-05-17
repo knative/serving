@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"strconv"
+	"math"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -51,108 +52,96 @@ const (
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
 	DefaultMaxRevisionContainerConcurrency int64 = 1000
+
+	// DefaultAllowContainerConcurrencyZero is whether, by default,
+	// containerConcurrency can be set to zero (i.e. unbounded) by users.
+	DefaultAllowContainerConcurrencyZero bool = true
 )
 
-// NewDefaultsConfigFromMap creates a Defaults from the supplied Map
-func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
-	nc := &Defaults{}
+func defaultConfig() *Defaults {
+	return &Defaults{
+		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+		UserContainerNameTemplate:     DefaultUserContainerName,
+		ContainerConcurrency:          DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+	}
+}
 
-	// Process int64 fields
-	for _, i64 := range []struct {
-		key   string
-		field *int64
-		// specified exactly when optional
-		defaultValue int64
-	}{{
-		key:          "revision-timeout-seconds",
-		field:        &nc.RevisionTimeoutSeconds,
-		defaultValue: DefaultRevisionTimeoutSeconds,
-	}, {
-		key:          "max-revision-timeout-seconds",
-		field:        &nc.MaxRevisionTimeoutSeconds,
-		defaultValue: DefaultMaxRevisionTimeoutSeconds,
-	}, {
-		key:          "container-concurrency",
-		field:        &nc.ContainerConcurrency,
-		defaultValue: DefaultContainerConcurrency,
-	}} {
-		if raw, ok := data[i64.key]; !ok {
-			*i64.field = i64.defaultValue
-		} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
-			return nil, err
-		} else {
-			*i64.field = val
-		}
+// NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
+func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
+	nc := defaultConfig()
+
+	if err := cm.Parse(data,
+		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
+
+		cm.AsBool("enable-multi-container", &nc.EnableMultiContainer),
+		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
+
+		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
+		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
+		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
+		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
+
+		asQuantity("revision-cpu-request", &nc.RevisionCPURequest),
+		asQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
+		asQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
+		asQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
+	); err != nil {
+		return nil, err
 	}
 
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
-
-	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > DefaultMaxRevisionContainerConcurrency {
-		return nil, apis.ErrOutOfBoundsValue(nc.ContainerConcurrency, 0, DefaultMaxRevisionContainerConcurrency, "containerConcurrency")
+	if nc.ContainerConcurrencyMaxLimit < 1 {
+		return nil, apis.ErrOutOfBoundsValue(
+			nc.ContainerConcurrencyMaxLimit, 1, math.MaxInt32, "container-concurrency-max-limit")
+	}
+	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > nc.ContainerConcurrencyMaxLimit {
+		return nil, apis.ErrOutOfBoundsValue(
+			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
 
-	// Process resource quantity fields
-	for _, rsrc := range []struct {
-		key   string
-		field **resource.Quantity
-	}{{
-		key:   "revision-cpu-request",
-		field: &nc.RevisionCPURequest,
-	}, {
-		key:   "revision-memory-request",
-		field: &nc.RevisionMemoryRequest,
-	}, {
-		key:   "revision-cpu-limit",
-		field: &nc.RevisionCPULimit,
-	}, {
-		key:   "revision-memory-limit",
-		field: &nc.RevisionMemoryLimit,
-	}} {
-		if raw, ok := data[rsrc.key]; !ok {
-			*rsrc.field = nil
-		} else if val, err := resource.ParseQuantity(raw); err != nil {
-			return nil, err
-		} else {
-			*rsrc.field = &val
-		}
+	tmpl, err := template.New("user-container").Parse(nc.UserContainerNameTemplate)
+	if err != nil {
+		return nil, err
 	}
-
-	if raw, ok := data["container-name-template"]; !ok {
-		nc.UserContainerNameTemplate = DefaultUserContainerName
-	} else {
-		tmpl, err := template.New("user-container").Parse(raw)
-		if err != nil {
-			return nil, err
-		}
-		// Check that the template properly applies to ObjectMeta.
-		if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
-			return nil, fmt.Errorf("error executing template: %v", err)
-		}
-		// We store the raw template because we run deepcopy-gen on the
-		// config and that doesn't copy nicely.
-		nc.UserContainerNameTemplate = raw
+	// Check that the template properly applies to ObjectMeta.
+	if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
+		return nil, fmt.Errorf("error executing template: %w", err)
 	}
 
 	return nc, nil
 }
 
-// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap
+// NewDefaultsConfigFromConfigMap creates a Defaults from the supplied configMap.
 func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error) {
 	return NewDefaultsConfigFromMap(config.Data)
 }
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
+	// Feature flag to enable multi container support.
+	EnableMultiContainer bool
+
 	RevisionTimeoutSeconds int64
-	// This is the timeout set for cluster ingress.
+	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.
 	MaxRevisionTimeoutSeconds int64
 
 	UserContainerNameTemplate string
 
 	ContainerConcurrency int64
+
+	// ContainerConcurrencyMaxLimit is the maximum permitted container concurrency
+	// or target value in the system.
+	ContainerConcurrencyMaxLimit int64
+
+	// AllowContainerConcurrencyZero determines whether users are permitted to specify
+	// a containerConcurrency of 0 (i.e. unbounded).
+	AllowContainerConcurrencyZero bool
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
@@ -169,4 +158,18 @@ func (d *Defaults) UserContainerName(ctx context.Context) string {
 		return ""
 	}
 	return buf.String()
+}
+
+// asQuantity parses the value at key as a *resource.Quantity into the target, if it exists.
+func asQuantity(key string, target **resource.Quantity) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; !ok {
+			*target = nil
+		} else if val, err := resource.ParseQuantity(raw); err != nil {
+			return err
+		} else {
+			*target = &val
+		}
+		return nil
+	}
 }

@@ -18,102 +18,41 @@ package metric
 
 import (
 	"context"
-	"fmt"
 
-	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	rbase "knative.dev/serving/pkg/reconciler"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/cache"
+	pkgreconciler "knative.dev/pkg/reconciler"
+	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 )
-
-const reconcilerName = "Metrics"
 
 // reconciler implements controller.Reconciler for Metric resources.
 type reconciler struct {
-	*rbase.Base
-	collector    autoscaler.Collector
-	metricLister listers.MetricLister
+	collector metrics.Collector
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+// Check that our Reconciler implements metricreconciler.Interface
+var _ metricreconciler.Interface = (*reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two.
-func (r *reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	original, err := r.metricLister.Metrics(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The metric object is gone, so delete the collection.
-		logger.Info("Stopping to collect metrics")
-		return r.collector.Delete(namespace, name)
-	} else if err != nil {
-		return fmt.Errorf("failed to fetch metric %s: %v", key, err)
-	}
-
-	// Don't mess with informer's copy.
-	metric := original.DeepCopy()
+func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
 	metric.SetDefaults(ctx)
 	metric.Status.InitializeConditions()
 
-	if err = r.reconcileCollection(ctx, metric); err != nil {
-		logger.Errorw("Error reconciling metric collection", zap.Error(err))
-		r.Recorder.Event(metric, corev1.EventTypeWarning, "InternalError", err.Error())
-	} else {
-		metric.Status.MarkMetricReady()
-	}
-
-	if !equality.Semantic.DeepEqual(original.Status, metric.Status) {
-		// Change of status, need to update the object.
-		if uErr := r.updateStatus(metric); uErr != nil {
-			logger.Warnw("Failed to update metric status", zap.Error(uErr))
-			r.Recorder.Eventf(metric, corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to update metric status: %v", uErr)
-			return uErr
+	if err := r.collector.CreateOrUpdate(metric); err != nil {
+		switch err {
+		case metrics.ErrFailedGetEndpoints:
+			metric.Status.MarkMetricNotReady("NoEndpoints", err.Error())
+		case metrics.ErrDidNotReceiveStat:
+			metric.Status.MarkMetricFailed("DidNotReceiveStat", err.Error())
+		default:
+			metric.Status.MarkMetricFailed("CollectionFailed",
+				"Failed to reconcile metric collection: "+err.Error())
 		}
-		r.Recorder.Eventf(metric, corev1.EventTypeNormal, "Updated", "Successfully updated metric status %s", key)
-	}
-	return err
-}
 
-func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.Metric) error {
-	err := r.collector.CreateOrUpdate(metric)
-	if err != nil {
-		// If create or update failes, we won't be able to collect at all.
-		metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection")
-		return fmt.Errorf("failed to initiate or update scraping: %w", err)
-	}
-	return nil
-}
-
-func (r *reconciler) updateStatus(m *v1alpha1.Metric) error {
-	ex, err := r.metricLister.Metrics(m.Namespace).Get(m.Name)
-	if err != nil {
-		// If something deleted metric while we were reconciling ¯\(°_o)/¯.
-		return err
-	}
-	if equality.Semantic.DeepEqual(ex.Status, m.Status) {
-		// no-op
+		// We don't return an error because retrying is of no use. We'll be poked by collector on a change.
 		return nil
 	}
-	ex = ex.DeepCopy()
-	ex.Status = m.Status
-	_, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(ex.Namespace).UpdateStatus(ex)
-	return err
+
+	metric.Status.MarkMetricReady()
+	return nil
 }

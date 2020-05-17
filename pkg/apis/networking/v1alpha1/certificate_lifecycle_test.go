@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	apistest "knative.dev/pkg/apis/testing"
 )
 
 func TestCertificateDuckTypes(t *testing.T) {
@@ -45,6 +45,14 @@ func TestCertificateDuckTypes(t *testing.T) {
 	}
 }
 
+func TestCertificateGetConditionSet(t *testing.T) {
+	r := &Certificate{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GotConditionSet=%v, want=%v", got, want)
+	}
+}
+
 func TestCertificateGetGroupVersionKind(t *testing.T) {
 	c := Certificate{}
 	expected := SchemeGroupVersion.WithKind("Certificate")
@@ -56,7 +64,7 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 func TestMarkReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitestv1.CheckConditionOngoing(c.duck(), CertificateConditionReady, t)
+	apistest.CheckConditionOngoing(c, CertificateConditionReady, t)
 
 	c.MarkReady()
 	if !c.IsReady() {
@@ -67,26 +75,26 @@ func TestMarkReady(t *testing.T) {
 func TestMarkNotReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 
 	c.MarkNotReady("unknow", "unknown")
-	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 }
 
 func TestMarkFailed(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 
 	c.MarkFailed("failed", "failed")
-	apitestv1.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+	apistest.CheckConditionFailed(c, CertificateConditionReady, t)
 }
 
 func TestMarkResourceNotOwned(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
 	c.MarkResourceNotOwned("doesn't", "own")
-	apitestv1.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+	apistest.CheckConditionFailed(c, CertificateConditionReady, t)
 }
 
 func TestGetCondition(t *testing.T) {

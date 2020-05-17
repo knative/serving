@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 )
@@ -245,7 +246,7 @@ func TestIngressSpecValidation(t *testing.T) {
 			}},
 		},
 		want: &apis.FieldError{
-			Message: "Traffic split percentage must total to 100, but was 30",
+			Message: "traffic split percentage must total to 100, but was 30",
 			Paths:   []string{"rules[0].http.paths[0].splits"},
 		},
 	}, {
@@ -336,15 +337,17 @@ func TestIngressSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("tls[0].secretName"),
 	}}
 
+	ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{Namespace: "default", Name: "test-ingress"})
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.is.Validate(context.Background())
+			got := test.is.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}
 }
+
 func TestIngressValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -353,6 +356,10 @@ func TestIngressValidation(t *testing.T) {
 	}{{
 		name: "valid",
 		ci: &Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "default",
+				Name:      "test-ingress",
+			},
 			Spec: IngressSpec{
 				TLS: []IngressTLS{{
 					SecretNamespace: "secret-space",
@@ -378,6 +385,41 @@ func TestIngressValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "ingress-namespace-different-with-service",
+		ci: &Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test",
+				Name:      "test-ingress",
+			},
+			Spec: IngressSpec{
+				TLS: []IngressTLS{{
+					SecretNamespace: "secret-space",
+					SecretName:      "secret-name",
+				}},
+				Rules: []IngressRule{{
+					Hosts: []string{"example.com"},
+					HTTP: &HTTPIngressRuleValue{
+						Paths: []HTTPIngressPath{{
+							Splits: []IngressBackendSplit{{
+								IngressBackend: IngressBackend{
+									ServiceName:      "revision-000",
+									ServiceNamespace: "default",
+									ServicePort:      intstr.FromInt(8080),
+								},
+							}},
+							Retries: &HTTPRetry{
+								Attempts: 3,
+							},
+						}},
+					},
+				}},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "service namespace must match ingress namespace",
+			Paths:   []string{"spec.rules[0].http.paths[0].splits[0].serviceNamespace"},
+		},
 	}}
 
 	for _, test := range tests {

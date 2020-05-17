@@ -17,22 +17,23 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/url"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/pool"
+	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -45,6 +46,12 @@ type Latencies interface {
 	Add(name string, start time.Time)
 }
 
+func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		return true, ctx.Err()
+	}
+}
+
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
 	clients := Setup(t)
 
@@ -52,18 +59,17 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	defer close(cleanupCh)
 
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
-	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
-	// us to have 2.5 9s overall.
-	//
-	// TODO(#2850): After moving to Istio 1.1 we need to revisit these SLOs.
+	// 95 = 19/20, so allow one failure within the minimum number of probes, but expect
+	// us to have 3 9s overall.
 	const (
-		localSLO  = 0.90
-		globalSLO = 0.995
+		localSLO  = 0.95
+		globalSLO = 0.999
 		minProbes = 20
 	)
-	pm := test.NewProberManager(t.Logf, clients, minProbes)
+	pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 
-	timeoutCh := time.After(duration)
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
@@ -71,7 +77,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
-
 		wg.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
@@ -83,33 +88,33 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			svc, err := v1a1test.CreateLatestService(t, clients, names,
-				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
+			svc, err := v1test.CreateService(t, clients, names,
+				rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("50m"),
 						corev1.ResourceMemory: resource.MustParse("50Mi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("30m"),
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
-				v1alpha1testing.WithConfigAnnotations(map[string]string{
+				rtesting.WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
 				}),
-				v1alpha1testing.WithReadinessProbe(&corev1.Probe{
+				rtesting.WithReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				}),
-				v1alpha1testing.WithRevisionTimeoutSeconds(10))
-
+				rtesting.WithRevisionTimeoutSeconds(10))
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
-				return errors.Wrap(err, "CreateLatestService() failed")
+				return fmt.Errorf("CreateLatestService() failed: %w", err)
 			}
+
 			// Record the time it took to create the service.
 			latencies.Add("time-to-create", start)
 			names.Route = serviceresourcenames.Route(svc)
@@ -120,17 +125,22 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var url *url.URL
-			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+			err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
 				if s.Status.URL == nil {
 					return false, nil
 				}
 				url = s.Status.URL.URL()
-				return v1a1test.IsServiceReady(s)
+				return v1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
+
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")
+				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 			}
+
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
 
@@ -138,13 +148,14 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				url,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return errors.Wrap(err, "WaitForEndpointState(expected text) failed")
+				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 			}
+
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
 
@@ -182,12 +193,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
 				// as we tear down the things they are probing.
 				defer pm.Stop()
-				t.Fatalf("Unexpected error: %v", err)
+				t.Fatal("Unexpected error:", err)
 			}
 
 			// This ProberManager implementation waits for minProbes before actually stopping.
 			if err := pm.Stop(); err != nil {
-				t.Fatalf("Stop() = %v", err)
+				t.Fatal("Stop() =", err)
 			}
 			// Check each of the local SLOs
 			pm.Foreach(func(u *url.URL, p test.Prober) {
@@ -200,12 +211,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Errorf("CheckSLO() = %v", err)
 			}
 			return
-
-		case <-timeoutCh:
-			// If we don't do this first, then we'll see tons of 503s from the ongoing probes
-			// as we tear down the things they are probing.
-			defer pm.Stop()
-			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
 }

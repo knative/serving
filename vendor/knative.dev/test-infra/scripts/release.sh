@@ -93,9 +93,9 @@ RELEASE_VERSION=""
 RELEASE_NOTES=""
 RELEASE_BRANCH=""
 RELEASE_GCS_BUCKET="knative-nightly/${REPO_NAME}"
+RELEASE_DIR=""
 KO_FLAGS="-P"
 VALIDATION_TESTS="./test/presubmit-tests.sh"
-YAMLS_TO_PUBLISH=""
 ARTIFACTS_TO_PUBLISH=""
 FROM_NIGHTLY_RELEASE=""
 FROM_NIGHTLY_RELEASE_GCS=""
@@ -212,7 +212,7 @@ function prepare_dot_release() {
     echo "Dot release will be generated for ${version_filter}"
     releases="$(echo "${releases}" | grep ^${version_filter})"
   fi
-  local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r | head -1)"
+  local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r -V | head -1)"
   [[ -n "${last_version}" ]] || abort "no previous release exist"
   local major_minor_version=""
   if [[ -z "${RELEASE_BRANCH}" ]]; then
@@ -334,6 +334,7 @@ function find_latest_nightly() {
 function parse_flags() {
   local has_gcr_flag=0
   local has_gcs_flag=0
+  local has_dir_flag=0
   local is_dot_release=0
   local is_auto_release=0
 
@@ -365,7 +366,13 @@ function parse_flags() {
             ;;
           --release-gcs)
             RELEASE_GCS_BUCKET=$1
+            RELEASE_DIR=""
             has_gcs_flag=1
+            ;;
+          --release-dir)
+            RELEASE_DIR=$1
+            RELEASE_GCS_BUCKET=""
+            has_dir_flag=1
             ;;
           --version)
             [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
@@ -388,6 +395,9 @@ function parse_flags() {
     esac
     shift
   done
+
+  (( has_gcs_flag )) && (( has_dir_flag )) && abort "cannot have both --release-gcs and --release-dir set simultaneously"
+  [[ -n "${RELEASE_GCS_BUCKET}" && -n "${RELEASE_DIR}" ]] && abort "cannot have both GCS and release directory set"
 
   # Do auto release unless release is forced
   if (( is_auto_release )); then
@@ -422,8 +432,13 @@ function parse_flags() {
     (( has_gcr_flag )) && echo "Not publishing the release, GCR flag is ignored"
     (( has_gcs_flag )) && echo "Not publishing the release, GCS flag is ignored"
     KO_DOCKER_REPO="ko.local"
-    KO_FLAGS="-L ${KO_FLAGS}"
     RELEASE_GCS_BUCKET=""
+    [[ -z "${RELEASE_DIR}" ]] && RELEASE_DIR="${REPO_ROOT_DIR}"
+  fi
+
+  [[ -z "${RELEASE_GCS_BUCKET}" && -z "${RELEASE_DIR}" ]] && abort "--release-gcs or --release-dir must be used"
+  if [[ -n "${RELEASE_DIR}" ]]; then
+    mkdir -p "${RELEASE_DIR}" || abort "cannot create release dir '${RELEASE_DIR}'"
   fi
 
   # Get the commit, excluding any tags but keeping the "dirty" flag
@@ -450,6 +465,7 @@ function parse_flags() {
   readonly RELEASE_NOTES
   readonly RELEASE_BRANCH
   readonly RELEASE_GCS_BUCKET
+  readonly RELEASE_DIR
   readonly KO_DOCKER_REPO
   readonly VALIDATION_TESTS
   readonly FROM_NIGHTLY_RELEASE
@@ -458,31 +474,54 @@ function parse_flags() {
 # Run tests (unless --skip-tests was passed). Conveniently displays a banner indicating so.
 # Parameters: $1 - executable that runs the tests.
 function run_validation_tests() {
-  if (( ! SKIP_TESTS )); then
-    banner "Running release validation tests"
-    # Run tests.
-    if ! $1; then
-      banner "Release validation tests failed, aborting"
-      exit 1
-    fi
+  (( SKIP_TESTS )) && return
+  banner "Running release validation tests"
+  # Run tests.
+  if ! $1; then
+    banner "Release validation tests failed, aborting"
+    abort "release validation tests failed"
   fi
 }
 
-# Publishes the generated artifacts to GCS, GitHub, etc.
+# Publishes the generated artifacts to directory, GCS, GitHub, etc.
 # Parameters: $1..$n - files to add to the release.
 function publish_artifacts() {
   (( ! PUBLISH_RELEASE )) && return
   tag_images_in_yamls ${ARTIFACTS_TO_PUBLISH}
-  publish_to_gcs ${ARTIFACTS_TO_PUBLISH}
+  if [[ -n "${RELEASE_DIR}" ]]; then
+    cp ${ARTIFACTS_TO_PUBLISH} ${RELEASE_DIR} || abort "cannot copy release to '${RELEASE_DIR}'"
+  fi
+  [[ -n "${RELEASE_GCS_BUCKET}" ]] && publish_to_gcs ${ARTIFACTS_TO_PUBLISH}
   publish_to_github ${ARTIFACTS_TO_PUBLISH}
   banner "New release published successfully"
 }
 
 # Entry point for a release script.
 function main() {
+  parse_flags "$@"
+
+  # Checkout specific branch, if necessary
+  local current_branch
+  current_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ -n "${RELEASE_BRANCH}" && -z "${FROM_NIGHTLY_RELEASE}" && "${current_branch}" != "${RELEASE_BRANCH}" ]]; then
+    setup_upstream
+    setup_branch
+    # When it runs in Prow, the origin is identical with upstream, and previous
+    # fetch already fetched release-* branches, so no need to `checkout -b`
+    if (( IS_PROW )); then
+      git checkout "${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    else
+      git checkout -b "${RELEASE_BRANCH}" upstream/"${RELEASE_BRANCH}" || abort "cannot checkout branch ${RELEASE_BRANCH}"
+    fi
+    # HACK HACK HACK
+    # Rerun the release script from the release branch. Fixes https://github.com/knative/test-infra/issues/1262
+    ./hack/release.sh "$@"
+    exit "$?"
+  fi
+
   function_exists build_release || abort "function 'build_release()' not defined"
   [[ -x ${VALIDATION_TESTS} ]] || abort "test script '${VALIDATION_TESTS}' doesn't exist"
-  parse_flags $@
+
   # Log what will be done and where.
   banner "Release configuration"
   if which gcloud &>/dev/null ; then
@@ -498,7 +537,9 @@ function main() {
     echo "- Artifacts WILL NOT be tagged"
   fi
   if (( PUBLISH_RELEASE )); then
-    echo "- Release WILL BE published to '${RELEASE_GCS_BUCKET}'"
+    local dst="${RELEASE_DIR}"
+    [[ -z "${dst}" ]] && dst="${RELEASE_GCS_BUCKET}"
+    echo "- Release WILL BE published to '${dst}'"
   else
     echo "- Release will not be published"
   fi
@@ -513,13 +554,6 @@ function main() {
   fi
   [[ -n "${RELEASE_NOTES}" ]] && echo "- Release notes are generated from '${RELEASE_NOTES}'"
 
-  # Checkout specific branch, if necessary
-  if [[ -n "${RELEASE_BRANCH}" && -z "${FROM_NIGHTLY_RELEASE}" ]]; then
-    setup_upstream
-    setup_branch
-    git checkout upstream/${RELEASE_BRANCH} || abort "cannot checkout branch ${RELEASE_BRANCH}"
-  fi
-
   if [[ -n "${FROM_NIGHTLY_RELEASE}" ]]; then
     build_from_nightly_release
   else
@@ -527,8 +561,6 @@ function main() {
     build_from_source
     set +e +o pipefail
   fi
-  # TODO(adrcunha): Remove once all repos use ARTIFACTS_TO_PUBLISH.
-  [[ -z "${ARTIFACTS_TO_PUBLISH}" ]] && ARTIFACTS_TO_PUBLISH="${YAMLS_TO_PUBLISH}"
   [[ -z "${ARTIFACTS_TO_PUBLISH}" ]] && abort "no artifacts were generated"
   # Ensure no empty file will be published.
   for artifact in ${ARTIFACTS_TO_PUBLISH}; do

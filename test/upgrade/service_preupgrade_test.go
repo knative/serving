@@ -23,52 +23,70 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
-func TestRunLatestServicePreUpgrade(t *testing.T) {
+func TestServicePreUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
-	var names test.ResourceNames
-	names.Service = serviceName
-	names.Image = test.PizzaPlanet1
+	names := test.ResourceNames{
+		Service: serviceName,
+		Image:   test.PizzaPlanet1,
+	}
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 }
 
-func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
+func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
 
-	var names test.ResourceNames
-	names.Service = scaleToZeroServiceName
-	names.Image = test.PizzaPlanet1
+	names := test.ResourceNames{
+		Service: scaleToZeroServiceName,
+		Image:   test.PizzaPlanet1,
+	}
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+		t.Fatal("Could not scale to zero:", err)
+	}
+}
+
+// TestBYORevisionUpgrade creates a Service that uses the BYO Revision name functionality. This test
+// is meant to catch new defaults that break bring your own revision name immutability.
+func TestBYORevisionPreUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+	names := test.ResourceNames{
+		Service: byoServiceName,
+		Image:   test.PizzaPlanet1,
+	}
+
+	if _, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithBYORevisionName(byoRevName)); err != nil {
+		t.Fatal("Failed to create Service:", err)
 	}
 }

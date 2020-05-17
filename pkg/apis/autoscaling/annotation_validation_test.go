@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaling
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -25,9 +26,10 @@ import (
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
 	cases := []struct {
-		name        string
-		annotations map[string]string
-		expectErr   string
+		name               string
+		annotations        map[string]string
+		expectErr          string
+		allowInitScaleZero bool
 	}{{
 		name:        "nil annotations",
 		annotations: nil,
@@ -159,6 +161,38 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "365h"},
 		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
 	}, {
+		name:        "annotation /window is invalid for class HPA and metric CPU",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name %q: %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+	}, {
+		name:        "annotation /window is valid for class KPA",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric RPS",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric Concurrency",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: Concurrency},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for other than HPA and KPA class",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: "test"},
+		expectErr:   "",
+	}, {
+		name:        "value too short and invalid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name %q: %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+	}, {
+		name:        "value too long and valid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},
+		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
+	}, {
+		name:        "invalid format and valid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver", ClassAnnotationKey: KPA},
+		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + WindowAnnotationKey,
+	}, {
 		name: "all together now fail",
 		annotations: map[string]string{
 			PanicThresholdPercentageAnnotationKey: "fifty",
@@ -202,10 +236,28 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "other than HPA and KPA class",
 		annotations: map[string]string{ClassAnnotationKey: "other", MetricAnnotationKey: RPS},
+	}, {
+		name:               "initial scale is zero but cluster doesn't allow",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
+		expectErr:          "invalid value: 0: autoscaling.knative.dev/initialScale",
+	}, {
+		name:               "initial scale is zero and cluster allows",
+		allowInitScaleZero: true,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "0"},
+	}, {
+		name:               "initial scale is greater than 0",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "2"},
+	}, {
+		name:               "initial scale non-parseable",
+		allowInitScaleZero: false,
+		annotations:        map[string]string{InitialScaleAnnotationKey: "invalid"},
+		expectErr:          "invalid value: invalid: autoscaling.knative.dev/initialScale",
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got, want := ValidateAnnotations(c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
+			if got, want := ValidateAnnotations(c.allowInitScaleZero, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
 				t.Errorf("Err = %q, want: %q, diff:\n%s", got, want, cmp.Diff(got, want))
 			}
 		})

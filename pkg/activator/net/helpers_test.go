@@ -27,14 +27,15 @@ import (
 
 func TestEndpointsToDests(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		endpoints   corev1.Endpoints
-		protocol    networking.ProtocolType
-		expectDests []string
+		name           string
+		endpoints      corev1.Endpoints
+		protocol       networking.ProtocolType
+		expectReady    sets.String
+		expectNotReady sets.String
 	}{{
 		name:        "no endpoints",
 		endpoints:   corev1.Endpoints{},
-		expectDests: []string{},
+		expectReady: sets.NewString(),
 	}, {
 		name: "single endpoint single address",
 		endpoints: corev1.Endpoints{
@@ -48,7 +49,7 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectDests: []string{"128.0.0.1:1234"},
+		expectReady: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name: "single endpoint multiple address",
 		endpoints: corev1.Endpoints{
@@ -64,7 +65,27 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectDests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		expectReady: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+	}, {
+		name: "single endpoint multiple addresses, including no ready addresses",
+		endpoints: corev1.Endpoints{
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{
+					IP: "128.0.0.1",
+				}, {
+					IP: "128.0.0.2",
+				}},
+				NotReadyAddresses: []corev1.EndpointAddress{{
+					IP: "128.0.0.3",
+				}},
+				Ports: []corev1.EndpointPort{{
+					Name: networking.ServicePortNameHTTP1,
+					Port: 1234,
+				}},
+			}},
+		},
+		expectReady:    sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		expectNotReady: sets.NewString("128.0.0.3:1234"),
 	}, {
 		name: "multiple endpoint filter port",
 		endpoints: corev1.Endpoints{
@@ -86,16 +107,19 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectDests: []string{"128.0.0.1:1234"},
+		expectReady: sets.NewString("128.0.0.1:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.protocol == "" {
 				tc.protocol = networking.ProtocolHTTP1
 			}
-			dests := endpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
+			ready, notReady := endpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
-			if got, want := dests, sets.NewString(tc.expectDests...); !got.Equal(want) {
-				t.Errorf("Got unexpected dests (-want, +got): %s", cmp.Diff(want, got))
+			if got, want := ready, tc.expectReady; !got.Equal(want) {
+				t.Errorf("Got unexpected ready dests (-want, +got): %s", cmp.Diff(want, got))
+			}
+			if got, want := notReady, tc.expectNotReady; !got.Equal(want) {
+				t.Errorf("Got unexpected notReady dests (-want, +got): %s", cmp.Diff(want, got))
 			}
 		})
 

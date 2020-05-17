@@ -16,15 +16,13 @@ limitations under the License.
 
 package logstream
 
-import (
-	"testing"
-)
+import "knative.dev/pkg/test"
 
 type null struct{}
 
 var _ streamer = (*null)(nil)
 
 // Start implements streamer
-func (*null) Start(t *testing.T) Canceler {
+func (*null) Start(t test.TLegacy) Canceler {
 	return func() {}
 }

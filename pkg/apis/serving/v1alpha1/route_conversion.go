@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -27,31 +26,31 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (source *Route) ConvertTo(ctx context.Context, obj apis.Convertible) error {
 	switch sink := obj.(type) {
 	case *v1beta1.Route:
 		sink.ObjectMeta = source.ObjectMeta
-		source.Status.ConvertUp(apis.WithinStatus(ctx), &sink.Status)
-		return source.Spec.ConvertUp(apis.WithinSpec(ctx), &sink.Spec)
+		source.Status.ConvertTo(apis.WithinStatus(ctx), &sink.Status)
+		return source.Spec.ConvertTo(apis.WithinSpec(ctx), &sink.Spec)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertToViaProxy(ctx, source, &v1beta1.Route{}, sink)
 	}
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1.RouteSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *RouteSpec) ConvertTo(ctx context.Context, sink *v1.RouteSpec) error {
 	sink.Traffic = make([]v1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
-		if err := source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i]); err != nil {
+		if err := source.Traffic[i].ConvertTo(ctx, &sink.Traffic[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1.TrafficTarget) error {
+// ConvertTo helps implement apis.Convertible
+func (source *TrafficTarget) ConvertTo(ctx context.Context, sink *v1.TrafficTarget) error {
 	*sink = source.TrafficTarget
 	switch {
 	case source.Tag != "" && source.DeprecatedName != "":
@@ -64,15 +63,14 @@ func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1.TrafficTarg
 	return nil
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1.RouteStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
-	source.RouteStatusFields.ConvertUp(ctx, &sink.RouteStatusFields)
+// ConvertTo helps implement apis.Convertible
+func (source *RouteStatus) ConvertTo(ctx context.Context, sink *v1.RouteStatus) {
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRouteCondition)
+	source.RouteStatusFields.ConvertTo(ctx, &sink.RouteStatusFields)
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1.RouteStatusFields) {
+// ConvertTo helps implement apis.Convertible
+func (source *RouteStatusFields) ConvertTo(ctx context.Context, sink *v1.RouteStatusFields) {
 	if source.URL != nil {
 		sink.URL = source.URL.DeepCopy()
 	}
@@ -81,50 +79,49 @@ func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1.RouteSt
 		if sink.Address == nil {
 			sink.Address = &duckv1.Addressable{}
 		}
-		source.Address.ConvertUp(ctx, sink.Address)
+		source.Address.ConvertTo(ctx, sink.Address)
 	}
 
 	sink.Traffic = make([]v1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
-		source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i])
+		source.Traffic[i].ConvertTo(ctx, &sink.Traffic[i])
 	}
 }
 
-// ConvertDown implements apis.Convertible
-func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (sink *Route) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
 	switch source := obj.(type) {
 	case *v1beta1.Route:
 		sink.ObjectMeta = source.ObjectMeta
-		sink.Spec.ConvertDown(ctx, source.Spec)
-		sink.Status.ConvertDown(ctx, source.Status)
+		sink.Spec.ConvertFrom(ctx, source.Spec)
+		sink.Status.ConvertFrom(ctx, source.Status)
 		return nil
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertFromViaProxy(ctx, source, &v1beta1.Route{}, sink)
 	}
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RouteSpec) ConvertDown(ctx context.Context, source v1.RouteSpec) {
+// ConvertFrom helps implement apis.Convertible
+func (sink *RouteSpec) ConvertFrom(ctx context.Context, source v1.RouteSpec) {
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
-		sink.Traffic[i].ConvertDown(ctx, source.Traffic[i])
+		sink.Traffic[i].ConvertFrom(ctx, source.Traffic[i])
 	}
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *TrafficTarget) ConvertDown(ctx context.Context, source v1.TrafficTarget) {
+// ConvertFrom helps implement apis.Convertible
+func (sink *TrafficTarget) ConvertFrom(ctx context.Context, source v1.TrafficTarget) {
 	sink.TrafficTarget = source
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1.RouteStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
-	sink.RouteStatusFields.ConvertDown(ctx, source.RouteStatusFields)
+// ConvertFrom helps implement apis.Convertible
+func (sink *RouteStatus) ConvertFrom(ctx context.Context, source v1.RouteStatus) {
+	source.ConvertTo(ctx, &sink.Status, v1.IsRouteCondition)
+	sink.RouteStatusFields.ConvertFrom(ctx, source.RouteStatusFields)
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1.RouteStatusFields) {
+// ConvertFrom helps implement apis.Convertible
+func (sink *RouteStatusFields) ConvertFrom(ctx context.Context, source v1.RouteStatusFields) {
 	if source.URL != nil {
 		sink.URL = source.URL.DeepCopy()
 	}
@@ -133,11 +130,11 @@ func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1.RouteS
 		if sink.Address == nil {
 			sink.Address = &duckv1alpha1.Addressable{}
 		}
-		sink.Address.ConvertDown(ctx, source.Address)
+		sink.Address.ConvertFrom(ctx, source.Address)
 	}
 
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
-		sink.Traffic[i].ConvertDown(ctx, source.Traffic[i])
+		sink.Traffic[i].ConvertFrom(ctx, source.Traffic[i])
 	}
 }

@@ -18,22 +18,30 @@ package serverlessservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/logging"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	rpkg "knative.dev/serving/pkg/reconciler"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 
@@ -46,7 +54,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -59,18 +67,16 @@ func TestNewController(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	retryAttempted := false
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
-		SkipNamespaceValidation: true,
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
-		SkipNamespaceValidation: true,
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
-		SkipNamespaceValidation: true,
+		Name: "key not found",
+		Key:  "foo/not-found",
 	}, {
 		Name: "steady state",
 		Key:  "steady/state",
@@ -85,7 +91,8 @@ func TestReconcile(t *testing.T) {
 		},
 	}, {
 		// This is the case for once we are scaled to zero.
-		Name: "steady switch to proxy mode",
+		// It also exercises the retry logic.
+		Name: "steady switch to proxy mode, with retry",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
 			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
@@ -97,16 +104,69 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "to-proxy"),
 			activatorEndpoints(WithSubsets),
 		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "serverlessservices") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService),
+		}, {
 			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
 				withProxyMode, WithPubService, WithPrivateService),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "steady/to-proxy"`),
+	}, {
+		Name: "steady switch to proxy mode, subset",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(5)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(5)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 5, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
+		Name: "steady switch to proxy mode, subset all",
+		Key:  "steady/to-proxy-with-subset",
+		Objects: []runtime.Object{
+			SKS("steady", "to-proxy-with-subset", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("bar"), withProxyMode, WithNumActivators(8)),
+			deploy("steady", "bar"),
+			svcpub("steady", "to-proxy-with-subset"),
+			svcpriv("steady", "to-proxy-with-subset"),
+			endpointspub("steady", "to-proxy-with-subset", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			endpointspriv("steady", "to-proxy-with-subset"),
+			activatorEndpoints(withNSubsets(2, 4 /*8 in total*/)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy-with-subset", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService, WithNumActivators(8)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("steady", "to-proxy-with-subset",
+				withPickedSubset(2, 4, 8, "to-proxy-with-subset"),
+				withFilteredPorts(networking.BackendHTTPPort)),
+		}},
 	}, {
 		// This is the case for once we are proxying for unsufficient burst capacity.
 		// It should be a no-op.
@@ -197,7 +257,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: error retrieving deployment selector spec: error fetching Pod Scalable on/blah: deployments.apps "blah" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error retrieving deployment selector spec: error fetching Pod Scalable on/blah: deployments.apps "blah" not found`),
 		},
 	}, {
 		Name: "OnCreate-deployment-exists",
@@ -218,9 +278,6 @@ func TestReconcile(t *testing.T) {
 			Object: SKS("on", "cde", WithDeployRef("blah"),
 				markHappy, WithPubService, WithPrivateService),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cde"`),
-		},
 	}, {
 		Name:    "update-eps-fail",
 		Key:     "update-eps/failA",
@@ -238,11 +295,12 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "endpoints"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("update-eps", "failA", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
+			Object: endpointspub("update-eps", "failA", WithSubsets,
+				withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"InternalError: failed to update public K8s Endpoints: inducing failure for update endpoints"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to update public K8s Endpoints: inducing failure for update endpoints"),
 		},
 	}, {
 		Name:    "svc-fail-pub",
@@ -266,9 +324,8 @@ func TestReconcile(t *testing.T) {
 			svcpub("svc", "fail2"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"InternalError: failed to create public K8s Service: inducing failure for create services"),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail2"`),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to create public K8s Service: inducing failure for create services"),
 		},
 	}, {
 		Name:    "eps-create-fail-pub",
@@ -293,9 +350,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("eps", "fail3", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"InternalError: failed to create public K8s Endpoints: inducing failure for create endpoints"),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "eps/fail3"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create public K8s Endpoints: inducing failure for create endpoints"),
 		},
 	}, {
 		Name: "OnCreate-no-eps",
@@ -315,9 +370,6 @@ func TestReconcile(t *testing.T) {
 			Object: SKS("on", "cneps", WithDeployRef("blah"),
 				markNoEndpoints, WithPubService, WithPrivateService),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
-		},
 	}, {
 		Name: "OnCreate-no-activator-eps-exist",
 		Key:  "on/cnaeps2",
@@ -338,9 +390,8 @@ func TestReconcile(t *testing.T) {
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				`InternalError: failed to get activator service endpoints: endpoints "activator-service" not found`),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps2"`),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to get activator service endpoints: endpoints "activator-service" not found`),
 		},
 	}, {
 		Name: "OnCreate-no-private-eps-exist",
@@ -362,9 +413,8 @@ func TestReconcile(t *testing.T) {
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				`InternalError: failed to get private K8s Service endpoints: endpoints "cnaeps3-private" not found`),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps3"`),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to get private K8s Service endpoints: endpoints "cnaeps3-private" not found`),
 		},
 	}, {
 		Name: "OnCreate-no-activator-eps-service",
@@ -384,9 +434,6 @@ func TestReconcile(t *testing.T) {
 			Object: SKS("on", "cnaeps", WithDeployRef("blah"),
 				markHappy, WithPubService, WithPrivateService),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
-		},
 	}, {
 		Name: "OnCreate-no-activator-eps-proxy",
 		Key:  "on/cnaeps",
@@ -405,9 +452,6 @@ func TestReconcile(t *testing.T) {
 			Object: SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode,
 				markNoEndpoints, WithPubService, WithPrivateService),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
-		},
 	}, {
 		Name:    "create-svc-fail-priv",
 		Key:     "svc/fail",
@@ -428,9 +472,8 @@ func TestReconcile(t *testing.T) {
 			svcpriv("svc", "fail"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"InternalError: failed to create private K8s Service: inducing failure for create services"),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail"`),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to create private K8s Service: inducing failure for create services"),
 		},
 	}, {
 		Name:    "update-sks-fail",
@@ -455,7 +498,7 @@ func TestReconcile(t *testing.T) {
 				WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "fail4": inducing failure for update serverlessservices`),
 		},
 	}, {
 		Name:    "ronin-priv-service",
@@ -476,8 +519,7 @@ func TestReconcile(t *testing.T) {
 				WithDeployRef("blah"), markUnowned("Service", "fail5-private")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-private`),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-priv-service/fail5"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `SKS: fail5 does not own Service: fail5-private`),
 		},
 	}, {
 		Name:    "ronin-pub-service",
@@ -498,8 +540,7 @@ func TestReconcile(t *testing.T) {
 				WithDeployRef("blah"), markUnowned("Service", "fail6")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail6 does not own Service: fail6`),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-pub-service/fail6"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `SKS: fail6 does not own Service: fail6`),
 		},
 	}, {
 		Name:    "ronin-pub-eps",
@@ -520,8 +561,7 @@ func TestReconcile(t *testing.T) {
 				WithDeployRef("blah"), markUnowned("Endpoints", "fail7")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail7 does not own Endpoints: fail7`),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-pub-eps/fail7"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `SKS: fail7 does not own Endpoints: fail7`),
 		},
 	}, {
 		Name:    "update-priv-svc-fail",
@@ -548,135 +588,145 @@ func TestReconcile(t *testing.T) {
 			Object: svcpriv("update-svc", "fail9"),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"InternalError: failed to update private K8s Service: inducing failure for update services"),
-			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "update-svc/fail9"`),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to update private K8s Service: inducing failure for update services"),
 		},
-	},
-		{
-			Name:    "update-pub-svc-fail",
-			Key:     "update-svc/fail8",
-			WantErr: true,
-			Objects: []runtime.Object{
-				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService),
-				deploy("update-svc", "blah"),
-				svcpub("update-svc", "fail8", withTimeSelector),
-				svcpriv("update-svc", "fail8"),
-				endpointspub("update-svc", "fail8", WithSubsets),
-				endpointspriv("update-svc", "fail8", WithSubsets),
-				activatorEndpoints(WithSubsets),
-			},
-			WithReactors: []clientgotesting.ReactionFunc{
-				InduceFailure("update", "services"),
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: svcpub("update-svc", "fail8"),
-			}},
-			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: failed to update public K8s Service: inducing failure for update services"),
-			},
-		}, {
-			Name: "pod change",
-			Key:  "pod/change",
-			Objects: []runtime.Object{
-				SKS("pod", "change", markHappy, WithPubService, WithPrivateService,
-					WithDeployRef("blah")),
-				deploy("pod", "blah"),
-				svcpub("pod", "change"),
-				svcpriv("pod", "change"),
-				endpointspub("pod", "change", WithSubsets),
-				endpointspriv("pod", "change", withOtherSubsets),
-				activatorEndpoints(WithSubsets),
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			}},
-		}, {
-			Name: "proxy mode; pod change - activator",
-			Key:  "pod/change",
-			Objects: []runtime.Object{
-				SKS("pod", "change", markNoEndpoints, WithPubService, withHTTP2Protocol,
-					WithPrivateService, WithDeployRef("blah")),
-				deploy("pod", "blah"),
-				svcpub("pod", "change", withHTTP2),
-				svcpriv("pod", "change", withHTTP2Priv),
-				endpointspub("pod", "change", WithSubsets),
-				endpointspriv("pod", "change"),
-				activatorEndpoints(withOtherSubsets),
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
-			}},
-		}, {
-			Name: "serving mode; serving pod comes online",
-			Key:  "pod/change",
-			Objects: []runtime.Object{
-				SKS("pod", "change", markNoEndpoints, WithPubService,
-					WithPrivateService, WithDeployRef("blah")),
-				deploy("pod", "blah"),
-				svcpub("pod", "change"),
-				svcpriv("pod", "change"),
-				endpointspub("pod", "change", withOtherSubsets),
-				endpointspriv("pod", "change", WithSubsets),
-				activatorEndpoints(withOtherSubsets),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: SKS("pod", "change",
-					WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService, WithDeployRef("blah")),
-			}},
-			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			}},
-		}, {
-			Name: "serving mode; no backend endpoints",
-			Key:  "pod/change",
-			Objects: []runtime.Object{
-				SKS("pod", "change", WithSKSReady, WithPubService, withHTTP2Protocol,
-					WithPrivateService, WithDeployRef("blah")),
-				deploy("pod", "blah"),
-				svcpub("pod", "change", withHTTP2),
-				svcpriv("pod", "change", withHTTP2Priv),
-				endpointspub("pod", "change", WithSubsets), // We had endpoints...
-				endpointspriv("pod", "change"),             // but now we don't.
-				activatorEndpoints(withOtherSubsets),
-			},
-			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: SKS("pod", "change", withHTTP2Protocol,
-					WithDeployRef("blah"), markNoEndpoints, WithPubService, WithPrivateService),
-			}},
-			WantEvents: []string{
-				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),
-			},
-			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
-			}},
-		}}
+	}, {
+		Name:    "update-pub-svc-fail",
+		Key:     "update-svc/fail8",
+		WantErr: true,
+		Objects: []runtime.Object{
+			SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService),
+			deploy("update-svc", "blah"),
+			svcpub("update-svc", "fail8", withTimeSelector),
+			svcpriv("update-svc", "fail8"),
+			endpointspub("update-svc", "fail8", WithSubsets),
+			endpointspriv("update-svc", "fail8", WithSubsets),
+			activatorEndpoints(WithSubsets),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcpub("update-svc", "fail8"),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update public K8s Service: inducing failure for update services"),
+		},
+	}, {
+		Name: "pod change",
+		Key:  "pod/change",
+		Objects: []runtime.Object{
+			SKS("pod", "change", markHappy, WithPubService, WithPrivateService,
+				WithDeployRef("blah")),
+			deploy("pod", "blah"),
+			svcpub("pod", "change"),
+			svcpriv("pod", "change"),
+			endpointspub("pod", "change", WithSubsets),
+			endpointspriv("pod", "change", withOtherSubsets),
+			activatorEndpoints(WithSubsets),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
+		Name: "proxy mode; pod change - activator",
+		Key:  "pod/change",
+		Objects: []runtime.Object{
+			SKS("pod", "change", markNoEndpoints, WithPubService, withHTTP2Protocol,
+				WithPrivateService, WithDeployRef("blah")),
+			deploy("pod", "blah"),
+			svcpub("pod", "change", withHTTP2),
+			svcpriv("pod", "change", withHTTP2Priv),
+			endpointspub("pod", "change", WithSubsets),
+			endpointspriv("pod", "change"),
+			activatorEndpoints(withOtherSubsets),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
+		}},
+	}, {
+		Name: "serving mode; serving pod comes online",
+		Key:  "pod/change",
+		Objects: []runtime.Object{
+			SKS("pod", "change", markNoEndpoints, WithPubService,
+				WithPrivateService, WithDeployRef("blah")),
+			deploy("pod", "blah"),
+			svcpub("pod", "change"),
+			svcpriv("pod", "change"),
+			endpointspub("pod", "change", withOtherSubsets),
+			endpointspriv("pod", "change", WithSubsets),
+			activatorEndpoints(withOtherSubsets),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("pod", "change",
+				WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService, WithDeployRef("blah")),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("pod", "change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+		}},
+	}, {
+		Name: "serving mode; no backend endpoints",
+		Key:  "pod/change",
+		Objects: []runtime.Object{
+			SKS("pod", "change", WithSKSReady, WithPubService, withHTTP2Protocol,
+				WithPrivateService, WithDeployRef("blah")),
+			deploy("pod", "blah"),
+			svcpub("pod", "change", withHTTP2),
+			svcpriv("pod", "change", withHTTP2Priv),
+			endpointspub("pod", "change", WithSubsets), // We had endpoints...
+			endpointspriv("pod", "change"),             // but now we don't.
+			activatorEndpoints(withOtherSubsets),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("pod", "change", withHTTP2Protocol,
+				WithDeployRef("blah"), markNoEndpoints, WithPubService, WithPrivateService),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
+		}},
+	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &reconciler{
-			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
-			sksLister:         listers.GetServerlessServiceLister(),
+		retryAttempted = false
+		ctx = podscalable.WithDuck(ctx)
+
+		r := &reconciler{
+			kubeclient:        kubeclient.Get(ctx),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
+			psInformerFactory: podscalable.Get(ctx),
 		}
+
+		return sksreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetServerlessServiceLister(), controller.GetEventRecorder(ctx), r)
 	}))
 }
 
 // Keeps only desired port.
 func withFilteredPorts(port int32) EndpointsOption {
 	return func(ep *corev1.Endpoints) {
-		for _, p := range ep.Subsets[0].Ports {
-			if p.Port == port {
-				ep.Subsets[0].Ports[0] = p
-				break
+		for i := range ep.Subsets {
+			for _, p := range ep.Subsets[i].Ports {
+				if p.Port == port {
+					ep.Subsets[i].Ports[i] = p
+					break
+				}
 			}
+			// Strip all the others.
+			ep.Subsets[i].Ports = ep.Subsets[i].Ports[:1]
 		}
-		// Strip all the others.
-		ep.Subsets[0].Ports = ep.Subsets[0].Ports[:1]
+	}
+}
+
+// withPickedSubset simulates the picking of the activator
+// address subset.
+func withPickedSubset(numSS, numAddrs, pickN int, target string) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		// Generate the full set.
+		withNSubsets(numSS, numAddrs)(ep)
+		// Now pick and replace.
+		ep.Subsets = subsetEndpoints(ep, target, pickN).Subsets
 	}
 }
 
@@ -814,6 +864,21 @@ func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoi
 	return ep
 }
 
+// withNSubsets populates the endpoints object with numSS subsets
+// each having numAddr endpoints.
+func withNSubsets(numSS, numAddr int) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		ep.Subsets = make([]corev1.EndpointSubset, numSS)
+		for i := 0; i < numSS; i++ {
+			ep.Subsets[i].Ports = []corev1.EndpointPort{{Port: 8012}, {Port: 8013}}
+			ep.Subsets[i].Addresses = make([]corev1.EndpointAddress, numAddr)
+			for j := 0; j < numAddr; j++ {
+				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%d.%d", i+1, j+1)
+			}
+		}
+	}
+}
+
 func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
 	service := svcpub(namespace, name)
 	ep := &corev1.Endpoints{
@@ -827,4 +892,76 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 
 func withTimeSelector(svc *corev1.Service) {
 	svc.Spec.Selector = map[string]string{"pod-x": fmt.Sprintf("a-%d", time.Now().UnixNano())}
+}
+
+func TestSubsetEndpoints(t *testing.T) {
+	// This just tests the `subsetEndpoints` helper.
+	t.Run("empty", func(t *testing.T) {
+		aeps := activatorEndpoints()
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+		aeps = activatorEndpoints(withNSubsets(1, 0))
+		if got, want := subsetEndpoints(aeps, "rev", 1), aeps; got != want {
+			t.Errorf("Empty EPS = %p, want: %p", got, want)
+		}
+	})
+	t.Run("over-requested or all", func(t *testing.T) {
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x1", 1, 1, 1,
+		}, {
+			"1x2", 1, 2, 2,
+		}, {
+			"2x1", 2, 1, 3,
+		}, {
+			"20x10", 20, 10, 212,
+		}, {
+			"20x10", 20, 10, 0,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				if got, want := subsetEndpoints(aeps, "rev", tc.req), aeps; got != want {
+					t.Errorf("Select all: EPS = %p, want: %p", got, want)
+				}
+			})
+		}
+	})
+	t.Run("actual subset", func(t *testing.T) {
+		// We need to verify two things
+		// 1. that exacly N items were returned
+		// 2. they are distinct
+		// 3. No empty subset is returned.
+		tests := []struct {
+			name            string
+			nss, naddr, req int
+		}{{
+			"1x2 - 1", 1, 2, 1,
+		}, {
+			"2x1 - 1", 2, 1, 1,
+		}, {
+			"5x5 - 1", 5, 5, 1,
+		}, {
+			"5x5 - 12", 5, 5, 12,
+		}, {
+			"5x5 - 24", 5, 5, 24,
+		}}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				aeps := activatorEndpoints(withNSubsets(tc.nss, tc.naddr))
+				subset := subsetEndpoints(aeps, "target", tc.req)
+				if got, want := presources.ReadyAddressCount(subset), tc.req; got != want {
+					t.Errorf("Endpoint count = %d, want: %d", got, want)
+				}
+				for i, ss := range subset.Subsets {
+					if len(ss.Addresses) == 0 {
+						t.Errorf("Size of subset %d is 0", i)
+					}
+				}
+			})
+		}
+	})
 }

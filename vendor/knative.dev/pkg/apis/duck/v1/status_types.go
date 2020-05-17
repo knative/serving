@@ -18,36 +18,18 @@ package v1
 
 import (
 	"context"
-	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 )
+
+// +genduck
 
 // Conditions is a simple wrapper around apis.Conditions to implement duck.Implementable.
 type Conditions apis.Conditions
 
 // Conditions is an Implementable "duck type".
 var _ duck.Implementable = (*Conditions)(nil)
-
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
-
-// KResource is a skeleton type wrapping Conditions in the manner we expect
-// resource writers defining compatible resources to embed it.  We will
-// typically use this type to deserialize Conditions ObjectReferences and
-// access the Conditions data.  This is not a real resource.
-type KResource struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Status Status `json:"status"`
-}
 
 // Status shows how we expect folks to embed Conditions in
 // their Status field.
@@ -99,43 +81,30 @@ func (s *Status) GetCondition(t apis.ConditionType) *apis.Condition {
 }
 
 // ConvertTo helps implement apis.Convertible for types embedding this Status.
-func (source *Status) ConvertTo(ctx context.Context, sink *Status) {
+//
+// By default apis.ConditionReady and apis.ConditionSucceeded will be copied over to the
+// sink. Other conditions types are tested against a list of predicates. If any of the predicates
+// return true the condition type will be copied to the sink
+func (source *Status) ConvertTo(ctx context.Context, sink *Status, predicates ...func(apis.ConditionType) bool) {
 	sink.ObservedGeneration = source.ObservedGeneration
+
+	conditions := make(apis.Conditions, 0, len(source.Conditions))
 	for _, c := range source.Conditions {
-		switch c.Type {
+
 		// Copy over the "happy" condition, which is the only condition that
 		// we can reliably transfer.
-		case apis.ConditionReady, apis.ConditionSucceeded:
-			sink.SetConditions(apis.Conditions{c})
-			return
+		if c.Type == apis.ConditionReady || c.Type == apis.ConditionSucceeded {
+			conditions = append(conditions, c)
+			continue
+		}
+
+		for _, predicate := range predicates {
+			if predicate(c.Type) {
+				conditions = append(conditions, c)
+				break
+			}
 		}
 	}
-}
 
-// Populate implements duck.Populatable
-func (t *KResource) Populate() {
-	t.Status.ObservedGeneration = 42
-	t.Status.Conditions = Conditions{{
-		// Populate ALL fields
-		Type:               "Birthday",
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Date(1984, 02, 28, 18, 52, 00, 00, time.UTC))},
-		Reason:             "Celebrate",
-		Message:            "n3wScott, find your party hat :tada:",
-	}}
-}
-
-// GetListType implements apis.Listable
-func (*KResource) GetListType() runtime.Object {
-	return &KResourceList{}
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// KResourceList is a list of KResource resources
-type KResourceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []KResource `json:"items"`
+	sink.SetConditions(conditions)
 }

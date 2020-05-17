@@ -35,7 +35,7 @@ import (
 // referencing the Configuration responsible for creating them; in these cases
 // the Route is additionally responsible for monitoring the Configuration for
 // "latest ready" revision changes, and smoothly rolling out latest revisions.
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#route
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -83,7 +83,7 @@ type RouteSpec struct {
 	// This property will be dropped in future Knative releases and should
 	// not be used - use metadata.generation
 	//
-	// Tracking issue: https://knative.dev/serving/issues/643
+	// Tracking issue: https://github.com/knative/serving/issues/643
 	//
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`

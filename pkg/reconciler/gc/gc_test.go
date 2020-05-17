@@ -30,29 +30,31 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
-	. "knative.dev/pkg/reconciler/testing"
+	pkgrec "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+
+	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
-var revisionSpec = v1alpha1.RevisionSpec{
-	RevisionSpec: v1.RevisionSpec{
-		PodSpec: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Image: "busybox",
-			}},
-		},
-		TimeoutSeconds: ptr.Int64(60),
+var revisionSpec = v1.RevisionSpec{
+	PodSpec: corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: "busybox",
+		}},
 	},
+	TimeoutSeconds: ptr.Int64(60),
 }
 
 func TestGCReconcile(t *testing.T) {
@@ -89,7 +91,7 @@ func TestGCReconcile(t *testing.T) {
 				Verb:      "delete",
 				Resource: schema.GroupVersionResource{
 					Group:    "serving.knative.dev",
-					Version:  "v1alpha1",
+					Version:  "v1",
 					Resource: "revisions",
 				},
 			},
@@ -181,20 +183,22 @@ func TestGCReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &reconciler{
-			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			configStore: &testConfigStore{
-				config: &config.Config{
-					RevisionGC: &gcconfig.Config{
-						StaleRevisionCreateDelay:        5 * time.Minute,
-						StaleRevisionTimeout:            5 * time.Minute,
-						StaleRevisionMinimumGenerations: 2,
-					},
-				},
-			},
+		r := &reconciler{
+			client:         servingclient.Get(ctx),
+			revisionLister: listers.GetRevisionLister(),
 		}
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r, controller.Options{
+				ConfigStore: &testConfigStore{
+					config: &config.Config{
+						RevisionGC: &gcconfig.Config{
+							StaleRevisionCreateDelay:        5 * time.Minute,
+							StaleRevisionTimeout:            5 * time.Minute,
+							StaleRevisionMinimumGenerations: 2,
+						},
+					},
+				}})
 	}))
 }
 
@@ -204,12 +208,12 @@ func TestIsRevisionStale(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		rev       *v1alpha1.Revision
+		rev       *v1.Revision
 		latestRev string
 		want      bool
 	}{{
 		name: "fresh revision that was never pinned",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(curTime),
@@ -218,15 +222,15 @@ func TestIsRevisionStale(t *testing.T) {
 		want: false,
 	}, {
 		name: "stale revision that was never pinned w/ Ready status",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
-			Status: v1alpha1.RevisionStatus{
+			Status: v1.RevisionStatus{
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{{
-						Type:   v1alpha1.RevisionConditionReady,
+						Type:   v1.RevisionConditionReady,
 						Status: "True",
 					}},
 				},
@@ -235,15 +239,15 @@ func TestIsRevisionStale(t *testing.T) {
 		want: false,
 	}, {
 		name: "stale revision that was never pinned w/o Ready status",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
-			Status: v1alpha1.RevisionStatus{
+			Status: v1.RevisionStatus{
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{{
-						Type:   v1alpha1.RevisionConditionReady,
+						Type:   v1.RevisionConditionReady,
 						Status: "Unknown",
 					}},
 				},
@@ -252,7 +256,7 @@ func TestIsRevisionStale(t *testing.T) {
 		want: true,
 	}, {
 		name: "stale revision that was previously pinned",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
@@ -264,7 +268,7 @@ func TestIsRevisionStale(t *testing.T) {
 		want: true,
 	}, {
 		name: "fresh revision that was previously pinned",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
@@ -276,7 +280,7 @@ func TestIsRevisionStale(t *testing.T) {
 		want: false,
 	}, {
 		name: "stale latest ready revision",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
@@ -302,9 +306,9 @@ func TestIsRevisionStale(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := &v1alpha1.Configuration{
-				Status: v1alpha1.ConfigurationStatus{
-					ConfigurationStatusFields: v1alpha1.ConfigurationStatusFields{
+			cfg := &v1.Configuration{
+				Status: v1.ConfigurationStatus{
+					ConfigurationStatusFields: v1.ConfigurationStatusFields{
 						LatestReadyRevisionName: test.latestRev,
 					},
 				},
@@ -319,15 +323,15 @@ func TestIsRevisionStale(t *testing.T) {
 	}
 }
 
-func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1.Configuration {
-	c := &v1alpha1.Configuration{
+func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Configuration {
+	c := &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,
 			Namespace:  namespace,
 			Generation: generation,
 		},
-		Spec: v1alpha1.ConfigurationSpec{
-			Template: &v1alpha1.RevisionTemplateSpec{
+		Spec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
 				Spec: *revisionSpec.DeepCopy(),
 			},
 		},
@@ -339,13 +343,15 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 	return c
 }
 
-func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	r := resources.MakeRevision(cfg(name, namespace, generation))
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
+	config := cfg(name, namespace, generation)
+	rev := resources.MakeRevision(config)
+	rev.SetDefaults(context.Background())
+
 	for _, opt := range ro {
-		opt(r)
+		opt(rev)
 	}
-	return r
+	return rev
 }
 
 type testConfigStore struct {
@@ -356,4 +362,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
+var _ pkgrec.ConfigStore = (*testConfigStore)(nil)

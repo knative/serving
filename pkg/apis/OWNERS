@@ -4,9 +4,9 @@ approvers:
 # TOC
 - evankanderson
 - mattmoor
-- vaikas-google
+- vaikas
 # Serving WG Leads
-- dgerd
+- dprotaso
 
 labels:
 - area/API

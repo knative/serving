@@ -22,41 +22,42 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
-
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestMakeRevisions(t *testing.T) {
 	tests := []struct {
 		name          string
-		configuration *v1alpha1.Configuration
-		want          *v1alpha1.Revision
+		configuration *v1.Configuration
+		want          *v1.Revision
 	}{{
 		name: "no build",
-		configuration: &v1alpha1.Configuration{
+		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  "no",
 				Name:       "build",
 				Generation: 10,
 			},
-			Spec: v1alpha1.ConfigurationSpec{
-				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-					Spec: v1alpha1.RevisionSpec{
-						DeprecatedContainer: &corev1.Container{
-							Image: "busybox",
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
 						},
 					},
 				},
 			},
 		},
-		want: &v1alpha1.Revision{
+		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "no",
 				GenerateName: "build-",
 				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "build",
 					Controller:         ptr.Bool(true),
@@ -68,43 +69,47 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ServiceLabelKey:                 "",
 				},
 			},
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
 		},
 	}, {
 		name: "with labels",
-		configuration: &v1alpha1.Configuration{
+		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  "with",
 				Name:       "labels",
 				Generation: 100,
 			},
-			Spec: v1alpha1.ConfigurationSpec{
-				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
 						},
 					},
-					Spec: v1alpha1.RevisionSpec{
-						DeprecatedContainer: &corev1.Container{
-							Image: "busybox",
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
 						},
 					},
 				},
 			},
 		},
-		want: &v1alpha1.Revision{
+		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "with",
 				GenerateName: "labels-",
 				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "labels",
 					Controller:         ptr.Bool(true),
@@ -118,42 +123,46 @@ func TestMakeRevisions(t *testing.T) {
 					"baz":                                   "blah",
 				},
 			},
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
 		},
 	}, {
 		name: "with annotations",
-		configuration: &v1alpha1.Configuration{
+		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  "with",
 				Name:       "annotations",
 				Generation: 100,
 			},
-			Spec: v1alpha1.ConfigurationSpec{
-				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
 						},
 					},
-					Spec: v1alpha1.RevisionSpec{
-						DeprecatedContainer: &corev1.Container{
-							Image: "busybox",
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
 						},
 					},
 				},
 			},
 		},
-		want: &v1alpha1.Revision{
+		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "with",
 				GenerateName: "annotations-",
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "annotations",
 					Controller:         ptr.Bool(true),
@@ -169,15 +178,17 @@ func TestMakeRevisions(t *testing.T) {
 					"baz": "blah",
 				},
 			},
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
 		},
 	}, {
 		name: "with creator annotation from config",
-		configuration: &v1alpha1.Configuration{
+		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "anno",
 				Name:      "config",
@@ -187,17 +198,19 @@ func TestMakeRevisions(t *testing.T) {
 				},
 				Generation: 10,
 			},
-			Spec: v1alpha1.ConfigurationSpec{
-				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-					Spec: v1alpha1.RevisionSpec{
-						DeprecatedContainer: &corev1.Container{
-							Image: "busybox",
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
 						},
 					},
 				},
 			},
 		},
-		want: &v1alpha1.Revision{
+		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "anno",
 				GenerateName: "config-",
@@ -205,7 +218,7 @@ func TestMakeRevisions(t *testing.T) {
 					"serving.knative.dev/creator": "someone",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "config",
 					Controller:         ptr.Bool(true),
@@ -217,15 +230,17 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ServiceLabelKey:                 "",
 				},
 			},
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
 		},
 	}, {
 		name: "with creator annotation from config with other annotations",
-		configuration: &v1alpha1.Configuration{
+		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "anno",
 				Name:      "config",
@@ -235,23 +250,25 @@ func TestMakeRevisions(t *testing.T) {
 				},
 				Generation: 10,
 			},
-			Spec: v1alpha1.ConfigurationSpec{
-				DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-					Spec: v1alpha1.RevisionSpec{
-						DeprecatedContainer: &corev1.Container{
-							Image: "busybox",
-						},
-					},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
 						},
 					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+					},
 				},
 			},
 		},
-		want: &v1alpha1.Revision{
+		want: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "anno",
 				GenerateName: "config-",
@@ -261,7 +278,7 @@ func TestMakeRevisions(t *testing.T) {
 					"baz":                         "blah",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
 					Name:               "config",
 					Controller:         ptr.Bool(true),
@@ -273,9 +290,11 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ServiceLabelKey:                 "",
 				},
 			},
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
 		},
@@ -283,16 +302,6 @@ func TestMakeRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeRevision(test.configuration)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeRevision (-want, +got) = %v", diff)
-			}
-		})
-
-		t.Run(test.name+"(template)", func(t *testing.T) {
-			// Test the Template variant.
-			test.configuration.Spec.Template = test.configuration.Spec.DeprecatedRevisionTemplate
-			test.configuration.Spec.DeprecatedRevisionTemplate = nil
 			got := MakeRevision(test.configuration)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)

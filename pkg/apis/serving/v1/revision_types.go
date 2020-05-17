@@ -25,13 +25,14 @@ import (
 )
 
 // +genclient
+// +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Revision is an immutable snapshot of code and configuration.  A revision
 // references a container image. Revisions are created by updates to a
 // Configuration.
 //
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#revision
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -89,7 +90,30 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady = apis.ConditionReady
+
+	// RevisionConditionResourcesAvailable is set when underlying
+	// Kubernetes resources have been provisioned.
+	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
+
+	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
+	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
+
+	// RevisionConditionActive is set when the revision is receiving traffic.
+	RevisionConditionActive apis.ConditionType = "Active"
 )
+
+// IsRevisionCondition returns true if the ConditionType is a revision condition type
+func IsRevisionCondition(t apis.ConditionType) bool {
+	switch t {
+	case
+		RevisionConditionReady,
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive:
+		return true
+	}
+	return false
+}
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
@@ -105,12 +129,32 @@ type RevisionStatus struct {
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 
-	// ImageDigest holds the resolved digest for the image specified
+	// DeprecatedImageDigest holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.
+	// If multiple containers specified then DeprecatedImageDigest holds the digest
+	// for serving container.
+	// DEPRECATED Use ContainerStatuses instead.
+	// TODO(savitaashture) Remove deprecatedImageDigest.
+	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional
+	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
+
+	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving containers.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
+}
+
+// ContainerStatuses holds the information of container name and image digest value
+type ContainerStatuses struct {
+	Name        string `json:"name,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
 }
 

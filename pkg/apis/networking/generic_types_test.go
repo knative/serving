@@ -48,7 +48,7 @@ func TestProtocolTypeValidate(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got, want := c.proto.Validate(context.TODO()), c.expect; !reflect.DeepEqual(got, want) {
+			if got, want := c.proto.Validate(context.Background()), c.expect; !reflect.DeepEqual(got, want) {
 				t.Errorf("got = %v, want: %v", got, want)
 			}
 		})

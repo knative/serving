@@ -19,6 +19,7 @@ package slack
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ var minInterval = flag.Duration("min-alert-interval", 24*time.Hour, "The minimum
 
 const (
 	messageTemplate = `
-As of %s, there is a new performance regression detected from automation test:
+As of %s, there is a new performance regression detected from test automation for %s:
 %s`
 )
 
@@ -47,11 +48,11 @@ type MessageHandler struct {
 func Setup(userName, readTokenPath, writeTokenPath string, channels []config.Channel, dryrun bool) (*MessageHandler, error) {
 	readClient, err := slackutil.NewReadClient(userName, readTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot authenticate to slack read client: %v", err)
+		return nil, fmt.Errorf("cannot authenticate to slack read client: %w", err)
 	}
 	writeClient, err := slackutil.NewWriteClient(userName, writeTokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot authenticate to slack write client: %v", err)
+		return nil, fmt.Errorf("cannot authenticate to slack write client: %w", err)
 	}
 	return &MessageHandler{
 		readClient:  readClient,
@@ -61,8 +62,8 @@ func Setup(userName, readTokenPath, writeTokenPath string, channels []config.Cha
 	}, nil
 }
 
-// SendAlert will send the alert text to the slack channel(s)
-func (smh *MessageHandler) SendAlert(text string) error {
+// SendAlert will send alert for performance regression to the slack channel(s)
+func (smh *MessageHandler) SendAlert(testName, summary string) error {
 	dryrun := smh.dryrun
 	errCh := make(chan error)
 	var wg sync.WaitGroup
@@ -85,12 +86,18 @@ func (smh *MessageHandler) SendAlert(text string) error {
 			); err != nil {
 				errCh <- fmt.Errorf("failed to retrieve message history in channel %q", channel.Name)
 			}
-			// do not send message again if messages were sent on the same channel a short while ago
-			if len(messageHistory) != 0 {
-				return
+			// decorate the test name for more accurate match
+			decoratedTestName := decoratedName(testName)
+			// do not send message again if alert for this test has been sent to
+			// the channel a short while ago
+			for _, message := range messageHistory {
+				if strings.Contains(message, decoratedTestName) {
+					return
+				}
 			}
+
 			// send the alert message to the channel
-			message := fmt.Sprintf(messageTemplate, time.Now(), text)
+			message := fmt.Sprintf(messageTemplate, time.Now().UTC(), decoratedTestName, summary)
 			if err := helpers.Run(
 				fmt.Sprintf("sending message %q to channel %q", message, channel.Name),
 				func() error {
@@ -114,4 +121,9 @@ func (smh *MessageHandler) SendAlert(text string) error {
 	}
 
 	return helpers.CombineErrors(errs)
+}
+
+// decoratedName returns a name with decoration for easy identification.
+func decoratedName(name string) string {
+	return fmt.Sprintf("[%s]", name)
 }

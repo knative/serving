@@ -22,7 +22,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Service is properly configured.
@@ -32,7 +31,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).Also(
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta()).Also(
 			s.validateLabels().ViaField("labels")).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
@@ -69,7 +68,7 @@ func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))

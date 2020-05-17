@@ -19,10 +19,9 @@ package labels
 import (
 	"testing"
 
-	"knative.dev/serving/pkg/reconciler/route/config"
-
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestDeleteLabel(t *testing.T) {
@@ -130,20 +129,17 @@ func TestSetVisibility(t *testing.T) {
 		meta           *v1.ObjectMeta
 		isClusterLocal bool
 		expected       v1.ObjectMeta
-	}{
-		{
-			name:           "Set cluster local true",
-			meta:           &v1.ObjectMeta{},
-			isClusterLocal: true,
-			expected:       v1.ObjectMeta{Labels: map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}},
-		},
-		{
-			name:           "Set cluster local false",
-			meta:           &v1.ObjectMeta{Labels: map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}},
-			isClusterLocal: false,
-			expected:       v1.ObjectMeta{Labels: map[string]string{}},
-		},
-	}
+	}{{
+		name:           "Set cluster local true",
+		meta:           &v1.ObjectMeta{},
+		isClusterLocal: true,
+		expected:       v1.ObjectMeta{Labels: map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+	}, {
+		name:           "Set cluster local false",
+		meta:           &v1.ObjectMeta{Labels: map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+		isClusterLocal: false,
+		expected:       v1.ObjectMeta{Labels: map[string]string{}},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SetVisibility(tt.meta, tt.isClusterLocal)

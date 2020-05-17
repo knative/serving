@@ -25,18 +25,18 @@ import (
 	"testing"
 
 	"golang.org/x/sync/errgroup"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const (
-
 	// This test uses the two pizza planet test images for the blue and green deployment.
 	expectedBlue  = test.PizzaPlanetText1
 	expectedGreen = test.PizzaPlanetText2
@@ -50,18 +50,16 @@ func TestBlueGreenRoute(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	var imagePaths []string
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet1))
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet2))
+	imagePaths := []string{
+		pkgTest.ImagePath(test.PizzaPlanet1),
+		pkgTest.ImagePath(test.PizzaPlanet2),
+	}
 
-	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service
-	names.Service = test.ObjectNameForTest(t)
-	names.Image = test.PizzaPlanet1
-
-	// Set names for traffic targets to make them directly routable.
-	blue.TrafficTarget = "blue"
-	green.TrafficTarget = "green"
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
@@ -74,14 +72,17 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	// The first revision created is "blue"
-	blue.Revision = names.Revision
+	blue := names
+	blue.TrafficTarget = "blue"
+	green := names
+	green.TrafficTarget = "green"
 
 	t.Log("Updating the Service to use a different image")
-	svc, err := v1a1test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
+	service, err := v1a1test.PatchServiceImage(t, clients, objects.Service, imagePaths[1])
 	if err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
-	objects.Service = svc
+	objects.Service = service
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	green.Revision, err = v1a1test.WaitForServiceLatestRevision(clients, names)
@@ -105,7 +106,7 @@ func TestBlueGreenRoute(t *testing.T) {
 			},
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -113,7 +114,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err = clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -136,14 +137,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	t.Logf("Probing %s", greenURL)
+	t.Log("Probing", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		greenURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
@@ -162,6 +164,6 @@ func TestBlueGreenRoute(t *testing.T) {
 		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Error sending requests: %v", err)
+		t.Fatal("Error sending requests:", err)
 	}
 }

@@ -23,12 +23,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
-
-	"knative.dev/pkg/apis"
 )
 
 func TestServiceValidation(t *testing.T) {
@@ -77,7 +75,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: ServiceSpec{
@@ -122,7 +120,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-label",
+					serving.VisibilityLabelKey: "bad-label",
 				},
 			},
 			Spec: ServiceSpec{
@@ -194,7 +192,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(true, "spec.traffic[0].latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "valid" when latestRevision is true`, "spec.traffic[0].latestRevision"),
 	}, {
 		name: "invalid container concurrency",
 		r: &Service{
@@ -470,7 +468,7 @@ func TestImmutableServiceFields(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{"spec.template"},
+			Paths:   []string{"spec.template.metadata.name"},
 			Details: "{*v1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
@@ -663,8 +661,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
-			got := test.service.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -780,8 +777,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			got := test.this.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -46,7 +46,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
 		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
-			withStableWindow(10*time.Second), withPanicWindow(autoscaler.BucketSize),
+			withStableWindow(10*time.Second), withPanicWindow(autoscalerconfig.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
@@ -64,6 +64,14 @@ func TestMakeMetric(t *testing.T) {
 			withScrapeTarget("dansen"),
 			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
 			withPanicWindowPercentageAnnotation("50")),
+	}, {
+		name: "with panic window percentage+rounding",
+		pa:   pa(WithPanicWindowPercentageAnnotation("51")),
+		msn:  "dansen",
+		want: metric(
+			withScrapeTarget("dansen"),
+			withStableWindow(time.Minute), withPanicWindow(31*time.Second),
+			withPanicWindowPercentageAnnotation("51")),
 	}}
 
 	for _, tc := range cases {
@@ -162,7 +170,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-var config = &autoscaler.Config{
+var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
@@ -171,7 +179,6 @@ var config = &autoscaler.Config{
 	MaxScaleUpRate:                     10.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
-	PanicWindow:                        6 * time.Second,
 	PanicWindowPercentage:              10,
 	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,

@@ -22,17 +22,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	sharedfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	informers "knative.dev/serving/pkg/client/informers/externalversions"
-	fakeclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -94,27 +94,25 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 
 func TestReconcileCertificateCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
-	}()
 
-	client := fakeclient.Get(ctx)
+	client := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
 	h.OnCreate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha1.Certificate)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Certificate (-want, +got): %v", diff)
+			t.Log("Unexpected Certificate (-want, +got):", diff)
 			return HookIncomplete
 		}
 		return HookComplete
 	})
 
-	accessor := setup(ctx, []*v1alpha1.Certificate{}, client, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{}, client, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -124,22 +122,19 @@ func TestReconcileCertificateCreate(t *testing.T) {
 
 func TestReconcileCertificateUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+
+	client := fakeservingclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
-
-	client := fakeclient.Get(ctx)
-	accessor := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 
 	h := NewHooks()
 	h.OnUpdate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha1.Certificate)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Certificate (-want, +got): %v", diff)
+			t.Log("Unexpected Certificate (-want, +got):", diff)
 			return HookIncomplete
 		}
 		return HookComplete
@@ -152,23 +147,23 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 }
 
 func setup(ctx context.Context, certs []*v1alpha1.Certificate,
-	client clientset.Interface, t *testing.T) *FakeAccessor {
+	client clientset.Interface, t *testing.T) (*FakeAccessor, func()) {
 
-	fake := sharedfake.NewSimpleClientset()
-	informer := informers.NewSharedInformerFactory(fake, 0)
-	certInformer := informer.Networking().V1alpha1().Certificates()
+	fake := fakeservingclient.Get(ctx)
+	certInformer := fakecertinformer.Get(ctx)
 
 	for _, cert := range certs {
 		fake.NetworkingV1alpha1().Certificates(cert.Namespace).Create(cert)
 		certInformer.Informer().GetIndexer().Add(cert)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), certInformer.Informer()); err != nil {
-		t.Fatalf("failed to start Certificate informer: %v", err)
+	waitInformers, err := controller.RunInformers(ctx.Done(), certInformer.Informer())
+	if err != nil {
+		t.Fatal("failed to start Certificate informer:", err)
 	}
 
 	return &FakeAccessor{
 		client:     client,
 		certLister: certInformer.Lister(),
-	}
+	}, waitInformers
 }

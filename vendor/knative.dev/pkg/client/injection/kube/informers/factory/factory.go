@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ limitations under the License.
 package factory
 
 import (
-	"context"
+	context "context"
 
 	informers "k8s.io/client-go/informers"
 	client "knative.dev/pkg/client/injection/kube/client"

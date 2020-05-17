@@ -20,4 +20,4 @@ spec:
   template:
     spec:
       containers:
-      - image: knative.dev/serving/test/test_images/wsserver
+      - image: ko://knative.dev/serving/test/test_images/wsserver

@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in (1.12rc1 or later)
+   built in (1.13 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -47,6 +47,9 @@ You must install these tools:
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+   - If developing locally with Docker or Minikube, you can set
+     `KO_DOCKER_REPO=ko.local` (preferred) or use the `-L` flag to `ko` to build
+     and push locally (in this case, authentication is not needed).
 
 **Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
 pushing images. Run `gcloud auth configure-docker` if you are using Google
@@ -94,7 +97,7 @@ mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
-git remote add upstream git@github.com:knative/serving.git
+git remote add upstream https://github.com/knative/serving.git
 git remote set-url --push upstream no_push
 ```
 
@@ -113,24 +116,11 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your user must be a cluster admin to perform the setup needed for Knative.
-
-The value you use depends on
-[your cluster setup](https://www.knative.dev/docs/install/): when using Minikube
-or Kubernetes on Docker Desktop, the user is your local user; when using GKE,
-the user is your GCP user.
-
-```shell
-# For GCP
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$(gcloud config get-value core/account)
-
-# For minikube or Kubernetes on Docker Desktop
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$USER
-```
+Your user must be a cluster admin to perform the setup needed for Knative. This
+should be the case by default if you've provisioned your own Kubernetes cluster.
+In particular, you'll need to be able to create Kubernetes cluster-scoped
+Namespace, CustomResourceDefinition, ClusterRole, and ClusterRoleBinding
+objects.
 
 ### Resource allocation for Kubernetes
 
@@ -145,33 +135,39 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.2-latest/istio-crds.yaml
+kubectl apply -f ./third_party/istio-stable/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.2-latest/istio-lean.yaml
+kubectl apply -f ./third_party/istio-stable/istio-minimal.yaml
 ```
 
 Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
-If you want to adopt preinstalled Istio, please check whether
-cluster-local-gateway is deployed in namespace istio-system or not. If it's not
-installed, please install it with following commands. You could also adjust
+If you want to adopt preinstalled Istio, please check whether the
+`cluster-local-gateway` Service is deployed in namespace `istio-system` or not
+(you can check by running
+`kubectl get service cluster-local-gateway -n istio-system`). If it's not
+installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
+kubectl apply -f ./third_party/istio-stable/istio-knative-extras.yaml
 ```
+
+> If you want to customize the `istio*.yaml` files you can refer to
+> `third_party/istio-<VERSION>-latest/download-istio.sh` how these templates
+> were generated.
 
 ### Deploy cert-manager
 
 1. Deploy `cert-manager` CRDs
 
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml
-   while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml
+   while [[ $(kubectl get crd certificates.cert-manager.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
      echo "Waiting on Cert-Manager CRDs"; sleep 1
    done
    ```
@@ -182,60 +178,34 @@ kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
    services, you need to install the full cert-manager.
 
    ```shell
-   # For kubernetes version 1.13 or above, --validate=false is not needed.
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager.yaml --validate=false
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
    ```
 
 ### Deploy Knative Serving
 
 This step includes building Knative Serving, creating and pushing developer
-images and deploying them to your Kubernetes cluster.
+images and deploying them to your Kubernetes cluster. If you're developing
+locally (for example, using
+[Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
+set `KO_DOCKER_REPO=ko.local` to avoid needing to push your images to an
+off-machine registry.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed
-within the file. If this file is edited and deployed after Knative Serving
-installation, the changes in it will be effective only for newly created
-revisions. Alternatively, if you are developing on GKE, you can skip the editing
-and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
-knative.
-
-Edited `config-network.yaml` example:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-
-data:
-  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-  clusteringress.class: "istio.ingress.networking.knative.dev"
-```
-
-You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
-when you use Minikube or Docker Desktop as the Kubernetes environment.
-
-Next, run:
+Run:
 
 ```shell
+ko apply --selector knative.dev/crd-install=true -f config/
+while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+  echo "Waiting on Knative CRDs"; sleep 1
+done
+
 ko apply -f config/
 
 # Optional steps
 
-# Configure outbound network for GKE.
-export PROJECT_ID="my-gcp-project-id"
-# Set K8S_CLUSTER_ZONE if using a zonal cluster
-export K8S_CLUSTER_ZONE="my-cluster-zone"
-# Set K8S_CLUSTER_REGION if using a regional cluster
-export K8S_CLUSTER_REGION="my-cluster-region"
-./hack/dev-patch-config-gke.sh my-k8s-cluster-name
-
 # Run post-install job to setup nice XIP.IO domain name.  This only works
-# if your Kubernetes LoadBalancer has an IP address.
-ko delete -f config/post-install --ignore-not-found
-ko apply -f config/post-install
+# if your Kubernetes LoadBalancer has an IPv4 address.
+ko delete -f config/post-install/default-domain.yaml --ignore-not-found
+ko apply -f config/post-install/default-domain.yaml
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released
@@ -287,8 +257,7 @@ of:
 - **If you change an input to generated code**, then you must run
   [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
 
-  - API type definitions in
-    [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+  - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.),
   - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
 - **If you change a package's deps** (including adding external dep), then you
@@ -319,10 +288,10 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-1.2-latest/istio.yaml \
-  -f ./third_party/istio-1.2-latest/istio-crds.yaml \
-  -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
-  -f ./third_party/cert-manager-0.9.1/cert-manager.yaml
+  -f ./third_party/istio-stable/istio-minimal.yaml \
+  -f ./third_party/istio-stable/istio-crds.yaml \
+  -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
+  -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```
 
 ## Telemetry

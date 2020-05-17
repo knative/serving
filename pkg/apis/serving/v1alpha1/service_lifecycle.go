@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var serviceCondSet = apis.NewLivingConditionSet(
@@ -118,10 +117,10 @@ const (
 	// LatestTrafficTarget is the named constant of the `latest` traffic target.
 	LatestTrafficTarget = "latest"
 
-	// CurrentTrafficTarget is the named constnat of the `current` traffic target.
+	// CurrentTrafficTarget is the named constant of the `current` traffic target.
 	CurrentTrafficTarget = "current"
 
-	// CandidateTrafficTarget is the named constnat of the `candidate` traffic target.
+	// CandidateTrafficTarget is the named constant of the `candidate` traffic target.
 	CandidateTrafficTarget = "candidate"
 )
 
@@ -146,16 +145,14 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	if rc == nil {
 		return
 	}
-	switch {
-	case rc.Status == corev1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	case rc.Status == corev1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
-	case rc.Status == corev1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	}
-}
 
-func (ss *ServiceStatus) duck() *duckv1.Status {
-	return &ss.Status
+	m := serviceCondSet.Manage(ss)
+	switch rc.Status {
+	case corev1.ConditionTrue:
+		m.MarkTrue(ServiceConditionRoutesReady)
+	case corev1.ConditionFalse:
+		m.MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case corev1.ConditionUnknown:
+		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	}
 }

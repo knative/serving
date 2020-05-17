@@ -134,6 +134,30 @@ data:
                      "intervalFactor": 1,
                      "legendFormat": "Requested Pods",
                      "refId": "C"
+                     },
+                     {
+                     "expr": "sum(autoscaler_pending_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                     "format": "time_series",
+                     "interval": "1s",
+                     "intervalFactor": 1,
+                     "legendFormat": "Pending Pods",
+                     "refId": "P"
+                     },
+                     {
+                     "expr": "sum(autoscaler_not_ready_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                     "format": "time_series",
+                     "interval": "1s",
+                     "intervalFactor": 1,
+                     "legendFormat": "NotReady Pods",
+                     "refId": "N"
+                     },
+                     {
+                     "expr": "sum(autoscaler_terminating_pods{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                     "format": "time_series",
+                     "interval": "1s",
+                     "intervalFactor": 1,
+                     "legendFormat": "Terminating Pods",
+                     "refId": "T"
                      }
                   ],
                   "thresholds": [],
@@ -172,7 +196,88 @@ data:
                      "show": false
                      }
                   ]
-               }
+               },
+               {
+                   "aliasColors": {},
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "prometheus",
+                   "fill": 1,
+                   "gridPos": {
+                       "h": 9,
+                       "w": 24,
+                       "x": 0,
+                       "y": 2
+                   },
+                   "id": 3,
+                   "legend": {
+                       "avg": false,
+                       "current": false,
+                       "max": false,
+                       "min": false,
+                       "show": true,
+                       "total": false,
+                       "values": false
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "seriesOverrides": [],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": true,
+                   "targets": [
+                   {
+                      "expr": "sum(activator_request_concurrency{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                      "format": "time_series",
+                      "interval": "1s",
+                      "intervalFactor": 1,
+                      "legendFormat": "Request Concurrency",
+                      "refId": "A"
+                   }
+                   ],
+                   "thresholds": [],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Request Concurrency",
+                   "tooltip": {
+                       "shared": true,
+                       "sort": 0,
+                       "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                       "buckets": null,
+                       "mode": "time",
+                       "name": null,
+                       "show": true,
+                       "values": []
+                   },
+                   "yaxes": [
+                     {
+                      "format": "short",
+                      "label": "",
+                      "logBase": 1,
+                      "max": null,
+                      "min": null,
+                      "show": true
+                     },
+                     {
+                        "format": "short",
+                        "label": "",
+                        "logBase": 1,
+                        "max": null,
+                        "min": null,
+                        "show": false
+                     }
+                   ]
+                }
                ],
                "title": "Revision Pod Counts",
                "type": "row"
@@ -232,7 +337,7 @@ data:
                      "refId": "A"
                      },
                      {
-                     "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"}[1m]))",
+                     "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\", container=\"\"}[1m]))",
                      "format": "time_series",
                      "intervalFactor": 1,
                      "legendFormat": "Cores used",
@@ -328,7 +433,7 @@ data:
                      "refId": "A"
                      },
                      {
-                     "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"})",
+                     "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
                      "format": "time_series",
                      "hide": false,
                      "intervalFactor": 1,
@@ -695,6 +800,107 @@ data:
                   "max": null,
                   "min": null,
                   "show": false
+               }
+               ]
+            },
+            {
+               "aliasColors": {},
+               "bars": false,
+               "dashLength": 10,
+               "dashes": false,
+               "datasource": "prometheus",
+               "fill": 1,
+               "gridPos": {
+               "h": 9,
+               "w": 24,
+               "x": 0,
+               "y": 14
+               },
+               "id": 30,
+               "legend": {
+               "avg": true,
+               "current": false,
+               "max": false,
+               "min": false,
+               "show": true,
+               "total": false,
+               "values": true
+               },
+               "lines": true,
+               "linewidth": 1,
+               "links": [],
+               "nullPointMode": "null",
+               "percentage": false,
+               "pointradius": 5,
+               "points": false,
+               "renderer": "flot",
+               "seriesOverrides": [],
+               "spaceLength": 10,
+               "stack": false,
+               "steppedLine": false,
+               "targets": [
+               {
+                  "expr": "label_replace(histogram_quantile(0.50, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p50)",
+                  "refId": "A"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.90, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p90)",
+                  "refId": "B"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.95, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p95)",
+                  "refId": "C"
+               },
+               {
+                  "expr": "label_replace(histogram_quantile(0.99, sum(rate(autoscaler_scrape_time_bucket{namespace_name=\"$namespace\", configuration_name=~\"$configuration\",revision_name=~\"$revision\"}[1m])) by (revision_name, le)), \"revision_name\", \"$2\", \"revision_name\", \"$configuration(-+)(.*)\")",
+                  "format": "time_series",
+                  "intervalFactor": 1,
+                  "legendFormat": "{{ revision_name }} (p99)",
+                  "refId": "D"
+               }
+               ],
+               "thresholds": [],
+               "timeFrom": null,
+               "timeShift": null,
+               "title": "Scrape time by revision",
+               "tooltip": {
+               "shared": true,
+               "sort": 0,
+               "value_type": "individual"
+               },
+               "type": "graph",
+               "xaxis": {
+               "buckets": null,
+               "mode": "time",
+               "name": null,
+               "show": true,
+               "values": []
+               },
+               "yaxes": [
+               {
+                  "format": "ms",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+               },
+               {
+                  "format": "short",
+                  "label": null,
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
                }
                ]
             },
@@ -1082,7 +1288,7 @@ data:
          "refresh": false,
          "schemaVersion": 16,
          "style": "dark",
-         "tags": [],
+         "tags": ["Knative"],
          "templating": {
             "list": [
                {

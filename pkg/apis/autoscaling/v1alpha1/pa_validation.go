@@ -25,8 +25,8 @@ import (
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
-	return errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	return serving.ValidateObjectMetadata(ctx, pa.GetObjectMeta()).ViaField("metadata").
+		Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
 // Validate validates PodAutoscaler Spec.
@@ -34,7 +34,11 @@ func (pa *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(pa, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).ViaField("scaleTargetRef").Also(serving.ValidateContainerConcurrency(&pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(validateSKSFields(ctx, pa))
+	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).
+		ViaField("scaleTargetRef").Also(
+		serving.ValidateContainerConcurrency(
+			ctx, &pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(
+		validateSKSFields(ctx, pa))
 }
 
 func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {

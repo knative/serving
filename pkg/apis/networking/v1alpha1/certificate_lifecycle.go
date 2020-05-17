@@ -21,7 +21,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // InitializeConditions initializes the certificate conditions.
@@ -56,7 +55,7 @@ func (cs *CertificateStatus) IsReady() bool {
 	return certificateCondSet.Manage(cs).IsHappy()
 }
 
-// GetCondition gets a speicifc condition of the Certificate status.
+// GetCondition gets a specific condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
 }
@@ -70,11 +69,12 @@ const (
 
 var certificateCondSet = apis.NewLivingConditionSet(CertificateConditionReady)
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Certificate) GetConditionSet() apis.ConditionSet {
+	return certificateCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")
-}
-
-func (cs *CertificateStatus) duck() *duckv1.Status {
-	return &cs.Status
 }

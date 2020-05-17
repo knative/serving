@@ -26,6 +26,7 @@ import (
 )
 
 // +genclient
+// +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServerlessService is a proxy for the K8s service objects containing the
@@ -58,6 +59,9 @@ var (
 
 	// Check that we can create OwnerReferences to a ServerlessService.
 	_ kmeta.OwnerRefable = (*ServerlessService)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*ServerlessService)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -100,6 +104,11 @@ type ServerlessServiceSpec struct {
 	// The application-layer protocol. Matches `RevisionProtocolType` set on the owning pa/revision.
 	// serving imports networking, so just use string.
 	ProtocolType networking.ProtocolType
+
+	// NumActivators contains number of Activators that this revision should be
+	// assigned.
+	// O means — assign all.
+	NumActivators int32 `json:"numActivators,omitempty"`
 }
 
 // ServerlessServiceStatus describes the current state of the ServerlessService.
@@ -133,3 +142,13 @@ const (
 	// (e.g. due to target burst capacity settings).
 	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )
+
+// GetTypeMeta retrieves the ObjectMeta of the ServerlessService. Implements the KRShaped interface.
+func (t *ServerlessService) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
+func (t *ServerlessService) GetStatus() *duckv1.Status {
+	return &t.Status.Status
+}

@@ -20,8 +20,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/resources"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,12 +42,12 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name,
 			Namespace: sks.Namespace,
-			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
-			Annotations:     resources.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -69,12 +68,12 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name, // Name of Endpoints must match that of Service.
 			Namespace: sks.Namespace,
-			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
-			Annotations:     resources.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Subsets: FilterSubsetPorts(sks, src.Subsets),
@@ -117,12 +116,12 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(sks.Name, "-private"),
 			Namespace: sks.Namespace,
-			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 			}),
-			Annotations:     resources.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -134,6 +133,16 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
+				Name:       servingv1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
+			}, {
 				// When run with the Istio mesh, Envoy blocks traffic to any ports not
 				// recognized, and has special treatment for probes, but not PreStop hooks.
 				// That results in the PreStop hook /wait-for-drain in queue-proxy not
@@ -141,7 +150,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// causing requests to be dropped.
 				//
 				// So we expose this port here to work around this Istio bug.
-				Name:       servingv1alpha1.QueueAdminPortName,
+				Name:       servingv1.QueueAdminPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.QueueAdminPort,
 				TargetPort: intstr.FromInt(networking.QueueAdminPort),

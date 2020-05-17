@@ -20,27 +20,34 @@ limitations under the License.
 package test
 
 import (
+	"bytes"
 	"flag"
-	"fmt"
 	"os"
 	"os/user"
 	"path"
+	"text/template"
+	"time"
+
+	"knative.dev/pkg/test/logging"
 )
 
-// Flags holds the command line flags or defaults for settings in the user's environment.
-// See EnvironmentFlags for a list of supported fields.
-var Flags = initializeFlags()
+var (
+	// Flags holds the command line flags or defaults for settings in the user's environment.
+	// See EnvironmentFlags for a list of supported fields.
+	Flags = initializeFlags()
+)
 
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
 type EnvironmentFlags struct {
-	Cluster         string // K8s cluster (defaults to cluster in kubeconfig)
-	Kubeconfig      string // Path to kubeconfig (defaults to ./kube/config)
-	Namespace       string // K8s namespace (blank by default, to be overwritten by test suite)
-	IngressEndpoint string // Host to use for ingress endpoint
-	LogVerbose      bool   // Enable verbose logging
-	EmitMetrics     bool   // Emit metrics
-	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
-	Tag             string // Tag for test images
+	Cluster              string        // K8s cluster (defaults to cluster in kubeconfig)
+	Kubeconfig           string        // Path to kubeconfig (defaults to ./kube/config)
+	Namespace            string        // K8s namespace (blank by default, to be overwritten by test suite)
+	IngressEndpoint      string        // Host to use for ingress endpoint
+	ImageTemplate        string        // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
+	DockerRepo           string        // Docker repo (defaults to $KO_DOCKER_REPO)
+	Tag                  string        // Tag for test images
+	SpoofRequestInterval time.Duration // SpoofRequestInterval is the interval between requests in SpoofingClient
+	SpoofRequestTimeout  time.Duration // SpoofRequestTimeout is the timeout for polling requests in SpoofingClient
 }
 
 func initializeFlags() *EnvironmentFlags {
@@ -48,11 +55,17 @@ func initializeFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Cluster, "cluster", "",
 		"Provide the cluster to test against. Defaults to the current cluster in kubeconfig.")
 
-	var defaultKubeconfig string
-	if usr, err := user.Current(); err == nil {
-		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+	// Use KUBECONFIG if available
+	defaultKubeconfig := os.Getenv("KUBECONFIG")
+
+	// If KUBECONFIG env var isn't set then look for $HOME/.kube/config
+	if defaultKubeconfig == "" {
+		if usr, err := user.Current(); err == nil {
+			defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+		}
 	}
 
+	// Allow for --kubeconfig on the cmd line to override the above logic
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 
@@ -61,11 +74,14 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.StringVar(&f.IngressEndpoint, "ingressendpoint", "", "Provide a static endpoint url to the ingress server used during tests.")
 
-	flag.BoolVar(&f.LogVerbose, "logverbose", false,
-		"Set this flag to true if you would like to see verbose logging.")
+	flag.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
+		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
 
-	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
-		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+	flag.DurationVar(&f.SpoofRequestInterval, "spoofinterval", 1*time.Second,
+		"Provide an interval between requests for the SpoofingClient")
+
+	flag.DurationVar(&f.SpoofRequestTimeout, "spooftimeout", 5*time.Minute,
+		"Provide a request timeout for the SpoofingClient")
 
 	defaultRepo := os.Getenv("KO_DOCKER_REPO")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
@@ -76,7 +92,29 @@ func initializeFlags() *EnvironmentFlags {
 	return &f
 }
 
-// ImagePath is a helper function to prefix image name with repo and suffix with tag
+// TODO(coryrc): Remove once other repos are moved to call logging.InitializeLogger() directly
+func SetupLoggingFlags() {
+	logging.InitializeLogger()
+}
+
+// ImagePath is a helper function to transform an image name into an image reference that can be pulled.
 func ImagePath(name string) string {
-	return fmt.Sprintf("%s/%s:%s", Flags.DockerRepo, name, Flags.Tag)
+	tpl, err := template.New("image").Parse(Flags.ImageTemplate)
+	if err != nil {
+		panic("could not parse image template: " + err.Error())
+	}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, struct {
+		Repository string
+		Name       string
+		Tag        string
+	}{
+		Repository: Flags.DockerRepo,
+		Name:       name,
+		Tag:        Flags.Tag,
+	}); err != nil {
+		panic("could not apply the image template: " + err.Error())
+	}
+	return buf.String()
 }

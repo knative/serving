@@ -16,6 +16,7 @@ limitations under the License.
 package queue
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -25,36 +26,25 @@ import (
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	const (
-		failingTimeout = 1 * time.Millisecond
+		failingTimeout = 0 * time.Millisecond
 		longTimeout    = 10 * time.Second
 	)
 
 	tests := []struct {
-		name           string
-		timeout        time.Duration
-		handler        func(mux *sync.Mutex, writeErrors chan error) http.Handler
-		timeoutMessage string
-		wantStatus     int
-		wantBody       string
-		wantWriteError bool
-		wantPanic      bool
+		name               string
+		timeout            time.Duration
+		handler            func(mux *sync.Mutex, writeErrors chan error) http.Handler
+		timeoutMessage     string
+		wantStatus         int
+		wantBody           string
+		wantWriteError     bool
+		wantPanic          bool
+		sleepBeforeExiting time.Duration
 	}{{
 		name:    "all good",
 		timeout: longTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("hi"))
-			})
-		},
-		wantStatus: http.StatusOK,
-		wantBody:   "hi",
-	}, {
-		name:    "write then sleep",
-		timeout: 50 * time.Millisecond,
-		handler: func(*sync.Mutex, chan error) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				time.Sleep(100 * time.Millisecond) // sleep longer than the timeout.
 				w.Write([]byte("hi"))
 			})
 		},
@@ -72,7 +62,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			})
 		},
 		timeoutMessage: "request timeout",
-		wantStatus:     http.StatusServiceUnavailable,
+		wantStatus:     http.StatusGatewayTimeout,
 		wantBody:       "request timeout",
 		wantWriteError: true,
 	}, {
@@ -83,9 +73,23 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 				panic(http.ErrAbortHandler)
 			})
 		},
-		wantStatus: http.StatusServiceUnavailable,
+		wantStatus: http.StatusGatewayTimeout,
 		wantBody:   "request timeout",
 		wantPanic:  true,
+	}, {
+		name:    "timeout before panic",
+		timeout: failingTimeout,
+		handler: func(*sync.Mutex, chan error) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				time.Sleep(1 * time.Second)
+				panic(http.ErrAbortHandler)
+			})
+		},
+		timeoutMessage:     "request timeout",
+		wantStatus:         http.StatusGatewayTimeout,
+		wantBody:           "request timeout",
+		wantPanic:          false,
+		sleepBeforeExiting: longTimeout,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -102,7 +106,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			defer func() {
 				if test.wantPanic {
 					if recovered := recover(); recovered != http.ErrAbortHandler {
-						t.Error("Expected the handler to panic, but it didn't.")
+						t.Errorf("Recover = %v, want: %v", recovered, http.ErrAbortHandler)
 					}
 				}
 			}()
@@ -120,11 +124,45 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			}
 
 			if test.wantWriteError {
-				err := <-writeErrors
-				if err != http.ErrHandlerTimeout {
+				if err := <-writeErrors; err != http.ErrHandlerTimeout {
 					t.Errorf("Expected a timeout error, got %v", err)
 				}
 			}
+
+			time.Sleep(test.sleepBeforeExiting)
 		})
+	}
+}
+
+func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{
+		w: recorder,
+	}
+
+	handler.WriteHeader(http.StatusOK)
+	handler.TimeoutAndWriteError("error")
+	if _, err := io.WriteString(handler, "test"); err != nil {
+		t.Fatalf("handler.Write() = %v, want no error", err)
+	}
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Errorf("recorder.Status = %d, want %d", got, want)
+	}
+	if got, want := recorder.Body.String(), "test"; got != want {
+		t.Errorf("recorder.Body = %s, want %s", got, want)
+	}
+}
+
+func TestTimeoutWriterDoesntFlushAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{
+		w: recorder,
+	}
+
+	handler.TimeoutAndWriteError("error")
+	handler.Flush()
+	if got, want := recorder.Flushed, false; got != want {
+		t.Errorf("recorder.Flushed = %t, want %t", got, want)
 	}
 }

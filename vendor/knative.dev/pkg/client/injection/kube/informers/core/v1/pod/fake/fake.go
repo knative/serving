@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	pod "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

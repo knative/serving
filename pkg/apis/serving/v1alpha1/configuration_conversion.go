@@ -18,35 +18,28 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Configuration) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (source *Configuration) ConvertTo(ctx context.Context, obj apis.Convertible) error {
 	switch sink := obj.(type) {
 	case *v1beta1.Configuration:
 		sink.ObjectMeta = source.ObjectMeta
-		if err := source.Spec.ConvertUp(ctx, &sink.Spec); err != nil {
+		if err := source.Spec.ConvertTo(ctx, &sink.Spec); err != nil {
 			return err
 		}
-		return source.Status.ConvertUp(ctx, &sink.Status)
-	case *v1.Configuration:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := source.Spec.ConvertUp(ctx, &sink.Spec); err != nil {
-			return err
-		}
-		return source.Status.ConvertUp(ctx, &sink.Status)
+		return source.Status.ConvertTo(ctx, &sink.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertToViaProxy(ctx, source, &v1beta1.Configuration{}, sink)
 	}
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *ConfigurationSpec) ConvertUp(ctx context.Context, sink *v1.ConfigurationSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *ConfigurationSpec) ConvertTo(ctx context.Context, sink *v1.ConfigurationSpec) error {
 	if source.DeprecatedBuild != nil {
 		return ConvertErrorf("build", "build cannot be migrated forward.")
 	}
@@ -54,63 +47,56 @@ func (source *ConfigurationSpec) ConvertUp(ctx context.Context, sink *v1.Configu
 	case source.DeprecatedRevisionTemplate != nil && source.Template != nil:
 		return apis.ErrMultipleOneOf("revisionTemplate", "template")
 	case source.DeprecatedRevisionTemplate != nil:
-		return source.DeprecatedRevisionTemplate.ConvertUp(ctx, &sink.Template)
+		return source.DeprecatedRevisionTemplate.ConvertTo(ctx, &sink.Template)
 	case source.Template != nil:
-		return source.Template.ConvertUp(ctx, &sink.Template)
+		return source.Template.ConvertTo(ctx, &sink.Template)
 	default:
 		return apis.ErrMissingOneOf("revisionTemplate", "template")
 	}
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *ConfigurationStatus) ConvertUp(ctx context.Context, sink *v1.ConfigurationStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
-	return source.ConfigurationStatusFields.ConvertUp(ctx, &sink.ConfigurationStatusFields)
+// ConvertTo helps implement apis.Convertible
+func (source *ConfigurationStatus) ConvertTo(ctx context.Context, sink *v1.ConfigurationStatus) error {
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsConfigurationCondition)
+	return source.ConfigurationStatusFields.ConvertTo(ctx, &sink.ConfigurationStatusFields)
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *ConfigurationStatusFields) ConvertUp(ctx context.Context, sink *v1.ConfigurationStatusFields) error {
+// ConvertTo helps implement apis.Convertible
+func (source *ConfigurationStatusFields) ConvertTo(ctx context.Context, sink *v1.ConfigurationStatusFields) error {
 	sink.LatestReadyRevisionName = source.LatestReadyRevisionName
 	sink.LatestCreatedRevisionName = source.LatestCreatedRevisionName
 	return nil
 }
 
-// ConvertDown implements apis.Convertible
-func (sink *Configuration) ConvertDown(ctx context.Context, obj apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (sink *Configuration) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
 	switch source := obj.(type) {
 	case *v1beta1.Configuration:
 		sink.ObjectMeta = source.ObjectMeta
-		if err := sink.Spec.ConvertDown(ctx, source.Spec); err != nil {
+		if err := sink.Spec.ConvertFrom(ctx, source.Spec); err != nil {
 			return err
 		}
-		return sink.Status.ConvertDown(ctx, source.Status)
-	case *v1.Configuration:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := sink.Spec.ConvertDown(ctx, source.Spec); err != nil {
-			return err
-		}
-		return sink.Status.ConvertDown(ctx, source.Status)
+		return sink.Status.ConvertFrom(ctx, source.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertFromViaProxy(ctx, source, &v1beta1.Configuration{}, sink)
 	}
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *ConfigurationSpec) ConvertDown(ctx context.Context, source v1.ConfigurationSpec) error {
+// ConvertFrom helps implement apis.Convertible
+func (sink *ConfigurationSpec) ConvertFrom(ctx context.Context, source v1.ConfigurationSpec) error {
 	sink.Template = &RevisionTemplateSpec{}
-	return sink.Template.ConvertDown(ctx, source.Template)
+	return sink.Template.ConvertFrom(ctx, source.Template)
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *ConfigurationStatus) ConvertDown(ctx context.Context, source v1.ConfigurationStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
+// ConvertFrom helps implement apis.Convertible
+func (sink *ConfigurationStatus) ConvertFrom(ctx context.Context, source v1.ConfigurationStatus) error {
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsConfigurationCondition)
 
-	return sink.ConfigurationStatusFields.ConvertDown(ctx, source.ConfigurationStatusFields)
+	return sink.ConfigurationStatusFields.ConvertFrom(ctx, source.ConfigurationStatusFields)
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *ConfigurationStatusFields) ConvertDown(ctx context.Context, source v1.ConfigurationStatusFields) error {
+// ConvertFrom helps implement apis.Convertible
+func (sink *ConfigurationStatusFields) ConvertFrom(ctx context.Context, source v1.ConfigurationStatusFields) error {
 	sink.LatestReadyRevisionName = source.LatestReadyRevisionName
 	sink.LatestCreatedRevisionName = source.LatestCreatedRevisionName
 	return nil

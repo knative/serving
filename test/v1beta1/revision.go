@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
@@ -48,7 +47,7 @@ func WaitForRevisionState(client *test.ServingBetaClients, name string, inState 
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "revision %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("revision %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
@@ -74,6 +73,12 @@ func CheckRevisionState(client *test.ServingBetaClients, name string, inState fu
 // or being ready. It will also return false if the type of the condition is unexpected.
 func IsRevisionReady(r *v1beta1.Revision) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+}
+
+// IsRevisionPinned will check if the revision is pinned to a route.
+func IsRevisionPinned(r *v1beta1.Revision) (bool, error) {
+	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	return pinned, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations

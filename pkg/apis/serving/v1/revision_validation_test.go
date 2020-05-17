@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,6 +30,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -80,9 +82,8 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -236,7 +237,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -273,9 +274,9 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := serving.ValidateContainerConcurrency(&test.cc)
+			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -348,7 +349,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
+			Message: `duplicate volume name "the-name"`,
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {
@@ -382,7 +383,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
@@ -408,6 +409,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -442,7 +444,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			}
 			got := test.rs.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -515,6 +517,7 @@ func TestImmutableFields(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -730,6 +733,7 @@ func TestImmutableFields(t *testing.T) {
 func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
+		ctx  context.Context
 		rts  *RevisionTemplateSpec
 		want *apis.FieldError
 	}{{
@@ -778,6 +782,56 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// When user provides empty string in the name field it will behave like no name provided.
+				Name: "",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision name.
+				Name: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.name"),
+	}, {
+		name: "invalid generate name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision generate name.
+				GenerateName: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.generateName"),
 	}, {
 		name: "invalid metadata.annotations for scale",
 		rts: &RevisionTemplateSpec{
@@ -839,18 +893,70 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Message: "invalid value: 50mx",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
 		}).ViaField("metadata.annotations"),
+	}, {
+		name: "Invalid initial scale when cluster doesn't allow zero",
+		ctx:  autoscalerConfigCtx(false, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: 0",
+			Paths:   []string{autoscaling.InitialScaleAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "Valid initial scale when cluster allows zero",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+			ctx := context.Background()
+			if test.ctx != nil {
+				ctx = test.ctx
+			}
+			ctx = apis.WithinParent(ctx, metav1.ObjectMeta{
 				Name: "parent",
 			})
 
 			got := test.rts.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
 		})
 	}
+}
+
+func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.Context {
+	testConfigs := &config.Config{}
+	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{
+		"allow-zero-initial-scale": strconv.FormatBool(allowInitialScaleZero),
+		"initial-scale":            strconv.Itoa(initialScale),
+	})
+	return config.ToContext(context.Background(), testConfigs)
 }

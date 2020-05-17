@@ -27,7 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -39,13 +39,13 @@ type Server struct {
 	wsSrv       http.Server
 	servingCh   chan struct{}
 	stopCh      chan struct{}
-	statsCh     chan<- autoscaler.StatMessage
+	statsCh     chan<- metrics.StatMessage
 	openClients sync.WaitGroup
 	logger      *zap.SugaredLogger
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- autoscaler.StatMessage, logger *zap.SugaredLogger) *Server {
+func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
@@ -159,7 +159,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var sm autoscaler.StatMessage
+		var sm metrics.StatMessage
 		err = dec.Decode(&sm)
 		if err != nil {
 			s.logger.Error(err)

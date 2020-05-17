@@ -44,17 +44,20 @@ func TestMakeWildcardCertificate(t *testing.T) {
 			Name:            names.WildcardCertificate(dnsName),
 			Namespace:       "testns",
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: "dns-01.rocks",
+			},
 			Labels: map[string]string{
 				networking.WildcardCertDomainLabelKey: domain,
 			},
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   []string{dnsName},
-			SecretName: namespace.Name,
+			SecretName: names.WildcardCertificate(dnsName),
 		},
 	}
 
-	got := MakeWildcardCertificate(namespace, dnsName, domain)
+	got := MakeWildcardCertificate(namespace, dnsName, domain, "dns-01.rocks")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("MakeWildcardCertificate (-want, +got) = %s", diff)
 	}

@@ -35,12 +35,12 @@ import (
 func TestRouteConversionBadType(t *testing.T) {
 	good, bad := &Route{}, &Service{}
 
-	if err := good.ConvertUp(context.Background(), bad); err == nil {
-		t.Errorf("ConvertUp() = %#v, wanted error", bad)
+	if err := good.ConvertTo(context.Background(), bad); err == nil {
+		t.Errorf("ConvertTo() = %#v, wanted error", bad)
 	}
 
-	if err := good.ConvertDown(context.Background(), bad); err == nil {
-		t.Errorf("ConvertDown() = %#v, wanted error", good)
+	if err := good.ConvertFrom(context.Background(), bad); err == nil {
+		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
 
@@ -87,6 +87,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
@@ -135,6 +136,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
@@ -286,17 +288,17 @@ func TestRouteConversion(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Route{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
+			if err := test.in.ConvertTo(context.Background(), beta); err != nil {
 				if !test.wantErr {
-					t.Errorf("ConvertUp() = %v", err)
+					t.Errorf("ConvertTo() = %v", err)
 				}
 				return
 			} else if test.wantErr {
-				t.Errorf("ConvertUp() = %#v, wanted error", beta)
+				t.Errorf("ConvertTo() = %#v, wanted error", beta)
 			}
 			got := &Route{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
@@ -311,12 +313,12 @@ func TestRouteConversion(t *testing.T) {
 			}
 			start := toDeprecated(test.in)
 			beta := &v1beta1.Route{}
-			if err := start.ConvertUp(context.Background(), beta); err != nil {
-				t.Errorf("ConvertUp() = %v", err)
+			if err := start.ConvertTo(context.Background(), beta); err != nil {
+				t.Errorf("ConvertTo() = %v", err)
 			}
 			got := &Route{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)

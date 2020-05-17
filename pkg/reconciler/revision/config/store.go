@@ -19,13 +19,14 @@ package config
 import (
 	"context"
 
+	"knative.dev/serving/pkg/apis/config"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/autoscaler"
-	deployment "knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -33,18 +34,21 @@ type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
+	Autoscaler    *autoscalerconfig.Config
+	Defaults      *config.Defaults
 	Deployment    *deployment.Config
+	Logging       *logging.Config
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
-	Logging       *logging.Config
 	Tracing       *pkgtracing.Config
-	Autoscaler    *autoscaler.Config
 }
 
+// FromContext loads the configuration from the context.
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
 }
 
+// ToContext persists the configuration to the context.
 func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
@@ -61,32 +65,34 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				deployment.ConfigName:      deployment.NewConfigFromConfigMap,
-				network.ConfigName:         network.NewConfigFromConfigMap,
-				pkgmetrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
-				autoscaler.ConfigName:      autoscaler.NewConfigFromConfigMap,
-				logging.ConfigMapName():    logging.NewConfigFromConfigMap,
-				pkgtracing.ConfigName:      pkgtracing.NewTracingConfigFromConfigMap,
+				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
+				config.DefaultsConfigName:   config.NewDefaultsConfigFromConfigMap,
+				deployment.ConfigName:       deployment.NewConfigFromConfigMap,
+				logging.ConfigMapName():     logging.NewConfigFromConfigMap,
+				metrics.ConfigMapName():     metrics.NewObservabilityConfigFromConfigMap,
+				network.ConfigName:          network.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:       pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
 	}
-
 	return store
 }
 
+// ToContext persists the config on the context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
 	return ToContext(ctx, s.Load())
 }
 
+// Load returns the config from the store.
 func (s *Store) Load() *Config {
-
 	return &Config{
+		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
 		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
-		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
+		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Observability: s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
 		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
-		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
 }

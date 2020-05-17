@@ -2,6 +2,7 @@
 
 approvers:
 - monitoring-approvers
+- serving-wg-leads
 
 reviewers:
 - monitoring-reviewers

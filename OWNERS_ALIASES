@@ -9,24 +9,33 @@ aliases:
   serving-api-reviewers:
   - dgerd
   - dprotaso
-  - jonjohnsonjr
   - markusthoemmes
   - mattmoor
   - tcnghia
   - vagababov
 
+  # TOC + WG leads
+  serving-wg-leads:
+  - evankanderson  # TOC
+  - mattmoor       # TOC/Serving
+  - vaikas         # TOC
+  - dprotaso       # Serving
+  - markusthoemmes # Scaling
+  - mdemirhan      # Networking
+  - tcnghia        # Networking
+  - vagababov      # Scaling
+
   autoscaling-approvers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
-  - greghaynes
-  - josephburnett
+  - julz
   - markusthoemmes
   - mdemirhan
+  - taragu
   - vagababov
+  - yanweiguo
 
   monitoring-approvers:
   - mdemirhan
@@ -36,10 +45,9 @@ aliases:
   - yanweiguo
 
   productivity-approvers:
-  - adrcunha
   - chaodaiG
+  - chizhg
   productivity-reviewers:
-  - adrcunha
   - chaodaiG
   - coryrc
   - chizhg
@@ -47,13 +55,20 @@ aliases:
   - yt3liu
 
   networking-approvers:
+  - JRBANCEL
   - markusthoemmes
   - mdemirhan
+  - nak3
   - tcnghia
   - vagababov
+  - ZhiminXiang
   networking-reviewers:
+  - JRBANCEL
   - markusthoemmes
   - mdemirhan
+  - nak3
+  - shashwathi
   - tcnghia
   - vagababov
-
+  - yanweiguo
+  - ZhiminXiang

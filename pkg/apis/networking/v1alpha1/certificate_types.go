@@ -25,6 +25,7 @@ import (
 )
 
 // +genclient
+// +genreconciler:class=networking.knative.dev/certificate.class
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Certificate is responsible for provisioning a SSL certificate for the
@@ -56,6 +57,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Certificate..
 	_ kmeta.OwnerRefable = (*Certificate)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Certificate)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -114,4 +118,14 @@ type HTTP01Challenge struct {
 
 	// ServicePort is the port of the service to serve HTTP01 challenge requests.
 	ServicePort intstr.IntOrString `json:"servicePort,omitempty"`
+}
+
+// GetTypeMeta retrieves the ObjectMeta of the Certificate. Implements the KRShaped interface.
+func (t *Certificate) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetStatus retrieves the status of the Certificate. Implements the KRShaped interface.
+func (t *Certificate) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }

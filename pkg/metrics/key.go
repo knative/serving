@@ -31,9 +31,10 @@ var (
 	ServiceTagKey        = tag.MustNewKey(metricskey.LabelServiceName)
 	ConfigTagKey         = tag.MustNewKey(metricskey.LabelConfigurationName)
 	RevisionTagKey       = tag.MustNewKey(metricskey.LabelRevisionName)
-	ResponseCodeKey      = tag.MustNewKey("response_code")
-	ResponseCodeClassKey = tag.MustNewKey("response_code_class")
-	NumTriesKey          = tag.MustNewKey("num_tries")
+	PodTagKey            = tag.MustNewKey(metricskey.PodName)
+	ContainerTagKey      = tag.MustNewKey(metricskey.ContainerName)
+	ResponseCodeKey      = tag.MustNewKey(metricskey.LabelResponseCode)
+	ResponseCodeClassKey = tag.MustNewKey(metricskey.LabelResponseCodeClass)
 
 	CommonRevisionKeys = []tag.Key{NamespaceTagKey, ServiceTagKey, ConfigTagKey, RevisionTagKey}
 )

@@ -88,7 +88,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route)
 		"RouteDomain",
 	)
 	if err != nil {
-		return fmt.Errorf("route did not get assigned a domain: %v", err)
+		return fmt.Errorf("route did not get assigned a domain: %w", err)
 	}
 
 	t.Logf("Route %s can serve the expected data at %s", route.Name, url)
@@ -98,9 +98,10 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route)
 		url,
 		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %v", route.Name, url, test.HelloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", route.Name, url, test.HelloWorldText, err)
 	}
 
 	return nil
@@ -123,7 +124,7 @@ func TestServiceGenerateName(t *testing.T) {
 	defer func() { test.TearDown(clients, names) }()
 
 	// Create the service using the generate name field. If the serivce does not become ready this will fail.
-	t.Logf("Creating new service with generateName %s", generateName)
+	t.Log("Creating new service with generateName", generateName)
 	resources, err := v1b1test.CreateServiceReady(t, clients, &names, setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)
@@ -158,7 +159,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer func() { test.TearDown(clients, names) }()
 
-	t.Logf("Creating new configuration with generateName %s", generateName)
+	t.Log("Creating new configuration with generateName", generateName)
 	config, err := v1b1test.CreateConfiguration(t, clients, names, setConfigurationGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create configuration with generateName %s: %v", generateName, err)
@@ -167,7 +168,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 
 	// Ensure the associated revision is created. This also checks that the configuration becomes ready.
 	t.Log("The configuration will be updated with the name of the associated Revision once it is created.")
-	names.Revision, err = v1b1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1b1test.WaitForConfigLatestUnpinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
@@ -179,7 +180,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 	}
 
 	// Create a route that maps to the revision created by the configuration above
-	t.Logf("Create new Route with generateName %s", generateName)
+	t.Log("Create new Route with generateName", generateName)
 	route, err := v1b1test.CreateRoute(t, clients, names, setRouteGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create route with generateName %s: %v", generateName, err)

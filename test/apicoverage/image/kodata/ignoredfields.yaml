@@ -98,7 +98,6 @@
     - HostIPC
     - ShareProcessNamespace
     - SecurityContext
-    - ImagePullSecrets
     - Hostname
     - Subdomain
     - Affinity

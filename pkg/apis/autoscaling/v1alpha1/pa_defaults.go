@@ -21,6 +21,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func defaultMetric(class string) string {
@@ -36,14 +37,15 @@ func defaultMetric(class string) string {
 
 func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
+	config := config.FromContextOrDefaults(ctx)
 	if r.Annotations == nil {
-		r.Annotations = make(map[string]string)
+		r.Annotations = make(map[string]string, 2)
 	}
 	if _, ok := r.Annotations[autoscaling.ClassAnnotationKey]; !ok {
-		// Default class to KPA.
-		r.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+		// Default class based on configmap setting (KPA if none specified).
+		r.Annotations[autoscaling.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
 	}
-	// Default metric per class
+	// Default metric per class.
 	if _, ok := r.Annotations[autoscaling.MetricAnnotationKey]; !ok {
 		r.Annotations[autoscaling.MetricAnnotationKey] = defaultMetric(r.Class())
 	}

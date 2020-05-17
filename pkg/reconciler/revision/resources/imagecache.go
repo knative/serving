@@ -22,24 +22,18 @@ import (
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.
-func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
-	image := rev.Status.ImageDigest
-	if image == "" {
-		image = rev.Spec.GetContainer().Image
-	}
-
+func MakeImageCache(rev *v1.Revision, containerName, image string) *caching.Image {
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.ImageCache(rev),
+			Name:      kmeta.ChildName(names.ImageCache(rev), "-"+containerName),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),
@@ -48,7 +42,7 @@ func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 		Spec: caching.ImageSpec{
 			Image:              image,
 			ServiceAccountName: rev.Spec.ServiceAccountName,
-			// We don't support ImagePullSecrets today.
+			ImagePullSecrets:   rev.Spec.ImagePullSecrets,
 		},
 	}
 

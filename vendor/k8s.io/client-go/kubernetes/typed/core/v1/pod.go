@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -38,6 +39,7 @@ type PodsGetter interface {
 // PodInterface has methods to work with Pod resources.
 type PodInterface interface {
 	Create(*v1.Pod) (*v1.Pod, error)
+	CreateWithOptions(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (*v1.Pod, error)
 	Update(*v1.Pod) (*v1.Pod, error)
 	UpdateStatus(*v1.Pod) (*v1.Pod, error)
 	Delete(name string, options *metav1.DeleteOptions) error
@@ -46,6 +48,9 @@ type PodInterface interface {
 	List(opts metav1.ListOptions) (*v1.PodList, error)
 	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Pod, err error)
+	GetEphemeralContainers(podName string, options metav1.GetOptions) (*v1.EphemeralContainers, error)
+	UpdateEphemeralContainers(podName string, ephemeralContainers *v1.EphemeralContainers) (*v1.EphemeralContainers, error)
+
 	PodExpansion
 }
 
@@ -120,6 +125,19 @@ func (c *pods) Create(pod *v1.Pod) (result *v1.Pod, err error) {
 	return
 }
 
+// Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
+func (c *pods) CreateWithOptions(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (result *v1.Pod, err error) {
+	result = &v1.Pod{}
+	err = c.client.Post().
+		Namespace(c.ns).
+		Resource("pods").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(pod).
+		Do().
+		Into(result)
+	return
+}
+
 // Update takes the representation of a pod and updates it. Returns the server's representation of the pod, and an error, if there is any.
 func (c *pods) Update(pod *v1.Pod) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
@@ -185,6 +203,34 @@ func (c *pods) Patch(name string, pt types.PatchType, data []byte, subresources 
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+// GetEphemeralContainers takes name of the pod, and returns the corresponding v1.EphemeralContainers object, and an error if there is any.
+func (c *pods) GetEphemeralContainers(podName string, options metav1.GetOptions) (result *v1.EphemeralContainers, err error) {
+	result = &v1.EphemeralContainers{}
+	err = c.client.Get().
+		Namespace(c.ns).
+		Resource("pods").
+		Name(podName).
+		SubResource("ephemeralcontainers").
+		VersionedParams(&options, scheme.ParameterCodec).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateEphemeralContainers takes the top resource name and the representation of a ephemeralContainers and updates it. Returns the server's representation of the ephemeralContainers, and an error, if there is any.
+func (c *pods) UpdateEphemeralContainers(podName string, ephemeralContainers *v1.EphemeralContainers) (result *v1.EphemeralContainers, err error) {
+	result = &v1.EphemeralContainers{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("pods").
+		Name(podName).
+		SubResource("ephemeralcontainers").
+		Body(ephemeralContainers).
 		Do().
 		Into(result)
 	return

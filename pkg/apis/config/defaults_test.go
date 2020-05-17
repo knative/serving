@@ -38,8 +38,18 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 		t.Errorf("NewDefaultsConfigFromConfigMap(actual) = %v", err)
 	}
 
-	if _, err := NewDefaultsConfigFromConfigMap(example); err != nil {
+	if got, err := NewDefaultsConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewDefaultsConfigFromConfigMap(example) = %v", err)
+	} else {
+		// Those are in example, to show usage,
+		// but default is nil, i.e. inheriting k8s.
+		// So for this test we ignore those, but verify the other fields.
+		got.RevisionCPULimit, got.RevisionCPURequest = nil, nil
+		got.RevisionMemoryLimit, got.RevisionMemoryRequest = nil, nil
+		if want := defaultConfig(); !cmp.Equal(got, want) {
+			t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
+				cmp.Diff(want, got))
+		}
 	}
 }
 
@@ -49,135 +59,127 @@ func TestDefaultsConfiguration(t *testing.T) {
 	configTests := []struct {
 		name         string
 		wantErr      bool
-		wantDefaults interface{}
-		config       *corev1.ConfigMap
+		wantDefaults *Defaults
+		data         map[string]string
 	}{{
-		name:    "defaults configuration",
-		wantErr: false,
-		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:    DefaultRevisionTimeoutSeconds,
-			MaxRevisionTimeoutSeconds: DefaultMaxRevisionTimeoutSeconds,
-			UserContainerNameTemplate: DefaultUserContainerName,
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{},
-		},
+		name:         "default configuration",
+		wantErr:      false,
+		wantDefaults: defaultConfig(),
+		data:         map[string]string{},
 	}, {
 		name:    "specified values",
 		wantErr: false,
 		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:    123,
-			MaxRevisionTimeoutSeconds: 456,
-			RevisionCPURequest:        &oneTwoThree,
-			UserContainerNameTemplate: "{{.Name}}",
+			EnableMultiContainer:          true,
+			RevisionTimeoutSeconds:        123,
+			MaxRevisionTimeoutSeconds:     456,
+			ContainerConcurrencyMaxLimit:  1984,
+			RevisionCPURequest:            &oneTwoThree,
+			UserContainerNameTemplate:     "{{.Name}}",
+			AllowContainerConcurrencyZero: false,
 		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"revision-timeout-seconds":     "123",
-				"max-revision-timeout-seconds": "456",
-				"revision-cpu-request":         "123m",
-				"container-name-template":      "{{.Name}}",
-			},
-		},
-	}, {
-		name:         "bad revision timeout",
-		wantErr:      true,
-		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"revision-timeout-seconds": "asdf",
-			},
+		data: map[string]string{
+			"enable-multi-container":           "true",
+			"revision-timeout-seconds":         "123",
+			"max-revision-timeout-seconds":     "456",
+			"revision-cpu-request":             "123m",
+			"container-concurrency-max-limit":  "1984",
+			"container-name-template":          "{{.Name}}",
+			"allow-container-concurrency-zero": "false",
 		},
 	}, {
-		name:         "bad max revision timeout",
-		wantErr:      true,
-		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"max-revision-timeout-seconds": "asdf",
-			},
+		name:    "invalid multi container flag value",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			EnableMultiContainer:          false,
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:     DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
+		},
+		data: map[string]string{
+			"enable-multi-container": "invalid",
 		},
 	}, {
-		name:         "bad name template",
-		wantErr:      true,
-		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"container-name-template": "{{.NAme}}",
-			},
+		name:    "invalid allow container concurrency zero flag value",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			EnableMultiContainer:          false,
+			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:     DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero: false,
+		},
+		data: map[string]string{
+			"allow-container-concurrency-zero": "invalid",
 		},
 	}, {
-		name:         "bad resource",
-		wantErr:      true,
-		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"revision-cpu-request": "bad",
-			},
+		name:    "bad revision timeout",
+		wantErr: true,
+		data: map[string]string{
+			"revision-timeout-seconds": "asdf",
 		},
 	}, {
-		name:         "revision timeout bigger than max timeout",
-		wantErr:      true,
-		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"revision-timeout-seconds":     "456",
-				"max-revision-timeout-seconds": "123",
-			},
+		name:    "bad max revision timeout",
+		wantErr: true,
+		data: map[string]string{
+			"max-revision-timeout-seconds": "asdf",
 		},
 	}, {
-		name:         "containerConcurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
+		name:    "bad name template",
+		wantErr: true,
+		data: map[string]string{
+			"container-name-template": "{{.NAme}}",
+		},
+	}, {
+		name:    "bad resource",
+		wantErr: true,
+		data: map[string]string{
+			"revision-cpu-request": "bad",
+		},
+	}, {
+		name:    "revision timeout bigger than max timeout",
+		wantErr: true,
+		data: map[string]string{
+			"revision-timeout-seconds":     "456",
+			"max-revision-timeout-seconds": "123",
+		},
+	}, {
+		name:    "container-concurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
+		wantErr: true,
+		data: map[string]string{
+			"container-concurrency": "2000",
+		},
+	}, {
+		name:         "container-concurrency is bigger than specified DefaultMaxRevisionContainerConcurrency",
 		wantErr:      true,
 		wantDefaults: (*Defaults)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"container-concurrency": "2000",
-			},
+		data: map[string]string{
+			"container-concurrency":           "11",
+			"container-concurrency-max-limit": "10",
+		},
+	}, {
+		name:    "container-concurrency-max-limit is invalid",
+		wantErr: true,
+		data: map[string]string{
+			"container-concurrency-max-limit": "0",
 		},
 	}}
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualDefaults, err := NewDefaultsConfigFromConfigMap(tt.config)
+			actualDefaults, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
+				Data: tt.data,
+			})
 
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+				t.Fatalf("NewDefaultsConfigFromConfigMap() error = %v, WantErr %v", err, tt.wantErr)
 			}
 
-			if diff := cmp.Diff(actualDefaults, tt.wantDefaults, ignoreStuff); diff != "" {
-				t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantDefaults, actualDefaults)
+			if got, want := actualDefaults, tt.wantDefaults; !cmp.Equal(got, want) {
+				t.Errorf("Config mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -218,10 +220,18 @@ func TestTemplating(t *testing.T) {
 				Namespace: "guardians",
 			})
 
-			got := def.UserContainerName(ctx)
-			if test.want != got {
-				t.Errorf("UserContainerName() = %v, wanted %v", got, test.want)
+			if got, want := def.UserContainerName(ctx), test.want; got != want {
+				t.Errorf("UserContainerName() = %v, wanted %v", got, want)
 			}
 		})
 	}
+	t.Run("bad-template", func(t *testing.T) {
+		if _, err := NewDefaultsConfigFromConfigMap(&corev1.ConfigMap{
+			Data: map[string]string{
+				"container-name-template": "{{animals-being-bros]]",
+			},
+		}); err == nil {
+			t.Error("Expected an error but got none.")
+		}
+	})
 }

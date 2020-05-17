@@ -24,7 +24,6 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -80,7 +79,29 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid BYO name (with generateName)",
+		name: "invalid name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "name or generateName is required",
+			Paths:   []string{"metadata.name"},
+		},
+	}, {
+		name: "invalid BYO name (with generateName)",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "byo-name-",
@@ -94,6 +115,97 @@ func TestConfigurationValidation(t *testing.T) {
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.template.metadata.name"),
+	}, {
+		name: "invalid BYO name (not prefixed)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
+			"spec.template.metadata.name"),
+	}, {
+		name: "invalid name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo.bar",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"spec.template.metadata.name"),
+	}, {
+		name: "invalid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "foo.bar",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"spec.template.metadata.generateName"),
+	}, {
+		name: "valid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "valid-generatename",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
 							}},
 						},
 					},
@@ -139,7 +251,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validConfigSpec,
@@ -151,7 +263,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-value",
+					serving.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validConfigSpec,
@@ -440,7 +552,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{"spec.template"},
+			Paths:   []string{"spec.template.metadata.name"},
 			Details: "{*v1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
@@ -556,8 +668,193 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
-			got := test.config.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.config.Validate(ctx).Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func getConfigurationSpec(image string) v1.ConfigurationSpec {
+	return v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: image,
+					}},
+				},
+				TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds),
+			},
+		},
+	}
+}
+
+func TestConfigurationAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	tests := []struct {
+		name string
+		prev *Configuration
+		this *Configuration
+		want *apis.FieldError
+	}{{
+		name: "update creator annotation",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update creator annotation with spec changes",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:bar"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier without spec changes",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u2,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: apis.ErrInvalidValue(u2, serving.UpdaterAnnotation).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier with spec changes",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:bar"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}, {
+		name: "no validation for lastModifier annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}, {
+		name: "no validation for creator annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u3,
+					serving.UpdaterAnnotation: u1,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.prev)
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

@@ -18,17 +18,33 @@ package v1beta1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Service) ConvertUp(ctx context.Context, sink apis.Convertible) error {
-	return fmt.Errorf("v1beta1 is the highest known version, got: %T", sink)
+// ConvertTo implements apis.Convertible
+func (source *Service) ConvertTo(ctx context.Context, obj apis.Convertible) error {
+	switch sink := obj.(type) {
+	case *v1.Service:
+		sink.ObjectMeta = source.ObjectMeta
+		sink.Spec = source.Spec
+		sink.Status = source.Status
+		return nil
+	default:
+		return apis.ConvertToViaProxy(ctx, source, &v1.Service{}, sink)
+	}
 }
 
-// ConvertDown implements apis.Convertible
-func (sink *Service) ConvertDown(ctx context.Context, source apis.Convertible) error {
-	return fmt.Errorf("v1beta1 is the highest known version, got: %T", source)
+// ConvertFrom implements apis.Convertible
+func (sink *Service) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
+	switch source := obj.(type) {
+	case *v1.Service:
+		sink.ObjectMeta = source.ObjectMeta
+		sink.Spec = source.Spec
+		sink.Status = source.Status
+		return nil
+	default:
+		return apis.ConvertFromViaProxy(ctx, source, &v1.Service{}, sink)
+	}
 }

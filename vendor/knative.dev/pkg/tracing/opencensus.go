@@ -136,7 +136,7 @@ func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
 			if name == "" {
 				n, err := os.Hostname()
 				if err != nil {
-					return fmt.Errorf("unable to get hostname: %v", err)
+					return fmt.Errorf("unable to get hostname: %w", err)
 				}
 				name = n
 			}

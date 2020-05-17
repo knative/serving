@@ -35,12 +35,12 @@ import (
 func TestConfigurationConversionBadType(t *testing.T) {
 	good, bad := &Configuration{}, &Service{}
 
-	if err := good.ConvertUp(context.Background(), bad); err == nil {
-		t.Errorf("ConvertUp() = %#v, wanted error", bad)
+	if err := good.ConvertTo(context.Background(), bad); err == nil {
+		t.Errorf("ConvertTo() = %#v, wanted error", bad)
 	}
 
-	if err := good.ConvertDown(context.Background(), bad); err == nil {
-		t.Errorf("ConvertDown() = %#v, wanted error", good)
+	if err := good.ConvertFrom(context.Background(), bad); err == nil {
+		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
 
@@ -62,8 +62,8 @@ func TestConfigurationConversionTemplateError(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := &v1.ConfigurationSpec{}
-			if err := test.cs.ConvertUp(context.Background(), result); err == nil {
-				t.Errorf("ConvertUp() = %#v, wanted error", result)
+			if err := test.cs.ConvertTo(context.Background(), result); err == nil {
+				t.Errorf("ConvertTo() = %#v, wanted error", result)
 			}
 		})
 	}
@@ -90,6 +90,9 @@ func TestConfigurationConversion(t *testing.T) {
 						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								ServiceAccountName: "robocop",
+								ImagePullSecrets: []corev1.LocalObjectReference{{
+									Name: "foo",
+								}},
 								Containers: []corev1.Container{{
 									Image: "busybox",
 									VolumeMounts: []corev1.VolumeMount{{
@@ -181,22 +184,22 @@ func TestConfigurationConversion(t *testing.T) {
 		for _, version := range versions {
 			t.Run(test.name, func(t *testing.T) {
 				ver := version
-				if err := test.in.ConvertUp(context.Background(), ver); err != nil {
+				if err := test.in.ConvertTo(context.Background(), ver); err != nil {
 					if test.badField != "" {
 						cce, ok := err.(*CannotConvertError)
 						if ok && cce.Field == test.badField {
 							return
 						}
 					}
-					t.Errorf("ConvertUp() = %v", err)
+					t.Errorf("ConvertTo() = %v", err)
 				} else if test.badField != "" {
-					t.Errorf("ConvertUp() = %#v, wanted bad field %q", ver,
+					t.Errorf("ConvertTo() = %#v, wanted bad field %q", ver,
 						test.badField)
 					return
 				}
 				got := &Configuration{}
-				if err := got.ConvertDown(context.Background(), ver); err != nil {
-					t.Errorf("ConvertDown() = %v", err)
+				if err := got.ConvertFrom(context.Background(), ver); err != nil {
+					t.Errorf("ConvertFrom() = %v", err)
 				}
 				if diff := cmp.Diff(test.in, got); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
@@ -208,22 +211,22 @@ func TestConfigurationConversion(t *testing.T) {
 			t.Run(test.name+" (deprecated)", func(t *testing.T) {
 				ver := version
 				start := toDeprecated(test.in)
-				if err := start.ConvertUp(context.Background(), ver); err != nil {
+				if err := start.ConvertTo(context.Background(), ver); err != nil {
 					if test.badField != "" {
 						cce, ok := err.(*CannotConvertError)
 						if ok && cce.Field == test.badField {
 							return
 						}
 					}
-					t.Errorf("ConvertUp() = %v", err)
+					t.Errorf("ConvertTo() = %v", err)
 				} else if test.badField != "" {
 					t.Errorf("CovnertUp() = %#v, wanted bad field %q", ver,
 						test.badField)
 					return
 				}
 				got := &Configuration{}
-				if err := got.ConvertDown(context.Background(), ver); err != nil {
-					t.Errorf("ConvertDown() = %v", err)
+				if err := got.ConvertFrom(context.Background(), ver); err != nil {
+					t.Errorf("ConvertFrom() = %v", err)
 				}
 				if diff := cmp.Diff(test.in, got); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)

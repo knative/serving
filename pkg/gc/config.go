@@ -17,12 +17,14 @@ limitations under the License.
 package gc
 
 import (
-	"errors"
-	"strconv"
+	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/configmap"
+	cm "knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -41,51 +43,39 @@ type Config struct {
 	StaleRevisionLastpinnedDebounce time.Duration
 }
 
-func NewConfigFromConfigMapFunc(logger configmap.Logger, minRevisionTimeout time.Duration) func(configMap *corev1.ConfigMap) (*Config, error) {
-	return func(configMap *corev1.ConfigMap) (*Config, error) {
-		c := Config{}
+func defaultConfig() *Config {
+	return &Config{
+		StaleRevisionCreateDelay:        48 * time.Hour,
+		StaleRevisionTimeout:            15 * time.Hour,
+		StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+		StaleRevisionMinimumGenerations: 20,
+	}
+}
 
-		for _, dur := range []struct {
-			key          string
-			field        *time.Duration
-			defaultValue time.Duration
-		}{{
-			key:          "stale-revision-create-delay",
-			field:        &c.StaleRevisionCreateDelay,
-			defaultValue: 24 * time.Hour,
-		}, {
-			key:          "stale-revision-timeout",
-			field:        &c.StaleRevisionTimeout,
-			defaultValue: 15 * time.Hour,
-		}, {
-			key:          "stale-revision-lastpinned-debounce",
-			field:        &c.StaleRevisionLastpinnedDebounce,
-			defaultValue: 5 * time.Hour,
-		}} {
-			if raw, ok := configMap.Data[dur.key]; !ok {
-				*dur.field = dur.defaultValue
-			} else if val, err := time.ParseDuration(raw); err != nil {
-				return nil, err
-			} else {
-				*dur.field = val
-			}
+func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.ConfigMap) (*Config, error) {
+	logger := logging.FromContext(ctx)
+	minRevisionTimeout := controller.GetResyncPeriod(ctx)
+	return func(configMap *corev1.ConfigMap) (*Config, error) {
+		c := defaultConfig()
+
+		if err := cm.Parse(configMap.Data,
+			cm.AsDuration("stale-revision-create-delay", &c.StaleRevisionCreateDelay),
+			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
+			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
+
+			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
+		); err != nil {
+			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
-		if raw, ok := configMap.Data["stale-revision-minimum-generations"]; !ok {
-			c.StaleRevisionMinimumGenerations = 1
-		} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
-			return nil, err
-		} else if val < 0 {
-			return nil, errors.New("stale-revision-minimum-generations must be zero or greater")
-		} else {
-			c.StaleRevisionMinimumGenerations = val
+		if c.StaleRevisionMinimumGenerations < 0 {
+			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
 		}
 
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
-			logger.Errorf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
+			logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
 			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
-			return &c, nil
 		}
-		return &c, nil
+		return c, nil
 	}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ limitations under the License.
 package image
 
 import (
-	"context"
+	context "context"
 
 	v1alpha1 "knative.dev/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	factory "knative.dev/caching/pkg/client/injection/informers/factory"

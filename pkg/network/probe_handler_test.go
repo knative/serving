@@ -18,13 +18,14 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
+	"knative.dev/pkg/network"
+	"knative.dev/pkg/network/prober"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/network/prober"
 )
 
 func TestProbeHandlerSuccessfulProbe(t *testing.T) {
@@ -76,9 +77,9 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, ok := r.Header[ProbeHeaderName]
-		w.Header().Set(ProbeHeaderName, fmt.Sprintf("%t", ok))
+		w.Header().Set(ProbeHeaderName, strconv.FormatBool(ok))
 		_, ok = r.Header[HashHeaderName]
-		w.Header().Set(HashHeaderName, fmt.Sprintf("%t", ok))
+		w.Header().Set(HashHeaderName, strconv.FormatBool(ok))
 		w.Write([]byte(body))
 	})
 	h = NewProbeHandler(h)
@@ -87,7 +88,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
+			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, c.options...)
 			if err != nil && !c.expErr {
 				t.Errorf("prober.Do() = %v, no error expected", err)
 			}
@@ -95,8 +96,53 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
-				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
+				t.Errorf("Probe result = %t, want: %t", got, c.want)
 			}
 		})
 	}
+}
+
+func BenchmarkProbeHandlerNoProbeHeader(b *testing.B) {
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h = NewProbeHandler(h)
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+
+	b.Run("sequential-no-header", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			h.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel-no-header", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				h.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
+
+func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(ProbeHeaderName, ProbeHeaderValue)
+	req.Header.Set(HashHeaderName, "ok")
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h = NewProbeHandler(h)
+	b.Run("sequential-probe-header", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			h.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel-probe-header", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			// Need to create a separate response writer because of the header mutation at the end of ServeHTTP
+			respParallel := httptest.NewRecorder()
+			for pb.Next() {
+				h.ServeHTTP(respParallel, req)
+			}
+		})
+	})
 }

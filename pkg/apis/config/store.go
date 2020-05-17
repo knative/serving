@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 type cfgKey struct{}
@@ -27,7 +28,8 @@ type cfgKey struct{}
 // Config holds the collection of configurations that we attach to contexts.
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Defaults *Defaults
+	Defaults   *Defaults
+	Autoscaler *autoscalerconfig.Config
 }
 
 // FromContext extracts a Config from the provided context.
@@ -46,8 +48,10 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 		return cfg
 	}
 	defaults, _ := NewDefaultsConfigFromMap(map[string]string{})
+	autoscaler, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
 	return &Config{
-		Defaults: defaults,
+		Defaults:   defaults,
+		Autoscaler: autoscaler,
 	}
 }
 
@@ -70,7 +74,8 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"defaults",
 			logger,
 			configmap.Constructors{
-				DefaultsConfigName: NewDefaultsConfigFromConfigMap,
+				DefaultsConfigName:          NewDefaultsConfigFromConfigMap,
+				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -87,6 +92,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Defaults: s.UntypedLoad(DefaultsConfigName).(*Defaults).DeepCopy(),
+		Defaults:   s.UntypedLoad(DefaultsConfigName).(*Defaults).DeepCopy(),
+		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
 	}
 }

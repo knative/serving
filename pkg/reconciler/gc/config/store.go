@@ -18,9 +18,9 @@ package config
 
 import (
 	"context"
-	"time"
 
 	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/gc"
 )
 
@@ -54,13 +54,13 @@ func (s *Store) Load() *Config {
 	}
 }
 
-func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(ctx context.Context, onAfterStore ...func(name string, value interface{})) *Store {
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"configuration",
-			logger,
+			logging.FromContext(ctx),
 			configmap.Constructors{
-				gc.ConfigName: gc.NewConfigFromConfigMapFunc(logger, minRevisionTimeout),
+				gc.ConfigName: gc.NewConfigFromConfigMapFunc(ctx),
 			},
 			onAfterStore...,
 		),

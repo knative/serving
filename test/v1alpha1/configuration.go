@@ -21,61 +21,95 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"testing"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
-	ptest "knative.dev/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
+func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
+	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
+}
+
+// PatchConfig patches the existing config with the provided options. Returns the latest Configuration object
+func PatchConfig(clients *test.Clients, cfg *v1alpha1.Configuration, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
+	newCfg := cfg.DeepCopy()
+
+	for _, opt := range fopt {
+		opt(newCfg)
+	}
+
+	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
 func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
-	patchBytes, err := test.CreateBytePatch(cfg, newCfg)
+	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
 	if err != nil {
 		return nil, err
 	}
 	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
+// WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestPinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, true /*wait for pinned revision*/)
+}
+
+// WaitForConfigLatestUnpinnedRevision disables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestUnpinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, false /*wait for unpinned revision*/)
+}
+
 // WaitForConfigLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Configuration.
 // Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to be set in LatestReadyRevisionName
 // before returning the name of the revision.
-func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+// Make sure to enable ensurePinned flag if the revision has an associated Route.
+func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames, ensurePinned bool) (string, error) {
 	var revisionName string
 	err := WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = c.Status.LatestCreatedRevisionName
+			if ensurePinned {
+				// Without this it might happen that the latest created revision is later overridden by a newer one
+				// that is pinned and the following check for LatestReadyRevisionName would fail.
+				return CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionPinned) == nil, nil
+			}
 			return true, nil
 		}
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
-	err = WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	if err = WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return (c.Status.LatestReadyRevisionName == revisionName), nil
-	}, "ConfigurationReadyWithRevision")
+	}, "ConfigurationReadyWithRevision"); err != nil {
+		return "", fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
+	}
 
-	return revisionName, err
+	return revisionName, nil
 }
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
@@ -118,7 +152,7 @@ func Configuration(names test.ResourceNames, fopt ...v1alpha1testing.ConfigOptio
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Config,
 		},
-		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image)),
+		Spec: *ConfigurationSpec(pkgTest.ImagePath(names.Image)),
 	}
 
 	for _, opt := range fopt {
@@ -147,7 +181,7 @@ func WaitForConfigurationState(client *test.ServingAlphaClients, name string, in
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "configuration %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("configuration %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
@@ -171,4 +205,10 @@ func CheckConfigurationState(client *test.ServingAlphaClients, name string, inSt
 // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
+}
+
+// IsConfigurationReady will check the status conditions of the config and return true if the config is
+// ready. This means it has at least created one revision and that has become ready.
+func IsConfigurationReady(c *v1alpha1.Configuration) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
 }

@@ -17,8 +17,6 @@ limitations under the License.
 package test
 
 import (
-	"testing"
-
 	pkgTest "knative.dev/pkg/test"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -47,21 +45,22 @@ const (
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
 
-	ConcurrentRequests = 50
+	ConcurrentRequests = 200
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	MinDirectPercentage = 1
 	// We expect to see at least 25% of either response since we're routing 50/50.
-	// This might be a bad assumption.
+	// The CDF of the binomial distribution tells us this will flake roughly
+	// 1 time out of 10^12 (roughly the number of galaxies in the observable universe).
 	MinSplitPercentage = 0.25
 )
 
 // Setup creates client to run Knative Service requests
-func Setup(t *testing.T) *Clients {
+func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
 	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
 	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
+		t.Fatal("Couldn't initialize clients", "error", err.Error())
 	}
 	return clients
 }

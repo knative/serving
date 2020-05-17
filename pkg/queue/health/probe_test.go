@@ -92,7 +92,7 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		t.Errorf("Expected probe headers to match but got %s", d)
 	}
 	if !gotKubeletHeader {
-		t.Errorf("Expected kubelet probe header to be added to request")
+		t.Error("Expected kubelet probe header to be added to request")
 	}
 	if !cmp.Equal(gotPath, expectedPath) {
 		t.Errorf("Expected %s path to match but got %s", expectedPath, gotPath)

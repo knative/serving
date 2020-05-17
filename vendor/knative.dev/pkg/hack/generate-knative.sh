@@ -46,13 +46,6 @@ APIS_PKG="$3"
 GROUPS_WITH_VERSIONS="$4"
 shift 4
 
-(
-  # To support running this script from anywhere, we have to first cd into this directory
-  # so we can install the tools.
-  cd $(dirname "${0}")
-  go install ../codegen/cmd/injection-gen
-)
-
 function codegen::join() { local IFS="$1"; shift; echo "$*"; }
 
 # enumerate group versions
@@ -80,16 +73,20 @@ if grep -qw "injection" <<<"${GENS}"; then
     EXTERNAL_INFORMER_PKG="${CLIENT_PKG}/informers/externalversions"
   fi
 
+  if [[ -z "${LISTERS_PKG:-}" ]]; then
+    LISTERS_PKG="${CLIENT_PKG}/listers"
+  fi
+
   echo "Generating injection for ${GROUPS_WITH_VERSIONS} at ${OUTPUT_PKG}"
 
   # Clear old injection
   rm -rf ${OUTPUT_PKG}
 
-  ${GOPATH}/bin/injection-gen \
+  go run knative.dev/pkg/codegen/cmd/injection-gen \
     --input-dirs $(codegen::join , "${FQ_APIS[@]}") \
     --versioned-clientset-package ${VERSIONED_CLIENTSET_PKG} \
     --external-versions-informers-package ${EXTERNAL_INFORMER_PKG} \
+    --listers-package ${LISTERS_PKG} \
     --output-package ${OUTPUT_PKG} \
     "$@"
 fi
-

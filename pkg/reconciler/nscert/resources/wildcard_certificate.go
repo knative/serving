@@ -25,19 +25,22 @@ import (
 )
 
 // MakeWildcardCertificate creates a Knative certificate
-func MakeWildcardCertificate(namespace *corev1.Namespace, dnsName, domain string) *v1alpha1.Certificate {
+func MakeWildcardCertificate(namespace *corev1.Namespace, dnsName, domain, certClass string) *v1alpha1.Certificate {
 	return &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.WildcardCertificate(dnsName),
 			Namespace:       namespace.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: certClass,
+			},
 			Labels: map[string]string{
 				networking.WildcardCertDomainLabelKey: domain,
 			},
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   []string{dnsName},
-			SecretName: namespace.Name,
+			SecretName: names.WildcardCertificate(dnsName),
 		},
 	}
 }

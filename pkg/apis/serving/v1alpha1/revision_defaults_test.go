@@ -28,6 +28,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 var defaultProbe = &corev1.Probe{
@@ -87,6 +88,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -270,27 +272,44 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "fall back to concurrency model",
+		name: "multiple containers",
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Revision{
 			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				DeprecatedContainer:        &corev1.Container{},
 				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: nil, // unspecified
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+						}, {
+							Name: "helloworld",
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
 				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
+						}, {
+							Name:      "helloworld",
+							Resources: defaultResources,
+						}},
+					},
 					ContainerConcurrency: ptr.Int64(1),
-					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				},
-				DeprecatedContainer: &corev1.Container{
-					Name:           config.DefaultUserContainerName,
-					Resources:      defaultResources,
-					ReadinessProbe: defaultProbe,
+					TimeoutSeconds:       ptr.Int64(99),
 				},
 			},
 		},
@@ -308,5 +327,23 @@ func TestRevisionDefaulting(t *testing.T) {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}
 		})
+	}
+}
+
+func TestRevisionDefaultingContainerName(t *testing.T) {
+	got := &Revision{
+		Spec: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{}, {}},
+				},
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+			},
+		},
+	}
+	got.SetDefaults(context.Background())
+	if got.Spec.Containers[0].Name == "" && got.Spec.Containers[1].Name == "" {
+		t.Errorf("Failed to set default values for container name")
 	}
 }

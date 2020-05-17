@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/serving/test"
 
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 const (
@@ -64,7 +64,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	cgroups := ri.Host.Cgroups
@@ -100,9 +100,9 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	}
 
 	if period == nil {
-		t.Errorf("Can't find the 'cpu.cfs_period_us' from cgroups")
+		t.Error("Can't find the 'cpu.cfs_period_us' from cgroups")
 	} else if quota == nil {
-		t.Errorf("Can't find the 'cpu.cfs_quota_us' from cgroups")
+		t.Error("Can't find the 'cpu.cfs_quota_us' from cgroups")
 	} else {
 		percent := (100 * (*period)) / (*quota)
 		if percent != cpuLimit*100 {
@@ -120,7 +120,7 @@ func TestShouldHaveCgroupReadOnly(t *testing.T) {
 	clients := test.Setup(t)
 	_, ri, err := fetchRuntimeInfo(t, clients)
 	if err != nil {
-		t.Fatalf("Error fetching runtime info: %v", err)
+		t.Fatal("Error fetching runtime info:", err)
 	}
 
 	cgroups := ri.Host.Cgroups

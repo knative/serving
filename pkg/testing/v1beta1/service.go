@@ -21,10 +21,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	presources "knative.dev/serving/pkg/resources"
 )
 
 // ServiceOption enables further configuration of a Service.
@@ -41,7 +41,6 @@ func Service(name, namespace string, so ...ServiceOption) *v1beta1.Service {
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
 }
 
@@ -55,11 +54,15 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1beta1.Service 
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
 }
 
-// WithInlineConfigSpec confgures the Service to use the given config spec
+// WithServiceDefaults will set the default values on the service.
+func WithServiceDefaults(svc *v1beta1.Service) {
+	svc.SetDefaults(context.Background())
+}
+
+// WithInlineConfigSpec configures the Service to use the given config spec
 func WithInlineConfigSpec(config v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1beta1.Service) {
 		svc.Spec.ConfigurationSpec = config
@@ -104,7 +107,7 @@ func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) 
 // WithServiceAnnotation adds the given annotation to the service.
 func WithServiceAnnotation(k, v string) ServiceOption {
 	return func(svc *v1beta1.Service) {
-		svc.Annotations = presources.UnionMaps(svc.Annotations, map[string]string{
+		svc.Annotations = kmeta.UnionMaps(svc.Annotations, map[string]string{
 			k: v,
 		})
 	}
@@ -113,7 +116,7 @@ func WithServiceAnnotation(k, v string) ServiceOption {
 // WithServiceAnnotationRemoved adds the given annotation to the service.
 func WithServiceAnnotationRemoved(k string) ServiceOption {
 	return func(svc *v1beta1.Service) {
-		svc.Annotations = presources.FilterMap(svc.Annotations, func(s string) bool {
+		svc.Annotations = kmeta.FilterMap(svc.Annotations, func(s string) bool {
 			return k == s
 		})
 	}

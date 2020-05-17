@@ -27,7 +27,7 @@ import (
 
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const pipe = "/tmp/prober-signal"
@@ -40,7 +40,7 @@ func TestProbe(t *testing.T) {
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
 	if err := syscall.Mkfifo(pipe, 0666); err != nil {
-		t.Fatalf("Failed to create pipe: %v", err)
+		t.Fatal("Failed to create pipe:", err)
 	}
 	defer os.Remove(pipe)
 
@@ -51,9 +51,9 @@ func TestProbe(t *testing.T) {
 	}
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
+	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := objects.Service.Status.URL.URL()
 
@@ -62,10 +62,10 @@ func TestProbe(t *testing.T) {
 
 	// Use log.Printf instead of t.Logf because we want to see failures
 	// inline with other logs instead of buffered until the end.
-	prober := test.RunRouteProber(log.Printf, clients, url)
+	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
-	_, _ = ioutil.ReadFile(pipe)
+	ioutil.ReadFile(pipe)
 }

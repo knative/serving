@@ -18,6 +18,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -54,13 +55,61 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				if r := recover(); r == nil {
-					t.Errorf("Expected a panic but the code didn't panic.")
+					t.Error("Expected a panic but the code didn't panic.")
 				}
 			}()
 
 			NewBreaker(test.options)
 		})
 	}
+}
+
+func TestBreakerReserveOverload(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	cb1, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve1 failed")
+	}
+	_, rr = b.Reserve(context.Background())
+	if rr {
+		t.Fatal("Reserve2 was an unexpected success.")
+	}
+	// Release a slot.
+	cb1()
+	// And reserve it again.
+	cb2, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve2 failed")
+	}
+	cb2()
+}
+
+func TestBreakerOverloadMixed(t *testing.T) {
+	// This tests when reservation and maybe are intermised.
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
+
+	// Bring breaker to capacity.
+	reqs.request()
+	// This happens in go-routine, so spin.
+	for len(b.sem.queue) > 0 {
+		time.Sleep(time.Millisecond * 2)
+	}
+	_, rr := b.Reserve(context.Background())
+	if rr {
+		t.Fatal("Reserve was an unexpected success.")
+	}
+	// Open a slot.
+	reqs.processSuccessfully(t)
+	// Now reservation should work.
+	cb, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve unexpectedly failed")
+	}
+	// Process the reservation.
+	cb()
 }
 
 func TestBreakerOverload(t *testing.T) {
@@ -197,6 +246,13 @@ func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 		t.Error("Token was acquired but shouldn't have been")
 	case <-time.After(semNoChangeTimeout):
 		// Test succeeds, semaphore didn't change in configured time.
+	}
+}
+
+func TestSemaphoreAcquireNonBlockingHasNoCapacity(t *testing.T) {
+	sem := newSemaphore(1, 0)
+	if sem.tryAcquire(context.Background()) {
+		t.Error("Should have failed immediately")
 	}
 }
 
@@ -394,4 +450,53 @@ func (r *requestor) processSuccessfully(t *testing.T) {
 	if !<-r.acceptedCh {
 		t.Error("expected request to succeed but it failed")
 	}
+}
+
+func BenchmarkBreakerMaybe(b *testing.B) {
+	op := func() {}
+
+	for _, c := range []int{1, 10, 100, 1000} {
+		breaker := NewBreaker(BreakerParams{QueueDepth: 10000000, MaxConcurrency: c, InitialCapacity: c})
+
+		b.Run(fmt.Sprintf("%d-sequential", c), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
+				breaker.Maybe(context.Background(), op)
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d-parallel", c), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					breaker.Maybe(context.Background(), op)
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkBreakerReserve(b *testing.B) {
+	op := func() {}
+	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 10000000, InitialCapacity: 10000000})
+
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			free, got := breaker.Reserve(context.Background())
+			op()
+			if got {
+				free()
+			}
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				free, got := breaker.Reserve(context.Background())
+				op()
+				if got {
+					free()
+				}
+			}
+		})
+	})
 }

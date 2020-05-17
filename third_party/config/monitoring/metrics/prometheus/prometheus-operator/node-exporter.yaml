@@ -33,12 +33,15 @@ subjects:
   name: node-exporter
   namespace: knative-monitoring
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-exporter
   namespace: knative-monitoring
 spec:
+  selector:
+    matchLabels:
+      app: node-exporter
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1

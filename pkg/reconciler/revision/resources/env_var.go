@@ -19,7 +19,7 @@ package resources
 import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 	knativeServiceEnvVariableKey       = "K_SERVICE"
 )
 
-func getKnativeEnvVar(rev *v1alpha1.Revision) []corev1.EnvVar {
+func getKnativeEnvVar(rev *v1.Revision) []corev1.EnvVar {
 	return []corev1.EnvVar{{
 		Name:  knativeRevisionEnvVariableKey,
 		Value: rev.Name,

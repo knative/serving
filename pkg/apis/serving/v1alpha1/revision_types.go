@@ -34,7 +34,7 @@ import (
 // materializing that container image from source. Revisions are created by
 // updates to a Configuration.
 //
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#revision
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -72,40 +72,26 @@ type RevisionTemplateSpec struct {
 }
 
 // DeprecatedRevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
-// See also: https://knative.dev/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type DeprecatedRevisionServingStateType string
 
 const (
-	// The revision is ready to serve traffic. It should have Kubernetes
-	// resources, and the Istio route should be pointed to the given resources.
+	// DeprecatedRevisionServingStateActive is set when the revision is ready to
+	// serve traffic. It should have Kubernetes resources, and the Istio route
+	// should be pointed to the given resources.
 	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
-	// The revision is not currently serving traffic, but could be made to serve
-	// traffic quickly. It should have Kubernetes resources, but the Istio route
-	// should be pointed to the activator.
+	// DeprecatedRevisionServingStateReserve is set when the revision is not
+	// currently serving traffic, but could be made to serve traffic quickly. It
+	// should have Kubernetes resources, but the Istio route should be pointed to
+	// the activator.
 	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
-	// The revision has been decommissioned and is not needed to serve traffic
-	// anymore. It should not have any Istio routes or Kubernetes resources.
-	// A Revision may be brought out of retirement, but it may take longer than
-	// it would from a "Reserve" state.
-	// Note: currently not set anywhere. See https://knative.dev/serving/issues/1203
+	// DeprecatedRevisionServingStateRetired is set when the revision has been
+	// decommissioned and is not needed to serve traffic anymore. It should not
+	// have any Istio routes or Kubernetes resources.  A Revision may be brought
+	// out of retirement, but it may take longer than it would from a "Reserve"
+	// state.
+	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
-)
-
-// DeprecatedRevisionRequestConcurrencyModelType is an enumeration of the
-// concurrency models supported by a Revision.
-// DEPRECATED in favor of an integer based ContainerConcurrency setting.
-// TODO(vagababov): retire completely in 0.9.
-type DeprecatedRevisionRequestConcurrencyModelType string
-
-const (
-	// DeprecatedRevisionRequestConcurrencyModelSingle guarantees that only one
-	// request will be handled at a time (concurrently) per instance
-	// of Revision Container.
-	DeprecatedRevisionRequestConcurrencyModelSingle DeprecatedRevisionRequestConcurrencyModelType = "Single"
-	// DeprecatedRevisionRequestConcurencyModelMulti allows more than one request to
-	// be handled at a time (concurrently) per instance of Revision
-	// Container.
-	DeprecatedRevisionRequestConcurrencyModelMulti DeprecatedRevisionRequestConcurrencyModelType = "Multi"
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
@@ -118,7 +104,7 @@ type RevisionSpec struct {
 	// This property will be dropped in future Knative releases and should
 	// not be used - use metadata.generation
 	//
-	// Tracking issue: https://knative.dev/serving/issues/643
+	// Tracking issue: https://github.com/knative/serving/issues/643
 	//
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
@@ -130,30 +116,12 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// DeprecatedConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the
-	// Revision. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
-	// +optional
-	DeprecatedConcurrencyModel DeprecatedRevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
-
-	// DeprecatedBuildName optionally holds the name of the Build responsible for
-	// producing the container image for its Revision.
-	// DEPRECATED: Use DeprecatedBuildRef instead.
-	// +optional
-	DeprecatedBuildName string `json:"buildName,omitempty"`
-
-	// DeprecatedBuildRef holds the reference to the build (if there is one) responsible
-	// for producing the container image for this Revision. Otherwise, nil
-	// +optional
-	DeprecatedBuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
-
-	// Container defines the unit of execution for this Revision.
+	// DeprecatedContainer defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
 	// this Container, including: name and lifecycle.
 	// See also the runtime contract for more information about the execution
 	// environment:
-	// https://knative.dev/serving/blob/master/docs/runtime-contract.md
+	// https://github.com/knative/serving/blob/master/docs/runtime-contract.md
 	// +optional
 	DeprecatedContainer *corev1.Container `json:"container,omitempty"`
 }
@@ -161,14 +129,14 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = apis.ConditionReady
+	RevisionConditionReady = v1.RevisionConditionReady
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable = v1.RevisionConditionResourcesAvailable
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy = v1.RevisionConditionContainerHealthy
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive apis.ConditionType = "Active"
+	RevisionConditionActive = v1.RevisionConditionActive
 )
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
@@ -185,12 +153,32 @@ type RevisionStatus struct {
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 
-	// ImageDigest holds the resolved digest for the image specified
+	// DeprecatedImageDigest holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.
+	// If multiple containers specified then DeprecatedImageDigest holds the digest
+	// for serving container.
+	// DEPRECATED Use ImageDigests instead.
+	// TODO(savitaashture) Remove deprecatedImageDigest.
+	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional
+	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
+
+	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving containers.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
+}
+
+// ContainerStatuses holds the information of container name and image digest value
+type ContainerStatuses struct {
+	Name        string `json:"name,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
 }
 

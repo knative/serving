@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Configuration is properly configured.
@@ -33,7 +32,7 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).Also(
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, c.GetObjectMeta()).Also(
 			c.validateLabels().ViaField("labels")).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
 		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
@@ -43,7 +42,12 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Configuration)
-
+		// Don't validate annotations(creator and lastModifier) when configuration owned by service
+		// validate only when configuration created independently.
+		if c.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, c.Spec, original.GetAnnotations(),
+				c.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
 		err := c.Spec.Template.VerifyNameChange(ctx, original.Spec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
@@ -55,7 +59,7 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:

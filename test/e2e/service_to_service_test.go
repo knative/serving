@@ -24,18 +24,16 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
+	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
-	v1alph1testing "knative.dev/serving/pkg/testing/v1alpha1"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	corev1 "k8s.io/api/core/v1"
-
 	"knative.dev/serving/pkg/apis/autoscaling"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/serving"
+	rtesting "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -74,7 +72,7 @@ var testInjection = []struct {
 
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 	t.Logf("The domain of request is %s.", url.Hostname())
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +98,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		if gatewayTarget == "" {
 			var err error
 			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-				t.Fatalf("Failed to get gateway IP: %v", err)
+				t.Fatal("Failed to get gateway IP:", err)
 			}
 		}
 		envVars = append(envVars, corev1.EnvVar{
@@ -119,11 +117,10 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1alph1testing.WithEnv(envVars...),
-		v1alph1testing.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithEnv(envVars...),
+		rtesting.WithConfigAnnotations(map[string]string{
+			"sidecar.istio.io/inject": strconv.FormatBool(inject),
 		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -134,32 +131,25 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse))),
 		"HTTPProxy",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
+		t.Fatal("Failed to start endpoint of httpproxy:", err)
 	}
 	t.Log("httpproxy is ready.")
 
-	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, url)
-	if err != nil {
-		t.Fatalf("Failed to send request to httpproxy: %v", err)
-	}
-	// We expect the response from httpproxy is equal to the response from helloworld
-	if helloworldResponse != strings.TrimSpace(string(response.Body)) {
-		t.Fatalf("The httpproxy response '%s' is not equal to helloworld response '%s'.", string(response.Body), helloworldResponse)
-	}
-
-	// As a final check (since we know they are both up), check that if we can access the helloworld app externally.
-	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
+	// As a final check (since we know they are both up), check that if we can
+	// (or cannot) access the helloworld app externally.
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
 			// to resolve the shorter domain(s) off-cluster.
 			return
 		}
-		t.Fatalf("Unexpected error when sending request to helloworld: %v", err)
+		t.Fatal("Unexpected error when sending request to helloworld:", err)
 	}
 	expectedStatus := http.StatusNotFound
 	if accessibleExternal {
@@ -193,13 +183,9 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	withInternalVisibility := v1alph1testing.WithServiceLabel(
-		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		withInternalVisibility,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		}))
+	withInternalVisibility := rtesting.WithServiceLabel(
+		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -218,11 +204,15 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldURL := resources.Route.Status.URL.URL()
+		helloworldURL := &url.URL{
+			Scheme: resources.Route.Status.URL.Scheme,
+			Host:   strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix),
+			Path:   resources.Route.Status.URL.Path,
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, helloworldURL, true, false)
+			testProxyToHelloworld(t, clients, helloworldURL, true /*inject*/, false /*accessible externally*/)
 		})
 	}
 }
@@ -235,33 +225,33 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		Image:   "helloworld",
 	}
 
-	withInternalVisibility := v1alph1testing.WithServiceLabel(
-		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
+	withInternalVisibility := rtesting.WithServiceLabel(
+		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
+	resources, err := v1test.CreateServiceReady(t, clients, &testNames,
+		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false /*accessible externally*/)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests
 // we're waiting for target app to be scaled to zero
-func TestServiceToServiceCallViaActivator(t *testing.T) {
+func TestSvcToSvcViaActivator(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -296,10 +286,7 @@ func TestCallToPublicService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1alph1testing.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		}))
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -324,7 +311,7 @@ func TestCallToPublicService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, tc.url, false, tc.accessibleExternally)
+			testProxyToHelloworld(t, clients, tc.url, false /*inject*/, tc.accessibleExternally)
 		})
 	}
 }

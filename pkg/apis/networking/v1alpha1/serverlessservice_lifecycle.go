@@ -23,12 +23,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
 )
+
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*ServerlessService) GetConditionSet() apis.ConditionSet {
+	return serverlessServiceCondSet
+}
 
 // GetGroupVersionKind returns the GVK for the ServerlessService.
 func (ss *ServerlessService) GetGroupVersionKind() schema.GroupVersionKind {
@@ -89,10 +93,6 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 // IsReady returns true if ServerlessService is ready.
 func (sss *ServerlessServiceStatus) IsReady() bool {
 	return serverlessServiceCondSet.Manage(sss).IsHappy()
-}
-
-func (sss *ServerlessServiceStatus) duck() *duckv1.Status {
-	return &sss.Status
 }
 
 // ProxyFor returns how long it has been since Activator was moved

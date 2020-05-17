@@ -30,6 +30,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 var (
@@ -65,6 +66,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{Spec: v1.RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -128,6 +130,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{Spec: v1.RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}, TimeoutSeconds: ptr.Int64(0)}},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -256,6 +259,9 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "busybox",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
 					}, {
 						Name: "helloworld",
 					}},
@@ -268,13 +274,15 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           "busybox",
+						Name: "busybox",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}, {
-						Name:           "helloworld",
-						Resources:      defaultResources,
-						ReadinessProbe: defaultProbe,
+						Name:      "helloworld",
+						Resources: defaultResources,
 					}},
 				},
 			},
@@ -294,5 +302,19 @@ func TestRevisionDefaulting(t *testing.T) {
 					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
+	}
+}
+
+func TestRevisionDefaultingContainerName(t *testing.T) {
+	got := &Revision{
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{}, {}},
+			},
+		},
+	}
+	got.SetDefaults(context.Background())
+	if got.Spec.Containers[0].Name == "" && got.Spec.Containers[1].Name == "" {
+		t.Errorf("Failed to set default values for container name")
 	}
 }

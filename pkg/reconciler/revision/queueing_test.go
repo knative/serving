@@ -23,6 +23,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -33,18 +37,13 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	tracetesting "knative.dev/pkg/tracing/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -61,10 +60,40 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func testRevision() *v1alpha1.Revision {
-	rev := &v1alpha1.Revision{
+func getPodSpec() corev1.PodSpec {
+	return corev1.PodSpec{
+		// corev1.Container has a lot of setting.  We try to pass many
+		// of them here to verify that we pass through the settings to
+		// derived objects.
+		Containers: []corev1.Container{{
+			Image:      "gcr.io/repo/image",
+			Command:    []string{"echo"},
+			Args:       []string{"hello", "world"},
+			WorkingDir: "/tmp",
+			Env: []corev1.EnvVar{{
+				Name:  "EDITOR",
+				Value: "emacs",
+			}},
+			LivenessProbe: &corev1.Probe{
+				TimeoutSeconds: 42,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "health",
+					},
+				},
+				TimeoutSeconds: 43,
+			},
+			TerminationMessagePath: "/dev/null",
+		}},
+	}
+}
+
+func testRevision(podSpec corev1.PodSpec) *v1.Revision {
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
+			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
@@ -77,37 +106,9 @@ func testRevision() *v1alpha1.Revision {
 			},
 			UID: "test-rev-uid",
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					// corev1.Container has a lot of setting.  We try to pass many
-					// of them here to verify that we pass through the settings to
-					// derived objects.
-					Containers: []corev1.Container{{
-						Image:      "gcr.io/repo/image",
-						Command:    []string{"echo"},
-						Args:       []string{"hello", "world"},
-						WorkingDir: "/tmp",
-						Env: []corev1.EnvVar{{
-							Name:  "EDITOR",
-							Value: "emacs",
-						}},
-						LivenessProbe: &corev1.Probe{
-							TimeoutSeconds: 42,
-						},
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "health",
-								},
-							},
-							TimeoutSeconds: 43,
-						},
-						TerminationMessagePath: "/dev/null",
-					}},
-				},
-				TimeoutSeconds: ptr.Int64(60),
-			},
+		Spec: v1.RevisionSpec{
+			PodSpec:        podSpec,
+			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
 	rev.SetDefaults(context.Background())
@@ -133,7 +134,19 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T) (
+func getTestDefaultsConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-name-template": "user-container",
+		},
+	}
+}
+
+func newTestController(t *testing.T, opts ...reconcilerOption) (
 	context.Context,
 	context.CancelFunc,
 	[]controller.Informer,
@@ -142,12 +155,16 @@ func newTestController(t *testing.T) (
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
-	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	// Prepend so that callers can override.
+	opts = append([]reconcilerOption{func(r *Reconciler) {
+		r.resolver = &nopResolver{}
+	}}, opts...)
+	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
+		getTestDefaultsConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -180,7 +197,7 @@ func newTestController(t *testing.T) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      autoscaler.ConfigName,
+				Name:      autoscalerconfig.ConfigName,
 			},
 			Data: map[string]string{
 				"max-scale-up-rate":                       "2.0",
@@ -216,14 +233,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}
 
 	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
@@ -235,16 +246,24 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Error starting informers:", err)
 	}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatal("Error running controller:", err)
+		}
+		waitInformers()
+	}()
 
 	eg.Go(func() error {
 		return ctrl.Run(2, ctx.Done())
 	})
 
-	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Fatalf("Error creating revision: %v", err)
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Fatal("Error creating revision:", err)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {

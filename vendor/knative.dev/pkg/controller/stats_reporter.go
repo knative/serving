@@ -174,15 +174,9 @@ func init() {
 		Aggregation: reconcileDistribution,
 		TagKeys:     []tag.Key{reconcilerTagKey, keyTagKey, successTagKey},
 	}}
-	for _, view := range wp.DefaultViews() {
-		views = append(views, view)
-	}
-	for _, view := range rp.DefaultViews() {
-		views = append(views, view)
-	}
-	for _, view := range cp.DefaultViews() {
-		views = append(views, view)
-	}
+	views = append(views, wp.DefaultViews()...)
+	views = append(views, rp.DefaultViews()...)
+	views = append(views, cp.DefaultViews()...)
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -250,7 +244,7 @@ func (r *reporter) ReportReconcile(duration time.Duration, key, success string) 
 		return err
 	}
 
-	metrics.Record(ctx, reconcileCountStat.M(1))
-	metrics.Record(ctx, reconcileLatencyStat.M(int64(duration/time.Millisecond)))
+	metrics.RecordBatch(ctx, reconcileCountStat.M(1),
+		reconcileLatencyStat.M(duration.Milliseconds()))
 	return nil
 }

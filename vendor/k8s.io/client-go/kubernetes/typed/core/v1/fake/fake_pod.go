@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -89,6 +91,17 @@ func (c *FakePods) Create(pod *corev1.Pod) (result *corev1.Pod, err error) {
 	return obj.(*corev1.Pod), err
 }
 
+// Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
+func (c *FakePods) CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts v1.CreateOptions) (result *corev1.Pod, err error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewCreateAction(podsResource, c.ns, pod), &corev1.Pod{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1.Pod), err
+}
+
 // Update takes the representation of a pod and updates it. Returns the server's representation of the pod, and an error, if there is any.
 func (c *FakePods) Update(pod *corev1.Pod) (result *corev1.Pod, err error) {
 	obj, err := c.Fake.
@@ -137,4 +150,26 @@ func (c *FakePods) Patch(name string, pt types.PatchType, data []byte, subresour
 		return nil, err
 	}
 	return obj.(*corev1.Pod), err
+}
+
+// GetEphemeralContainers takes name of the pod, and returns the corresponding ephemeralContainers object, and an error if there is any.
+func (c *FakePods) GetEphemeralContainers(podName string, options v1.GetOptions) (result *corev1.EphemeralContainers, err error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewGetSubresourceAction(podsResource, c.ns, "ephemeralcontainers", podName), &corev1.EphemeralContainers{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1.EphemeralContainers), err
+}
+
+// UpdateEphemeralContainers takes the representation of a ephemeralContainers and updates it. Returns the server's representation of the ephemeralContainers, and an error, if there is any.
+func (c *FakePods) UpdateEphemeralContainers(podName string, ephemeralContainers *corev1.EphemeralContainers) (result *corev1.EphemeralContainers, err error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(podsResource, "ephemeralcontainers", c.ns, ephemeralContainers), &corev1.EphemeralContainers{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1.EphemeralContainers), err
 }

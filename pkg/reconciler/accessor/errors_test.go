@@ -16,7 +16,7 @@ limitations under the License.
 package accessor
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 )
 
@@ -28,23 +28,20 @@ func TestIsNotOwned(t *testing.T) {
 	}{{
 		name: "IsNotOwned error",
 		err: Error{
-			err:         fmt.Errorf("test error"),
+			err:         errors.New("test error"),
 			errorReason: NotOwnResource,
 		},
 		want: true,
 	}, {
 		name: "other error",
-		err: Error{
-			err: fmt.Errorf("test error"),
-		},
+		err:  errors.New("test error"),
 		want: false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := IsNotOwned(tc.err)
-			if tc.want != got {
-				t.Errorf("IsNotOwned function fails. want: %t, got: %t", tc.want, got)
+			if got := IsNotOwned(tc.err); tc.want != got {
+				t.Errorf("IsNotOwned(%v) = %v, want = %v", tc.err, got, tc.want)
 			}
 		})
 	}
@@ -52,13 +49,46 @@ func TestIsNotOwned(t *testing.T) {
 
 func TestError(t *testing.T) {
 	err := Error{
-		err:         fmt.Errorf("test error"),
+		err:         errors.New("test error"),
 		errorReason: NotOwnResource,
 	}
-	got := err.Error()
-	want := "notowned: test error"
-	if got != want {
-		t.Errorf("Error function fails. want: %q, got: %q", want, got)
+	if got, want := err.Error(), "notowned: test error"; got != want {
+		t.Errorf("Error() = %q, want = %q", got, want)
 	}
+}
 
+func TestNewAccessorError(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		reason string
+		want   string
+	}{{
+		name:   "error with reason",
+		err:    errors.New("test error"),
+		reason: NotOwnResource,
+		want:   "notowned: test error",
+	}, {
+		name:   "error with no reason",
+		err:    errors.New("test error"),
+		reason: "",
+		want:   ": test error",
+	}, {
+		name:   "error with no message and with reason",
+		err:    errors.New(""),
+		reason: NotOwnResource,
+		want:   "notowned: ",
+	}, {
+		name:   "error with no message and reason",
+		err:    errors.New(""),
+		reason: "",
+		want:   ": ",
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NewAccessorError(tc.err, tc.reason); got.Error() != tc.want {
+				t.Errorf("NewAccessorError() = %q, want = %q", got.Error(), tc.want)
+			}
+		})
+	}
 }

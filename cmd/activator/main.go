@@ -22,22 +22,23 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	// Injection related imports.
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
+
+	// Injection related imports.
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/injection"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -52,35 +53,21 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
-	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/autoscaler"
-	"knative.dev/serving/pkg/goversion"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/queue"
 )
-
-// Fail if using unsupported go version.
-var _ = goversion.IsSupported()
 
 const (
 	component = "activator"
 
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
-
-	// The number of requests that are queued on the breaker before the 503s are sent.
-	// The value must be adjusted depending on the actual production requirements.
-	breakerQueueDepth = 10000
-
-	// The upper bound for concurrent requests sent to the revision.
-	// As new endpoints show up, the Breakers concurrency increases up to this value.
-	breakerMaxConcurrency = 1000
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
@@ -93,7 +80,7 @@ var (
 )
 
 func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
-	statChan <-chan []autoscaler.StatMessage, logger *zap.SugaredLogger) {
+	statChan <-chan []asmetrics.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
@@ -128,12 +115,12 @@ func main() {
 	msp := metrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatalf("Error exporting go memstats view: %v", err)
+		log.Fatal("Error exporting go memstats view: ", err)
 	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
-		log.Fatal("Error building kubeconfig:", err)
+		log.Fatal("Error building kubeconfig: ", err)
 	}
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
@@ -142,17 +129,34 @@ func main() {
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		log.Fatal("Failed to process env: ", err)
+	}
+
+	kubeClient := kubeclient.Get(ctx)
+
+	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+			log.Print("Failed to get k8s version ", err)
+		}
+		return err == nil, nil
+	}); perr != nil {
+		log.Fatal("Timed out attempting to get k8s version: ", err)
+	}
+
 	// Set up our logger.
 	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
 	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
+		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
+
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
-	logger = logger.With(zap.String(logkey.ControllerType, component))
+	logger = logger.With(zap.String(logkey.ControllerType, component),
+		zap.String(logkey.Pod, env.PodName))
 	ctx = pkglogging.WithLogger(ctx, logger)
 	defer flush(logger)
-
-	kubeClient := kubeclient.Get(ctx)
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
@@ -161,38 +165,14 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	var env config
-	if err := envconfig.Process("", &env); err != nil {
-		logger.Fatalw("Failed to process env", zap.Error(err))
-	}
-
-	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
-	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
-		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-			logger.Errorw("Failed to get k8s version", zap.Error(err))
-		}
-		return err == nil, nil
-	}); perr != nil {
-		logger.Fatalw("Timed out attempting to get k8s version", zap.Error(err))
-	}
-
-	reporter, err := activator.NewStatsReporter()
-	if err != nil {
-		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
-	}
-
-	statCh := make(chan []autoscaler.StatMessage)
+	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
-	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	reqCh := make(chan network.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
-	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-
 	// Start throttler.
-	throttler := activatornet.NewThrottler(ctx, params,
-		// We want to join host port since that will be our search space in the Throttler.
-		net.JoinHostPort(env.PodIP, strconv.Itoa(networking.BackendHTTPPort)))
+	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
@@ -212,23 +192,17 @@ func main() {
 
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), pkgnet.GetClusterDomainName(), autoscalerPort)
-	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
+	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, ctx.Done(), statCh, logger)
 
 	// Create and run our concurrency reporter
-	reportTicker := time.NewTicker(time.Second)
-	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh,
-		reportTicker.C, statCh, reporter)
+	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
 	go cr.Run(ctx.Done())
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(
-		ctx,
-		throttler,
-		reporter)
+	var ah http.Handler = activatorhandler.New(ctx, throttler)
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
@@ -238,16 +212,20 @@ func main() {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
 	ah = reqLogHandler
+
+	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
+	// the healthchecks or probes.
+	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
+	ah = activatorhandler.NewContextHandler(ctx, ah)
+
+	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
+	ah = network.NewProbeHandler(ah)
 
 	// Set up our health check based on the health of stat sink and environmental factors.
-	// When drainCh is closed, we should start to drain connections.
-	hc, drainCh := newHealthCheck(logger, statSink)
-	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
-
-	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
-	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
-	ah = network.NewProbeHandler(ah)
+	sigCtx, sigCancel := context.WithCancel(context.Background())
+	hc := newHealthCheck(sigCtx, logger, statSink)
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
@@ -255,7 +233,7 @@ func main() {
 
 	// Watch the observability config map
 	configMapWatcher.Watch(metrics.ConfigMapName(),
-		metrics.UpdateExporterFromConfigMap(component, logger),
+		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
 
@@ -264,8 +242,8 @@ func main() {
 	}
 
 	servers := map[string]*http.Server{
-		"http1":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
-		"h2c":     network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
+		"http1":   pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
+		"h2c":     pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
 		"profile": profiling.NewServer(profilingHandler),
 	}
 
@@ -279,17 +257,22 @@ func main() {
 		}(name, server)
 	}
 
+	sigCh := signals.SetupSignalHandler()
+
 	// Wait for the signal to drain.
 	select {
-	case <-drainCh:
-		logger.Info("Received the drain signal.")
+	case <-sigCh:
+		logger.Info("Received SIGTERM")
+		// Send a signal to let readiness probes start failing.
+		sigCancel()
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}
 
 	// The drain has started (we are now failing readiness probes).  Let the effects of this
 	// propagate so that new requests are no longer routed our way.
-	time.Sleep(30 * time.Second)
+	logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
+	time.Sleep(pkgnet.DefaultDrainTimeout)
 	logger.Info("Done waiting, shutting down servers.")
 
 	// Drain outstanding requests, and stop accepting new ones.
@@ -299,29 +282,21 @@ func main() {
 	logger.Info("Servers shutdown.")
 }
 
-func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) (func() error, <-chan struct{}) {
-	// When we get SIGTERM (sigCh closes), start failing readiness probes.
-	sigCh := signals.SetupSignalHandler()
-
-	// Some duration after our first readiness probe failure (to allow time
-	// for the network to reprogram) send the signal to drain connections.
-	drainCh := make(chan struct{})
+func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) func() error {
 	once := sync.Once{}
-
 	return func() error {
 		select {
-		case <-sigCh:
-			// Signal to start the process of draining.
+		// When we get SIGTERM (sigCtx done), let readiness probes start failing.
+		case <-sigCtx.Done():
 			once.Do(func() {
-				logger.Info("Received SIGTERM")
-				close(drainCh)
+				logger.Info("Signal context canceled")
 			})
 			return errors.New("received SIGTERM from kubelet")
 		default:
 			logger.Debug("No signal yet.")
 			return statSink.Status()
 		}
-	}, drainCh
+	}
 }
 
 func flush(logger *zap.SugaredLogger) {

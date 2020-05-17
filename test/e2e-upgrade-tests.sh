@@ -38,23 +38,34 @@ LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  # TODO: should this test install istio and build at all, or only serving?
-  install_knative_serving \
-    "${url}/serving.yaml" \
-    || fail_test "Knative latest release installation failed"
-  wait_until_pods_running knative-serving
+  local yaml="serving.yaml"
+
+  local RELEASE_YAML="$(mktemp)"
+  wget "${url}/${yaml}" -O "${RELEASE_YAML}" \
+      || fail_test "Unable to download latest Knative release."
+
+  install_knative_serving "${RELEASE_YAML}" \
+      || fail_test "Knative latest release installation failed"
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
 }
 
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
-  wait_until_pods_running knative-serving
+  wait_until_pods_running ${SYSTEM_NAMESPACE}
+
+  echo "Running storage migration job"
+  local MIGRATION_YAML=${TMP_DIR}/${SERVING_STORAGE_VERSION_MIGRATE_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_STORAGE_VERSION_MIGRATE_YAML} > ${MIGRATION_YAML}
+
+  kubectl delete -f ${MIGRATION_YAML} --ignore-not-found
+  kubectl apply -f ${MIGRATION_YAML}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+  echo "Finished running storage migration job"
+  kubectl get jobs -A
 }
 
 function knative_setup() {
-  # Build Knative to generate Istio manifests from HEAD for install_latest_release
-  # We do it here because it's a one-time setup
-  build_knative_from_source
   install_latest_release
 }
 

@@ -36,7 +36,10 @@ const (
 	// LabelResourceGroup is the name of the resource CRD.
 	LabelResourceGroup = "resource_group"
 
-	// LabelBrokerName is the label for the name of the Trigger's broker.
+	// LabelTriggerName is the label for the name of the Trigger.
+	LabelTriggerName = "trigger_name"
+
+	// LabelBrokerName is the label for the name of the Broker.
 	LabelBrokerName = "broker_name"
 
 	// LabelEventType is the label for the name of the event type.
@@ -47,9 +50,6 @@ const (
 
 	// LabelFilterType is the label for the Trigger filter attribute "type".
 	LabelFilterType = "filter_type"
-
-	// LabelFilterSource is the label for the Trigger filter attribute "source".
-	LabelFilterSource = "filter_source"
 )
 
 var (
@@ -59,16 +59,16 @@ var (
 		LabelLocation,
 		LabelClusterName,
 		LabelNamespaceName,
-		LabelName,
 		LabelBrokerName,
+		LabelTriggerName,
 	)
 
 	// KnativeTriggerMetrics stores a set of metric types which are supported
 	// by resource type knative_trigger.
 	KnativeTriggerMetrics = sets.NewString(
-		"knative.dev/eventing/trigger/event_count",
-		"knative.dev/eventing/trigger/event_processing_latencies",
-		"knative.dev/eventing/trigger/event_dispatch_latencies",
+		"knative.dev/internal/eventing/trigger/event_count",
+		"knative.dev/internal/eventing/trigger/event_processing_latencies",
+		"knative.dev/internal/eventing/trigger/event_dispatch_latencies",
 	)
 
 	// KnativeBrokerLabels stores the set of resource labels for resource type knative_broker.
@@ -77,13 +77,13 @@ var (
 		LabelLocation,
 		LabelClusterName,
 		LabelNamespaceName,
-		LabelName,
+		LabelBrokerName,
 	)
 
 	// KnativeBrokerMetrics stores a set of metric types which are supported
 	// by resource type knative_trigger.
 	KnativeBrokerMetrics = sets.NewString(
-		"knative.dev/eventing/broker/event_count",
+		"knative.dev/internal/eventing/broker/event_count",
 	)
 
 	// KnativeSourceLabels stores the set of resource labels for resource type knative_source.

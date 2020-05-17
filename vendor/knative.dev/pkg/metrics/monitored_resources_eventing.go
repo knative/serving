@@ -20,8 +20,7 @@ package metrics
 
 import (
 	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opencensus.io/metric/metricdata"
 	"knative.dev/pkg/metrics/metricskey"
 )
 
@@ -59,8 +58,8 @@ func (kt *KnativeTrigger) MonitoredResource() (resType string, labels map[string
 		metricskey.LabelLocation:      kt.Location,
 		metricskey.LabelClusterName:   kt.ClusterName,
 		metricskey.LabelNamespaceName: kt.NamespaceName,
-		metricskey.LabelName:          kt.TriggerName,
 		metricskey.LabelBrokerName:    kt.BrokerName,
+		metricskey.LabelTriggerName:   kt.TriggerName,
 	}
 	return metricskey.ResourceTypeKnativeTrigger, labels
 }
@@ -71,7 +70,7 @@ func (kb *KnativeBroker) MonitoredResource() (resType string, labels map[string]
 		metricskey.LabelLocation:      kb.Location,
 		metricskey.LabelClusterName:   kb.ClusterName,
 		metricskey.LabelNamespaceName: kb.NamespaceName,
-		metricskey.LabelName:          kb.BrokerName,
+		metricskey.LabelBrokerName:    kb.BrokerName,
 	}
 	return metricskey.ResourceTypeKnativeBroker, labels
 }
@@ -89,75 +88,72 @@ func (ki *KnativeSource) MonitoredResource() (resType string, labels map[string]
 }
 
 func GetKnativeBrokerMonitoredResource(
-	v *view.View, tags []tag.Tag, gm *gcpMetadata) ([]tag.Tag, monitoredresource.Interface) {
-	tagsMap := getTagsMap(tags)
+	des *metricdata.Descriptor, tags map[string]string, gm *gcpMetadata) (map[string]string, monitoredresource.Interface) {
 	kb := &KnativeBroker{
 		// The first three resource labels are from metadata.
 		Project:     gm.project,
 		Location:    gm.location,
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
-		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		BrokerName:    valueOrUnknown(metricskey.LabelName, tagsMap),
+		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tags),
+		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tags),
 	}
 
-	var newTags []tag.Tag
-	for _, t := range tags {
+	metricLabels := map[string]string{}
+	for k, v := range tags {
 		// Keep the metrics labels that are not resource labels
-		if !metricskey.KnativeBrokerLabels.Has(t.Key.Name()) {
-			newTags = append(newTags, t)
+		if !metricskey.KnativeBrokerLabels.Has(k) {
+			metricLabels[k] = v
 		}
 	}
 
-	return newTags, kb
+	return metricLabels, kb
 }
 
 func GetKnativeTriggerMonitoredResource(
-	v *view.View, tags []tag.Tag, gm *gcpMetadata) ([]tag.Tag, monitoredresource.Interface) {
-	tagsMap := getTagsMap(tags)
+	des *metricdata.Descriptor, tags map[string]string, gm *gcpMetadata) (map[string]string, monitoredresource.Interface) {
 	kt := &KnativeTrigger{
 		// The first three resource labels are from metadata.
 		Project:     gm.project,
 		Location:    gm.location,
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
-		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		TriggerName:   valueOrUnknown(metricskey.LabelName, tagsMap),
-		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tagsMap),
+		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tags),
+		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tags),
+		TriggerName:   valueOrUnknown(metricskey.LabelTriggerName, tags),
 	}
 
-	var newTags []tag.Tag
-	for _, t := range tags {
+	metricLabels := map[string]string{}
+	for k, v := range tags {
 		// Keep the metrics labels that are not resource labels
-		if !metricskey.KnativeTriggerLabels.Has(t.Key.Name()) {
-			newTags = append(newTags, t)
+		if !metricskey.KnativeTriggerLabels.Has(k) {
+			metricLabels[k] = v
 		}
 	}
 
-	return newTags, kt
+	return metricLabels, kt
 }
 
 func GetKnativeSourceMonitoredResource(
-	v *view.View, tags []tag.Tag, gm *gcpMetadata) ([]tag.Tag, monitoredresource.Interface) {
-	tagsMap := getTagsMap(tags)
-	ki := &KnativeSource{
+	des *metricdata.Descriptor, tags map[string]string, gm *gcpMetadata) (map[string]string, monitoredresource.Interface) {
+	ks := &KnativeSource{
 		// The first three resource labels are from metadata.
 		Project:     gm.project,
 		Location:    gm.location,
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
-		NamespaceName:       valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		SourceName:          valueOrUnknown(metricskey.LabelName, tagsMap),
-		SourceResourceGroup: valueOrUnknown(metricskey.LabelResourceGroup, tagsMap),
+		NamespaceName:       valueOrUnknown(metricskey.LabelNamespaceName, tags),
+		SourceName:          valueOrUnknown(metricskey.LabelName, tags),
+		SourceResourceGroup: valueOrUnknown(metricskey.LabelResourceGroup, tags),
 	}
 
-	var newTags []tag.Tag
-	for _, t := range tags {
+	metricLabels := map[string]string{}
+	for k, v := range tags {
 		// Keep the metrics labels that are not resource labels
-		if !metricskey.KnativeSourceLabels.Has(t.Key.Name()) {
-			newTags = append(newTags, t)
+		if !metricskey.KnativeSourceLabels.Has(k) {
+			metricLabels[k] = v
 		}
 	}
 
-	return newTags, ki
+	return metricLabels, ks
 }

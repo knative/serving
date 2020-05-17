@@ -34,12 +34,12 @@ import (
 func TestRevisionConversionBadType(t *testing.T) {
 	good, bad := &Revision{}, &Service{}
 
-	if err := good.ConvertUp(context.Background(), bad); err == nil {
-		t.Errorf("ConvertUp() = %#v, wanted error", bad)
+	if err := good.ConvertTo(context.Background(), bad); err == nil {
+		t.Errorf("ConvertTo() = %#v, wanted error", bad)
 	}
 
-	if err := good.ConvertDown(context.Background(), bad); err == nil {
-		t.Errorf("ConvertDown() = %#v, wanted error", good)
+	if err := good.ConvertFrom(context.Background(), bad); err == nil {
+		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
 
@@ -89,57 +89,9 @@ func TestRevisionConversion(t *testing.T) {
 						Status: "True",
 					}},
 				},
-				ServiceName: "foo-bar",
-				LogURL:      "http://logger.io",
-			},
-		},
-	}, {
-		name:     "bad roundtrip w/ build ref",
-		badField: "buildRef",
-		in: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "asdf",
-				Namespace:  "blah",
-				Generation: 1,
-			},
-			Spec: RevisionSpec{
-				DeprecatedBuildRef: &corev1.ObjectReference{
-					APIVersion: "build.knative.dev/v1alpha1",
-					Kind:       "Build",
-					Name:       "foo",
-				},
-				RevisionSpec: v1.RevisionSpec{
-					PodSpec: corev1.PodSpec{
-						ServiceAccountName: "robocop",
-						Containers: []corev1.Container{{
-							Image: "busybox",
-							VolumeMounts: []corev1.VolumeMount{{
-								MountPath: "/mount/path",
-								Name:      "the-name",
-								ReadOnly:  true,
-							}},
-						}},
-						Volumes: []corev1.Volume{{
-							Name: "the-name",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: "foo",
-								},
-							},
-						}},
-					},
-					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: ptr.Int64(53),
-				},
-			},
-			Status: RevisionStatus{
-				Status: duckv1.Status{
-					ObservedGeneration: 1,
-					Conditions: duckv1.Conditions{{
-						Type:   "Ready",
-						Status: "True",
-					}},
-				},
+				ServiceName:       "foo-bar",
+				LogURL:            "http://logger.io",
+				ContainerStatuses: []ContainerStatuses{},
 			},
 		},
 	}}
@@ -154,25 +106,25 @@ func TestRevisionConversion(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Revision{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
+			if err := test.in.ConvertTo(context.Background(), beta); err != nil {
 				if test.badField != "" {
 					cce, ok := err.(*CannotConvertError)
 					if ok && cce.Field == test.badField {
 						return
 					}
 				}
-				t.Errorf("ConvertUp() = %v", err)
+				t.Errorf("ConvertTo() = %v", err)
 			} else if test.badField != "" {
 				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
 					test.badField)
 				return
 			}
 			got := &Revision{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
 
@@ -181,27 +133,72 @@ func TestRevisionConversion(t *testing.T) {
 		t.Run(test.name+" (deprecated)", func(t *testing.T) {
 			start := toDeprecated(test.in)
 			beta := &v1beta1.Revision{}
-			if err := start.ConvertUp(context.Background(), beta); err != nil {
+			if err := start.ConvertTo(context.Background(), beta); err != nil {
 				if test.badField != "" {
 					cce, ok := err.(*CannotConvertError)
 					if ok && cce.Field == test.badField {
 						return
 					}
 				}
-				t.Errorf("ConvertUp() = %v", err)
+				t.Errorf("ConvertTo() = %v", err)
 			} else if test.badField != "" {
 				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
 					test.badField)
 				return
 			}
 			got := &Revision{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
+			if err := got.ConvertFrom(context.Background(), beta); err != nil {
+				t.Errorf("ConvertFrom() = %v", err)
 			}
 			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
+	}
+}
+
+func TestRevisionConversionForMultiContainer(t *testing.T) {
+	input := &Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "multi-container",
+		},
+		Spec: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					ServiceAccountName: "robocop",
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}, {
+						Image: "helloworld",
+					}},
+				},
+				TimeoutSeconds:       ptr.Int64(18),
+				ContainerConcurrency: ptr.Int64(53),
+			},
+		},
+		Status: RevisionStatus{
+			Status: duckv1.Status{
+				ObservedGeneration: 1,
+				Conditions: duckv1.Conditions{{
+					Type:   "Ready",
+					Status: "True",
+				}},
+			},
+			ServiceName:       "foo-bar",
+			LogURL:            "http://logger.io",
+			ContainerStatuses: []ContainerStatuses{},
+		},
+	}
+	beta := &v1beta1.Revision{}
+	if err := input.ConvertTo(context.Background(), beta); err != nil {
+		t.Errorf("ConvertTo() = %v", err)
+	}
+	got := &Revision{}
+	if err := got.ConvertFrom(context.Background(), beta); err != nil {
+		t.Errorf("ConvertFrom() = %v", err)
+	}
+	if diff := cmp.Diff(input, got); diff != "" {
+		t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 	}
 }
 
@@ -231,6 +228,9 @@ func TestRevisionConversionError(t *testing.T) {
 					TimeoutSeconds:       ptr.Int64(18),
 					ContainerConcurrency: ptr.Int64(53),
 				},
+				DeprecatedContainer: &corev1.Container{
+					Image: "busybox",
+				},
 			},
 			Status: RevisionStatus{
 				Status: duckv1.Status{
@@ -244,7 +244,7 @@ func TestRevisionConversionError(t *testing.T) {
 				LogURL:      "http://logger.io",
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: apis.ErrMultipleOneOf("container", "containers"),
 	}, {
 		name: "no containers in podspec",
 		in: &Revision{
@@ -281,12 +281,12 @@ func TestRevisionConversionError(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			beta := &v1beta1.Revision{}
-			got := test.in.ConvertUp(context.Background(), beta)
+			got := test.in.ConvertTo(context.Background(), beta)
 			if got == nil {
-				t.Errorf("ConvertUp() = %#v, wanted %v", beta, test.want)
+				t.Errorf("ConvertTo() = %#v, wanted %v", beta, test.want)
 			}
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
+				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
 	}

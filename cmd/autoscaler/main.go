@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -29,24 +30,32 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/version"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statserver"
+	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
@@ -77,12 +86,12 @@ func main() {
 	msp := metrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatalf("Error exporting go memstats view: %v", err)
+		log.Fatal("Error exporting go memstats view: ", err)
 	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
-		log.Fatal("Error building kubeconfig:", err)
+		log.Fatal("Error building kubeconfig: ", err)
 	}
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
@@ -96,17 +105,29 @@ func main() {
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
+	kubeClient := kubeclient.Get(ctx)
+
+	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+			log.Print("Failed to get k8s version ", err)
+		}
+		return err == nil, nil
+	}); perr != nil {
+		log.Fatal("Timed out attempting to get k8s version: ", err)
+	}
+
 	// Set up our logger.
 	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
 	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
+		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
-	statsCh := make(chan autoscaler.StatMessage, statsBufferLen)
+	statsCh := make(chan asmetrics.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
 	profilingHandler := profiling.NewHandler(logger, false)
@@ -116,17 +137,19 @@ func main() {
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
 	cmw.Watch(metrics.ConfigMapName(),
-		metrics.UpdateExporterFromConfigMap(component, logger),
+		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
-	collector := autoscaler.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
-	customMetricsAdapter.WithCustomMetrics(autoscaler.NewMetricProvider(collector))
+	collector := asmetrics.NewMetricCollector(
+		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
+	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
+	multiScaler := scaling.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
 	controllers := []*controller.Impl{
 		kpa.NewController(ctx, cmw, multiScaler),
@@ -143,10 +166,10 @@ func main() {
 
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", err)
+		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	go controller.StartAll(ctx.Done(), controllers...)
+	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {
@@ -177,8 +200,8 @@ func main() {
 }
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
-	metricClient autoscaler.MetricClient) autoscaler.UniScalerFactory {
-	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+	metricClient asmetrics.MetricClient) scaling.UniScalerFactory {
+	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
 		}
@@ -190,20 +213,24 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscaler.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
+		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), &decider.Spec, reporter)
+		return scaling.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), &decider.Spec, ctx)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) autoscaler.StatsScraperFactory {
-	return func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
+	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
+	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(
 			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return autoscaler.NewServiceScraper(metric, podCounter)
+		// TODO(vagababov): while metric name == revision name, we should utilize the proper
+		// values from the labels.
+		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, metric.Name)
+		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
 	}
 }
 

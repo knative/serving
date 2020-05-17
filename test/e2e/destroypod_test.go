@@ -26,26 +26,25 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/davecgh/go-spew/spew"
+	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
 	revisionTimeoutSeconds = 45
-	timeoutRequestDuration = 43 * time.Second
+	timeoutRequestDuration = 35 * time.Second
 )
 
 func TestDestroyPodInflight(t *testing.T) {
@@ -61,29 +60,29 @@ func TestDestroyPodInflight(t *testing.T) {
 		Route:  svcName,
 		Image:  "timeout",
 	}
-
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
-	}
-	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
+	t.Log("Creating a new Route and Configuration")
+	if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+		t.Fatal("Failed to create Configuration:", err)
+	}
+	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatal("Failed to create Route:", err)
+	}
+
 	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 
-	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	routeURL := route.Status.URL.URL()
 
-	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			names.Revision = c.Status.LatestCreatedRevisionName
 			return true, nil
@@ -91,33 +90,34 @@ func TestDestroyPodInflight(t *testing.T) {
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	if err != nil {
-		t.Fatalf("Error obtaining Revision's name %v", err)
+		t.Fatal("Error obtaining Revision's name", err)
 	}
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
-	timeoutRequestDurationInMillis := int64(timeoutRequestDuration / time.Millisecond)
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDurationInMillis))
+	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		t.Fatalf("Error creating http request: %v", err)
+		t.Fatal("Error creating http request:", err)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
@@ -130,12 +130,12 @@ func TestDestroyPodInflight(t *testing.T) {
 		}
 
 		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
+			return fmt.Errorf("expected response to have status 200, had %d", res.StatusCode)
 		}
-		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDurationInMillis)
+		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDuration.Milliseconds())
 		gotBody := string(res.Body)
 		if gotBody != expectedBody {
-			return fmt.Errorf("Unexpected body, expected: %q got: %q", expectedBody, gotBody)
+			return fmt.Errorf("unexpected body, expected: %q got: %q", expectedBody, gotBody)
 		}
 		return nil
 	})
@@ -145,7 +145,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		time.Sleep(timeoutRequestDuration / 2)
 
 		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
+		return clients.ServingClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -173,27 +173,45 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
+	}
+	routeURL := objects.Route.Status.URL.URL()
+
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		routeURL,
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
 	if err != nil || len(pods.Items) == 0 {
-		t.Fatalf("No pods or error: %v", err)
+		t.Fatal("No pods or error:", err)
 	}
+	t.Logf("Saw %d pods", len(pods.Items))
 
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
 	start := time.Now()
 	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
 
-	var latestPodState *v1.Pod
+	var latestPodState *corev1.Pod
 	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
 		pod, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Get(podToDelete, metav1.GetOptions{})
-		if err != nil {
+		if apierrs.IsNotFound(err) {
+			// The podToDelete must be deleted.
+			return true, nil
+		} else if err != nil {
 			return false, nil
 		}
 
@@ -207,6 +225,16 @@ func TestDestroyPodTimely(t *testing.T) {
 		return true, nil
 	}); err != nil {
 		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+
+		// Fetch logs from the queue-proxy.
+		logs, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).GetLogs(podToDelete, &corev1.PodLogOptions{
+			Container: "queue-proxy",
+		}).Do().Raw()
+		if err != nil {
+			t.Error("Failed fetching logs from queue-proxy", err)
+		}
+		t.Log("queue-proxy logs", string(logs))
+
 		t.Fatalf("Did not observe %q to actually be deleted", podToDelete)
 	}
 
@@ -230,9 +258,10 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 	routeURL := objects.Route.Status.URL.URL()
 
@@ -240,31 +269,35 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
-	if err != nil || len(pods.Items) != 1 {
-		t.Fatalf("Number of pods is not 1 or an error: %v", err)
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatal("No pods or error:", err)
 	}
+	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
-	// The request will sleep for more than 25 seconds.
+	// The request will sleep for more than 12 seconds.
+	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("sleep", "25001")
+	q.Set("sleep", "12001")
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		t.Fatalf("Error creating HTTP request: %v", err)
+		t.Fatal("Error creating HTTP request:", err)
 	}
-	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain)
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// Start several requests staggered with 1s delay.

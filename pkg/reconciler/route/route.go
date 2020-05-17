@@ -18,35 +18,30 @@ package route
 
 import (
 	"context"
+	"sort"
 	"strings"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
-	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/apis"
-	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/controller"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -55,109 +50,43 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
-)
-
-// routeFinalizer is the name that we put into the resource finalizer list, e.g.
-//  metadata:
-//    finalizers:
-//    - routes.serving.knative.dev
-var (
-	routeResource  = v1alpha1.Resource("routes")
-	routeFinalizer = routeResource.String()
+	"knative.dev/serving/pkg/reconciler/route/visibility"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	*reconciler.Base
+	kubeclient kubernetes.Interface
+	client     clientset.Interface
 
 	// Listers index properties about resources
-	routeLister         listers.RouteLister
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 	serviceLister       corev1listers.ServiceLister
 	ingressLister       networkinglisters.IngressLister
 	certificateLister   networkinglisters.CertificateLister
-	configStore         reconciler.ConfigStore
 	tracker             tracker.Interface
 
 	clock system.Clock
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements routereconciler.Interface
+var _ routereconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Route resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, c.Recorder)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Route resource with this namespace/name.
-	original, err := c.routeLister.Routes(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Error("Route in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-	// Don't modify the informers copy.
-	route := original.DeepCopy()
-
-	// Reconcile this copy of the route and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, route)
-	if equality.Semantic.DeepEqual(original.Status, route.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if _, err = c.updateStatus(route); err != nil {
-		logger.Warnw("Failed to update route status", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Route %q: %v", route.Name, err)
-		return err
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-	// TODO(mattmoor): Remove this after 0.7 cuts.
-	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
-	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
-	// use of the /status resource.
-	if !equality.Semantic.DeepEqual(original.Spec, route.Spec) {
-		routes := v1alpha1.SchemeGroupVersion.WithResource("routes")
-		if err := c.MarkNeedsUpgrade(routes, route.Namespace, route.Name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
+func ingressClassForRoute(ctx context.Context, r *v1.Route) string {
 	if ingressClass := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
 		return ingressClass
 	}
 	return config.FromContext(ctx).Network.DefaultIngressClass
 }
 
-func certClass(ctx context.Context, r *v1alpha1.Route) string {
+func certClass(ctx context.Context, r *v1.Route) string {
 	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
 		return class
 	}
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
-func (c *Reconciler) getServices(route *v1alpha1.Route) ([]*corev1.Service, error) {
+func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
 	if err != nil {
 		return nil, err
@@ -171,37 +100,20 @@ func (c *Reconciler) getServices(route *v1alpha1.Route) ([]*corev1.Service, erro
 	return serviceCopy, err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-	if r.GetDeletionTimestamp() != nil {
-		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
-		return c.reconcileDeletion(ctx, r)
-	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
+	r.SetDefaults(ctx)
 	r.Status.InitializeConditions()
 
-	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
-		return err
-	}
-
-	logger.Infof("Reconciling route: %#v", r)
-
-	serviceNames, err := c.getServiceNames(ctx, r)
-	if err != nil {
-		return err
-	}
-
-	if err := c.updateRouteStatusURL(ctx, r, serviceNames.clusterLocal()); err != nil {
-		return err
-	}
+	logger.Debugf("Reconciling route: %#v", r)
 
 	// Configure traffic based on the RouteSpec.
-	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
+	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
 		// Need to update ObservedGeneration, otherwise Route's Ready state won't
@@ -218,45 +130,35 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.Address = &duckv1alpha1.Addressable{
-		Addressable: duckv1beta1.Addressable{
-			URL: &apis.URL{
-				Scheme: "http",
-				Host:   resourcenames.K8sServiceFullname(r),
-			},
+	r.Status.Address = &duckv1.Addressable{
+		URL: &apis.URL{
+			Scheme: "http",
+			Host:   resourcenames.K8sServiceFullname(r),
 		},
 	}
 
 	logger.Info("Creating placeholder k8s services")
-	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, serviceNames.existing())
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets)
 	if err != nil {
 		return err
 	}
 
-	clusterLocalServiceNames := serviceNames.clusterLocal()
-	tls, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
+	tls, acmeChallenges, err := c.tls(ctx, r.Status.URL.Host, r, traffic)
 	if err != nil {
 		return err
 	}
 
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
-		&IngressResources{
-			BaseIngressResources: BaseIngressResources{
-				servingClientSet: c.ServingClientSet,
-			},
-			ingressLister: c.ingressLister,
-		},
-	)
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
 
 	if err != nil {
 		return err
 	}
 
-	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration || !ingress.GetStatus().IsReady() {
+	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
 	} else {
-		r.Status.PropagateIngressStatus(*ingress.GetStatus())
+		r.Status.PropagateIngressStatus(ingress.Status)
 	}
 
 	logger.Info("Updating placeholder k8s services with ingress information")
@@ -269,15 +171,15 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	return nil
 }
 
-func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors) (netv1alpha1.IngressAccessor, error) {
+func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
+	ingressClass string, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
 
-	desired, err := ira.makeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
 
-	ingress, err := c.reconcileIngress(ctx, ira, r, desired)
+	ingress, err := c.reconcileIngress(ctx, r, desired)
 	if err != nil {
 		return nil, err
 	}
@@ -285,14 +187,14 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.
 	return ingress, nil
 }
 
-func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, error) {
+func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
-		return tls, nil
+		return tls, nil, nil
 	}
-	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
+	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for domain := range domainToTagMap {
@@ -302,17 +204,16 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	}
 
 	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
-	labelSelector := kubelabels.SelectorFromSet(
-		kubelabels.Set{
-			networking.WildcardCertDomainLabelKey: routeDomain,
-		},
-	)
+	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
+		networking.WildcardCertDomainLabelKey: routeDomain,
+	})
 
 	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
 	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
@@ -329,7 +230,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 				} else {
 					r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
 				}
-				return nil, err
+				return nil, nil, err
 			}
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
 		}
@@ -344,7 +245,9 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
+			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
+			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
 			// When httpProtocol is enabled, downward http scheme.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
@@ -357,25 +260,11 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
 			}
 		}
-		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}
-	return tls, nil
-}
-
-func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
-	logger := logging.FromContext(ctx)
-
-	// remove our finalizer if it is found
-	for i, v := range r.Finalizers {
-		if v == routeFinalizer {
-			r.Finalizers = append(r.Finalizers[:i], r.Finalizers[i+1:]...)
-			break
-		}
-	}
-
-	// Delete the Ingress resources for this Route.
-	logger.Info("Cleaning up Ingress")
-	return c.deleteIngressForRoute(r)
+	sort.Slice(acmeChallenges, func(i, j int) bool {
+		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
+	})
+	return tls, acmeChallenges, nil
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
@@ -384,18 +273,39 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, clusterLocalServices sets.String) (*traffic.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffic.Config, error) {
 	logger := logging.FromContext(ctx)
-	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
-
+	t, trafficErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 	if t == nil {
+		return nil, trafficErr
+	}
+	// Augment traffic configuration with visibility information.  Do not overwrite trafficErr,
+	// since we will use it later.
+	visibility, err := visibility.NewResolver(c.serviceLister).GetVisibility(ctx, r)
+	if err != nil {
 		return nil, err
 	}
-
+	t.Visibility = visibility
+	// Update the Route URL.
+	if err := c.updateRouteStatusURL(ctx, r, t.Visibility); err != nil {
+		return nil, err
+	}
 	// Tell our trackers to reconcile Route whenever the things referred to by our
-	// Traffic stanza change.
+	// traffic stanza change. We also track missing targets since there may be
+	// race conditions were routes are reconciled before their targets appear
+	// in the informer cache
+	for _, obj := range t.MissingTargets {
+		if err := c.tracker.TrackReference(tracker.Reference{
+			APIVersion: obj.APIVersion,
+			Kind:       obj.Kind,
+			Namespace:  obj.Namespace,
+			Name:       obj.Name,
+		}, r); err != nil {
+			return nil, err
+		}
+	}
 	for _, configuration := range t.Configurations {
-		if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(configuration), r); err != nil {
 			return nil, err
 		}
 	}
@@ -403,20 +313,20 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 		if revision.Status.IsActivationRequired() {
 			logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 		}
-		if err := c.tracker.Track(objectRef(revision), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(revision), r); err != nil {
 			return nil, err
 		}
 	}
 
-	badTarget, isTargetError := err.(traffic.TargetError)
-	if err != nil && !isTargetError {
+	badTarget, isTargetError := trafficErr.(traffic.TargetError)
+	if trafficErr != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
-		r.Status.MarkUnknownTrafficError(err.Error())
-		return nil, err
+		r.Status.MarkUnknownTrafficError(trafficErr.Error())
+		return nil, trafficErr
 	}
 	if badTarget != nil && isTargetError {
-		logger.Infof("Marking bad traffic target: %v", badTarget)
+		logger.Info("Marking bad traffic target: ", badTarget)
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
@@ -424,8 +334,9 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	}
 
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
+
 	// Domain should already be present
-	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r, clusterLocalServices)
+	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -435,14 +346,10 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	return t, nil
 }
 
-func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route, clusterLocalServices sets.String) error {
-	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, route.Name, "")
-	if err != nil {
-		return err
-	}
+func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, visibility map[string]netv1alpha1.IngressVisibility) error {
+	isClusterLocal := visibility[traffic.DefaultTarget] == netv1alpha1.IngressVisibilityClusterLocal
 
 	mainRouteMeta := route.ObjectMeta.DeepCopy()
-	isClusterLocal := clusterLocalServices.Has(mainRouteServiceName) || labels.IsObjectLocalVisibility(route.ObjectMeta)
 	labels.SetVisibility(mainRouteMeta, isClusterLocal)
 
 	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
@@ -458,48 +365,9 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	return nil
 }
 
-func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (*serviceNames, error) {
-	// Populate existing service name sets
-	existingServices, err := c.getServices(route)
-	if err != nil {
-		return nil, err
-	}
-	existingServiceNames := resources.GetNames(existingServices)
-	existingClusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
-	existingClusterLocalServiceNames := resources.GetNames(existingClusterLocalServices)
-	existingPublicServiceNames := existingServiceNames.Difference(existingClusterLocalServiceNames)
-
-	// Populate desired service name sets
-	desiredServiceNames, err := resources.GetDesiredServiceNames(ctx, route)
-	if err != nil {
-		return nil, err
-	}
-	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
-		return &serviceNames{
-			existingPublicServiceNames:       existingPublicServiceNames,
-			existingClusterLocalServiceNames: existingClusterLocalServiceNames,
-			desiredPublicServiceNames:        sets.NewString(),
-			desiredClusterLocalServiceNames:  desiredServiceNames,
-		}, nil
-	}
-	desiredPublicServiceNames := desiredServiceNames.Intersection(existingPublicServiceNames)
-	desiredClusterLocalServiceNames := desiredServiceNames.Intersection(existingClusterLocalServiceNames)
-
-	// Any new desired services will follow the default route visibility, which is public.
-	serviceWithDefaultVisibility := desiredServiceNames.Difference(existingServiceNames)
-	desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
-
-	return &serviceNames{
-		existingPublicServiceNames:       existingPublicServiceNames,
-		existingClusterLocalServiceNames: existingClusterLocalServiceNames,
-		desiredPublicServiceNames:        desiredPublicServiceNames,
-		desiredClusterLocalServiceNames:  desiredClusterLocalServiceNames,
-	}, nil
-}
-
 // GetServingClient returns the client to access Knative serving resources.
 func (c *Reconciler) GetServingClient() clientset.Interface {
-	return c.ServingClientSet
+	return c.client
 }
 
 // GetCertificateLister returns the lister for Knative Certificate.
@@ -511,31 +379,16 @@ func (c *Reconciler) GetCertificateLister() networkinglisters.CertificateLister 
 // Misc helpers.
 /////////////////////////////////////////
 
-type serviceNames struct {
-	existingPublicServiceNames       sets.String
-	existingClusterLocalServiceNames sets.String
-	desiredPublicServiceNames        sets.String
-	desiredClusterLocalServiceNames  sets.String
-}
-
-func (sn serviceNames) existing() sets.String {
-	return sn.existingPublicServiceNames.Union(sn.existingClusterLocalServiceNames)
-}
-
-func (sn serviceNames) clusterLocal() sets.String {
-	return sn.existingClusterLocalServiceNames.Union(sn.desiredClusterLocalServiceNames)
-}
-
 type accessor interface {
 	GetGroupVersionKind() schema.GroupVersionKind
 	GetNamespace() string
 	GetName() string
 }
 
-func objectRef(a accessor) corev1.ObjectReference {
+func objectRef(a accessor) tracker.Reference {
 	gvk := a.GetGroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
+	return tracker.Reference{
 		APIVersion: apiVersion,
 		Kind:       kind,
 		Namespace:  a.GetNamespace(),
@@ -554,7 +407,7 @@ func getTrafficNames(targets map[string]traffic.RevisionTargets) []string {
 // Sets the traffic URL scheme to scheme if the URL matches the dnsNames.
 // dnsNames are DNS names under a certificate for a particular domain, and so only change
 // the corresponding traffic under the route, rather than all traffic
-func setTargetsScheme(rs *v1alpha1.RouteStatus, dnsNames []string, scheme string) {
+func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 	for i := range rs.Traffic {
 		if rs.Traffic[i].URL == nil {
 			continue

@@ -23,17 +23,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestMakeLabels(t *testing.T) {
 	tests := []struct {
 		name string
-		rev  *v1alpha1.Revision
+		rev  *v1.Revision
 		want map[string]string
 	}{{
 		name: "no user labels",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
@@ -47,7 +47,7 @@ func TestMakeLabels(t *testing.T) {
 		},
 	}, {
 		name: "propagate user labels",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
@@ -67,7 +67,7 @@ func TestMakeLabels(t *testing.T) {
 		},
 	}, {
 		name: "override app label key",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",

@@ -26,10 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // accessor defines an abstraction for manipulating labeled entity
@@ -42,21 +41,43 @@ type accessor interface {
 
 // syncLabels makes sure that the revisions and configurations referenced from
 // a Route are labeled with route labels.
-func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
+func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
-	// Walk the revisions in Route's .status.traffic and build a list
-	// of Configurations to label from their OwnerReferences.
-	for _, tt := range r.Status.Traffic {
-		rev, err := c.revisionLister.Revisions(r.Namespace).Get(tt.RevisionName)
-		if err != nil {
-			return err
+	// Walk the Route's .status.traffic and .spec.traffic and build a list
+	// of revisions and configurations to label
+	for _, tt := range append(r.Status.Traffic, r.Spec.Traffic...) {
+		revName := tt.RevisionName
+		configName := tt.ConfigurationName
+
+		if revName != "" {
+			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
+			if err != nil {
+				return err
+			}
+
+			revisions.Insert(revName)
+
+			// If the owner reference is a configuration, treat it like a configuration target
+			if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+				configName = owner.Name
+			}
 		}
-		revisions.Insert(tt.RevisionName)
-		owner := metav1.GetControllerOf(rev)
-		if owner != nil && owner.Kind == "Configuration" {
-			configs.Insert(owner.Name)
+
+		if configName != "" {
+			config, err := c.configurationLister.Configurations(r.Namespace).Get(configName)
+			if err != nil {
+				return err
+			}
+
+			configs.Insert(configName)
+
+			// If the target is for the latest revision, add the latest created revision to the list
+			// so that there is a smooth transition when the new revision becomes ready.
+			if config.Status.LatestCreatedRevisionName != "" && tt.LatestRevision != nil && *tt.LatestRevision {
+				revisions.Insert(config.Status.LatestCreatedRevisionName)
+			}
 		}
 	}
 
@@ -89,39 +110,23 @@ func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(ctx context.Context, route *v1alpha1.Route, acc accessor, names sets.String) error {
-	nameToAccessor := make(map[string]kmeta.Accessor)
-
-	// Lookup names that are missing our Route label.
+func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
 			return err
 		}
-		nameToAccessor[name] = elt
 		routeName, ok := elt.GetLabels()[serving.RouteLabelKey]
-		if !ok {
-			continue
-		}
-		if routeName != route.Name {
-			return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
-				elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
-		}
-	}
-
-	// Set label for newly added names as traffic target.
-	for _, name := range names.List() {
-		elt := nameToAccessor[name]
-		if elt.GetLabels() == nil {
-			elt.SetLabels(make(map[string]string))
-		} else if _, ok := elt.GetLabels()[serving.RouteLabelKey]; ok {
-			continue
-		}
-
-		if err := setRouteLabel(acc, elt, &route.Name); err != nil {
-			logging.FromContext(ctx).Errorf("Failed to add route label to %s %q: %s",
-				elt.GroupVersionKind(), elt.GetName(), err)
-			return err
+		if ok {
+			if routeName != route.Name {
+				return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
+					elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
+			}
+		} else {
+			if err := setRouteLabel(acc, elt, &route.Name); err != nil {
+				return fmt.Errorf("failed to add route label to %s %q: %w",
+					elt.GroupVersionKind(), elt.GetName(), err)
+			}
 		}
 	}
 
@@ -144,9 +149,8 @@ func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor,
 		}
 
 		if err := setRouteLabel(acc, elt, nil); err != nil {
-			logging.FromContext(ctx).Errorf("Failed to remove route label from %s %q: %s",
+			return fmt.Errorf("failed to remove route label to %s %q: %w",
 				elt.GroupVersionKind(), elt.GetName(), err)
-			return err
 		}
 	}
 
@@ -162,7 +166,6 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 			"labels": map[string]interface{}{
 				serving.RouteLabelKey: routeName,
 			},
-			"resourceVersion": elt.GetResourceVersion(),
 		},
 	}
 
@@ -205,7 +208,7 @@ func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.r.ServingClientSet.ServingV1alpha1().Revisions(ns).Patch(name, pt, p)
+	_, err := r.r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
 	return err
 }
 
@@ -240,6 +243,6 @@ func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.r.ServingClientSet.ServingV1alpha1().Configurations(ns).Patch(name, pt, p)
+	_, err := c.r.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
 }

@@ -27,19 +27,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
 	"knative.dev/pkg/test/spoof"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/pkg/test/testgrid"
+	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/shared/junit"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
@@ -54,7 +53,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 			for {
 				select {
@@ -63,7 +62,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						t.Logf("Error sending request: %v", err)
+						t.Log("Error sending request:", err)
 					}
 					resChannel <- res
 				}
@@ -72,7 +71,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 	}
 
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v", err)
+		return fmt.Errorf("error making requests for scale up: %w", err)
 	}
 	return nil
 }
@@ -95,16 +94,16 @@ func parseResponse(body string) (*event, *event, error) {
 
 	start, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse start timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse start timestamp, body %q: %w", body, err)
 	}
 
 	end, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse end timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse end timestamp, body %q: %w", body, err)
 	}
 
-	startEvent := &event{1, time.Unix(0, int64(start))}
-	endEvent := &event{-1, time.Unix(0, int64(end))}
+	startEvent := &event{1, time.Unix(0, start)}
+	endEvent := &event{-1, time.Unix(0, end)}
 
 	return startEvent, endEvent, nil
 }
@@ -133,14 +132,14 @@ func TestObservedConcurrency(t *testing.T) {
 		})
 	}
 	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
+		t.Fatal("Cannot create output xml:", err)
 	}
 }
 
 func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
-		t.Fatalf("Cannot initialize performance client: %v", err)
+		t.Fatal("Cannot initialize performance client:", err)
 	}
 
 	names := test.ResourceNames{
@@ -153,23 +152,34 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
+	objs, err := v1test.CreateServiceReady(t, clients, &names,
+		v1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}),
-		v1a1opts.WithContainerConcurrency(1))
+		v1opts.WithContainerConcurrency(1))
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
-	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	baseURL := objs.Route.Status.URL.URL()
+
+	// See https://github.com/knative/serving/issues/5573 for why we need this
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		baseURL,
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"ObservedConcurrency",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing %s: %v", baseURL, err)
+	}
+
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// This just helps with preallocation.
@@ -181,6 +191,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	failedRequests := 0
 
 	t.Logf("Running %d concurrent requests for %v", concurrency, duration)
+
+	url := fmt.Sprintf("http://%s/?timeout=1000", baseURL.Hostname())
 	eg.Go(func() error {
 		return generateTraffic(t, client, url, concurrency, duration, responseChannel)
 	})
@@ -192,7 +204,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			}
 			start, end, err := parseResponse(string(response.Body))
 			if err != nil {
-				t.Logf("Failed to parse the body: %v", err)
+				t.Log("Failed to parse the body:", err)
 				failedRequests++
 				continue
 			}
@@ -206,7 +218,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	})
 
 	if err := eg.Wait(); err != nil {
-		t.Fatalf("Failed to generate traffic and process responses: %v", err)
+		t.Fatal("Failed to generate traffic and process responses:", err)
 	}
 	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
 
@@ -217,7 +229,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			t.Logf("Never scaled to %d", i)
 		} else {
 			t.Logf("Took %v to scale to %d", toConcurrency, i)
-			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
+			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency.Milliseconds()), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
 	tc = append(tc, perf.CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))

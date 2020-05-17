@@ -23,13 +23,12 @@ import (
 
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
@@ -37,14 +36,14 @@ import (
 // domainTagMap is an one-to-one mapping between domain and tag, for major domain (tag-less),
 // the value is an empty string
 // Returns one certificate for each domain
-func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, certClass string) []*networkingv1alpha1.Certificate {
+func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass string) []*networkingv1alpha1.Certificate {
 	order := make(sort.StringSlice, 0, len(domainTagMap))
 	for dnsName := range domainTagMap {
 		order = append(order, dnsName)
 	}
 	order.Sort()
 
-	var certs []*networkingv1alpha1.Certificate
+	certs := make([]*networkingv1alpha1.Certificate, 0, len(order))
 	for _, dnsName := range order {
 		tag := domainTagMap[dnsName]
 
@@ -55,7 +54,7 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, cer
 		// The "-[tag digest]" is computed only if there's a tag
 		certName := names.Certificate(route)
 		if tag != "" {
-			certName = fmt.Sprintf("%s-%d", certName, adler32.Checksum([]byte(tag)))
+			certName += fmt.Sprintf("-%d", adler32.Checksum([]byte(tag)))
 		}
 
 		certs = append(certs, &networkingv1alpha1.Certificate{
@@ -63,7 +62,7 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, cer
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-				Annotations: resources.FilterMap(resources.UnionMaps(map[string]string{
+				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
 				}, route.ObjectMeta.Annotations), func(key string) bool {
 					return key == corev1.LastAppliedConfigAnnotation

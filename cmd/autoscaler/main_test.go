@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,10 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 )
 
 const (
@@ -35,7 +36,7 @@ const (
 )
 
 var (
-	kubeClient   = fakeK8s.NewSimpleClientset()
+	kubeClient   = fakek8s.NewSimpleClientset()
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
@@ -66,12 +67,12 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	}}
 
 	uniScalerFactory := getTestUniScalerFactory()
-	decider := &autoscaler.Decider{
+	decider := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			ServiceName: "wholesome-service",
 		},
 	}
@@ -123,7 +124,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	endpoints(testNamespace, "magic-services-offered")
 	uniScalerFactory := getTestUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
-		decider := &autoscaler.Decider{
+		decider := &scaling.Decider{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      testRevision,
@@ -133,7 +134,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 					serving.ConfigurationLabelKey: "test-config",
 				},
 			},
-			Spec: autoscaler.DeciderSpec{
+			Spec: scaling.DeciderSpec{
 				ServiceName: "magic-services-offered",
 			},
 		}
@@ -144,6 +145,6 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	}
 }
 
-func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+func getTestUniScalerFactory() func(decider *scaling.Decider) (scaling.UniScaler, error) {
 	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &autoscalerfake.StaticMetricClient)
 }

@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,7 +24,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -40,6 +41,8 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
+
+	. "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"
@@ -74,8 +77,8 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, true /* isAggresive*/)
+	reqChan := make(chan network.ReqEvent, 10)
+	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -88,8 +91,8 @@ func TestHandlerReqEvent(t *testing.T) {
 	h(writer, req)
 	select {
 	case e := <-reqChan:
-		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
+		if e.Type != network.ProxiedIn {
+			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -97,12 +100,24 @@ func TestHandlerReqEvent(t *testing.T) {
 }
 
 func TestProbeHandler(t *testing.T) {
+	logger = TestLogger(t)
+	f, err := ioutil.TempFile("", "labels")
+	if err != nil {
+		t.Errorf("Failed to created temporary file: %v", err)
+	}
+	defer os.RemoveAll(f.Name())
+	if _, err = f.Write([]byte("true")); err != nil {
+		t.Errorf("failed to write to the file %v", err)
+	}
+	f.Close()
+
 	testcases := []struct {
 		name          string
 		prober        func() bool
 		wantCode      int
 		wantBody      string
 		requestHeader string
+		cfg           config
 	}{{
 		name:          "unexpected probe header",
 		prober:        func() bool { return true },
@@ -115,6 +130,13 @@ func TestProbeHandler(t *testing.T) {
 		wantCode:      http.StatusOK,
 		wantBody:      queue.Name,
 		requestHeader: queue.Name,
+	}, {
+		name:          "fail readiness",
+		prober:        nil,
+		wantCode:      http.StatusBadRequest,
+		wantBody:      "failing healthcheck",
+		requestHeader: queue.Name,
+		cfg:           config{DownwardAPILabelsPath: f.Name()},
 	}, {
 		name:          "nil probe function",
 		prober:        nil,
@@ -136,7 +158,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, tc.cfg, logger)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -150,36 +172,10 @@ func TestProbeHandler(t *testing.T) {
 	}
 }
 
-func TestCreateVarLogLink(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
-	if err != nil {
-		t.Errorf("Failed to created temporary directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-	var env = config{
-		ServingNamespace:   "default",
-		ServingPod:         "service-7f97f9465b-5kkm5",
-		UserContainerName:  "user-container",
-		VarLogVolumeName:   "knative-var-log",
-		InternalVolumePath: dir,
-	}
-	createVarLogLink(env)
-
-	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
-	want := "../knative-var-log"
-	got, err := os.Readlink(source)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if got != want {
-		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
-	}
-}
-
 func TestProbeQueueInvalidPort(t *testing.T) {
 	const port = 0 // invalid port
 
-	if err := probeQueueHealthPath(port, 1); err == nil {
+	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
 		t.Error("Expected error, got nil")
 	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -189,7 +185,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
 
-	if err := probeQueueHealthPath(port, 1); err == nil {
+	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -213,14 +209,14 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1)
+	err = probeQueueHealthPath(port, 1, config{})
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
 	}
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
@@ -243,12 +239,54 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1); err != nil {
+	if err = probeQueueHealthPath(port, 1, config{}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeFailFast(t *testing.T) {
+	f, err := ioutil.TempFile("", "labels")
+	if err != nil {
+		t.Errorf("Failed to created temporary file: %v", err)
+	}
+	defer os.RemoveAll(f.Name())
+
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
+		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
+			t.Fatal("Failed to process downward API labels:", err)
+		} else if preferScaledown {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	})
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	if _, err = f.Write([]byte("true")); err != nil {
+		t.Errorf("failed writing to file %v", err)
+	}
+	f.Close()
+
+	start := time.Now()
+	if err = probeQueueHealthPath(port, 1 /*seconds*/, config{DownwardAPILabelsPath: f.Name()}); err == nil {
+		t.Error("probeQueueHealthPath did not fail")
+	}
+
+	// if fails due to timeout and not cancelation, then it took too long
+	if time.Since(start) >= 1*time.Second {
+		t.Error("took too long to fail")
 	}
 }
 
@@ -273,14 +311,14 @@ func TestProbeQueueTimeout(t *testing.T) {
 	}
 
 	timeout := 1
-	if err = probeQueueHealthPath(port, timeout); err == nil {
+	if err = probeQueueHealthPath(port, timeout, config{}); err == nil {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
 	ts.Close()
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
@@ -307,28 +345,39 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 
 	timeout := 0
-	if err := probeQueueHealthPath(port, timeout); err != nil {
+	if err := probeQueueHealthPath(port, timeout, config{}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
 
 func TestQueueTraceSpans(t *testing.T) {
+	logger = TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
 		wantSpans     int
 		requestHeader string
+		infiniteCC    bool
 		probeWillFail bool
 		probeTrace    bool
 		enableTrace   bool
 	}{{
 		name:          "proxy trace",
 		prober:        func() bool { return true },
+		wantSpans:     3,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "proxy trace, no breaker",
+		prober:        func() bool { return true },
 		wantSpans:     2,
 		requestHeader: "",
 		probeWillFail: false,
 		probeTrace:    false,
 		enableTrace:   true,
+		infiniteCC:    true,
 	}, {
 		name:          "true prober function with probe trace",
 		prober:        func() bool { return true },
@@ -403,17 +452,20 @@ func TestQueueTraceSpans(t *testing.T) {
 
 				proxy := httputil.NewSingleHostReverseProxy(serverURL)
 				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-				breaker := queue.NewBreaker(params)
-				reqChan := make(chan queue.ReqEvent, 10)
+				var breaker *queue.Breaker
+				if !tc.infiniteCC {
+					breaker = queue.NewBreaker(params)
+				}
+				reqChan := make(chan network.ReqEvent, 10)
 
 				proxy.Transport = &ochttp.Transport{
-					Base: network.AutoTransport,
+					Base: pkgnet.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, true /* isAggresive*/)
+				h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{}, logger)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
@@ -422,13 +474,24 @@ func TestQueueTraceSpans(t *testing.T) {
 			if len(gotSpans) != tc.wantSpans {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
-			spanNames := []string{"probe", "/", "proxy"}
+			spanNames := []string{"probe", "/", "queue_proxy"}
 			if !tc.probeTrace {
 				spanNames = spanNames[1:]
 			}
-			for i, spanName := range spanNames[0:tc.wantSpans] {
+			// We want to add `queueWait` span only if there is possible queueing
+			// and if the tests actually expects tracing.
+			if !tc.infiniteCC && tc.wantSpans > 1 {
+				spanNames = append([]string{"queue_wait"}, spanNames...)
+			}
+			gs := []string{}
+			for i := 0; i < len(gotSpans); i++ {
+				gs = append(gs, gotSpans[i].Name)
+			}
+			t.Log(spanNames)
+			t.Log(gs)
+			for i, spanName := range spanNames[:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
-					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+					t.Errorf("Span[%d].Name = %q, want: %q", i, gotSpans[i].Name, spanName)
 				}
 				if tc.probeWillFail {
 					if len(gotSpans[i].Annotations) == 0 {
@@ -438,6 +501,51 @@ func TestQueueTraceSpans(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func BenchmarkProxyHandler(b *testing.B) {
+	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
+	reportTicker := time.NewTicker(reportingPeriod)
+	defer reportTicker.Stop()
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		"ns", "testksvc", "testksvc",
+		"pod", reportingPeriod)
+	if err != nil {
+		b.Fatal("Failed to create stats reporter:", err)
+	}
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(network.OriginalHostHeader, wantHost)
+
+	tests := []struct {
+		label   string
+		breaker *queue.Breaker
+	}{{
+		label:   "breaker-10",
+		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+	}, {
+		label:   "breaker-infinite",
+		breaker: nil,
+	}}
+	for _, tc := range tests {
+		h := proxyHandler(reqChan, tc.breaker, true /*tracingEnabled*/, baseHandler)
+		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
+			for j := 0; j < b.N; j++ {
+				h(resp, req)
+			}
+		})
+		b.Run(fmt.Sprintf("parallel-%s", tc.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					h(resp, req)
+				}
+			})
 		})
 	}
 }

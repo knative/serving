@@ -27,7 +27,8 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -36,26 +37,26 @@ func TestMakeDecider(t *testing.T) {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
 		svc    string
-		want   *autoscaler.Decider
-		cfgOpt func(autoscaler.Config) *autoscaler.Config
+		want   *scaling.Decider
+		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100)),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
-		want: decider(withTarget(80), withPanicThreshold(160.0), withTotal(100)),
-		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
 	}, {
 		name: "scale up and scale down rates",
 		pa:   pa(),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			withScaleUpDownRates(19.84, 19.88)),
-		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.MaxScaleUpRate = 19.84
 			c.MaxScaleDownRate = 19.88
 			return &c
@@ -71,26 +72,34 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
-		want: decider(withTarget(80), withTotal(100), withPanicThreshold(160)), // PanicThreshold depends on TCC.
-		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
 	}, {
 		name: "with burst capacity set",
 		pa:   pa(WithPAContainerConcurrency(120)),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192), withTargetBurstCapacity(63)),
-		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
 	}, {
+		name: "with activator capacity override",
+		pa:   pa(),
+		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ActivatorCapacity = 420
+			return &c
+		},
+	}, {
 		name: "with burst capacity set on the annotation",
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
-		want: decider(withTarget(96), withTotal(120), withPanicThreshold(192),
+		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
-		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -107,7 +116,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with higher panic target",
 		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
 		want: decider(
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10),
+			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with service name",
@@ -115,12 +124,12 @@ func TestMakeDecider(t *testing.T) {
 		svc:  "rock-solid",
 		want: decider(
 			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(40.0), withTotal(10.0),
+			withTarget(10.0), withPanicThreshold(4.0), withTotal(10.0),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
-		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
 	}}
 
 	for _, tc := range cases {
@@ -165,13 +174,15 @@ func withTBCAnnotation(tbc string) PodAutoscalerOption {
 }
 
 func withDeciderTBCAnnotation(tbc string) deciderOption {
-	return func(d *autoscaler.Decider) {
+	return func(d *scaling.Decider) {
 		d.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
 	}
 }
 
-func decider(options ...deciderOption) *autoscaler.Decider {
-	m := &autoscaler.Decider{
+type deciderOption func(*scaling.Decider)
+
+func decider(options ...deciderOption) *scaling.Decider {
+	m := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -180,7 +191,7 @@ func decider(options ...deciderOption) *autoscaler.Decider {
 				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 			},
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			TickInterval:        config.TickInterval,
 			ScalingMetric:       "concurrency",
@@ -188,6 +199,7 @@ func decider(options ...deciderOption) *autoscaler.Decider {
 			TotalValue:          100,
 			TargetBurstCapacity: 211,
 			PanicThreshold:      200,
+			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
 		},
 	}
@@ -197,80 +209,84 @@ func decider(options ...deciderOption) *autoscaler.Decider {
 	return m
 }
 
-type deciderOption func(*autoscaler.Decider)
+func withActivatorCapacity(x float64) deciderOption {
+	return func(d *scaling.Decider) {
+		d.Spec.ActivatorCapacity = x
+	}
+}
 
 func withMetric(metric string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.ScalingMetric = metric
 	}
 }
 
 func withTargetBurstCapacity(tbc float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TargetBurstCapacity = tbc
 	}
 }
 
 func withScaleUpDownRates(up, down float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.MaxScaleUpRate = up
 		decider.Spec.MaxScaleDownRate = down
 	}
 }
 
 func withTotal(total float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TotalValue = total
 	}
 }
 
 func withTarget(target float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TargetValue = target
 	}
 }
 
 func withService(s string) deciderOption {
-	return func(d *autoscaler.Decider) {
+	return func(d *scaling.Decider) {
 		d.Spec.ServiceName = s
 	}
 }
 
 func withPanicThreshold(threshold float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.PanicThreshold = threshold
 	}
 }
 
 func withTargetAnnotation(target string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
 func withMetricAnnotation(metric string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.MetricAnnotationKey] = metric
 	}
 }
 
 func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
 	}
 }
 
-var config = &autoscaler.Config{
+var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                211.0,
 	MaxScaleUpRate:                     10.0,
 	RPSTargetDefault:                   100,
+	ActivatorCapacity:                  811,
 	TargetUtilization:                  1.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
-	PanicWindow:                        6 * time.Second,
 	PanicWindowPercentage:              10,
 	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,

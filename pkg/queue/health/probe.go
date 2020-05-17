@@ -72,7 +72,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
-		return fmt.Errorf("error constructing probe request %v", err)
+		return fmt.Errorf("error constructing probe request %w", err)
 	}
 
 	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)

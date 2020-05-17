@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,13 +27,10 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	DomainEnv        = "METRICS_DOMAIN"
-	ConfigMapNameEnv = "CONFIG_OBSERVABILITY_NAME"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 // metricsBackend specifies the backend to use for metrics
@@ -45,42 +43,34 @@ const (
 	AllowStackdriverCustomMetricsKey    = "metrics.allow-stackdriver-custom-metrics"
 	BackendDestinationKey               = "metrics.backend-destination"
 	ReportingPeriodKey                  = "metrics.reporting-period-seconds"
-	StackdriverProjectIDKey             = "metrics.stackdriver-project-id"
 	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
+	// Stackdriver client configuration keys
+	StackdriverProjectIDKey   = "metrics.stackdriver-project-id"
+	StackdriverGCPLocationKey = "metrics.stackdriver-gcp-location"
+	StackdriverClusterNameKey = "metrics.stackdriver-cluster-name"
+	StackdriverUseSecretKey   = "metrics.stackdriver-use-secret"
+
+	DomainEnv = "METRICS_DOMAIN"
 
 	// Stackdriver is used for Stackdriver backend
 	Stackdriver metricsBackend = "stackdriver"
 	// Prometheus is used for Prometheus backend
 	Prometheus metricsBackend = "prometheus"
+	// OpenCensus is used to export to the OpenCensus Agent / Collector,
+	// which can send to many other services.
+	OpenCensus metricsBackend = "opencensus"
+	// None is used to export, well, nothing.
+	None metricsBackend = "none"
 
 	defaultBackendEnvName = "DEFAULT_METRICS_BACKEND"
+
+	CollectorAddressKey = "metrics.opencensus-address"
+	CollectorSecureKey  = "metrics.opencensus-require-tls"
 
 	defaultPrometheusPort = 9090
 	maxPrometheusPort     = 65535
 	minPrometheusPort     = 1024
 )
-
-// ExporterOptions contains options for configuring the exporter.
-type ExporterOptions struct {
-	// Domain is the metrics domain. e.g. "knative.dev". Must be present.
-	Domain string
-
-	// Component is the name of the component that emits the metrics. e.g.
-	// "activator", "queue_proxy". Should only contains alphabets and underscore.
-	// Must be present.
-	Component string
-
-	// PrometheusPort is the port to expose metrics if metrics backend is Prometheus.
-	// It should be between maxPrometheusPort and maxPrometheusPort. 0 value means
-	// using the default 9090 value. If is ignored if metrics backend is not
-	// Prometheus.
-	PrometheusPort int
-
-	// ConfigMap is the data from config map config-observability. Must be present.
-	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
-	// for details.
-	ConfigMap map[string]string
-}
 
 type metricsConfig struct {
 	// The metrics domain. e.g. "serving.knative.dev" or "build.knative.dev".
@@ -93,25 +83,25 @@ type metricsConfig struct {
 	// If duration is less than or equal to zero, it enables the default behavior.
 	reportingPeriod time.Duration
 
+	// recorder provides a hook for performing custom transformations before
+	// writing the metrics to the stats.RecordWithOptions interface.
+	recorder func(context.Context, []stats.Measurement, ...stats.Options) error
+
+	// secret contains credentials for an exporter to use for authentication.
+	secret *corev1.Secret
+
+	// ---- OpenCensus specific below ----
+	// collectorAddress is the address of the collector, if not `localhost:55678`
+	collectorAddress string
+	// Require mutual TLS. Defaults to "false" because mutual TLS is hard to set up.
+	requireSecure bool
+
 	// ---- Prometheus specific below ----
 	// prometheusPort is the port where metrics are exposed in Prometheus
 	// format. It defaults to 9090.
 	prometheusPort int
 
 	// ---- Stackdriver specific below ----
-	// stackdriverProjectID is the stackdriver project ID where the stats data are
-	// uploaded to. This is not the GCP project ID.
-	stackdriverProjectID string
-	// allowStackdriverCustomMetrics indicates whether it is allowed to send metrics to
-	// Stackdriver using "global" resource type and custom metric type if the
-	// metrics are not supported by the registered monitored resource types. Setting this
-	// flag to "true" could cause extra Stackdriver charge.
-	// If backendDestination is not Stackdriver, this is ignored.
-	allowStackdriverCustomMetrics bool
-	// stackdriverCustomMetricsSubDomain is the subdomain to use when sending custom metrics to StackDriver.
-	// If not specified, the default is `knative.dev`.
-	// If backendDestination is not Stackdriver, this is ignored.
-	stackdriverCustomMetricsSubDomain string
 	// True if backendDestination equals to "stackdriver". Store this in a variable
 	// to reduce string comparison operations.
 	isStackdriverBackend bool
@@ -123,9 +113,56 @@ type metricsConfig struct {
 	// E.g., "custom.googleapis.com/<subdomain>/<component>".
 	// Store this in a variable to reduce string join operations.
 	stackdriverCustomMetricTypePrefix string
+	// stackdriverClientConfig is the metadata to configure the metrics exporter's Stackdriver client.
+	stackdriverClientConfig StackdriverClientConfig
 }
 
-func getMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
+// StackdriverClientConfig encapsulates the metadata required to configure a Stackdriver client.
+type StackdriverClientConfig struct {
+	// ProjectID is the stackdriver project ID to which data is uploaded.
+	// This is not necessarily the GCP project ID where the Kubernetes cluster is hosted.
+	// Required when the Kubernetes cluster is not hosted on GCE.
+	ProjectID string
+	// GCPLocation is the GCP region or zone to which data is uploaded.
+	// This is not necessarily the GCP location where the Kubernetes cluster is hosted.
+	// Required when the Kubernetes cluster is not hosted on GCE.
+	GCPLocation string
+	// ClusterName is the cluster name with which the data will be associated in Stackdriver.
+	// Required when the Kubernetes cluster is not hosted on GCE.
+	ClusterName string
+	// UseSecret is whether the credentials stored in a Kubernetes Secret should be used to
+	// authenticate with Stackdriver. The Secret name and namespace can be specified by calling
+	// metrics.SetStackdriverSecretLocation.
+	// If UseSecret is false, Google Application Default Credentials
+	// will be used (https://cloud.google.com/docs/authentication/production).
+	UseSecret bool
+}
+
+// NewStackdriverClientConfigFromMap creates a stackdriverClientConfig from the given map
+func NewStackdriverClientConfigFromMap(config map[string]string) *StackdriverClientConfig {
+	return &StackdriverClientConfig{
+		ProjectID:   config[StackdriverProjectIDKey],
+		GCPLocation: config[StackdriverGCPLocationKey],
+		ClusterName: config[StackdriverClusterNameKey],
+		UseSecret:   strings.EqualFold(config[StackdriverUseSecretKey], "true"),
+	}
+}
+
+// record applies the `ros` Options to each measurement in `mss` and then records the resulting
+// measurements in the metricsConfig's designated backend.
+func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
+	if mc == nil {
+		// Don't record data points if the metric config is not initialized yet.
+		// At this point, it's unclear whether should record or not.
+		return nil
+	}
+	if mc.recorder == nil {
+		return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
+	}
+	return mc.recorder(ctx, mss, ros...)
+}
+
+func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
 	var mc metricsConfig
 
 	if ops.Domain == "" {
@@ -148,16 +185,33 @@ func getMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsC
 		// Use Prometheus if DEFAULT_METRICS_BACKEND does not exist or is empty
 		backend = string(Prometheus)
 	}
-	// Override backend if it is setting in config map.
+	// Override backend if it is set in the config map.
 	if backendFromConfig, ok := m[BackendDestinationKey]; ok {
 		backend = backendFromConfig
 	}
 	lb := metricsBackend(strings.ToLower(backend))
 	switch lb {
-	case Stackdriver, Prometheus:
+	case Stackdriver, Prometheus, OpenCensus:
 		mc.backendDestination = lb
 	default:
 		return nil, fmt.Errorf("unsupported metrics backend value %q", backend)
+	}
+
+	if mc.backendDestination == OpenCensus {
+		mc.collectorAddress = ops.ConfigMap[CollectorAddressKey]
+		if isSecure := ops.ConfigMap[CollectorSecureKey]; isSecure != "" {
+			var err error
+			if mc.requireSecure, err = strconv.ParseBool(isSecure); err != nil {
+				return nil, fmt.Errorf("invalid %s value %q", CollectorSecureKey, isSecure)
+			}
+
+			if mc.requireSecure {
+				mc.secret, err = getOpenCensusSecret(ops.Component, ops.Secrets)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	if mc.backendDestination == Prometheus {
@@ -171,25 +225,60 @@ func getMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsC
 		mc.prometheusPort = pp
 	}
 
-	// If stackdriverProjectIDKey is not provided for stackdriver backend destination, OpenCensus will try to
+	// If stackdriverClientConfig is not provided for stackdriver backend destination, OpenCensus will try to
 	// use the application default credentials. If that is not available, Opencensus would fail to create the
 	// metrics exporter.
 	if mc.backendDestination == Stackdriver {
-		mc.stackdriverProjectID = m[StackdriverProjectIDKey]
+		scc := NewStackdriverClientConfigFromMap(m)
+		mc.stackdriverClientConfig = *scc
 		mc.isStackdriverBackend = true
+		var allowCustomMetrics bool
+		var err error
 		mc.stackdriverMetricTypePrefix = path.Join(mc.domain, mc.component)
 
-		mc.stackdriverCustomMetricsSubDomain = defaultCustomMetricSubDomain
-		if sdcmd, ok := m[StackdriverCustomMetricSubDomainKey]; ok && sdcmd != "" {
-			mc.stackdriverCustomMetricsSubDomain = sdcmd
+		customMetricsSubDomain := m[StackdriverCustomMetricSubDomainKey]
+		if customMetricsSubDomain == "" {
+			customMetricsSubDomain = defaultCustomMetricSubDomain
 		}
-		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, mc.stackdriverCustomMetricsSubDomain, mc.component)
-		if ascmStr, ok := m[AllowStackdriverCustomMetricsKey]; ok && ascmStr != "" {
-			ascmBool, err := strconv.ParseBool(ascmStr)
+		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, customMetricsSubDomain, mc.component)
+		if ascmStr := m[AllowStackdriverCustomMetricsKey]; ascmStr != "" {
+			allowCustomMetrics, err = strconv.ParseBool(ascmStr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid %s value %q", AllowStackdriverCustomMetricsKey, ascmStr)
 			}
-			mc.allowStackdriverCustomMetrics = ascmBool
+		}
+
+		if !allowCustomMetrics {
+			servingOrEventing := metricskey.KnativeRevisionMetrics.Union(
+				metricskey.KnativeTriggerMetrics).Union(metricskey.KnativeBrokerMetrics)
+			mc.recorder = func(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
+				// Perform array filtering in place using two indices: w(rite)Index and r(ead)Index.
+				wIdx := 0
+				for rIdx := 0; rIdx < len(mss); rIdx++ {
+					metricType := path.Join(mc.stackdriverMetricTypePrefix, mss[rIdx].Measure().Name())
+					if servingOrEventing.Has(metricType) {
+						mss[wIdx] = mss[rIdx]
+						wIdx++
+					}
+					// Otherwise, skip the measurement (because it won't be accepted).
+				}
+				// Found no matched metrics.
+				if wIdx == 0 {
+					return nil
+				}
+				// Trim the list to the number of written objects.
+				mss = mss[:wIdx]
+				return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
+			}
+		}
+
+		if scc.UseSecret {
+			secret, err := getStackdriverSecret(ops.Secrets)
+			if err != nil {
+				return nil, err
+			}
+
+			mc.secret = secret
 		}
 	}
 
@@ -213,71 +302,6 @@ func getMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsC
 	}
 
 	return &mc, nil
-}
-
-// UpdateExporterFromConfigMap returns a helper func that can be used to update the exporter
-// when a config map is updated.
-func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
-	domain := Domain()
-	return func(configMap *corev1.ConfigMap) {
-		UpdateExporter(ExporterOptions{
-			Domain:    domain,
-			Component: component,
-			ConfigMap: configMap.Data,
-		}, logger)
-	}
-}
-
-// UpdateExporter updates the exporter based on the given ExporterOptions.
-func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
-	newConfig, err := getMetricsConfig(ops, logger)
-	if err != nil {
-		if ce := getCurMetricsExporter(); ce == nil {
-			// Fail the process if there doesn't exist an exporter.
-			logger.Errorw("Failed to get a valid metrics config", zap.Error(err))
-		} else {
-			logger.Errorw("Failed to get a valid metrics config; Skip updating the metrics exporter", zap.Error(err))
-		}
-		return err
-	}
-
-	if isNewExporterRequired(newConfig) {
-		logger.Info("Flushing the existing exporter before setting up the new exporter.")
-		FlushExporter()
-		e, err := newMetricsExporter(newConfig, logger)
-		if err != nil {
-			logger.Errorf("Failed to update a new metrics exporter based on metric config %v. error: %v", newConfig, err)
-			return err
-		}
-		existingConfig := getCurMetricsConfig()
-		setCurMetricsExporter(e)
-		logger.Infof("Successfully updated the metrics exporter; old config: %v; new config %v", existingConfig, newConfig)
-	}
-
-	setCurMetricsConfig(newConfig)
-	return nil
-}
-
-// isNewExporterRequired compares the non-nil newConfig against curMetricsConfig. When backend changes,
-// or stackdriver project ID changes for stackdriver backend, we need to update the metrics exporter.
-func isNewExporterRequired(newConfig *metricsConfig) bool {
-	cc := getCurMetricsConfig()
-	if cc == nil || newConfig.backendDestination != cc.backendDestination {
-		return true
-	} else if newConfig.backendDestination == Stackdriver && newConfig.stackdriverProjectID != cc.stackdriverProjectID {
-		return true
-	}
-
-	return false
-}
-
-// ConfigMapName gets the name of the metrics ConfigMap
-func ConfigMapName() string {
-	cm := os.Getenv(ConfigMapNameEnv)
-	if cm == "" {
-		return "config-observability"
-	}
-	return cm
 }
 
 // Domain holds the metrics domain to use for surfacing metrics.

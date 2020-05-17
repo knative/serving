@@ -21,17 +21,18 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
 
 // Deciders is an interface for notifying the presence or absence of autoscaling deciders.
 type Deciders interface {
 	// Get accesses the Decider resource for this key, returning any errors.
-	Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error)
+	Get(ctx context.Context, namespace, name string) (*scaling.Decider, error)
 
 	// Create adds a Decider resource for a given key, returning any errors.
-	Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+	Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error)
 
 	// Delete removes the Decider resource for a given key, returning any errors.
 	Delete(ctx context.Context, namespace, name string) error
@@ -40,28 +41,28 @@ type Deciders interface {
 	Watch(watcher func(types.NamespacedName))
 
 	// Update update the Decider resource, return the new Decider or any errors.
-	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
+	Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error)
 }
 
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
-func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscaler.Config, svc string) *autoscaler.Decider {
+func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config, svc string) *scaling.Decider {
 	panicThresholdPercentage := config.PanicThresholdPercentage
 	if x, ok := pa.PanicThresholdPercentage(); ok {
 		panicThresholdPercentage = x
 	}
 
 	target, total := resources.ResolveMetricTarget(pa, config)
-	panicThreshold := target * panicThresholdPercentage / 100.0
+	panicThreshold := panicThresholdPercentage / 100.0
 
 	tbc := config.TargetBurstCapacity
 	if x, ok := pa.TargetBC(); ok {
 		tbc = x
 	}
-	return &autoscaler.Decider{
+	return &scaling.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			TickInterval:        config.TickInterval,
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			MaxScaleDownRate:    config.MaxScaleDownRate,
@@ -69,6 +70,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			TargetValue:         target,
 			TotalValue:          total,
 			TargetBurstCapacity: tbc,
+			ActivatorCapacity:   config.ActivatorCapacity,
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,

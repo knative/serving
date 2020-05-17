@@ -32,11 +32,11 @@ import (
 func TestOurObservability(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 
-	if _, err := NewObservabilityConfigFromConfigMap(cm); err != nil {
+	if _, err := metrics.NewObservabilityConfigFromConfigMap(cm); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap(actual) = %v", err)
 	}
 
-	if _, err := NewObservabilityConfigFromConfigMap(example); err != nil {
+	if _, err := metrics.NewObservabilityConfigFromConfigMap(example); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap(example) = %v", err)
 	}
 }
@@ -50,7 +50,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}{{
 		name:    "observability configuration with all inputs",
 		wantErr: false,
-		wantController: &ObservabilityConfig{
+		wantController: &metrics.ObservabilityConfig{
 			LoggingURLTemplate:     "https://logging.io",
 			EnableVarLogCollection: true,
 			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
@@ -74,11 +74,11 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}, {
 		name:    "observability config with no map",
 		wantErr: false,
-		wantController: &ObservabilityConfig{
+		wantController: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: false,
-			LoggingURLTemplate:     defaultLogURLTemplate,
+			LoggingURLTemplate:     metrics.DefaultLogURLTemplate,
 			RequestLogTemplate:     "",
-			RequestMetricsBackend:  "",
+			RequestMetricsBackend:  "prometheus",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +89,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}, {
 		name:           "invalid request log template",
 		wantErr:        true,
-		wantController: (*ObservabilityConfig)(nil),
+		wantController: (*metrics.ObservabilityConfig)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -103,7 +103,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 
 	for _, tt := range observabilityConfigTests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualController, err := NewObservabilityConfigFromConfigMap(tt.config)
+			actualController, err := metrics.NewObservabilityConfigFromConfigMap(tt.config)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewObservabilityFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)

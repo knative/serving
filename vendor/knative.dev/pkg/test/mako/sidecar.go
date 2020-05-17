@@ -18,10 +18,10 @@ package mako
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
@@ -49,13 +49,24 @@ const (
 
 	// slackUserName is the slack user name that is used by Slack client
 	slackUserName = "Knative Testgrid Robot"
+
+	// These token settings are for alerter.
+	// If we want to enable the alerter for a benchmark, we need to mount the
+	// token to the pod, with the same name and path.
+	// See https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml
+	tokenFolder     = "/var/secret"
+	githubToken     = "github-token"
+	slackReadToken  = "slack-read-token"
+	slackWriteToken = "slack-write-token"
 )
 
 // Client is a wrapper that wraps all Mako related operations
 type Client struct {
-	Quickstore    *quickstore.Quickstore
-	Context       context.Context
-	ShutDownFunc  func(context.Context)
+	Quickstore   *quickstore.Quickstore
+	Context      context.Context
+	ShutDownFunc func(context.Context)
+
+	benchmarkKey  string
 	benchmarkName string
 	alerter       *alerter.Alerter
 }
@@ -63,19 +74,21 @@ type Client struct {
 // StoreAndHandleResult stores the benchmarking data and handles the result.
 func (c *Client) StoreAndHandleResult() error {
 	out, err := c.Quickstore.Store()
-	return c.alerter.HandleBenchmarkResult(c.benchmarkName, out, err)
+	return c.alerter.HandleBenchmarkResult(c.benchmarkKey, c.benchmarkName, out, err)
 }
+
+var tagEscaper = strings.NewReplacer("+", "-", "\t", "_", " ", "_")
 
 // EscapeTag replaces characters that Mako doesn't accept with ones it does.
 func EscapeTag(tag string) string {
-	return strings.ReplaceAll(tag, ".", "_")
+	return tagEscaper.Replace(tag)
 }
 
-// Setup sets up the mako client for the provided benchmarkKey.
+// SetupHelper sets up the mako client for the provided benchmarkKey.
 // It will add a few common tags and allow each benchmark to add custm tags as well.
 // It returns the mako client handle to store metrics, a method to close the connection
 // to mako server once done and error in case of failures.
-func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
+func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *string, extraTags ...string) (*Client, error) {
 	tags := append(config.MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
@@ -106,7 +119,7 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	tags = append(tags, "nodes="+fmt.Sprintf("%d", len(nodes.Items)))
+	tags = append(tags, "nodes="+strconv.Itoa(len(nodes.Items)))
 
 	// Decorate GCP metadata as tags (when we're running on GCP).
 	if projectID, err := metadata.ProjectID(); err != nil {
@@ -124,16 +137,16 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	} else if parts := strings.Split(machineType, "/"); len(parts) != 4 {
 		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
-
-	benchmarkKey, benchmarkName := config.MustGetBenchmark()
+	tags = append(tags,
+		"commit="+commitID,
+		"kubernetes="+EscapeTag(version.String()),
+		"goversion="+EscapeTag(runtime.Version()),
+	)
+	log.Printf("The tags for this run are: %+v", tags)
 	// Create a new Quickstore that connects to the microservice
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: benchmarkKey,
-		Tags: append(tags,
-			"commit="+commitID,
-			"kubernetes="+EscapeTag(version.String()),
-			EscapeTag(runtime.Version()),
-		),
+		Tags:         tags,
 	}, sidecarAddress)
 	if err != nil {
 		return nil, err
@@ -143,13 +156,13 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	alerter := &alerter.Alerter{}
 	alerter.SetupGitHub(
 		org,
-		config.MustGetRepository(),
-		tokenPath("github-token"),
+		config.GetRepository(),
+		tokenPath(githubToken),
 	)
 	alerter.SetupSlack(
 		slackUserName,
-		tokenPath("slack-read-token"),
-		tokenPath("slack-write-token"),
+		tokenPath(slackReadToken),
+		tokenPath(slackWriteToken),
 		config.GetSlackChannels(*benchmarkName),
 	)
 
@@ -158,12 +171,18 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 		Context:       ctx,
 		ShutDownFunc:  qclose,
 		alerter:       alerter,
+		benchmarkKey:  *benchmarkKey,
 		benchmarkName: *benchmarkName,
 	}
 
 	return client, nil
 }
 
+func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
+	bench := config.MustGetBenchmark()
+	return SetupHelper(ctx, bench.BenchmarkKey, bench.BenchmarkName, extraTags...)
+}
+
 func tokenPath(token string) string {
-	return filepath.Join("/var/secrets", token)
+	return filepath.Join(tokenFolder, token)
 }

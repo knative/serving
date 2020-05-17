@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	fake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
+	rest "k8s.io/client-go/rest"
 	client "knative.dev/pkg/client/injection/kube/client"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"

@@ -18,9 +18,9 @@ package logstream
 
 import (
 	"os"
-	"testing"
 
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/test"
 )
 
 // Canceler is the type of a function returned when a logstream is started to be
@@ -30,12 +30,12 @@ type Canceler func()
 // Start begins streaming the logs from system components with a `key:` matching
 // `test.ObjectNameForTest(t)` to `t.Log`.  It returns a Canceler, which must
 // be called before the test completes.
-func Start(t *testing.T) Canceler {
+func Start(t test.TLegacy) Canceler {
 	return stream.Start(t)
 }
 
 type streamer interface {
-	Start(t *testing.T) Canceler
+	Start(t test.TLegacy) Canceler
 }
 
 var stream streamer

@@ -43,7 +43,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
@@ -67,8 +68,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	t.Log("Updates the Route to route traffic to the Revision")
-	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
-	if err != nil {
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names), "AllRouteTrafficAtRevision"); err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
 }
@@ -110,18 +110,18 @@ func TestRouteCreation(t *testing.T) {
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1a1test.CreateConfiguration(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	objects.Config = config
 
 	route, err := v1a1test.CreateRoute(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 	objects.Route = route
 
 	t.Log("The Configuration will be updated with the name of the Revision")
-	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestPinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
@@ -131,11 +131,11 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Failed to get URL from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route URL is: %s", url)
+	t.Log("The Route URL is:", url)
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, url, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, url)
+	prober := test.RunRouteProber(t.Logf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
@@ -145,7 +145,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestPinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}

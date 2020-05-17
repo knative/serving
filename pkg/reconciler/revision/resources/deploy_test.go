@@ -19,37 +19,41 @@ package resources
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
+
+	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
 var (
-	containerName        = "my-container-name"
-	defaultUserContainer = &corev1.Container{
-		Name:                     containerName,
-		Image:                    "busybox",
-		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
-		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+	containerName                = "my-container-name"
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	defaultUserContainer         = &corev1.Container{
+		Name:  containerName,
+		Image: "busybox",
+		Ports: buildContainerPorts(v1.DefaultUserPort),
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:        varLogVolume.Name,
+			MountPath:   "/var/log",
+			SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_my-container-name",
+		}},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
@@ -61,11 +65,15 @@ var (
 			Name:  "K_REVISION",
 			Value: "bar",
 		}, {
-			Name:  "K_CONFIGURATION",
-			Value: "cfg",
+			Name: "K_CONFIGURATION",
 		}, {
-			Name:  "K_SERVICE",
-			Value: "svc",
+			Name: "K_SERVICE",
+		}, {
+			Name:      "K_INTERNAL_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+		}, {
+			Name:      "K_INTERNAL_POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
 		}},
 	}
 
@@ -87,8 +95,7 @@ var (
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
 		}, {
-			Name:  "SERVING_SERVICE",
-			Value: "svc", // matches service name
+			Name: "SERVING_SERVICE",
 		}, {
 			Name: "SERVING_CONFIGURATION",
 			// No OwnerReference
@@ -140,7 +147,7 @@ var (
 			Value: "false",
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: "0.000000",
+			Value: "0",
 		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
@@ -149,22 +156,13 @@ var (
 			Value: system.Namespace(),
 		}, {
 			Name:  "METRICS_DOMAIN",
-			Value: pkgmetrics.Domain(),
+			Value: metrics.Domain(),
 		}, {
-			Name:  "USER_CONTAINER_NAME",
-			Value: containerName,
-		}, {
-			Name:  "ENABLE_VAR_LOG_COLLECTION",
-			Value: "false",
-		}, {
-			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
-		}, {
-			Name:  "INTERNAL_VOLUME_PATH",
-			Value: internalVolumePath,
+			Name:  "DOWNWARD_API_LABELS_PATH",
+			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
-			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort),
+			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: "false",
@@ -190,7 +188,7 @@ var (
 			},
 			Annotations: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+				APIVersion:         v1.SchemeGroupVersion.String(),
 				Kind:               "Revision",
 				Name:               "bar",
 				UID:                "1234",
@@ -205,7 +203,7 @@ var (
 					serving.RevisionUID: "1234",
 				},
 			},
-			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deployment.ProgressDeadlineDefault.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -213,33 +211,24 @@ var (
 						serving.RevisionUID:      "1234",
 						AppLabelKey:              "bar",
 					},
-					Annotations: map[string]string{
-						sidecarIstioInjectAnnotation: "true",
-					},
+					Annotations: map[string]string{},
 				},
 				// Spec: filled in by makePodSpec
 			},
 		},
 	}
 
-	defaultRevision = &v1alpha1.Revision{
+	defaultRevision = &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "foo",
-			Name:      "bar",
-			UID:       "1234",
-			Labels: map[string]string{
-				serving.ConfigurationLabelKey: "cfg",
-				serving.ServiceLabelKey:       "svc",
-				serving.RouteLabelKey:         "im-a-route",
-			},
+			UID: "1234",
 		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Name:  containerName,
-				Image: "busybox",
-			},
-			RevisionSpec: v1.RevisionSpec{
-				TimeoutSeconds: ptr.Int64(45),
+		Spec: v1.RevisionSpec{
+			TimeoutSeconds: ptr.Int64(45),
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  containerName,
+					Image: "busybox",
+				}},
 			},
 		},
 	}
@@ -252,7 +241,7 @@ func refInt64(num int64) *int64 {
 type containerOption func(*corev1.Container)
 type podSpecOption func(*corev1.PodSpec)
 type deploymentOption func(*appsv1.Deployment)
-type revisionOption func(*v1alpha1.Revision)
+type revisionOption func(*v1.Revision)
 
 func container(container *corev1.Container, opts ...containerOption) corev1.Container {
 	for _, option := range opts {
@@ -285,9 +274,9 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withInternalVolumeMount() containerOption {
+func withPodLabelsVolumeMount() containerOption {
 	return func(container *corev1.Container) {
-		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
+		container.VolumeMounts = append(container.VolumeMounts, labelVolumeMount)
 	}
 }
 
@@ -301,7 +290,7 @@ func withTCPReadinessProbe() containerOption {
 	return withReadinessProbe(corev1.Handler{
 		TCPSocket: &corev1.TCPSocketAction{
 			Host: "127.0.0.1",
-			Port: intstr.FromInt(v1alpha1.DefaultUserPort),
+			Port: intstr.FromInt(v1.DefaultUserPort),
 		},
 	})
 }
@@ -360,8 +349,10 @@ func makeDeployment(opts ...deploymentOption) *appsv1.Deployment {
 	return deploy
 }
 
-func revision(opts ...revisionOption) *v1alpha1.Revision {
+func revision(name, ns string, opts ...revisionOption) *v1.Revision {
 	revision := defaultRevision.DeepCopy()
+	revision.ObjectMeta.Name = name
+	revision.ObjectMeta.Namespace = ns
 	for _, option := range opts {
 		option(revision)
 	}
@@ -369,19 +360,19 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 }
 
 func withContainerConcurrency(cc int64) revisionOption {
-	return func(revision *v1alpha1.Revision) {
+	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
 	}
 }
 
-func withoutLabels(revision *v1alpha1.Revision) {
+func withoutLabels(revision *v1.Revision) {
 	revision.ObjectMeta.Labels = map[string]string{}
 }
 
 func withOwnerReference(name string) revisionOption {
-	return func(revision *v1alpha1.Revision) {
+	return func(revision *v1.Revision) {
 		revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+			APIVersion:         v1.SchemeGroupVersion.String(),
 			Kind:               "Configuration",
 			Name:               name,
 			Controller:         ptr.Bool(true),
@@ -393,17 +384,15 @@ func withOwnerReference(name string) revisionOption {
 func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name string
-		rev  *v1alpha1.Revision
-		lc   *logging.Config
-		tc   *tracingconfig.Config
-		oc   *metrics.ObservabilityConfig
-		cc   *deployment.Config
+		rev  *v1.Revision
+		oc   metrics.ObservabilityConfig
+		ac   autoscalerconfig.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}}
@@ -412,10 +401,6 @@ func TestMakePodSpec(t *testing.T) {
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -432,9 +417,9 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "volumes passed through",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
 				}}
@@ -455,10 +440,6 @@ func TestMakePodSpec(t *testing.T) {
 				}}
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -486,18 +467,14 @@ func TestMakePodSpec(t *testing.T) {
 			})),
 	}, {
 		name: "concurrency=1 no owner",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -507,21 +484,17 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "concurrency=1 no owner digest resolved",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
-				revision.Status = v1alpha1.RevisionStatus{
-					ImageDigest: "busybox@sha256:deadbeef",
+			func(revision *v1.Revision) {
+				revision.Status = v1.RevisionStatus{
+					DeprecatedImageDigest: "busybox@sha256:deadbeef",
 				}
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(func(container *corev1.Container) {
@@ -533,19 +506,15 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "concurrency=1 with owner",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -556,15 +525,11 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with http readiness probe",
-		rev: revision(func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
 			container(revision.Spec.GetContainer(),
-				withHTTPReadinessProbe(v1alpha1.DefaultUserPort),
+				withHTTPReadinessProbe(v1.DefaultUserPort),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -575,7 +540,7 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with tcp readiness probe",
-		rev: revision(func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withReadinessProbe(corev1.Handler{
 					TCPSocket: &corev1.TCPSocketAction{
@@ -585,10 +550,6 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
@@ -599,27 +560,23 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with shell readiness probe",
-		rev: revision(func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withExecReadinessProbe([]string{"echo", "hello"}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
 					withExecReadinessProbe([]string{"echo", "hello"})),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-					withEnvVar("SERVING_READINESS_PROBE", "{}"),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
 				),
 			}),
 	}, {
 		name: "with http liveness probe",
-		rev: revision(func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withTCPReadinessProbe(),
 				withLivenessProbe(corev1.Handler{
@@ -629,10 +586,6 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -653,7 +606,7 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with tcp liveness probe",
-		rev: revision(func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
 			container(revision.Spec.GetContainer(),
 				withTCPReadinessProbe(),
 				withLivenessProbe(corev1.Handler{
@@ -661,16 +614,12 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
 					withLivenessProbe(corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(v1alpha1.DefaultUserPort),
+							Port: intstr.FromInt(v1.DefaultUserPort),
 						},
 					}),
 				),
@@ -679,38 +628,36 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "with /var/log collection",
-		rev: revision(withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
-				)
-			}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{
-			EnableVarLogCollection: true,
+		name: "with graceful scaledown enabled",
+		rev: revision("bar", "foo", func(revision *v1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withTCPReadinessProbe(),
+			)
+		}),
+		ac: autoscalerconfig.Config{
+			EnableGracefulScaledown: true,
 		},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
-					withInternalVolumeMount(),
+					withEnvVar("DOWNWARD_API_LABELS_PATH", fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)),
+					withPodLabelsVolumeMount(),
 				),
 			},
 			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
+				podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 			},
 		),
 	}, {
 		name: "complex pod spec",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{}
+			func(revision *v1.Revision) {
+				revision.ObjectMeta.Labels = map[string]string{
+					serving.ConfigurationLabelKey: "cfg",
+					serving.ServiceLabelKey:       "svc",
+				}
 				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
 				revision.Spec.GetContainer().Args = []string{"-c", "echo Hello world"}
 				container(revision.Spec.GetContainer(),
@@ -731,10 +678,6 @@ func TestMakePodSpec(t *testing.T) {
 				revision.Spec.GetContainer().TerminationMessagePolicy = corev1.TerminationMessageReadFile
 			},
 		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
 				userContainer(
@@ -760,12 +703,12 @@ func TestMakePodSpec(t *testing.T) {
 						}
 						container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
 					},
-					withEnvVar("K_CONFIGURATION", ""),
-					withEnvVar("K_SERVICE", ""),
+					withEnvVar("K_CONFIGURATION", "cfg"),
+					withEnvVar("K_SERVICE", "svc"),
 				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
-					withEnvVar("SERVING_SERVICE", ""),
+					withEnvVar("SERVING_SERVICE", "svc"),
 				),
 			}),
 	}}
@@ -775,29 +718,9 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.cc)
+			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &test.ac, &deploymentConfig)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
-			}
-			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
-			}
-		})
-
-		t.Run(test.name+"(podspec)", func(t *testing.T) {
-			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-				return x.Cmp(y) == 0
-			})
-
-			// Same test, but via podspec.
-			test.rev.Spec.Containers = []corev1.Container{
-				*test.rev.Spec.DeprecatedContainer,
-			}
-			test.rev.Spec.DeprecatedContainer = nil
-
-			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.cc)
-			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatal("makePodSpec returned error:", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -807,15 +730,8 @@ func TestMakePodSpec(t *testing.T) {
 }
 
 func TestMissingProbeError(t *testing.T) {
-	_, err := MakeDeployment(defaultRevision,
-		&logging.Config{},
-		&tracingconfig.Config{},
-		&network.Config{},
-		&metrics.ObservabilityConfig{},
-		&deployment.Config{},
-	)
-
-	if err == nil {
+	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
+		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -823,19 +739,14 @@ func TestMissingProbeError(t *testing.T) {
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
 		name string
-		rev  *v1alpha1.Revision
-		lc   *logging.Config
-		tc   *tracingconfig.Config
-		nc   *network.Config
-		oc   *metrics.ObservabilityConfig
-		cc   *deployment.Config
+		rev  *v1.Revision
 		want *appsv1.Deployment
 	}{{
 		name: "with concurrency=1",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withoutLabels,
 			withContainerConcurrency(1),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				container(revision.Spec.GetContainer(),
 					withReadinessProbe(corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
@@ -846,18 +757,13 @@ func TestMakeDeployment(t *testing.T) {
 				)
 			},
 		),
-		lc:   &logging.Config{},
-		tc:   &tracingconfig.Config{},
-		nc:   &network.Config{},
-		oc:   &metrics.ObservabilityConfig{},
-		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
 		name: "with owner",
-		rev: revision(
+		rev: revision("bar", "foo",
 			withoutLabels,
 			withOwnerReference("parent-config"),
-			func(revision *v1alpha1.Revision) {
+			func(revision *v1.Revision) {
 				container(revision.Spec.GetContainer(),
 					withReadinessProbe(corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
@@ -868,40 +774,10 @@ func TestMakeDeployment(t *testing.T) {
 				)
 			},
 		),
-		lc:   &logging.Config{},
-		tc:   &tracingconfig.Config{},
-		nc:   &network.Config{},
-		oc:   &metrics.ObservabilityConfig{},
-		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "with outbound IP range configured",
-		rev: revision(
-			withoutLabels,
-			func(revision *v1alpha1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
-			},
-		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{
-			IstioOutboundIPRanges: "*",
-		},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
-		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
-		}),
-	}, {
 		name: "with sidecar annotation override",
-		rev: revision(withoutLabels, func(revision *v1alpha1.Revision) {
+		rev: revision("bar", "foo", withoutLabels, func(revision *v1.Revision) {
 			revision.ObjectMeta.Annotations = map[string]string{
 				sidecarIstioInjectAnnotation: "false",
 			}
@@ -914,61 +790,65 @@ func TestMakeDeployment(t *testing.T) {
 				}),
 			)
 		}),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
-		}),
-	}, {
-		name: "with outbound IP range override",
-		rev: revision(
-			withoutLabels,
-			func(revision *v1alpha1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
-					IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
-				}
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
-			},
-		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{
-			IstioOutboundIPRanges: "*",
-		},
-		oc: &metrics.ObservabilityConfig{},
-		cc: &deployment.Config{},
-		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
 		}),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			podSpec, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.cc)
+			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
+				&obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
-			got, err := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.cc)
+			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
+				&network.Config{}, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
-				t.Fatalf("got unexpected error: %v", err)
+				t.Fatal("got unexpected error:", err)
 			}
-			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("MakeDeployment (-want, +got) =", diff)
 			}
 		})
+	}
+}
+
+func TestProgressDeadlineOverride(t *testing.T) {
+	rev := revision("bar", "foo",
+		withoutLabels,
+		func(revision *v1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withReadinessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Host: "127.0.0.1",
+						Port: intstr.FromInt(12345),
+					},
+				}),
+			)
+		},
+	)
+	want := makeDeployment(func(d *appsv1.Deployment) {
+		d.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+	})
+
+	dc := &deployment.Config{
+		ProgressDeadline: 42 * time.Second,
+	}
+	podSpec, err := makePodSpec(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, dc)
+	if err != nil {
+		t.Fatal("makePodSpec returned error:", err)
+	}
+	want.Spec.Template.Spec = *podSpec
+	got, err := MakeDeployment(rev, &logConfig, &traceConfig,
+		&network.Config{}, &obsConfig, &asConfig, dc)
+	if err != nil {
+		t.Fatal("MakeDeployment returned error:", err)
+	}
+	if !cmp.Equal(want, got, cmp.AllowUnexported(resource.Quantity{})) {
+		t.Error("MakeDeployment (-want, +got) =", cmp.Diff(want, got, cmp.AllowUnexported(resource.Quantity{})))
 	}
 }

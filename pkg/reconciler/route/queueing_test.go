@@ -24,21 +24,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
@@ -47,12 +47,11 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(100),
-		},
-	}))
+		}))
 
 	// Create fake clients
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -78,12 +77,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		Data: map[string]string{},
 	})
 
-	ctrl := NewController(ctx, configMapWatcher)
-
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
-
 	// Check for Ingress created as a signal that syncHandler ran
 	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*netv1alpha1.Ingress)
@@ -92,38 +88,37 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	// Run the controller.
+	eg := errgroup.Group{}
 	eg.Go(func() error {
+		ctrl := NewController(ctx, configMapWatcher)
 		return ctrl.Run(2, ctx.Done())
 	})
 
-	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Errorf("Unexpected error creating revision: %v", err)
-	}
-
-	for i, informer := range informers {
-		if ok := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !ok {
-			t.Fatalf("failed to wait for cache at index %d to sync", i)
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatal("Error running controller:", err)
 		}
-	}
+		waitInformers()
+	}()
 
-	if _, err := servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route); err != nil {
-		t.Errorf("Unexpected error creating route: %v", err)
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Fatal("Unexpected error creating revision:", err)
 	}
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
+
+	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
+		t.Fatal("Unexpected error creating route:", err)
+	}
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }

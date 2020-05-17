@@ -1,0 +1,142 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: ambassador-admin
+    app.kubernetes.io/managed-by: getambassador.io
+  name: ambassador-admin
+spec:
+  type: NodePort
+  ports:
+  - name: ambassador-admin
+    port: 8877
+    targetPort: 8877
+  selector:
+    service: ambassador
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: ambassador
+rules:
+- apiGroups: [""]
+  resources: [ "endpoints", "namespaces", "secrets", "services" ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [ "getambassador.io" ]
+  resources: [ "*" ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [ "getambassador.io" ]
+  resources: [ "mappings/status" ]
+  verbs: ["update"]
+- apiGroups: [ "apiextensions.k8s.io" ]
+  resources: [ "customresourcedefinitions" ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [ "networking.internal.knative.dev" ]
+  resources: [ "clusteringresses", "ingresses" ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [ "networking.internal.knative.dev" ]
+  resources: [ "ingresses/status", "clusteringresses/status" ]
+  verbs: ["update"]
+- apiGroups: [ "extensions", "networking.k8s.io" ]
+  resources: [ "ingresses", "ingressclasses" ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [ "extensions", "networking.k8s.io" ]
+  resources: [ "ingresses/status" ]
+  verbs: ["update"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ambassador
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: ambassador
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ambassador
+subjects:
+- kind: ServiceAccount
+  name: ambassador
+  namespace: ambassador
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ambassador
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      service: ambassador
+  template:
+    metadata:
+      annotations:
+        consul.hashicorp.com/connect-inject: 'false'
+        sidecar.istio.io/inject: 'false'
+      labels:
+        service: ambassador
+        app.kubernetes.io/managed-by: getambassador.io
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  service: ambassador
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - env:
+        - name: AMBASSADOR_KNATIVE_SUPPORT
+          value: "true"
+        - name: AMBASSADOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: quay.io/datawire/ambassador:1.4.2
+        livenessProbe:
+          httpGet:
+            path: /ambassador/v0/check_alive
+            port: 8877
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        name: ambassador
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8443
+          name: https
+        - containerPort: 8877
+          name: admin
+        readinessProbe:
+          httpGet:
+            path: /ambassador/v0/check_ready
+            port: 8877
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        resources:
+          limits:
+            cpu: 1
+            memory: 400Mi
+          requests:
+            cpu: 200m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /tmp/ambassador-pod-info
+          name: ambassador-pod-info
+      restartPolicy: Always
+      securityContext:
+        runAsUser: 8888
+      serviceAccountName: ambassador
+      volumes:
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+        name: ambassador-pod-info

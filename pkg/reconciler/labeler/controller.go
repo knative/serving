@@ -19,18 +19,23 @@ package labeler
 import (
 	"context"
 
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	"k8s.io/client-go/tools/cache"
+
+	"knative.dev/serving/pkg/apis/serving"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
-const (
-	controllerAgentName = "labeler-controller"
-)
+const controllerAgentName = "labeler-controller"
 
 // NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
@@ -39,20 +44,26 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
+	logger := logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-		routeLister:         routeInformer.Lister(),
+		client:              servingclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Labels")
+	impl := routereconciler.NewImpl(ctx, c)
 
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	configInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RouteLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RouteLabelKey)),
+	})
 
 	return impl
 }

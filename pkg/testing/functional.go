@@ -84,10 +84,17 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-// WithPAStatusService annotats PA Status with the provided service name.
+// WithPAStatusService annotates PA Status with the provided service name.
 func WithPAStatusService(svc string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.ServiceName = svc
+	}
+}
+
+// WithPAMetricsService annotates PA Status with the provided service name.
+func WithPAMetricsService(svc string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MetricsServiceName = svc
 	}
 }
 
@@ -116,7 +123,7 @@ func WithPADeletionTimestamp(r *asv1a1.PodAutoscaler) {
 // WithHPAClass updates the PA to add the hpa class annotation.
 func WithHPAClass(pa *asv1a1.PodAutoscaler) {
 	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+		pa.Annotations = make(map[string]string, 1)
 	}
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
 }
@@ -132,7 +139,7 @@ func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 func withAnnotationValue(key, value string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
+			pa.Annotations = make(map[string]string, 1)
 		}
 		pa.Annotations[key] = value
 	}
@@ -195,13 +202,6 @@ func WithLowerScaleBound(i int) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
 }
 
-// WithMSvcStatus sets the name of the metrics service.
-func WithMSvcStatus(s string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MetricsServiceName = s
-	}
-}
-
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
@@ -209,15 +209,6 @@ type K8sServiceOption func(*corev1.Service)
 func OverrideServiceName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Name = name
-	}
-}
-
-func SvcWithAnnotationValue(key, value string) K8sServiceOption {
-	return func(svc *corev1.Service) {
-		if svc.Annotations == nil {
-			svc.Annotations = make(map[string]string)
-		}
-		svc.Annotations[key] = value
 	}
 }
 
@@ -246,17 +237,10 @@ func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 	svc.OwnerReferences = nil
 }
 
-// WithSvcSelector sets the selector of the service.
-func WithSvcSelector(sel map[string]string) K8sServiceOption {
-	return func(s *corev1.Service) {
-		s.Spec.Selector = sel
-	}
-}
-
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
 
-// WithSubsets adds subsets to the body of a Revision, enabling us to refer readiness.
+// WithSubsets adds subsets to the body of an Endpoints object.
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
@@ -317,13 +301,21 @@ func WithWaitingContainer(name, reason, message string) PodOption {
 	}
 }
 
-// IngressOption enables further configuration of the IngressAccessor.
-type IngressOption func(netv1alpha1.IngressAccessor)
+// IngressOption enables further configuration of the Ingress.
+type IngressOption func(*netv1alpha1.Ingress)
 
 // WithHosts sets the Hosts of the ingress rule specified index
 func WithHosts(index int, hosts ...string) IngressOption {
-	return func(ingress netv1alpha1.IngressAccessor) {
-		ingress.GetSpec().Rules[index].Hosts = hosts
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Spec.Rules[index].Hosts = hosts
+	}
+}
+
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
 	}
 }
 
@@ -351,6 +343,14 @@ func WithSKSReady(sks *netv1alpha1.ServerlessService) {
 	WithPrivateService(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
+}
+
+// WithNumActivators sets the number of requested activators
+// on the SKS spec.
+func WithNumActivators(n int32) SKSOption {
+	return func(sks *netv1alpha1.ServerlessService) {
+		sks.Spec.NumActivators = n
+	}
 }
 
 // WithPrivateService annotates SKS status with the private service name.

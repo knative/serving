@@ -1,10 +1,13 @@
 /*
 Copyright 2019 The Knative Authors
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -141,6 +144,8 @@ type HostInfo struct {
 	Files map[string]FileInfo `json:"files"`
 	// EnvVars is a map of all environment variables set.
 	EnvVars map[string]string `json:"envs"`
+	// FileAccess is a map of file access information
+	FileAccess map[string]FileAccessInfo `json:"fileaccess"`
 	// Cgroups is a list of cgroup information.
 	Cgroups []*Cgroup `json:"cgroups"`
 	// Mounts is a list of mounted volume information, or error.
@@ -187,6 +192,16 @@ type FileInfo struct {
 	IsDir *bool `json:"isDir,omitempty"`
 	// Error is the String representation of the error returned obtaining the information.
 	Error string `json:"error,omitempty"`
+}
+
+// FileAccessInfo contains the file access information
+type FileAccessInfo struct {
+	// ReadErr is the String representation of an error received when attempting to read
+	// a file or directory
+	ReadErr string `json:"read_error,omitempty"`
+	// WriteErr is the String representation of an error received when attempting to write
+	// to a file or directory
+	WriteErr string `json:"write_error,omitempty"`
 }
 
 // Cgroup contains the Cgroup value for a given setting.

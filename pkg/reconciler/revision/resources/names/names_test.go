@@ -23,18 +23,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestNamer(t *testing.T) {
 	tests := []struct {
 		name string
-		rev  *v1alpha1.Revision
+		rev  *v1.Revision
 		f    func(kmeta.Accessor) string
 		want string
 	}{{
 		name: "Deployment too long",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("f", 63),
 			},
@@ -43,7 +43,7 @@ func TestNamer(t *testing.T) {
 		want: "ffffffffffffffffffff105d7597f637e83cc711605ac3ea4957-deployment",
 	}, {
 		name: "Deployment long enough",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("f", 52),
 			},
@@ -52,7 +52,7 @@ func TestNamer(t *testing.T) {
 		want: strings.Repeat("f", 52) + "-deployment",
 	}, {
 		name: "Deployment",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -61,7 +61,7 @@ func TestNamer(t *testing.T) {
 		want: "foo-deployment",
 	}, {
 		name: "ImageCache, barely fits",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("u", 57),
 			},
@@ -70,7 +70,7 @@ func TestNamer(t *testing.T) {
 		want: strings.Repeat("u", 57) + "-cache",
 	}, {
 		name: "ImageCache, already too long",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: strings.Repeat("u", 63),
 			},
@@ -79,7 +79,7 @@ func TestNamer(t *testing.T) {
 		want: "uuuuuuuuuuuuuuuuuuuuuuuuuca47ad1ce8479df271ec0d23653ce256-cache",
 	}, {
 		name: "ImageCache",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -88,7 +88,7 @@ func TestNamer(t *testing.T) {
 		want: "foo-cache",
 	}, {
 		name: "PA",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "baz",
 			},

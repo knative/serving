@@ -27,17 +27,18 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestMakeImageCache(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1alpha1.Revision
-		want *caching.Image
+		name          string
+		rev           *v1.Revision
+		containerName string
+		image         string
+		want          *caching.Image
 	}{{
 		name: "simple container",
-		rev: &v1alpha1.Revision{
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
@@ -47,22 +48,28 @@ func TestMakeImageCache(t *testing.T) {
 				},
 				UID: "1234",
 			},
-			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
-				},
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
 				},
 			},
-			Status: v1alpha1.RevisionStatus{
-				ImageDigest: "busybox@sha256:deadbeef",
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatuses{{
+					Name:        "user-container",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+				DeprecatedImageDigest: "busybox@sha256:deadbeef",
 			},
 		},
+		containerName: "user-container",
+		image:         "busybox@sha256:deadbeef",
 		want: &caching.Image{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
-				Name:      "bar-cache",
+				Name:      "bar-cache-user-container",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
@@ -72,7 +79,7 @@ func TestMakeImageCache(t *testing.T) {
 					"a": "b",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
@@ -85,37 +92,57 @@ func TestMakeImageCache(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with service account",
-		rev: &v1alpha1.Revision{
+		name: "multiple containers",
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
-				UID:       "1234",
+				Annotations: map[string]string{
+					"a":                                     "b",
+					serving.RevisionLastPinnedAnnotationKey: "c",
+				},
+				UID: "1234",
 			},
-			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
-					PodSpec: corev1.PodSpec{
-						ServiceAccountName: "privilegeless",
-					},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "ubuntu",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+					}, {
+						Image: "busybox",
+					}},
 				},
-				DeprecatedContainer: &corev1.Container{
-					Image: "busybox",
-				},
+			},
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatuses{{
+					Name:        "user-container1",
+					ImageDigest: "ubuntu@sha256:deadbeef1",
+				}, {
+					Name:        "user-container",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+				DeprecatedImageDigest: "busybox@sha256:deadbeef",
 			},
 		},
+		containerName: "user-container1",
+		image:         "ubuntu@sha256:deadbeef1",
 		want: &caching.Image{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
-				Name:      "bar-cache",
+				Name:      "bar-cache-user-container1",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "bar",
 				},
-				Annotations: map[string]string{},
+				Annotations: map[string]string{
+					"a": "b",
+				},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
@@ -124,7 +151,115 @@ func TestMakeImageCache(t *testing.T) {
 				}},
 			},
 			Spec: caching.ImageSpec{
-				Image:              "busybox",
+				Image: "ubuntu@sha256:deadbeef1",
+			},
+		},
+	}, {
+		name: "Image cache for multiple containers when image digests are empty",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				Annotations: map[string]string{
+					"a":                                     "b",
+					serving.RevisionLastPinnedAnnotationKey: "c",
+				},
+				UID: "1234",
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "user-container",
+						Image: "ubuntu",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+					}, {
+						Name:  "user-container1",
+						Image: "busybox",
+					}},
+				},
+			},
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatuses{{}},
+			},
+		},
+		containerName: "user-container",
+		image:         "",
+		want: &caching.Image{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar-cache-user-container",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bar",
+					serving.RevisionUID:      "1234",
+					AppLabelKey:              "bar",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bar",
+					UID:                "1234",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: caching.ImageSpec{
+				Image: "",
+			},
+		},
+	}, {
+		name: "with service account",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				PodSpec: corev1.PodSpec{
+					ServiceAccountName: "privilegeless",
+					Containers: []corev1.Container{{
+						Name:  "user-container",
+						Image: "busybox",
+					}},
+				},
+			},
+			Status: v1.RevisionStatus{
+				ContainerStatuses: []v1.ContainerStatuses{{
+					Name:        "user-container",
+					ImageDigest: "busybox@sha256:deadbeef",
+				}},
+			},
+		},
+		containerName: "user-container",
+		image:         "busybox@sha256:deadbeef",
+		want: &caching.Image{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar-cache-user-container",
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "bar",
+					serving.RevisionUID:      "1234",
+					AppLabelKey:              "bar",
+				},
+				Annotations: map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "bar",
+					UID:                "1234",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: caching.ImageSpec{
+				Image:              "busybox@sha256:deadbeef",
 				ServiceAccountName: "privilegeless",
 			},
 		},
@@ -132,7 +267,7 @@ func TestMakeImageCache(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeImageCache(test.rev)
+			got := MakeImageCache(test.rev, test.containerName, test.image)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeImageCache (-want, +got) = %v", diff)
 			}

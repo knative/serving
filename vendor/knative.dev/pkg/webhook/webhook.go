@@ -19,52 +19,30 @@ package webhook
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	// Injection stuff
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
+
 	"go.uber.org/zap"
-
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-
+	"golang.org/x/sync/errgroup"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	corelisters "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
+	"knative.dev/pkg/system"
+	certresources "knative.dev/pkg/webhook/certificates/resources"
 )
 
-const (
-	secretServerKey  = "server-key.pem"
-	secretServerCert = "server-cert.pem"
-	secretCACert     = "ca-cert.pem"
-)
-
-var (
-	deploymentKind      = appsv1.SchemeGroupVersion.WithKind("Deployment")
-	errMissingNewObject = errors.New("the new object may not be nil")
-)
-
-// ControllerOptions contains the configuration for the webhook
-type ControllerOptions struct {
-	// ResourceMutatingWebhookName is the name of the webhook we create to handle
-	// mutations before they get stored in the storage.
-	ResourceMutatingWebhookName string
-
-	// ConfigValidationWebhookName is the name of the webhook we create to handle
-	// mutations before they get stored in the storage.
-	ConfigValidationWebhookName string
-
+// Options contains the configuration for the webhook
+type Options struct {
 	// ServiceName is the service name of the webhook.
 	ServiceName string
-
-	// DeploymentName is the service name of the webhook.
-	DeploymentName string
 
 	// SecretName is the name of k8s secret that contains the webhook
 	// server key/cert and corresponding CA cert that signed them. The
@@ -73,66 +51,82 @@ type ControllerOptions struct {
 	// registration.
 	SecretName string
 
-	// Namespace is the namespace in which everything above lives.
-	Namespace string
-
 	// Port where the webhook is served. Per k8s admission
 	// registration requirements this should be 443 unless there is
 	// only a single port for the service.
 	Port int
 
-	// RegistrationDelay controls how long admission registration
-	// occurs after the webhook is started. This is used to avoid
-	// potential races where registration completes and k8s apiserver
-	// invokes the webhook before the HTTP server is started.
-	RegistrationDelay time.Duration
-
-	// ClientAuthType declares the policy the webhook server will follow for
-	// TLS Client Authentication.
-	// The default value is tls.NoClientCert.
-	ClientAuth tls.ClientAuthType
-
 	// StatsReporter reports metrics about the webhook.
 	// This will be automatically initialized by the constructor if left uninitialized.
 	StatsReporter StatsReporter
-
-	// Service path for ResourceAdmissionController webhook
-	// Default is "/" for backward compatibility and is set by the constructor
-	ResourceAdmissionControllerPath string
-
-	// Service path for ConfigValidationController webhook
-	// Default is "/config-validation" and is set by the constructor
-	ConfigValidationControllerPath string
-
-	// NamespaceLabel is the label for the Namespace we bind ConfigValidationController to
-	ConfigValidationNamespaceLabel string
 }
 
-// AdmissionController provides the interface for different admission controllers
-type AdmissionController interface {
-	Admit(context.Context, *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
-	Register(context.Context, kubernetes.Interface, []byte) error
-}
+// Operation is the verb being operated on
+// it is aliasde in Validation from the k8s admission package
+type Operation = admissionv1beta1.Operation
+
+// Operation types
+const (
+	Create  Operation = admissionv1beta1.Create
+	Update  Operation = admissionv1beta1.Update
+	Delete  Operation = admissionv1beta1.Delete
+	Connect Operation = admissionv1beta1.Connect
+)
+
+var (
+	// GracePeriod is the duration that the webhook will wait after it's
+	// context is cancelled (and probes are failing) before shutting down
+	// the http server.
+	GracePeriod = 30 * time.Second
+)
 
 // Webhook implements the external webhook for validation of
 // resources and configuration.
 type Webhook struct {
-	Client               kubernetes.Interface
-	Options              ControllerOptions
-	Logger               *zap.SugaredLogger
-	admissionControllers map[string]AdmissionController
+	Client  kubernetes.Interface
+	Options Options
+	Logger  *zap.SugaredLogger
 
-	WithContext func(context.Context) context.Context
+	// synced is function that is called when the informers have been synced.
+	synced context.CancelFunc
+
+	// stopCh is closed when we should start failing readiness probes.
+	stopCh chan struct{}
+	// grace period is how long to wait after failing readiness probes
+	// before shutting down.
+	gracePeriod time.Duration
+
+	mux          http.ServeMux
+	secretlister corelisters.SecretLister
 }
 
 // New constructs a Webhook
 func New(
-	client kubernetes.Interface,
-	opts ControllerOptions,
-	admissionControllers map[string]AdmissionController,
-	logger *zap.SugaredLogger,
-	ctx func(context.Context) context.Context,
-) (*Webhook, error) {
+	ctx context.Context,
+	controllers []interface{},
+) (webhook *Webhook, err error) {
+
+	// ServeMux.Handle panics on duplicate paths
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("error creating webhook %v", r)
+		}
+	}()
+
+	client := kubeclient.Get(ctx)
+
+	// Injection is too aggressive for this case because by simply linking this
+	// library we force consumers to have secret access.  If we require that one
+	// of the admission controllers' informers *also* require the secret
+	// informer, then we can fetch the shared informer factory here and produce
+	// a new secret informer from it.
+	secretInformer := kubeinformerfactory.Get(ctx).Core().V1().Secrets()
+
+	opts := GetOptions(ctx)
+	if opts == nil {
+		return nil, errors.New("context must have Options specified")
+	}
+	logger := logging.FromContext(ctx)
 
 	if opts.StatsReporter == nil {
 		reporter, err := NewStatsReporter()
@@ -142,71 +136,124 @@ func New(
 		opts.StatsReporter = reporter
 	}
 
-	return &Webhook{
-		Client:               client,
-		Options:              opts,
-		admissionControllers: admissionControllers,
-		Logger:               logger,
-		WithContext:          ctx,
-	}, nil
+	syncCtx, cancel := context.WithCancel(context.Background())
+
+	webhook = &Webhook{
+		Client:       client,
+		Options:      *opts,
+		secretlister: secretInformer.Lister(),
+		Logger:       logger,
+		synced:       cancel,
+		stopCh:       make(chan struct{}),
+		gracePeriod:  GracePeriod,
+	}
+
+	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, fmt.Sprintf("no controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+	})
+
+	for _, controller := range controllers {
+		switch c := controller.(type) {
+		case AdmissionController:
+			handler := admissionHandler(logger, opts.StatsReporter, c, syncCtx.Done())
+			webhook.mux.Handle(c.Path(), handler)
+
+		case ConversionController:
+			handler := conversionHandler(logger, opts.StatsReporter, c)
+			webhook.mux.Handle(c.Path(), handler)
+
+		default:
+			return nil, fmt.Errorf("unknown webhook controller type:  %T", controller)
+		}
+
+	}
+
+	return
+}
+
+// InformersHaveSynced is called when the informers have all been synced, which allows any outstanding
+// admission webhooks through.
+func (wh *Webhook) InformersHaveSynced() {
+	wh.synced()
+	wh.Logger.Info("Informers have been synced, unblocking admission webhooks.")
 }
 
 // Run implements the admission controller run loop.
-func (ac *Webhook) Run(stop <-chan struct{}) error {
-	logger := ac.Logger
-	ctx := logging.WithLogger(context.TODO(), logger)
-	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
-	if err != nil {
-		logger.Errorw("could not configure admission webhook certs", zap.Error(err))
-		return err
-	}
+func (wh *Webhook) Run(stop <-chan struct{}) error {
+	logger := wh.Logger
+	ctx := logging.WithLogger(context.Background(), logger)
 
 	server := &http.Server{
-		Handler:   ac,
-		Addr:      fmt.Sprintf(":%v", ac.Options.Port),
-		TLSConfig: tlsConfig,
+		Handler: wh,
+		Addr:    fmt.Sprintf(":%d", wh.Options.Port),
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				secret, err := wh.secretlister.Secrets(system.Namespace()).Get(wh.Options.SecretName)
+				if err != nil {
+					return nil, err
+				}
+
+				serverKey, ok := secret.Data[certresources.ServerKey]
+				if !ok {
+					return nil, errors.New("server key missing")
+				}
+				serverCert, ok := secret.Data[certresources.ServerCert]
+				if !ok {
+					return nil, errors.New("server cert missing")
+				}
+				cert, err := tls.X509KeyPair(serverCert, serverKey)
+				if err != nil {
+					return nil, err
+				}
+				return &cert, nil
+			},
+		},
 	}
 
-	logger.Info("Found certificates for webhook...")
-	if ac.Options.RegistrationDelay != 0 {
-		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
-	}
-
-	select {
-	case <-time.After(ac.Options.RegistrationDelay):
-		for _, c := range ac.admissionControllers {
-			if err := c.Register(ctx, ac.Client, caCert); err != nil {
-				logger.Errorw("failed to register webhook", zap.Error(err))
-				return err
-			}
-		}
-		logger.Info("Successfully registered webhook")
-	case <-stop:
-		return nil
-	}
-
-	serverBootstrapErrCh := make(chan struct{})
-	go func() {
-		if err := server.ListenAndServeTLS("", ""); err != nil {
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
-			close(serverBootstrapErrCh)
+			return err
 		}
-	}()
+		return nil
+	})
 
 	select {
 	case <-stop:
-		return server.Close()
-	case <-serverBootstrapErrCh:
-		return errors.New("webhook server bootstrap failed")
+		eg.Go(func() error {
+			// Start failing readiness probes immediately.
+			logger.Info("Starting to fail readiness probes...")
+			close(wh.stopCh)
+
+			// Wait for a grace period for the above to take effect and this Pod's
+			// endpoint to be removed from the webhook service's Endpoints.
+			// For this to be effective, it must be greater than the probe's
+			// periodSeconds times failureThreshold by a margin suitable to
+			// propagate the new Endpoints data across the cluster.
+			time.Sleep(wh.gracePeriod)
+
+			return server.Shutdown(context.Background())
+		})
+
+		// Wait for all outstanding go routined to terminate, including our new one.
+		return eg.Wait()
+
+	case <-ctx.Done():
+		return fmt.Errorf("webhook server bootstrap failed %w", ctx.Err())
 	}
 }
 
-// ServeHTTP implements the external admission webhook for mutating
-// serving resources.
-func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var ttStart = time.Now()
-	logger := ac.Logger
-	logger.Infof("Webhook ServeHTTP request=%#v", r)
+func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Respond to probes regardless of path.
+	if network.IsKubeletProbe(r) {
+		select {
+		case <-wh.stopCh:
+			http.Error(w, "shutting down", http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}
 
 	// Verify the content type is accurate.
 	contentType := r.Header.Get("Content-Type")
@@ -215,169 +262,5 @@ func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var review admissionv1beta1.AdmissionReview
-	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
-		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	logger = logger.With(
-		zap.String(logkey.Kind, fmt.Sprint(review.Request.Kind)),
-		zap.String(logkey.Namespace, review.Request.Namespace),
-		zap.String(logkey.Name, review.Request.Name),
-		zap.String(logkey.Operation, fmt.Sprint(review.Request.Operation)),
-		zap.String(logkey.Resource, fmt.Sprint(review.Request.Resource)),
-		zap.String(logkey.SubResource, fmt.Sprint(review.Request.SubResource)),
-		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
-	ctx := logging.WithLogger(r.Context(), logger)
-
-	if ac.WithContext != nil {
-		ctx = ac.WithContext(ctx)
-	}
-
-	if _, ok := ac.admissionControllers[r.URL.Path]; !ok {
-		http.Error(w, fmt.Sprintf("no admission controller registered for: %s", r.URL.Path), http.StatusBadRequest)
-		return
-	}
-
-	c := ac.admissionControllers[r.URL.Path]
-	reviewResponse := c.Admit(ctx, review.Request)
-	var response admissionv1beta1.AdmissionReview
-	if reviewResponse != nil {
-		response.Response = reviewResponse
-		response.Response.UID = review.Request.UID
-	}
-
-	logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
-		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	if ac.Options.StatsReporter != nil {
-		// Only report valid requests
-		ac.Options.StatsReporter.ReportRequest(review.Request, response.Response, time.Since(ttStart))
-	}
-}
-
-// GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
-// client CA cert used by validator.
-//
-// NOTE: this certificate is provided kubernetes. We do not control
-// its name or location.
-func getAPIServerExtensionCACert(cl kubernetes.Interface) ([]byte, error) {
-	const name = "extension-apiserver-authentication"
-	c, err := cl.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	const caFileName = "requestheader-client-ca-file"
-	pem, ok := c.Data[caFileName]
-	if !ok {
-		return nil, fmt.Errorf("cannot find %s in ConfigMap %s: ConfigMap.Data is %#v", caFileName, name, c.Data)
-	}
-	return []byte(pem), nil
-}
-
-// MakeTLSConfig makes a TLS configuration suitable for use with the server
-func makeTLSConfig(serverCert, serverKey, caCert []byte, clientAuthType tls.ClientAuthType) (*tls.Config, error) {
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-	cert, err := tls.X509KeyPair(serverCert, serverKey)
-	if err != nil {
-		return nil, err
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    caCertPool,
-		ClientAuth:   clientAuthType,
-	}, nil
-}
-
-func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Interface,
-	options *ControllerOptions) (serverKey, serverCert, caCert []byte, err error) {
-	logger := logging.FromContext(ctx)
-	secret, err := client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, nil, nil, err
-		}
-		logger.Info("Did not find existing secret, creating one")
-		newSecret, err := generateSecret(ctx, options)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		secret, err = client.CoreV1().Secrets(newSecret.Namespace).Create(newSecret)
-		if err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				return nil, nil, nil, err
-			}
-			// OK, so something else might have created, try fetching it instead.
-			secret, err = client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		}
-	}
-
-	var ok bool
-	if serverKey, ok = secret.Data[secretServerKey]; !ok {
-		return nil, nil, nil, errors.New("server key missing")
-	}
-	if serverCert, ok = secret.Data[secretServerCert]; !ok {
-		return nil, nil, nil, errors.New("server cert missing")
-	}
-	if caCert, ok = secret.Data[secretCACert]; !ok {
-		return nil, nil, nil, errors.New("ca cert missing")
-	}
-	return serverKey, serverCert, caCert, nil
-}
-
-func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
-	var apiServerCACert []byte
-	if options.ClientAuth >= tls.VerifyClientCertIfGiven {
-		var err error
-		apiServerCACert, err = getAPIServerExtensionCACert(client)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(ctx, client, options)
-	if err != nil {
-		return nil, nil, err
-	}
-	tlsConfig, err := makeTLSConfig(serverCert, serverKey, apiServerCACert, options.ClientAuth)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tlsConfig, caCert, nil
-}
-
-func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
-	result := apierrors.NewBadRequest(fmt.Sprintf(reason, args...)).Status()
-	return &admissionv1beta1.AdmissionResponse{
-		Result:  &result,
-		Allowed: false,
-	}
-}
-
-func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {
-	serverKey, serverCert, caCert, err := CreateCerts(ctx, options.ServiceName, options.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      options.SecretName,
-			Namespace: options.Namespace,
-		},
-		Data: map[string][]byte{
-			secretServerKey:  serverKey,
-			secretServerCert: serverCert,
-			secretCACert:     caCert,
-		},
-	}, nil
+	wh.mux.ServeHTTP(w, r)
 }
