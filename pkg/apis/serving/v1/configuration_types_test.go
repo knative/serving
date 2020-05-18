@@ -18,7 +18,9 @@ package v1
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 func TestIsConfigurationCondition(t *testing.T) {
@@ -30,5 +32,18 @@ func TestIsConfigurationCondition(t *testing.T) {
 
 	if !IsConfigurationCondition(ConfigurationConditionReady) {
 		t.Error("Expected to be a configuration type")
+	}
+}
+
+func TestConfigurationGetStatus(t *testing.T) {
+	status := &duckv1.Status{}
+	config := Configuration{
+		Status: ConfigurationStatus{
+			Status: *status,
+		},
+	}
+
+	if !cmp.Equal(config.GetStatus(), status) {
+		t.Errorf("GetStatus did not retrieve status. Got=%v Want=%v", config.GetStatus(), status)
 	}
 }
