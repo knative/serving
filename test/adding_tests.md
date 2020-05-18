@@ -188,7 +188,7 @@ For example, you can poll a `Configuration` object to find the name of the
 
 ```go
 var revisionName string
-err := v1alpha1testing.WaitForConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
+err := v1testing.WaitForConfigurationState(clients.ServingClient, configName, func(c *v1.Configuration) (bool, error) {
 	if c.Status.LatestCreatedRevisionName != "" {
 		revisionName = c.Status.LatestCreatedRevisionName
 		return true, nil
@@ -197,15 +197,14 @@ err := v1alpha1testing.WaitForConfigurationState(clients.ServingClient, configNa
 }, "ConfigurationUpdatedWithRevision")
 ```
 
-_v1alpha1testing is alias for package
-`knative.dev/serving/pkg/testing/v1alpha1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 We also have `Check*` variants of many of these methods with identical
 signatures, same example:
 
 ```go
 var revisionName string
-err := v1alpha1testing.CheckConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
+err := v1testing.CheckConfigurationState(clients.ServingClient, configName, func(c *v1.Configuration) (bool, error) {
 	if c.Status.LatestCreatedRevisionName != "" {
 		revisionName = c.Status.LatestCreatedRevisionName
 		return true, nil
@@ -214,11 +213,10 @@ err := v1alpha1testing.CheckConfigurationState(clients.ServingClient, configName
 })
 ```
 
-_v1alpha1testing is alias for package
-`knative.dev/serving/pkg/testing/v1alpha1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 _For knative crd state, for example `Config`. You can see the code in
-[configuration.go](./v1alpha1/configuration.go). For kubernetes objects see
+[configuration.go](./v1/configuration.go). For kubernetes objects see
 [kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
@@ -227,35 +225,34 @@ To use the [check functions](#check-knative-serving-resources) you must provide
 a function to check the state. Some of the expected transition states (as
 defined in
 [the Knative Serving spec](https://github.com/knative/docs/blob/master/docs/serving/spec/knative-api-specification-1.0.md))
-, for example `v1alpha1/Revision` state, are expressed in function in
-[revision.go](./v1alpha1/revision.go).
+, for example `v1/Revision` state, are expressed in function in
+[revision.go](./v1/revision.go).
 
 For example when a `Revision` has been created, the system will start the
 resources required to actually serve it, and then the `Revision` object will be
 updated to indicate it is ready. This can be polled with
-`v1alpha1testing.IsRevisionReady`:
+`v1testing.IsRevisionReady`:
 
 ```go
-err := v1alpha1testing.WaitForRevisionState(clients.ServingAlphaClient, revName, v1alpha1testing.IsRevisionReady, "RevisionIsReady")
+err := v1testing.WaitForRevisionState(clients.ServingClient, revName, v1testing.IsRevisionReady, "RevisionIsReady")
 if err != nil {
 	t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 }
 ```
 
-_v1alpha1testing is alias for package
-`knative.dev/serving/pkg/testing/v1alpha1`_
+_v1testing is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 Once the `Revision` is created, all traffic for a `Route` should be routed to
-it. This can be polled with `v1alpha1testing.AllRouteTrafficAtRevision`:
+it. This can be polled with `v1testing.AllRouteTrafficAtRevision`:
 
 ```go
-err := v1alpha1testing.CheckRouteState(clients.ServingAlphaClient, names.Route, v1alpha1testing.AllRouteTrafficAtRevision(names))
+err := v1testing.CheckRouteState(clients.ServingClient, names.Route, v1testing.AllRouteTrafficAtRevision(names))
 if err != nil {
 	t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 }
 ```
 
-_See [route.go](./v1alpha1/route.go)._
+_See [route.go](./v1/route.go)._
 
 ### Generate boilerplate CRDs
 
