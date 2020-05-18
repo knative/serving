@@ -37,10 +37,6 @@ func TestFeaturesConfigurationFromFile(t *testing.T) {
 		t.Fatal("NewDefaultsConfigFromConfigMap(example) =", err)
 	}
 
-	// Those are in example, to show usage,
-	// but default is nil, i.e. inheriting k8s.
-	// So for this test we ignore those, but verify the other fields.
-	got.EnableMultiContainer = false
 	if want := defaultFeaturesConfig(); !cmp.Equal(got, want) {
 		t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
 			cmp.Diff(want, got))
