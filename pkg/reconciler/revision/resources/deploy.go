@@ -146,7 +146,10 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 			container = makeContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 		}
 		if rev.Status.ContainerStatuses != nil {
-			container.Image = rev.Status.ContainerStatuses[i].ImageDigest
+			// Override container image with digest value if the ContainerStatuses contains non empty imageDigest value.
+			if rev.Status.ContainerStatuses[i].ImageDigest != "" {
+				container.Image = rev.Status.ContainerStatuses[i].ImageDigest
+			}
 		}
 		containers = append(containers, container)
 	}
