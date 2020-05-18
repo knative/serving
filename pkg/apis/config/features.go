@@ -17,9 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -36,7 +35,12 @@ func defaultFeaturesConfig() *Features {
 // NewFeaturesConfigFromMap creates a Features from the supplied Map
 func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
-	nc.EnableMultiContainer = strings.EqualFold(data["enable-multi-container"], "true")
+
+	if err := cm.Parse(data,
+		cm.AsBool("enable-multi-container", &nc.EnableMultiContainer),
+	); err != nil {
+		return nil, err
+	}
 	return nc, nil
 }
 
