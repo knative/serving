@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -305,7 +304,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	if name == "" {
 		return nil
 	}
-	errConflict := errors.NewAlreadyExists(v1.Resource("revisions"), name)
+	errConflict := apierrs.NewAlreadyExists(v1.Resource("revisions"), name)
 
 	rev, err := lister.Revisions(config.Namespace).Get(name)
 	if err != nil {
