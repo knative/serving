@@ -78,6 +78,10 @@ if (( HTTPS )); then
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}'
+add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
+
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
@@ -90,6 +94,7 @@ if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
+
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
