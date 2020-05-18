@@ -25,7 +25,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -117,8 +116,6 @@ type metricsConfig struct {
 	// stackdriverClientConfig is the metadata to configure the metrics exporter's Stackdriver client.
 	stackdriverClientConfig StackdriverClientConfig
 }
-
-var logOnce sync.Once
 
 // StackdriverClientConfig encapsulates the metadata required to configure a Stackdriver client.
 type StackdriverClientConfig struct {
