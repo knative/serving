@@ -145,8 +145,10 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 		} else {
 			container = makeContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 		}
+		// The below logic usually mislead because of the operation on status during creation
+		// But as all images will be resolved to digests before calling this function
+		// so rev.Status.ContainerStatuses can be used to override the container images.
 		if rev.Status.ContainerStatuses != nil {
-			// Override container image with digest value if the ContainerStatuses contains non empty imageDigest value.
 			if rev.Status.ContainerStatuses[i].ImageDigest != "" {
 				container.Image = rev.Status.ContainerStatuses[i].ImageDigest
 			}
