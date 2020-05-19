@@ -116,10 +116,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
-		// Need to update ObservedGeneration, otherwise Route's Ready state won't
-		// be propagated to Service and the Service's RoutesReady will stay in
-		// 'Unknown'.
-		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -166,7 +162,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }
