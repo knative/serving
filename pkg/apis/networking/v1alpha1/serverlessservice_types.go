@@ -26,7 +26,7 @@ import (
 )
 
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServerlessService is a proxy for the K8s service objects containing the
@@ -142,11 +142,6 @@ const (
 	// (e.g. due to target burst capacity settings).
 	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )
-
-// GetTypeMeta retrieves the ObjectMeta of the ServerlessService. Implements the KRShaped interface.
-func (t *ServerlessService) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
 
 // GetStatus retrieves the status of the ServerlessService. Implements the KRShaped interface.
 func (t *ServerlessService) GetStatus() *duckv1.Status {
