@@ -34,9 +34,6 @@ import (
 )
 
 const (
-	// OrgName is the name of knative org
-	OrgName = "knative"
-
 	// BucketName is the gcs bucket for all knative builds
 	BucketName = "knative-prow"
 	// Latest is the filename storing latest build number
@@ -71,6 +68,7 @@ type Job struct {
 	Name        string
 	Type        string
 	Bucket      string  // optional
+	Org         string  // optional
 	Repo        string  // optional
 	StoragePath string  // optional
 	PullID      int     // only for Presubmit jobs
@@ -135,11 +133,13 @@ func Initialize(serviceAccount string) error {
 
 // NewJob creates new job struct
 // pullID is only saved by Presubmit job for determining StoragePath
-func NewJob(jobName, jobType, repoName string, pullID int) *Job {
+func NewJob(jobName, jobType, orgName, repoName string, pullID int) *Job {
 	job := Job{
 		Name:   jobName,
 		Type:   jobType,
 		Bucket: BucketName,
+		Org:    orgName,
+		Repo:   repoName,
 	}
 
 	switch jobType {
@@ -147,7 +147,7 @@ func NewJob(jobName, jobType, repoName string, pullID int) *Job {
 		job.StoragePath = path.Join("logs", jobName)
 	case PresubmitJob:
 		job.PullID = pullID
-		job.StoragePath = path.Join("pr-logs", "pull", OrgName+"_"+repoName, strconv.Itoa(pullID), jobName)
+		job.StoragePath = path.Join("pr-logs", "pull", orgName+"_"+repoName, strconv.Itoa(pullID), jobName)
 	case BatchJob:
 		job.StoragePath = path.Join("pr-logs", "pull", "batch", jobName)
 	default:
