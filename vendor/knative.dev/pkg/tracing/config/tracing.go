@@ -25,6 +25,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -98,15 +99,20 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 		}
 	}
 
-	if endpoint, ok := cfgMap[zipkinEndpointKey]; !ok && tc.Backend == Zipkin {
-		return nil, errors.New("zipkin tracing enabled without a zipkin endpoint specified")
-	} else {
-		tc.ZipkinEndpoint = endpoint
+	if err := cm.Parse(cfgMap,
+		cm.AsString(zipkinEndpointKey, &tc.ZipkinEndpoint),
+		cm.AsString(stackdriverProjectIDKey, &tc.StackdriverProjectID),
+		cm.AsBool(debugKey, &tc.Debug),
+		cm.AsFloat64(sampleRateKey, &tc.SampleRate),
+	); err != nil {
+		return nil, err
 	}
 
-	if projectID, ok := cfgMap[stackdriverProjectIDKey]; ok {
-		tc.StackdriverProjectID = projectID
-	} else if tc.Backend == Stackdriver {
+	if tc.Backend == Zipkin && tc.ZipkinEndpoint == "" {
+		return nil, errors.New("zipkin tracing enabled without a zipkin endpoint specified")
+	}
+
+	if tc.Backend == Stackdriver && tc.StackdriverProjectID == "" {
 		projectID, err := metadata.ProjectID()
 		if err != nil {
 			return nil, fmt.Errorf("stackdriver tracing enabled without a project-id specified: %w", err)
@@ -114,23 +120,8 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 		tc.StackdriverProjectID = projectID
 	}
 
-	if debug, ok := cfgMap[debugKey]; ok {
-		debugBool, err := strconv.ParseBool(debug)
-		if err != nil {
-			return nil, fmt.Errorf("failed parsing tracing config %q", debugKey)
-		}
-		tc.Debug = debugBool
-	}
-
-	if sampleRate, ok := cfgMap[sampleRateKey]; ok {
-		sampleRateFloat, err := strconv.ParseFloat(sampleRate, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse sampleRate in tracing config: %w", err)
-		}
-		if sampleRateFloat < 0 || sampleRateFloat > 1 {
-			return nil, fmt.Errorf("sampleRate = %v must be in [0, 1] range", sampleRateFloat)
-		}
-		tc.SampleRate = sampleRateFloat
+	if tc.SampleRate < 0 || tc.SampleRate > 1 {
+		return nil, fmt.Errorf("sample-rate = %v must be in [0, 1] range", tc.SampleRate)
 	}
 
 	return tc, nil
