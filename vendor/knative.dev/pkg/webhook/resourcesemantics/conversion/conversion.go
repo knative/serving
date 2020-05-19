@@ -109,11 +109,11 @@ func (r *reconciler) convert(
 	out := outZygote.DeepCopyObject().(ConvertibleObject)
 
 	hubGVK := inGVK.GroupKind().WithVersion(conv.HubVersion)
-	logger = logger.With(
+	ctx = logging.WithLogger(ctx, logger.With(
 		zap.String("inputType", formatGVK(inGVK)),
 		zap.String("outputType", formatGVK(outGVK)),
 		zap.String("hubType", formatGVK(hubGVK)),
-	)
+	))
 
 	// TODO(dprotaso) - potentially error on unknown fields
 	if err = json.Unmarshal(inRaw.Raw, &in); err != nil {

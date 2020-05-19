@@ -31,6 +31,11 @@ var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionIngressReady,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Route) GetConditionSet() apis.ConditionSet {
+	return routeCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")

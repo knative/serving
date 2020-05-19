@@ -30,6 +30,7 @@ aliases:
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
+  - julz
   - markusthoemmes
   - mdemirhan
   - taragu
@@ -54,6 +55,7 @@ aliases:
   - yt3liu
 
   networking-approvers:
+  - JRBANCEL
   - markusthoemmes
   - mdemirhan
   - nak3
@@ -65,6 +67,7 @@ aliases:
   - markusthoemmes
   - mdemirhan
   - nak3
+  - shashwathi
   - tcnghia
   - vagababov
   - yanweiguo

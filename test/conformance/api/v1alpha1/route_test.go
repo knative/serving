@@ -43,7 +43,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
-		test.ServingFlags.ResolvableDomain)
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
@@ -109,13 +110,13 @@ func TestRouteCreation(t *testing.T) {
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1a1test.CreateConfiguration(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	objects.Config = config
 
 	route, err := v1a1test.CreateRoute(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 	objects.Route = route
 
@@ -130,11 +131,11 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Failed to get URL from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route URL is: %s", url)
+	t.Log("The Route URL is:", url)
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, url, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, url)
+	prober := test.RunRouteProber(t.Logf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")

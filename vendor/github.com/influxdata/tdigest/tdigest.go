@@ -5,6 +5,8 @@ import (
 	"sort"
 )
 
+// TDigest is a data structure for accurate on-line accumulation of
+// rank-based statistics such as quantiles and trimmed means.
 type TDigest struct {
 	Compression float64
 
@@ -19,22 +21,36 @@ type TDigest struct {
 	max               float64
 }
 
+// New initializes a new distribution with a default compression.
 func New() *TDigest {
 	return NewWithCompression(1000)
 }
+
+// NewWithCompression initializes a new distribution with custom compression.
 func NewWithCompression(c float64) *TDigest {
 	t := &TDigest{
 		Compression: c,
 	}
 	t.maxProcessed = processedSize(0, t.Compression)
 	t.maxUnprocessed = unprocessedSize(0, t.Compression)
-	t.processed = make([]Centroid, 0, t.maxProcessed)
-	t.unprocessed = make([]Centroid, 0, t.maxUnprocessed+1)
-	t.min = math.MaxFloat64
-	t.max = -math.MaxFloat64
+	t.processed = make(CentroidList, 0, t.maxProcessed)
+	t.unprocessed = make(CentroidList, 0, t.maxUnprocessed+1)
+	t.Reset()
 	return t
 }
 
+// Reset resets the distribution to its initial state.
+func (t *TDigest) Reset() {
+	t.processed = t.processed[:0]
+	t.unprocessed = t.unprocessed[:0]
+	t.cumulative = t.cumulative[:0]
+	t.processedWeight = 0
+	t.unprocessedWeight = 0
+	t.min = math.MaxFloat64
+	t.max = -math.MaxFloat64
+}
+
+// Add adds a value x with a weight w to the distribution.
 func (t *TDigest) Add(x, w float64) {
 	if math.IsNaN(x) {
 		return
@@ -42,6 +58,7 @@ func (t *TDigest) Add(x, w float64) {
 	t.AddCentroid(Centroid{Mean: x, Weight: w})
 }
 
+// AddCentroidList can quickly add multiple centroids.
 func (t *TDigest) AddCentroidList(c CentroidList) {
 	l := c.Len()
 	for i := 0; i < l; i++ {
@@ -58,6 +75,7 @@ func (t *TDigest) AddCentroidList(c CentroidList) {
 	}
 }
 
+// AddCentroid adds a single centroid.
 func (t *TDigest) AddCentroid(c Centroid) {
 	t.unprocessed = append(t.unprocessed, c)
 	t.unprocessedWeight += c.Weight
@@ -103,8 +121,33 @@ func (t *TDigest) process() {
 	}
 }
 
+// Centroids returns a copy of processed centroids.
+// Useful when aggregating multiple t-digests.
+//
+// Pass in the CentroidList as the buffer to write into.
+func (t *TDigest) Centroids() CentroidList {
+	t.process()
+	cl := make([]Centroid, len(t.processed))
+	copy(cl, t.processed)
+	return cl
+}
+
+func (t *TDigest) Count() float64 {
+	t.process()
+	count := 0.0
+	for _, centroid := range t.processed {
+		count += centroid.Weight
+	}
+	return count
+}
+
 func (t *TDigest) updateCumulative() {
-	t.cumulative = make([]float64, t.processed.Len()+1)
+	if n := t.processed.Len() + 1; n <= cap(t.cumulative) {
+		t.cumulative = t.cumulative[:n]
+	} else {
+		t.cumulative = make([]float64, n)
+	}
+
 	prev := 0.0
 	for i, centroid := range t.processed {
 		cur := centroid.Weight
@@ -114,6 +157,9 @@ func (t *TDigest) updateCumulative() {
 	t.cumulative[t.processed.Len()] = prev
 }
 
+// Quantile returns the (approximate) quantile of
+// the distribution. Accepted values for q are between 0.0 and 1.0.
+// Returns NaN if Count is zero or bad inputs.
 func (t *TDigest) Quantile(q float64) float64 {
 	t.process()
 	if q < 0 || q > 1 || t.processed.Len() == 0 {
@@ -142,6 +188,7 @@ func (t *TDigest) Quantile(q float64) float64 {
 	return weightedAverage(t.processed[t.processed.Len()-1].Mean, z1, t.max, z2)
 }
 
+// CDF returns the cumulative distribution function for a given value x.
 func (t *TDigest) CDF(x float64) float64 {
 	t.process()
 	switch t.processed.Len() {

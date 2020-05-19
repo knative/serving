@@ -21,15 +21,13 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/test/logging"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
+	"knative.dev/pkg/apis/duck"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )
@@ -38,6 +36,7 @@ import (
 // that uses the image specified by names.Image.
 func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1.Configuration, error) {
 	config := Configuration(names, fopt...)
+	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingClient.Configs.Create(config)
 }

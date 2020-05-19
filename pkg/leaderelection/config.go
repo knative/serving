@@ -41,7 +41,7 @@ func ValidateConfig(configMap *corev1.ConfigMap) (*kle.Config, error) {
 		return nil, err
 	}
 
-	for _, component := range config.EnabledComponents.List() {
+	for component := range config.EnabledComponents {
 		if !validComponents.Has(component) {
 			return nil, fmt.Errorf("invalid enabledComponent %q: valid values are %q", component, validComponents.List())
 		}

@@ -298,7 +298,7 @@ func WithServiceGeneration(generation int64) ServiceOption {
 func WithServiceLabel(key, value string) ServiceOption {
 	return func(service *v1.Service) {
 		if service.Labels == nil {
-			service.Labels = make(map[string]string)
+			service.Labels = make(map[string]string, 1)
 		}
 		service.Labels[key] = value
 	}
@@ -387,6 +387,14 @@ func WithSvcStatusTraffic(targets ...v1.TrafficTarget) ServiceOption {
 func WithServiceLatestReadyRevision(lrr string) ServiceOption {
 	return func(s *v1.Service) {
 		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// WithReadinessProbe sets the provided probe to be the readiness
+// probe on the service.
+func WithReadinessProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.Containers[0].ReadinessProbe = p
 	}
 }
 

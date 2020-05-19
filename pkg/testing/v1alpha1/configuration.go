@@ -100,7 +100,7 @@ func MarkLatestCreatedFailed(msg string) ConfigOption {
 func WithConfigLabel(key, value string) ConfigOption {
 	return func(config *v1alpha1.Configuration) {
 		if config.Labels == nil {
-			config.Labels = make(map[string]string)
+			config.Labels = make(map[string]string, 1)
 		}
 		config.Labels[key] = value
 	}
@@ -118,5 +118,12 @@ func WithConfigReadinessProbe(p *corev1.Probe) ConfigOption {
 func WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Spec.Template.Spec.TimeoutSeconds = ptr.Int64(revisionTimeoutSeconds)
+	}
+}
+
+// WithConfigEnv configures the Service to use the provided environment variables.
+func WithConfigEnv(evs ...corev1.EnvVar) ConfigOption {
+	return func(c *v1alpha1.Configuration) {
+		c.Spec.Template.Spec.Containers[0].Env = evs
 	}
 }

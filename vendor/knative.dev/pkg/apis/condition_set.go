@@ -75,6 +75,10 @@ type ConditionManager interface {
 	// true if all dependents are true.
 	MarkTrue(t ConditionType)
 
+	// MarkTrueWithReason sets the status of t to true with the reason, and then marks the happy
+	// condition to true if all dependents are true.
+	MarkTrueWithReason(t ConditionType, reason, messageFormat string, messageA ...interface{})
+
 	// MarkUnknown sets the status of t to Unknown and also sets the happy condition
 	// to Unknown if no other dependent condition is in an error state.
 	MarkUnknown(t ConditionType, reason, messageFormat string, messageA ...interface{})
@@ -105,7 +109,7 @@ func NewBatchConditionSet(d ...ConditionType) ConditionSet {
 // important for the caller. The first ConditionType is the overarching status
 // for that will be used to signal the resources' status is Ready or Succeeded.
 func newConditionSet(happy ConditionType, dependents ...ConditionType) ConditionSet {
-	var deps []ConditionType
+	deps := make([]ConditionType, 0, len(dependents))
 	for _, d := range dependents {
 		// Skip duplicates
 		if d == happy || contains(deps, d) {
@@ -136,6 +140,11 @@ var _ ConditionManager = (*conditionsImpl)(nil)
 type conditionsImpl struct {
 	ConditionSet
 	accessor ConditionsAccessor
+}
+
+// GetTopLevelConditionType is an accessor for the top-level happy condition.
+func (r ConditionSet) GetTopLevelConditionType() ConditionType {
+	return r.happy
 }
 
 // Manage creates a ConditionManager from an accessor object using the original
@@ -253,7 +262,25 @@ func (r conditionsImpl) MarkTrue(t ConditionType) {
 		Status:   corev1.ConditionTrue,
 		Severity: r.severity(t),
 	})
+	r.recomputeHappiness(t)
+}
 
+// MarkTrueWithReason sets the status of t to true with the reason, and then marks the happy condition to
+// true if all other dependents are also true.
+func (r conditionsImpl) MarkTrueWithReason(t ConditionType, reason, messageFormat string, messageA ...interface{}) {
+	// set the specified condition
+	r.SetCondition(Condition{
+		Type:     t,
+		Status:   corev1.ConditionTrue,
+		Reason:   reason,
+		Message:  fmt.Sprintf(messageFormat, messageA...),
+		Severity: r.severity(t),
+	})
+	r.recomputeHappiness(t)
+}
+
+// recomputeHappiness marks the happy condition to true if all other dependents are also true.
+func (r conditionsImpl) recomputeHappiness(t ConditionType) {
 	if c := r.findUnhappyDependent(); c != nil {
 		// Propagate unhappy dependent to happy condition.
 		r.SetCondition(Condition{
@@ -312,7 +339,7 @@ func (r conditionsImpl) findUnhappyDependent() *Condition {
 	}
 
 	// If something was not initialized.
-	if len(r.dependents) != len(conditions) {
+	if len(r.dependents) > len(conditions) {
 		return &Condition{
 			Status: corev1.ConditionUnknown,
 		}

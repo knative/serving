@@ -27,7 +27,9 @@ import (
 	"strings"
 	"text/template"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 )
 
@@ -91,12 +93,14 @@ const (
 	// hostname for a Route's tag.
 	TagTemplateKey = "tagTemplate"
 
+	// KubeProbeUAPrefix is the user agent prefix of the probe.
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
 	KubeProbeUAPrefix = "kube-probe/"
 
-	// Istio with mTLS rewrites probes, but their probes pass a different
-	// user-agent.  So we augment the probes with this header.
+	// KubeletProbeHeaderName is the name of the header supplied by kubelet
+	// probes.  Istio with mTLS rewrites probes, but their probes pass a
+	// different user-agent.  So we augment the probes with this header.
 	KubeletProbeHeaderName = "K-Kubelet-Probe"
 
 	// DefaultDomainTemplate is the default golang template to use when
@@ -144,6 +148,7 @@ type DomainTemplateValues struct {
 	Namespace   string
 	Domain      string
 	Annotations map[string]string
+	Labels      map[string]string
 }
 
 // TagTemplateValues are the available properties people can choose from
@@ -151,6 +156,20 @@ type DomainTemplateValues struct {
 type TagTemplateValues struct {
 	Name string
 	Tag  string
+}
+
+var (
+	templateCache *lru.Cache
+
+	// Verify the default templates are valid.
+	_ = template.Must(template.New("domain-template").Parse(DefaultDomainTemplate))
+	_ = template.Must(template.New("tag-template").Parse(DefaultTagTemplate))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store ~10 latest templates per template type.
+	templateCache, _ = lru.New(10 * 2)
 }
 
 // Config contains the networking configuration defined in the
@@ -193,72 +212,75 @@ const (
 	HTTPRedirected HTTPProtocol = "redirected"
 )
 
+func defaultConfig() *Config {
+	return &Config{
+		DefaultIngressClass:     IstioIngressClassName,
+		DefaultCertificateClass: CertManagerCertificateClassName,
+		DomainTemplate:          DefaultDomainTemplate,
+		TagTemplate:             DefaultTagTemplate,
+		AutoTLS:                 false,
+		HTTPProtocol:            HTTPEnabled,
+	}
+}
+
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
-	nc := &Config{}
-	if _, ok := configMap.Data[IstioOutboundIPRangesKey]; ok {
-		// Until the next version is released, the validation check is enabled to notify users who configure some value.
-		logger := logging.FromContext(context.Background()).Named(configMap.Name)
+	return NewConfigFromMap(configMap.Data)
+}
+
+// NewConfigFromMap creates a Config from the supplied data.
+func NewConfigFromMap(data map[string]string) (*Config, error) {
+	nc := defaultConfig()
+	if _, ok := data[IstioOutboundIPRangesKey]; ok {
+		// TODO(0.15): Until the next version is released, the validation check is
+		// enabled to notify users who configure this value.
+		logger := logging.FromContext(context.Background()).Named("config-network")
 		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
 	}
 
-	nc.DefaultIngressClass = IstioIngressClassName
-	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; ok {
-		nc.DefaultIngressClass = ingressClass
-	} else if ingressClass, ok := configMap.Data[DeprecatedDefaultIngressClassKey]; ok {
-		nc.DefaultIngressClass = ingressClass
+	if err := cm.Parse(data,
+		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),
+		// New key takes precedence.
+		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
+		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
+		cm.AsString(DomainTemplateKey, &nc.DomainTemplate),
+		cm.AsString(TagTemplateKey, &nc.TagTemplate),
+	); err != nil {
+		return nil, err
 	}
 
-	nc.DefaultCertificateClass = CertManagerCertificateClassName
-	if certClass, ok := configMap.Data[DefaultCertificateClassKey]; ok {
-		nc.DefaultCertificateClass = certClass
+	// Verify domain-template and add to the cache.
+	t, err := template.New("domain-template").Parse(nc.DomainTemplate)
+	if err != nil {
+		return nil, err
 	}
-
-	// Blank DomainTemplate makes no sense so use our default
-	if dt, ok := configMap.Data[DomainTemplateKey]; !ok {
-		nc.DomainTemplate = DefaultDomainTemplate
-	} else {
-		t, err := template.New("domain-template").Parse(dt)
-		if err != nil {
-			return nil, err
-		}
-		if err := checkDomainTemplate(t); err != nil {
-			return nil, err
-		}
-
-		nc.DomainTemplate = dt
+	if err := checkDomainTemplate(t); err != nil {
+		return nil, err
 	}
+	templateCache.Add(nc.DomainTemplate, t)
 
-	// Blank TagTemplate makes no sense so use our default
-	if tt, ok := configMap.Data[TagTemplateKey]; !ok {
-		nc.TagTemplate = DefaultTagTemplate
-	} else {
-		t, err := template.New("tag-template").Parse(tt)
-		if err != nil {
-			return nil, err
-		}
-		if err := checkTagTemplate(t); err != nil {
-			return nil, err
-		}
-
-		nc.TagTemplate = tt
+	// Verify tag-template and add to the cache.
+	t, err = template.New("tag-template").Parse(nc.TagTemplate)
+	if err != nil {
+		return nil, err
 	}
+	if err := checkTagTemplate(t); err != nil {
+		return nil, err
+	}
+	templateCache.Add(nc.TagTemplate, t)
 
-	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
+	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
 
-	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
-	case string(HTTPEnabled):
-		nc.HTTPProtocol = HTTPEnabled
-	case "":
-		// If HTTPProtocol is not set in the config-network, we set the default value
-		// to HTTPEnabled.
-		nc.HTTPProtocol = HTTPEnabled
+	switch strings.ToLower(data[HTTPProtocolKey]) {
+	case "", string(HTTPEnabled):
+		// If HTTPProtocol is not set in the config-network, default is already
+		// set to HTTPEnabled.
 	case string(HTTPDisabled):
 		nc.HTTPProtocol = HTTPDisabled
 	case string(HTTPRedirected):
 		nc.HTTPProtocol = HTTPRedirected
 	default:
-		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", configMap.Data[HTTPProtocolKey])
+		return nil, fmt.Errorf("httpProtocol %s in config-network ConfigMap is not supported", data[HTTPProtocolKey])
 	}
 	return nc, nil
 }
@@ -267,8 +289,15 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // or panics (the value is validated during CM validation and at
 // this point guaranteed to be parseable).
 func (c *Config) GetDomainTemplate() *template.Template {
-	return template.Must(template.New("domain-template").Parse(
-		c.DomainTemplate))
+	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("domain-template").Parse(
+			c.DomainTemplate))
+		templateCache.Add(c.DomainTemplate, nt)
+		return nt
+	}
 }
 
 func checkDomainTemplate(t *template.Template) error {
@@ -279,6 +308,7 @@ func checkDomainTemplate(t *template.Template) error {
 		Namespace:   "bar",
 		Domain:      "baz.com",
 		Annotations: nil,
+		Labels:      nil,
 	}
 	buf := bytes.Buffer{}
 	if err := t.Execute(&buf, data); err != nil {
@@ -302,8 +332,15 @@ func checkDomainTemplate(t *template.Template) error {
 }
 
 func (c *Config) GetTagTemplate() *template.Template {
-	return template.Must(template.New("tag-template").Parse(
-		c.TagTemplate))
+	if tt, ok := templateCache.Get(c.TagTemplate); ok {
+		return tt.(*template.Template)
+	} else {
+		// Should not really happen outside of route/ingress unit tests.
+		nt := template.Must(template.New("tag-template").Parse(
+			c.TagTemplate))
+		templateCache.Add(c.TagTemplate, nt)
+		return nt
+	}
 }
 
 func checkTagTemplate(t *template.Template) error {

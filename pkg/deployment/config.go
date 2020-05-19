@@ -17,11 +17,14 @@ limitations under the License.
 package deployment
 
 import (
-	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -29,25 +32,41 @@ const (
 	ConfigName = "config-deployment"
 
 	// QueueSidecarImageKey is the config map key for queue sidecar image
-	QueueSidecarImageKey           = "queueSidecarImage"
-	registriesSkippingTagResolving = "registriesSkippingTagResolving"
+	QueueSidecarImageKey = "queueSidecarImage"
+
+	// ProgressDeadlineDefault is the default value for the config's
+	// ProgressDeadlineSeconds. This does not match the K8s default value of 600s.
+	ProgressDeadlineDefault = 120 * time.Second
+
+	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
+
+	// ProgressDeadlineKey is the key to configure deployment progress deadline.
+	ProgressDeadlineKey = "progressDeadline"
 )
+
+func defaultConfig() *Config {
+	return &Config{
+		ProgressDeadline:               ProgressDeadlineDefault,
+		RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+	}
+}
 
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
-	nc := &Config{}
-	qsideCarImage, ok := configMap[QueueSidecarImageKey]
-	if !ok {
-		return nil, errors.New("queue sidecar image is missing")
-	}
-	nc.QueueSidecarImage = qsideCarImage
+	nc := defaultConfig()
 
-	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
-		// It is ok if registries are missing.
-		nc.RegistriesSkippingTagResolving = sets.NewString("ko.local", "dev.local")
-	} else {
-		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
+	if err := cm.Parse(configMap,
+		asRequiredString(QueueSidecarImageKey, &nc.QueueSidecarImage),
+		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
+		asStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
+	); err != nil {
+		return nil, err
 	}
+
+	if nc.ProgressDeadline <= 0 {
+		return nil, fmt.Errorf("ProgressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
+	}
+
 	return nc, nil
 }
 
@@ -64,4 +83,31 @@ type Config struct {
 
 	// Repositories for which tag to digest resolving should be skipped
 	RegistriesSkippingTagResolving sets.String
+
+	// ProgressDeadline is the time in seconds we wait for the deployment to
+	// be ready before considering it failed.
+	ProgressDeadline time.Duration
+}
+
+// asRequiredString is the same as cm.AsString but errors if the key is not present.
+func asRequiredString(key string, target *string) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = raw
+		} else {
+			return fmt.Errorf("%q is missing", key)
+		}
+		return nil
+	}
+}
+
+// asStringSet parses the value at key as a sets.String (splitting at ',') into the
+// target, if it exists.
+func asStringSet(key string, target *sets.String) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = sets.NewString(strings.Split(raw, ",")...)
+		}
+		return nil
+	}
 }

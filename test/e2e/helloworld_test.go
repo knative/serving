@@ -29,9 +29,9 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestHelloWorld(t *testing.T) {
@@ -46,41 +46,26 @@ func TestHelloWorld(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	if test.ServingFlags.Https {
-		// Save the current Gateway to restore it after the test
-		oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
-		if err != nil {
-			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
-		}
-		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
-		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
-	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
 	url := resources.Route.Status.URL.URL()
-	var opt interface{}
-	if test.ServingFlags.Https {
-		url.Scheme = "https"
-		if httpsTransportOption == nil {
-			t.Fatalf("Https transport option is nil")
-		}
-		opt = *httpsTransportOption
-	}
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		opt); err != nil {
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
@@ -117,9 +102,8 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
 				corev1.ResourceName("memory"): resource.MustParse("128Mi"),
@@ -128,7 +112,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 				corev1.ResourceName("cpu"):    resource.MustParse("100m"),
 				corev1.ResourceName("memory"): resource.MustParse("258Mi"),
 			},
-		}), v1a1opts.WithConfigAnnotations(map[string]string{
+		}), rtesting.WithConfigAnnotations(map[string]string{
 			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 		}))
 	if err != nil {
@@ -140,9 +124,11 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
 

@@ -108,6 +108,11 @@ type Finished struct {
 // Metadata contains metadata in finished.json
 type Metadata map[string]interface{}
 
+// IsCI returns whether the current environment is a CI environment.
+func IsCI() bool {
+	return strings.EqualFold(os.Getenv("CI"), "true")
+}
+
 /* Local logics */
 
 // GetLocalArtifactsDir gets the artifacts directory where prow looks for artifacts.
@@ -206,8 +211,9 @@ func (j *Job) GetFinishedBuilds() []Build {
 // by parsing "Started.json" and "Finished.json" on gcs, could be very expensive if there are
 // large number of builds
 func (j *Job) GetBuilds() []Build {
-	var builds []Build
-	for _, ID := range j.GetBuildIDs() {
+	buildIDs := j.GetBuildIDs()
+	builds := make([]Build, 0, len(buildIDs))
+	for _, ID := range buildIDs {
 		builds = append(builds, *j.NewBuild(ID))
 	}
 	return builds

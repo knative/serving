@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"

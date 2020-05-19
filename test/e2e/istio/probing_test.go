@@ -37,23 +37,21 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-)
-
-var (
-	namespace = "knative-serving"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestIstioProbing(t *testing.T) {
@@ -61,7 +59,7 @@ func TestIstioProbing(t *testing.T) {
 	defer cancel()
 
 	clients := e2e.Setup(t)
-
+	namespace := system.Namespace()
 	// Save the current Gateway to restore it after the test
 	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
@@ -89,8 +87,7 @@ func TestIstioProbing(t *testing.T) {
 		}
 		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 		defer test.TearDown(clients, names)
-		objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-			test.ServingFlags.Https)
+		objects, err := v1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 		}
@@ -260,12 +257,12 @@ func TestIstioProbing(t *testing.T) {
 				transportOptions = append(transportOptions, setupHTTPS(t, clients.KubeClient, []string{names.Service + "." + domain}))
 			}
 
-			setupGateway(t, clients, names, domain, c.servers)
+			setupGateway(t, clients, names, domain, namespace, c.servers)
 
 			// Create the service and wait for it to be ready
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 			defer test.TearDown(clients, names)
-			_, _, err = v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
+			_, err = v1test.CreateServiceReady(t, clients, &names)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 			}
@@ -283,7 +280,7 @@ func TestIstioProbing(t *testing.T) {
 						clients.KubeClient,
 						t.Logf,
 						u,
-						v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+						v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 						"HelloWorldServesText",
 						test.ServingFlags.ResolvableDomain,
 						1*time.Minute,
@@ -295,7 +292,7 @@ func TestIstioProbing(t *testing.T) {
 			}
 			err = g.Wait()
 			if err != nil {
-				t.Fatalf("Failed to probe the Service: %v", err)
+				t.Fatal("Failed to probe the Service:", err)
 			}
 		})
 	}
@@ -311,7 +308,8 @@ func hasHTTPS(servers []*istiov1alpha3.Server) bool {
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, servers []*istiov1alpha3.Server) {
+func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string,
+	namespace string, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
 	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
@@ -328,16 +326,11 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
 
-	var selectors []string
-	for k, v := range gw.Spec.Selector {
-		selectors = append(selectors, k+"="+v)
-	}
-	selector := strings.Join(selectors, ",")
-
+	selector := labels.SelectorFromSet(gw.Spec.Selector).String()
 	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to list Gateway pods: %v", err)
+		t.Fatal("Failed to list Gateway pods:", err)
 	}
 
 	// TODO(bancel): there is a race condition here if a pod listed in the call above is deleted before calling watch below
@@ -346,7 +339,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 	wg.Add(len(pods.Items))
 	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to watch Gateway pods: %v", err)
+		t.Fatal("Failed to watch Gateway pods:", err)
 	}
 	defer wtch.Stop()
 
@@ -366,7 +359,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 
 	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to delete Gateway pods: %v", err)
+		t.Fatal("Failed to delete Gateway pods:", err)
 	}
 
 	wg.Wait()
@@ -380,7 +373,7 @@ func setupHTTPS(t *testing.T, kubeClient *pkgTest.KubeClient, hosts []string) sp
 
 	cert, key, err := generateCertificate(hosts)
 	if err != nil {
-		t.Fatalf("Failed to generate the certificate: %v", err)
+		t.Fatal("Failed to generate the certificate:", err)
 	}
 
 	rootCAs, _ := x509.SystemCertPool()

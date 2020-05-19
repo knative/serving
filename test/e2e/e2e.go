@@ -22,6 +22,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -29,15 +30,15 @@ import (
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	presources "knative.dev/serving/pkg/resources"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -65,7 +66,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 		pkgTest.Flags.Cluster,
 		namespace)
 	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
+		t.Fatal("Couldn't initialize clients:", err)
 	}
 	return clients
 }
@@ -73,7 +74,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
-	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
 		autoscalerconfig.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
@@ -84,14 +85,14 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 
 // rawCM returns the raw knative config map for the given name
 func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
 		name,
 		metav1.GetOptions{})
 }
 
 // patchCM updates the existing config map with the supplied value.
 func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Update(cm)
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(cm)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
@@ -118,7 +119,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 }
 
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
-func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
+func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.Clients) error {
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
@@ -126,19 +127,39 @@ func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *tes
 		if err != nil {
 			return false, nil
 		}
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(resources.Revision.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+
 		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
-		if len(svcEps.Subsets) != len(aeps.Subsets) {
+
+		// The subset is set. But in theory it might be revision pods,
+		// so verify below that at least 1 address is an activator pod.
+		wantAct := int(sks.Spec.NumActivators)
+		if numAct := presources.ReadyAddressCount(aeps); wantAct > numAct {
+			wantAct = numAct
+		}
+		if presources.ReadyAddressCount(svcEps) != wantAct {
 			return false, nil
 		}
-		for i, ss := range svcEps.Subsets {
-			if !cmp.Equal(ss.Addresses, aeps.Subsets[i].Addresses) {
-				return false, nil
+		aset := sets.NewString()
+		for _, ss := range svcEps.Subsets {
+			for i := 0; i < len(ss.Addresses); i++ {
+				aset.Insert(ss.Addresses[i].IP)
 			}
 		}
-		return true, nil
+		for _, ss := range aeps.Subsets {
+			for i := 0; i < len(ss.Addresses); i++ {
+				if aset.Has(ss.Addresses[i].IP) {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
 	})
 }

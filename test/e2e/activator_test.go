@@ -26,11 +26,12 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // TestActivatorOverload makes sure that activator can handle the load when scaling from 0.
@@ -59,14 +60,13 @@ func TestActivatorOverload(t *testing.T) {
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		func(service *v1alpha1.Service) {
-			service.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
-			service.Spec.ConfigurationSpec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		func(service *v1.Service) {
+			service.Spec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
+			service.Spec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
 		})
 	if err != nil {
-		t.Fatalf("Unable to create resources: %v", err)
+		t.Fatal("Unable to create resources:", err)
 	}
 
 	// Make sure the service responds correctly before scaling to 0.
@@ -74,9 +74,11 @@ func TestActivatorOverload(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgtest.IsStatusOK),
 		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
 
@@ -86,9 +88,9 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	domain := resources.Route.Status.URL.Host
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating the Spoofing client: %v", err)
+		t.Fatal("Error creating the Spoofing client:", err)
 	}
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)

@@ -23,12 +23,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -156,9 +154,12 @@ func TestMetricCollectorScraper(t *testing.T) {
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
 	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
-		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
-		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
+		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+		return gotConcurrency == wantConcurrency &&
+			panicConcurrency == wantPConcurrency &&
+			gotRPS == wantRPS &&
+			panicRPS == wantPRPS, nil
 	})
 
 	gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
@@ -199,12 +200,121 @@ func TestMetricCollectorScraper(t *testing.T) {
 	// Deleting the metric should cause a calculation error.
 	coll.Delete(defaultNamespace, defaultName)
 	_, _, err = coll.StableAndPanicConcurrency(metricKey, now)
-	if err != ErrNotScraping {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
+	if err != ErrNotCollecting {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotCollecting)
 	}
 	_, _, err = coll.StableAndPanicRPS(metricKey, now)
-	if err != ErrNotScraping {
-		t.Errorf("StableAndPanicRPS() = %v, want %v", err, ErrNotScraping)
+	if err != ErrNotCollecting {
+		t.Errorf("StableAndPanicRPS() = %v, want %v", err, ErrNotCollecting)
+	}
+}
+
+func TestMetricCollectorNoScraper(t *testing.T) {
+	logger := TestLogger(t)
+
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	now := time.Now()
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	const wantStat = 0.
+	stat := Stat{
+		Time:                      now,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: wantStat,
+		RequestCount:              wantStat,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+
+	coll := NewMetricCollector(factory, logger)
+	coll.tickProvider = mtp.NewTicker // custom ticker.
+
+	noTargetMetric := defaultMetric
+	noTargetMetric.Spec.ScrapeTarget = ""
+	coll.CreateOrUpdate(&noTargetMetric)
+	// Tick three times.  Time doesn't matter since we use the time on the Stat.
+	mtp.Channel <- now
+	mtp.Channel <- now
+	mtp.Channel <- now
+
+	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
+	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
+	if errCon != nil {
+		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+	}
+	if errRPS != nil {
+		t.Errorf("StableAndPanicRPS = %v", errRPS)
+	}
+	if panicConcurrency != wantStat {
+		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
+	}
+	if panicRPS != wantStat {
+		t.Errorf("PanicRPS() = %v, want %v", panicRPS, wantStat)
+	}
+	if gotConcurrency != wantStat {
+		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantStat)
+	}
+	if gotRPS != wantStat {
+		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantStat)
+	}
+
+	// Verify Record() works as expected and values can be retrieved.
+	const (
+		wantRC        = 30.0
+		wantAverageRC = 10.0
+	)
+	stat.RequestCount = wantRC
+	stat.AverageConcurrentRequests = wantAverageRC
+
+	coll.Record(metricKey, stat)
+
+	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
+	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Errorf("StableAndPanicRPS = %v", err)
+	}
+	if gotRPS != wantRC {
+		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRC)
+	}
+	if gotConcurrency != wantAverageRC {
+		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantAverageRC)
+	}
+}
+
+func TestMetricCollectorNoDataError(t *testing.T) {
+	logger := TestLogger(t)
+
+	now := time.Now()
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	const wantStat = 0.
+	stat := Stat{
+		Time:                      now,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: wantStat,
+		RequestCount:              wantStat,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+	coll := NewMetricCollector(factory, logger)
+
+	coll.CreateOrUpdate(&defaultMetric)
+	// Verify correct error is returned if ScrapeTarget is set
+	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
+	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
+	if errCon != ErrNoData {
+		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+	}
+	if errRPS != ErrNoData {
+		t.Errorf("StableAndPanicRPS = %v", errRPS)
 	}
 }
 
@@ -257,7 +367,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll.Record(metricKey, stat)
 	stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
-		t.Fatalf("StableAndPanicConcurrency: %v", err)
+		t.Fatal("StableAndPanicConcurrency:", err)
 	}
 	// Scale to the window sizes.
 	const (
@@ -270,7 +380,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
-		t.Fatalf("StableAndPanicRPS: %v", err)
+		t.Fatal("StableAndPanicRPS:", err)
 	}
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
 		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)
@@ -278,11 +388,25 @@ func TestMetricCollectorRecord(t *testing.T) {
 }
 
 func TestMetricCollectorError(t *testing.T) {
+	testMetric := &av1alpha1.Metric{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: fake.TestNamespace,
+			Name:      fake.TestRevision,
+			Labels: map[string]string{
+				serving.RevisionLabelKey: fake.TestRevision,
+			},
+		},
+		Spec: av1alpha1.MetricSpec{
+			ScrapeTarget: fake.TestRevision + "-zhudex",
+		},
+	}
+
+	errOther := errors.New("foo")
+
 	testCases := []struct {
-		name                 string
-		scraper              *testScraper
-		metric               *av1alpha1.Metric
-		expectedMetricStatus duckv1.Status
+		name          string
+		scraper       *testScraper
+		expectedError error
 	}{{
 		name: "Failed to get endpoints scraper error",
 		scraper: &testScraper{
@@ -290,26 +414,7 @@ func TestMetricCollectorError(t *testing.T) {
 				return emptyStat, ErrFailedGetEndpoints
 			},
 		},
-		metric: &av1alpha1.Metric{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: fake.TestNamespace,
-				Name:      fake.TestRevision,
-				Labels: map[string]string{
-					serving.RevisionLabelKey: fake.TestRevision,
-				},
-			},
-			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: fake.TestRevision + "-zhudex",
-			},
-		},
-		expectedMetricStatus: duckv1.Status{
-			Conditions: duckv1.Conditions{{
-				Type:    av1alpha1.MetricConditionReady,
-				Status:  corev1.ConditionUnknown,
-				Reason:  "NoEndpoints",
-				Message: ErrFailedGetEndpoints.Error(),
-			}},
-		},
+		expectedError: ErrFailedGetEndpoints,
 	}, {
 		name: "Did not receive stat scraper error",
 		scraper: &testScraper{
@@ -317,82 +422,55 @@ func TestMetricCollectorError(t *testing.T) {
 				return emptyStat, ErrDidNotReceiveStat
 			},
 		},
-		metric: &av1alpha1.Metric{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: fake.TestNamespace,
-				Name:      fake.TestRevision,
-				Labels: map[string]string{
-					serving.RevisionLabelKey: fake.TestRevision,
-				},
-			},
-			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: fake.TestRevision + "-zhudex",
-			},
-		},
-		expectedMetricStatus: duckv1.Status{
-			Conditions: duckv1.Conditions{{
-				Type:    av1alpha1.MetricConditionReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  "DidNotReceiveStat",
-				Message: ErrDidNotReceiveStat.Error(),
-			}},
-		},
+		expectedError: ErrDidNotReceiveStat,
 	}, {
 		name: "Other scraper error",
 		scraper: &testScraper{
 			s: func() (Stat, error) {
-				return emptyStat, errors.New("foo")
+				return emptyStat, errOther
 			},
 		},
-		metric: &av1alpha1.Metric{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: fake.TestNamespace,
-				Name:      fake.TestRevision,
-				Labels: map[string]string{
-					serving.RevisionLabelKey: fake.TestRevision,
-				},
-			},
-			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: fake.TestRevision + "-zhudex",
-			},
-		},
-		expectedMetricStatus: duckv1.Status{
-			Conditions: duckv1.Conditions{{
-				Type:    av1alpha1.MetricConditionReady,
-				Status:  corev1.ConditionUnknown,
-				Reason:  "CreateOrUpdateFailed",
-				Message: "Collector has failed.",
-			}},
-		},
+		expectedError: errOther,
 	}}
 
 	logger := TestLogger(t)
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			factory := scraperFactory(test.scraper, nil)
-			coll := NewMetricCollector(factory, logger)
-			coll.CreateOrUpdate(test.metric)
-			key := types.NamespacedName{Namespace: test.metric.Namespace, Name: test.metric.Name}
-
-			var got duckv1.Status
-			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-				collection, ok := coll.collections[key]
-				if ok {
-					got = collection.currentMetric().Status.Status
-					return equality.Semantic.DeepEqual(got, test.expectedMetricStatus), nil
-				}
-				return false, nil
-			})
-			if !equality.Semantic.DeepEqual(got, test.expectedMetricStatus) {
-				t.Errorf("Got = %#v, want: %#v, diff:\n%q", got, test.expectedMetricStatus, cmp.Diff(got, test.expectedMetricStatus))
+			mtp := &fake.ManualTickProvider{
+				Channel: make(chan time.Time),
 			}
-			coll.Delete(test.metric.Namespace, test.metric.Name)
+			coll := NewMetricCollector(factory, logger)
+			coll.tickProvider = mtp.NewTicker
+
+			watchCh := make(chan types.NamespacedName)
+			coll.Watch(func(key types.NamespacedName) {
+				watchCh <- key
+			})
+
+			// Create a collection and immediately tick.
+			coll.CreateOrUpdate(testMetric)
+			mtp.Channel <- time.Now()
+
+			// Expect an event to be propagated because we're erroring.
+			key := types.NamespacedName{Namespace: testMetric.Namespace, Name: testMetric.Name}
+			event := <-watchCh
+			if event != key {
+				t.Fatalf("Event = %v, want %v", event, key)
+			}
+
+			// Make sure the error is surfaced via 'CreateOrUpdate', which is called in the reconciler.
+			if err := coll.CreateOrUpdate(testMetric); err != test.expectedError {
+				t.Fatalf("CreateOrUpdate = %v, want %v", err, test.expectedError)
+			}
+
+			coll.Delete(testMetric.Namespace, testMetric.Name)
 		})
 	}
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*av1alpha1.Metric) (StatsScraper, error) {
+	return func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
 		return scraper, err
 	}
 }
@@ -427,14 +505,15 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		}
 		c.record(stat)
 	}
-	st, pan, noData := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
-	if noData {
+
+	now = now.Add(time.Duration(9) * time.Second)
+	if c.concurrencyBuckets.IsEmpty(now) {
 		t.Fatal("Unexpected NoData error")
 	}
-	if got, want := st, 11.5; got != want {
+	if got, want := c.concurrencyBuckets.WindowAverage(now), 11.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
 	}
-	if got, want := pan, 13.5; got != want {
+	if got, want := c.concurrencyPanicBuckets.WindowAverage(now), 13.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
 	}
 }

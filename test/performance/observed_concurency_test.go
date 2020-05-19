@@ -32,13 +32,13 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
 	"knative.dev/pkg/test/spoof"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/pkg/test/testgrid"
+	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/shared/junit"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // generateTraffic loads the given endpoint with the given concurrency for the given duration.
@@ -62,7 +62,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						t.Logf("Error sending request: %v", err)
+						t.Log("Error sending request:", err)
 					}
 					resChannel <- res
 				}
@@ -102,8 +102,8 @@ func parseResponse(body string) (*event, *event, error) {
 		return nil, nil, fmt.Errorf("failed to parse end timestamp, body %q: %w", body, err)
 	}
 
-	startEvent := &event{1, time.Unix(0, int64(start))}
-	endEvent := &event{-1, time.Unix(0, int64(end))}
+	startEvent := &event{1, time.Unix(0, start)}
+	endEvent := &event{-1, time.Unix(0, end)}
 
 	return startEvent, endEvent, nil
 }
@@ -132,14 +132,14 @@ func TestObservedConcurrency(t *testing.T) {
 		})
 	}
 	if err := testgrid.CreateXMLOutput(tc, t.Name()); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
+		t.Fatal("Cannot create output xml:", err)
 	}
 }
 
 func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	perfClients, err := Setup(t)
 	if err != nil {
-		t.Fatalf("Cannot initialize performance client: %v", err)
+		t.Fatal("Cannot initialize performance client:", err)
 	}
 
 	names := test.ResourceNames{
@@ -152,17 +152,16 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https only enabled for e2e and conformance tests */
-		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
+	objs, err := v1test.CreateServiceReady(t, clients, &names,
+		v1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}),
-		v1a1opts.WithContainerConcurrency(1))
+		v1opts.WithContainerConcurrency(1))
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	baseURL := objs.Route.Status.URL.URL()
@@ -172,15 +171,15 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		clients.KubeClient,
 		t.Logf,
 		baseURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"ObservedConcurrency",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("Error probing %s: %v", baseURL, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating spoofing client: %v", err)
+		t.Fatal("Error creating spoofing client:", err)
 	}
 
 	// This just helps with preallocation.
@@ -205,7 +204,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			}
 			start, end, err := parseResponse(string(response.Body))
 			if err != nil {
-				t.Logf("Failed to parse the body: %v", err)
+				t.Log("Failed to parse the body:", err)
 				failedRequests++
 				continue
 			}
@@ -219,7 +218,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	})
 
 	if err := eg.Wait(); err != nil {
-		t.Fatalf("Failed to generate traffic and process responses: %v", err)
+		t.Fatal("Failed to generate traffic and process responses:", err)
 	}
 	t.Logf("Generated %d requests with %d failed", len(events)+failedRequests, failedRequests)
 

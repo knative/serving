@@ -53,7 +53,7 @@ type ObservabilityConfig struct {
 	EnableProbeRequestLog bool
 
 	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
-	// Stackdriver.
+	// Stackdriver. "None" disables all backends.
 	RequestMetricsBackend string
 
 	// EnableProfiling indicates whether it is allowed to retrieve runtime profiling data from
@@ -61,17 +61,22 @@ type ObservabilityConfig struct {
 	EnableProfiling bool
 }
 
+func defaultConfig() *ObservabilityConfig {
+	return &ObservabilityConfig{
+		LoggingURLTemplate:    DefaultLogURLTemplate,
+		RequestMetricsBackend: DefaultRequestMetricsBackend,
+	}
+}
+
 // NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
-	oc := &ObservabilityConfig{}
+	oc := defaultConfig()
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
 		oc.EnableVarLogCollection = strings.EqualFold(evlc, "true")
 	}
 
 	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
 		oc.LoggingURLTemplate = rut
-	} else {
-		oc.LoggingURLTemplate = DefaultLogURLTemplate
 	}
 
 	if rlt, ok := configMap.Data["logging.request-log-template"]; ok {
@@ -88,8 +93,6 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
 		oc.RequestMetricsBackend = mb
-	} else {
-		oc.RequestMetricsBackend = DefaultRequestMetricsBackend
 	}
 
 	if prof, ok := configMap.Data["profiling.enable"]; ok {

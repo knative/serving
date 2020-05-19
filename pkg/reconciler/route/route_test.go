@@ -33,13 +33,18 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
+
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
@@ -54,6 +59,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -65,7 +71,8 @@ const (
 )
 
 func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1.Route {
-	return Route(testNamespace, "test-route", WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
+	return Route(testNamespace, "test-route",
+		WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
 }
 
 func getTestRevision(name string) *v1.Revision {
@@ -79,7 +86,7 @@ func getTestRevision(name string) *v1.Revision {
 func getTestRevisionWithCondition(name string, cond apis.Condition) *v1.Revision {
 	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/serving/v1/namespaces/test/revisions/%s", name),
+			SelfLink:  fmt.Sprint("/apis/serving/v1/namespaces/test/revisions/", name),
 			Name:      name,
 			Namespace: testNamespace,
 		},
@@ -151,7 +158,7 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = newControllerWithClock(ctx, configMapWatcher, system.RealClock{}, opts...)
 
-	cms := []*corev1.ConfigMap{{
+	for _, cfg := range []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
 			Namespace: system.Namespace(),
@@ -165,22 +172,19 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string{},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
 			Namespace: system.Namespace(),
 		},
-		Data: map[string]string{},
-	}}
-
-	for _, cfg := range cms {
+	}} {
 		configMapWatcher.OnChange(cfg)
 	}
 	return
 }
 
 func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Route) *netv1alpha1.Ingress {
+	t.Helper()
 	opts := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{
 			serving.RouteLabelKey:          route.Name,
@@ -198,7 +202,9 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Rout
 
 	return &ingresses.Items[0]
 }
+
 func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	t.Helper()
 	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
@@ -206,7 +212,7 @@ func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1a
 	return created
 }
 
-func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1.Route) {
+func addRouteToInformers(t *testing.T, ctx context.Context, route *v1.Route) {
 	t.Helper()
 
 	ns := route.Namespace
@@ -350,7 +356,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ctx, informers, ctl, _, cf := newTestSetup(t)
 	wicb, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	defer func() {
 		cf()
@@ -987,95 +993,119 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}},
 	}
 
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		fmt.Printf("%+v\n", ci.Spec)
-		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+	if !cmp.Equal(expectedSpec, ci.Spec) {
+		t.Error("Unexpected rule spec diff (-want +got):", cmp.Diff(expectedSpec, ci.Spec))
 	}
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	ctx, _, ctl, watcher, cf := newTestSetup(t)
-	defer cf()
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
-	routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
-
-	// Create a route.
-	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-	routeClient.Create(route)
-	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
-	addResourcesToInformers(t, ctx, route)
-
-	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
+	templateCM := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DomainConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			"mytestdomain.com":  "selector:\n  app: prod",
+		},
+	}
 
 	// Test changes in domain config map. Routes should get updated appropriately.
 	expectations := []struct {
-		apply                func()
+		apply                func(*v1.Route, *configmap.ManualWatcher)
 		expectedDomainSuffix string
 	}{{
 		expectedDomainSuffix: prodDomainSuffix,
-		apply:                func() {},
+		apply:                func(*v1.Route, *configmap.ManualWatcher) {},
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
-		apply: func() {
-			domainConfig := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      config.DomainConfigName,
-					Namespace: system.Namespace(),
-				},
-				Data: map[string]string{
-					defaultDomainSuffix: "",
-					"mytestdomain.com":  "selector:\n  app: prod",
-				},
-			}
-			watcher.OnChange(&domainConfig)
+		apply: func(_ *v1.Route, watcher *configmap.ManualWatcher) {
+			watcher.OnChange(&templateCM)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
-		apply: func() {
-			domainConfig := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      config.DomainConfigName,
-					Namespace: system.Namespace(),
-				},
-				Data: map[string]string{
-					"newdefault.net":   "",
-					"mytestdomain.com": "selector:\n  app: prod",
-				},
+		apply: func(r *v1.Route, watcher *configmap.ManualWatcher) {
+			templateCM.Data = map[string]string{
+				"newdefault.net":   "",
+				"mytestdomain.com": "selector:\n  app: prod",
 			}
-			watcher.OnChange(&domainConfig)
-			route.Labels = make(map[string]string)
+			watcher.OnChange(&templateCM)
+			r.Labels = make(map[string]string)
 		},
 	}, {
 		// When no domain with an open selector is specified, we fallback
 		// on the default of example.com.
 		expectedDomainSuffix: config.DefaultDomain,
-		apply: func() {
-			domainConfig := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      config.DomainConfigName,
-					Namespace: system.Namespace(),
-				},
-				Data: map[string]string{
-					"mytestdomain.com": "selector:\n  app: prod",
-				},
+		apply: func(r *v1.Route, watcher *configmap.ManualWatcher) {
+			templateCM.Data = map[string]string{
+				"mytestdomain.com": "selector:\n  app: prod",
 			}
-			watcher.OnChange(&domainConfig)
-			route.Labels = make(map[string]string)
+			watcher.OnChange(&templateCM)
+			r.Labels = make(map[string]string)
 		},
 	}}
 
-	for _, expectation := range expectations {
-		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
-			expectation.apply()
+	for _, tc := range expectations {
+		t.Run(tc.expectedDomainSuffix, func(t *testing.T) {
+			ctx, ifs, ctl, watcher, cf := newTestSetup(t)
+			waitInformers, err := controller.RunInformers(ctx.Done(), ifs...)
+			if err != nil {
+				t.Fatal("Failed to start informers:", err)
+			}
+			defer func() {
+				cf()
+				waitInformers()
+			}()
+			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
+			route.Name = uuid.New().String()
+			route.Labels = map[string]string{"app": "prod"}
+			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
+
+			// Create a route.
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-			routeClient.Update(route)
-			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
-			addResourcesToInformers(t, ctx, route)
+			routeClient.Create(route)
+			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+				t.Fatal("Reconcile() =", err)
+			}
+			addRouteToInformers(t, ctx, route)
+
+			// Wait initial reconcile to finish.
+			rl := fakerouteinformer.Get(ctx).Lister()
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if err != nil {
+					return false, err
+				}
+				return !cmp.Equal(r.Status, route.Status), nil
+			}); err != nil {
+				t.Fatal("Failed to see route initial reconcile propagation:", err)
+			}
+
+			tc.apply(route, watcher)
+			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
+			if _, err := routeClient.Update(route); err != nil {
+				t.Fatal("Route.Update() =", err)
+			}
+
+			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+				t.Fatal("Reconcile() =", err)
+			}
+
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if err != nil {
+					return false, err
+				}
+				// Wait for the reconcile to propagate.
+				return !cmp.Equal(r.Status, route.Status), nil
+			}); err != nil {
+				t.Fatal("Failed to see route update propagation:", err)
+			}
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
 			if route.Status.URL.Host != expectedDomain {
-				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
+				t.Errorf("Domain = %q, want: %q", route.Status.URL.Host, expectedDomain)
 			}
 		})
 	}
@@ -1162,7 +1192,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cf()
@@ -1173,7 +1203,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("failed to start configuration manager: %v", err)
+				t.Fatal("failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
@@ -1182,7 +1212,24 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Labels = map[string]string{"app": "prod"}
 
-			servingClient.ServingV1().Routes(route.Namespace).Create(route)
+			created, err := servingClient.ServingV1().Routes(route.Namespace).Create(route)
+			if err != nil {
+				t.Fatal("Failed to create route", err)
+			}
+
+			rl := fakerouteinformer.Get(ctx).Lister()
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if apierrs.IsNotFound(err) {
+					return false, nil
+				} else if err != nil {
+					return false, err
+				}
+				// Once we see a status difference, we know the route got reconciled initially.
+				return !cmp.Equal(r.Status, created.Status), nil
+			}); err != nil {
+				t.Fatal("Failed to see route creation propagation:", err)
+			}
 
 			test.doThings(watcher)
 

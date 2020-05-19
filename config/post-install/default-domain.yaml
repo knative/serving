@@ -25,7 +25,6 @@ spec:
     metadata:
       labels:
         app: "default-domain"
-        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:

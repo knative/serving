@@ -36,18 +36,18 @@ import (
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
-	grpcContainerConcurrency = 1.0
+	grpcContainerConcurrency = 1
 	grpcMinScale             = 3
 )
 
-type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
+type grpcTest func(*testing.T, *v1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
 
 // hasPort checks if a URL contains a port number
 func hasPort(u string) bool {
@@ -84,20 +84,20 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	)
 }
 
-func unaryTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+func unaryTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	const want = "Hello!"
 	got, err := pingGRPC(host, domain, want)
 	if err != nil {
-		t.Fatalf("gRPC ping = %v", err)
+		t.Fatal("gRPC ping =", err)
 	}
 	if got != want {
 		t.Fatalf("response = %q, want = %q", got, want)
 	}
 }
 
-func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+func autoscaleTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
@@ -113,7 +113,7 @@ func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *t
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
-func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
@@ -167,7 +167,6 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 					}
 				}
 			}
-			return nil
 		})
 	}
 
@@ -186,7 +185,7 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Fatalf("error: %v", err)
+		ctx.t.Fatal("error: ", err)
 	}
 
 	gotHosts := countKeys()
@@ -269,12 +268,12 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 	}
 }
 
-func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := dial(host, domain)
 	if err != nil {
-		t.Fatalf("Fail to dial: %v", err)
+		t.Fatal("Fail to dial:", err)
 	}
 	defer conn.Close()
 
@@ -286,7 +285,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 
 	stream, err := pc.PingStream(ctx)
 	if err != nil {
-		t.Fatalf("Error creating stream: %v", err)
+		t.Fatal("Error creating stream:", err)
 	}
 
 	count := 3
@@ -297,12 +296,12 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 
 		err = stream.Send(&ping.Request{Msg: want})
 		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
+			t.Fatal("Error sending request:", err)
 		}
 
 		resp, err := stream.Recv()
 		if err != nil {
-			t.Fatalf("Error receiving response: %v", err)
+			t.Fatal("Error receiving response:", err)
 		}
 
 		got := resp.Msg
@@ -340,9 +339,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		test.ServingFlags.Https,
-		fopts...)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -352,9 +349,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}
 
@@ -364,7 +363,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		if pkgTest.Flags.IngressEndpoint == "" {
 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 			if err != nil {
-				t.Fatalf("Could not get service endpoint: %v", err)
+				t.Fatal("Could not get service endpoint:", err)
 			}
 		}
 	}
@@ -382,9 +381,9 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			if err := waitForActivatorEndpoints(resources, clients); err != nil {
-				t.Fatalf("Never got Activator endpoints in the service: %v", err)
+				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
 			unaryTest(t, resources, clients, names, host, domain)
 		},
@@ -396,9 +395,9 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			if err := waitForActivatorEndpoints(resources, clients); err != nil {
-				t.Fatalf("Never got Activator endpoints in the service: %v", err)
+				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
 			streamTest(t, resources, clients, names, host, domain)
 		},
@@ -410,13 +409,13 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 
 func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			autoscaleTest(t, resources, clients, names, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
-			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.TargetBurstCapacityKey:         "-1",
 			autoscaling.WindowAnnotationKey:            "10s",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
@@ -428,14 +427,14 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 
 func TestGRPCLoadBalancing(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
+		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			loadBalancingTest(t, resources, clients, names, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
-			autoscaling.MinScaleAnnotationKey:          strconv.FormatInt(grpcMinScale, 10),
-			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
+			autoscaling.TargetBurstCapacityKey:         "-1",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "HOSTNAME",

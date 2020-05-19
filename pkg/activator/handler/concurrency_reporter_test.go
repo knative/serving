@@ -23,16 +23,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
 	"k8s.io/apimachinery/pkg/types"
-
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -50,8 +50,9 @@ var (
 )
 
 type reqOp struct {
-	op  int
-	key types.NamespacedName
+	op   int
+	time int
+	key  types.NamespacedName
 }
 
 func TestStats(t *testing.T) {
@@ -60,7 +61,7 @@ func TestStats(t *testing.T) {
 		ops           []reqOp
 		expectedStats []metrics.StatMessage
 	}{{
-		name: "Scale-from-zero sends stat",
+		name: "scale-from-zero sends stat",
 		ops: []reqOp{{
 			op:  requestOpStart,
 			key: rev1,
@@ -74,29 +75,36 @@ func TestStats(t *testing.T) {
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}},
-		}}, {
+			},
+		}},
+	}, {
 		name: "in'n out",
 		ops: []reqOp{{
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
 		}, {
-			op:  requestOpEnd,
-			key: rev1,
+			op:   requestOpEnd,
+			key:  rev1,
+			time: 1,
 		}, {
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpStart,
+			key:  rev1,
+			time: 1,
 		}, {
-			op:  requestOpEnd,
-			key: rev1,
+			op:   requestOpEnd,
+			key:  rev1,
+			time: 2,
 		}, {
-			op: requestOpTick, // This won't result in reporting anything at all.
+			op:   requestOpTick,
+			time: 2,
 		}},
 		expectedStats: []metrics.StatMessage{{
 			Key: rev1,
@@ -104,25 +112,31 @@ func TestStats(t *testing.T) {
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}},
-		}}, {
-		name: "Scale to two",
+			},
+		}},
+	}, {
+		name: "scale to two",
 		ops: []reqOp{{
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
 		}, {
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
 		}, {
-			op: requestOpTick,
+			op:   requestOpTick,
+			time: 1,
 		}, {
-			op: requestOpTick,
+			op:   requestOpTick,
+			time: 2,
 		}},
 		expectedStats: []metrics.StatMessage{{
 			Key: rev1,
@@ -130,54 +144,74 @@ func TestStats(t *testing.T) {
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1, // We subtract the one concurrent request we already reported.
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 2, // Next reporting period, report both requests in flight.
 				RequestCount:              0, // No new requests have appeared.
 				PodName:                   activatorPodName,
-			}},
-		}}, {
-		name: "Scale-from-zero after tick sends stat",
+			},
+		}},
+	}, {
+		name: "scale-from-zero after tick sends stat",
 		ops: []reqOp{{
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
 		}, {
-			op:  requestOpEnd,
-			key: rev1,
+			op:   requestOpEnd,
+			key:  rev1,
+			time: 1,
 		}, {
-			op: requestOpTick,
+			op:   requestOpTick, // ticks a zero stat but doesn't unset state
+			time: 1,
 		}, {
-			op:  requestOpStart,
-			key: rev1,
+			op:   requestOpTick, // nothing happened, unset state
+			time: 2,
+		}, {
+			op:   requestOpStart, // scale from 0 again
+			key:  rev1,
+			time: 3,
 		}},
 		expectedStats: []metrics.StatMessage{{
 			Key: rev1,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 1, // scale from 0 stat
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 0,
+				AverageConcurrentRequests: 0, // first stat, discounted by 1
 				RequestCount:              0,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 0, // nothing seen for the entire period
+				RequestCount:              0,
+				PodName:                   activatorPodName,
+			},
+		}, {
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 1, // scale from 0 again
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}},
-		}}, {
-		name: "Multiple revisions tick",
+			},
+		}},
+	}, {
+		name: "multiple revisions tick",
 		ops: []reqOp{{
 			op:  requestOpStart,
 			key: rev1,
@@ -196,39 +230,80 @@ func TestStats(t *testing.T) {
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev3,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
-			}}, {
+			},
+		}, {
 			Key: rev3,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
-			}},
+			},
 		}},
-	}
+	}, {
+		name: "interleaved requests",
+		ops: []reqOp{{
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
+		}, {
+			op:   requestOpStart,
+			key:  rev1,
+			time: 0,
+		}, {
+			op:   requestOpEnd,
+			key:  rev1,
+			time: 1,
+		}, {
+			op:   requestOpEnd,
+			key:  rev1,
+			time: 2,
+		}, {
+			op: requestOpTick,
+		}},
+		expectedStats: []metrics.StatMessage{{
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 1,
+				RequestCount:              1,
+				PodName:                   activatorPodName,
+			},
+		}, {
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 0.5,
+				RequestCount:              1,
+				PodName:                   activatorPodName,
+			},
+		}},
+	}}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
@@ -241,13 +316,14 @@ func TestStats(t *testing.T) {
 
 			// Apply request operations
 			for _, op := range tc.ops {
+				time := time.Time{}.Add(time.Duration(op.time) * time.Millisecond)
 				switch op.op {
 				case requestOpStart:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
+					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqIn, Time: time}
 				case requestOpEnd:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
+					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqOut, Time: time}
 				case requestOpTick:
-					s.reportBiChan <- time.Time{}
+					s.reportBiChan <- time
 				}
 			}
 
@@ -258,14 +334,14 @@ func TestStats(t *testing.T) {
 				case x := <-s.statChan:
 					stats = append(stats, x...)
 				case <-time.After(time.Second):
-					t.Fatal("Timedout waiting for the event")
+					t.Fatal("Timed out waiting for the event")
 				}
 			}
 
 			// Verify we're not getting extra events.
 			select {
 			case x := <-s.statChan:
-				t.Fatalf("Extra events received: %v", x)
+				t.Fatal("Extra events received:", x)
 			case <-time.After(5 * time.Millisecond):
 				// Lookin' good.
 			}
@@ -297,11 +373,11 @@ func TestMetricsReported(t *testing.T) {
 		close(s.reportBiChan)
 	}()
 
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
-	s.reportBiChan <- time.Time{}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
+	s.reportBiChan <- time.Time{}.Add(1 * time.Millisecond)
 	<-s.statChan // The scale from 0 quick-report
 	<-s.statChan // The actual report we want to see
 
@@ -318,7 +394,7 @@ func TestMetricsReported(t *testing.T) {
 
 // Test type to hold the bi-directional time channels
 type testStats struct {
-	reqChan      chan ReqEvent
+	reqChan      chan network.ReqEvent
 	statChan     chan []metrics.StatMessage
 	reportBiChan chan time.Time
 }
@@ -326,7 +402,7 @@ type testStats struct {
 func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
-		reqChan: make(chan ReqEvent),
+		reqChan: make(chan network.ReqEvent),
 		// Buffered channel permits avoiding sending the test commands on the separate go routine
 		// simplifying main test process.
 		statChan:     make(chan []metrics.StatMessage, 10),

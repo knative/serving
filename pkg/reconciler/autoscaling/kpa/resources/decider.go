@@ -54,7 +54,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 	}
 
 	target, total := resources.ResolveMetricTarget(pa, config)
-	panicThreshold := target * panicThresholdPercentage / 100.0
+	panicThreshold := panicThresholdPercentage / 100.0
 
 	tbc := config.TargetBurstCapacity
 	if x, ok := pa.TargetBC(); ok {
@@ -70,6 +70,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			TargetValue:         target,
 			TotalValue:          total,
 			TargetBurstCapacity: tbc,
+			ActivatorCapacity:   config.ActivatorCapacity,
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,

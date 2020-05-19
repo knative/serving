@@ -75,7 +75,7 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 		// Overlay the desired and ready pod counts.
 		deployments, err := f()
 		if err != nil {
-			log.Printf("Error getting deployment(s): %v", err)
+			log.Print("Error getting deployment(s): ", err)
 			return err
 		}
 
@@ -94,13 +94,14 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 
 // ServerlessServiceStatus is a struct that wraps the status of a serverless service.
 type ServerlessServiceStatus struct {
-	Mode netv1alpha1.ServerlessServiceOperationMode
+	Mode          netv1alpha1.ServerlessServiceOperationMode
+	NumActivators int32
 	// Time is the time when the status is fetched
 	Time time.Time
 }
 
-// FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
-func FetchSKSMode(
+// FetchSKSStatus creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
+func FetchSKSStatus(
 	ctx context.Context, namespace string, selector labels.Selector,
 	duration time.Duration,
 ) <-chan ServerlessServiceStatus {
@@ -110,13 +111,14 @@ func FetchSKSMode(
 		// Overlay the SKS "mode".
 		skses, err := sksl.ServerlessServices(namespace).List(selector)
 		if err != nil {
-			log.Printf("Error listing serverless services: %v", err)
+			log.Print("Error listing serverless services: ", err)
 			return err
 		}
 		for _, sks := range skses {
 			skss := ServerlessServiceStatus{
-				Mode: sks.Spec.Mode,
-				Time: t,
+				NumActivators: sks.Spec.NumActivators,
+				Mode:          sks.Spec.Mode,
+				Time:          t,
 			}
 			ch <- skss
 		}

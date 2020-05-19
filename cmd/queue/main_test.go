@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,7 +24,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -77,7 +77,7 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	reqChan := make(chan queue.ReqEvent, 10)
+	reqChan := make(chan network.ReqEvent, 10)
 	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
@@ -91,8 +91,8 @@ func TestHandlerReqEvent(t *testing.T) {
 	h(writer, req)
 	select {
 	case e := <-reqChan:
-		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn)
+		if e.Type != network.ProxiedIn {
+			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -169,32 +169,6 @@ func TestProbeHandler(t *testing.T) {
 				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
 			}
 		})
-	}
-}
-
-func TestCreateVarLogLink(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
-	if err != nil {
-		t.Errorf("Failed to created temporary directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-	var env = config{
-		ServingNamespace:   "default",
-		ServingPod:         "service-7f97f9465b-5kkm5",
-		UserContainerName:  "user-container",
-		VarLogVolumeName:   "knative-var-log",
-		InternalVolumePath: dir,
-	}
-	createVarLogLink(env)
-
-	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
-	want := "../knative-var-log"
-	got, err := os.Readlink(source)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if got != want {
-		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
 
@@ -283,7 +257,7 @@ func TestProbeFailFast(t *testing.T) {
 
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
-			t.Fatalf("Failed to process downward API labels: %v", err)
+			t.Fatal("Failed to process downward API labels:", err)
 		} else if preferScaledown {
 			w.WriteHeader(http.StatusBadRequest)
 		}
@@ -383,17 +357,27 @@ func TestQueueTraceSpans(t *testing.T) {
 		prober        func() bool
 		wantSpans     int
 		requestHeader string
+		infiniteCC    bool
 		probeWillFail bool
 		probeTrace    bool
 		enableTrace   bool
 	}{{
 		name:          "proxy trace",
 		prober:        func() bool { return true },
+		wantSpans:     3,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "proxy trace, no breaker",
+		prober:        func() bool { return true },
 		wantSpans:     2,
 		requestHeader: "",
 		probeWillFail: false,
 		probeTrace:    false,
 		enableTrace:   true,
+		infiniteCC:    true,
 	}, {
 		name:          "true prober function with probe trace",
 		prober:        func() bool { return true },
@@ -468,8 +452,11 @@ func TestQueueTraceSpans(t *testing.T) {
 
 				proxy := httputil.NewSingleHostReverseProxy(serverURL)
 				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-				breaker := queue.NewBreaker(params)
-				reqChan := make(chan queue.ReqEvent, 10)
+				var breaker *queue.Breaker
+				if !tc.infiniteCC {
+					breaker = queue.NewBreaker(params)
+				}
+				reqChan := make(chan network.ReqEvent, 10)
 
 				proxy.Transport = &ochttp.Transport{
 					Base: pkgnet.AutoTransport,
@@ -487,13 +474,24 @@ func TestQueueTraceSpans(t *testing.T) {
 			if len(gotSpans) != tc.wantSpans {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
-			spanNames := []string{"probe", "/", "proxy"}
+			spanNames := []string{"probe", "/", "queue_proxy"}
 			if !tc.probeTrace {
 				spanNames = spanNames[1:]
 			}
-			for i, spanName := range spanNames[0:tc.wantSpans] {
+			// We want to add `queueWait` span only if there is possible queueing
+			// and if the tests actually expects tracing.
+			if !tc.infiniteCC && tc.wantSpans > 1 {
+				spanNames = append([]string{"queue_wait"}, spanNames...)
+			}
+			gs := []string{}
+			for i := 0; i < len(gotSpans); i++ {
+				gs = append(gs, gotSpans[i].Name)
+			}
+			t.Log(spanNames)
+			t.Log(gs)
+			for i, spanName := range spanNames[:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
-					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+					t.Errorf("Span[%d].Name = %q, want: %q", i, gotSpans[i].Name, spanName)
 				}
 				if tc.probeWillFail {
 					if len(gotSpans[i].Annotations) == 0 {
@@ -509,7 +507,7 @@ func TestQueueTraceSpans(t *testing.T) {
 
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
@@ -517,7 +515,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		"ns", "testksvc", "testksvc",
 		"pod", reportingPeriod)
 	if err != nil {
-		b.Fatalf("Failed to create stats reporter: %v", err)
+		b.Fatal("Failed to create stats reporter:", err)
 	}
 	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)

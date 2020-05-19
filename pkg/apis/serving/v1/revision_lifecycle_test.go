@@ -21,11 +21,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -56,6 +58,14 @@ func TestRevisionDuckTypes(t *testing.T) {
 	}
 }
 
+func TestRevisionGetConditionSet(t *testing.T) {
+	r := &Revision{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
+	}
+}
+
 func TestRevisionGetGroupVersionKind(t *testing.T) {
 	r := &Revision{}
 	want := schema.GroupVersionKind{
@@ -64,7 +74,7 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 		Kind:    "Revision",
 	}
 	if got := r.GetGroupVersionKind(); got != want {
-		t.Errorf("got: %v, want: %v", got, want)
+		t.Errorf("GVK: %v, want: %v", got, want)
 	}
 }
 
@@ -100,9 +110,8 @@ func TestIsActivationRequired(t *testing.T) {
 		status               RevisionStatus
 		isActivationRequired bool
 	}{{
-		name:                 "empty status should not be inactive",
-		status:               RevisionStatus{},
-		isActivationRequired: false,
+		name:   "empty status should not be inactive",
+		status: RevisionStatus{},
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
@@ -113,7 +122,6 @@ func TestIsActivationRequired(t *testing.T) {
 				}},
 			},
 		},
-		isActivationRequired: false,
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
@@ -151,7 +159,6 @@ func TestIsActivationRequired(t *testing.T) {
 				}},
 			},
 		},
-		isActivationRequired: false,
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
@@ -167,8 +174,8 @@ func TestIsActivationRequired(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			if got, want := tc.status.IsActivationRequired(), tc.isActivationRequired; got != want {
+				t.Errorf("IsActivationRequired = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -180,9 +187,8 @@ func TestRevisionIsReady(t *testing.T) {
 		status  RevisionStatus
 		isReady bool
 	}{{
-		name:    "empty status should not be ready",
-		status:  RevisionStatus{},
-		isReady: false,
+		name:   "empty status should not be ready",
+		status: RevisionStatus{},
 	}, {
 		name: "Different condition type should not be ready",
 		status: RevisionStatus{
@@ -193,7 +199,6 @@ func TestRevisionIsReady(t *testing.T) {
 				}},
 			},
 		},
-		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
 		status: RevisionStatus{
@@ -204,7 +209,6 @@ func TestRevisionIsReady(t *testing.T) {
 				}},
 			},
 		},
-		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: RevisionStatus{
@@ -215,7 +219,6 @@ func TestRevisionIsReady(t *testing.T) {
 				}},
 			},
 		},
-		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
 		status: RevisionStatus{
@@ -225,7 +228,6 @@ func TestRevisionIsReady(t *testing.T) {
 				}},
 			},
 		},
-		isReady: false,
 	}, {
 		name: "True condition status should be ready",
 		status: RevisionStatus{
@@ -264,13 +266,12 @@ func TestRevisionIsReady(t *testing.T) {
 				}},
 			},
 		},
-		isReady: false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.status.IsReady(); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+				t.Errorf("isReady =  %v want: %v", got, want)
 			}
 		})
 	}
@@ -280,22 +281,22 @@ func TestRevisionInitializeConditions(t *testing.T) {
 	rs := &RevisionStatus{}
 	rs.InitializeConditions()
 
-	var types []string
+	types := make([]string, 0, len(rs.Conditions))
 	for _, cond := range rs.Conditions {
 		types = append(types, string(cond.Type))
 	}
 
+	// These are already sorted.
 	expected := []string{
+		string(RevisionConditionContainerHealthy),
 		string(apis.ConditionReady),
 		string(RevisionConditionResourcesAvailable),
-		string(RevisionConditionContainerHealthy),
 	}
 
 	sort.Strings(types)
-	sort.Strings(expected)
 
 	if diff := cmp.Diff(expected, types); diff != "" {
-		t.Errorf("unexpected conditions %s", diff)
+		t.Error("Conditions(-want,+got):\n", diff)
 	}
 }
 
@@ -311,10 +312,10 @@ func TestTypicalFlowWithProgressDeadlineExceeded(t *testing.T) {
 	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
 	apistest.CheckConditionFailed(r, RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Message != want {
-		t.Errorf("MarkProgressDeadlineExceeded = %v, want %v", got, want)
+		t.Errorf("MarkProgressDeadlineExceeded = %q, want %q", got, want)
 	}
 	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Message != want {
-		t.Errorf("MarkProgressDeadlineExceeded = %v, want %v", got, want)
+		t.Errorf("MarkProgressDeadlineExceeded = %q, want %q", got, want)
 	}
 }
 
@@ -333,12 +334,12 @@ func TestTypicalFlowWithContainerMissing(t *testing.T) {
 	if got := r.GetCondition(RevisionConditionContainerHealthy); got == nil || got.Message != want {
 		t.Errorf("MarkContainerMissing = %v, want %v", got, want)
 	} else if got.Reason != "ContainerMissing" {
-		t.Errorf("MarkContainerMissing = %v, want %v", got, "ContainerMissing")
+		t.Errorf("MarkContainerMissing = %q, want %q", got, "ContainerMissing")
 	}
 	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Message != want {
 		t.Errorf("MarkContainerMissing = %v, want %v", got, want)
 	} else if got.Reason != "ContainerMissing" {
-		t.Errorf("MarkContainerMissing = %v, want %v", got, "ContainerMissing")
+		t.Errorf("MarkContainerMissing = %q, want %q", got, "ContainerMissing")
 	}
 
 	r.MarkContainerHealthyUnknown(ReasonDeploying, want)
@@ -368,7 +369,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionContainerHealthy, t)
 	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
 	if got := r.GetCondition(RevisionConditionActive); got == nil || got.Reason != want {
-		t.Errorf("MarkInactive = %v, want %v", got, want)
+		t.Errorf("MarkInactive = %q, want %q", got, want)
 	}
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 
@@ -379,7 +380,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionContainerHealthy, t)
 	apistest.CheckConditionOngoing(r, RevisionConditionActive, t)
 	if got := r.GetCondition(RevisionConditionActive); got == nil || got.Reason != want2 {
-		t.Errorf("MarkInactive = %v, want %v", got, want2)
+		t.Errorf("MarkInactive = %q, want %q", got, want2)
 	}
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 
@@ -402,10 +403,10 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
 	apistest.CheckConditionFailed(r, RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != want {
-		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+		t.Errorf("MarkResourceNotOwned = %q, want %q", got, want)
 	}
 	if got := r.GetCondition(RevisionConditionReady); got == nil || got.Reason != want {
-		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+		t.Errorf("MarkResourceNotOwned = %q, want %q", got, want)
 	}
 }
 
@@ -421,10 +422,10 @@ func TestRevisionResourcesUnavailable(t *testing.T) {
 	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
 	apistest.CheckConditionFailed(r, RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != wantReason {
-		t.Errorf("RevisionConditionResourcesAvailable.Reason = %v, want %v", got, wantReason)
+		t.Errorf("RevisionConditionResourcesAvailable.Reason = %q, want %q", got, wantReason)
 	}
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Message != wantMessage {
-		t.Errorf("RevisionConditionResourcesAvailable.Message = %v, want %v", got, wantMessage)
+		t.Errorf("RevisionConditionResourcesAvailable.Message = %q, want %q", got, wantMessage)
 	}
 
 	r.MarkResourcesAvailableUnknown(wantReason, wantMessage)
@@ -479,7 +480,7 @@ func TestRevisionGetProtocol(t *testing.T) {
 			want := tt.protocol
 
 			if got != want {
-				t.Errorf("got: %#v, want: %#v", got, want)
+				t.Errorf("Protocol = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -493,8 +494,7 @@ func TestRevisionGetLastPinned(t *testing.T) {
 		setLastPinnedTime time.Time
 		expectErr         error
 	}{{
-		name:        "Nil annotations",
-		annotations: nil,
+		name: "Nil annotations",
 		expectErr: LastPinnedParseError{
 			Type: AnnotationParseErrorTypeMissing,
 		},
@@ -522,10 +522,8 @@ func TestRevisionGetLastPinned(t *testing.T) {
 		expectTime:  time.Unix(10000, 0),
 	}, {
 		name:              "Valid time empty annotations",
-		annotations:       nil,
 		setLastPinnedTime: time.Unix(1000, 0),
 		expectTime:        time.Unix(1000, 0),
-		expectErr:         nil,
 	}}
 
 	for _, tc := range cases {
@@ -588,7 +586,7 @@ func TestRevisionIsReachable(t *testing.T) {
 			got := rev.IsReachable()
 
 			if got != tt.want {
-				t.Errorf("got: %t, want: %t", got, tt.want)
+				t.Errorf("IsReachable = %t, want: %t", got, tt.want)
 			}
 		})
 	}
@@ -787,7 +785,7 @@ func TestGetContainer(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if want, got := tc.want, tc.status.GetContainer(); !equality.Semantic.DeepEqual(want, got) {
-				t.Errorf("got: %v want: %v", got, want)
+				t.Errorf("GetContainer: %v want: %v", got, want)
 			}
 		})
 	}

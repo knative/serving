@@ -123,7 +123,7 @@ func setUp() {
 }
 
 // The vanilla use case of 100% directing to latest ready revision of a single configuration.
-func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
+func TestBuildTrafficConfigurationVanilla(t *testing.T) {
 	tts := v1.TrafficTarget{
 		ConfigurationName: goodConfig.Name,
 		Percent:           ptr.Int64(100),
@@ -1057,7 +1057,7 @@ func testNetworkConfig() *config.Config {
 			TagTemplate:         network.DefaultTagTemplate,
 		},
 		GC: &gc.Config{
-			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
+			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
 	}
 }

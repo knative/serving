@@ -45,6 +45,14 @@ func TestCertificateDuckTypes(t *testing.T) {
 	}
 }
 
+func TestCertificateGetConditionSet(t *testing.T) {
+	r := &Certificate{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GotConditionSet=%v, want=%v", got, want)
+	}
+}
+
 func TestCertificateGetGroupVersionKind(t *testing.T) {
 	c := Certificate{}
 	expected := SchemeGroupVersion.WithKind("Certificate")

@@ -46,6 +46,10 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 		all = all.Also(apis.ErrInvalidValue(spec.Mode, "mode"))
 	}
 
+	if spec.NumActivators < 0 {
+		all = all.Also(apis.ErrInvalidValue(spec.NumActivators, "numActivators"))
+	}
+
 	all = all.Also(serving.ValidateNamespacedObjectReference(&spec.ObjectRef).ViaField("objectRef"))
 
 	return all.Also(spec.ProtocolType.Validate(ctx).ViaField("protocolType"))

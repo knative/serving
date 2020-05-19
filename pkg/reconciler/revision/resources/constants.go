@@ -30,10 +30,6 @@ const (
 
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
-
-	// ProgressDeadlineSeconds is the time in seconds we wait for the deployment to
-	// be ready before considering it failed.
-	ProgressDeadlineSeconds = int32(120)
 )
 
 var (

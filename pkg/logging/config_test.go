@@ -124,8 +124,13 @@ func TestLogLevelTestConfig(t *testing.T) {
 		"queueproxy",
 		"webhook",
 		"activator",
+		"hpaautoscaler",
+		"certcontroller",
+		"istiocontroller",
+		"nscontroller",
 	}
-	cm, _ := ConfigMapsFromTestFile(t, testConfigFileName, "loglevel.autoscaler", "loglevel.controller", "loglevel.queueproxy", "loglevel.webhook", "loglevel.activator", "zap-logger-config")
+	cm, _ := ConfigMapsFromTestFile(t, testConfigFileName, "loglevel.autoscaler", "loglevel.controller", "loglevel.queueproxy", "loglevel.webhook",
+		"loglevel.activator", "loglevel.hpaautoscaler", "loglevel.certcontroller", "loglevel.istiocontroller", "loglevel.nscontroller", "zap-logger-config")
 	cfg, err := logging.NewConfigFromConfigMap(cm)
 
 	if err != nil {

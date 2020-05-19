@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -43,8 +44,9 @@ import (
 const (
 	// probeConcurrency defines how many probing calls can be issued simultaneously
 	probeConcurrency = 15
-	//probeTimeout defines the maximum amount of time a request will wait
+	// probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
+	probePath    = "/healthz"
 )
 
 var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
@@ -342,24 +344,29 @@ func (m *Prober) processWorkItem() bool {
 	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
 		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			// We only want to know that the Gateway is configured, not that the configuration is valid.
-			// Therefore, we can safely ignore any TLS certificate validation.
-			InsecureSkipVerify: true,
-		},
-		DialContext: func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
-			// Requests with the IP as hostname and the Host header set do no pass client-side validation
-			// because the HTTP client validates that the hostname (not the Host header) matches the server
-			// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
-			// hostname and it is substituted it here with the target IP.
-			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
-		}}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		// We only want to know that the Gateway is configured, not that the configuration is valid.
+		// Therefore, we can safely ignore any TLS certificate validation.
+		InsecureSkipVerify: true,
+	}
+	transport.DialContext = func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
+		// Requests with the IP as hostname and the Host header set do no pass client-side validation
+		// because the HTTP client validates that the hostname (not the Host header) matches the server
+		// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
+		// hostname and it is substituted it here with the target IP.
+		return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
+	}
 
+	probeURL := deepCopy(item.url)
+	probeURL.Path = path.Join(probeURL.Path, probePath)
+
+	ctx, cancel := context.WithTimeout(item.context, probeTimeout)
+	defer cancel()
 	ok, err := prober.Do(
-		item.context,
+		ctx,
 		transport,
-		item.url.String(),
+		probeURL.String(),
 		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
 		m.probeVerifier(item))
@@ -426,4 +433,11 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			return true, nil
 		}
 	}
+}
+
+// deepCopy copies a URL into a new one
+func deepCopy(in *url.URL) *url.URL {
+	// Safe to ignore the error since this is a deep copy
+	newURL, _ := url.Parse(in.String())
+	return newURL
 }

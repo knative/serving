@@ -18,15 +18,17 @@ package readiness
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -222,7 +224,10 @@ func TestHTTPSuccess(t *testing.T) {
 func TestHTTPManyParallel(t *testing.T) {
 	cnt := int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&cnt, 1)
+		if atomic.AddInt32(&cnt, 1) == 1 {
+			// Add a small amount of work to allow the requests below to collapse into one.
+			time.Sleep(200 * time.Millisecond)
+		}
 	}))
 	defer ts.Close()
 
@@ -245,23 +250,25 @@ func TestHTTPManyParallel(t *testing.T) {
 		},
 	})
 
-	var wg sync.WaitGroup
-	wg.Add(5)
-	barrier := make(chan struct{})
-	for i := 0; i < 5; i++ {
-		go func() {
-			wg.Done()
-			<-barrier
-			pb.ProbeContainer()
-		}()
+	var grp errgroup.Group
+	for i := 0; i < 2; i++ {
+		grp.Go(func() error {
+			if !pb.ProbeContainer() {
+				return errors.New("failed to probe container")
+			}
+			return nil
+		})
 	}
-	wg.Wait()
-	close(barrier)
+	if err := grp.Wait(); err != nil {
+		t.Error("Probe failed. Expected success.")
+	}
+
+	// This should trigger a second probe now.
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
 	}
-	if got, want := atomic.LoadInt32(&cnt), int32(1); got != want {
-		t.Errorf("Probe count = %d, want: 1", got)
+	if got, want := atomic.LoadInt32(&cnt), int32(2); got != want {
+		t.Errorf("Probe count = %d, want: %d", got, want)
 	}
 }
 
@@ -284,8 +291,9 @@ func TestHTTPTimeout(t *testing.T) {
 		FailureThreshold: 1,
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Host: tsURL.Hostname(),
-				Port: intstr.FromString(tsURL.Port()),
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	})
@@ -484,7 +492,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 func TestKnTCPProbeSuccess(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
@@ -545,7 +553,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	defer listener.Close()
 	addr := listener.Addr().(*net.TCPAddr)
@@ -575,7 +583,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 	addr := listener.Addr().(*net.TCPAddr)
 
@@ -602,7 +610,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}()
 
 	if _, err = listener.Accept(); err != nil {
-		t.Fatalf("Failed to accept TCP conn: %v", err)
+		t.Fatal("Failed to accept TCP conn:", err)
 	}
 	connCount++
 
@@ -613,13 +621,13 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 
 	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %v", err)
+		t.Fatal("Error setting up tcp listener:", err)
 	}
 
 	for {
 		if connCount < desiredConnCount {
 			if _, err = listener2.Accept(); err != nil {
-				t.Fatalf("Failed to accept TCP conn: %v", err)
+				t.Fatal("Failed to accept TCP conn:", err)
 			}
 			connCount++
 		} else {

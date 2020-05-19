@@ -51,6 +51,7 @@ rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
+readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
@@ -66,6 +67,8 @@ readonly MONITORING_TRACE_JAEGER_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeg
 readonly MONITORING_TRACE_JAEGER_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-jaeger-in-mem.yaml
 readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-elasticsearch.yaml
 
+readonly NET_ISTIO_YAML=${YAML_OUTPUT_DIR}/net-istio.yaml
+
 # Flags for all ko commands
 KO_YAML_FLAGS="-P"
 [[ "${KO_DOCKER_REPO}" != gcr.io/* ]] && KO_YAML_FLAGS=""
@@ -73,9 +76,13 @@ readonly KO_YAML_FLAGS="${KO_YAML_FLAGS} ${KO_FLAGS} --strict"
 
 if [[ -n "${TAG}" ]]; then
   LABEL_YAML_CMD=(sed -e "s|serving.knative.dev/release: devel|serving.knative.dev/release: \"${TAG}\"|")
+  NET_ISTIO_YAML_LINK=https://github.com/knative/net-istio/releases/download/${TAG}/release.yaml
 else
   LABEL_YAML_CMD=(cat)
+  NET_ISTIO_YAML_LINK=https://storage.googleapis.com/knative-nightly/net-istio/latest/release.yaml
 fi
+
+readonly NET_ISTIO_YAML_LINK
 
 : ${KO_DOCKER_REPO:="ko.local"}
 export KO_DOCKER_REPO
@@ -85,7 +92,9 @@ cd "${YAML_REPO_ROOT}"
 echo "Building Knative Serving"
 ko resolve ${KO_YAML_FLAGS} -R -f config/300-imagecache.yaml -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
@@ -93,16 +102,16 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.y
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
-# Create cert-manager related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/cert-manager/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
-
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
+
+# Download the net-istio.yaml
+wget "${NET_ISTIO_YAML_LINK}" -O "${NET_ISTIO_YAML}"
 
 # Create serving.yaml with all of the default components
 cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
 cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
-cat "./third_party/net-istio.yaml" >> "${SERVING_YAML}"
+cat "${NET_ISTIO_YAML}" >> "${SERVING_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
@@ -152,6 +161,7 @@ cat << EOF > ${YAML_LIST_FILE}
 ${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
+${SERVING_STORAGE_VERSION_MIGRATE_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_CERT_MANAGER_YAML}

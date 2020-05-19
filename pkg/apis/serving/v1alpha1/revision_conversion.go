@@ -62,16 +62,10 @@ func (source *RevisionSpec) ConvertTo(ctx context.Context, sink *v1.RevisionSpec
 			Volumes:            source.Volumes,
 			ImagePullSecrets:   source.ImagePullSecrets,
 		}
-	case len(source.Containers) == 1:
+	case len(source.Containers) != 0:
 		sink.PodSpec = source.PodSpec
-	case len(source.Containers) > 1:
-		return apis.ErrMultipleOneOf("containers")
 	default:
 		return apis.ErrMissingOneOf("container", "containers")
-	}
-	if source.DeprecatedBuildRef != nil {
-		return ConvertErrorf("buildRef",
-			"buildRef cannot be migrated forward, got: %#v", source.DeprecatedBuildRef)
 	}
 	return nil
 }
@@ -81,6 +75,16 @@ func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionSt
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
+	sink.ContainerStatuses = make([]v1.ContainerStatuses, len(source.ContainerStatuses))
+	for i := range source.ContainerStatuses {
+		source.ContainerStatuses[i].ConvertTo(ctx, &sink.ContainerStatuses[i])
+	}
+}
+
+// ConvertTo helps implement apis.Convertible
+func (source *ContainerStatuses) ConvertTo(ctx context.Context, sink *v1.ContainerStatuses) {
+	sink.Name = source.Name
 	sink.ImageDigest = source.ImageDigest
 }
 
@@ -113,5 +117,15 @@ func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionS
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
+	sink.DeprecatedImageDigest = source.DeprecatedImageDigest
+	sink.ContainerStatuses = make([]ContainerStatuses, len(source.ContainerStatuses))
+	for i := range sink.ContainerStatuses {
+		sink.ContainerStatuses[i].ConvertFrom(ctx, &source.ContainerStatuses[i])
+	}
+}
+
+// ConvertFrom helps implement apis.Convertible
+func (sink *ContainerStatuses) ConvertFrom(ctx context.Context, source *v1.ContainerStatuses) {
+	sink.Name = source.Name
 	sink.ImageDigest = source.ImageDigest
 }
