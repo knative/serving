@@ -241,7 +241,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	// Try ticking but nothing reacts as we're not scraping
 	select {
 	case mtp.Channel <- now:
-		t.Fatalf("Unexpected reaction to tick")
+		t.Fatal("Unexpected reaction to tick")
 	case <-time.After(50 * time.Millisecond):
 		// All good.
 	}
@@ -320,7 +320,7 @@ func TestMetricCollectorScraperOffOnOff(t *testing.T) {
 	// Try ticking but nothing reacts as we're not scraping
 	select {
 	case mtp.Channel <- now:
-		t.Fatalf("Unexpected reaction to tick")
+		t.Fatal("Unexpected reaction to tick")
 	case <-time.After(50 * time.Millisecond):
 		// All good.
 	}
@@ -332,7 +332,7 @@ func TestMetricCollectorScraperOffOnOff(t *testing.T) {
 	case mtp.Channel <- now:
 		// All good.
 	case <-time.After(50 * time.Millisecond):
-		t.Fatalf("Expected tick to be accepted")
+		t.Fatal("Expected tick to be accepted")
 	}
 
 	// Turn scraper off again
@@ -341,7 +341,7 @@ func TestMetricCollectorScraperOffOnOff(t *testing.T) {
 	// Try ticking but nothing reacts as we're not scraping
 	select {
 	case mtp.Channel <- now:
-		t.Fatalf("Unexpected reaction to tick")
+		t.Fatal("Unexpected reaction to tick")
 	case <-time.After(50 * time.Millisecond):
 		// All good.
 	}
