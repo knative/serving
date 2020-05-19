@@ -609,7 +609,7 @@ func TestTargetAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotTarget, gotOK := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("Target =  %v; want: %v", gotTarget, tc.wantTarget)
+				t.Errorf("Target = %v; want: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOK != tc.wantOK {
 				t.Errorf("OK = %v; want: %v", gotOK, tc.wantOK)
