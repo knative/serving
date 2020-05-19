@@ -136,9 +136,6 @@ func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) 
 func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {
 	ds := serving.TransformDeploymentStatus(original)
 	cond := ds.GetCondition(serving.DeploymentConditionReady)
-	if cond == nil {
-		return
-	}
 
 	m := revisionCondSet.Manage(rs)
 	switch cond.Status {
