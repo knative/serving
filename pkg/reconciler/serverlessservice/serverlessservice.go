@@ -82,6 +82,9 @@ func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.Serverl
 			return err
 		}
 	}
+
+	sks.Status.ObservedGeneration = sks.Generation
+
 	return nil
 }
 
