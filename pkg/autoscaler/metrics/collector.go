@@ -252,11 +252,12 @@ type collection struct {
 	// Fields relevant for metric scraping specifically.
 	scraperMutex sync.RWMutex
 	scraper      StatsScraper
-	tickFactory  func(time.Duration) *time.Ticker
 	errMutex     sync.RWMutex
 	lastErr      error
-	grp          sync.WaitGroup
-	stopCh       chan struct{}
+
+	tickFactory func(time.Duration) *time.Ticker
+	grp         sync.WaitGroup
+	stopCh      chan struct{}
 }
 
 func (c *collection) updateScraper(ss StatsScraper) {
@@ -299,10 +300,44 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 	return c
 }
 
-// close stops collecting metrics, stops the scraper.
-func (c *collection) close() {
+// startScraping starts scraping metrics.
+// This is only run from inside a lock, it can't race with a stopScraping call.
+func (c *collection) startScraping() {
+	if c.stopCh != nil {
+		// If scraper is already running, do nothing.
+		return
+	}
+	c.stopCh = make(chan struct{})
+	c.grp.Add(1)
+	go func() {
+		defer c.grp.Done()
+
+		scrapeTicker := c.tickFactory(scrapeTickInterval)
+		defer scrapeTicker.Stop()
+		for {
+			select {
+			case <-c.stopCh:
+				return
+			case <-scrapeTicker.C:
+				metric := c.currentMetric()
+				stat, err := c.getScraper().Scrape(metric.Spec.StableWindow)
+				if c.updateLastError(err) {
+					c.callback(types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name})
+				}
+				if stat != emptyStat {
+					c.record(stat)
+				}
+			}
+		}
+	}()
+}
+
+// stopScraping stops the scraper.
+// This is only run from inside a lock, it can't race with a startScraping call.
+func (c *collection) stopScraping() {
 	close(c.stopCh)
 	c.grp.Wait()
+	c.stopCh = nil
 }
 
 // updateMetric safely updates the metric stored in the collection.
@@ -368,41 +403,6 @@ func (c *collection) record(stat Stat) {
 	rps := stat.RequestCount - stat.ProxiedRequestCount
 	c.rpsBuckets.Record(stat.Time, rps)
 	c.rpsPanicBuckets.Record(stat.Time, rps)
-}
-
-// startScraping starts scraping metrics.
-// This is only run from inside a lock, it can't race with a stopScraping call.
-func (c *collection) startScraping() {
-	c.stopCh = make(chan struct{})
-	c.grp.Add(1)
-	go func() {
-		defer c.grp.Done()
-
-		scrapeTicker := c.tickFactory(scrapeTickInterval)
-		defer scrapeTicker.Stop()
-		for {
-			select {
-			case <-c.stopCh:
-				return
-			case <-scrapeTicker.C:
-				metric := c.currentMetric()
-				stat, err := c.getScraper().Scrape(metric.Spec.StableWindow)
-				if c.updateLastError(err) {
-					c.callback(types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name})
-				}
-				if stat != emptyStat {
-					c.record(stat)
-				}
-			}
-		}
-	}()
-}
-
-// stopScraping stops the scraper.
-// This is only run from inside a lock, it can't race with a startScraping call.
-func (c *collection) stopScraping() {
-	close(c.stopCh)
-	c.grp.Wait()
 }
 
 // add adds the stats from `src` to `dst`.
