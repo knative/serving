@@ -29,12 +29,12 @@ func TestFeaturesConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, FeaturesConfigName)
 
 	if _, err := NewFeaturesConfigFromConfigMap(cm); err != nil {
-		t.Error("NewDefaultsConfigFromConfigMap(actual) =", err)
+		t.Error("NewFeaturesConfigFromConfigMap(actual) =", err)
 	}
 
 	got, err := NewFeaturesConfigFromConfigMap(example)
 	if err != nil {
-		t.Fatal("NewDefaultsConfigFromConfigMap(example) =", err)
+		t.Fatal("NewFeaturesConfigFromConfigMap(example) =", err)
 	}
 
 	want := defaultFeaturesConfig()

@@ -49,21 +49,21 @@ func TestStoreLoadWithContext(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+			t.Errorf("Unexpected defaults config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("features", func(t *testing.T) {
 		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
 		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected features config (-want, +got): %v", diff)
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+			t.Errorf("Unexpected autoscaler config (-want, +got):\n%v", diff)
 		}
 	})
 }
@@ -77,21 +77,21 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		expected, _ := NewDefaultsConfigFromConfigMap(defaultsConfig)
 		if diff := cmp.Diff(expected, config.Defaults, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+			t.Errorf("Unexpected defaults config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("features", func(t *testing.T) {
 		expected, _ := NewFeaturesConfigFromConfigMap(featuresConfig)
 		if diff := cmp.Diff(expected, config.Features, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected features config (-want, +got): %v", diff)
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
 		}
 	})
 
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler, ignoreStuff...); diff != "" {
-			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+			t.Errorf("Unexpected autoscaler config (-want, +got):\n%v", diff)
 		}
 	})
 }
