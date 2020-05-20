@@ -1,4 +1,11 @@
 aliases:
+  toc:
+  - evankanderson
+  - grantr
+  - mattmoor
+  - markusthoemmes
+  - tcnghia
+
   serving-api-approvers:
   - dgerd
   - dprotaso
