@@ -18,11 +18,11 @@ aliases:
   serving-wg-leads:
   - evankanderson  # TOC
   - mattmoor       # TOC/Serving
-  - vaikas         # TOC
+  - grantr         # TOC
   - dprotaso       # Serving
-  - markusthoemmes # Scaling
+  - markusthoemmes # TOC/Scaling
   - mdemirhan      # Networking
-  - tcnghia        # Networking
+  - tcnghia        # TOC/Networking
   - vagababov      # Scaling
 
   autoscaling-approvers:
