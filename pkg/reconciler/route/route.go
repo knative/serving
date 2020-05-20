@@ -190,6 +190,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
+		r.Status.MarkAutoTLSNotEnabled()
 		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
@@ -249,7 +250,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
-			// When httpProtocol is enabled, downward http scheme.
+			// When httpProtocol is enabled, downgrade http scheme.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -258,6 +259,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 					}
 				}
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
+				r.Status.MarkHTTPDowngrade(cert.Name)
 			}
 		}
 	}
