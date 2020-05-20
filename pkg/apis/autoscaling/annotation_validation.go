@@ -31,9 +31,16 @@ func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
 		return 0, nil
 	}
 	i, err := strconv.ParseInt(v, 10, 32)
-	if err != nil || i < 0 {
-		return 0, apis.ErrOutOfBoundsValue(v, 1, math.MaxInt32, k)
+	if err == nil && i < 0 {
+		return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
 	}
+	if err != nil {
+		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrRange {
+			return 0, apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+		}
+		return 0, apis.ErrInvalidValue(v, k)
+	}
+
 	return i, nil
 }
 
