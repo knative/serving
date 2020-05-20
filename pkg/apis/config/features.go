@@ -17,9 +17,10 @@ limitations under the License.
 package config
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
-	"strings"
 )
 
 type Flag string

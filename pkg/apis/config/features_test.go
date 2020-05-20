@@ -54,7 +54,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr:      false,
 		wantFeatures: defaultFeaturesConfig(),
 		data:         map[string]string{},
-	},{
+	}, {
 		name:    "multi-container Allowed",
 		wantErr: false,
 		wantFeatures: &Features{
@@ -63,7 +63,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"multi-container": "Allowed",
 		},
-	},{
+	}, {
 		name:    "multi-container Enabled",
 		wantErr: false,
 		wantFeatures: &Features{
