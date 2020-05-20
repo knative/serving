@@ -2,24 +2,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-logging
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-leader-election
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 data:
   _example: |
     ################################
@@ -69,6 +77,8 @@ kind: Service
 metadata:
   name: kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - name: http2
@@ -88,6 +98,8 @@ kind: Deployment
 metadata:
   name: 3scale-kourier-gateway
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   selector:
     matchLabels:
@@ -137,6 +149,8 @@ kind: Deployment
 metadata:
   name: 3scale-kourier-control
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   replicas: 1
   selector:
@@ -148,7 +162,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:2ded202690fb3e1a79ff05b08bc50ab9ba871759c6d3dc16c8ca591912cb29ee
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:21d847f410533c04f2f6b0d9172d4a978432cc14f677618837c74cbd899ce08c
         imagePullPolicy: Always
         name: kourier-control
         env:
@@ -168,6 +182,8 @@ kind: ClusterRole
 metadata:
   name: 3scale-kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 rules:
 - apiGroups: [""]
   resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
@@ -190,11 +206,15 @@ kind: ServiceAccount
 metadata:
   name: 3scale-kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: 3scale-kourier
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -209,6 +229,8 @@ kind: Service
 metadata:
   name: kourier-internal
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - name: http2
@@ -224,6 +246,8 @@ kind: Service
 metadata:
   name: kourier-control
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - port: 18000
@@ -238,6 +262,8 @@ kind: ConfigMap
 metadata:
   name: kourier-bootstrap
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:
