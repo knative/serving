@@ -38,4 +38,4 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
-    enable-multi-container: "false"
+    multi-container: "enabled"

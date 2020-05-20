@@ -19,16 +19,23 @@ package config
 import (
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
+	"strings"
 )
+
+type Flag string
 
 const (
 	// FeaturesConfigName is the name of the ConfigMap for the features.
 	FeaturesConfigName = "config-features"
+
+	Enabled  Flag = "Enabled"
+	Allowed  Flag = "Allowed"
+	Disabled Flag = "Disabled"
 )
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		EnableMultiContainer: false,
+		MultiContainer: Disabled,
 	}
 }
 
@@ -37,7 +44,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
 
 	if err := cm.Parse(data,
-		cm.AsBool("enable-multi-container", &nc.EnableMultiContainer),
+		AsFlag("multi-container", &nc.MultiContainer),
 	); err != nil {
 		return nil, err
 	}
@@ -51,5 +58,20 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	EnableMultiContainer bool
+	MultiContainer Flag
+}
+
+// AsFlag parses the value at key as a Flag into the target, if it exists.
+func AsFlag(key string, target *Flag) cm.ParseFunc {
+	return func(data map[string]string) error {
+		*target = Disabled
+		if raw, ok := data[key]; ok {
+			if strings.EqualFold(raw, string(Enabled)) {
+				*target = Enabled
+			} else if strings.EqualFold(raw, string(Allowed)) {
+				*target = Allowed
+			}
+		}
+		return nil
+	}
 }

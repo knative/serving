@@ -54,14 +54,23 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr:      false,
 		wantFeatures: defaultFeaturesConfig(),
 		data:         map[string]string{},
-	}, {
-		name:    "specified values",
+	},{
+		name:    "multi-container Allowed",
 		wantErr: false,
 		wantFeatures: &Features{
-			EnableMultiContainer: true,
+			MultiContainer: Allowed,
 		},
 		data: map[string]string{
-			"enable-multi-container": "true",
+			"multi-container": "Allowed",
+		},
+	},{
+		name:    "multi-container Enabled",
+		wantErr: false,
+		wantFeatures: &Features{
+			MultiContainer: Enabled,
+		},
+		data: map[string]string{
+			"multi-container": "Enabled",
 		},
 	}}
 
