@@ -96,6 +96,9 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.y
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
+# Create cert-manager related yaml
+cat "./third_party/cert-manager-0.12.0/net-certmanager.yaml" > "${SERVING_CERT_MANAGER_YAML}"
+
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
