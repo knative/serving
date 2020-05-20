@@ -384,7 +384,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &v1.RevisionSpec{
