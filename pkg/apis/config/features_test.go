@@ -37,9 +37,9 @@ func TestFeaturesConfigurationFromFile(t *testing.T) {
 		t.Fatal("NewDefaultsConfigFromConfigMap(example) =", err)
 	}
 
-	if want := defaultFeaturesConfig(); !cmp.Equal(got, want) {
-		t.Errorf("Example does not represent default config: diff(-want,+got)\n%s",
-			cmp.Diff(want, got))
+	want := defaultFeaturesConfig()
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Error("Example does not represent default config: diff(-want,+got)\n", diff)
 	}
 }
 
@@ -84,8 +84,9 @@ func TestFeaturesConfiguration(t *testing.T) {
 				t.Fatalf("NewFeaturesConfigFromConfigMap() error = %v, WantErr %v", err, tt.wantErr)
 			}
 
-			if got, want := actualFeatures, tt.wantFeatures; !cmp.Equal(got, want) {
-				t.Errorf("Config mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
+			got, want := actualFeatures, tt.wantFeatures
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Error("Config mismatch: diff(-want,+got):\n", diff)
 			}
 		})
 	}

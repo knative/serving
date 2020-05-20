@@ -44,9 +44,7 @@ func defaultFeaturesConfig() *Features {
 func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
 
-	if err := cm.Parse(data,
-		AsFlag("multi-container", &nc.MultiContainer),
-	); err != nil {
+	if err := cm.Parse(data, AsFlag("multi-container", &nc.MultiContainer)); err != nil {
 		return nil, err
 	}
 	return nc, nil
