@@ -71,6 +71,13 @@ const (
 	// below 1.
 	TargetMin = 0.01
 
+	// ScaleToZeroPodRetentionPeriodKey is the annotation to specify the minimum
+	// time duration the last pod will not be scaled down, after autoscaler has
+	// made the decision to scale to 0.
+	// This is the per-revision setting compliment to the
+	// scale-to-zero-pod-retention-period global setting.
+	ScaleToZeroPodRetentionPeriodKey = GroupName + "/scaleToZeroPodRetentionPeriod"
+
 	// WindowAnnotationKey is the annotation to specify the time
 	// interval over which to calculate the average metric.  Larger
 	// values result in more smoothing. For example,

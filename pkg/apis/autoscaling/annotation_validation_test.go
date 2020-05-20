@@ -193,6 +193,24 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver", ClassAnnotationKey: KPA},
 		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + WindowAnnotationKey,
 	}, {
+		name:        "valid 0 last pod scaledown timeout",
+		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "0"},
+	}, {
+		name:        "valid positive last pod scaledown timeout",
+		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "21m31s"},
+	}, {
+		name:        "invalid positive last pod scaledown timeout",
+		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "311m"},
+		expectErr:   "expected 0s <= 311m <= 1h0m0s: " + ScaleToZeroPodRetentionPeriodKey,
+	}, {
+		name:        "invalid negative last pod scaledown timeout",
+		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "-42s"},
+		expectErr:   "expected 0s <= -42s <= 1h0m0s: " + ScaleToZeroPodRetentionPeriodKey,
+	}, {
+		name:        "invalid last pod scaledown timeout",
+		annotations: map[string]string{ScaleToZeroPodRetentionPeriodKey: "twenty-two-minutes-and-five-seconds"},
+		expectErr:   "invalid value: twenty-two-minutes-and-five-seconds: " + ScaleToZeroPodRetentionPeriodKey,
+	}, {
 		name: "all together now fail",
 		annotations: map[string]string{
 			PanicThresholdPercentageAnnotationKey: "fifty",
