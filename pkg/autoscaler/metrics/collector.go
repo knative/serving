@@ -311,8 +311,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 					continue
 				}
 
-				currentMetric := c.currentMetric()
-				stat, err := scraper.Scrape(currentMetric.Spec.StableWindow)
+				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}
