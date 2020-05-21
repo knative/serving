@@ -341,3 +341,4 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	r.SetLatestReadyRevisionName("bar")
 	apistest.CheckConditionSucceeded(r, ConfigurationConditionReady, t)
 }
+

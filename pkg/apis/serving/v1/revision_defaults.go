@@ -121,3 +121,4 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 	}
 
 }
+

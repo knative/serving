@@ -32,3 +32,4 @@ func TestConfigurationConversionBadType(t *testing.T) {
 		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
+

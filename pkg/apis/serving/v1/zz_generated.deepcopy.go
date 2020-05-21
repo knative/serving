@@ -545,3 +545,4 @@ func (in *TrafficTarget) DeepCopy() *TrafficTarget {
 	in.DeepCopyInto(out)
 	return out
 }
+

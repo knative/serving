@@ -175,3 +175,4 @@ type RevisionList struct {
 func (t *Revision) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
+

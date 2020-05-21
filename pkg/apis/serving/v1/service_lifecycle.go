@@ -135,3 +135,4 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
+

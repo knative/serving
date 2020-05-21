@@ -150,3 +150,4 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 func RevisionLastPinnedString(t time.Time) string {
 	return fmt.Sprintf("%d", t.Unix())
 }
+

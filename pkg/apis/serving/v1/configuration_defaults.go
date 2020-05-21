@@ -40,3 +40,4 @@ func (c *Configuration) SetDefaults(ctx context.Context) {
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
 	cs.Template.SetDefaults(ctx)
 }
+

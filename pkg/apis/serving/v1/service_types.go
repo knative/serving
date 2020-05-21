@@ -140,3 +140,4 @@ type ServiceList struct {
 func (t *Service) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
+

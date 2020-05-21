@@ -192,3 +192,4 @@ type RouteList struct {
 func (t *Route) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
+

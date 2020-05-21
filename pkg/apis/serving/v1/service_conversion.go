@@ -32,3 +32,4 @@ func (source *Service) ConvertTo(ctx context.Context, sink apis.Convertible) err
 func (sink *Service) ConvertFrom(ctx context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }
+

@@ -56,3 +56,4 @@ func (tt *TrafficTarget) SetDefaults(ctx context.Context) {
 		tt.LatestRevision = ptr.Bool(tt.RevisionName == "")
 	}
 }
+

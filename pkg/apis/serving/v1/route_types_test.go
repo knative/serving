@@ -47,3 +47,4 @@ func TestRouteGetStatus(t *testing.T) {
 		t.Errorf("GetStatus did not retrieve status. Got=%v Want=%v", config.GetStatus(), status)
 	}
 }
+

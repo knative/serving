@@ -161,3 +161,4 @@ func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
 		m.MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
 }
+

@@ -32,3 +32,4 @@ func (source *Route) ConvertTo(ctx context.Context, sink apis.Convertible) error
 func (sink *Route) ConvertFrom(ctx context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }
+

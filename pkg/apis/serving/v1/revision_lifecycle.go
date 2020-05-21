@@ -197,3 +197,4 @@ func RevisionContainerExitingMessage(message string) string {
 func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
 }
+

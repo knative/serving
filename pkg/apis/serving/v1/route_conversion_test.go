@@ -32,3 +32,4 @@ func TestRouteConversionBadType(t *testing.T) {
 		t.Errorf("ConvertFrom() = %#v, wanted error", good)
 	}
 }
+

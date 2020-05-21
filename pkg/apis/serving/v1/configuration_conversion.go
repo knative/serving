@@ -32,3 +32,4 @@ func (source *Configuration) ConvertTo(ctx context.Context, sink apis.Convertibl
 func (sink *Configuration) ConvertFrom(ctx context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }
+

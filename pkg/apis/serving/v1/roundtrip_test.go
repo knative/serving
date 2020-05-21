@@ -36,3 +36,4 @@ func TestServingRoundTripTypesToJSON(t *testing.T) {
 	)
 	roundtrip.ExternalTypesViaJSON(t, scheme, fuzzerFuncs)
 }
+

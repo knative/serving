@@ -245,3 +245,4 @@ func TestConfigurationUserInfo(t *testing.T) {
 		})
 	}
 }
+

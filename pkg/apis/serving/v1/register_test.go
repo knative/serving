@@ -39,3 +39,4 @@ func TestRegisterHelpers(t *testing.T) {
 		t.Errorf("addKnownTypes() = %v", err)
 	}
 }
+

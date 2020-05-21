@@ -95,3 +95,4 @@ func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerRe
 	}
 	return errs.Also(apis.ErrMissingField(label))
 }
+

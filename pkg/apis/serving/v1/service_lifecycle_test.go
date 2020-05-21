@@ -637,3 +637,4 @@ func TestRouteStatusPropagation(t *testing.T) {
 		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
 	}
 }
+

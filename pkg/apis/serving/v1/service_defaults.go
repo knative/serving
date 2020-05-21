@@ -40,3 +40,4 @@ func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 	ss.ConfigurationSpec.SetDefaults(ctx)
 	ss.RouteSpec.SetDefaults(WithDefaultConfigurationName(ctx))
 }
+

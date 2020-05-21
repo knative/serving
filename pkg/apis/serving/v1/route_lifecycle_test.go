@@ -406,3 +406,4 @@ func TestIngressNotConfigured(t *testing.T) {
 
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 }
+

@@ -94,3 +94,4 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 		"RevisionDeleted",
 		"Revision %q was deleted.", cs.LatestReadyRevisionName)
 }
+

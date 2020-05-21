@@ -50,3 +50,4 @@ func WithUpgradeViaDefaulting(ctx context.Context) context.Context {
 func IsUpgradeViaDefaulting(ctx context.Context) bool {
 	return ctx.Value(lemonadeKey{}) != nil
 }
+

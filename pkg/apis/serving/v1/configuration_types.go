@@ -113,3 +113,4 @@ type ConfigurationList struct {
 func (t *Configuration) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
+
