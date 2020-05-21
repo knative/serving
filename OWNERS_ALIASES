@@ -22,14 +22,21 @@ aliases:
   wg-leads:
   - dprotaso        # API
   - markusthoemmes  # Scaling
+  - mattmoor        # API
   - mdemirhan       # Network
   - tcnghia         # Network
   - vagababov       # Scaling
 
   # TOC + WG leads
   serving-wg-leads:
-  - toc
-  - wg-leads
+  - dprotaso        # API
+  - evankanderson   # TOC
+  - grantr          # TOC
+  - markusthoemmes  # Scaling/TOC
+  - mattmoor        # API/TOC
+  - mdemirhan       # Network
+  - tcnghia         # Network/TOC
+  - vagababov       # Scaling
 
   autoscaling-approvers:
   - markusthoemmes
