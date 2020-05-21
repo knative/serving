@@ -17,12 +17,9 @@ limitations under the License.
 package configmap
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // ParseFunc is a function taking ConfigMap data and applying a parse operation to it.
@@ -54,7 +51,7 @@ func AsInt32(key string, target *int32) ParseFunc {
 		if raw, ok := data[key]; ok {
 			val, err := strconv.ParseInt(raw, 10, 32)
 			if err != nil {
-				return fmt.Errorf("failed to parse %q: %w", key, err)
+				return err
 			}
 			*target = int32(val)
 		}
@@ -68,7 +65,7 @@ func AsInt64(key string, target *int64) ParseFunc {
 		if raw, ok := data[key]; ok {
 			val, err := strconv.ParseInt(raw, 10, 64)
 			if err != nil {
-				return fmt.Errorf("failed to parse %q: %w", key, err)
+				return err
 			}
 			*target = val
 		}
@@ -82,7 +79,7 @@ func AsFloat64(key string, target *float64) ParseFunc {
 		if raw, ok := data[key]; ok {
 			val, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
-				return fmt.Errorf("failed to parse %q: %w", key, err)
+				return err
 			}
 			*target = val
 		}
@@ -96,19 +93,9 @@ func AsDuration(key string, target *time.Duration) ParseFunc {
 		if raw, ok := data[key]; ok {
 			val, err := time.ParseDuration(raw)
 			if err != nil {
-				return fmt.Errorf("failed to parse %q: %w", key, err)
+				return err
 			}
 			*target = val
-		}
-		return nil
-	}
-}
-
-// AsStringSet parses the value at key as a sets.String (split by ',') into the target, if it exists.
-func AsStringSet(key string, target *sets.String) ParseFunc {
-	return func(data map[string]string) error {
-		if raw, ok := data[key]; ok {
-			*target = sets.NewString(strings.Split(raw, ",")...)
 		}
 		return nil
 	}
