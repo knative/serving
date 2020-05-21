@@ -22,24 +22,23 @@ import (
 	"knative.dev/serving/pkg/network"
 )
 
-// NewStats instantiates a new instance of Stats.
-func NewStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
-	go func() {
-		state := network.NewRequestStats(startedAt)
+// ReportStats continually processes network events from reqCh and reports
+// aggregated stats via the `report` function whenever reportCh ticks.
+func ReportStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
+	state := network.NewRequestStats(startedAt)
 
-		for {
-			select {
-			case event := <-reqCh:
-				state.HandleEvent(event)
-			case now := <-reportCh:
-				stats := state.Report(now)
-				report(
-					stats.AverageConcurrency,
-					stats.AverageProxiedConcurrency,
-					stats.RequestCount,
-					stats.ProxiedRequestCount,
-				)
-			}
+	for {
+		select {
+		case event := <-reqCh:
+			state.HandleEvent(event)
+		case now := <-reportCh:
+			stats := state.Report(now)
+			report(
+				stats.AverageConcurrency,
+				stats.AverageProxiedConcurrency,
+				stats.RequestCount,
+				stats.ProxiedRequestCount,
+			)
 		}
-	}()
+	}
 }

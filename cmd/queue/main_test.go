@@ -517,7 +517,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 	if err != nil {
 		b.Fatal("Failed to create stats reporter:", err)
 	}
-	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	go queue.ReportStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
