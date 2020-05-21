@@ -47,6 +47,10 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{MinScaleAnnotationKey: "-1"},
 		expectErr:   "expected 0 <= -1 <= 2147483647: " + MinScaleAnnotationKey,
 	}, {
+		name:        "maxScale is huuuuuuuge",
+		annotations: map[string]string{MaxScaleAnnotationKey: "2147483648"},
+		expectErr:   "expected 0 <= 2147483648 <= 2147483647: " + MaxScaleAnnotationKey,
+	}, {
 		name:        "maxScale is -1",
 		annotations: map[string]string{MaxScaleAnnotationKey: "-1"},
 		expectErr:   "expected 0 <= -1 <= 2147483647: " + MaxScaleAnnotationKey,
