@@ -498,6 +498,7 @@ function test_setup() {
 
   echo ">> Waiting for Serving components to be running..."
   wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
+  wait_until_service_has_endpoints ${SYSTEM_NAMESPACE} webhook
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
@@ -545,6 +546,25 @@ function test_setup() {
     echo ">> Waiting for Monitoring to be running..."
     wait_until_pods_running knative-monitoring || return 1
   fi
+}
+
+# Waits until the given service has some endpoints.
+# Parameters: $1 - namespace.
+#             $2 - service name.
+function wait_until_service_has_endpoints() {
+  echo -n "Waiting until service $2 in namespace $1 has an external address (IP/hostname)"
+  for i in {1..150}; do  # timeout after 15 minutes
+    local ip=$(kubectl get endpoints -n $1 $2 -ojsonpath={".subsets[0].addresses[*].ip"})
+    if [[ -n "${ip}" ]]; then
+      echo -e "\nService $2.$1 has Endpoint IP $ip"
+      return 0
+    fi
+    echo -n "."
+    sleep 6
+  done
+  echo -e "\n\nERROR: timeout waiting for service $2.$1 to have an endpoint"
+  kubectl get endpoints -n $1 $2
+  return 1
 }
 
 # Delete test resources
