@@ -500,6 +500,10 @@ function test_setup() {
   wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
   wait_until_service_has_endpoints ${SYSTEM_NAMESPACE} webhook
 
+  # Waiting for endpoints doesn't seem to be enough...
+  # HACK: what about sleep 300
+  sleep 5m
+
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
 
