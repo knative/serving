@@ -315,12 +315,13 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
 				stat, err := s.tryScrape(scrapedPods)
-				if err != nil && tries >= scraperMaxRetries {
+				if err != nil {
 					// Return the error if we exhausted our retries and
 					// we had an error returned (we can end up here if
 					// all the pods were young, which is not an error condition).
-					return err
-				} else if err != nil {
+					if tries >= scraperMaxRetries {
+						return err
+					}
 					continue
 				}
 
