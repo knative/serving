@@ -1,5 +1,3 @@
----
-# net-certmanager.yaml
 # Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -51,7 +49,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -88,7 +86,7 @@ metadata:
   name: net-certmanager-webhook-certs
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -111,7 +109,7 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -158,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -170,14 +168,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20200518-3e7a18a"
+        serving.knative.dev/release: "v20200521-e037dfb"
     spec:
       serviceAccountName: controller
       containers:
       - name: networking-certmanager
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:99f1796a59bb84107282d1965e02406bf76d58ec698d5eec2b03a7824d28bc02
+        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:db89c7334f1c5d3fec39178f2a9eb50ded8ff6eb39e8a579403d447e2a583efe
         resources:
           requests:
             cpu: 30m
@@ -210,7 +208,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
@@ -247,7 +245,7 @@ metadata:
   name: net-certmanager-webhook
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
 spec:
   selector:
     matchLabels:
@@ -260,14 +258,14 @@ spec:
       labels:
         app: net-certmanager-webhook
         role: net-certmanager-webhook
-        serving.knative.dev/release: "v20200518-3e7a18a"
+        serving.knative.dev/release: "v20200521-e037dfb"
     spec:
       serviceAccountName: controller
       containers:
       - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:5f2423733c75f16a4df139a9260de9007aa4d5cf3772123e567a4615e0155643
+        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:d7665647c960c714b07a53c6e1e91d0a3b2c76967aa0b6b0f292a13d11bd19d4
         resources:
           requests:
             cpu: 20m
@@ -321,7 +319,7 @@ metadata:
   namespace: knative-serving
   labels:
     role: net-certmanager-webhook
-    serving.knative.dev/release: "v20200518-3e7a18a"
+    serving.knative.dev/release: "v20200521-e037dfb"
 spec:
   ports:
   - # Define metrics and profiling for them to be accessible within service meshes.
