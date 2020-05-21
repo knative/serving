@@ -35,6 +35,7 @@ const updateHeaderName = "Who-Are-You"
 
 // TestUpdate verifies that when the network programming changes that traffic isn't dropped.
 func TestUpdate(t *testing.T) {
+	t.Skip("https://github.com/knative/serving/issues/8032")
 	t.Parallel()
 	clients := test.Setup(t)
 
