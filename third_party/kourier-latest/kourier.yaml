@@ -148,11 +148,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-<<<<<<< HEAD
       - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:0c407044b250e6267af2e9894706b3f0ce9fd38a0a3f17cd0e7c4d6923915ab0
-=======
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:21d847f410533c04f2f6b0d9172d4a978432cc14f677618837c74cbd899ce08c
->>>>>>> ee05ecba1... Revert "[master] Update net-kourier nightly (#8023)"
         imagePullPolicy: Always
         name: kourier-control
         env:
