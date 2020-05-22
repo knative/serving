@@ -27,7 +27,7 @@ func TestMetricGetStatus(t *testing.T) {
 	}
 
 	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GotStatus=%v, want=%v", got, want)
+		t.Errorf("GetStatus=%v, want=%v", got, want)
 	}
 }
 
