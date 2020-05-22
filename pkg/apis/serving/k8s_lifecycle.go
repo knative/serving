@@ -40,7 +40,7 @@ const (
 	DeploymentConditionProgressing apis.ConditionType = "Progressing"
 )
 
-// TransformDeploymentStatus transforms the Kubernetes DeploymentStatus into a
+// transformDeploymentStatus transforms the kubernetes DeploymentStatus into a
 // duckv1.Status that uses ConditionSets to propagate failures and expose
 // a top-level happy state, per our condition conventions.
 func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {

@@ -245,7 +245,7 @@ func TestInactiveFor(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.InactiveFor(now), tc.result; got != want {
+			if got, want := tc.status.InactiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
 				t.Errorf("InactiveFor = %v, want: %v", got, want)
 			}
 		})
@@ -329,11 +329,19 @@ func TestActiveFor(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.ActiveFor(now), tc.result; got != want {
+			if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
 				t.Errorf("ActiveFor = %v, want: %v", got, want)
 			}
 		})
 	}
+}
+
+func absDiff(a, b time.Duration) time.Duration {
+	a -= b
+	if a < 0 {
+		a *= -1
+	}
+	return a
 }
 
 func TestCanFailActivation(t *testing.T) {
@@ -409,8 +417,8 @@ func TestCanFailActivation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.CanFailActivation(now, tc.grace), tc.result; got != want {
-				t.Errorf("CanFailActivation = %v, want: %v", got, want)
+			if e, a := tc.result, tc.status.CanFailActivation(now, tc.grace); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
 	}
@@ -461,11 +469,9 @@ func TestIsActivating(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsActivating(), tc.isActivating; got != want {
-				t.Errorf("IsActivating = %v, want: %v", got, want)
-			}
-		})
+		if e, a := tc.isActivating, tc.status.IsActivating(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
 	}
 }
 
@@ -563,11 +569,9 @@ func TestIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsReady(), tc.isReady; got != want {
-				t.Errorf("IsReady = %v, want: %v", got, want)
-			}
-		})
+		if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
 	}
 }
 
@@ -609,10 +613,10 @@ func TestTargetAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotTarget, gotOK := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("Target = %v; want: %v", gotTarget, tc.wantTarget)
+				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v; want: %v", gotOK, tc.wantOK)
+				t.Errorf("got ok: %v wanted %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -819,14 +823,7 @@ func TestWindowAnnotation(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.WindowAnnotationKey: "120s",
 		}),
-		wantWindow: 120 * time.Second,
-		wantOK:     true,
-	}, {
-		name: "complex",
-		pa: pa(map[string]string{
-			autoscaling.WindowAnnotationKey: "2m33s",
-		}),
-		wantWindow: 153 * time.Second,
+		wantWindow: time.Second * 120,
 		wantOK:     true,
 	}, {
 		name: "invalid",
@@ -841,10 +838,10 @@ func TestWindowAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotWindow, gotOK := tc.pa.Window()
 			if gotWindow != tc.wantWindow {
-				t.Errorf("Window = %v, want: %v", gotWindow, tc.wantWindow)
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantWindow, gotWindow)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -881,10 +878,10 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicWindowPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("PanicWindowPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -921,10 +918,10 @@ func TestTargetUtilization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetUtilization()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("TU = %v, want: %v", got, want)
+				t.Errorf("%q target utilization: %v want: %v", tc.name, got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -954,17 +951,17 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicThresholdPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("PanicThresholdPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
+				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
 }
 
 func pa(annotations map[string]string) *PodAutoscaler {
-	return &PodAutoscaler{
+	p := &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   "test-namespace",
 			Name:        "test-name",
@@ -975,6 +972,7 @@ func pa(annotations map[string]string) *PodAutoscaler {
 		},
 		Status: PodAutoscalerStatus{},
 	}
+	return p
 }
 
 func TestTypicalFlow(t *testing.T) {
@@ -1023,6 +1021,7 @@ func TestTargetBC(t *testing.T) {
 	}{{
 		name: "not present",
 		pa:   pa(map[string]string{}),
+		want: 0.0,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
@@ -1049,16 +1048,17 @@ func TestTargetBC(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "NPH",
 		}),
+		want: 0.0,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetBC()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("TBC = %v, want: %v", got, want)
+				t.Errorf("%q target burst capacity: %v want: %v", tc.name, got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
