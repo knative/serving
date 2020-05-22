@@ -63,9 +63,6 @@ var (
 
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)
-
-	// Check that the type conforms to the duck Knative Resource shape.
-	_ duckv1.KRShaped = (*Service)(nil)
 )
 
 // ServiceSpec represents the configuration for the Service object.
@@ -134,9 +131,4 @@ type ServiceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Service `json:"items"`
-}
-
-// GetStatus retrieves the status of the Service. Implements the KRShaped interface.
-func (t *Service) GetStatus() *duckv1.Status {
-	return &t.Status.Status
 }

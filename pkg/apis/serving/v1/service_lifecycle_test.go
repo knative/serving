@@ -47,14 +47,6 @@ func TestServiceDuckTypes(t *testing.T) {
 	}
 }
 
-func TestServiceGetConditionSet(t *testing.T) {
-	r := &Service{}
-
-	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
-		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
-	}
-}
-
 func TestServiceGetGroupVersionKind(t *testing.T) {
 	r := &Service{}
 	want := schema.GroupVersionKind{
