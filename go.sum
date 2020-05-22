@@ -1430,8 +1430,8 @@ k8s.io/utils v0.0.0-20191114184206-e782cd3c129f/go.mod h1:sZAwmy6armz5eXlNoLmJcl
 k8s.io/utils v0.0.0-20200124190032-861946025e34 h1:HjlUD6M0K3P8nRXmr2B9o4F9dUy9TCj/aEpReeyi6+k=
 k8s.io/utils v0.0.0-20200124190032-861946025e34/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
 knative.dev/caching v0.0.0-20190719140829-2032732871ff/go.mod h1:dHXFU6CGlLlbzaWc32g80cR92iuBSpsslDNBWI8C7eg=
-knative.dev/caching v0.0.0-20200518155906-d0a9c943a8ea h1:n3QkrjI7nG5oT53oPNglUXGHPSmKH/LjaY+pjMzcZ+k=
-knative.dev/caching v0.0.0-20200518155906-d0a9c943a8ea/go.mod h1:KVIvcl8P4XZ3Rt71lYw4sVe5zqyaZtRXKG42JYPvEH8=
+knative.dev/caching v0.0.0-20200515173804-a2fc9c5de2ef h1:rX5pdlCet244RNg1SNbrO137EyAn7lMvuFu25R4YJfI=
+knative.dev/caching v0.0.0-20200515173804-a2fc9c5de2ef/go.mod h1:n5kQRfe9itUy2wpuik7d1CW6sXyPw0OJhs9xlmwB0H4=
 knative.dev/eventing-contrib v0.6.1-0.20190723221543-5ce18048c08b/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/pkg v0.0.0-20191101194912-56c2594e4f11/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20191111150521-6d806b998379/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
@@ -1443,8 +1443,6 @@ knative.dev/pkg v0.0.0-20200514052058-c75d324f8b8b/go.mod h1:tMOHGbxtRz8zYFGEGpV
 knative.dev/pkg v0.0.0-20200515002500-16d7b963416f/go.mod h1:tMOHGbxtRz8zYFGEGpV/bpoTEM1o89MwYFC4YJXl3GY=
 knative.dev/pkg v0.0.0-20200517014302-3c29a1ce8906 h1:Xo/FFyVEZic+75UZJ0MJMuXgdfh+99YixIMAd3nCVys=
 knative.dev/pkg v0.0.0-20200517014302-3c29a1ce8906/go.mod h1:GinFtW8LEi9rzCkzCMHAIlAnZjP1RzauxwhRAI3rimI=
-knative.dev/pkg v0.0.0-20200518174206-60f4ae1dbe6f h1:f2eK5+z0/l2S431UCezMG9W4FzktuNbD0OB1gezSoMs=
-knative.dev/pkg v0.0.0-20200518174206-60f4ae1dbe6f/go.mod h1:GinFtW8LEi9rzCkzCMHAIlAnZjP1RzauxwhRAI3rimI=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
 knative.dev/test-infra v0.0.0-20200513011557-d03429a76034 h1:JxqONCZVS7or+Fv3ebVQoipuIBH7Ig3Qbx170hgIF+A=
@@ -1452,8 +1450,6 @@ knative.dev/test-infra v0.0.0-20200513011557-d03429a76034/go.mod h1:aMif0KXL4g19
 knative.dev/test-infra v0.0.0-20200514223200-ef4fd3ad398f/go.mod h1:+uml4upluwrnWHRSezi4WVcKJ0OJHynF16Ot7fu0ky4=
 knative.dev/test-infra v0.0.0-20200515184601-7a28f47cdbcb h1:g1NE1OdGOh8vgLaKhi6O/fXFhlewq7wnL2EQNLKe+bE=
 knative.dev/test-infra v0.0.0-20200515184601-7a28f47cdbcb/go.mod h1:A5b2OAXTOeHT3hHhVQm3dmtbuWvIDP7qzgtqxA3/2pE=
-knative.dev/test-infra v0.0.0-20200519015156-82551620b0a9 h1:kKfV3QWsxugwXsqgjFd72MjZeAHJ381dWqAxH2KMknc=
-knative.dev/test-infra v0.0.0-20200519015156-82551620b0a9/go.mod h1:A5b2OAXTOeHT3hHhVQm3dmtbuWvIDP7qzgtqxA3/2pE=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
