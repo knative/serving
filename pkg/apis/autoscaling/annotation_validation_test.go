@@ -45,27 +45,23 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "minScale is -1",
 		annotations: map[string]string{MinScaleAnnotationKey: "-1"},
-		expectErr:   "expected 0 <= -1 <= 2147483647: " + MinScaleAnnotationKey,
-	}, {
-		name:        "maxScale is huuuuuuuge",
-		annotations: map[string]string{MaxScaleAnnotationKey: "2147483648"},
-		expectErr:   "expected 0 <= 2147483648 <= 2147483647: " + MaxScaleAnnotationKey,
+		expectErr:   "expected 1 <= -1 <= 2147483647: " + MinScaleAnnotationKey,
 	}, {
 		name:        "maxScale is -1",
 		annotations: map[string]string{MaxScaleAnnotationKey: "-1"},
-		expectErr:   "expected 0 <= -1 <= 2147483647: " + MaxScaleAnnotationKey,
+		expectErr:   "expected 1 <= -1 <= 2147483647: " + MaxScaleAnnotationKey,
 	}, {
 		name:        "minScale is foo",
 		annotations: map[string]string{MinScaleAnnotationKey: "foo"},
-		expectErr:   "invalid value: foo: " + MinScaleAnnotationKey,
+		expectErr:   "expected 1 <= foo <= 2147483647: " + MinScaleAnnotationKey,
 	}, {
 		name:        "maxScale is bar",
 		annotations: map[string]string{MaxScaleAnnotationKey: "bar"},
-		expectErr:   "invalid value: bar: " + MaxScaleAnnotationKey,
+		expectErr:   "expected 1 <= bar <= 2147483647: " + MaxScaleAnnotationKey,
 	}, {
 		name:        "max/minScale is bar",
 		annotations: map[string]string{MaxScaleAnnotationKey: "bar", MinScaleAnnotationKey: "bar"},
-		expectErr:   "invalid value: bar: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
+		expectErr:   "expected 1 <= bar <= 2147483647: " + MaxScaleAnnotationKey + ", " + MinScaleAnnotationKey,
 	}, {
 		name:        "minScale is 5",
 		annotations: map[string]string{MinScaleAnnotationKey: "5"},
@@ -222,7 +218,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 			MinScaleAnnotationKey:                 "-4",
 			MaxScaleAnnotationKey:                 "never",
 		},
-		expectErr: "expected 0 <= -4 <= 2147483647: " + MinScaleAnnotationKey + "\nexpected 1 <= -11 <= 100: " + PanicWindowPercentageAnnotationKey + "\ninvalid value: fifty: " + PanicThresholdPercentageAnnotationKey + "\ninvalid value: never: " + MaxScaleAnnotationKey,
+		expectErr: "expected 1 <= -11 <= 100: " + PanicWindowPercentageAnnotationKey + "\nexpected 1 <= -4 <= 2147483647: " + MinScaleAnnotationKey + "\nexpected 1 <= never <= 2147483647: " + MaxScaleAnnotationKey + "\ninvalid value: fifty: " + PanicThresholdPercentageAnnotationKey,
 	}, {
 		name: "all together now, succeed",
 		annotations: map[string]string{
@@ -280,7 +276,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got, want := ValidateAnnotations(c.allowInitScaleZero, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
-				t.Errorf("\nErr = %q,\nwant: %q, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
+				t.Errorf("Err = %q, want: %q, diff:\n%s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}

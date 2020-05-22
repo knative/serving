@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -207,7 +208,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
-		want: apis.ErrInvalidValue("FOO", autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
+		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
