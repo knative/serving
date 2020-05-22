@@ -225,15 +225,12 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
 	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
-		if metric.Spec.ScrapeTarget != "" {
-			podCounter := resources.NewScopedEndpointsCounter(
-				endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-			// TODO(vagababov): while metric name == revision name, we should utilize the proper
-			// values from the labels.
-			podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, metric.Name)
-			return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
-		}
-		return nil, nil
+		podCounter := resources.NewScopedEndpointsCounter(
+			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
+		// TODO(vagababov): while metric name == revision name, we should utilize the proper
+		// values from the labels.
+		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, metric.Name)
+		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
 	}
 }
 

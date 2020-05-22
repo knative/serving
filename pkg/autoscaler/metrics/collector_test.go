@@ -24,11 +24,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -226,7 +224,12 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 		AverageConcurrentRequests: wantStat,
 		RequestCount:              wantStat,
 	}
-	factory := scraperFactory(nil, nil)
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
 	coll.tickProvider = mtp.NewTicker // custom ticker.
@@ -382,19 +385,6 @@ func TestMetricCollectorRecord(t *testing.T) {
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
 		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)
 	}
-}
-
-func TestDoubleWatch(t *testing.T) {
-	defer func() {
-		if x := recover(); x == nil {
-			t.Error("Expected panic")
-		}
-	}()
-	logger := TestLogger(t)
-	factory := scraperFactory(nil, nil)
-	coll := NewMetricCollector(factory, logger)
-	coll.Watch(func(types.NamespacedName) {})
-	coll.Watch(func(types.NamespacedName) {})
 }
 
 func TestMetricCollectorError(t *testing.T) {
