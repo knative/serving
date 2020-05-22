@@ -24,9 +24,9 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/pool"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/pool"
 	"knative.dev/serving/test"
 )
 
