@@ -439,15 +439,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}
 
 			// Make sure our informer event has fired.
-			// We send multiple updates in some tests, so make sure the capacity is exact.
-			wantCapacity := 1
-			cc := tc.revision.Spec.ContainerConcurrency
-			if cc != nil && *cc != 0 {
-				dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
-				wantCapacity = dests * int(*cc)
-			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() > 0, nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
@@ -456,15 +449,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
 
-			waitGrp := sync.WaitGroup{}
-			waitGrp.Add(tc.requests)
 			resultChan := throttler.try(tryContext, tc.requests, func(string) error {
-				waitGrp.Done()
-				// Wait for all requests to reach the Try function before proceeding.
-				waitGrp.Wait()
+				// Simulate proxying.
+				time.Sleep(50 * time.Millisecond)
 				return nil
 			})
-
 			gotDests := sets.NewString()
 			for i := 0; i < tc.requests; i++ {
 				result := <-resultChan
