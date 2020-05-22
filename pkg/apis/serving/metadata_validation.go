@@ -25,20 +25,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 )
 
 var (
-	allowedAnnotations = sets.NewString(
-		UpdaterAnnotation,
-		CreatorAnnotation,
-		RevisionLastPinnedAnnotationKey,
-		GroupNamePrefix+"forceUpgrade",
-	)
+	allowedAnnotations = map[string]struct{}{
+		UpdaterAnnotation:                {},
+		CreatorAnnotation:                {},
+		RevisionLastPinnedAnnotationKey:  {},
+		GroupNamePrefix + "forceUpgrade": {},
+	}
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
@@ -53,7 +51,7 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.Field
 
 func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
 	for key := range annotations {
-		if !allowedAnnotations.Has(key) && strings.HasPrefix(key, GroupNamePrefix) {
+		if _, ok := allowedAnnotations[key]; !ok && strings.HasPrefix(key, GroupNamePrefix) {
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
@@ -73,8 +71,8 @@ func ValidateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldEr
 	if err != nil {
 		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(QueueSideCarResourcePercentageAnnotation)
 	}
-	if value < 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(QueueSideCarResourcePercentageAnnotation)
+	if value <= 0.1 || value > 100 {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, QueueSideCarResourcePercentageAnnotation)
 	}
 	return nil
 }
