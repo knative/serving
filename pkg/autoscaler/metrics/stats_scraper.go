@@ -315,33 +315,37 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
 				stat, err := s.tryScrape(scrapedPods)
-				if err == nil {
-					if stat.ProcessUptime >= youngPodCutOffSecs {
-						// We run |sampleSize| goroutines and each of them terminates
-						// as soon as it sees stat from an `oldPod`.
-						// The channel is allocated to |sampleSize|, thus this will never
-						// deadlock.
-						oldStatCh <- stat
-						return nil
-					} else {
-						select {
-						// This in theory might loop over all the possible pods, thus might
-						// fill up the channel.
-						case youngStatCh <- stat:
-						default:
-							// If so, just return.
-							return nil
-						}
-					}
-				} else if tries >= scraperMaxRetries {
+				if err != nil {
 					// Return the error if we exhausted our retries and
 					// we had an error returned (we can end up here if
 					// all the pods were young, which is not an error condition).
-					return err
+					if tries >= scraperMaxRetries {
+						return err
+					}
+					continue
+				}
+
+				if stat.ProcessUptime >= youngPodCutOffSecs {
+					// We run |sampleSize| goroutines and each of them terminates
+					// as soon as it sees a stat from an `oldPod`.
+					// The channel is allocated to |sampleSize|, thus this will never
+					// deadlock.
+					oldStatCh <- stat
+					return nil
+				}
+
+				select {
+				// This in theory might loop over all the possible pods, thus might
+				// fill up the channel.
+				case youngStatCh <- stat:
+				default:
+					// If so, just return.
+					return nil
 				}
 			}
 		})
 	}
+
 	// Now at this point we have two possibilities.
 	// 1. We scraped |sampleSize| distinct pods, with the invariant of
 	// 		   sampleSize <= len(oldStatCh) + len(youngStatCh) <= sampleSize*2.
