@@ -17,6 +17,8 @@ package v1alpha1
 
 import (
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestServerlessServiceGetStatus(t *testing.T) {
@@ -25,6 +27,16 @@ func TestServerlessServiceGetStatus(t *testing.T) {
 	}
 
 	if got, want := r.GetStatus(), &r.Status.Status; got != want {
-		t.Errorf("GetStatus=%v, want=%v", got, want)
+		t.Errorf("GotStatus=%v, want=%v", got, want)
+	}
+}
+
+func TestServerlessServiceGetObjectMeta(t *testing.T) {
+	r := &ServerlessService{
+		TypeMeta: metav1.TypeMeta{},
+	}
+
+	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
+		t.Errorf("GotTypeMeta=%v, want=%v", got, want)
 	}
 }
