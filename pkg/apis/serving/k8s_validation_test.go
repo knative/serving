@@ -370,7 +370,7 @@ func TestContainerValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},
-			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
+			Details: "image: \"foo:bar:baz\", error: could not parse reference: foo:bar:baz",
 		},
 	}, {
 		name: "has a lifecycle",
