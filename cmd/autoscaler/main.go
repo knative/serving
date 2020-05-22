@@ -229,8 +229,8 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
 			return nil, nil
 		}
 
-		revisionName, ok := metric.Labels[serving.RevisionLabelKey]
-		if !ok || revisionName == "" {
+		revisionName := metric.Labels[serving.RevisionLabelKey]
+		if revisionName == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Metric %s", serving.RevisionLabelKey, metric.Name)
 		}
 
