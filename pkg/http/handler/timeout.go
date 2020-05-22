@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package queue
+package handler
 
 import (
 	"bufio"
@@ -28,8 +28,17 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
+type timeoutFunc func(req *http.Request) time.Duration
+
+type timeToFirstByteTimeoutHandler struct {
+	handler     http.Handler
+	timeoutFunc timeoutFunc
+	body        string
+}
+
 // TimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
-// given time limit in which the first byte of the response must be written.
+// given time limit from the timeout function in which the first byte of
+// the response must be written.
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
 // call runs for longer than its time limit, the handler responds with
@@ -43,28 +52,21 @@ import (
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func TimeToFirstByteTimeoutHandler(h http.Handler, dt time.Duration, msg string) http.Handler {
-	return &timeoutHandler{
-		handler: h,
-		body:    msg,
-		timeout: dt,
+func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeoutFunc timeoutFunc) http.Handler {
+	return &timeToFirstByteTimeoutHandler{
+		handler:     h,
+		body:        msg,
+		timeoutFunc: timeoutFunc,
 	}
 }
 
-type timeoutHandler struct {
-	handler http.Handler
-	body    string
-	timeout time.Duration
-}
-
-func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
 	// done is closed when h.handler.ServeHTTP completes and contains
 	// the panic from h.handler.ServeHTTP if h.handler.ServeHTTP panics.
 	done := make(chan interface{})
-
 	tw := &timeoutWriter{w: w}
 	go func() {
 		defer func() {
@@ -76,7 +78,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := time.NewTimer(h.timeout)
+	timeout := time.NewTimer(h.timeoutFunc(r))
 	defer timeout.Stop()
 	for {
 		select {
@@ -151,7 +153,6 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	if tw.timedOut {
 		return
 	}
-
 	tw.wroteOnce = true
 	tw.w.WriteHeader(code)
 }

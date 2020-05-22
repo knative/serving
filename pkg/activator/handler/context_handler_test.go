@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
@@ -34,6 +35,8 @@ func TestContextHandler(t *testing.T) {
 	defer cancel()
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
+	revTimeoutSeconds := ptr.Int64(42)
+	revision.Spec.TimeoutSeconds = revTimeoutSeconds
 	revisionInformer(ctx, revision)
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -85,11 +88,13 @@ func TestContextHandlerError(t *testing.T) {
 
 func BenchmarkContextHandler(b *testing.B) {
 	tests := []struct {
-		label        string
-		revisionName string
+		label                  string
+		revisionName           string
+		revisionTimeoutSeconds *int64
 	}{{
-		label:        "context handler success",
-		revisionName: testRevName,
+		label:                  "context handler success",
+		revisionName:           testRevName,
+		revisionTimeoutSeconds: ptr.Int64(100),
 	}, {
 		label:        "context handler failure",
 		revisionName: "fake",
@@ -106,6 +111,7 @@ func BenchmarkContextHandler(b *testing.B) {
 	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 
 	for _, test := range tests {
+		revision.Spec.TimeoutSeconds = test.revisionTimeoutSeconds
 		req.Header.Set(activator.RevisionHeaderName, test.revisionName)
 		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
