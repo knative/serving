@@ -53,192 +53,193 @@ var (
 )
 
 func TestNewMakeK8SService(t *testing.T) {
-	tests := []struct {
-		name         string
+	scenarios := map[string]struct {
+		// Inputs
 		route        *v1.Route
 		ingress      *netv1alpha1.Ingress
 		targetName   string
 		expectedSpec corev1.ServiceSpec
 		expectedMeta metav1.ObjectMeta
 		shouldFail   bool
-	}{{
-		name:  "no-loadbalancer",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{},
+	}{
+		"no-loadbalancer": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{},
+			},
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
-		expectedMeta: expectedMeta,
-		shouldFail:   true,
-	}, {
-		name:  "empty-loadbalancer",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
+		"empty-loadbalancer": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
+					},
 				},
 			},
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
-		expectedMeta: expectedMeta,
-		shouldFail:   true,
-	}, {
-		name:  "multi-loadbalancer",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
-						Domain: "domain.com",
-					}, {
-						DomainInternal: "domain.com",
-					}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
-						Domain: "domain.com",
-					}, {
-						DomainInternal: "domain.com",
-					}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
-						Domain: "domain.com",
-					}, {
-						DomainInternal: "domain.com",
-					}},
+		"multi-loadbalancer": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
+							Domain: "domain.com",
+						}, {
+							DomainInternal: "domain.com",
+						}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
+							Domain: "domain.com",
+						}, {
+							DomainInternal: "domain.com",
+						}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
+							Domain: "domain.com",
+						}, {
+							DomainInternal: "domain.com",
+						}},
+					},
 				},
 			},
+			expectedMeta: expectedMeta,
+			shouldFail:   true,
 		},
-		expectedMeta: expectedMeta,
-		shouldFail:   true,
-	}, {
-		name:  "ingress-with-domain",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
+		"ingress-with-domain": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
+					},
 				},
 			},
-		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "domain.com",
-		},
-	}, {
-		name:  "ingress-with-domaininternal",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "private-istio-ingressgateway.istio-system.svc.cluster.local"}},
-				},
+			expectedMeta: expectedMeta,
+			expectedSpec: corev1.ServiceSpec{
+				Type:         corev1.ServiceTypeExternalName,
+				ExternalName: "domain.com",
 			},
 		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type:            corev1.ServiceTypeExternalName,
-			ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
-			SessionAffinity: corev1.ServiceAffinityNone,
-		},
-	}, {
-		name:  "ingress-with-only-mesh",
-		route: r,
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+		"ingress-with-domaininternal": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "private-istio-ingressgateway.istio-system.svc.cluster.local"}},
+					},
 				},
 			},
-		},
-		expectedMeta: expectedMeta,
-		expectedSpec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{{
-				Name: "http",
-				Port: 80,
-			}},
-		},
-	}, {
-		name:       "with-target-name-specified",
-		route:      r,
-		targetName: "my-target-name",
-		ingress: &netv1alpha1.Ingress{
-			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
-				PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
-				},
+			expectedMeta: expectedMeta,
+			expectedSpec: corev1.ServiceSpec{
+				Type:            corev1.ServiceTypeExternalName,
+				ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
+				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 		},
-		expectedMeta: metav1.ObjectMeta{
-			Name:      "my-target-name-test-route",
-			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(r),
+		"ingress-with-only-mesh": {
+			route: r,
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+				},
 			},
-			Labels: map[string]string{
-				serving.RouteLabelKey: r.Name,
+			expectedMeta: expectedMeta,
+			expectedSpec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{{
+					Name: "http",
+					Port: 80,
+				}},
 			},
 		},
-		expectedSpec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{{
-				Name: "http",
-				Port: 80,
-			}},
+		"with-target-name-specified": {
+			route:      r,
+			targetName: "my-target-name",
+			ingress: &netv1alpha1.Ingress{
+				Status: netv1alpha1.IngressStatus{
+					LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+					PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
+					},
+				},
+			},
+			expectedMeta: metav1.ObjectMeta{
+				Name:      "my-target-name-test-route",
+				Namespace: r.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*kmeta.NewControllerRef(r),
+				},
+				Labels: map[string]string{
+					serving.RouteLabelKey: r.Name,
+				},
+			},
+			expectedSpec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{{
+					Name: "http",
+					Port: 80,
+				}},
+			},
 		},
-	}}
+	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-			service, err := MakeK8sService(ctx, tc.route, tc.targetName, tc.ingress, false)
+			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress, false)
 			// Validate
-			if tc.shouldFail && err == nil {
-				t.Fatal("MakeK8sService returned success but expected error")
+			if scenario.shouldFail && err == nil {
+				t.Errorf("Test %q failed: returned success but expected error", name)
 			}
-			if !tc.shouldFail {
+			if !scenario.shouldFail {
 				if err != nil {
-					t.Fatal("MakeK8sService:", err)
+					t.Errorf("Test %q failed: returned error: %v", name, err)
 				}
 
-				if !cmp.Equal(tc.expectedMeta, service.ObjectMeta) {
-					t.Error("Unexpected Metadata (-want +got):", cmp.Diff(tc.expectedMeta, service.ObjectMeta))
+				if !cmp.Equal(scenario.expectedMeta, service.ObjectMeta) {
+					t.Errorf("Unexpected Metadata (-want +got): %s", cmp.Diff(scenario.expectedMeta, service.ObjectMeta))
 				}
-				if !cmp.Equal(tc.expectedSpec, service.Spec) {
-					t.Error("Unexpected ServiceSpec (-want +got):", cmp.Diff(tc.expectedSpec, service.Spec))
+				if !cmp.Equal(scenario.expectedSpec, service.Spec) {
+					t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(scenario.expectedSpec, service.Spec))
 				}
 			}
 		})
