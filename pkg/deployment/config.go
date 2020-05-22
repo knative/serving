@@ -17,8 +17,8 @@ limitations under the License.
 package deployment
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -56,19 +56,15 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(configMap,
-		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
+		asRequiredString(QueueSidecarImageKey, &nc.QueueSidecarImage),
 		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
-		cm.AsStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
+		asStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
 	); err != nil {
 		return nil, err
 	}
 
-	if nc.QueueSidecarImage == "" {
-		return nil, errors.New("queueSidecarImage cannot be empty or unset")
-	}
-
 	if nc.ProgressDeadline <= 0 {
-		return nil, fmt.Errorf("progressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
+		return nil, fmt.Errorf("ProgressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
 	}
 
 	return nc, nil
@@ -91,4 +87,27 @@ type Config struct {
 	// ProgressDeadline is the time in seconds we wait for the deployment to
 	// be ready before considering it failed.
 	ProgressDeadline time.Duration
+}
+
+// asRequiredString is the same as cm.AsString but errors if the key is not present.
+func asRequiredString(key string, target *string) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = raw
+		} else {
+			return fmt.Errorf("%q is missing", key)
+		}
+		return nil
+	}
+}
+
+// asStringSet parses the value at key as a sets.String (splitting at ',') into the
+// target, if it exists.
+func asStringSet(key string, target *sets.String) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			*target = sets.NewString(strings.Split(raw, ",")...)
+		}
+		return nil
+	}
 }

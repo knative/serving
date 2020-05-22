@@ -31,7 +31,7 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
-const defaultSidecarImage = "defaultImage"
+const noSidecarImage = ""
 
 func TestControllerConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
@@ -62,33 +62,33 @@ func TestControllerConfiguration(t *testing.T) {
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarImage:              noSidecarImage,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey:              defaultSidecarImage,
+			QueueSidecarImageKey:              noSidecarImage,
 			registriesSkippingTagResolvingKey: "ko.local,,",
 		},
 	}, {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
-			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarImage:              noSidecarImage,
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
+			QueueSidecarImageKey: noSidecarImage,
 			ProgressDeadlineKey:  "444s",
 		},
 	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarImage:              noSidecarImage,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey:              defaultSidecarImage,
+			QueueSidecarImageKey:              noSidecarImage,
 			registriesSkippingTagResolvingKey: "ko.local,ko.dev",
 		},
 	}, {
@@ -99,21 +99,21 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller configuration invalid progress deadline",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
+			QueueSidecarImageKey: noSidecarImage,
 			ProgressDeadlineKey:  "not-a-duration",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline II",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
+			QueueSidecarImageKey: noSidecarImage,
 			ProgressDeadlineKey:  "-21s",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline III",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
+			QueueSidecarImageKey: noSidecarImage,
 			ProgressDeadlineKey:  "0ms",
 		},
 	}}
