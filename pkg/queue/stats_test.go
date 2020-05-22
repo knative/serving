@@ -257,7 +257,7 @@ func newTestStats(now time.Time) *testStats {
 			ProxiedRequestCount: prc,
 		}
 	}
-	go ReportStats(now, reqChan, reportBiChan, report)
+	NewStats(now, reqChan, reportBiChan, report)
 	return &testStats{
 		reqChan:      reqChan,
 		reportBiChan: reportBiChan,

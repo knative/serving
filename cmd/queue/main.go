@@ -355,7 +355,7 @@ func main() {
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	go queue.ReportStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)
