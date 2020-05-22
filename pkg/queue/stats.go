@@ -29,9 +29,15 @@ func ReportStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-ch
 
 	for {
 		select {
-		case event := <-reqCh:
+		case event, ok := <-reqCh:
+			if !ok {
+				return
+			}
 			state.HandleEvent(event)
-		case now := <-reportCh:
+		case now, ok := <-reportCh:
+			if !ok {
+				return
+			}
 			stats := state.Report(now)
 			report(
 				stats.AverageConcurrency,
