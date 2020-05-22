@@ -159,10 +159,10 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
-// WithRouteConditionsAutoTLSDisabled calls MarkAutoTLSNotEnabled after initialized the Service's conditions.
+// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled after initialized the Service's conditions.
 func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
 	rt.Status.InitializeConditions()
-	rt.Status.MarkAutoTLSNotEnabled()
+	rt.Status.MarkTLSNotEnabled()
 }
 
 // WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
