@@ -73,8 +73,12 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 }
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
+	const (
+		longTimeout = 10 * time.Second
+	)
+
 	longTimeoutFunc := func(*http.Request) time.Duration {
-		return 10 * time.Second
+		return longTimeout
 	}
 	failingTimeoutFunc := func(*http.Request) time.Duration {
 		return 0 * time.Millisecond
