@@ -126,12 +126,16 @@ func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 		"There is an existing certificate %s that we don't own.", name)
 }
 
+const (
+	AutoTLSNotEnabledMessage            = "autoTLS is not enabled"
+	TLSNotEnabledForClusterLocalMessage = "TLS is not enabled for cluster-local"
+)
+
 // MarkTLSNotEnabled sets RouteConditionCertificateProvisioned to true when
 // certificate config such as autoTLS is not enabled or private cluster-local service.
-func (rs *RouteStatus) MarkTLSNotEnabled() {
+func (rs *RouteStatus) MarkTLSNotEnabled(msg string) {
 	routeCondSet.Manage(rs).MarkTrueWithReason(RouteConditionCertificateProvisioned,
-		"TLSNotEnabled",
-		"TLS is not enabled")
+		"TLSNotEnabled", msg)
 }
 
 // MarkHTTPDowngrade sets RouteConditionCertificateProvisioned to true when plain
