@@ -59,8 +59,10 @@ type DeciderSpec struct {
 	TargetBurstCapacity float64
 	// ActivatorCapacity is the single activator capacity, for subsetting.
 	ActivatorCapacity float64
-	// PanicThreshold is the threshold value of panic to stable concurrency
-	// ratio to transition into panic mode.
+	// PanicThreshold is the threshold at which panic mode is entered. It represents
+	// a factor of the currently observed load over the panic window over the ready
+	// pods. I.e. if this is 2, panic mode will be entered if the observed metric
+	// is twice as high as the current population can handle.
 	PanicThreshold float64
 	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration
@@ -80,14 +82,35 @@ type DeciderStatus struct {
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
+
+	// NumActivators is the computed number of activators
+	// necessary to back the revision.
+	NumActivators int32
+}
+
+// ScaleResult holds the scale result of the UniScaler evaluation cycle.
+type ScaleResult struct {
+	// DesiredPodCount is the number of pods Autoscaler suggests for the revision.
+	DesiredPodCount int32
+	// ExcessBurstCapacity is computed headroom of the revision taking into
+	// the account target burst capacity.
+	ExcessBurstCapacity int32
+	// NumActivators is the number of activators required to back this revision.
+	NumActivators int32
+	// ScaleValid specifies whether this scale result is valid, i.e. whether
+	// Autoscaler had all the necessary information to compute a suggestion.
+	ScaleValid bool
+}
+
+var invalidSR = ScaleResult{
+	ScaleValid:    false,
+	NumActivators: MinActivators,
 }
 
 // UniScaler records statistics for a particular Decider and proposes the scale for the Decider's target based on those statistics.
 type UniScaler interface {
-	// Scale either proposes a number of replicas and available excess burst capacity,
-	// or skips proposing. The proposal is requested at the given time.
-	// The returned boolean is true if and only if a proposal was returned.
-	Scale(context.Context, time.Time) (int32, int32, bool)
+	// Scale computes a scaling suggestion for a revision.
+	Scale(context.Context, time.Time) ScaleResult
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
@@ -117,20 +140,24 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
+func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
-	if sr.decider.Status.DesiredScale != proposed {
-		sr.decider.Status.DesiredScale = proposed
+	if sr.decider.Status.DesiredScale != sRes.DesiredPodCount {
+		sr.decider.Status.DesiredScale = sRes.DesiredPodCount
+		ret = true
+	}
+	if sr.decider.Status.NumActivators != sRes.NumActivators {
+		sr.decider.Status.NumActivators = sRes.NumActivators
 		ret = true
 	}
 
 	// If sign has changed -- then we have to update KPA
-	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, ebc)
+	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, sRes.ExcessBurstCapacity)
 
 	// Update with the latest calculation anyway.
-	sr.decider.Status.ExcessBurstCapacity = ebc
+	sr.decider.Status.ExcessBurstCapacity = sRes.ExcessBurstCapacity
 	return ret
 }
 
@@ -313,20 +340,13 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 }
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
-	logger := logging.FromContext(ctx)
-	desiredScale, excessBC, scaled := scaler.Scale(ctx, time.Now())
+	sr := scaler.Scale(ctx, time.Now())
 
-	if !scaled {
+	if !sr.ScaleValid {
 		return
 	}
 
-	// Cannot scale negative (nor we can compute burst capacity).
-	if desiredScale < 0 {
-		logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
-		return
-	}
-
-	if runner.updateLatestScale(desiredScale, excessBC) {
+	if runner.updateLatestScale(sr) {
 		m.Inform(metricKey)
 	}
 }

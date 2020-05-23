@@ -49,7 +49,7 @@ func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.
 
 func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.URL,
 	baseExpected, trafficTargets, targetsExpected []string) error {
-	var subdomains []*url.URL
+	subdomains := make([]*url.URL, 0, len(trafficTargets))
 	for _, target := range trafficTargets {
 		subdomain, _ := url.Parse(baseDomain.String())
 		subdomain.Host = target + "-" + baseDomain.Host
@@ -64,14 +64,14 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		// Check for each of the responses we expect from the base domain.
 		resp := resp
 		g.Go(func() error {
-			t.Logf("Waiting for route to update %s", baseDomain)
+			t.Log("Waiting for route to update", baseDomain)
 			return waitForExpectedResponse(t, clients, baseDomain, resp)
 		})
 	}
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
-			t.Logf("Waiting for route to update %s", s)
+			t.Log("Waiting for route to update", s)
 			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
 		})
 	}
@@ -197,7 +197,7 @@ func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, erro
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
 func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, expectedText string) error {
-	t.Logf("Checking that the endpoint vends the expected text: %s", expectedText)
+	t.Log("Checking that the endpoint vends the expected text:", expectedText)
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -222,11 +222,11 @@ func validateControlPlane(t pkgTest.T, clients *test.Clients, names test.Resourc
 		if ready, err := v1b1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
-		if r.Status.ImageDigest == "" {
+		if r.Status.DeprecatedImageDigest == "" {
 			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)
 		}
-		if validDigest, err := validateImageDigest(names.Image, r.Status.ImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ImageDigest, names.Image, err)
+		if validDigest, err := validateImageDigest(names.Image, r.Status.DeprecatedImageDigest); !validDigest {
+			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
 		}
 		return true, nil
 	})
@@ -241,10 +241,12 @@ func validateControlPlane(t pkgTest.T, clients *test.Clients, names test.Resourc
 	t.Log("Checking to ensure Configuration is in desired state.")
 	err = v1b1test.CheckConfigurationState(clients.ServingBetaClient, names.Config, func(c *v1beta1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %w", names.Config, names.Revision, err)
+			return false, fmt.Errorf("Configuration(%s).LatestCreatedRevisionName = %q, want %q",
+				names.Config, c.Status.LatestCreatedRevisionName, names.Revision)
 		}
 		if c.Status.LatestReadyRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was ready: %w", names.Config, names.Revision, err)
+			return false, fmt.Errorf("Configuration(%s).LatestReadyRevisionName = %q, want %q",
+				names.Config, c.Status.LatestReadyRevisionName, names.Revision)
 		}
 		return true, nil
 	})

@@ -47,4 +47,7 @@ const (
 
 	// ContainerMemoryLimit is used in any test which needs a default memory resource limit
 	ContainerMemoryLimit = "350Mi"
+
+	// testAnnotation is an annotation attached to resources originating from tests.
+	testAnnotation = "knative-e2e-test"
 )

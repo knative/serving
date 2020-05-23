@@ -25,9 +25,7 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -67,12 +65,10 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = logging.WithLogger(ctx, logger)
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-		ctx, istioClient := fakeistioclient.With(ctx, ls.GetIstioObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
-		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
 		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
@@ -106,11 +102,9 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
-			istioClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
-			certManagerClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
@@ -123,7 +117,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, client, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList
@@ -140,23 +134,23 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		// Determine and set the TypeMeta for this object based on our test scheme.
 		gvks, _, err := sch.ObjectKinds(obj)
 		if err != nil {
-			t.Fatalf("Unable to determine kind for type: %v", err)
+			t.Fatal("Unable to determine kind for type:", err)
 		}
 		apiv, k := gvks[0].ToAPIVersionAndKind()
 		ta, err := meta.TypeAccessor(obj)
 		if err != nil {
-			t.Fatalf("Unable to create type accessor: %v", err)
+			t.Fatal("Unable to create type accessor:", err)
 		}
 		ta.SetAPIVersion(apiv)
 		ta.SetKind(k)
 
 		b, err := json.Marshal(obj)
 		if err != nil {
-			t.Fatalf("Unable to marshal: %v", err)
+			t.Fatal("Unable to marshal:", err)
 		}
 		u := &unstructured.Unstructured{}
 		if err := json.Unmarshal(b, u); err != nil {
-			t.Fatalf("Unable to unmarshal: %v", err)
+			t.Fatal("Unable to unmarshal:", err)
 		}
 		us = append(us, u)
 	}

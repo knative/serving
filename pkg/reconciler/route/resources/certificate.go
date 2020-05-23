@@ -43,7 +43,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 	}
 	order.Sort()
 
-	var certs []*networkingv1alpha1.Certificate
+	certs := make([]*networkingv1alpha1.Certificate, 0, len(order))
 	for _, dnsName := range order {
 		tag := domainTagMap[dnsName]
 

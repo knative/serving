@@ -23,6 +23,7 @@ import (
 
 	"github.com/mattbaird/jsonpatch"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,6 +35,8 @@ import (
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -132,6 +135,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
 	service := Service(names, fopt...)
+	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
 }
@@ -252,5 +256,12 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 // IsServiceNotReady will check the status conditions of the service and return true if the service is
 // not ready.
 func IsServiceNotReady(s *v1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+	result := s.Status.GetCondition(v1.ServiceConditionReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+}
+
+// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesNotReady(s *v1.Service) (bool, error) {
+	result := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
 }

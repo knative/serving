@@ -19,6 +19,7 @@ package tools
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -67,7 +68,7 @@ func GetDefaultKubePath() (string, error) {
 		err error
 	)
 	if usr, err = user.Current(); err != nil {
-		return "", fmt.Errorf("error retrieving current user: %v", err)
+		return "", fmt.Errorf("error retrieving current user: %w", err)
 	}
 
 	return path.Join(usr.HomeDir, ".kube/config"), nil
@@ -80,12 +81,12 @@ func getKubeClient(kubeConfigPath string, clusterName string) (*kubernetes.Clien
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath},
 		&overrides).ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("error building kube client config: %v", err)
+		return nil, fmt.Errorf("error building kube client config: %w", err)
 	}
 
 	var kubeClient *kubernetes.Clientset
 	if kubeClient, err = kubernetes.NewForConfig(clientCfg); err != nil {
-		return nil, fmt.Errorf("error building KubeClient from config: %v", err)
+		return nil, fmt.Errorf("error building KubeClient from config: %w", err)
 	}
 
 	return kubeClient, nil
@@ -100,11 +101,11 @@ func GetWebhookServiceIP(kubeConfigPath string, clusterName string, namespace st
 
 	svc, err := kubeClient.CoreV1().Services(namespace).Get(serviceName, v1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("error encountered while retrieving service: %s Error: %v", serviceName, err)
+		return "", fmt.Errorf("error encountered while retrieving service: %s Error: %w", serviceName, err)
 	}
 
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		return "", fmt.Errorf("found zero Ingress instances for service: %s", serviceName)
+		return "", errors.New("found zero Ingress instances for service: " + serviceName)
 	}
 
 	return svc.Status.LoadBalancer.Ingress[0].IP, nil

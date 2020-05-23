@@ -17,60 +17,42 @@ limitations under the License.
 package leaderelection
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
+	cm "knative.dev/pkg/configmap"
 )
 
 const ConfigMapNameEnv = "CONFIG_LEADERELECTION_NAME"
 
-var (
-	errEmptyLeaderElectionConfig = errors.New("empty leader election configuration")
-	validResourceLocks           = sets.NewString("leases", "configmaps", "endpoints")
-)
+var validResourceLocks = sets.NewString("leases", "configmaps", "endpoints")
 
 // NewConfigFromMap returns a Config for the given map, or an error.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
-	config := &Config{
-		EnabledComponents: sets.NewString(),
+	config := defaultConfig()
+
+	if err := cm.Parse(data,
+		cm.AsString("resourceLock", &config.ResourceLock),
+
+		cm.AsDuration("leaseDuration", &config.LeaseDuration),
+		cm.AsDuration("renewDeadline", &config.RenewDeadline),
+		cm.AsDuration("retryPeriod", &config.RetryPeriod),
+
+		// enabledComponents are not validated here, because they are dependent on
+		// the component. Components should provide additional validation for this
+		// field.
+		cm.AsStringSet("enabledComponents", &config.EnabledComponents),
+	); err != nil {
+		return nil, err
 	}
 
-	if resourceLock := data["resourceLock"]; !validResourceLocks.Has(resourceLock) {
-		return nil, fmt.Errorf(`resourceLock: invalid value %q: valid values are "leases","configmaps","endpoints"`, resourceLock)
-	} else {
-		config.ResourceLock = resourceLock
-	}
-
-	if leaseDuration, err := time.ParseDuration(data["leaseDuration"]); err != nil {
-		return nil, fmt.Errorf("leaseDuration: invalid duration: %q", data["leaseDuration"])
-	} else {
-		config.LeaseDuration = leaseDuration
-	}
-
-	if renewDeadline, err := time.ParseDuration(data["renewDeadline"]); err != nil {
-		return nil, fmt.Errorf("renewDeadline: invalid duration: %q", data["renewDeadline"])
-	} else {
-		config.RenewDeadline = renewDeadline
-	}
-
-	if retryPeriod, err := time.ParseDuration(data["retryPeriod"]); err != nil {
-		return nil, fmt.Errorf("retryPeriod: invalid duration: %q", data["retryPeriod"])
-	} else {
-		config.RetryPeriod = retryPeriod
-	}
-
-	// enabledComponents are not validated here, because they are dependent on
-	// the component. Components should provide additional validation for this
-	// field.
-	if enabledComponents, ok := data["enabledComponents"]; ok {
-		tokens := strings.Split(enabledComponents, ",")
-		config.EnabledComponents = sets.NewString(tokens...)
+	if !validResourceLocks.Has(config.ResourceLock) {
+		return nil, fmt.Errorf(`resourceLock: invalid value %q: valid values are "leases","configmaps","endpoints"`, config.ResourceLock)
 	}
 
 	return config, nil
@@ -82,7 +64,6 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		config := defaultConfig()
 		return config, nil
 	}
-
 	return NewConfigFromMap(configMap.Data)
 }
 
@@ -100,6 +81,7 @@ type Config struct {
 func (c *Config) GetComponentConfig(name string) ComponentConfig {
 	if c.EnabledComponents.Has(name) {
 		return ComponentConfig{
+			Component:     name,
 			LeaderElect:   true,
 			ResourceLock:  c.ResourceLock,
 			LeaseDuration: c.LeaseDuration,
@@ -108,7 +90,7 @@ func (c *Config) GetComponentConfig(name string) ComponentConfig {
 		}
 	}
 
-	return defaultComponentConfig()
+	return defaultComponentConfig(name)
 }
 
 func defaultConfig() *Config {
@@ -123,6 +105,7 @@ func defaultConfig() *Config {
 
 // ComponentConfig represents the leader election config for a single component.
 type ComponentConfig struct {
+	Component     string
 	LeaderElect   bool
 	ResourceLock  string
 	LeaseDuration time.Duration
@@ -130,8 +113,9 @@ type ComponentConfig struct {
 	RetryPeriod   time.Duration
 }
 
-func defaultComponentConfig() ComponentConfig {
+func defaultComponentConfig(name string) ComponentConfig {
 	return ComponentConfig{
+		Component:   name,
 		LeaderElect: false,
 	}
 }
@@ -154,5 +138,5 @@ func UniqueID() (string, error) {
 		return "", err
 	}
 
-	return (id + "_" + string(uuid.NewUUID())), nil
+	return id + "_" + string(uuid.NewUUID()), nil
 }

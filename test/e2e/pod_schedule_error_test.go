@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestPodScheduleError(t *testing.T) {
@@ -62,17 +62,17 @@ func TestPodScheduleError(t *testing.T) {
 		},
 	}
 	var (
-		svc *v1alpha1.Service
+		svc *v1.Service
 		err error
 	)
-	if svc, err = v1a1test.CreateLatestService(t, clients, names, v1a1opts.WithResourceRequirements(resources)); err != nil {
+	if svc, err = v1test.CreateService(t, clients, names, rtesting.WithResourceRequirements(resources)); err != nil {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ServiceConditionConfigurationsReady)
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
+		cond := r.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorMsg) && cond.IsFalse() {
 				return true, nil
@@ -85,7 +85,7 @@ func TestPodScheduleError(t *testing.T) {
 	}, "ContainerUnscheduleable")
 
 	if err != nil {
-		t.Fatalf("Failed to validate service state: %s", err)
+		t.Fatal("Failed to validate service state:", err)
 	}
 
 	revisionName, err := revisionFromConfiguration(clients, names.Config)
@@ -94,8 +94,8 @@ func TestPodScheduleError(t *testing.T) {
 	}
 
 	t.Log("When the containers are not scheduled, the revision should have error status.")
-	err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	err = v1test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == revisionReason && strings.Contains(cond.Message, errorMsg) {
 				return true, nil
@@ -107,13 +107,13 @@ func TestPodScheduleError(t *testing.T) {
 	}, errorReason)
 
 	if err != nil {
-		t.Fatalf("Failed to validate revision state: %s", err)
+		t.Fatal("Failed to validate revision state:", err)
 	}
 }
 
 // Get revision name from configuration.
 func revisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

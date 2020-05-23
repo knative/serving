@@ -32,8 +32,8 @@ function setup_auto_tls_env_variables() {
 
   export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
 
-  local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE}
-  if [[ -z "${GATEWAY_NAMESPACE}" ]]; then
+  local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE_OVERRIDE}
+  if [[ -z "${GATEWAY_NAMESPACE_OVERRIDE}" ]]; then
     INGRESS_NAMESPACE="istio-system"
   fi
   local INGRESS_SERVICE=${GATEWAY_OVERRIDE}
@@ -51,7 +51,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-domain
-  namespace: knative-serving
+  namespace: ${SYSTEM_NAMESPACE}
   labels:
     serving.knative.dev/release: devel
 data:
@@ -60,7 +60,7 @@ EOF
 }
 
 function cleanup_custom_domain() {
-  kubectl apply -f ./config/config-domain.yaml
+  kubectl delete ConfigMap config-domain -n ${SYSTEM_NAMESPACE}
 }
 
 function setup_auto_tls_common() {
@@ -90,12 +90,12 @@ function setup_http01_auto_tls() {
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
@@ -106,7 +106,7 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   export TLS_SERVICE_NAME="self-per-ksvc"
 
   kubectl delete kcert --all -n serving-tests
-  kubectl apply -f test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 }
 
 function setup_selfsigned_per_namespace_auto_tls() {
@@ -121,7 +121,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
   export NAMESPACE_WITH_CERT="serving-tests"
   go run ./test/e2e/autotls/config/disablenscert
 
-  kubectl apply -f test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
   # SERVING_NSCERT_YAML is set in build_knative_from_source function
   # when building knative.
@@ -130,7 +130,9 @@ function setup_selfsigned_per_namespace_auto_tls() {
     echo "Error: variable SERVING_NSCERT_YAML is not set."
     exit 1
   fi
-  kubectl apply -f ${SERVING_NSCERT_YAML}
+  local YAML_NAME=${TMP_DIR}/${SERVING_NSCERT_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_NSCERT_YAML} > ${YAML_NAME}
+  kubectl apply -f ${YAML_NAME}
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
@@ -142,7 +144,7 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
   kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
 
   kubectl delete kcert --all -n serving-tests
-  kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
+  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
 function setup_dns_record() {
@@ -171,23 +173,20 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
 subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
 setup_selfsigned_per_ksvc_auto_tls
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
 subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
 setup_selfsigned_per_namespace_auto_tls
 add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 cleanup_per_selfsigned_namespace_auto_tls
 
 subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
 setup_http01_auto_tls
 add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/ || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/
+go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
+kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 delete_dns_record
 
 subheader "Cleanup auto tls"

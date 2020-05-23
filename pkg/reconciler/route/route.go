@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -109,7 +110,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	r.SetDefaults(ctx)
 	r.Status.InitializeConditions()
 
-	logger.Infof("Reconciling route: %#v", r)
+	logger.Debugf("Reconciling route: %#v", r)
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
@@ -154,7 +155,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration || !ingress.Status.IsReady() {
+	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
 	} else {
 		r.Status.PropagateIngressStatus(ingress.Status)
@@ -189,6 +190,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
+		r.Status.MarkAutoTLSNotEnabled()
 		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
@@ -248,7 +250,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
-			// When httpProtocol is enabled, downward http scheme.
+			// When httpProtocol is enabled, downgrade http scheme.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -257,6 +259,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 					}
 				}
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
+				r.Status.MarkHTTPDowngrade(cert.Name)
 			}
 		}
 	}
@@ -294,12 +297,17 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	// race conditions were routes are reconciled before their targets appear
 	// in the informer cache
 	for _, obj := range t.MissingTargets {
-		if err := c.tracker.Track(obj, r); err != nil {
+		if err := c.tracker.TrackReference(tracker.Reference{
+			APIVersion: obj.APIVersion,
+			Kind:       obj.Kind,
+			Namespace:  obj.Namespace,
+			Name:       obj.Name,
+		}, r); err != nil {
 			return nil, err
 		}
 	}
 	for _, configuration := range t.Configurations {
-		if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(configuration), r); err != nil {
 			return nil, err
 		}
 	}
@@ -307,7 +315,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		if revision.Status.IsActivationRequired() {
 			logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 		}
-		if err := c.tracker.Track(objectRef(revision), r); err != nil {
+		if err := c.tracker.TrackReference(objectRef(revision), r); err != nil {
 			return nil, err
 		}
 	}
@@ -320,7 +328,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		return nil, trafficErr
 	}
 	if badTarget != nil && isTargetError {
-		logger.Infof("Marking bad traffic target: %v", badTarget)
+		logger.Info("Marking bad traffic target: ", badTarget)
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
@@ -379,10 +387,10 @@ type accessor interface {
 	GetName() string
 }
 
-func objectRef(a accessor) corev1.ObjectReference {
+func objectRef(a accessor) tracker.Reference {
 	gvk := a.GetGroupVersionKind()
 	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
+	return tracker.Reference{
 		APIVersion: apiVersion,
 		Kind:       kind,
 		Namespace:  a.GetNamespace(),

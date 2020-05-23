@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -30,7 +31,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -75,7 +75,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
 		if tracingEnabled {
-			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "proxy")
+			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
 		a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
 			Scheme: "http",
@@ -92,7 +92,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Errorw("Throttler try error", zap.Error(err))
 
 		switch err {
-		case activatornet.ErrActivatorOverload, context.DeadlineExceeded, queue.ErrRequestQueueFull:
+		case context.DeadlineExceeded, queue.ErrRequestQueueFull:
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		default:
 			w.WriteHeader(http.StatusInternalServerError)

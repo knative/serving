@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,22 +48,6 @@ import (
 )
 
 var (
-	defaultKnativeQReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", "0"},
-			},
-		},
-		// We want to mark the service as not ready as soon as the
-		// PreStop handler is called, so we need to check a little
-		// bit more often than the default.  It is a small
-		// sacrifice for a low rate of 503s.
-		PeriodSeconds: 1,
-		// We keep the connection open for a while because we're
-		// actively probing the user-container on that endpoint and
-		// thus don't want to be limited by K8s granularity here.
-		TimeoutSeconds: 10,
-	}
 	testProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
@@ -78,7 +61,9 @@ var (
 	traceConfig      tracingconfig.Config
 	obsConfig        metrics.ObservabilityConfig
 	asConfig         autoscalerconfig.Config
-	deploymentConfig deployment.Config
+	deploymentConfig = deployment.Config{
+		ProgressDeadline: deployment.ProgressDeadlineDefault,
+	}
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
@@ -285,7 +270,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			}
 			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, &asConfig, &test.cc)
 			if err != nil {
-				t.Fatalf("makeQueueContainer returned error: %v", err)
+				t.Fatal("makeQueueContainer returned error:", err)
 			}
 
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
@@ -294,8 +279,8 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
@@ -427,7 +412,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &cc)
 			if err != nil {
-				t.Fatalf("makeQueueContainer returned error: %v", err)
+				t.Fatal("makeQueueContainer returned error:", err)
 			}
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
 				Name:  "SERVING_READINESS_PROBE",
@@ -435,8 +420,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainerWithPercentageAnnotation (-want, +got) =", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
 				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
@@ -520,8 +505,8 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+		t.Error("makeQueueContainer(-want, +got) =", diff)
 	}
 }
 
@@ -537,7 +522,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				Ports: []corev1.ContainerPort{{
-					ContainerPort: int32(userPort),
+					ContainerPort: userPort,
 				}},
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
@@ -595,8 +580,8 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+		t.Error("makeQueueContainer(-want, +got) =", diff)
 	}
 }
 
@@ -626,7 +611,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -717,7 +702,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name: containerName,
 					Ports: []corev1.ContainerPort{{
-						ContainerPort: int32(userPort),
+						ContainerPort: userPort,
 					}},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -772,8 +757,8 @@ func TestTCPProbeGeneration(t *testing.T) {
 			}
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
@@ -791,7 +776,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_BACKEND":                "",
 	"TRACING_CONFIG_ZIPKIN_ENDPOINT":        "",
 	"TRACING_CONFIG_STACKDRIVER_PROJECT_ID": "",
-	"TRACING_CONFIG_SAMPLE_RATE":            "0.000000",
+	"TRACING_CONFIG_SAMPLE_RATE":            "0",
 	"TRACING_CONFIG_DEBUG":                  "false",
 	"SERVING_REQUEST_LOG_TEMPLATE":          "",
 	"SERVING_REQUEST_METRICS_BACKEND":       "",
@@ -799,10 +784,6 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
 	"METRICS_DOMAIN":                        metrics.Domain(),
 	"QUEUE_SERVING_PORT":                    "8012",
-	"USER_CONTAINER_NAME":                   containerName,
-	"ENABLE_VAR_LOG_COLLECTION":             "false",
-	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
-	"INTERNAL_VOLUME_PATH":                  internalVolumePath,
 	"DOWNWARD_API_LABELS_PATH":              fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 	"ENABLE_PROFILING":                      "false",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",

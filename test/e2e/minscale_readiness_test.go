@@ -29,11 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/resources"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 func TestMinScale(t *testing.T) {
@@ -56,14 +56,14 @@ func TestMinScale(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating route")
-	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatal("Failed to create Route:", err)
 	}
 
 	t.Log("Creating configuration")
-	cfg, err := v1a1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
+	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
@@ -75,8 +75,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Waiting for revision to become ready")
-	if err := v1a1test.WaitForRevisionState(
-		clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady",
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, revName, v1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
 		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 	}
@@ -87,8 +87,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Updating configuration")
-	if _, err := v1a1test.PatchConfig(clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
-		t.Fatalf("Failed to update Configuration: %v", err)
+	if _, err := v1test.PatchConfig(t, clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
+		t.Fatal("Failed to update Configuration:", err)
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
@@ -100,8 +100,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Waiting for new revision to become ready")
-	if err := v1a1test.WaitForRevisionState(
-		clients.ServingAlphaClient, newRevName, v1a1test.IsRevisionReady, "RevisionIsReady",
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, newRevName, v1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
 		t.Fatalf("The Revision %q did not become ready: %v", newRevName, err)
 	}
@@ -117,7 +117,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Deleting route")
-	if err := clients.ServingAlphaClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
+	if err := clients.ServingClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
 	}
 
@@ -139,10 +139,10 @@ func lt(m int) func(int) bool {
 	}
 }
 
-func withMinScale(minScale int) func(cfg *v1alpha1.Configuration) {
-	return func(cfg *v1alpha1.Configuration) {
+func withMinScale(minScale int) func(cfg *v1.Configuration) {
+	return func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
-			cfg.Spec.Template.Annotations = make(map[string]string)
+			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
 		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
@@ -150,18 +150,18 @@ func withMinScale(minScale int) func(cfg *v1alpha1.Configuration) {
 
 func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevName string) string {
 	// Wait for the Config have a LatestCreatedRevisionName
-	if err := v1a1test.WaitForConfigurationState(
-		clients.ServingAlphaClient, configName,
-		func(c *v1alpha1.Configuration) (bool, error) {
+	if err := v1test.WaitForConfigurationState(
+		clients.ServingClient, configName,
+		func(c *v1.Configuration) (bool, error) {
 			return c.Status.LatestCreatedRevisionName != oldRevName, nil
 		}, "ConfigurationHasUpdatedCreatedRevision",
 	); err != nil {
 		t.Fatalf("The Configuration %q has not updated LatestCreatedRevisionName from %q: %v", configName, oldRevName, err)
 	}
 
-	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
+		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
 
 	return config.Status.LatestCreatedRevisionName

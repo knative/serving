@@ -25,7 +25,7 @@ import (
 )
 
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Ingress is a collection of rules that allow inbound connections to reach the endpoints defined
@@ -60,6 +60,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Ingress.
 	_ kmeta.OwnerRefable = (*Ingress)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Ingress)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -342,3 +345,8 @@ const (
 	// IngressConditionLoadBalancerReady is set when the Ingress has a ready LoadBalancer.
 	IngressConditionLoadBalancerReady apis.ConditionType = "LoadBalancerReady"
 )
+
+// GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
+func (t *Ingress) GetStatus() *duckv1.Status {
+	return &t.Status.Status
+}

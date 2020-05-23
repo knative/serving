@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
@@ -82,22 +81,9 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.lifecycle"),
 	}, {
-		name: "build is not allowed",
-		c: &ConfigurationSpec{
-			DeprecatedBuild: &runtime.RawExtension{},
-			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
-				Spec: RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "hellworld",
-					},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("build"),
-	}, {
 		name: "no revision template",
 		c: &ConfigurationSpec{
-			DeprecatedBuild: &runtime.RawExtension{},
+			DeprecatedGeneration: int64(1),
 		},
 		want: apis.ErrMissingOneOf("revisionTemplate", "template"),
 	}, {
@@ -140,15 +126,13 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		c: &ConfigurationSpec{
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					DeprecatedConcurrencyModel: "Multi",
 					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields(
-			"template.spec.concurrencyModel", "template.spec.container"),
+		want: apis.ErrDisallowedFields("template.spec.container"),
 	}}
 
 	for _, test := range tests {

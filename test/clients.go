@@ -201,7 +201,7 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 
 // Delete will delete all Routes and Configs with the names routes and configs, if clients
 // has been successfully initialized.
-func (clients *ServingAlphaClients) Delete(routes []string, configs []string, services []string) error {
+func (clients *ServingClients) Delete(routes []string, configs []string, services []string) []error {
 	deletions := []struct {
 		client interface {
 			Delete(name string, options *v1.DeleteOptions) error
@@ -218,6 +218,7 @@ func (clients *ServingAlphaClients) Delete(routes []string, configs []string, se
 		PropagationPolicy: &propPolicy,
 	}
 
+	var errs []error
 	for _, deletion := range deletions {
 		if deletion.client == nil {
 			continue
@@ -229,12 +230,12 @@ func (clients *ServingAlphaClients) Delete(routes []string, configs []string, se
 			}
 
 			if err := deletion.client.Delete(item, dopt); err != nil {
-				return err
+				errs = append(errs, err)
 			}
 		}
 	}
 
-	return nil
+	return errs
 }
 
 // BuildClientConfig builds client config for testing.

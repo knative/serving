@@ -35,7 +35,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// have changed (i.e. due to config-defaults changes), we elide the metadata and
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
-		errs = errs.Also(serving.ValidateObjectMetadata(s.GetObjectMeta()).ViaField("metadata"))
+		errs = errs.Also(serving.ValidateObjectMetadata(ctx, s.GetObjectMeta()).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, s.ObjectMeta)
 		errs = errs.Also(s.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
@@ -164,7 +164,7 @@ func (rt *ReleaseType) Validate(ctx context.Context) *apis.FieldError {
 		}
 		if msgs := validation.IsDNS1035Label(r); len(msgs) > 0 {
 			errs = errs.Also(apis.ErrInvalidArrayValue(
-				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
 				"revisions", i))
 		}
 	}

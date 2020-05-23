@@ -18,11 +18,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+export GO111MODULE=on
+
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-
-go install $(dirname $0)/../vendor/k8s.io/code-generator/cmd/deepcopy-gen
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -42,7 +42,8 @@ EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
     k8s.io/client-go \
     k8s.io/api \
     "admissionregistration:v1beta1 apps:v1 autoscaling:v1,v2beta1 batch:v1,v1beta1 core:v1 rbac:v1" \
-    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    --force-genreconciler-kinds "Namespace"
 
 OUTPUT_PKG="knative.dev/pkg/client/injection/apiextensions" \
 VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset" \
@@ -50,16 +51,18 @@ VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/cli
     k8s.io/apiextensions-apiserver/pkg/client \
     k8s.io/apiextensions-apiserver/pkg/apis \
     "apiextensions:v1beta1" \
-    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    --force-genreconciler-kinds "CustomResourceDefinition"
 
 # Only deepcopy the Duck types, as they are not real resources.
+chmod +x ${CODEGEN_PKG}/generate-groups.sh
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
   knative.dev/pkg/client knative.dev/pkg/apis \
   "duck:v1alpha1,v1beta1,v1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
-${GOPATH}/bin/deepcopy-gen --input-dirs \
+go run k8s.io/code-generator/cmd/deepcopy-gen  --input-dirs \
   $(echo \
   knative.dev/pkg/apis \
   knative.dev/pkg/tracker \

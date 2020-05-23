@@ -24,6 +24,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -42,7 +43,7 @@ func register(t *testing.T) func() {
 			Aggregation: view.LastValue(),
 			TagKeys:     append(CommonRevisionKeys, ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey),
 		}); err != nil {
-		t.Fatalf("Failed to register view: %v", err)
+		t.Fatal("Failed to register view:", err)
 	}
 
 	return func() {
@@ -201,7 +202,7 @@ func mustCtx(t *testing.T, f func() (context.Context, error)) context.Context {
 
 	ctx, err := f()
 	if err != nil {
-		t.Fatalf("Failed to create a new context: %v", err)
+		t.Fatal("Failed to create a new context:", err)
 	}
 	return ctx
 }

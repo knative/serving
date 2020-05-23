@@ -385,7 +385,6 @@ func TestRevisionWatcher(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
-			defer close(updateCh)
 
 			// This gets closed up by revisionWatcher
 			destsCh := make(chan dests)
@@ -407,11 +406,12 @@ func TestRevisionWatcher(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informer.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
 				waitInformers()
+				close(updateCh)
 			}()
 
 			rw := newRevisionWatcher(
@@ -469,7 +469,7 @@ func TestRevisionWatcher(t *testing.T) {
 func assertChClosed(t *testing.T, ch chan struct{}) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("the channel was not closed")
+			t.Error("The channel was not closed")
 		}
 	}()
 	select {
@@ -707,16 +707,13 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpointsInformer.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
 
 			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, probeFreq)
 			defer func() {
 				cancel()
+				waitInformers()
 				waitForRevisionBackedMananger(t, rbm)
 			}()
 
@@ -749,6 +746,154 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}
 }
 
+func emptyDests() dests {
+	return dests{
+		ready:    sets.NewString(),
+		notReady: sets.NewString(),
+	}
+}
+
+func TestCheckDestsReadyToNotReady(t *testing.T) {
+	// This test verifies the edge behaviour when a pod
+	// previously in the ready sed moved to non ready set
+	// and now must be re-probed.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	svc := privateSKSService(
+		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		"129.0.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			"10.10.1.1": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				// Finally!
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.10.1.2": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.10.1.3": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}
+
+	// Make it buffered,so that we can make the test linear.
+	uCh := make(chan revisionDestsUpdate, 1)
+	dCh := make(chan struct{})
+	rw := &revisionWatcher{
+		clusterIPHealthy: true,
+		podsAddressable:  true,
+		rev:              types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:         uCh,
+		serviceLister:    si.Lister(),
+		logger:           TestLogger(t),
+		stopCh:           dCh,
+		transport:        network.RoundTripperFunc(fakeRT.RT),
+	}
+	// Initial state. Both are ready.
+	cur := dests{
+		ready:    sets.NewString("10.10.1.3", "10.10.1.2"),
+		notReady: sets.NewString("10.10.1.1"),
+	}
+	rw.checkDests(cur, emptyDests())
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 2; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+	// Repeating should be a no-op.
+	rw.checkDests(cur, emptyDests())
+	select {
+	case u := <-uCh:
+		t.Fatal("Unexpected update", u)
+	default:
+		// Success.
+	}
+
+	// Now swing the ready to the non ready, and it should fail the probe.
+	prev := cur
+
+	cur = dests{
+		ready:    sets.NewString("10.10.1.2"),
+		notReady: sets.NewString("10.10.1.1", "10.10.1.3"),
+	}
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		// The 10.10.1.3 should be not ready now.
+		if got, want := len(u.Dests), 1; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Now just re-probe the same and it should succeed (see the RT setup above).
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 2; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Timer update.
+	prev.ready.Delete("10.10.1.3")
+	// The last one should finally succeed.
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 3; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+}
+
 func TestCheckDests(t *testing.T) {
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
@@ -766,7 +911,7 @@ func TestCheckDests(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -785,7 +930,10 @@ func TestCheckDests(t *testing.T) {
 		logger:           TestLogger(t),
 		stopCh:           dCh,
 	}
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.1.1.5"),
+		notReady: sets.NewString("10.1.1.6"),
+	}, emptyDests())
 	select {
 	case <-uCh:
 		// Success.
@@ -794,7 +942,10 @@ func TestCheckDests(t *testing.T) {
 	}
 
 	close(dCh)
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.1.1.5"),
+		notReady: sets.NewString("10.1.1.6"),
+	}, emptyDests())
 	select {
 	case <-uCh:
 		t.Error("Expected no update but got one")
@@ -820,7 +971,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -879,8 +1030,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 		podsAddressable: true,
 		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
+
 	// First not ready, second good, clusterIP: not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	want := revisionDestsUpdate{
 		Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 		ClusterIPDest: "",
@@ -897,7 +1049,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second gone, first becomes ready, clusterIP still not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.1:1234")
@@ -909,7 +1061,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second is back, but not healthy yet.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		// No update should be sent out, since there's only healthy pod, same as above.
@@ -918,7 +1070,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// All pods are happy now.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.1:1234")
@@ -930,7 +1082,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make sure we do not send out redundant updates.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -939,7 +1091,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Add a notReady pod, but it's not ready. No update should be sent.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.NewString("10.0.0.4:1234"),
+	}, emptyDests())
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -948,7 +1103,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// The notReady pod is now ready!
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.NewString("10.0.0.4:1234"),
+	}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.1:1234", "10.0.0.2:1234", "10.0.0.4:1234")
@@ -960,7 +1118,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Swing to a different pods.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.3:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.3:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.3:1234")
@@ -972,7 +1130,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Scale down by 1.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234")
@@ -1001,12 +1159,8 @@ func TestRevisionDeleted(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1017,6 +1171,7 @@ func TestRevisionDeleted(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1046,12 +1201,8 @@ func TestServiceDoesNotExist(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1076,6 +1227,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1100,13 +1252,8 @@ func TestServiceMoreThanOne(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
@@ -1144,6 +1291,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, network.RoundTripperFunc(fakeRT.RT), probeFreq)
 	defer func() {
 		cancel()
+		waitInformers()
 		waitForRevisionBackedMananger(t, rbm)
 	}()
 
@@ -1153,7 +1301,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		// We can't probe endpoints (see RT above) and we can't get to probe
 		// cluster IP. But if the service is accessible then we will and probing will
 		// succeed since RT has no rules for that.
-		t.Errorf("Unexpected update, should have had none: %v", x)
+		t.Errorf("Unexpected update, should have had none: %#v", x)
 	case <-time.After(updateTimeout):
 	}
 }

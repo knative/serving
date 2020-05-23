@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -45,7 +46,7 @@ func (r *Revision) checkImmutableFields(ctx context.Context, original *Revision)
 
 // Validate ensures Revision is properly configured.
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata")
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx).(*Revision)
 		errs = errs.Also(r.checkImmutableFields(ctx, old))
@@ -57,8 +58,9 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 
 // Validate ensures RevisionTemplateSpec is properly configured.
 func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
+	allowZeroInitialScale := apisconfig.FromContextOrDefaults(ctx).Autoscaler.AllowZeroInitialScale
 	errs := rt.Spec.Validate(ctx).ViaField("spec")
-	errs = errs.Also(autoscaling.ValidateAnnotations(rt.GetAnnotations()).ViaField("metadata.annotations"))
+	errs = errs.Also(autoscaling.ValidateAnnotations(allowZeroInitialScale, rt.GetAnnotations()).ViaField("metadata.annotations"))
 	// If the DeprecatedRevisionTemplate has a name specified, then check that
 	// it follows the requirements on the name.
 	errs = errs.Also(serving.ValidateRevisionName(ctx, rt.Name, rt.GenerateName))
@@ -118,16 +120,8 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
 
-	if rs.DeprecatedBuildRef != nil {
-		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
-	}
-
-	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
-		errs = errs.Also(err)
-	} else {
-		if rs.ContainerConcurrency != nil {
-			errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
-		}
+	if rs.ContainerConcurrency != nil {
+		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 	}
 
 	if rs.TimeoutSeconds != nil {
@@ -146,17 +140,5 @@ func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis
 		return nil
 	default:
 		return apis.ErrInvalidValue(ss, apis.CurrentField)
-	}
-}
-
-// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
-func (cm DeprecatedRevisionRequestConcurrencyModelType) Validate(ctx context.Context) *apis.FieldError {
-	switch cm {
-	case DeprecatedRevisionRequestConcurrencyModelType(""),
-		DeprecatedRevisionRequestConcurrencyModelMulti,
-		DeprecatedRevisionRequestConcurrencyModelSingle:
-		return nil
-	default:
-		return apis.ErrInvalidValue(cm, apis.CurrentField)
 	}
 }

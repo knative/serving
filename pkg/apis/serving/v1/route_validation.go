@@ -28,7 +28,7 @@ import (
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).Also(
 		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
@@ -62,7 +62,11 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		if tt.Tag == "" {
 			continue
 		}
-
+		if msgs := validation.IsDNS1035Label(tt.Tag); len(msgs) > 0 {
+			errs = errs.Also(apis.ErrInvalidArrayValue(
+				fmt.Sprint("not a DNS 1035 label: ", msgs),
+				"tag", i))
+		}
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.

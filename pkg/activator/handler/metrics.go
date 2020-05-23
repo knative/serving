@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	requestConcurrencyM = stats.Int64(
+	requestConcurrencyM = stats.Float64(
 		"request_concurrency",
 		"Concurrent requests that are routed to Activator",
 		stats.UnitDimensionless)

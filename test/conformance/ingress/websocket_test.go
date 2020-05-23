@@ -75,7 +75,7 @@ func TestWebsocket(t *testing.T) {
 	u := url.URL{Scheme: "ws", Host: domain, Path: "/"}
 	conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 	if err != nil {
-		t.Fatalf("Dial() = %v", err)
+		t.Fatal("Dial() =", err)
 	}
 	defer conn.Close()
 
@@ -137,11 +137,12 @@ func TestWebsocketSplit(t *testing.T) {
 	}
 	u := url.URL{Scheme: "ws", Host: domain, Path: "/"}
 
+	const maxRequests = 100
 	got := sets.NewString()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < maxRequests; i++ {
 		conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err != nil {
-			t.Fatalf("Dial() = %v", err)
+			t.Fatal("Dial() =", err)
 		}
 		defer conn.Close()
 
@@ -154,11 +155,15 @@ func TestWebsocketSplit(t *testing.T) {
 		for j := 0; j < 10; j++ {
 			checkWebsocketRoundTrip(t, conn, suffix)
 		}
+
+		if want.Equal(got) {
+			// Short circuit if we've seen all splits.
+			return
+		}
 	}
 
-	if !cmp.Equal(want, got) {
-		t.Errorf("(-want, +got) = %s", cmp.Diff(want, got))
-	}
+	// Us getting here means we haven't seen splits.
+	t.Errorf("(over %d requests) (-want, +got) = %s", maxRequests, cmp.Diff(want, got))
 }
 
 func findWebsocketSuffix(t *testing.T, conn *websocket.Conn) string {

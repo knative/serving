@@ -69,6 +69,11 @@ const (
 
 var certificateCondSet = apis.NewLivingConditionSet(CertificateConditionReady)
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Certificate) GetConditionSet() apis.ConditionSet {
+	return certificateCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")

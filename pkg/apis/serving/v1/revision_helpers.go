@@ -104,7 +104,7 @@ func (r *Revision) GetProtocol() (p net.ProtocolType) {
 // to be the specified time
 func (r *Revision) SetLastPinned(t time.Time) {
 	if r.ObjectMeta.Annotations == nil {
-		r.ObjectMeta.Annotations = make(map[string]string)
+		r.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
 
 	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)

@@ -52,6 +52,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Metric.
 	_ kmeta.OwnerRefable = (*Metric)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Metric)(nil)
 )
 
 // MetricSpec contains all values a metric collector needs to operate.
@@ -77,4 +80,14 @@ type MetricList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Metric `json:"items"`
+}
+
+// GetTypeMeta retrieves the ObjectMeta of the Metric. Implements the KRShaped interface.
+func (t *Metric) GetTypeMeta() *metav1.TypeMeta {
+	return &t.TypeMeta
+}
+
+// GetStatus retrieves the status of the Metric. Implements the KRShaped interface.
+func (t *Metric) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }

@@ -35,6 +35,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -46,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -55,6 +57,14 @@ import (
 )
 
 var rootCAs = x509.NewCertPool()
+
+var dialBackoff = wait.Backoff{
+	Duration: 50 * time.Millisecond,
+	Factor:   1.4,
+	Jitter:   0.1, // At most 10% jitter.
+	Steps:    100,
+	Cap:      10 * time.Second,
+}
 
 // uaRoundTripper wraps the given http.RoundTripper and
 // sets a custom UserAgent.
@@ -131,7 +141,7 @@ func CreateRuntimeService(t *testing.T, clients *test.Clients, portName string) 
 			Ports: []corev1.ServicePort{{
 				Name:       portName,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -195,7 +205,7 @@ func CreateProxyService(t *testing.T, clients *test.Clients, target string, gate
 			Type: "ClusterIP",
 			Ports: []corev1.ServicePort{{
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -286,7 +296,7 @@ func CreateTimeoutService(t *testing.T, clients *test.Clients) (string, int, con
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -360,7 +370,7 @@ func CreateFlakyService(t *testing.T, clients *test.Clients, period int) (string
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -434,7 +444,7 @@ func CreateWebsocketService(t *testing.T, clients *test.Clients, suffix string) 
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameHTTP1,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -507,7 +517,7 @@ func CreateGRPCService(t *testing.T, clients *test.Clients, suffix string) (stri
 			Ports: []corev1.ServicePort{{
 				Name:       networking.ServicePortNameH2C,
 				Port:       int32(port),
-				TargetPort: intstr.FromInt(int(containerPort)),
+				TargetPort: intstr.FromInt(containerPort),
 			}},
 			Selector: map[string]string{
 				"test-pod": name,
@@ -527,7 +537,7 @@ func createService(t *testing.T, clients *test.Clients, svc *corev1.Service) con
 	})
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
 	if err != nil {
-		t.Fatalf("Error creating Service: %v", err)
+		t.Fatal("Error creating Service:", err)
 	}
 
 	return func() {
@@ -546,7 +556,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
 	pod, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(pod)
 	if err != nil {
-		t.Fatalf("Error creating Pod: %v", err)
+		t.Fatal("Error creating Pod:", err)
 	}
 	cancel := func() {
 		err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
@@ -561,7 +571,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	svc, err = clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
 	if err != nil {
 		cancel()
-		t.Fatalf("Error creating Service: %v", err)
+		t.Fatal("Error creating Service:", err)
 	}
 
 	// Wait for the Pod to show up in the Endpoints resource.
@@ -581,7 +591,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	})
 	if waitErr != nil {
 		cancel()
-		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", waitErr)
+		t.Fatal("Error waiting for Endpoints to contain a Pod IP:", waitErr)
 	}
 
 	return func() {
@@ -613,7 +623,7 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 	test.CleanupOnInterrupt(func() { clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{}) })
 	ing, err := clients.NetworkingClient.Ingresses.Create(ing)
 	if err != nil {
-		t.Fatalf("Error creating Ingress: %v", err)
+		t.Fatal("Error creating Ingress:", err)
 	}
 
 	return ing, func() {
@@ -630,12 +640,12 @@ func CreateIngressReadyDialContext(t *testing.T, clients *test.Clients, spec v1a
 
 	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, ing.Name, v1a1test.IsIngressReady, t.Name()); err != nil {
 		cancel()
-		t.Fatalf("Error waiting for ingress state: %v", err)
+		t.Fatal("Error waiting for ingress state:", err)
 	}
 	ing, err := clients.NetworkingClient.Ingresses.Get(ing.Name, metav1.GetOptions{})
 	if err != nil {
 		cancel()
-		t.Fatalf("Error getting Ingress: %v", err)
+		t.Fatal("Error getting Ingress:", err)
 	}
 
 	// Create a dialer based on the Ingress' public load balancer.
@@ -674,12 +684,12 @@ func UpdateIngress(t *testing.T, clients *test.Clients, name string, spec v1alph
 
 	ing, err := clients.NetworkingClient.Ingresses.Get(name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error getting Ingress: %v", err)
+		t.Fatal("Error getting Ingress:", err)
 	}
 
 	ing.Spec = spec
 	if _, err := clients.NetworkingClient.Ingresses.Update(ing); err != nil {
-		t.Fatalf("Error updating Ingress: %v", err)
+		t.Fatal("Error updating Ingress:", err)
 	}
 }
 
@@ -688,7 +698,7 @@ func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v
 	UpdateIngress(t, clients, name, spec)
 
 	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
-		t.Fatalf("Error waiting for ingress state: %v", err)
+		t.Fatal("Error waiting for ingress state:", err)
 	}
 }
 
@@ -703,13 +713,13 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 	if err != nil {
-		t.Fatalf("ecdsa.GenerateKey() = %v", err)
+		t.Fatal("ecdsa.GenerateKey() =", err)
 	}
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := cryptorand.Int(cryptorand.Reader, serialNumberLimit)
 	if err != nil {
-		t.Fatalf("Failed to generate serial number: %v", err)
+		t.Fatal("Failed to generate serial number:", err)
 	}
 
 	template := x509.Certificate{
@@ -732,12 +742,12 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	derBytes, err := x509.CreateCertificate(cryptorand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		t.Fatalf("x509.CreateCertificate() = %v", err)
+		t.Fatal("x509.CreateCertificate() =", err)
 	}
 
 	cert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
-		t.Fatalf("ParseCertificate() = %v", err)
+		t.Fatal("ParseCertificate() =", err)
 	}
 	// Ideally we'd undo this in "cancel", but there doesn't
 	// seem to be a mechanism to remove things from a pool.
@@ -745,16 +755,16 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 
 	certPEM := &bytes.Buffer{}
 	if err := pem.Encode(certPEM, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		t.Fatalf("Failed to write data to cert.pem: %s", err)
+		t.Fatal("Failed to write data to cert.pem:", err)
 	}
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		t.Fatalf("Unable to marshal private key: %v", err)
+		t.Fatal("Unable to marshal private key:", err)
 	}
 	privPEM := &bytes.Buffer{}
 	if err := pem.Encode(privPEM, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		t.Fatalf("Failed to write data to key.pem: %s", err)
+		t.Fatal("Failed to write data to key.pem:", err)
 	}
 
 	name := test.ObjectNameForTest(t)
@@ -776,7 +786,7 @@ func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []st
 		clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
 	})
 	if _, err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Create(secret); err != nil {
-		t.Fatalf("Error creating Secret: %v", err)
+		t.Fatal("Error creating Secret:", err)
 	}
 	return name, func() {
 		err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
@@ -810,7 +820,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
 	parts := strings.SplitN(internalDomain, ".", 3)
 	if len(parts) < 3 {
-		t.Fatalf("Too few parts in internal domain: %s", internalDomain)
+		t.Fatal("Too few parts in internal domain:", internalDomain)
 	}
 	name, namespace := parts[0], parts[1]
 
@@ -822,8 +832,8 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		t.Fatal("Service does not have any ingresses (not type LoadBalancer?).")
 	}
 	ingress := svc.Status.LoadBalancer.Ingress[0]
-
-	return func(_ context.Context, _ string, address string) (net.Conn, error) {
+	dial := network.NewBackoffDialer(dialBackoff)
+	return func(ctx context.Context, _ string, address string) (net.Conn, error) {
 		_, port, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, err
@@ -831,25 +841,35 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
 		// this is required in minikube-like environments.
 		if pkgTest.Flags.IngressEndpoint != "" {
-			return net.Dial("tcp", pkgTest.Flags.IngressEndpoint+":"+port)
+			return dial(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
 		}
 		if ingress.IP != "" {
-			return net.Dial("tcp", ingress.IP+":"+port)
+			return dial(ctx, "tcp", ingress.IP+":"+port)
 		}
 		if ingress.Hostname != "" {
-			return net.Dial("tcp", ingress.Hostname+":"+port)
+			return dial(ctx, "tcp", ingress.Hostname+":"+port)
 		}
 		return nil, errors.New("service ingress does not contain dialing information")
 	}
 }
 
 type RequestOption func(*http.Request)
+type ResponseExpectation func(response *http.Response) error
 
 func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
-	return RuntimeRequestWithStatus(t, client, url, sets.NewInt(http.StatusOK), opts...)
+	return RuntimeRequestWithExpectations(t, client, url,
+		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusOK))},
+		false,
+		opts...)
 }
 
-func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, expectedStatus sets.Int, opts ...RequestOption) *types.RuntimeInfo {
+// RuntimeRequestWithExpectations attempts to make a request to url and return runtime information.
+// If connection is successful only then it will validate all response expectations.
+// If allowDialError is set to true then function will not fail if connection is a dial error.
+func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url string,
+	responseExpectations []ResponseExpectation,
+	allowDialError bool,
+	opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -863,39 +883,65 @@ func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, exp
 	}
 
 	resp, err := client.Do(req)
+
 	if err != nil {
-		t.Errorf("Error making GET request: %v", err)
+		if !allowDialError || !IsDialError(err) {
+			t.Errorf("Error making GET request: %v", err)
+		}
 		return nil
 	}
+
 	defer resp.Body.Close()
-	if !expectedStatus.Has(resp.StatusCode) {
-		t.Errorf("Got unexpected status: %d, expected %v", resp.StatusCode, expectedStatus)
-		DumpResponse(t, resp)
-		return nil
-	}
-	if resp.StatusCode == http.StatusOK {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Errorf("Unable to read response body: %v", err)
-			DumpResponse(t, resp)
-			return nil
+
+	if resp != nil {
+		for _, e := range responseExpectations {
+			if err := e(resp); err != nil {
+				t.Errorf("Error meeting response expectations: %v", err)
+				DumpResponse(t, resp)
+				return nil
+			}
 		}
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Errorf("Unable to parse runtime image's response payload: %v", err)
-			return nil
+
+		if resp.StatusCode == http.StatusOK {
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("Unable to read response body: %v", err)
+				DumpResponse(t, resp)
+				return nil
+			}
+			ri := &types.RuntimeInfo{}
+			if err := json.Unmarshal(b, ri); err != nil {
+				t.Errorf("Unable to parse runtime image's response payload: %v", err)
+				return nil
+			}
+			return ri
 		}
-		return ri
 	}
 	return nil
 }
 
 func DumpResponse(t *testing.T, resp *http.Response) {
 	t.Helper()
-
 	b, err := httputil.DumpResponse(resp, true)
 	if err != nil {
 		t.Errorf("Error dumping response: %v", err)
 	}
 	t.Log(string(b))
+}
+
+func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
+	return func(response *http.Response) error {
+		if !statusCodes.Has(response.StatusCode) {
+			return fmt.Errorf("got unexpected status: %d, expected %v", response.StatusCode, statusCodes)
+		}
+		return nil
+	}
+}
+
+func IsDialError(err error) bool {
+	if err, ok := err.(*url.Error); ok {
+		err, ok := err.Err.(*net.OpError)
+		return ok && err.Op == "dial"
+	}
+	return false
 }

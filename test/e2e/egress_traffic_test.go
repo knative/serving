@@ -21,12 +21,12 @@ package e2e
 import (
 	"testing"
 
-	pkgTest "knative.dev/pkg/test"
-	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
-	"knative.dev/serving/test"
-	v1a1test "knative.dev/serving/test/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
+	pkgTest "knative.dev/pkg/test"
+	rtesting "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
+	v1 "knative.dev/serving/test/v1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -45,13 +45,14 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1a1opts.WithEnv(corev1.EnvVar{
+	service, err := v1.CreateServiceReady(t, clients, &names,
+		rtesting.WithEnv(corev1.EnvVar{
 			Name:  targetHostEnvName,
 			Value: targetHostDomain,
 		}))
+
 	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+		t.Fatal("Failed to create a service:", err)
 	}
 	if service.Route.Status.URL == nil {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
@@ -63,7 +64,7 @@ func TestEgressTraffic(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
