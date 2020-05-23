@@ -87,6 +87,8 @@ add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --typ
 go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v certificate) \
   ./test/e2e ./test/e2e/hpa \
+  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
+  -run="Test[^U]|TestUpdate.+" \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
