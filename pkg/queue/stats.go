@@ -29,7 +29,10 @@ func ReportStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-ch
 
 	for {
 		select {
-		case event := <-reqCh:
+		case event, ok := <-reqCh:
+			if !ok {
+				return
+			}
 			state.HandleEvent(event)
 		case now := <-reportCh:
 			stats := state.Report(now)
