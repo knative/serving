@@ -190,6 +190,9 @@ go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 if [[ -n "${ISTIO_VERSION}" ]]; then
   kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  # The gateway is unnecessary but 1.5 cannot remove it. See https://github.com/istio/istio/issues/22095
+  # Also it causes an issue for TestIstioProbing/HTTP2. see https://github.com/istio/istio/issues/24061
+  kubectl delete gateway istio-ingressgateway -n istio-system --ignore-not-found
   go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
   kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
 fi
