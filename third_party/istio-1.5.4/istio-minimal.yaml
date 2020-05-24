@@ -794,7 +794,7 @@ data:
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
-          "enabled": false
+          "enabled": true
         },
         "defaultResources": {
           "requests": {
@@ -1516,6 +1516,24 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
 ---
 
 
@@ -8758,6 +8776,27 @@ spec:
 ---
 
 
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    
+    release: istio
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+      
+      release: istio
+---
+
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -9147,6 +9186,27 @@ spec:
     hosts:
       - "*"
     # Additional ports in gateaway for the ingressPorts - apps using dedicated port instead of hostname
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+    
+    release: istio
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cluster-local-gateway
+      istio: cluster-local-gateway
+      
+      release: istio
 ---
 
 
@@ -10014,7 +10074,7 @@ data:
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
-          "enabled": false
+          "enabled": true
         },
         "defaultResources": {
           "requests": {
@@ -10736,6 +10796,24 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
 ---
 
 
