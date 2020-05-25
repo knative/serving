@@ -63,6 +63,16 @@ spec:
             requests:
               cpu: 1000m
               memory: 1024Mi
+          overlays:
+            # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
+            # see: https://github.com/istio/istio/issues/22095
+            # it causes an issue for TestIstioProbing/HTTP2. see: https://github.com/istio/istio/issues/24061
+            - kind: Gateway
+              name: istio-ingressgateway
+              patches:
+                - path: spec.selector.istio
+                  value:
+                    dummy
       - name: cluster-local-gateway
         enabled: true
         label:
@@ -85,3 +95,13 @@ spec:
               name: http2
             - port: 443
               name: https
+          overlays:
+            # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
+            # see: https://github.com/istio/istio/issues/22095
+            # it causes an issue for TestIstioProbing/HTTP2. see: https://github.com/istio/istio/issues/24061
+            - kind: Gateway
+              name: cluster-local-gateway
+              patches:
+                - path: spec.selector.istio
+                  value:
+                    dummy

@@ -183,13 +183,6 @@ add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ -
 go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
 kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  # The gateway is unnecessary but 1.5 cannot remove it. see https://github.com/istio/istio/issues/22095
-  # Also it causes an issue for TestIstioProbing/HTTP2. see https://github.com/istio/istio/issues/24061
-  kubectl delete gateway istio-ingressgateway -n istio-system --ignore-not-found
-  kubectl delete gateway cluster-local-gateway -n istio-system --ignore-not-found
-fi
-
 # Run scale tests.
 go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
