@@ -109,8 +109,6 @@ func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 				Paths:   []string{"splits"},
 			})
 		}
-	case h.RewriteHost != "":
-		// no validation needed for this case
 	}
 
 	if h.Retries != nil {

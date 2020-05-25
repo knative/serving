@@ -217,10 +217,14 @@ type HTTPIngressPath struct {
 	//
 	// This field is currently experimental and not supported by all Ingress
 	// implementations.
+	//
+	// If RewriteHost is specified, Splits must not be.
 	RewriteHost string `json:"rewriteHost,omitempty"`
 
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
+	//
+	// If Splits are specified, RewriteHost must not be.
 	Splits []IngressBackendSplit `json:"splits"`
 
 	// AppendHeaders allow specifying additional HTTP headers to add
