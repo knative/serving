@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -201,7 +202,7 @@ func TestConfigurationConversion(t *testing.T) {
 				if err := got.ConvertFrom(context.Background(), ver); err != nil {
 					t.Errorf("ConvertFrom() = %v", err)
 				}
-				if diff := cmp.Diff(test.in, got); diff != "" {
+				if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
 				}
 			})
@@ -228,7 +229,7 @@ func TestConfigurationConversion(t *testing.T) {
 				if err := got.ConvertFrom(context.Background(), ver); err != nil {
 					t.Errorf("ConvertFrom() = %v", err)
 				}
-				if diff := cmp.Diff(test.in, got); diff != "" {
+				if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
 				}
 			})
