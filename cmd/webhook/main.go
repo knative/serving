@@ -225,10 +225,11 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 }
 
 func main() {
+
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: "webhook",
-		Port:        8443,
+		Port:        webhook.PortFromEnv(8443),
 		SecretName:  "webhook-certs",
 	})
 

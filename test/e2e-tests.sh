@@ -85,9 +85,15 @@ add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --typ
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v certificate) \
+  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e ./test/e2e/hpa \
   ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+# We run KIngress conformance ingress separately, to make it easier to skip some tests.
+go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
+  -run="Test[^U]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then

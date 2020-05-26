@@ -33,7 +33,7 @@ type reportedStat struct {
 
 func TestNoData(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	got := s.report(now)
 	want := reportedStat{
@@ -47,7 +47,7 @@ func TestNoData(t *testing.T) {
 
 func TestSingleRequestWholeTime(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(1 * time.Second)
@@ -66,7 +66,7 @@ func TestSingleRequestWholeTime(t *testing.T) {
 
 func TestSingleRequestHalfTime(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(1 * time.Second)
@@ -85,7 +85,7 @@ func TestSingleRequestHalfTime(t *testing.T) {
 
 func TestVeryShortLivedRequest(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(10 * time.Millisecond)
@@ -105,7 +105,7 @@ func TestVeryShortLivedRequest(t *testing.T) {
 
 func TestMultipleRequestsWholeTime(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(300 * time.Millisecond)
@@ -132,7 +132,7 @@ func TestMultipleRequestsWholeTime(t *testing.T) {
 
 func TestMultipleRequestsInterleaved(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(100 * time.Millisecond)
@@ -155,7 +155,7 @@ func TestMultipleRequestsInterleaved(t *testing.T) {
 
 func TestOneRequestAcrossReportings(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 
 	s.requestStart(now)
 	now = now.Add(1 * time.Second)
@@ -184,7 +184,7 @@ func TestOneRequestAcrossReportings(t *testing.T) {
 
 func TestOneProxiedRequest(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 	s.proxiedStart(now)
 	now = now.Add(1 * time.Second)
 	got := s.report(now)
@@ -201,7 +201,7 @@ func TestOneProxiedRequest(t *testing.T) {
 
 func TestOneEndedProxiedRequest(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 	s.proxiedStart(now)
 	now = now.Add(500 * time.Millisecond)
 	s.proxiedEnd(now)
@@ -220,7 +220,7 @@ func TestOneEndedProxiedRequest(t *testing.T) {
 
 func TestTwoRequestsOneProxied(t *testing.T) {
 	now := time.Now()
-	s := newTestStats(now)
+	s := newTestStats(t, now)
 	s.proxiedStart(now)
 	now = now.Add(500 * time.Millisecond)
 	s.proxiedEnd(now)
@@ -245,9 +245,11 @@ type testStats struct {
 	statChan     chan reportedStat
 }
 
-func newTestStats(now time.Time) *testStats {
-	reportBiChan := make(chan time.Time)
+func newTestStats(t *testing.T, now time.Time) *testStats {
 	reqChan := make(chan network.ReqEvent)
+	t.Cleanup(func() { close(reqChan) })
+
+	reportBiChan := make(chan time.Time)
 	statChan := make(chan reportedStat)
 	report := func(acr float64, apcr float64, rc float64, prc float64) {
 		statChan <- reportedStat{
@@ -257,7 +259,7 @@ func newTestStats(now time.Time) *testStats {
 			ProxiedRequestCount: prc,
 		}
 	}
-	NewStats(now, reqChan, reportBiChan, report)
+	go ReportStats(now, reqChan, reportBiChan, report)
 	return &testStats{
 		reqChan:      reqChan,
 		reportBiChan: reportBiChan,

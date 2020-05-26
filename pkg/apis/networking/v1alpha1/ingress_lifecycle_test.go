@@ -49,7 +49,7 @@ func TestIngressGetConditionSet(t *testing.T) {
 	r := &Ingress{}
 
 	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
-		t.Errorf("GotConditionSet=%v, want=%v", got, want)
+		t.Errorf("GetConditionSet=%v, want=%v", got, want)
 	}
 }
 

@@ -184,7 +184,7 @@ func (c *MetricCollector) Watch(fn func(types.NamespacedName)) {
 	defer c.watcherMutex.Unlock()
 
 	if c.watcher != nil {
-		c.logger.Fatal("Multiple calls to Watch() not supported")
+		c.logger.Panic("Multiple calls to Watch() not supported")
 	}
 	c.watcher = fn
 }
@@ -302,15 +302,16 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 			case <-c.stopCh:
 				return
 			case <-scrapeTicker.C:
-				currentMetric := c.currentMetric()
-				if currentMetric.Spec.ScrapeTarget == "" {
+				scraper := c.getScraper()
+				if scraper == nil {
 					// Don't scrape empty target service.
 					if c.updateLastError(nil) {
 						callback(key)
 					}
 					continue
 				}
-				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
+
+				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}

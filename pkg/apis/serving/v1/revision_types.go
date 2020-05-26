@@ -139,7 +139,7 @@ type RevisionStatus struct {
 	// may be empty if the image comes from a registry listed to skip resolution.
 	// If multiple containers specified then DeprecatedImageDigest holds the digest
 	// for serving container.
-	// DEPRECATED Use ContainerStatuses instead.
+	// DEPRECATED: Use ContainerStatuses instead.
 	// TODO(savitaashture) Remove deprecatedImageDigest.
 	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional

@@ -427,7 +427,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "",
+					autoscaling.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: RevisionSpec{
@@ -436,10 +436,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: (&apis.FieldError{
-			Message: "expected 1 <=  <= 2147483647",
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
-		}).ViaField("annotations").ViaField("metadata"),
+		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
 		ctx:  autoscalerConfigCtx(false, 1),
