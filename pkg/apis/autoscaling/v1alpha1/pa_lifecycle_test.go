@@ -564,9 +564,7 @@ func TestIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pa := PodAutoscaler{
-				Status: tc.status,
-			}
+			pa := PodAutoscaler{Status: tc.status}
 			if got, want := pa.IsReady(), tc.isReady; got != want {
 				t.Errorf("IsReady = %v, want: %v", got, want)
 			}
