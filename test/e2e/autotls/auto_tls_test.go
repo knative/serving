@@ -153,7 +153,7 @@ func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
 			return false, nil
 		}
 	}
-	return route.Status.IsReady() && true, nil
+	return route.IsReady() && true, nil
 }
 
 func httpsReady(svc *servingv1.Service) (bool, error) {
