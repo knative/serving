@@ -56,9 +56,12 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
+	"knative.dev/serving/pkg/activator/util"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 )
@@ -212,7 +215,14 @@ func main() {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
 	ah = reqLogHandler
-
+	ah = handler.NewTimeToFirstByteTimeoutHandler(ah, "activator request timeout",
+		func(r *http.Request) time.Duration {
+			rev := util.RevisionFrom(r.Context())
+			if rev != nil && rev.Spec.TimeoutSeconds != nil {
+				return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
+			}
+			return time.Duration(apiconfig.DefaultRevisionTimeoutSeconds) * time.Second
+		})
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
 	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
