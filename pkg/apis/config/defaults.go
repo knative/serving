@@ -58,7 +58,7 @@ const (
 	DefaultAllowContainerConcurrencyZero bool = true
 )
 
-func defaultConfig() *Defaults {
+func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
 		RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
 		MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
@@ -71,12 +71,11 @@ func defaultConfig() *Defaults {
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
-	nc := defaultConfig()
+	nc := defaultDefaultsConfig()
 
 	if err := cm.Parse(data,
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
-		cm.AsBool("enable-multi-container", &nc.EnableMultiContainer),
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
@@ -123,9 +122,6 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
-	// Feature flag to enable multi container support.
-	EnableMultiContainer bool
-
 	RevisionTimeoutSeconds int64
 	// This is the timeout set for ingress.
 	// RevisionTimeoutSeconds must be less than this value.

@@ -168,7 +168,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 			"Revision becomes ready upon all resources being ready")
 	}
 
-	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 

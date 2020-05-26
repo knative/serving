@@ -112,8 +112,8 @@ type MetricCollector struct {
 	statsScraperFactory StatsScraperFactory
 	tickProvider        func(time.Duration) *time.Ticker
 
-	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
+	collections      map[types.NamespacedName]*collection
 
 	watcherMutex sync.RWMutex
 	watcher      func(types.NamespacedName)
@@ -184,7 +184,7 @@ func (c *MetricCollector) Watch(fn func(types.NamespacedName)) {
 	defer c.watcherMutex.Unlock()
 
 	if c.watcher != nil {
-		c.logger.Fatal("Multiple calls to Watch() not supported")
+		c.logger.Panic("Multiple calls to Watch() not supported")
 	}
 	c.watcher = fn
 }
@@ -239,8 +239,10 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
-	metricMutex sync.RWMutex
-	metric      *av1alpha1.Metric
+	// mux guards access to all of the collection's state.
+	mux sync.RWMutex
+
+	metric *av1alpha1.Metric
 
 	// Fields relevant to metric collection in general.
 	concurrencyBuckets      *aggregation.TimedFloat64Buckets
@@ -249,23 +251,21 @@ type collection struct {
 	rpsPanicBuckets         *aggregation.TimedFloat64Buckets
 
 	// Fields relevant for metric scraping specifically.
-	scraperMutex sync.RWMutex
-	scraper      StatsScraper
-	errMutex     sync.RWMutex
-	lastErr      error
-	grp          sync.WaitGroup
-	stopCh       chan struct{}
+	scraper StatsScraper
+	lastErr error
+	grp     sync.WaitGroup
+	stopCh  chan struct{}
 }
 
 func (c *collection) updateScraper(ss StatsScraper) {
-	c.scraperMutex.Lock()
-	defer c.scraperMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	c.scraper = ss
 }
 
 func (c *collection) getScraper() StatsScraper {
-	c.scraperMutex.RLock()
-	defer c.scraperMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 	return c.scraper
 }
 
@@ -302,15 +302,16 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 			case <-c.stopCh:
 				return
 			case <-scrapeTicker.C:
-				currentMetric := c.currentMetric()
-				if currentMetric.Spec.ScrapeTarget == "" {
+				scraper := c.getScraper()
+				if scraper == nil {
 					// Don't scrape empty target service.
 					if c.updateLastError(nil) {
 						callback(key)
 					}
 					continue
 				}
-				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
+
+				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}
@@ -335,8 +336,8 @@ func (c *collection) close() {
 
 // updateMetric safely updates the metric stored in the collection.
 func (c *collection) updateMetric(metric *av1alpha1.Metric) {
-	c.metricMutex.Lock()
-	defer c.metricMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	c.metric = metric
 	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
@@ -347,8 +348,8 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 
 // currentMetric safely returns the current metric stored in the collection.
 func (c *collection) currentMetric() *av1alpha1.Metric {
-	c.metricMutex.RLock()
-	defer c.metricMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 
 	return c.metric
 }
@@ -356,8 +357,8 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 // updateLastError updates the last error returned from the scraper
 // and returns true if the error or error state changed.
 func (c *collection) updateLastError(err error) bool {
-	c.errMutex.Lock()
-	defer c.errMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	if c.lastErr == err {
 		return false
@@ -367,8 +368,8 @@ func (c *collection) updateLastError(err error) bool {
 }
 
 func (c *collection) lastError() error {
-	c.errMutex.RLock()
-	defer c.errMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 
 	return c.lastErr
 }

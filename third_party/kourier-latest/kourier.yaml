@@ -2,24 +2,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-logging
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-leader-election
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 data:
   _example: |
     ################################
@@ -69,6 +77,8 @@ kind: Service
 metadata:
   name: kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - name: http2
@@ -88,6 +98,8 @@ kind: Deployment
 metadata:
   name: 3scale-kourier-gateway
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   selector:
     matchLabels:
@@ -103,7 +115,7 @@ spec:
         - /tmp/config/envoy-bootstrap.yaml
         command:
         - /usr/local/bin/envoy
-        image: docker.io/maistra/proxyv2-ubi8:1.0.8
+        image: docker.io/maistra/proxyv2-ubi8:1.1.0
         imagePullPolicy: Always
         name: kourier-gateway
         ports:
@@ -116,16 +128,20 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /tmp/config
+        lifecycle:
+          preStop:
+            exec:
+              command: ["curl", "-X", "POST", "--unix", "/tmp/envoy.admin", "http://localhost/healthcheck/fail"]
         readinessProbe:
           httpGet:
             httpHeaders:
             - name: Host
               value: internalkourier
-            path: /__internalkouriersnapshot
+            path: /ready
             port: 8081
             scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 2
+          initialDelaySeconds: 10
+          periodSeconds: 5
       volumes:
       - name: config-volume
         configMap:
@@ -137,6 +153,8 @@ kind: Deployment
 metadata:
   name: 3scale-kourier-control
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   replicas: 1
   selector:
@@ -148,7 +166,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:4c1bba191b7751a31d4bf7679a0e7cf5ce47abadb1fa8983b7064218f7a2fadb
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f1ec90d11071ec5fbe9e83fa8fa340bf1b338a395e52e4dd3de2f5ce89ad5679
         imagePullPolicy: Always
         name: kourier-control
         env:
@@ -168,6 +186,8 @@ kind: ClusterRole
 metadata:
   name: 3scale-kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 rules:
 - apiGroups: [""]
   resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
@@ -190,11 +210,15 @@ kind: ServiceAccount
 metadata:
   name: 3scale-kourier
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: 3scale-kourier
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -209,6 +233,8 @@ kind: Service
 metadata:
   name: kourier-internal
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - name: http2
@@ -224,6 +250,8 @@ kind: Service
 metadata:
   name: kourier-control
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
   - port: 18000
@@ -238,6 +266,8 @@ kind: ConfigMap
 metadata:
   name: kourier-bootstrap
   namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
 data:
   envoy-bootstrap.yaml: |
     dynamic_resources:

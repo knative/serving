@@ -153,8 +153,18 @@ func TestScaler(t *testing.T) {
 			WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
-		wantReplicas: 0,
-		wantScaling:  false,
+	}, {
+		label:         "can scale to zero after grace period, but 0 PA retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = "0"
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantScaling: true,
 	}, {
 		label:         "can't scale to zero after grace period, but before last pod retention",
 		startReplicas: 1,
@@ -164,6 +174,20 @@ func TestScaler(t *testing.T) {
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  false,
+		wantCBCount:  1,
+	}, {
+		label:         "can't scale to zero after grace period, but before last pod retention, pa defined",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = (2 * gracePeriod).String()
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 0 // Disabled in CM.
 		},
 		wantReplicas: 0,
 		wantScaling:  false,

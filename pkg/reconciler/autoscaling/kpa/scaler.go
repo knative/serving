@@ -32,6 +32,7 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -129,6 +130,14 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (
 	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
+func lastPodRetention(pa *pav1alpha1.PodAutoscaler, cfg *asconfig.Config) time.Duration {
+	d, ok := pa.ScaleToZeroPodRetention()
+	if ok {
+		return d
+	}
+	return cfg.ScaleToZeroPodRetentionPeriod
+}
+
 // pre: 0 <= min <= max && 0 <= x
 func applyBounds(min, max, x int32) int32 {
 	if x < min {
@@ -213,7 +222,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// And at least ScaleToZeroPodRetentionPeriod since PA became inactive.
 
 			// Most conservative check, if it passes we're good.
-			lastPodTimeout := cfgAS.ScaleToZeroPodRetentionPeriod
+			lastPodTimeout := lastPodRetention(pa, cfgAS)
 			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
 			if pa.Status.CanScaleToZero(now, lastPodMaxTimeout) {
 				return desiredScale, true

@@ -25,7 +25,7 @@ import (
 )
 
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Revision is an immutable snapshot of code and configuration.  A revision
@@ -56,6 +56,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Revision.
 	_ kmeta.OwnerRefable = (*Revision)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Revision)(nil)
 )
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
@@ -136,7 +139,7 @@ type RevisionStatus struct {
 	// may be empty if the image comes from a registry listed to skip resolution.
 	// If multiple containers specified then DeprecatedImageDigest holds the digest
 	// for serving container.
-	// DEPRECATED Use ContainerStatuses instead.
+	// DEPRECATED: Use ContainerStatuses instead.
 	// TODO(savitaashture) Remove deprecatedImageDigest.
 	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional
@@ -166,4 +169,9 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
+}
+
+// GetStatus retrieves the status of the Revision. Implements the KRShaped interface.
+func (t *Revision) GetStatus() *duckv1.Status {
+	return &t.Status.Status
 }

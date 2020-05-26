@@ -204,6 +204,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "stable window too big",
+		input: map[string]string{
+			"stable-window": "1h1s",
+		},
+		wantErr: true,
+	}, {
 		name: "stable window too small",
 		input: map[string]string{
 			"stable-window": "1s",

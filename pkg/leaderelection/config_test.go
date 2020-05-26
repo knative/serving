@@ -18,7 +18,6 @@ package leaderelection
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -71,7 +70,7 @@ func TestValidateConfig(t *testing.T) {
 			data["renewDeadline"] = "not a duration"
 			return data
 		}(),
-		err: errors.New(`renewDeadline: invalid duration: "not a duration"`),
+		err: errors.New(`failed to parse "renewDeadline": time: invalid duration not a duration`),
 	}, {
 		name: "invalid component",
 		data: func() map[string]string {
@@ -85,7 +84,7 @@ func TestValidateConfig(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
-			if !reflect.DeepEqual(tc.err, actualErr) {
+			if tc.err != nil && tc.err.Error() != actualErr.Error() {
 				t.Fatalf("%v: expected error %v, got %v", tc.name, tc.err, actualErr)
 			}
 

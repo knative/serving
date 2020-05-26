@@ -308,8 +308,6 @@ github.com/pborman/uuid
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.5.0 => github.com/prometheus/client_golang v0.9.2
 ## explicit
-github.com/prometheus/client_golang/api
-github.com/prometheus/client_golang/api/prometheus/v1
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
@@ -1148,7 +1146,7 @@ k8s.io/utils/integer
 k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20200515173804-a2fc9c5de2ef
+# knative.dev/caching v0.0.0-20200521155757-e78d17bc250e
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1169,7 +1167,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/pkg v0.0.0-20200516202602-148827986b00
+# knative.dev/pkg v0.0.0-20200519155757-14eb3ae3a5a7
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1257,7 +1255,6 @@ knative.dev/pkg/test/mako/alerter/slack
 knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/performance
-knative.dev/pkg/test/prometheus
 knative.dev/pkg/test/prow
 knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
@@ -1285,7 +1282,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200515184601-7a28f47cdbcb
+# knative.dev/test-infra v0.0.0-20200519161858-554a95a37986
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff v1.0.1

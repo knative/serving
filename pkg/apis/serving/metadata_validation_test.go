@@ -209,13 +209,22 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 		annotation map[string]string
 		expectErr  *apis.FieldError
 	}{{
-		name: "Queue sidecar resource percentage annotation more than 100",
+		name: "too small",
 		annotation: map[string]string{
-			QueueSideCarResourcePercentageAnnotation: "200",
+			QueueSideCarResourcePercentageAnnotation: "0.01982",
 		},
 		expectErr: &apis.FieldError{
-			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{QueueSideCarResourcePercentageAnnotation},
+			Message: "expected 0.1 <= 0.01982 <= 100",
+			Paths:   []string{fmt.Sprintf("[%s]", QueueSideCarResourcePercentageAnnotation)},
+		},
+	}, {
+		name: "too big for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			QueueSideCarResourcePercentageAnnotation: "100.0001",
+		},
+		expectErr: &apis.FieldError{
+			Message: "expected 0.1 <= 100.0001 <= 100",
+			Paths:   []string{fmt.Sprintf("[%s]", QueueSideCarResourcePercentageAnnotation)},
 		},
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
@@ -232,7 +241,12 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}, {
 		name: "different annotation other than QueueSideCarResourcePercentageAnnotation",
 		annotation: map[string]string{
-			CreatorAnnotation: "",
+			CreatorAnnotation: "umph",
+		},
+	}, {
+		name: "valid value for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			QueueSideCarResourcePercentageAnnotation: "0.1",
 		},
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
