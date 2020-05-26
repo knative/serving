@@ -2350,7 +2350,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteUID("65-23"),
-				MarkTrafficAssigned, MarkIngressNotConfigured,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
 				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(

@@ -117,8 +117,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
-	service.Status.ObservedGeneration = service.Generation
-
 	return nil
 }
 
