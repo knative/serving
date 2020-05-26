@@ -140,7 +140,8 @@ func TestConfigurationIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.IsReady(); e != a {
+			c := Configuration{Status: tc.status}
+			if e, a := tc.isReady, c.IsReady(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
@@ -210,7 +211,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isUpdateToDate, tc.IsLatestReadyRevisionNameUpToDate(); e != a {
+		c := Configuration{Status: tc.status}
+		if e, a := tc.isUpdateToDate, c.IsLatestReadyRevisionNameUpToDate(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}

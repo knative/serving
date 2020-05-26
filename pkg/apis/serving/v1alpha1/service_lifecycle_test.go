@@ -160,7 +160,8 @@ func TestServiceIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
+		s := Service{Status: tc.status}
+		if e, a := tc.isReady, s.IsReady(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
