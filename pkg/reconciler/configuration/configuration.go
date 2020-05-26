@@ -61,10 +61,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	config.SetDefaults(ctx)
 	config.Status.InitializeConditions()
 
-	// Bump observed generation to denote that we have processed this
-	// generation regardless of success or failure.
-	config.Status.ObservedGeneration = config.Generation
-
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
