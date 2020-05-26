@@ -18,9 +18,11 @@ package v1beta1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {
@@ -51,5 +53,109 @@ func TestRouteGetGroupVersionKind(t *testing.T) {
 	}
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestRouteIsReady(t *testing.T) {
+	cases := []struct {
+		name    string
+		status  v1.RouteStatus
+		isReady bool
+	}{{
+		name:    "empty status should not be ready",
+		status:  v1.RouteStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   v1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RouteConditionReady,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   v1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   v1.RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Route{Status: tc.status}
+			if e, a := tc.isReady, r.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
 	}
 }
