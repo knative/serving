@@ -102,13 +102,13 @@ func CheckRouteState(client *test.ServingAlphaClients, name string, inState func
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
 func IsRouteReady(r *v1alpha1.Route) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.IsReady(), nil
+	return r.IsReady(), nil
 }
 
 // IsRouteNotReady will check the status conditions of the route and return true if the route is
 // not ready.
 func IsRouteNotReady(r *v1alpha1.Route) (bool, error) {
-	return !r.IsReady(), nil
+	return r.Generation == r.Status.ObservedGeneration && !r.IsReady(), nil
 }
 
 // AllRouteTrafficAtRevision will check the revision that route r is routing

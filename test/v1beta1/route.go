@@ -124,3 +124,15 @@ func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1beta1.Route) 
 		return false, nil
 	}
 }
+
+// IsRouteReady will check the status conditions of the route and return true if the route is
+// ready.
+func IsRouteReady(r *v1beta1.Route) (bool, error) {
+	return r.IsReady(), nil
+}
+
+// IsRouteNotReady will check the status conditions of the route and return true if the route is
+// not ready.
+func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
+	return r.Generation == r.Status.ObservedGeneration && !r.IsReady(), nil
+}

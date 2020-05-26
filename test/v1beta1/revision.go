@@ -88,3 +88,10 @@ func IsRevisionAtExpectedGeneration(expectedGeneration string) func(r *v1beta1.R
 		return true, fmt.Errorf("expected Revision %s to be labeled with generation %s but there was no label", r.Name, expectedGeneration)
 	}
 }
+
+// IsRevisionReady will check the status conditions of the revision and return true if the revision is
+// ready to serve traffic. It will return false if the status indicates a state other than deploying
+// or being ready. It will also return false if the type of the condition is unexpected.
+func IsRevisionReady(r *v1beta1.Revision) (bool, error) {
+	return r.IsReady(), nil
+}
