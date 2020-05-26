@@ -33,6 +33,10 @@ function knative_setup() {
   install_knative_serving
 }
 
+GO111MODULE=on go get github.com/google/ko/cmd/ko@v0.4.0
+export GO111MODULE=off
+git reset --hard e7ecbc76800ae3c50e808d1f8d1de057c2dc2d40
+
 # Script entry point.
 
 # Skip installing istio as an add-on
