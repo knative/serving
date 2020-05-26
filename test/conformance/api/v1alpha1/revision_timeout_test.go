@@ -220,7 +220,7 @@ func TestRevisionTimeout(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		rev2sURL,
-		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
