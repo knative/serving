@@ -63,6 +63,12 @@ type Status struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	Conditions Conditions `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// Annotations is additional Status fields for the Resource to save some
+	// additional State as well as convey more information to the user. This is
+	// roughly akin to Annotations on any k8s resource, just the reconciler conveying
+	// richer information outwards.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 var _ apis.ConditionsAccessor = (*Status)(nil)
