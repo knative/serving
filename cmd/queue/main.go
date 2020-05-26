@@ -365,7 +365,7 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 		return pkgnet.AutoTransport
 	}
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(env.ServingPod, logger))
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
 	oct.ApplyConfig(&tracingconfig.Config{
 		Backend:              env.TracingConfigBackend,
 		Debug:                env.TracingConfigDebug,
