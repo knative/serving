@@ -24,6 +24,7 @@ import (
 
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -40,7 +41,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -82,7 +83,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	})
 	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -115,7 +116,7 @@ func BenchmarkNewRequestMetricsHandler(b *testing.B) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker, "test-ns",
 		"test-svc", "test-cfg", "test-rev", "test-pod")
 	if err != nil {
-		b.Fatalf("failed to create request metric handler: %v", err)
+		b.Fatal("failed to create request metric handler:", err)
 	}
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, targetURI, nil)
@@ -144,7 +145,7 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
 		"ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -176,7 +177,7 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
 		"ns", "svc", "cfg", "rev", "pod")
 	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
+		t.Fatal("Failed to create handler:", err)
 	}
 
 	resp := httptest.NewRecorder()
@@ -202,4 +203,53 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 	metricstest.CheckCountData(t, "app_request_count", wantTags, 1)
 	metricstest.CheckDistributionCount(t, "app_request_latencies", wantTags, 1)
+}
+
+func BenchmarkRequestMetricsHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler, _ := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	b.Run("sequential", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			resp := httptest.NewRecorder()
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
+
+func BenchmarkAppRequestMetricsHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
+	handler, err := NewAppRequestMetricsHandler(baseHandler, breaker,
+		"ns", "svc", "cfg", "rev", "pod")
+	if err != nil {
+		b.Fatal("Failed to create handler:", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	b.Run("sequential", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			resp := httptest.NewRecorder()
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
 }

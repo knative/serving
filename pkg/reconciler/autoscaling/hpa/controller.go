@@ -27,12 +27,14 @@ import (
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
+	"knative.dev/serving/pkg/deployment"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -53,7 +55,7 @@ func NewController(
 	hpaInformer := hpainformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
-	onlyHpaClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+	onlyHPAClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -69,9 +71,10 @@ func NewController(
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},
+			&deployment.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-			impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
+			impl.FilteredGlobalResync(onlyHPAClass, paInformer.Informer())
 		})
 		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
@@ -80,26 +83,19 @@ func NewController(
 
 	logger.Info("Setting up hpa-class event handlers")
 
-	paHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHPAClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
+	})
+
+	onlyPAControlled := controller.FilterControllerGVK(av1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"))
+	handleMatchingControllers := cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	}
-	paInformer.Informer().AddEventHandler(paHandler)
-
-	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: onlyHpaClass,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
+	hpaInformer.Informer().AddEventHandler(handleMatchingControllers)
+	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
+	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	return impl
 }

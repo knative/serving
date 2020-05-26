@@ -90,7 +90,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	// Run the controller.
@@ -103,18 +103,18 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 		waitInformers()
 	}()
 
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Fatalf("Unexpected error creating revision: %v", err)
+		t.Fatal("Unexpected error creating revision:", err)
 	}
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
-		t.Fatalf("Unexpected error creating route: %v", err)
+		t.Fatal("Unexpected error creating route:", err)
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 

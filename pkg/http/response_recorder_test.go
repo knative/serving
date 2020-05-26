@@ -40,7 +40,7 @@ func TestResponseRecorder(t *testing.T) {
 		hijack        bool
 		writeSize     int
 		wantStatus    int
-		wantSize      int32
+		wantSize      int
 	}{{
 		name:          "no hijack",
 		initialStatus: http.StatusAccepted,

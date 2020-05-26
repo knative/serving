@@ -97,27 +97,6 @@ func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 	return *rs.ContainerConcurrency
 }
 
-func (r *Revision) DeprecatedBuildRef() *corev1.ObjectReference {
-	if r.Spec.DeprecatedBuildRef != nil {
-		buildRef := r.Spec.DeprecatedBuildRef.DeepCopy()
-		if buildRef.Namespace == "" {
-			buildRef.Namespace = r.Namespace
-		}
-		return buildRef
-	}
-
-	if r.Spec.DeprecatedBuildName != "" {
-		return &corev1.ObjectReference{
-			APIVersion: "build.knative.dev/v1alpha1",
-			Kind:       "Build",
-			Namespace:  r.Namespace,
-			Name:       r.Spec.DeprecatedBuildName,
-		}
-	}
-
-	return nil
-}
-
 // GetProtocol returns the app level network protocol.
 func (r *Revision) GetProtocol() net.ProtocolType {
 	ports := r.Spec.GetContainer().Ports
@@ -261,7 +240,7 @@ func RevisionContainerMissingMessage(image string, message string) string {
 // RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
+	return "Container failed with: " + message
 }
 
 // ResourceNotOwnedMessage constructs the status message if ownership on the
@@ -295,7 +274,7 @@ func RevisionLastPinnedString(t time.Time) string {
 
 func (r *Revision) SetLastPinned(t time.Time) {
 	if r.ObjectMeta.Annotations == nil {
-		r.ObjectMeta.Annotations = make(map[string]string)
+		r.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
 
 	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)

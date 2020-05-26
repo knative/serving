@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -37,10 +38,12 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -83,12 +86,12 @@ func main() {
 	msp := metrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatalf("Error exporting go memstats view: %v", err)
+		log.Fatal("Error exporting go memstats view: ", err)
 	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
-		log.Fatal("Error building kubeconfig:", err)
+		log.Fatal("Error building kubeconfig: ", err)
 	}
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
@@ -107,7 +110,7 @@ func main() {
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-			log.Printf("Failed to get k8s version %v", err)
+			log.Print("Failed to get k8s version ", err)
 		}
 		return err == nil, nil
 	}); perr != nil {
@@ -117,7 +120,7 @@ func main() {
 	// Set up our logger.
 	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
 	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
+		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer flush(logger)
@@ -134,12 +137,14 @@ func main() {
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
 	cmw.Watch(metrics.ConfigMapName(),
-		metrics.UpdateExporterFromConfigMap(component, logger),
+		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
-	collector := asmetrics.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	collector := asmetrics.NewMetricCollector(
+		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
 	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
 
 	// Set up scalers.
@@ -164,7 +169,7 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	go controller.StartAll(ctx.Done(), controllers...)
+	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {
@@ -217,11 +222,21 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) asmetrics.StatsScraperFactory {
-	return func(metric *av1alpha1.Metric) (asmetrics.StatsScraper, error) {
-		podCounter := resources.NewScopedEndpointsCounter(
-			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return asmetrics.NewServiceScraper(metric, podCounter)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
+	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
+	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
+		if metric.Spec.ScrapeTarget == "" {
+			return nil, nil
+		}
+
+		revisionName := metric.Labels[serving.RevisionLabelKey]
+		if revisionName == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Metric %s", serving.RevisionLabelKey, metric.Name)
+		}
+
+		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
+		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
+		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
 	}
 }
 

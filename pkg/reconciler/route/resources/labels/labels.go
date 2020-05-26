@@ -38,7 +38,7 @@ func SetVisibility(meta *v1.ObjectMeta, isClusterLocal bool) {
 // SetLabel sets/update the label of the an ObjectMeta
 func SetLabel(meta *v1.ObjectMeta, key string, value string) {
 	if meta.Labels == nil {
-		meta.Labels = make(map[string]string)
+		meta.Labels = make(map[string]string, 1)
 	}
 
 	meta.Labels[key] = value
@@ -46,7 +46,5 @@ func SetLabel(meta *v1.ObjectMeta, key string, value string) {
 
 // DeleteLabel removes a label from the ObjectMeta
 func DeleteLabel(meta *v1.ObjectMeta, key string) {
-	if meta.Labels != nil {
-		delete(meta.Labels, key)
-	}
+	delete(meta.Labels, key)
 }

@@ -65,7 +65,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 
 	ctx, cancel := context.WithCancel(ctx)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
-	sksMode := metrics.FetchSKSMode(ctx, namespace, selector, time.Second)
+	sksMode := metrics.FetchSKSStatus(ctx, namespace, selector, time.Second)
 	defer cancel()
 
 	for {
@@ -91,6 +91,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
 				"sks": mode,
+				"na":  float64(sksm.NumActivators),
 			})
 		}
 	}
@@ -117,7 +118,7 @@ func main() {
 	tbcTag := "tbc=" + *flavor
 	mc, err := mako.Setup(ctx, tbcTag)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar

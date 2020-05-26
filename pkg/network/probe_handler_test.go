@@ -18,9 +18,9 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"knative.dev/pkg/network"
@@ -77,9 +77,9 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, ok := r.Header[ProbeHeaderName]
-		w.Header().Set(ProbeHeaderName, fmt.Sprintf("%t", ok))
+		w.Header().Set(ProbeHeaderName, strconv.FormatBool(ok))
 		_, ok = r.Header[HashHeaderName]
-		w.Header().Set(HashHeaderName, fmt.Sprintf("%t", ok))
+		w.Header().Set(HashHeaderName, strconv.FormatBool(ok))
 		w.Write([]byte(body))
 	})
 	h = NewProbeHandler(h)
@@ -96,7 +96,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
-				t.Errorf("Unexpected probe result: want: %t, got: %t", c.want, got)
+				t.Errorf("Probe result = %t, want: %t", got, c.want)
 			}
 		})
 	}

@@ -50,7 +50,7 @@ func TestConfigurationHasNoKubectlAnnotation(t *testing.T) {
 	s := createServiceWithKubectlAnnotation()
 	c, err := MakeConfiguration(s)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Fatal("Unexpected error:", err)
 	}
 	if v, ok := c.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
 		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)

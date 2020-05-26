@@ -2,11 +2,14 @@
 
 /*
 Copyright 2019 The Knative Authors
- Licensed under the Apache License, Version 2.0 (the "License");
+
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -135,7 +138,7 @@ func TestWebSocket(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Validate the websocket connection.
@@ -167,12 +170,12 @@ func TestWebSocketViaActivator(t *testing.T) {
 		}),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create WebSocket server: %v", err)
+		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatalf("Never got Activator endpoints in the service: %v", err)
+		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
@@ -207,8 +210,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	blue.TrafficTarget = "blue"
 
 	t.Log("Updating the Service to use a different suffix")
-	greenSvc := objects.Service.DeepCopy()
-	greenSvc, err = v1test.PatchService(t, clients, objects.Service, func(s *v1.Service) {
+	greenSvc, err := v1test.PatchService(t, clients, objects.Service, func(s *v1.Service) {
 		s.Spec.Template.Spec.Containers[0].Env[0].Value = "Green"
 	})
 	if err != nil {
@@ -236,7 +238,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
-		t.Fatalf("Failed to update Service route spec: %v", err)
+		t.Fatal("Failed to update Service route spec:", err)
 	}
 
 	t.Log("Wait for the service domains to be ready")
@@ -265,7 +267,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// But since Istio network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
 	if err := validateWebSocketConnection(t, clients, green); err != nil {
-		t.Fatalf("Error initializing WS connection: %v", err)
+		t.Fatal("Error initializing WS connection:", err)
 	}
 
 	// The actual test.

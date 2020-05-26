@@ -34,11 +34,12 @@ cleanup
 mkdir -p "${TMP_DIFFROOT}"
 
 cp -aR \
-  "${REPO_ROOT_DIR}/Gopkg.lock" \
+  "${REPO_ROOT_DIR}/go.sum" \
   "${REPO_ROOT_DIR}/apis" \
   "${REPO_ROOT_DIR}/logging" \
   "${REPO_ROOT_DIR}/metrics" \
   "${REPO_ROOT_DIR}/testing" \
+  "${REPO_ROOT_DIR}/vendor" \
   "${TMP_DIFFROOT}"
 
 "${REPO_ROOT_DIR}/hack/update-codegen.sh"
@@ -46,7 +47,7 @@ echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 
 diff -Naupr --no-dereference \
-  "${REPO_ROOT_DIR}/Gopkg.lock" "${TMP_DIFFROOT}/Gopkg.lock" || ret=1
+  "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}/go.sum" || ret=1
 
 diff -Naupr --no-dereference \
   "${REPO_ROOT_DIR}/apis" "${TMP_DIFFROOT}/apis" || ret=1
@@ -60,13 +61,17 @@ diff -Naupr --no-dereference \
 diff -Naupr --no-dereference \
   "${REPO_ROOT_DIR}/testing" "${TMP_DIFFROOT}/testing" || ret=1
 
+diff -Naupr --no-dereference \
+  "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" || ret=1
+
 # Restore working tree state
 rm -fr \
-  "${REPO_ROOT_DIR}/Gopkg.lock" \
+  "${REPO_ROOT_DIR}/go.sum" \
   "${REPO_ROOT_DIR}/apis" \
   "${REPO_ROOT_DIR}/logging" \
   "${REPO_ROOT_DIR}/metrics" \
-  "${REPO_ROOT_DIR}/testing"
+  "${REPO_ROOT_DIR}/testing" \
+  "${REPO_ROOT_DIR}/vendor"
 
 cp -aR "${TMP_DIFFROOT}"/* "${REPO_ROOT_DIR}"
 

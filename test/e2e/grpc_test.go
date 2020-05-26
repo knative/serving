@@ -90,7 +90,7 @@ func unaryTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Cl
 	const want = "Hello!"
 	got, err := pingGRPC(host, domain, want)
 	if err != nil {
-		t.Fatalf("gRPC ping = %v", err)
+		t.Fatal("gRPC ping =", err)
 	}
 	if got != want {
 		t.Fatalf("response = %q, want = %q", got, want)
@@ -167,7 +167,6 @@ func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients 
 					}
 				}
 			}
-			return nil
 		})
 	}
 
@@ -186,7 +185,7 @@ func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients 
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Fatalf("error: %v", err)
+		ctx.t.Fatal("error: ", err)
 	}
 
 	gotHosts := countKeys()
@@ -274,7 +273,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := dial(host, domain)
 	if err != nil {
-		t.Fatalf("Fail to dial: %v", err)
+		t.Fatal("Fail to dial:", err)
 	}
 	defer conn.Close()
 
@@ -286,7 +285,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
 
 	stream, err := pc.PingStream(ctx)
 	if err != nil {
-		t.Fatalf("Error creating stream: %v", err)
+		t.Fatal("Error creating stream:", err)
 	}
 
 	count := 3
@@ -297,12 +296,12 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
 
 		err = stream.Send(&ping.Request{Msg: want})
 		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
+			t.Fatal("Error sending request:", err)
 		}
 
 		resp, err := stream.Recv()
 		if err != nil {
-			t.Fatalf("Error receiving response: %v", err)
+			t.Fatal("Error receiving response:", err)
 		}
 
 		got := resp.Msg
@@ -364,7 +363,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		if pkgTest.Flags.IngressEndpoint == "" {
 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 			if err != nil {
-				t.Fatalf("Could not get service endpoint: %v", err)
+				t.Fatal("Could not get service endpoint:", err)
 			}
 		}
 	}
@@ -384,7 +383,7 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			if err := waitForActivatorEndpoints(resources, clients); err != nil {
-				t.Fatalf("Never got Activator endpoints in the service: %v", err)
+				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
 			unaryTest(t, resources, clients, names, host, domain)
 		},
@@ -398,7 +397,7 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 			if err := waitForActivatorEndpoints(resources, clients); err != nil {
-				t.Fatalf("Never got Activator endpoints in the service: %v", err)
+				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
 			streamTest(t, resources, clients, names, host, domain)
 		},

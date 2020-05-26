@@ -159,6 +159,18 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
+// WithRouteConditionsAutoTLSDisabled calls MarkAutoTLSNotEnabled after initialized the Service's conditions.
+func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkAutoTLSNotEnabled()
+}
+
+// WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
+func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkHTTPDowngrade(routenames.Certificate(rt))
+}
+
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1.Route) {
 	r.Status.MarkTrafficAssigned()
@@ -203,6 +215,13 @@ func MarkIngressNotConfigured(r *v1.Route) {
 	r.Status.MarkIngressNotConfigured()
 }
 
+// WithPropagatedStatus propagates the given IngressStatus into the routes status.
+func WithPropagatedStatus(status netv1alpha1.IngressStatus) RouteOption {
+	return func(r *v1.Route) {
+		r.Status.PropagateIngressStatus(status)
+	}
+}
+
 // MarkMissingTrafficTarget calls the method of the same name on .Status
 func MarkMissingTrafficTarget(kind, revision string) RouteOption {
 	return func(r *v1.Route) {
@@ -227,9 +246,6 @@ func MarkConfigurationFailed(name string) RouteOption {
 // WithRouteLabel sets the specified label on the Route.
 func WithRouteLabel(labels map[string]string) RouteOption {
 	return func(r *v1.Route) {
-		if r.Labels == nil {
-			r.Labels = make(map[string]string)
-		}
 		r.Labels = labels
 	}
 }
@@ -238,19 +254,16 @@ func WithRouteLabel(labels map[string]string) RouteOption {
 func WithIngressClass(ingressClass string) RouteOption {
 	return func(r *v1.Route) {
 		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
+			r.Annotations = make(map[string]string, 1)
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
 }
 
 // WithRouteAnnotation sets the specified annotation on the Route.
-func WithRouteAnnotation(annotation map[string]string) RouteOption {
+func WithRouteAnnotation(annotations map[string]string) RouteOption {
 	return func(r *v1.Route) {
-		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
-		}
-		r.Annotations = annotation
+		r.Annotations = annotations
 	}
 }
 

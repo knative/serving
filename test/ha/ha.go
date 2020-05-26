@@ -18,7 +18,6 @@ package ha
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -29,8 +28,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -46,7 +45,7 @@ const (
 func getLeader(t *testing.T, clients *test.Clients, lease string) (string, error) {
 	var leader string
 	err := wait.PollImmediate(test.PollInterval, time.Minute, func() (bool, error) {
-		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(test.ServingFlags.SystemNamespace).Get(lease, metav1.GetOptions{})
+		lease, err := clients.KubeClient.Kube.CoordinationV1().Leases(system.Namespace()).Get(lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}
@@ -74,22 +73,24 @@ func getPublicEndpoints(t *testing.T, clients *test.Clients, revision string) ([
 	if err != nil || len(endpoints.Items) != 1 {
 		return nil, fmt.Errorf("no endpoints or error: %w", err)
 	}
-	var hosts []string
-	for _, addr := range endpoints.Items[0].Subsets[0].Addresses {
+
+	addresses := endpoints.Items[0].Subsets[0].Addresses
+	hosts := make([]string, 0, len(addresses))
+	for _, addr := range addresses {
 		hosts = append(hosts, addr.IP)
 	}
 	return hosts, nil
 }
 
 func waitForChangedPublicEndpoints(t *testing.T, clients *test.Clients, revision string, origEndpoints []string) error {
-	return wait.PollImmediate(100*time.Millisecond, time.Minute, func() (bool, error) {
+	return wait.PollImmediate(time.Second, 2*time.Minute, func() (bool, error) {
 		newEndpoints, err := getPublicEndpoints(t, clients, revision)
 		return !cmp.Equal(origEndpoints, newEndpoints), err
 	})
 }
 
 func podExists(clients *test.Clients, podName string) (bool, error) {
-	if _, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Get(podName, metav1.GetOptions{}); err != nil {
+	if _, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Get(podName, metav1.GetOptions{}); err != nil {
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		}
@@ -106,7 +107,7 @@ func waitForDeploymentScale(clients *test.Clients, name string, scale int) error
 			return d.Status.ReadyReplicas == int32(scale), nil
 		},
 		"DeploymentIsScaled",
-		test.ServingFlags.SystemNamespace,
+		system.Namespace(),
 		time.Minute,
 	)
 }
@@ -120,27 +121,20 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 	}
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopt...)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 	return names, resources
 }
 
-func assertServiceWorksNow(t *testing.T, clients *test.Clients, spoofingClient *spoof.SpoofingClient, names test.ResourceNames, url *url.URL, expectedText string) {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	resp, err := spoofingClient.Do(req)
-	if err != nil || !strings.Contains(string(resp.Body), expectedText) {
-		t.Fatalf("Failed to verify service works. Response body: %s, Error: %v", string(resp.Body), err)
-	}
-}
-
 func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
+	// Wait for the Service to be ready.
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatal("Service not ready:", err)
+	}
+	// Wait for the Service to serve the expected text.
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,

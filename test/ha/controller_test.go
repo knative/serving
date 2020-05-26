@@ -22,16 +22,19 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 )
 
-const (
-	controllerDeploymentName = "controller"
-)
+const controllerDeploymentName = "controller"
 
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)
@@ -39,14 +42,14 @@ func TestControllerHA(t *testing.T) {
 
 	leaderController, err := getLeader(t, clients, controllerDeploymentName)
 	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
+		t.Fatal("Failed to get leader:", err)
 	}
 
 	service1Names, resources := createPizzaPlanetService(t)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
+	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController, &metav1.DeleteOptions{})
 
 	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
@@ -54,7 +57,7 @@ func TestControllerHA(t *testing.T) {
 
 	// Make sure a new leader has been elected
 	if _, err = getLeader(t, clients, controllerDeploymentName); err != nil {
-		t.Fatalf("Failed to find new leader: %v", err)
+		t.Fatal("Failed to find new leader:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, service1Names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)

@@ -32,7 +32,7 @@ var depCondSet = apis.NewLivingConditionSet(
 const (
 	// DeploymentConditionReady means the underlying deployment is ready.
 	DeploymentConditionReady = apis.ConditionReady
-	// DeploymentConditionReplicaSetready inverts the underlying deployment's
+	// DeploymentConditionReplicaSetReady inverts the underlying deployment's
 	// ReplicaSetFailure condition.
 	DeploymentConditionReplicaSetReady apis.ConditionType = "ReplicaSetReady"
 	// DeploymentConditionProgressing reflects the underlying deployment's
@@ -40,7 +40,7 @@ const (
 	DeploymentConditionProgressing apis.ConditionType = "Progressing"
 )
 
-// transformDeploymentStatus transforms the kubernetes DeploymentStatus into a
+// TransformDeploymentStatus transforms the Kubernetes DeploymentStatus into a
 // duckv1.Status that uses ConditionSets to propagate failures and expose
 // a top-level happy state, per our condition conventions.
 func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {

@@ -238,8 +238,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 
 		// Wait for all outstanding go routined to terminate, including our new one.
 		return eg.Wait()
+
 	case <-ctx.Done():
-		return fmt.Errorf("webhook server bootstrap failed %v", ctx.Err())
+		return fmt.Errorf("webhook server bootstrap failed %w", ctx.Err())
 	}
 }
 

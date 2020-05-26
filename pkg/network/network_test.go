@@ -235,7 +235,7 @@ func TestTemplateCaching(t *testing.T) {
 		DomainTemplateKey: anotherTemplate,
 	})
 	if err != nil {
-		t.Fatalf("Config parsing failure = %v", err)
+		t.Fatal("Config parsing failure =", err)
 	}
 	if got, want := actualConfig.DomainTemplate, anotherTemplate; got != want {
 		t.Errorf("DomainTemplate = %q, want: %q", got, want)
@@ -247,7 +247,7 @@ func TestTemplateCaching(t *testing.T) {
 	// Reset to default. And make sure it is cached.
 	actualConfig, err = NewConfigFromMap(map[string]string{})
 	if err != nil {
-		t.Fatalf("Config parsing failure = %v", err)
+		t.Fatal("Config parsing failure =", err)
 	}
 
 	if got, want := actualConfig.DomainTemplate, DefaultDomainTemplate; got != want {
@@ -324,11 +324,66 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 	}
 }
 
+func TestLabelsInDomainTemplate(t *testing.T) {
+	networkConfigTests := []struct {
+		name               string
+		data               map[string]string
+		templateValue      DomainTemplateValues
+		wantErr            bool
+		wantDomainTemplate string
+	}{{
+		name:               "network configuration with labels in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.sub1.baz.com",
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{ index .Labels "sub"}}.{{.Domain}}`,
+		},
+		templateValue: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"sub": "sub1"},
+			Domain: "baz.com"},
+	}, {
+		name:               "network configuration without labels in template",
+		wantErr:            false,
+		wantDomainTemplate: "foo.bar.baz.com",
+		data: map[string]string{
+			DefaultIngressClassKey: "foo-ingress",
+			DomainTemplateKey:      `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
+		},
+		templateValue: DomainTemplateValues{
+			Name:      "foo",
+			Namespace: "bar",
+			Domain:    "baz.com"},
+	}}
+
+	for _, tt := range networkConfigTests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+				Data: tt.data,
+			})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromConfigMap() error = %v, WantErr? %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			got := mustExecute(t, actualConfig.GetDomainTemplate(), tt.templateValue)
+			if got != tt.wantDomainTemplate {
+				t.Errorf("DomainTemplate(data) = %s, want: %s", got, tt.wantDomainTemplate)
+			}
+		})
+	}
+}
+
 func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string {
 	t.Helper()
 	buf := bytes.Buffer{}
 	if err := tmpl.Execute(&buf, data); err != nil {
-		t.Errorf("Error executing the DomainTemplate: %v", err)
+		t.Error("Error executing the DomainTemplate:", err)
 	}
 	return buf.String()
 }
@@ -336,7 +391,7 @@ func mustExecute(t *testing.T, tmpl *template.Template, data interface{}) string
 func TestIsKubeletProbe(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if IsKubeletProbe(req) {
 		t.Error("Not a kubelet probe but counted as such")
@@ -358,7 +413,7 @@ func TestIsKubeletProbe(t *testing.T) {
 func TestKnativeProbeHeader(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if h := KnativeProbeHeader(req); h != "" {
 		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
@@ -377,7 +432,7 @@ func TestKnativeProbeHeader(t *testing.T) {
 func TestKnativeProxyHeader(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if h := KnativeProxyHeader(req); h != "" {
 		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
@@ -397,7 +452,7 @@ func TestIsProbe(t *testing.T) {
 	// Not a probe
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	if err != nil {
-		t.Fatalf("Error building request: %v", err)
+		t.Fatal("Error building request:", err)
 	}
 	if IsProbe(req) {
 		t.Error("Not a probe but counted as such")

@@ -64,10 +64,16 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 
 	cert, err := clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
-		t.Fatalf("Error creating Certificate: %v", err)
+		t.Fatal("Error creating Certificate:", err)
 	}
 
 	return cert, cleanup
+}
+
+// IsCertificateReady will check the status conditions of the certificate and return true if the certificate is
+// ready.
+func IsCertificateReady(c *v1alpha1.Certificate) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
 }
 
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate

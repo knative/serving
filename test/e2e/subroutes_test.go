@@ -134,7 +134,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get k8s service to modify: %v", err)
+		t.Fatal("Failed to get k8s service to modify:", err)
 	}
 
 	svcCopy := svc.DeepCopy()
@@ -146,7 +146,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
-		t.Fatalf("Failed to patch service: %v", err)
+		t.Fatal("Failed to patch service:", err)
 	}
 
 	//Create subroute2 in kservice.
@@ -158,7 +158,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		})
 
 	if _, err = v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
-		t.Fatalf("Failed to patch service: %v", err)
+		t.Fatal("Failed to patch service:", err)
 	}
 
 	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, func(r *v1.Route) (bool, error) {
@@ -338,7 +338,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	serviceName1 := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc1, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName1, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get k8s service to modify: %v", err)
+		t.Fatal("Failed to get k8s service to modify:", err)
 	}
 
 	svc1Copy := svc1.DeepCopy()
@@ -350,11 +350,11 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	}
 
 	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName1, types.JSONPatchType, svc1patchBytes); err != nil {
-		t.Fatalf("Failed to patch service: %v", err)
+		t.Fatal("Failed to patch service:", err)
 	}
 
 	if err = v1test.WaitForRouteState(clients.ServingClient, resources.Route.Name, v1test.IsRouteReady, "Route is ready"); err != nil {
-		t.Fatalf("Route did not become ready: %v", err)
+		t.Fatal("Route did not become ready:", err)
 	}
 
 	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {

@@ -123,7 +123,7 @@ func WithPADeletionTimestamp(r *asv1a1.PodAutoscaler) {
 // WithHPAClass updates the PA to add the hpa class annotation.
 func WithHPAClass(pa *asv1a1.PodAutoscaler) {
 	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+		pa.Annotations = make(map[string]string, 1)
 	}
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
 }
@@ -139,7 +139,7 @@ func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 func withAnnotationValue(key, value string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
+			pa.Annotations = make(map[string]string, 1)
 		}
 		pa.Annotations[key] = value
 	}
@@ -308,6 +308,14 @@ type IngressOption func(*netv1alpha1.Ingress)
 func WithHosts(index int, hosts ...string) IngressOption {
 	return func(ingress *netv1alpha1.Ingress) {
 		ingress.Spec.Rules[index].Hosts = hosts
+	}
+}
+
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
 	}
 }
 

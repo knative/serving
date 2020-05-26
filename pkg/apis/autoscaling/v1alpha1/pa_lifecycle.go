@@ -32,6 +32,11 @@ var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*PodAutoscaler) GetConditionSet() apis.ConditionSet {
+	return podCondSet
+}
+
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("PodAutoscaler")
 }
@@ -107,14 +112,24 @@ func (pa *PodAutoscaler) TargetBC() (float64, bool) {
 	return pa.annotationFloat64(autoscaling.TargetBurstCapacityKey)
 }
 
-// Window returns the window annotation value or false if not present.
-func (pa *PodAutoscaler) Window() (window time.Duration, ok bool) {
-	// The value is validated in the webhook.
-	if s, ok := pa.Annotations[autoscaling.WindowAnnotationKey]; ok {
+func (pa *PodAutoscaler) annotationDuration(key string) (time.Duration, bool) {
+	if s, ok := pa.Annotations[key]; ok {
 		d, err := time.ParseDuration(s)
 		return d, err == nil
 	}
 	return 0, false
+}
+
+// ScaleToZeroPodRetention returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) ScaleToZeroPodRetention() (time.Duration, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationDuration(autoscaling.ScaleToZeroPodRetentionPeriodKey)
+}
+
+// Window returns the window annotation value or false if not present.
+func (pa *PodAutoscaler) Window() (time.Duration, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationDuration(autoscaling.WindowAnnotationKey)
 }
 
 // PanicWindowPercentage returns panic window annotation value or false if not present.
@@ -190,7 +205,12 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
 func (pas *PodAutoscalerStatus) CanScaleToZero(now time.Time, gracePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionFalse, now, gracePeriod) > 0
+	return pas.InactiveFor(now) >= gracePeriod
+}
+
+// InactiveFor returns the time PA spent being inactive.
+func (pas *PodAutoscalerStatus) InactiveFor(now time.Time) time.Duration {
+	return pas.inStatusFor(corev1.ConditionFalse, now, 0)
 }
 
 // ActiveFor returns the time PA spent being active.

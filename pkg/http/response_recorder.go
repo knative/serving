@@ -34,7 +34,7 @@ var (
 // that captures the response code and size.
 type ResponseRecorder struct {
 	ResponseCode int
-	ResponseSize int32
+	ResponseSize int
 
 	writer      http.ResponseWriter
 	wroteHeader bool
@@ -77,7 +77,7 @@ func (rr *ResponseRecorder) Header() http.Header {
 
 // Write writes the data to the connection as part of an HTTP reply.
 func (rr *ResponseRecorder) Write(p []byte) (int, error) {
-	atomic.AddInt32(&rr.ResponseSize, (int32)(len(p)))
+	rr.ResponseSize += len(p)
 	return rr.writer.Write(p)
 }
 
