@@ -51,6 +51,7 @@ import (
 	activatorutil "knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -445,6 +446,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	breaker := buildBreaker(env)
 	metricsSupported := supportsMetrics(env, logger)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
+	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -454,8 +456,9 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	}
 	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
-		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
+	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", func(*http.Request) time.Duration {
+		return timeout
+	})
 	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	if metricsSupported {

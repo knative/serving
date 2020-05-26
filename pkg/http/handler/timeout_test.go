@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package queue
+
+package handler
 
 import (
 	"io"
@@ -24,15 +25,68 @@ import (
 	"time"
 )
 
+func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder}
+	handler.WriteHeader(http.StatusOK)
+	handler.TimeoutAndWriteError("error")
+	if _, err := io.WriteString(handler, "test"); err != nil {
+		t.Fatalf("handler.Write() = %v, want no error", err)
+	}
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Errorf("recorder.Status = %d, want %d", got, want)
+	}
+	if got, want := recorder.Body.String(), "test"; got != want {
+		t.Errorf("recorder.Body = %s, want %s", got, want)
+	}
+}
+
+func TestTimeoutWriterDoesntFlushAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder}
+	handler.TimeoutAndWriteError("error")
+	handler.Flush()
+
+	if got, want := recorder.Flushed, false; got != want {
+		t.Errorf("recorder.Flushed = %t, want %t", got, want)
+	}
+}
+
+func TestTimeoutWriterFlushesAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder}
+	handler.Flush()
+
+	if got, want := recorder.Flushed, true; got != want {
+		t.Errorf("recorder.Flushed = %t, want %t", got, want)
+	}
+}
+
+func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder}
+	handler.TimeoutAndWriteError("error")
+	if _, err := handler.Write([]byte("hello")); err != http.ErrHandlerTimeout {
+		t.Errorf("ErrHandlerTimeout got %v, want: %s", err, http.ErrHandlerTimeout)
+	}
+}
+
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	const (
-		failingTimeout = 0 * time.Millisecond
-		longTimeout    = 10 * time.Second
+		longTimeout = 10 * time.Second
 	)
+
+	longTimeoutFunc := func(*http.Request) time.Duration {
+		return longTimeout
+	}
+	failingTimeoutFunc := func(*http.Request) time.Duration {
+		return 0 * time.Millisecond
+	}
 
 	tests := []struct {
 		name               string
-		timeout            time.Duration
+		timeoutFunc        timeoutFunc
 		handler            func(mux *sync.Mutex, writeErrors chan error) http.Handler
 		timeoutMessage     string
 		wantStatus         int
@@ -41,8 +95,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantPanic          bool
 		sleepBeforeExiting time.Duration
 	}{{
-		name:    "all good",
-		timeout: longTimeout,
+		name:        "all good",
+		timeoutFunc: longTimeoutFunc,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("hi"))
@@ -51,8 +105,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantStatus: http.StatusOK,
 		wantBody:   "hi",
 	}, {
-		name:    "custom timeout message",
-		timeout: failingTimeout,
+		name:        "custom timeout message",
+		timeoutFunc: failingTimeoutFunc,
 		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mux.Lock()
@@ -66,8 +120,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:       "request timeout",
 		wantWriteError: true,
 	}, {
-		name:    "propagate panic",
-		timeout: longTimeout,
+		name:        "propagate panic",
+		timeoutFunc: longTimeoutFunc,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)
@@ -77,8 +131,8 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:   "request timeout",
 		wantPanic:  true,
 	}, {
-		name:    "timeout before panic",
-		timeout: failingTimeout,
+		name:        "timeout before panic",
+		timeoutFunc: failingTimeoutFunc,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(1 * time.Second)
@@ -101,7 +155,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			var reqMux sync.Mutex
 			writeErrors := make(chan error, 1)
 			rr := httptest.NewRecorder()
-			handler := TimeToFirstByteTimeoutHandler(test.handler(&reqMux, writeErrors), test.timeout, test.timeoutMessage)
+			handler := NewTimeToFirstByteTimeoutHandler(test.handler(&reqMux, writeErrors), test.timeoutMessage, test.timeoutFunc)
 
 			defer func() {
 				if test.wantPanic {
@@ -131,38 +185,5 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 			time.Sleep(test.sleepBeforeExiting)
 		})
-	}
-}
-
-func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	handler := &timeoutWriter{
-		w: recorder,
-	}
-
-	handler.WriteHeader(http.StatusOK)
-	handler.TimeoutAndWriteError("error")
-	if _, err := io.WriteString(handler, "test"); err != nil {
-		t.Fatalf("handler.Write() = %v, want no error", err)
-	}
-
-	if got, want := recorder.Code, http.StatusOK; got != want {
-		t.Errorf("recorder.Status = %d, want %d", got, want)
-	}
-	if got, want := recorder.Body.String(), "test"; got != want {
-		t.Errorf("recorder.Body = %s, want %s", got, want)
-	}
-}
-
-func TestTimeoutWriterDoesntFlushAfterTimeout(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	handler := &timeoutWriter{
-		w: recorder,
-	}
-
-	handler.TimeoutAndWriteError("error")
-	handler.Flush()
-	if got, want := recorder.Flushed, false; got != want {
-		t.Errorf("recorder.Flushed = %t, want %t", got, want)
 	}
 }
