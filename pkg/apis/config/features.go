@@ -63,12 +63,12 @@ type Features struct {
 // AsFlag parses the value at key as a Flag into the target, if it exists.
 func AsFlag(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
-		*target = Disabled
 		if raw, ok := data[key]; ok {
-			if strings.EqualFold(raw, string(Enabled)) {
-				*target = Enabled
-			} else if strings.EqualFold(raw, string(Allowed)) {
-				*target = Allowed
+			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
+				if strings.EqualFold(raw, string(flag)) {
+					*target = flag
+					return nil
+				}
 			}
 		}
 		return nil
