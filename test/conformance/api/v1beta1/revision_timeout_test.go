@@ -210,6 +210,17 @@ func TestRevisionTimeout(t *testing.T) {
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", rev5sURL, err)
 	}
+	t.Log("Probing", rev2sURL)
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		rev2sURL,
+		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
+		t.Fatalf("Error probing %s: %v", rev2sURL, err)
+	}
 
 	// Quick sanity check
 	if err := sendRequest(t, clients, rev2sURL, 0, 0, http.StatusOK); err != nil {
