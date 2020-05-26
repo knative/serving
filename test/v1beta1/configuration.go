@@ -171,9 +171,3 @@ func CheckConfigurationState(client *test.ServingBetaClients, name string, inSta
 	}
 	return nil
 }
-
-// IsConfigurationReady will check the status conditions of the config and return true if the config is
-// ready. This means it has at least created one revision and that has become ready.
-func IsConfigurationReady(c *v1beta1.Configuration) (bool, error) {
-	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
-}

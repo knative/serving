@@ -152,7 +152,10 @@ func TestIsReady(t *testing.T) {
 	}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if want, got := tc.isReady, tc.status.IsReady(); want != got {
+			r := &Revision{
+				Status: tc.status,
+			}
+			if want, got := tc.isReady, r.IsReady(); want != got {
 				t.Errorf("got: %v want: %v", got, want)
 			}
 		})

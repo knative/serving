@@ -240,7 +240,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		// TODO: we should only mark https for the public visible targets when
 		// we are able to configure visibility per target.
 		setTargetsScheme(&r.Status, dnsNames.List(), "https")
-		if cert.Status.IsReady() {
+		if cert.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {

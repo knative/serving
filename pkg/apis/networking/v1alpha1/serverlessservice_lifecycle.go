@@ -90,9 +90,11 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 		"K8s Service is not ready")
 }
 
-// IsReady returns true if ServerlessService is ready.
-func (sss *ServerlessServiceStatus) IsReady() bool {
-	return serverlessServiceCondSet.Manage(sss).IsHappy()
+// IsReady returns true if ServerlessService is ready
+// and the ServerlessService resource has been observed.
+func (ss *ServerlessService) IsReady() bool {
+	sss := ss.Status
+	return sss.ObservedGeneration == ss.Generation && serverlessServiceCondSet.Manage(&sss).IsHappy()
 }
 
 // ProxyFor returns how long it has been since Activator was moved

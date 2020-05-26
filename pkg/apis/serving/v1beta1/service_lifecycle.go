@@ -16,9 +16,19 @@ limitations under the License.
 
 package v1beta1
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+)
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")
+}
+
+// IsReady returns if the service is ready to serve the requested service
+// and the service resource has been observed.
+func (s *Service) IsReady() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation && apis.NewLivingConditionSet().Manage(&ss).IsHappy()
 }

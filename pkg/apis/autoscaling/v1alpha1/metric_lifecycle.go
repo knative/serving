@@ -67,7 +67,8 @@ func (ms *MetricStatus) MarkMetricFailed(reason, message string) {
 }
 
 // IsReady looks at the conditions and if the condition MetricConditionReady
-// is true
-func (ms *MetricStatus) IsReady() bool {
-	return condSet.Manage(ms).IsHappy()
+// is true and if the Metric resource has been observed.
+func (m *Metric) IsReady() bool {
+	ms := m.Status
+	return ms.ObservedGeneration == m.Generation && condSet.Manage(&ms).IsHappy()
 }

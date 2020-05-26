@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
 )
 
 const (
@@ -26,6 +27,13 @@ const (
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.
-func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
+func (*Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
+}
+
+// IsReady returns if the revision is ready to serve the requested revision
+// and the revision resource has been observed.
+func (r *Revision) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation && apis.NewLivingConditionSet().Manage(&rs).IsHappy()
 }

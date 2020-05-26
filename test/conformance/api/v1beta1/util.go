@@ -219,8 +219,8 @@ func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.Reso
 func validateControlPlane(t pkgTest.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
 	t.Log("Checking to ensure Revision is in desired state with", "generation", expectedGeneration)
 	err := v1b1test.CheckRevisionState(clients.ServingBetaClient, names.Revision, func(r *v1beta1.Revision) (bool, error) {
-		if ready, err := v1b1test.IsRevisionReady(r); !ready {
-			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
+		if ready := r.IsReady(); !ready {
+			return false, fmt.Errorf("revision %s did not become ready to serve traffic", names.Revision)
 		}
 		if r.Status.DeprecatedImageDigest == "" {
 			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)

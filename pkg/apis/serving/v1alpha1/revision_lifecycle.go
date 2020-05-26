@@ -109,8 +109,10 @@ func (r *Revision) GetProtocol() net.ProtocolType {
 
 // IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
-func (rs *RevisionStatus) IsReady() bool {
-	return revCondSet.Manage(rs).IsHappy()
+// and the revision resource has been observed.
+func (r *Revision) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation && revCondSet.Manage(&rs).IsHappy()
 }
 
 // IsActivationRequired returns true if activation is required.

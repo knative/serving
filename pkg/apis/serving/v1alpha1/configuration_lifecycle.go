@@ -24,20 +24,24 @@ import (
 
 var confCondSet = apis.NewLivingConditionSet()
 
-func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
 
-// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
-// it cannot be converted to a higher version.
-func (cs *ConfigurationStatus) MarkResourceNotConvertible(err *CannotConvertError) {
-	confCondSet.Manage(cs).SetCondition(apis.Condition{
-		Type:     ConditionTypeConvertible,
-		Status:   corev1.ConditionFalse,
-		Severity: apis.ConditionSeverityWarning,
-		Reason:   err.Field,
-		Message:  err.Message,
-	})
+// IsReady looks at the conditions to see if they are happy.
+// and the configuration resource has been observed.
+func (c *Configuration) IsReady() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation && revCondSet.Manage(&cs).IsHappy()
+}
+
+// IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
+// and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
+// it returns false.
+func (c *Configuration) IsLatestReadyRevisionNameUpToDate() bool {
+	cs := c.Status
+	return c.IsReady() &&
+		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
 // GetTemplate returns a pointer to the relevant RevisionTemplateSpec field.
@@ -54,17 +58,16 @@ func (cs *ConfigurationSpec) GetTemplate() *RevisionTemplateSpec {
 	return &RevisionTemplateSpec{}
 }
 
-// IsReady looks at the conditions to see if they are happy.
-func (cs *ConfigurationStatus) IsReady() bool {
-	return confCondSet.Manage(cs).IsHappy()
-}
-
-// IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
-// and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
-// it returns false.
-func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
-	return cs.IsReady() &&
-		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
+// MarkResourceNotConvertible adds a Warning-severity condition to the resource noting that
+// it cannot be converted to a higher version.
+func (cs *ConfigurationStatus) MarkResourceNotConvertible(err *CannotConvertError) {
+	confCondSet.Manage(cs).SetCondition(apis.Condition{
+		Type:     ConditionTypeConvertible,
+		Status:   corev1.ConditionFalse,
+		Severity: apis.ConditionSeverityWarning,
+		Reason:   err.Field,
+		Message:  err.Message,
+	})
 }
 
 func (cs *ConfigurationStatus) GetCondition(t apis.ConditionType) *apis.Condition {

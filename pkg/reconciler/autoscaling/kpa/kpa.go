@@ -144,7 +144,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	// Currently, SKS.IsReady==True when revision has >0 ready pods.
-	if sks.Status.IsReady() {
+	if sks.IsReady() {
 		podEndpointCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		ready, err = podEndpointCounter.ReadyCount()
 		if err != nil {

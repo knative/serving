@@ -77,7 +77,7 @@ func TestMarkNotReady(t *testing.T) {
 	c.InitializeConditions()
 	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 
-	c.MarkNotReady("unknow", "unknown")
+	c.MarkNotReady("unknown", "unknown")
 	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 }
 

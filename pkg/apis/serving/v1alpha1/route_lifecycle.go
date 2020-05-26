@@ -36,8 +36,11 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
 }
 
-func (rs *RouteStatus) IsReady() bool {
-	return routeCondSet.Manage(rs).IsHappy()
+// IsReady returns if the route is ready to serve the requested route
+// and the route resource has been observed.
+func (r *Route) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).IsHappy()
 }
 
 func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {

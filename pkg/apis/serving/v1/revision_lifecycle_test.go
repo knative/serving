@@ -270,7 +270,7 @@ func TestRevisionIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+			if got, want := tc.IsReady(), tc.isReady; got != want {
 				t.Errorf("isReady =  %v want: %v", got, want)
 			}
 		})

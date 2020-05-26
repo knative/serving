@@ -339,7 +339,7 @@ func CheckServiceState(client *test.ServingAlphaClients, name string, inState fu
 // IsServiceReady will check the status conditions of the service and return true if the service is
 // ready. This means that its configurations and routes have all reported ready.
 func IsServiceReady(s *v1alpha1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+	return s.IsReady(), nil
 }
 
 // IsServiceNotReady checks the Ready status condition of the service and returns true only if Ready is set to False.
