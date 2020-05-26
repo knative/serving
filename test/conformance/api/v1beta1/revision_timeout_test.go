@@ -91,6 +91,9 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	}
 
 	t.Logf("Response status code: %v, expected: %v", resp.StatusCode, expectedResponseCode)
+	if len(resp.Body) > 0 {
+		t.Logf("Response status body: %v", string(resp.Body))
+	}
 	if expectedResponseCode != resp.StatusCode {
 		return fmt.Errorf("response status code = %v, want: %v", resp.StatusCode, expectedResponseCode)
 	}
