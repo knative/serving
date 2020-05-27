@@ -62,8 +62,8 @@ go mod vendor
 echo "Applying patches"
 git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
 
-rm -rf $(find vendor/ -name 'OWNERS')
-rm -rf $(find vendor/ -name '*_test.go')
+# Remove unwanted vendor files
+find vendor/ \( -name "OWNERS" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
 
 export GOFLAGS=-mod=vendor
 
