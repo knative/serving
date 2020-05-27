@@ -291,13 +291,12 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 func (c *Config) GetDomainTemplate() *template.Template {
 	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
 		return tt.(*template.Template)
-	} else {
-		// Should not really happen outside of route/ingress unit tests.
-		nt := template.Must(template.New("domain-template").Parse(
-			c.DomainTemplate))
-		templateCache.Add(c.DomainTemplate, nt)
-		return nt
 	}
+	// Should not really happen outside of route/ingress unit tests.
+	nt := template.Must(template.New("domain-template").Parse(
+		c.DomainTemplate))
+	templateCache.Add(c.DomainTemplate, nt)
+	return nt
 }
 
 func checkDomainTemplate(t *template.Template) error {
@@ -331,16 +330,16 @@ func checkDomainTemplate(t *template.Template) error {
 	return nil
 }
 
+// GetTagTemplate returns the go template for the route tag.
 func (c *Config) GetTagTemplate() *template.Template {
 	if tt, ok := templateCache.Get(c.TagTemplate); ok {
 		return tt.(*template.Template)
-	} else {
-		// Should not really happen outside of route/ingress unit tests.
-		nt := template.Must(template.New("tag-template").Parse(
-			c.TagTemplate))
-		templateCache.Add(c.TagTemplate, nt)
-		return nt
 	}
+	// Should not really happen outside of route/ingress unit tests.
+	nt := template.Must(template.New("tag-template").Parse(
+		c.TagTemplate))
+	templateCache.Add(c.TagTemplate, nt)
+	return nt
 }
 
 func checkTagTemplate(t *template.Template) error {

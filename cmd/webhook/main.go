@@ -86,7 +86,7 @@ var callbacks = map[schema.GroupVersionKind]validation.Callback{
 	v1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
 }
 
-func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
@@ -112,7 +112,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
@@ -141,7 +141,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
@@ -166,7 +166,7 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	)
 }
 
-func NewConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	var (
 		v1alpha1_ = v1alpha1.SchemeGroupVersion.Version
 		v1beta1_  = v1beta1.SchemeGroupVersion.Version
@@ -225,7 +225,6 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 }
 
 func main() {
-
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: "webhook",
@@ -235,9 +234,9 @@ func main() {
 
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
 		certificates.NewController,
-		NewDefaultingAdmissionController,
-		NewValidationAdmissionController,
-		NewConfigValidationController,
-		NewConversionController,
+		newDefaultingAdmissionController,
+		newValidationAdmissionController,
+		newConfigValidationController,
+		newConversionController,
 	)
 }
