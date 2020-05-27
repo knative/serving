@@ -71,6 +71,20 @@ func NewBreaker(params BreakerParams) *Breaker {
 
 // tryAcquirePending tries to acquire a slot on the pending "queue".
 func (b *Breaker) tryAcquirePending() bool {
+	// This is an atomic version of:
+	//
+	// if inFlight == totalSlots {
+	//   return false
+	// } else {
+	//   inFlight++
+	//   return true
+	// }
+	//
+	// We can't just use an atomic increment as we need to check if we're
+	// "allowed" to increment first. Since a Load and a CompareAndSwap are
+	// not done atomically, we need to retry until the CompareAndSwap succeeds
+	// (it fails if we're raced to it) or if we don't fulfill the condition
+	// anymore.
 	for {
 		cur := atomic.LoadInt64(&b.inFlight)
 		if cur == b.totalSlots {
