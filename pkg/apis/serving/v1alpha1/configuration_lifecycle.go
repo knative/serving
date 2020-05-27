@@ -24,7 +24,12 @@ import (
 
 var confCondSet = apis.NewLivingConditionSet()
 
-func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
+// GetConditionSet retrieves the ConditionSet for the Configuration resource
+func (*Configuration) GetConditionSet() apis.ConditionSet {
+	return confCondSet
+}
+
+func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
 
