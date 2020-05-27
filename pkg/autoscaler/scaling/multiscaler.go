@@ -194,7 +194,7 @@ func NewMultiScaler(
 }
 
 // Get returns the copy of the current Decider.
-func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
+func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
@@ -231,10 +231,8 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 }
 
 // Update applied the desired DeciderSpec to a currently running Decider.
-func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
+func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
-	logger := m.logger.With(zap.String(logkey.Key, key.String()))
-	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
@@ -250,7 +248,7 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 }
 
 // Delete stops and removes a Decider.
-func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
+func (m *MultiScaler) Delete(_ context.Context, namespace, name string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
