@@ -24,23 +24,16 @@ import (
 
 // ReportStats continually processes network events from reqCh and reports
 // aggregated stats via the `report` function whenever reportCh ticks.
-func ReportStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
-	state := network.NewRequestStats(startedAt)
-
+func ReportStats(startedAt time.Time, stats *network.RequestStats, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	for {
 		select {
-		case event, ok := <-reqCh:
-			if !ok {
-				return
-			}
-			state.HandleEvent(event)
 		case now := <-reportCh:
-			stats := state.Report(now)
+			stat := stats.Report(now)
 			report(
-				stats.AverageConcurrency,
-				stats.AverageProxiedConcurrency,
-				stats.RequestCount,
-				stats.ProxiedRequestCount,
+				stat.AverageConcurrency,
+				stat.AverageProxiedConcurrency,
+				stat.RequestCount,
+				stat.ProxiedRequestCount,
 			)
 		}
 	}

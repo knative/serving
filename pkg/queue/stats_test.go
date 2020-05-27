@@ -240,15 +240,13 @@ func TestTwoRequestsOneProxied(t *testing.T) {
 
 // Test type to hold the bi-directional time channels
 type testStats struct {
-	reqChan      chan network.ReqEvent
+	stats        *network.RequestStats
 	reportBiChan chan time.Time
 	statChan     chan reportedStat
 }
 
 func newTestStats(t *testing.T, now time.Time) *testStats {
-	reqChan := make(chan network.ReqEvent)
-	t.Cleanup(func() { close(reqChan) })
-
+	stats := network.NewRequestStats(now)
 	reportBiChan := make(chan time.Time)
 	statChan := make(chan reportedStat)
 	report := func(acr float64, apcr float64, rc float64, prc float64) {
@@ -259,28 +257,28 @@ func newTestStats(t *testing.T, now time.Time) *testStats {
 			ProxiedRequestCount: prc,
 		}
 	}
-	go ReportStats(now, reqChan, reportBiChan, report)
+	go ReportStats(now, stats, reportBiChan, report)
 	return &testStats{
-		reqChan:      reqChan,
+		stats:        stats,
 		reportBiChan: reportBiChan,
 		statChan:     statChan,
 	}
 }
 
 func (s *testStats) requestStart(now time.Time) {
-	s.reqChan <- network.ReqEvent{Time: now, Type: network.ReqIn}
+	s.stats.HandleEvent(network.ReqEvent{Time: now, Type: network.ReqIn})
 }
 
 func (s *testStats) requestEnd(now time.Time) {
-	s.reqChan <- network.ReqEvent{Time: now, Type: network.ReqOut}
+	s.stats.HandleEvent(network.ReqEvent{Time: now, Type: network.ReqOut})
 }
 
 func (s *testStats) proxiedStart(now time.Time) {
-	s.reqChan <- network.ReqEvent{Time: now, Type: network.ProxiedIn}
+	s.stats.HandleEvent(network.ReqEvent{Time: now, Type: network.ProxiedIn})
 }
 
 func (s *testStats) proxiedEnd(now time.Time) {
-	s.reqChan <- network.ReqEvent{Time: now, Type: network.ProxiedOut}
+	s.stats.HandleEvent(network.ReqEvent{Time: now, Type: network.ProxiedOut})
 }
 
 func (s *testStats) report(now time.Time) reportedStat {
