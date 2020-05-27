@@ -174,34 +174,48 @@ func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
 	return sem
 }
 
-// semaphore is an implementation of a semaphore based on Go channels.
-// The presence of elements in the `queue` buffered channel correspond to available tokens.
-// Hence the max number of tokens to hand out equals to the size of the channel.
-// `capacity` defines the current number of tokens in the rotation.
+// semaphore is an implementation of a semaphore based on atomics and Go channels.
+//
+// The atomically handled `slots` field defines the free capacity of the semaphore.
+// As long as it's positive, new tokens can get acquired immediately. When it becomes
+// negative, new work will be delayed using the queue channel. These workers will be
+// unblocked as other workers release their tokens.
 type semaphore struct {
-	queue    chan struct{}
-	reducers int
-	capacity int
-	mux      sync.RWMutex
+	slots int64
+	queue chan struct{}
+
+	mux sync.RWMutex
+	cap int64
 }
 
 // tryAcquire receives the token from the semaphore if there's one
 // otherwise an error is returned.
 func (s *semaphore) tryAcquire() bool {
-	select {
-	case <-s.queue:
-		return true
-	default:
-		return false
+	// We only want this to succeed if there's actual capacity and fail immediately if
+	// the workload would have to queue.
+	for {
+		cur := atomic.LoadInt64(&s.slots)
+		if cur == 0 {
+			return false
+		}
+		if atomic.CompareAndSwapInt64(&s.slots, cur, cur-1) {
+			return true
+		}
 	}
 }
 
 // acquire receives the token from the semaphore, potentially blocking.
 func (s *semaphore) acquire(ctx context.Context) error {
+	if atomic.AddInt64(&s.slots, -1) >= 0 {
+		return nil
+	}
+
 	select {
 	case <-s.queue:
 		return nil
 	case <-ctx.Done():
+		// Return the token immediately.
+		atomic.AddInt64(&s.slots, 1)
 		return ctx.Err()
 	}
 }
@@ -210,21 +224,18 @@ func (s *semaphore) acquire(ctx context.Context) error {
 // If the semaphore capacity was reduced in between and is not yet reflected,
 // we remove the tokens from the rotation instead of returning them back.
 func (s *semaphore) release() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if s.reducers > 0 {
-		s.capacity--
-		s.reducers--
+	if atomic.AddInt64(&s.slots, 1) > 0 {
 		return nil
 	}
 
-	// We want to make sure releasing a token is always non-blocking.
+	// We make sure releasing a token is always non-blocking.
 	select {
 	case s.queue <- struct{}{}:
 		return nil
 	default:
 		// This only happens if release is called more often than acquire.
+		// Return the token immediately.
+		atomic.AddInt64(&s.slots, -1)
 		return ErrRelease
 	}
 }
@@ -232,6 +243,7 @@ func (s *semaphore) release() error {
 // updateCapacity updates the capacity of the semaphore to the desired
 // size.
 func (s *semaphore) updateCapacity(size int) error {
+	// cap(s.queue) is equal to the maxConcurrency of the semaphore.
 	if size < 0 || size > cap(s.queue) {
 		return ErrUpdateCapacity
 	}
@@ -239,53 +251,17 @@ func (s *semaphore) updateCapacity(size int) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if s.effectiveCapacity() == size {
-		return nil
-	}
-
-	// Add capacity until we reach size, potentially consuming
-	// outstanding reducers first.
-	for s.effectiveCapacity() < size {
-		if s.reducers > 0 {
-			s.reducers--
-		} else {
-			select {
-			case s.queue <- struct{}{}:
-				s.capacity++
-			default:
-				// This indicates that we're operating close to
-				// MaxCapacity and returned more tokens than we
-				// acquired.
-				return ErrUpdateCapacity
-			}
-		}
-	}
-
-	// Reduce capacity until we reach size, potentially adding
-	// new reducers if the queue channel is empty because of
-	// requests in-flight.
-	for s.effectiveCapacity() > size {
-		select {
-		case <-s.queue:
-			s.capacity--
-		default:
-			s.reducers++
-		}
-	}
+	size64 := int64(size)
+	atomic.AddInt64(&s.slots, size64-s.cap)
+	s.cap = size64
 
 	return nil
 }
 
-// effectiveCapacity is the capacity with reducers taken into account.
-// `mux` must be held to call it.
-func (s *semaphore) effectiveCapacity() int {
-	return s.capacity - s.reducers
-}
-
-// Capacity is the effective capacity after taking reducers into account.
+// Capacity is the capacity.
 func (s *semaphore) Capacity() int {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	return s.effectiveCapacity()
+	return int(s.cap)
 }

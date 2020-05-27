@@ -19,6 +19,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -94,7 +95,7 @@ func TestBreakerOverloadMixed(t *testing.T) {
 	// Bring breaker to capacity.
 	reqs.request()
 	// This happens in go-routine, so spin.
-	for len(b.sem.queue) > 0 {
+	for atomic.LoadInt64(&b.sem.slots) > int64(0) {
 		time.Sleep(time.Millisecond * 2)
 	}
 	_, rr := b.Reserve(context.Background())
@@ -282,17 +283,6 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 	}
 }
 
-func TestSemaphoreRelease(t *testing.T) {
-	sem := newSemaphore(1, 1)
-	sem.acquire(context.Background())
-	if err := sem.release(); err != nil {
-		t.Errorf("release = %v; want: %v", err, nil)
-	}
-	if err := sem.release(); err != ErrRelease {
-		t.Errorf("release = %v; want: %v", err, ErrRelease)
-	}
-}
-
 func TestSemaphoreReleasesSeveralReducers(t *testing.T) {
 	const wantAfterFirstrelease = 1
 	const wantAfterSecondrelease = 0
@@ -304,16 +294,16 @@ func TestSemaphoreReleasesSeveralReducers(t *testing.T) {
 	if got := sem.Capacity(); got != wantAfterSecondrelease {
 		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
 	}
-	if sem.reducers != wantAfterFirstrelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterFirstrelease)
+	if got, want := atomic.LoadInt64(&sem.slots), int64(-1); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 
 	sem.release()
 	if got := sem.Capacity(); got != wantAfterSecondrelease {
 		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
 	}
-	if sem.reducers != wantAfterSecondrelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterSecondrelease)
+	if got, want := atomic.LoadInt64(&sem.slots), int64(0); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 }
 
@@ -337,14 +327,14 @@ func TestSemaphoreUpdateCapacityLessThenReducers(t *testing.T) {
 	sem.acquire(context.Background())
 	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, 2; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	if got, want := atomic.LoadInt64(&sem.slots), int64(-2); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 	sem.release()
 	sem.release()
 	sem.release()
-	if got, want := sem.reducers, 0; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	if got, want := atomic.LoadInt64(&sem.slots), int64(1); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 }
 
@@ -354,13 +344,14 @@ func TestSemaphoreUpdateCapacityConsumingReducers(t *testing.T) {
 	sem.acquire(context.Background())
 	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, 2; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
+
+	if got, want := atomic.LoadInt64(&sem.slots), int64(-2); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 
 	sem.updateCapacity(initialCapacity)
-	if got, want := sem.reducers, 0; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
+	if got, want := atomic.LoadInt64(&sem.slots), int64(0); got != want {
+		t.Errorf("sem.slots = %d, want: %d", got, want)
 	}
 }
 
@@ -375,14 +366,6 @@ func TestSemaphoreUpdateCapacityOutOfBound(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())
 	if err := sem.updateCapacity(-1); err != ErrUpdateCapacity {
-		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
-	}
-}
-
-func TestSemaphoreUpdateCapacityBrokenState(t *testing.T) {
-	sem := newSemaphore(1, 0)
-	sem.release() // This Release is not paired with an acquire
-	if err := sem.updateCapacity(1); err != ErrUpdateCapacity {
 		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
