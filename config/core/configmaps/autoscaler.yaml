@@ -119,7 +119,7 @@ data:
     # observed pods.
     # Cannot be less or equal to 1.
     # I.e with value of 2.0 the number of pods can at most go N to 2N
-    # over single Autoscaler period (see tick-interval), but at least N to
+    # over single Autoscaler period (2s), but at least N to
     # N+1, if Autoscaler needs to scale up.
     max-scale-up-rate: "1000.0"
 
@@ -128,17 +128,12 @@ data:
     # desired pods.
     # Cannot be less or equal to 1.
     # I.e. with value of 2.0 the number of pods can at most go N to N/2
-    # over single Autoscaler evaluation period (see tick-interval), but at
+    # over single Autoscaler evaluation period (2s), but at
     # least N to N-1, if Autoscaler needs to scale down.
     max-scale-down-rate: "2.0"
 
     # Scale to zero feature flag.
     enable-scale-to-zero: "true"
-
-    # Tick interval is the time between autoscaling calculations.
-    # Deprecated. Do not set. Will be removed in 0.15.
-    # TODO(vagababov): actually remove it (#7848).
-    tick-interval: "2s"
 
     # Scale to zero grace period is the time an inactive revision is left
     # running before it is scaled to zero (min: 6s).

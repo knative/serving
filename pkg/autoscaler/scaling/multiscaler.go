@@ -32,6 +32,10 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
+// tickInterval is how often the Autoscaler evaluates the metrics
+// and issues a decision.
+const tickInterval = 2 * time.Second
+
 // Decider is a resource which observes the request load of a Revision and
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
@@ -43,8 +47,6 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
-	// TickInterval denotes how often we evaluate the scale suggestion.
-	TickInterval     time.Duration
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
 	// The metric used for scaling, i.e. concurrency, rps.
@@ -238,13 +240,9 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
-		oldDeciderSpec := scaler.decider.Spec
 		// Make sure we store the copy.
 		scaler.decider = decider.DeepCopy()
 		scaler.scaler.Update(&decider.Spec)
-		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
-			m.updateRunner(ctx, scaler)
-		}
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
@@ -286,14 +284,9 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
-	runner.stopCh <- struct{}{}
-	m.runScalerTicker(ctx, runner)
-}
-
 func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
 	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
-	ticker := m.tickProvider(runner.decider.Spec.TickInterval)
+	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
 		for {

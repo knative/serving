@@ -193,7 +193,6 @@ func decider(options ...deciderOption) *scaling.Decider {
 		},
 		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
-			TickInterval:        config.TickInterval,
 			ScalingMetric:       "concurrency",
 			TargetValue:         100,
 			TotalValue:          100,
@@ -288,6 +287,5 @@ var config = &autoscalerconfig.Config{
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
-	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 }
