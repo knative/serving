@@ -59,9 +59,6 @@ import (
 )
 
 const (
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
-
 	badProbeTemplate   = "unexpected probe header value: %s"
 	failingHealthcheck = "failing healthcheck"
 
@@ -115,7 +112,7 @@ type config struct {
 }
 
 // Make handler a closure for testing.
-func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
@@ -133,9 +130,9 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		if activator.Name == network.KnativeProxyHeader(r) {
 			in, out = network.ProxiedIn, network.ProxiedOut
 		}
-		reqChan <- network.ReqEvent{Time: time.Now(), Type: in}
+		stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: in})
 		defer func() {
-			reqChan <- network.ReqEvent{Time: time.Now(), Type: out}
+			stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: out})
 		}()
 		network.RewriteHostOut(r)
 
@@ -349,19 +346,17 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
-
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	go queue.ReportStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	stats := network.NewRequestStats(time.Now())
+	go queue.ReportStats(time.Now(), stats, reportTicker.C, promStatReporter.Report)
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(env, healthState, probe, reqChan, logger)
+	server := buildServer(env, healthState, probe, stats, logger)
 	adminServer := buildAdminServer(healthState, logger)
 	metricsServer := buildMetricsServer(promStatReporter)
 
@@ -428,7 +423,7 @@ func buildProbe(probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan network.ReqEvent,
+func buildServer(env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
@@ -452,7 +447,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(composedHandler, breaker, env)
 	}
-	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
+	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
