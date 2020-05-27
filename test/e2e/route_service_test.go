@@ -66,19 +66,19 @@ func TestRoutesNotReady(t *testing.T) {
 	}
 
 	t.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == False.", names.Service)
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed, "ServiceIsFailed"); err != nil {
 		t.Fatalf("Failed waiting for Service %q to transition to Ready == False: %#v", names.Service, err)
 	}
 
 	t.Logf("Validating Route %q has reconciled to Ready == False.", serviceresourcenames.Route(svc))
 	// Check Route is not ready
-	if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), v1test.IsRouteNotReady); err != nil {
+	if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), v1test.IsRouteFailed); err != nil {
 		t.Fatalf("The Route %q was marked as Ready to serve traffic but it should not be: %#v", serviceresourcenames.Route(svc), err)
 	}
 
 	// Wait for RoutesReady to become False
 	t.Logf("Validating Service %q has reconciled to RoutesReady == False.", names.Service)
-	if err = v1test.CheckServiceState(clients.ServingClient, names.Service, v1test.IsServiceRoutesNotReady); err != nil {
+	if err = v1test.CheckServiceState(clients.ServingClient, names.Service, v1test.IsServiceRoutesFailed); err != nil {
 		t.Fatalf("Service %q was not marked RoutesReady  == False: %#v", names.Service, err)
 	}
 }

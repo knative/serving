@@ -108,12 +108,12 @@ func IsRouteReady(r *v1.Route) (bool, error) {
 	return r.IsReady(), nil
 }
 
-// IsRouteNotReady will check the status conditions of the route and return true if the route is
+// IsRouteFailed will check the status conditions of the route and return true if the route is
 // not ready.
-func IsRouteNotReady(r *v1.Route) (bool, error) {
-	rs := s.Status
+func IsRouteFailed(r *v1.Route) (bool, error) {
+	rs := r.Status
 	return rs.ObservedGeneration == r.Generation &&
-		serviceCondSet.Manage(&rs).GetTopLevelCondition().IsFalse(), nil
+		r.GetConditionSet().Manage(&rs).GetTopLevelCondition().IsFalse(), nil
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route

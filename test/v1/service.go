@@ -23,7 +23,6 @@ import (
 
 	"github.com/mattbaird/jsonpatch"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -253,16 +252,16 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 	return s.IsReady(), nil
 }
 
-// IsServiceNotReady will check the status conditions of the service and return true if the service is
+// IsServiceFailed will check the status conditions of the service and return true if the service is
 // not ready.
-func IsServiceNotReady(s *v1.Service) (bool, error) {
+func IsServiceFailed(s *v1.Service) (bool, error) {
 	ss := s.Status
 	return ss.ObservedGeneration == s.Generation &&
-		serviceCondSet.Manage(&ss).GetTopLevelCondition().IsFalse(), nil
+		s.GetConditionSet().Manage(&ss).GetTopLevelCondition().IsFalse(), nil
 }
 
-// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
-func IsServiceRoutesNotReady(s *v1.Service) (bool, error) {
+// IsServiceRoutesFailed checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesFailed(s *v1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
-	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+	return s.Generation == s.Status.ObservedGeneration && result.IsFalse(), nil
 }

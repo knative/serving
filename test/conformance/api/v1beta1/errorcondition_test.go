@@ -72,7 +72,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
-	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceFailed, "ServiceIsFailed"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
 
@@ -117,7 +117,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("Checking to ensure Route is in desired state")
-	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteNotReady)
+	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteFailed)
 	if err != nil {
 		t.Fatalf("the Route %s was not desired state: %v", names.Route, err)
 	}

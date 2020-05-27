@@ -28,6 +28,11 @@ var serviceCondSet = apis.NewLivingConditionSet(
 	v1.ServiceConditionRoutesReady,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Service) GetConditionSet() apis.ConditionSet {
+	return serviceCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")

@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/apis/duck"
 
 	"github.com/mattbaird/jsonpatch"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -342,17 +341,15 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 	return s.IsReady(), nil
 }
 
-// IsServiceNotReady checks the Ready status condition of the service and returns true only if Ready is set to False.
-func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
-	result := s.Status.GetCondition(v1alpha1.ServiceConditionReady)
-	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
-}
-
-// IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
-func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
+// IsServiceFailed checks the Ready status condition of the service and returns true only if Ready is set to False.
+func IsServiceFailed(s *v1alpha1.Service) (bool, error) {
 	ss := s.Status
 	return ss.ObservedGeneration == s.Generation &&
-		serviceCondSet.Manage(&ss).GetTopLevelCondition().IsFalse(), nil
+		s.GetConditionSet().Manage(&ss).GetTopLevelCondition().IsFalse(), nil
 }
 
+// IsServiceRoutesFailed checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
+func IsServiceRoutesFailed(s *v1alpha1.Service) (bool, error) {
+	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	return s.Generation == s.Status.ObservedGeneration && result.IsFalse(), nil
 }

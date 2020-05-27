@@ -24,6 +24,11 @@ import (
 
 var confCondSet = apis.NewLivingConditionSet()
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Configuration) GetConditionSet() apis.ConditionSet {
+	return confCondSet
+}
+
 func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
