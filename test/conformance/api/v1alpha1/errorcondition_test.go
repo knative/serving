@@ -115,7 +115,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("When the revision has error condition, route should not be ready.")
-	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteNotReady)
+	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteFailed)
 	if err != nil {
 		t.Fatalf("the Route %s was not desired state: %v", names.Route, err)
 	}
