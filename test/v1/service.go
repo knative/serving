@@ -256,8 +256,9 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 // IsServiceNotReady will check the status conditions of the service and return true if the service is
 // not ready.
 func IsServiceNotReady(s *v1.Service) (bool, error) {
-	result := s.Status.GetCondition(v1.ServiceConditionReady)
-	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		serviceCondSet.Manage(&ss).GetTopLevelCondition().IsFalse(), nil
 }
 
 // IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.

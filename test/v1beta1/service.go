@@ -253,5 +253,7 @@ func IsServiceReady(s *v1beta1.Service) (bool, error) {
 // IsServiceNotReady will check the status conditions of the service and return true if the service is
 // not ready.
 func IsServiceNotReady(s *v1beta1.Service) (bool, error) {
-	return s.Generation == s.Status.ObservedGeneration && !s.IsReady(), nil
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		serviceCondSet.Manage(&ss).GetTopLevelCondition().IsFalse(), nil
 }
