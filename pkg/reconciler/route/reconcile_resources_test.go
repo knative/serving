@@ -44,6 +44,15 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
+func getCertificateFromClient(ctx context.Context, t *testing.T, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	t.Helper()
+	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
+	}
+	return created
+}
+
 func TestReconcileIngressInsert(t *testing.T) {
 	var reconciler *Reconciler
 	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
@@ -240,7 +249,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 	if _, err := reconciler.reconcileCertificate(ctx, r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getCertificateFromClient(t, ctx, certificate)
+	created := getCertificateFromClient(ctx, t, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}
@@ -259,7 +268,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	storedCert := getCertificateFromClient(t, ctx, certificate)
+	storedCert := getCertificateFromClient(ctx, t, certificate)
 	fakecertinformer.Get(ctx).Informer().GetIndexer().Add(storedCert)
 
 	newCertificate := newCerts([]string{"new.example.com"}, r)
@@ -267,7 +276,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getCertificateFromClient(t, ctx, newCertificate)
+	updated := getCertificateFromClient(ctx, t, newCertificate)
 	if diff := cmp.Diff(newCertificate, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}

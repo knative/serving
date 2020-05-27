@@ -203,16 +203,7 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Rout
 	return &ingresses.Items[0]
 }
 
-func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
-	t.Helper()
-	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
-	}
-	return created
-}
-
-func addRouteToInformers(t *testing.T, ctx context.Context, route *v1.Route) {
+func addRouteToInformers(ctx context.Context, t *testing.T, route *v1.Route) {
 	t.Helper()
 
 	ns := route.Namespace
@@ -1067,7 +1058,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
 				t.Fatal("Reconcile() =", err)
 			}
-			addRouteToInformers(t, ctx, route)
+			addRouteToInformers(ctx, t, route)
 
 			// Wait initial reconcile to finish.
 			rl := fakerouteinformer.Get(ctx).Lister()
