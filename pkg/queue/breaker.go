@@ -109,7 +109,7 @@ func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 		return nil, false
 	}
 
-	if !b.sem.tryAcquire(ctx) {
+	if !b.sem.tryAcquire() {
 		b.releasePending()
 		return nil, false
 	}
@@ -187,7 +187,7 @@ type semaphore struct {
 
 // tryAcquire receives the token from the semaphore if there's one
 // otherwise an error is returned.
-func (s *semaphore) tryAcquire(ctx context.Context) bool {
+func (s *semaphore) tryAcquire() bool {
 	select {
 	case <-s.queue:
 		return true
