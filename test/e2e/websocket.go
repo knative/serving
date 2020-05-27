@@ -125,10 +125,9 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 					if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
 						t.Log("New pod has been discovered:", host)
 						return nil
-					} else {
-						t.Log("Existing pod has been returned:", host)
-						conn.Close()
 					}
+					t.Log("Existing pod has been returned:", host)
+					conn.Close()
 				}
 			}
 		})

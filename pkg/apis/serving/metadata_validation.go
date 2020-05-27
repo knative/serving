@@ -98,7 +98,7 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 	if containerConcurrency != nil {
 		cfg := config.FromContextOrDefaults(ctx).Defaults
 
-		var minContainerConcurrency int64 = 0
+		var minContainerConcurrency int64
 		if !cfg.AllowContainerConcurrencyZero {
 			minContainerConcurrency = 1
 		}

@@ -160,6 +160,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 					close(p.minDoneCh)
 				}
 				if err != nil {
+					p.logf("%q error: %v", p.url, err)
 					atomic.AddInt64(&p.failures, 1)
 				} else if res.StatusCode != http.StatusOK {
 					p.logf("%q status = %d, want: %d", p.url, res.StatusCode, http.StatusOK)

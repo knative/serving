@@ -120,7 +120,7 @@ func TestControllerConfiguration(t *testing.T) {
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotConfig, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+			gotConfigCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: system.Namespace(),
 					Name:      ConfigName,
@@ -132,8 +132,16 @@ func TestControllerConfiguration(t *testing.T) {
 				t.Fatalf("NewConfigFromConfigMap() error = %v, want: %v", err, tt.wantErr)
 			}
 
-			if got, want := gotConfig, tt.wantConfig; !cmp.Equal(got, want) {
+			if got, want := gotConfigCM, tt.wantConfig; !cmp.Equal(got, want) {
 				t.Error("Config mismatch, diff(-want,+got):", cmp.Diff(want, got))
+			}
+
+			gotConfig, err := NewConfigFromMap(tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(gotConfig, gotConfigCM); diff != "" {
+				t.Fatalf("Config mismatch: diff(-want,+got):\n%s", diff)
 			}
 		})
 	}
