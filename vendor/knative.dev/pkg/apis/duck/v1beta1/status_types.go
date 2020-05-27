@@ -26,6 +26,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/kmeta"
 )
 
 // +genduck
@@ -107,6 +108,9 @@ func (s *Status) GetCondition(t apis.ConditionType) *apis.Condition {
 // ConvertTo helps implement apis.Convertible for types embedding this Status.
 func (source *Status) ConvertTo(ctx context.Context, sink *Status) {
 	sink.ObservedGeneration = source.ObservedGeneration
+	if source.Annotations != nil {
+		sink.Annotations = kmeta.UnionMaps(source.Annotations, nil)
+	}
 	for _, c := range source.Conditions {
 		switch c.Type {
 		// Copy over the "happy" condition, which is the only condition that
