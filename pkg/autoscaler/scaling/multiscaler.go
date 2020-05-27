@@ -32,7 +32,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
-// tickInterval is how often the Autoscaler evalutes the metrics
+// tickInterval is how often the Autoscaler evaluates the metrics
 // and issues a decision.
 const tickInterval = 2 * time.Second
 
