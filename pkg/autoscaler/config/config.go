@@ -80,7 +80,6 @@ type Config struct {
 	StableWindow             time.Duration
 	PanicWindowPercentage    float64
 	PanicThresholdPercentage float64
-	TickInterval             time.Duration
 
 	ScaleToZeroGracePeriod        time.Duration
 	ScaleToZeroPodRetentionPeriod time.Duration
@@ -106,7 +105,6 @@ func defaultConfig() *Config {
 		StableWindow:                  60 * time.Second,
 		ScaleToZeroGracePeriod:        30 * time.Second,
 		ScaleToZeroPodRetentionPeriod: 0 * time.Second,
-		TickInterval:                  2 * time.Second,
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
@@ -139,7 +137,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-to-zero-grace-period", &lc.ScaleToZeroGracePeriod),
 		cm.AsDuration("scale-to-zero-pod-retention-period", &lc.ScaleToZeroPodRetentionPeriod),
-		cm.AsDuration("tick-interval", &lc.TickInterval),
 	); err != nil {
 		return nil, fmt.Errorf("failed to parse data: %w", err)
 	}
