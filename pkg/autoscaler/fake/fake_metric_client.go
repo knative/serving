@@ -99,7 +99,7 @@ var StaticMetricClient = MetricClient{
 func Endpoints(count int, svc string) {
 	epAddresses := make([]corev1.EndpointAddress, count)
 	for i := 1; i <= count; i++ {
-		ip := fmt.Sprintf("127.0.0.%v", i)
+		ip := fmt.Sprint("127.0.0.", i)
 		epAddresses[i-1] = corev1.EndpointAddress{IP: ip}
 	}
 

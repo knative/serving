@@ -36,7 +36,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// The minimum number of activators a revision will get.
+// MinActivators is the minimum number of activators a revision will get.
 const MinActivators = 2
 
 // Autoscaler stores current state of an instance of an autoscaler.
@@ -47,9 +47,7 @@ type Autoscaler struct {
 	lister       corev1listers.EndpointsLister
 	reporterCtx  context.Context
 
-	// State in panic mode. Carries over multiple Scale calls. Guarded
-	// by the stateMux.
-	stateMux     sync.Mutex
+	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
 
@@ -129,7 +127,9 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount, excessBC, numAct int32, validScale bool) {
+// Scale is not thread safe in regards to panic state, but it's thread safe in
+// regards to acquiring the decider spec.
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
 	spec, podCounter := a.currentSpecAndPC()
@@ -137,7 +137,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
-		return 0, 0, MinActivators, false
+		return invalidSR
 	}
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -167,7 +167,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return 0, 0, MinActivators, false
+		return invalidSR
 	}
 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate
@@ -193,10 +193,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	logger.With(zap.String("mode", "panic")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue)
 
-	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
-	a.stateMux.Lock()
-	defer a.stateMux.Unlock()
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING.")
@@ -210,6 +208,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 	}
 
+	desiredPodCount := desiredStablePodCount
 	if !a.panicTime.IsZero() {
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
@@ -223,12 +222,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 		desiredPodCount = a.maxPanicPods
 	} else {
 		logger.Debug("Operating in stable mode.")
-		desiredPodCount = desiredStablePodCount
 	}
 
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
-	// - the excess burst capacity based on stable value for now, since we don't want to
+	// - the excess burst capacity based on panic value, since we don't want to
 	//   be making knee-jerk decisions about Activator in the request path.
 	//   Negative EBC means that the deployment does not have enough capacity to serve
 	//   the desired burst off hand.
@@ -242,14 +240,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
 	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
-	numAct = MinActivators
+	numAct := int32(MinActivators)
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBCF = 0
 		// numAct stays 1, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - observedStableValue -
+		excessBCF = math.Floor(totCap - observedPanicValue -
 			a.deciderSpec.TargetBurstCapacity)
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
@@ -264,7 +262,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount,
 	pkgmetrics.RecordBatch(a.reporterCtx, excessBurstCapacityM.M(excessBCF),
 		desiredPodCountM.M(int64(desiredPodCount)))
 
-	return desiredPodCount, int32(excessBCF), numAct, true
+	return ScaleResult{
+		DesiredPodCount:     desiredPodCount,
+		ExcessBurstCapacity: int32(excessBCF),
+		NumActivators:       numAct,
+		ScaleValid:          true,
+	}
 }
 
 func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {

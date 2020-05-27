@@ -44,7 +44,7 @@ func TestCmdArgs(t *testing.T) {
 
 	_, ri, err := fetchRuntimeInfo(t, clients, withCmdArgs(cmds, args))
 	if err != nil {
-		t.Fatalf("Failed to fetch runtime info: %v", err)
+		t.Fatal("Failed to fetch runtime info:", err)
 	}
 
 	want := append(cmds, args...)

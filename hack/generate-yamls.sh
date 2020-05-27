@@ -51,6 +51,7 @@ rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
+readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
@@ -85,7 +86,9 @@ cd "${YAML_REPO_ROOT}"
 echo "Building Knative Serving"
 ko resolve ${KO_YAML_FLAGS} -R -f config/300-imagecache.yaml -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
+
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
@@ -94,7 +97,7 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.y
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
 # Create cert-manager related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/cert-manager/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
+cat "./third_party/cert-manager-0.12.0/net-certmanager.yaml" > "${SERVING_CERT_MANAGER_YAML}"
 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
@@ -152,6 +155,7 @@ cat << EOF > ${YAML_LIST_FILE}
 ${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
+${SERVING_STORAGE_VERSION_MIGRATE_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_CERT_MANAGER_YAML}

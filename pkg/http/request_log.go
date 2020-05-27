@@ -155,7 +155,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.write(t, h.inputGetter(r, &RequestLogResponse{
 				Code:    rr.ResponseCode,
 				Latency: latency,
-				Size:    (int)(rr.ResponseSize),
+				Size:    rr.ResponseSize,
 			}))
 		}
 	}()

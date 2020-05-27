@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -382,7 +383,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
@@ -409,6 +410,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -517,6 +519,7 @@ func TestImmutableFields(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -732,6 +735,7 @@ func TestImmutableFields(t *testing.T) {
 func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
+		ctx  context.Context
 		rts  *RevisionTemplateSpec
 		want *apis.FieldError
 	}{{
@@ -836,7 +840,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "",
+					autoscaling.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: RevisionSpec{
@@ -847,10 +851,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: (&apis.FieldError{
-			Message: "expected 1 <=  <= 2147483647",
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
-		}).ViaField("annotations").ViaField("metadata"),
+		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",
 		rts: &RevisionTemplateSpec{
@@ -869,7 +871,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
+			Paths:   []string{"[" + serving.QueueSideCarResourcePercentageAnnotation + "]"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
@@ -891,18 +893,70 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Message: "invalid value: 50mx",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
 		}).ViaField("metadata.annotations"),
+	}, {
+		name: "Invalid initial scale when cluster doesn't allow zero",
+		ctx:  autoscalerConfigCtx(false, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: 0",
+			Paths:   []string{autoscaling.InitialScaleAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "Valid initial scale when cluster allows zero",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.InitialScaleAnnotationKey: "0",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+			ctx := context.Background()
+			if test.ctx != nil {
+				ctx = test.ctx
+			}
+			ctx = apis.WithinParent(ctx, metav1.ObjectMeta{
 				Name: "parent",
 			})
 
 			got := test.rts.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
-				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
+				t.Errorf("Validate (-want, +got):\n%s", cmp.Diff(want, got))
 			}
 		})
 	}
+}
+
+func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.Context {
+	testConfigs := &config.Config{}
+	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{
+		"allow-zero-initial-scale": strconv.FormatBool(allowInitialScaleZero),
+		"initial-scale":            strconv.Itoa(initialScale),
+	})
+	return config.ToContext(context.Background(), testConfigs)
 }

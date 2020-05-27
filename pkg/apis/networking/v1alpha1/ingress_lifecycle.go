@@ -28,6 +28,11 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Ingress) GetConditionSet() apis.ConditionSet {
+	return ingressCondSet
+}
+
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")

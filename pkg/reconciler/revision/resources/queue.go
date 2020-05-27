@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -51,27 +50,27 @@ const (
 var (
 	queueHTTPPort = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTPPort),
+		ContainerPort: networking.BackendHTTPPort,
 	}
 	queueHTTP2Port = corev1.ContainerPort{
 		Name:          requestQueueHTTPPortName,
-		ContainerPort: int32(networking.BackendHTTP2Port),
+		ContainerPort: networking.BackendHTTP2Port,
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
 		Name:          v1.QueueAdminPortName,
-		ContainerPort: int32(networking.QueueAdminPort),
+		ContainerPort: networking.QueueAdminPort,
 	}, {
 		Name:          v1.AutoscalingQueueMetricsPortName,
-		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
+		ContainerPort: networking.AutoscalingQueueMetricsPort,
 	}, {
 		Name:          v1.UserQueueMetricsPortName,
-		ContainerPort: int32(networking.UserQueueMetricsPort),
+		ContainerPort: networking.UserQueueMetricsPort,
 	}}
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: int32(profiling.ProfilingPort),
+		ContainerPort: profiling.ProfilingPort,
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
@@ -138,7 +137,7 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 
 func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	value, err := strconv.ParseFloat(m[k], 64)
-	return float64(value / 100), err == nil
+	return value / 100, err == nil
 }
 
 func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
@@ -220,10 +219,6 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
-	if observabilityConfig.EnableVarLogCollection {
-		volumeMounts = append(volumeMounts, internalVolumeMount)
-	}
-
 	if autoscalerConfig.EnableGracefulScaledown {
 		volumeMounts = append(volumeMounts, labelVolumeMount)
 	}
@@ -307,7 +302,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: strconv.FormatBool(tracingConfig.Debug),
 		}, {
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: fmt.Sprintf("%f", tracingConfig.SampleRate),
+			Value: fmt.Sprint(tracingConfig.SampleRate),
 		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
@@ -315,20 +310,8 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Name:  system.NamespaceEnvKey,
 			Value: system.Namespace(),
 		}, {
-			Name:  pkgmetrics.DomainEnv,
-			Value: pkgmetrics.Domain(),
-		}, {
-			Name:  "USER_CONTAINER_NAME",
-			Value: rev.Spec.GetContainer().Name,
-		}, {
-			Name:  "ENABLE_VAR_LOG_COLLECTION",
-			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
-		}, {
-			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
-		}, {
-			Name:  "INTERNAL_VOLUME_PATH",
-			Value: internalVolumePath,
+			Name:  metrics.DomainEnv,
+			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
 			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),

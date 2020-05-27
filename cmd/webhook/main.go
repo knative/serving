@@ -43,6 +43,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/leaderelection"
+	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -51,7 +52,6 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
-	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -77,7 +77,16 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
 }
 
-func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+var serviceValidation = validation.NewCallback(
+	extravalidation.ValidateRevisionTemplate, webhook.Create, webhook.Update)
+
+var callbacks = map[schema.GroupVersionKind]validation.Callback{
+	v1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
+	v1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
+	v1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
+}
+
+func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
@@ -90,7 +99,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// The path on which to serve the webhook.
 		"/defaulting",
 
-		// The resources to validate and default.
+		// The resources to default.
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
@@ -103,7 +112,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
@@ -116,7 +125,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 		// The path on which to serve the webhook.
 		"/resource-validation",
 
-		// The resources to validate and default.
+		// The resources to validate.
 		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
@@ -126,10 +135,13 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 		// Whether to disallow unknown fields.
 		true,
+
+		// Extra validating callbacks to be applied to resources.
+		callbacks,
 	)
 }
 
-func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
@@ -142,7 +154,6 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 		configmap.Constructors{
 			tracingconfig.ConfigName:          tracingconfig.NewTracingConfigFromConfigMap,
 			autoscalerconfig.ConfigName:       autoscalerconfig.NewConfigFromConfigMap,
-			certconfig.CertManagerConfigName:  certconfig.NewCertManagerConfigFromConfigMap,
 			gc.ConfigName:                     gc.NewConfigFromConfigMapFunc(ctx),
 			network.ConfigName:                network.NewConfigFromConfigMap,
 			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
@@ -155,7 +166,7 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	)
 }
 
-func NewConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	var (
 		v1alpha1_ = v1alpha1.SchemeGroupVersion.Version
 		v1beta1_  = v1beta1.SchemeGroupVersion.Version
@@ -217,15 +228,15 @@ func main() {
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: "webhook",
-		Port:        8443,
+		Port:        webhook.PortFromEnv(8443),
 		SecretName:  "webhook-certs",
 	})
 
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
 		certificates.NewController,
-		NewDefaultingAdmissionController,
-		NewValidationAdmissionController,
-		NewConfigValidationController,
-		NewConversionController,
+		newDefaultingAdmissionController,
+		newValidationAdmissionController,
+		newConfigValidationController,
+		newConversionController,
 	)
 }

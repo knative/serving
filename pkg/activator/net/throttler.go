@@ -18,7 +18,6 @@ package net
 
 import (
 	"context"
-	"errors"
 	"math"
 	"math/rand"
 	"sort"
@@ -61,8 +60,6 @@ const (
 )
 
 var (
-	ErrActivatorOverload = errors.New("activator overload")
-
 	breakerParams = queue.BreakerParams{
 		QueueDepth:      breakerQueueDepth,
 		MaxConcurrency:  breakerMaxConcurrency,
@@ -150,7 +147,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
-	logger = logger.With(zap.String(logkey.Key, revID.String()))
+	logger = logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
@@ -388,8 +385,8 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
-	rt.logger.Debugf("Handling update w/ ClusterIP=%q, %d ready and dests: %v",
-		update.ClusterIPDest, len(update.Dests), update.Dests)
+	rt.logger.Debugw("Handling update",
+		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podIPTrackers
@@ -542,12 +539,12 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 func (t *Throttler) revisionUpdated(obj interface{}) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
-	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
 
-	logger.Debug("Revision update")
+	t.logger.Debug("Revision update", zap.Object(logkey.Key, logging.NamespacedName(revID)))
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
-		logger.Errorw("Failed to get revision throttler for revision", zap.Error(err))
+		t.logger.Errorw("Failed to get revision throttler for revision",
+			zap.Error(err), zap.Object(logkey.Key, logging.NamespacedName(revID)))
 	}
 }
 
@@ -557,7 +554,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 
-	t.logger.Debugw("Revision delete", zap.String(logkey.Key, revID.String()))
+	t.logger.Debugw("Revision delete", zap.Object(logkey.Key, logging.NamespacedName(revID)))
 
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
@@ -566,11 +563,12 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		logger := t.logger.With(zap.String(logkey.Key, update.Rev.String()))
 		if k8serrors.IsNotFound(err) {
-			logger.Debug("Revision not found. It was probably removed")
+			t.logger.Debugw("Revision not found. It was probably removed",
+				zap.Object(logkey.Key, logging.NamespacedName(update.Rev)))
 		} else {
-			logger.Errorw("Failed to get revision throttler", zap.Error(err))
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err),
+				zap.Object(logkey.Key, logging.NamespacedName(update.Rev)))
 		}
 	} else {
 		rt.handleUpdate(t, update)
@@ -588,7 +586,7 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	}
 	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
 	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
-		logger := t.logger.With(zap.Any(logkey.Key, rev))
+		logger := t.logger.With(zap.Object(logkey.Key, logging.NamespacedName(rev)))
 		if k8serrors.IsNotFound(err) {
 			logger.Debug("Revision not found. It was probably removed")
 		} else {
@@ -647,7 +645,7 @@ func inferIndex(eps []string, ipAddress string) int {
 
 func (t *Throttler) publicEndspointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
-	t.logger.Infof("Public Endpoints %s updated", endpoints.Name)
+	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints
 }
 

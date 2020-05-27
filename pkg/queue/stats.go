@@ -18,101 +18,30 @@ package queue
 
 import (
 	"time"
+
+	"knative.dev/serving/pkg/network"
 )
 
-// ReqEvent represents either an incoming or closed request.
-type ReqEvent struct {
-	Time      time.Time
-	EventType ReqEventType
-}
+// ReportStats continually processes network events from reqCh and reports
+// aggregated stats via the `report` function whenever reportCh ticks.
+func ReportStats(startedAt time.Time, reqCh chan network.ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
+	state := network.NewRequestStats(startedAt)
 
-// ReqEventType denotes the type (incoming/closed) of a ReqEvent.
-type ReqEventType int
-
-const (
-	// ReqIn represents an incoming request
-	ReqIn ReqEventType = iota
-	// ReqOut represents a finished request
-	ReqOut
-	// ProxiedIn represents an incoming request through a proxy.
-	ProxiedIn
-	// ProxiedOut represents a finished proxied request.
-	ProxiedOut
-)
-
-// NewStats instantiates a new instance of Stats.
-func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
-	go func() {
-		var (
-			requestCount       float64
-			proxiedCount       float64
-			concurrency        int
-			proxiedConcurrency int
-		)
-
-		lastChange := startedAt
-		timeOnConcurrency := make(map[int]time.Duration)
-		timeOnProxiedConcurrency := make(map[int]time.Duration)
-
-		// Updates the lastChanged/timeOnConcurrency state
-		// Note: due to nature of the channels used below, the ReportChan
-		// can race the ReqChan, thus an event can arrive that has a lower
-		// timestamp than `lastChange`. This is ignored, since it only makes
-		// for very slight differences.
-		updateState := func(concurrency int, time time.Time) {
-			if durationSinceChange := time.Sub(lastChange); durationSinceChange > 0 {
-				timeOnConcurrency[concurrency] += durationSinceChange
-				timeOnProxiedConcurrency[proxiedConcurrency] += durationSinceChange
-				lastChange = time
+	for {
+		select {
+		case event, ok := <-reqCh:
+			if !ok {
+				return
 			}
+			state.HandleEvent(event)
+		case now := <-reportCh:
+			stats := state.Report(now)
+			report(
+				stats.AverageConcurrency,
+				stats.AverageProxiedConcurrency,
+				stats.RequestCount,
+				stats.ProxiedRequestCount,
+			)
 		}
-
-		for {
-			select {
-			case event := <-reqCh:
-				updateState(concurrency, event.Time)
-
-				switch event.EventType {
-				case ProxiedIn:
-					proxiedConcurrency++
-					proxiedCount++
-					fallthrough
-				case ReqIn:
-					requestCount++
-					concurrency++
-				case ProxiedOut:
-					proxiedConcurrency--
-					fallthrough
-				case ReqOut:
-					concurrency--
-				}
-			case now := <-reportCh:
-				updateState(concurrency, now)
-
-				report(weightedAverage(timeOnConcurrency), weightedAverage(timeOnProxiedConcurrency), requestCount, proxiedCount)
-
-				// Reset the stat counts which have been reported.
-				timeOnConcurrency = map[int]time.Duration{}
-				timeOnProxiedConcurrency = map[int]time.Duration{}
-				requestCount, proxiedCount = 0, 0
-			}
-		}
-	}()
-}
-
-func weightedAverage(times map[int]time.Duration) float64 {
-	// The sum of times cannot be 0, since `updateState` above only
-	// permits positive durations.
-	if len(times) == 0 {
-		return 0
 	}
-	var totalTimeUsed time.Duration
-	for _, val := range times {
-		totalTimeUsed += val
-	}
-	sum := 0.0
-	for c, val := range times {
-		sum += float64(c) * val.Seconds()
-	}
-	return sum / totalTimeUsed.Seconds()
 }

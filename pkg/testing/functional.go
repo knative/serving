@@ -123,7 +123,7 @@ func WithPADeletionTimestamp(r *asv1a1.PodAutoscaler) {
 // WithHPAClass updates the PA to add the hpa class annotation.
 func WithHPAClass(pa *asv1a1.PodAutoscaler) {
 	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
+		pa.Annotations = make(map[string]string, 1)
 	}
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
 }
@@ -139,7 +139,7 @@ func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 func withAnnotationValue(key, value string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		if pa.Annotations == nil {
-			pa.Annotations = make(map[string]string)
+			pa.Annotations = make(map[string]string, 1)
 		}
 		pa.Annotations[key] = value
 	}
@@ -240,7 +240,7 @@ func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
 
-// WithSubsets adds subsets to the body of a Revision, enabling us to refer readiness.
+// WithSubsets adds subsets to the body of an Endpoints object.
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
@@ -308,6 +308,14 @@ type IngressOption func(*netv1alpha1.Ingress)
 func WithHosts(index int, hosts ...string) IngressOption {
 	return func(ingress *netv1alpha1.Ingress) {
 		ingress.Spec.Rules[index].Hosts = hosts
+	}
+}
+
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
 	}
 }
 

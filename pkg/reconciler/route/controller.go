@@ -69,8 +69,6 @@ func newControllerWithClock(
 	ingressInformer := ingressinformer.Get(ctx)
 	certificateInformer := certificateinformer.Get(ctx)
 
-	// No need to lock domainConfigMutex yet since the informers that can modify
-	// domainConfig haven't started yet.
 	c := &Reconciler{
 		kubeclient:          kubeclient.Get(ctx),
 		client:              servingclient.Get(ctx),
@@ -97,14 +95,20 @@ func newControllerWithClock(
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
+	handleControllerOf := cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterControllerGK(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	ingressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
+	}
+	serviceInformer.Informer().AddEventHandler(handleControllerOf)
+	certificateInformer.Informer().AddEventHandler(handleControllerOf)
+	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
 	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+
+	// Make sure trackers are deleted once the observers are removed.
+	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.tracker.OnDeletedObserver,
+	})
 
 	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
@@ -125,11 +129,6 @@ func newControllerWithClock(
 			v1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
-
-	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
 
 	for _, opt := range opts {
 		opt(c)

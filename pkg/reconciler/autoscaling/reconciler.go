@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -34,18 +33,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
-	KubeClient        kubernetes.Interface
-	Client            clientset.Interface
-	ServiceLister     corev1listers.ServiceLister
-	SKSLister         nlisters.ServerlessServiceLister
-	MetricLister      listers.MetricLister
-	PSInformerFactory duck.InformerFactory
+	Client       clientset.Interface
+	SKSLister    nlisters.ServerlessServiceLister
+	MetricLister listers.MetricLister
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.

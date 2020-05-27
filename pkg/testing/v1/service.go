@@ -298,7 +298,7 @@ func WithServiceGeneration(generation int64) ServiceOption {
 func WithServiceLabel(key, value string) ServiceOption {
 	return func(service *v1.Service) {
 		if service.Labels == nil {
-			service.Labels = make(map[string]string)
+			service.Labels = make(map[string]string, 1)
 		}
 		service.Labels[key] = value
 	}

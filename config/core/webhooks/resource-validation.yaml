@@ -28,3 +28,4 @@ webhooks:
   failurePolicy: Fail
   sideEffects: None
   name: validation.webhook.serving.knative.dev
+  timeoutSeconds: 10

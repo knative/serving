@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -111,7 +110,7 @@ func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	return pa
 }
 
-func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
+func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
 	context.Context,
 	[]controller.Informer,
 	*controller.Impl,
@@ -233,12 +232,14 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 	}
 
-	imageName := resourcenames.ImageCache(rev)
-	image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
-	} else {
-		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
+	for _, v := range rev.Spec.Containers {
+		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+v.Name)
+		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
+		} else {
+			fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
+		}
 	}
 
 	deploymentName := resourcenames.Deployment(rev)
@@ -268,7 +269,7 @@ func TestResolutionFailed(t *testing.T) {
 	})
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
 
@@ -276,7 +277,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
+		t.Fatal("Couldn't get revision:", err)
 	}
 
 	// Ensure that the Revision status is updated.
@@ -299,8 +300,7 @@ func TestResolutionFailed(t *testing.T) {
 
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	deploymentConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -313,7 +313,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	createRevision(t, ctx, controller, rev)
 
 	// Update controllers logging URL
@@ -331,7 +331,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get revision: %v", err)
+		t.Fatal("Couldn't get revision:", err)
 	}
 
 	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
@@ -340,11 +340,56 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	}
 }
 
+func TestRevWithImageDigests(t *testing.T) {
+	ctx, _, controller, _ := newTestControllerWithConfig(t, nil)
+
+	rev := testRevision(corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name:  "first",
+			Image: "gcr.io/repo/image",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
+		}, {
+			Name:  "second",
+			Image: "docker.io/repo/image",
+		}, {
+			Name:  "third",
+			Image: "docker.io/anotherrepo/image",
+		}},
+	})
+	createRevision(t, ctx, controller, rev)
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
+	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Couldn't get revision:", err)
+	}
+	if len(rev.Status.ContainerStatuses) < 2 {
+		t.Error("Revision status does not have imageDigests")
+	}
+
+	rev.Status.DeprecatedImageDigest = "gcr.io/repo/image"
+	updateRevision(t, ctx, controller, rev)
+	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
+		t.Error("Image digests does not match with the provided containers")
+	}
+	for i, c := range rev.Spec.Containers {
+		if c.Name != rev.Status.ContainerStatuses[i].Name {
+			t.Error("Container statuses do not match the order of containers in spec")
+		}
+	}
+	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
+	updateRevision(t, ctx, controller, rev)
+	if len(rev.Status.ContainerStatuses) != 0 {
+		t.Error("Failed to update revision")
+	}
+}
+
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	ctx, cancel, _, ctl, _ := newTestController(t)
 	defer cancel()
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 
 	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
@@ -410,7 +455,7 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	ctx, cancel, _, controller, watcher := newTestController(t)
 	defer cancel()
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	config := testConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
@@ -497,15 +542,14 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
 
 			servingClient := fakeservingclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := servingClient.ServingV1().Revisions(rev.Namespace)
 
 			h := NewHooks()
@@ -514,7 +558,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -525,7 +569,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("Failed to start configuration manager: %v", err)
+				t.Fatal("Failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
@@ -534,20 +578,17 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			revL := fakerevisioninformer.Get(ctx).Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 				l, err := revL.List(labels.Everything())
-				if err != nil {
-					return false, err
-				}
 				// We only create a single revision.
-				return len(l) > 0, nil
+				return len(l) > 0, err
 			}); err != nil {
-				t.Fatalf("Failed to see Revision propagation: %v", err)
+				t.Fatal("Failed to see Revision propagation:", err)
 			}
 			t.Log("Seen revision propagation")
 
 			watcher.OnChange(test.configMapToUpdate)
 
 			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Errorf("Global Resync Failed: %v", err)
+				t.Error("Global Resync Failed:", err)
 			}
 		})
 	}
@@ -561,47 +602,6 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate *corev1.ConfigMap
 		callback          func(*testing.T) func(runtime.Object) HookResult
 	}{{
-		name: "Disable /var/log Collection", // Should set ENABLE_VAR_LOG_COLLECTION to false
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      metrics.ConfigMapName(),
-			},
-			Data: map[string]string{
-				"logging.enable-var-log-collection": "false",
-			},
-		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
-
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.QueueContainerName {
-						for _, e := range c.Env {
-							if e.Name == "ENABLE_VAR_LOG_COLLECTION" {
-								flag, err := strconv.ParseBool(e.Value)
-								if err != nil {
-									t.Errorf("Invalid ENABLE_VAR_LOG_COLLECTION value: %q", e.Name)
-									return HookIncomplete
-								}
-								if flag {
-									t.Errorf("ENABLE_VAR_LOG_COLLECTION = %v, want: %v", flag, false)
-									return HookIncomplete
-								}
-								return HookComplete
-							}
-						}
-
-						t.Error("ENABLE_VAR_LOG_COLLECTION is not set")
-						return HookIncomplete
-					}
-				}
-				t.Logf("The deployment spec doesn't contain the expected container %q", resources.QueueContainerName)
-				return HookIncomplete
-			}
-		},
-	}, {
 		name: "Update QueueProxy Image", // Should update queueSidecarImage
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -637,15 +637,14 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
 
 			kubeClient := fakekubeclient.Get(ctx)
 
-			rev := testRevision()
+			rev := testRevision(getPodSpec())
 			revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 			h := NewHooks()
 			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))
@@ -659,7 +658,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -670,7 +669,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatalf("Failed to start configuration manager: %v", err)
+				t.Fatal("Failed to start configuration manager:", err)
 			}
 
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })

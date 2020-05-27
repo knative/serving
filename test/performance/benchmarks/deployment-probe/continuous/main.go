@@ -58,7 +58,7 @@ func readTemplate() (*v1beta1.Service, error) {
 		return nil, err
 	}
 	svc := &v1beta1.Service{}
-	if err := yaml.Unmarshal([]byte(b), svc); err != nil {
+	if err := yaml.Unmarshal(b, svc); err != nil {
 		return nil, err
 	}
 
@@ -75,7 +75,7 @@ func readTemplate() (*v1beta1.Service, error) {
 }
 
 func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
-	seen *sets.String, metric string) {
+	seen sets.String, metric string) {
 	if seen.Has(svc.GetName()) {
 		return
 	}
@@ -123,7 +123,7 @@ func main() {
 	}
 	mc, err := mako.Setup(ctx, tags...)
 	if err != nil {
-		log.Fatalf("Failed to setup mako: %v", err)
+		log.Fatal("Failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar
@@ -222,10 +222,10 @@ func main() {
 				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
-					log.Printf("Error creating service: %v", err)
+					log.Println("Error creating service:", err)
 					break
 				}
-				log.Printf("Created: %s", svc.Name)
+				log.Println("Created:", svc.Name)
 
 			case event := <-serviceWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -233,7 +233,7 @@ func main() {
 					break
 				}
 				svc := event.Object.(*v1beta1.Service)
-				handle(q, svc, svc.Status.Status, &serviceSeen, "dl")
+				handle(q, svc, svc.Status.Status, serviceSeen, "dl")
 
 			case event := <-configurationWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -241,7 +241,7 @@ func main() {
 					break
 				}
 				cfg := event.Object.(*v1beta1.Configuration)
-				handle(q, cfg, cfg.Status.Status, &configurationSeen, "cl")
+				handle(q, cfg, cfg.Status.Status, configurationSeen, "cl")
 
 			case event := <-routeWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -249,7 +249,7 @@ func main() {
 					break
 				}
 				rt := event.Object.(*v1beta1.Route)
-				handle(q, rt, rt.Status.Status, &routeSeen, "rl")
+				handle(q, rt, rt.Status.Status, routeSeen, "rl")
 
 			case event := <-revisionWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -257,7 +257,7 @@ func main() {
 					break
 				}
 				rev := event.Object.(*v1beta1.Revision)
-				handle(q, rev, rev.Status.Status, &revisionSeen, "rvl")
+				handle(q, rev, rev.Status.Status, revisionSeen, "rvl")
 
 			case event := <-ingressWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -265,7 +265,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.Ingress)
-				handle(q, ing, ing.Status.Status, &ingressSeen, "il")
+				handle(q, ing, ing.Status.Status, ingressSeen, "il")
 
 			case event := <-sksWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -273,7 +273,7 @@ func main() {
 					break
 				}
 				ing := event.Object.(*netv1alpha1.ServerlessService)
-				handle(q, ing, ing.Status.Status, &sksSeen, "sksl")
+				handle(q, ing, ing.Status.Status, sksSeen, "sksl")
 
 			case event := <-paWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -281,7 +281,7 @@ func main() {
 					break
 				}
 				pa := event.Object.(*asv1alpha1.PodAutoscaler)
-				handle(q, pa, pa.Status.Status, &paSeen, "pal")
+				handle(q, pa, pa.Status.Status, paSeen, "pal")
 			}
 		}
 	}()

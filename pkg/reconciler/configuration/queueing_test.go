@@ -32,6 +32,7 @@ import (
 	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	"knative.dev/serving/pkg/gc"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
 
@@ -86,7 +87,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 	}()
 

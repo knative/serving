@@ -202,7 +202,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	revisions := fakerevisioninformer.Get(ctx)
 	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -254,7 +254,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	revisions := fakerevisioninformer.Get(ctx)
 	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -281,7 +281,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -386,7 +386,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(),
 				revisions.Informer())
 			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
+				t.Fatal("Failed to start informers:", err)
 			}
 			defer func() {
 				cancel()
@@ -435,28 +435,39 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			rt, err := throttler.getOrCreateRevisionThrottler(revID)
 			if err != nil {
-				t.Fatalf("RevisionThrottler can't be found: %v", err)
+				t.Fatal("RevisionThrottler can't be found:", err)
 			}
 
 			// Make sure our informer event has fired.
-			if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-				return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
+			// We send multiple updates in some tests, so make sure the capacity is exact.
+			wantCapacity := 1
+			cc := tc.revision.Spec.ContainerConcurrency
+			if cc != nil && *cc != 0 {
+				dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+				wantCapacity = dests * int(*cc)
+			}
+			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() == wantCapacity, nil
 			}); err != nil {
-				t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
 			t.Logf("This activator idx = %d", rt.activatorIndex)
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
 
-			results := tryThrottler(throttler, tryContext, tc.requests, func(string) error {
-				// Simulate proxying.
-				time.Sleep(50 * time.Millisecond)
+			waitGrp := sync.WaitGroup{}
+			waitGrp.Add(tc.requests)
+			resultChan := throttler.try(tryContext, tc.requests, func(string) error {
+				waitGrp.Done()
+				// Wait for all requests to reach the Try function before proceeding.
+				waitGrp.Wait()
 				return nil
 			})
+
 			gotDests := sets.NewString()
 			for i := 0; i < tc.requests; i++ {
-				result := <-results
+				result := <-resultChan
 				gotDests.Insert(result.dest)
 			}
 
@@ -589,7 +600,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -637,7 +648,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
 	if err != nil {
-		t.Fatalf("RevisionThrottler can't be found: %v", err)
+		t.Fatal("RevisionThrottler can't be found:", err)
 	}
 
 	// Verify capacity gets updated. This is the very last thing we update
@@ -685,7 +696,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 	if err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
+		t.Fatal("Failed to start informers:", err)
 	}
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
@@ -733,16 +744,18 @@ func TestMultipleActivators(t *testing.T) {
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
 	if err != nil {
-		t.Fatalf("RevisionThrottler can't be found: %v", err)
+		t.Fatal("RevisionThrottler can't be found:", err)
 	}
 
-	// Make sure our informer event has fired.
+	// Verify capacity gets updated. This is the very last thing we update
+	// so we now know that we got and processed both the activator endpoints
+	// and the application endpoints.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.activatorIndex) != -1, nil
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
-		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
+		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", rt.activatorIndex)
+	t.Logf("This activator idx = %d", atomic.LoadInt32(&rt.activatorIndex))
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
@@ -750,7 +763,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -776,14 +789,14 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	}
 }
 
-func tryThrottler(throttler *Throttler, ctx context.Context, requests int, try func(string) error) chan tryResult {
+func (t *Throttler) try(ctx context.Context, requests int, try func(string) error) chan tryResult {
 	resultChan := make(chan tryResult)
 
 	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevision})
 	for i := 0; i < requests; i++ {
 		go func() {
 			var result tryResult
-			if err := throttler.Try(ctx, func(dest string) error {
+			if err := t.Try(ctx, func(dest string) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {

@@ -57,13 +57,13 @@ func TestMinScale(t *testing.T) {
 
 	t.Log("Creating route")
 	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 
 	t.Log("Creating configuration")
 	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
@@ -88,7 +88,7 @@ func TestMinScale(t *testing.T) {
 
 	t.Log("Updating configuration")
 	if _, err := v1test.PatchConfig(t, clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
-		t.Fatalf("Failed to update Configuration: %v", err)
+		t.Fatal("Failed to update Configuration:", err)
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
@@ -142,7 +142,7 @@ func lt(m int) func(int) bool {
 func withMinScale(minScale int) func(cfg *v1.Configuration) {
 	return func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
-			cfg.Spec.Template.Annotations = make(map[string]string)
+			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
 		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
@@ -161,7 +161,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 
 	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
+		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
 
 	return config.Status.LatestCreatedRevisionName

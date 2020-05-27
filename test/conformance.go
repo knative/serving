@@ -45,12 +45,13 @@ const (
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
 
-	ConcurrentRequests = 50
+	ConcurrentRequests = 200
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	MinDirectPercentage = 1
 	// We expect to see at least 25% of either response since we're routing 50/50.
-	// This might be a bad assumption.
+	// The CDF of the binomial distribution tells us this will flake roughly
+	// 1 time out of 10^12 (roughly the number of galaxies in the observable universe).
 	MinSplitPercentage = 0.25
 )
 
