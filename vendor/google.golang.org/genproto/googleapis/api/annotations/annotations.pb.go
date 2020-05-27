@@ -35,9 +35,7 @@ func init() {
 	proto.RegisterExtension(E_Http)
 }
 
-func init() {
-	proto.RegisterFile("google/api/annotations.proto", fileDescriptor_c591c5aa9fb79aab)
-}
+func init() { proto.RegisterFile("google/api/annotations.proto", fileDescriptor_c591c5aa9fb79aab) }
 
 var fileDescriptor_c591c5aa9fb79aab = []byte{
 	// 208 bytes of a gzipped FileDescriptorProto
