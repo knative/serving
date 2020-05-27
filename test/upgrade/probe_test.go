@@ -40,7 +40,7 @@ func TestProbe(t *testing.T) {
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
 	if err := syscall.Mkfifo(pipe, 0666); err != nil {
-		t.Fatalf("Failed to create pipe: %v", err)
+		t.Fatal("Failed to create pipe:", err)
 	}
 	defer os.Remove(pipe)
 
@@ -53,7 +53,7 @@ func TestProbe(t *testing.T) {
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := objects.Service.Status.URL.URL()
 

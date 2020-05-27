@@ -292,13 +292,13 @@ the probe succeeds.
 ##### Deployment probe
 
 On the initial deployment, platform providers
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 start an instance of the container to validate that the container is valid and
 will become ready. This startup
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 occur even if the container would not serve any user requests. If a container
 cannot satisfy the `readinessProbe` during deployment startup, the Revision
-[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/errorcondition_test.go)
+[SHOULD](https://github.com/knative/serving/blob/master/test/conformance/runtime/readiness_probe_test.go)
 be marked as failed.
 
 Initial readiness probes allow the platform to avoid attempting to later
@@ -423,7 +423,7 @@ developers might not have access to the container's filesystems (or the
 containers might be rapidly recycled), so log aggregation SHOULD be provided.
 
 In addition to the filesystems recommended in the OCI, the following filesystems
-[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_perm_test.go)
+[MUST](https://github.com/knative/serving/blob/master/test/conformance/runtime/filesystem_test.go)
 be provided:
 
 | Mount      | Description                                                                                                                                                      |

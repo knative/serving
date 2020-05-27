@@ -194,8 +194,8 @@ func getObjectsAttrs(ctx context.Context, bucketName, storagePath, exclusionFilt
 // if exclusionFilter is "/", returns all direct children, including both files and directories.
 // see https://godoc.org/cloud.google.com/go/storage#Query
 func list(ctx context.Context, bucketName, storagePath, exclusionFilter string) []string {
-	var filePaths []string
 	objsAttrs := getObjectsAttrs(ctx, bucketName, storagePath, exclusionFilter)
+	filePaths := make([]string, 0, len(objsAttrs))
 	for _, attrs := range objsAttrs {
 		filePaths = append(filePaths, path.Join(attrs.Prefix, attrs.Name))
 	}

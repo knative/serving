@@ -60,7 +60,37 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func testRevision() *v1.Revision {
+func getPodSpec() corev1.PodSpec {
+	return corev1.PodSpec{
+		// corev1.Container has a lot of setting.  We try to pass many
+		// of them here to verify that we pass through the settings to
+		// derived objects.
+		Containers: []corev1.Container{{
+			Image:      "gcr.io/repo/image",
+			Command:    []string{"echo"},
+			Args:       []string{"hello", "world"},
+			WorkingDir: "/tmp",
+			Env: []corev1.EnvVar{{
+				Name:  "EDITOR",
+				Value: "emacs",
+			}},
+			LivenessProbe: &corev1.Probe{
+				TimeoutSeconds: 42,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "health",
+					},
+				},
+				TimeoutSeconds: 43,
+			},
+			TerminationMessagePath: "/dev/null",
+		}},
+	}
+}
+
+func testRevision(podSpec corev1.PodSpec) *v1.Revision {
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/test-rev",
@@ -77,33 +107,7 @@ func testRevision() *v1.Revision {
 			UID: "test-rev-uid",
 		},
 		Spec: v1.RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				// corev1.Container has a lot of setting.  We try to pass many
-				// of them here to verify that we pass through the settings to
-				// derived objects.
-				Containers: []corev1.Container{{
-					Image:      "gcr.io/repo/image",
-					Command:    []string{"echo"},
-					Args:       []string{"hello", "world"},
-					WorkingDir: "/tmp",
-					Env: []corev1.EnvVar{{
-						Name:  "EDITOR",
-						Value: "emacs",
-					}},
-					LivenessProbe: &corev1.Probe{
-						TimeoutSeconds: 42,
-					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "health",
-							},
-						},
-						TimeoutSeconds: 43,
-					},
-					TerminationMessagePath: "/dev/null",
-				}},
-			},
+			PodSpec:        podSpec,
 			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
@@ -230,7 +234,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	eg := errgroup.Group{}
 
-	rev := testRevision()
+	rev := testRevision(getPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
@@ -244,12 +248,12 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
+			t.Fatal("Error running controller:", err)
 		}
 		waitInformers()
 	}()
@@ -259,7 +263,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	})
 
 	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
-		t.Fatalf("Error creating revision: %v", err)
+		t.Fatal("Error creating revision:", err)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {

@@ -43,13 +43,13 @@ type inputIgnoredFields struct {
 func (ig *IgnoredFields) ReadFromFile(filePath string) error {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("Error reading file: %s Error : %v", filePath, err)
+		return fmt.Errorf("Error reading file: %s Error: %w", filePath, err)
 	}
 
 	var inputEntries []inputIgnoredFields
 	err = yaml.Unmarshal(data, &inputEntries)
 	if err != nil {
-		return fmt.Errorf("Error unmarshalling ignoredfields input yaml file: %s Content: %s Error: %v", filePath, string(data), err)
+		return fmt.Errorf("Error unmarshalling ignoredfields input yaml file: %s Content: %s Error: %w", filePath, string(data), err)
 	}
 
 	ig.ignoredFields = make(map[string]sets.String)

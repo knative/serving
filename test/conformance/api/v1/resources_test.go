@@ -75,7 +75,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
-		t.Logf("Request %s", url)
+		t.Log("Request", url)
 		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 		if err != nil {
 			return nil, err

@@ -93,12 +93,12 @@ func TestService(t *testing.T) {
 	t.Log("Service should reflect new revision created and ready in status.")
 	names.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 
 	// Validate State after Image Update
@@ -141,12 +141,12 @@ func TestService(t *testing.T) {
 	t.Log("Waiting for the new revision to appear as LatestRevision.")
 	names.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("The new revision has not become ready in Service: %v", err)
+		t.Fatal("The new revision has not become ready in Service:", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 
 	// Validate the Service shape.
@@ -273,7 +273,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 
 	t.Log("Validating service shape.")
 	if err := validateReleaseServiceShape(objects); err != nil {
-		t.Fatalf("Release shape is incorrect: %v", err)
+		t.Fatal("Release shape is incorrect:", err)
 	}
 	if err := validateAnnotations(objects); err != nil {
 		t.Errorf("Service annotations are incorrect: %v", err)
@@ -293,7 +293,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		}},
 	})
 	if err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	desiredTrafficShape := map[string]v1.TrafficTarget{
@@ -372,7 +372,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		}},
 	})
 	if err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	desiredTrafficShape = map[string]v1.TrafficTarget{
@@ -455,7 +455,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		}},
 	})
 	if err != nil {
-		t.Fatalf("Failed to update Service: %v", err)
+		t.Fatal("Failed to update Service:", err)
 	}
 
 	// Verify in the end it's still the case.
@@ -529,12 +529,12 @@ func TestAnnotationPropagation(t *testing.T) {
 	t.Log("Service should reflect new revision created and ready in status.")
 	names.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 	objects, err = v1b1test.GetResourceObjects(clients, names)
 	if err != nil {
@@ -562,12 +562,12 @@ func TestAnnotationPropagation(t *testing.T) {
 	t.Log("Service should reflect new revision created and ready in status.")
 	names.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("Error waiting for the service to become ready for the latest revision: %v", err)
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 	objects, err = v1b1test.GetResourceObjects(clients, names)
 	if err != nil {

@@ -113,13 +113,13 @@ func TestRouteCreation(t *testing.T) {
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1test.CreateConfiguration(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
+		t.Fatal("Failed to create Configuration:", err)
 	}
 	objects.Config = config
 
 	route, err := v1test.CreateRoute(t, clients, names)
 	if err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
+		t.Fatal("Failed to create Route:", err)
 	}
 	objects.Route = route
 
@@ -134,7 +134,7 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Failed to get URL from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route URL is: %s", url)
+	t.Log("The Route URL is:", url)
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, url, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.

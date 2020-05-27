@@ -33,10 +33,6 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics/metricskey"
-	"knative.dev/pkg/metrics/metricstest"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
@@ -47,9 +43,15 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientgotesting "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
@@ -57,6 +59,11 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
@@ -68,18 +75,12 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
+	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -87,18 +88,19 @@ import (
 )
 
 const (
-	gracePeriod              = 60 * time.Second
-	stableWindow             = 5 * time.Minute
-	paStableWindow           = 45 * time.Second
 	defaultConcurrencyTarget = 10.0
 	defaultTU                = 0.5
+	gracePeriod              = 60 * time.Second
+	paStableWindow           = 45 * time.Second
+	progressDeadline         = 121 * time.Second
+	stableWindow             = 5 * time.Minute
 )
 
 func defaultConfigMapData() map[string]string {
 	return map[string]string{
 		"max-scale-up-rate":                       "12.0",
-		"container-concurrency-target-percentage": fmt.Sprintf("%f", defaultTU),
-		"container-concurrency-target-default":    fmt.Sprintf("%f", defaultConcurrencyTarget),
+		"container-concurrency-target-percentage": fmt.Sprint(defaultTU),
+		"container-concurrency-target-default":    fmt.Sprint(defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),
 		"panic-window":                            "10s",
 		"scale-to-zero-grace-period":              gracePeriod.String(),
@@ -108,8 +110,13 @@ func defaultConfigMapData() map[string]string {
 
 func defaultConfig() *config.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
+		deployment.QueueSidecarImageKey: "bob",
+		deployment.ProgressDeadlineKey:  progressDeadline.String(),
+	})
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
+		Deployment: deploymentConfig,
 	}
 }
 
@@ -120,6 +127,14 @@ func newConfigWatcher() configmap.Watcher {
 			Name:      autoscalerconfig.ConfigName,
 		},
 		Data: defaultConfigMapData(),
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      deployment.ConfigName,
+		},
+		Data: map[string]string{
+			deployment.QueueSidecarImageKey: "covid is here",
+		},
 	})
 }
 
@@ -409,7 +424,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error scaling target: failed to apply scale to scale target test-revision-deployment: inducing failure for patch deployments`),
+				`error scaling target: failed to apply scale 11 to scale target test-revision-deployment: inducing failure for patch deployments`),
 		},
 	}, {
 		Name: "can't read endpoints",
@@ -1051,11 +1066,20 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		},
 		Data: defaultConfigMapData(),
 	})
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deployment.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			deployment.QueueSidecarImageKey: "i'm on a bike",
+		},
+	})
 
 	grp := errgroup.Group{}
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("failed to start informers: %v", err)
+		t.Fatal("failed to start informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1066,10 +1090,10 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start configmap watcher: %v", err)
+		t.Fatal("failed to start configmap watcher:", err)
 	}
 
-	grp.Go(func() error { controller.StartAll(ctx.Done(), ctl); return nil })
+	grp.Go(func() error { controller.StartAll(ctx, ctl); return nil })
 
 	rev := newTestRevision(testNamespace, testRevision)
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1086,14 +1110,14 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
-		t.Fatalf("Failed to get decider: %v", err)
+		t.Fatal("Failed to get decider:", err)
 	} else if got, want := decider.Spec.TargetValue, defaultConcurrencyTarget*defaultTU; got != want {
 		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
 
 	const concurrencyTargetAfterUpdate = 100.0
 	data := defaultConfigMapData()
-	data["container-concurrency-target-default"] = fmt.Sprintf("%f", concurrencyTargetAfterUpdate)
+	data["container-concurrency-target-default"] = fmt.Sprint(concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscalerconfig.ConfigName,
@@ -1107,7 +1131,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
-		t.Fatalf("Failed to get decider: %v", err)
+		t.Fatal("Failed to get decider:", err)
 	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
 		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
@@ -1122,7 +1146,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		cancel()
-		t.Fatalf("StartInformers() = %v", err)
+		t.Fatal("StartInformers() =", err)
 	}
 
 	var eg errgroup.Group
@@ -1152,7 +1176,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		// We only create a single SKS object.
 		return len(l) > 0, err
 	}); err != nil {
-		t.Fatalf("Failed to see SKS propagation: %v", err)
+		t.Fatal("Failed to see SKS propagation:", err)
 	}
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1174,7 +1198,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		}
 		return newKPA.Status.IsReady(), nil
 	}); err != nil {
-		t.Fatalf("PA failed to become ready: %v", err)
+		t.Fatal("PA failed to become ready:", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -1266,7 +1290,7 @@ func TestControllerCreateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1302,7 +1326,7 @@ func TestControllerUpdateError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1338,7 +1362,7 @@ func TestControllerGetError(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()
@@ -1373,7 +1397,7 @@ func TestScaleFailure(t *testing.T) {
 	ctx, cancel, infs := SetupFakeContextWithCancel(t)
 	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
 	if err != nil {
-		t.Fatalf("Error starting up informers: %v", err)
+		t.Fatal("Error starting up informers:", err)
 	}
 	defer func() {
 		cancel()

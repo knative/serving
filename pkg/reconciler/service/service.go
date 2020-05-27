@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -118,8 +117,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
-	service.Status.ObservedGeneration = service.Generation
-
 	return nil
 }
 
@@ -211,7 +208,7 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 		logger.Errorw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
+	logger.Info("Reconciling configuration diff (-desired, +observed):\n", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
@@ -260,7 +257,7 @@ func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bo
 		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
+	logger.Info("Reconciling route diff (-desired, +observed):\n", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&
@@ -305,7 +302,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	if name == "" {
 		return nil
 	}
-	errConflict := errors.NewAlreadyExists(v1.Resource("revisions"), name)
+	errConflict := apierrs.NewAlreadyExists(v1.Resource("revisions"), name)
 
 	rev, err := lister.Revisions(config.Namespace).Get(name)
 	if err != nil {

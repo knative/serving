@@ -52,6 +52,11 @@ var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Revision) GetConditionSet() apis.ConditionSet {
+	return revisionCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
@@ -131,9 +136,6 @@ func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) 
 func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {
 	ds := serving.TransformDeploymentStatus(original)
 	cond := ds.GetCondition(serving.DeploymentConditionReady)
-	if cond == nil {
-		return
-	}
 
 	m := revisionCondSet.Manage(rs)
 	switch cond.Status {
@@ -181,13 +183,13 @@ func ResourceNotOwnedMessage(kind, name string) string {
 
 // ExitCodeReason constructs the status message from an exit code
 func ExitCodeReason(exitCode int32) string {
-	return fmt.Sprintf("ExitCode%d", exitCode)
+	return fmt.Sprint("ExitCode", exitCode)
 }
 
 // RevisionContainerExitingMessage constructs the status message if a container
 // fails to come up.
 func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
+	return fmt.Sprint("Container failed with: ", message)
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image

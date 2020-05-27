@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
@@ -63,28 +64,28 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
 	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(aEps); err != nil {
-		t.Fatalf("Error creating activator endpoints: %v", err)
+		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
 	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
-		t.Fatalf("Error creating private endpoints: %v", err)
+		t.Fatal("Error creating private endpoints:", err)
 	}
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
 	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
-		t.Fatalf("Error creating private endpoints: %v", err)
+		t.Fatal("Error creating private endpoints:", err)
 	}
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
-		t.Fatalf("Error starting informers: %v", err)
+		t.Fatal("Error starting informers:", err)
 	}
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Fatalf("Error waiting for contoller to terminate: %v", err)
+			t.Fatal("Error waiting for contoller to terminate:", err)
 		}
 		waitInformers()
 	}()
@@ -118,10 +119,10 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
 
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
-		t.Fatalf("Error creating SKS1: %v", err)
+		t.Fatal("Error creating SKS1:", err)
 	}
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
-		t.Fatalf("Error creating SKS2: %v", err)
+		t.Fatal("Error creating SKS2:", err)
 	}
 
 	eps := fakeendpointsinformer.Get(ctx).Lister()
@@ -136,7 +137,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Now that we have established the baseline, update the activator endpoints.
 	aEps = activatorEndpoints(withOtherSubsets)
 	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(aEps); err != nil {
-		t.Fatalf("Error creating activator endpoints: %v", err)
+		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	if err := updateHooks.WaitForHooks(3 * time.Second); err != nil {

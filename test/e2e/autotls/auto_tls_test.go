@@ -103,7 +103,7 @@ func testAutoTLS(t *testing.T) {
 				LatestRevision: ptr.Bool(true),
 			}},
 		}); err != nil {
-			t.Fatalf("Failed to update Service route spec: %v", err)
+			t.Fatal("Failed to update Service route spec:", err)
 		}
 		if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTPS, "RouteTrafficIsHTTPS"); err != nil {
 			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
@@ -111,7 +111,7 @@ func testAutoTLS(t *testing.T) {
 
 		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get ingress: %v", err)
+			t.Fatal("Failed to get ingress:", err)
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
@@ -126,7 +126,7 @@ func testAutoTLS(t *testing.T) {
 
 		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get route: %v", err)
+			t.Fatal("Failed to get route:", err)
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {

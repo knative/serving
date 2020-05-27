@@ -101,7 +101,7 @@ func MarkLatestCreatedFailed(msg string) ConfigOption {
 func WithConfigLabel(key, value string) ConfigOption {
 	return func(config *v1.Configuration) {
 		if config.Labels == nil {
-			config.Labels = make(map[string]string)
+			config.Labels = make(map[string]string, 1)
 		}
 		config.Labels[key] = value
 	}

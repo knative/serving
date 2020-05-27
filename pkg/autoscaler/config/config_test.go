@@ -96,6 +96,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-threshold-percentage":              "200",
 			"pod-autoscaler-class":                    "some.class",
 			"activator-capacity":                      "905",
+			"scale-to-zero-pod-retention-period":      "2m3s",
 		},
 		want: func() *Config {
 			c := defaultConfig()
@@ -108,6 +109,7 @@ func TestNewConfig(t *testing.T) {
 			c.StableWindow = 5 * time.Minute
 			c.ActivatorCapacity = 905
 			c.PodAutoscalerClass = "some.class"
+			c.ScaleToZeroPodRetentionPeriod = 2*time.Minute + 3*time.Second
 			return c
 		}(),
 	}, {
@@ -145,6 +147,12 @@ func TestNewConfig(t *testing.T) {
 		name: "malformed float",
 		input: map[string]string{
 			"max-scale-up-rate": "not a float",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid pod retention period",
+		input: map[string]string{
+			"scale-to-zero-pod-retention-period": "-4m11s",
 		},
 		wantErr: true,
 	}, {
@@ -196,6 +204,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "stable window too big",
+		input: map[string]string{
+			"stable-window": "1h1s",
+		},
+		wantErr: true,
+	}, {
 		name: "stable window too small",
 		input: map[string]string{
 			"stable-window": "1s",
@@ -242,6 +256,49 @@ func TestNewConfig(t *testing.T) {
 			"scale-to-zero-grace-period": "4s",
 		},
 		wantErr: true,
+	}, {
+		name: "with prohibited default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "0",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "-1",
+		},
+		wantErr: true,
+	}, {
+		name: "with non-parseable default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "false",
+			"initial-scale":            "invalid",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default initial scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "true",
+			"initial-scale":            "0",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.AllowZeroInitialScale = true
+			c.InitialScale = 0
+			return c
+		}(),
+	}, {
+		name: "with non-parseable allow-zero-initial-scale",
+		input: map[string]string{
+			"allow-zero-initial-scale": "invalid",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.AllowZeroInitialScale = false
+			return c
+		}(),
 	}}
 
 	for _, test := range tests {
@@ -249,6 +306,7 @@ func TestNewConfig(t *testing.T) {
 			gotCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
+			t.Log("Error =", err)
 			if (err != nil) != test.wantErr {
 				t.Errorf("NewConfigFromConfigMap() = %v, want %v", err, test.wantErr)
 			}

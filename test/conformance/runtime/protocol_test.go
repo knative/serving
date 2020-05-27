@@ -67,7 +67,7 @@ func TestProtocols(t *testing.T) {
 			clients := test.Setup(t)
 			_, ri, err := fetchRuntimeInfo(t, clients, withPort(tt.portName))
 			if err != nil {
-				t.Fatalf("Failed to fetch runtime info: %v", err)
+				t.Fatal("Failed to fetch runtime info:", err)
 			}
 
 			if tt.wantMajor != ri.Request.ProtoMajor || tt.wantMinor != ri.Request.ProtoMinor {

@@ -42,10 +42,6 @@ import (
 )
 
 const (
-	varLogVolumeName   = "knative-var-log"
-	varLogVolumePath   = "/var/log"
-	internalVolumeName = "knative-internal"
-	internalVolumePath = "/var/knative-internal"
 	podInfoVolumeName  = "podinfo"
 	podInfoVolumePath  = "/etc/podinfo"
 	metadataLabelsRef  = "metadata.labels"
@@ -54,15 +50,16 @@ const (
 
 var (
 	varLogVolume = corev1.Volume{
-		Name: varLogVolumeName,
+		Name: "knative-var-log",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
 	varLogVolumeMount = corev1.VolumeMount{
-		Name:      varLogVolumeName,
-		MountPath: varLogVolumePath,
+		Name:        varLogVolume.Name,
+		MountPath:   "/var/log",
+		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
 	labelVolume = corev1.Volume{
@@ -84,18 +81,6 @@ var (
 	labelVolumeMount = corev1.VolumeMount{
 		Name:      podInfoVolumeName,
 		MountPath: podInfoVolumePath,
-	}
-
-	internalVolume = corev1.Volume{
-		Name: internalVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	internalVolumeMount = corev1.VolumeMount{
-		Name:      internalVolumeName,
-		MountPath: internalVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -144,11 +129,6 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	userContainer := BuildUserContainer(rev)
 	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
 
-	// Add the Knative internal volume only if /var/log collection is enabled
-	if observabilityConfig.EnableVarLogCollection {
-		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
-	}
-
 	if autoscalerConfig.EnableGracefulScaledown {
 		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 	}
@@ -161,8 +141,10 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
+	varLogMount := varLogVolumeMount.DeepCopy()
+	varLogMount.SubPathExpr += userContainer.Name
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, *varLogMount)
 	userContainer.Lifecycle = userLifecycle
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
@@ -171,13 +153,15 @@ func BuildUserContainer(rev *v1.Revision) *corev1.Container {
 	userContainer.Ports = buildContainerPorts(userPort)
 	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+	userContainer.Env = append(userContainer.Env, buildVarLogSubpathEnvs()...)
+
 	// Explicitly disable stdin and tty allocation
 	userContainer.Stdin = false
 	userContainer.TTY = false
 
 	// Prefer imageDigest from revision if available
-	if rev.Status.ImageDigest != "" {
-		userContainer.Image = rev.Status.ImageDigest
+	if rev.Status.DeprecatedImageDigest != "" {
+		userContainer.Image = rev.Status.DeprecatedImageDigest
 	}
 
 	if userContainer.TerminationMessagePolicy == "" {
@@ -225,6 +209,24 @@ func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 	}}
 }
 
+func buildVarLogSubpathEnvs() []corev1.EnvVar {
+	return []corev1.EnvVar{{
+		Name: "K_INTERNAL_POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	}, {
+		Name: "K_INTERNAL_POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	}}
+}
+
 func buildUserPortEnv(userPort string) corev1.EnvVar {
 	return corev1.EnvVar{
 		Name:  "PORT",
@@ -260,7 +262,7 @@ func MakeDeployment(rev *v1.Revision,
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(1),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(int32(deployment.ProgressDeadlineDefault.Seconds())),
+			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeLabels(rev),

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -113,18 +114,20 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	logger := logging.FromContext(ctx)
 
 	ns := rev.Namespace
-	imageName := resourcenames.ImageCache(rev)
-	_, err := c.imageLister.Images(ns).Get(imageName)
-	if apierrs.IsNotFound(err) {
-		_, err := c.createImageCache(ctx, rev)
-		if err != nil {
-			return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
+	// Revisions are immutable.
+	// Updating image results to new revision so there won't be any chance of resource leak.
+	for _, container := range rev.Status.ContainerStatuses {
+		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+container.Name)
+		if _, err := c.imageLister.Images(ns).Get(imageName); apierrs.IsNotFound(err) {
+			if _, err := c.createImageCache(rev, container.Name, container.ImageDigest); err != nil {
+				return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
+			}
+			logger.Infof("Created image cache %q", imageName)
+		} else if err != nil {
+			return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 		}
-		logger.Infof("Created image cache %q", imageName)
-	} else if err != nil {
-		return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
-	}
 
+	}
 	return nil
 }
 

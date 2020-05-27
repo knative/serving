@@ -39,12 +39,12 @@ var (
 	// ErrNoData denotes that the collector could not calculate data.
 	ErrNoData = errors.New("no data available")
 
-	// ErrNotScraping denotes that the collector is not collecting metrics for the given resource.
-	ErrNotScraping = errors.New("the requested resource is not being scraped")
+	// ErrNotCollecting denotes that the collector is not collecting metrics for the given resource.
+	ErrNotCollecting = errors.New("no metrics are being collected for the requested resource")
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
+type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
@@ -112,8 +112,8 @@ type MetricCollector struct {
 	statsScraperFactory StatsScraperFactory
 	tickProvider        func(time.Duration) *time.Ticker
 
-	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
+	collections      map[types.NamespacedName]*collection
 
 	watcherMutex sync.RWMutex
 	watcher      func(types.NamespacedName)
@@ -134,27 +134,17 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 
 // CreateOrUpdate either creates a collection for the given metric or update it, should
 // it already exist.
-// Map access optimized via double-checked locking.
 func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	scraper, err := c.statsScraperFactory(metric)
+	scraper, err := c.statsScraperFactory(metric, c.logger)
 	if err != nil {
 		return err
 	}
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
 
-	c.collectionsMutex.RLock()
-	collection, exists := c.collections[key]
-	c.collectionsMutex.RUnlock()
-	if exists {
-		collection.updateScraper(scraper)
-		collection.updateMetric(metric)
-		return collection.lastError()
-	}
-
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
-	collection, exists = c.collections[key]
+	collection, exists := c.collections[key]
 	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
@@ -194,7 +184,7 @@ func (c *MetricCollector) Watch(fn func(types.NamespacedName)) {
 	defer c.watcherMutex.Unlock()
 
 	if c.watcher != nil {
-		c.logger.Fatal("Multiple calls to Watch() not supported")
+		c.logger.Panic("Multiple calls to Watch() not supported")
 	}
 	c.watcher = fn
 }
@@ -217,14 +207,15 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, ErrNotScraping
+		return 0, 0, ErrNotCollecting
 	}
 
-	s, p, noData := collection.stableAndPanicConcurrency(now)
-	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
+	if collection.concurrencyBuckets.IsEmpty(now) && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
-	return s, p, nil
+	return collection.concurrencyBuckets.WindowAverage(now),
+		collection.concurrencyPanicBuckets.WindowAverage(now),
+		nil
 }
 
 // StableAndPanicRPS returns both the stable and the panic RPS.
@@ -235,44 +226,46 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, ErrNotScraping
+		return 0, 0, ErrNotCollecting
 	}
 
-	s, p, noData := collection.stableAndPanicRPS(now)
-	if noData && collection.currentMetric().Spec.ScrapeTarget != "" {
+	if collection.rpsBuckets.IsEmpty(now) && collection.currentMetric().Spec.ScrapeTarget != "" {
 		return 0, 0, ErrNoData
 	}
-	return s, p, nil
+	return collection.rpsBuckets.WindowAverage(now),
+		collection.rpsPanicBuckets.WindowAverage(now),
+		nil
 }
 
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
-	metricMutex sync.RWMutex
-	metric      *av1alpha1.Metric
+	// mux guards access to all of the collection's state.
+	mux sync.RWMutex
 
-	errMutex sync.RWMutex
-	lastErr  error
+	metric *av1alpha1.Metric
 
-	scraperMutex            sync.RWMutex
-	scraper                 StatsScraper
+	// Fields relevant to metric collection in general.
 	concurrencyBuckets      *aggregation.TimedFloat64Buckets
 	concurrencyPanicBuckets *aggregation.TimedFloat64Buckets
 	rpsBuckets              *aggregation.TimedFloat64Buckets
 	rpsPanicBuckets         *aggregation.TimedFloat64Buckets
 
-	grp    sync.WaitGroup
-	stopCh chan struct{}
+	// Fields relevant for metric scraping specifically.
+	scraper StatsScraper
+	lastErr error
+	grp     sync.WaitGroup
+	stopCh  chan struct{}
 }
 
 func (c *collection) updateScraper(ss StatsScraper) {
-	c.scraperMutex.Lock()
-	defer c.scraperMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	c.scraper = ss
 }
 
 func (c *collection) getScraper() StatsScraper {
-	c.scraperMutex.RLock()
-	defer c.scraperMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 	return c.scraper
 }
 
@@ -303,21 +296,22 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 		defer c.grp.Done()
 
 		scrapeTicker := tickFactory(scrapeTickInterval)
+		defer scrapeTicker.Stop()
 		for {
 			select {
 			case <-c.stopCh:
-				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				currentMetric := c.currentMetric()
-				if currentMetric.Spec.ScrapeTarget == "" {
+				scraper := c.getScraper()
+				if scraper == nil {
 					// Don't scrape empty target service.
 					if c.updateLastError(nil) {
 						callback(key)
 					}
 					continue
 				}
-				stat, err := c.getScraper().Scrape(currentMetric.Spec.StableWindow)
+
+				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}
@@ -334,10 +328,16 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 	return c
 }
 
+// close stops collecting metrics, stops the scraper.
+func (c *collection) close() {
+	close(c.stopCh)
+	c.grp.Wait()
+}
+
 // updateMetric safely updates the metric stored in the collection.
 func (c *collection) updateMetric(metric *av1alpha1.Metric) {
-	c.metricMutex.Lock()
-	defer c.metricMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	c.metric = metric
 	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
@@ -348,8 +348,8 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 
 // currentMetric safely returns the current metric stored in the collection.
 func (c *collection) currentMetric() *av1alpha1.Metric {
-	c.metricMutex.RLock()
-	defer c.metricMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 
 	return c.metric
 }
@@ -357,8 +357,8 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 // updateLastError updates the last error returned from the scraper
 // and returns true if the error or error state changed.
 func (c *collection) updateLastError(err error) bool {
-	c.errMutex.Lock()
-	defer c.errMutex.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 
 	if c.lastErr == err {
 		return false
@@ -368,8 +368,8 @@ func (c *collection) updateLastError(err error) bool {
 }
 
 func (c *collection) lastError() error {
-	c.errMutex.RLock()
-	defer c.errMutex.RUnlock()
+	c.mux.RLock()
+	defer c.mux.RUnlock()
 
 	return c.lastErr
 }
@@ -386,23 +386,28 @@ func (c *collection) record(stat Stat) {
 	c.rpsPanicBuckets.Record(stat.Time, rps)
 }
 
-// stableAndPanicConcurrency calculates both stable and panic concurrency based on the
-// current stats.
-func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, bool) {
-	return c.concurrencyBuckets.WindowAverage(now),
-		c.concurrencyPanicBuckets.WindowAverage(now),
-		c.concurrencyBuckets.IsEmpty(now)
+// add adds the stats from `src` to `dst`.
+func (dst *Stat) add(src Stat) {
+	dst.AverageConcurrentRequests += src.AverageConcurrentRequests
+	dst.AverageProxiedConcurrentRequests += src.AverageProxiedConcurrentRequests
+	dst.RequestCount += src.RequestCount
+	dst.ProxiedRequestCount += src.ProxiedRequestCount
 }
 
-// stableAndPanicRPS calculates both stable and panic RPS based on the
-// current stats.
-func (c *collection) stableAndPanicRPS(now time.Time) (float64, float64, bool) {
-	return c.rpsBuckets.WindowAverage(now), c.rpsPanicBuckets.WindowAverage(now),
-		c.rpsBuckets.IsEmpty(now)
-}
-
-// close stops collecting metrics, stops the scraper.
-func (c *collection) close() {
-	close(c.stopCh)
-	c.grp.Wait()
+// average reduces the aggregate stat from `sample` pods to an averaged one over
+// `total` pods.
+// The method performs no checks on the data, i.e. that sample is > 0.
+//
+// Assumption: A particular pod can stand for other pods, i.e. other pods
+// have similar concurrency and QPS.
+//
+// Hide the actual pods behind scraper and send only one stat for all the
+// customer pods per scraping. The pod name is set to a unique value, i.e.
+// scraperPodName so in autoscaler all stats are either from activator or
+// scraper.
+func (dst *Stat) average(sample, total float64) {
+	dst.AverageConcurrentRequests = dst.AverageConcurrentRequests / sample * total
+	dst.AverageProxiedConcurrentRequests = dst.AverageProxiedConcurrentRequests / sample * total
+	dst.RequestCount = dst.RequestCount / sample * total
+	dst.ProxiedRequestCount = dst.ProxiedRequestCount / sample * total
 }

@@ -127,7 +127,6 @@ metadata:
     app: grafana
     serving.knative.dev/release: devel
 spec:
-  type: NodePort
   ports:
   - port: 30802
     protocol: TCP

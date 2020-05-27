@@ -37,23 +37,23 @@ var env config
 
 func main() {
 	if err := envconfig.Process("", &env); err != nil {
-		log.Fatalf("Failed to process environment variable: %v.", err)
+		log.Fatal("Failed to process environment variable: ", err)
 	}
 
 	cfg, err := sharedmain.GetConfig("", "")
 	if err != nil {
-		log.Fatalf("Failed to build config: %v", err)
+		log.Fatal("Failed to build config: ", err)
 	}
 	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
 	if err != nil {
-		log.Fatalf("Failed to create clients: %v", err)
+		log.Fatal("Failed to create clients: ", err)
 	}
 	whiteLists := sets.String{}
-	if len(env.NamespaceWithCert) != 0 {
+	if env.NamespaceWithCert != "" {
 		whiteLists.Insert(env.NamespaceWithCert)
 	}
 	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
-		log.Fatalf("Failed to disable namespace cert: %v", err)
+		log.Fatal("Failed to disable namespace cert: ", err)
 	}
 }
 
@@ -63,13 +63,13 @@ func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.St
 		return err
 	}
 	for _, ns := range namespaces.Items {
-		if ns.Labels == nil {
-			ns.Labels = map[string]string{}
-		}
 		if whiteLists.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
 			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {
+			if ns.Labels == nil {
+				ns.Labels = make(map[string]string, 1)
+			}
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}
 		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {

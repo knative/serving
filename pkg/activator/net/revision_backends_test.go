@@ -746,6 +746,154 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}
 }
 
+func emptyDests() dests {
+	return dests{
+		ready:    sets.NewString(),
+		notReady: sets.NewString(),
+	}
+}
+
+func TestCheckDestsReadyToNotReady(t *testing.T) {
+	// This test verifies the edge behaviour when a pod
+	// previously in the ready sed moved to non ready set
+	// and now must be re-probed.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	svc := privateSKSService(
+		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		"129.0.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			"10.10.1.1": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				// Finally!
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.10.1.2": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.10.1.3": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}
+
+	// Make it buffered,so that we can make the test linear.
+	uCh := make(chan revisionDestsUpdate, 1)
+	dCh := make(chan struct{})
+	rw := &revisionWatcher{
+		clusterIPHealthy: true,
+		podsAddressable:  true,
+		rev:              types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:         uCh,
+		serviceLister:    si.Lister(),
+		logger:           TestLogger(t),
+		stopCh:           dCh,
+		transport:        network.RoundTripperFunc(fakeRT.RT),
+	}
+	// Initial state. Both are ready.
+	cur := dests{
+		ready:    sets.NewString("10.10.1.3", "10.10.1.2"),
+		notReady: sets.NewString("10.10.1.1"),
+	}
+	rw.checkDests(cur, emptyDests())
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 2; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+	// Repeating should be a no-op.
+	rw.checkDests(cur, emptyDests())
+	select {
+	case u := <-uCh:
+		t.Fatal("Unexpected update", u)
+	default:
+		// Success.
+	}
+
+	// Now swing the ready to the non ready, and it should fail the probe.
+	prev := cur
+
+	cur = dests{
+		ready:    sets.NewString("10.10.1.2"),
+		notReady: sets.NewString("10.10.1.1", "10.10.1.3"),
+	}
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		// The 10.10.1.3 should be not ready now.
+		if got, want := len(u.Dests), 1; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Now just re-probe the same and it should succeed (see the RT setup above).
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 2; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Timer update.
+	prev.ready.Delete("10.10.1.3")
+	// The last one should finally succeed.
+	rw.checkDests(cur, prev)
+	select {
+	case u := <-uCh:
+		if got, want := len(u.Dests), 3; got != want {
+			t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+}
+
 func TestCheckDests(t *testing.T) {
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
@@ -782,7 +930,10 @@ func TestCheckDests(t *testing.T) {
 		logger:           TestLogger(t),
 		stopCh:           dCh,
 	}
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.1.1.5"),
+		notReady: sets.NewString("10.1.1.6"),
+	}, emptyDests())
 	select {
 	case <-uCh:
 		// Success.
@@ -791,7 +942,10 @@ func TestCheckDests(t *testing.T) {
 	}
 
 	close(dCh)
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.1.1.5"),
+		notReady: sets.NewString("10.1.1.6"),
+	}, emptyDests())
 	select {
 	case <-uCh:
 		t.Error("Expected no update but got one")
@@ -876,8 +1030,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 		podsAddressable: true,
 		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
+
 	// First not ready, second good, clusterIP: not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	want := revisionDestsUpdate{
 		Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 		ClusterIPDest: "",
@@ -894,7 +1049,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second gone, first becomes ready, clusterIP still not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.1:1234")
@@ -906,7 +1061,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second is back, but not healthy yet.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		// No update should be sent out, since there's only healthy pod, same as above.
@@ -915,7 +1070,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// All pods are happy now.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.1:1234")
@@ -927,7 +1082,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make sure we do not send out redundant updates.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -936,7 +1091,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Add a notReady pod, but it's not ready. No update should be sent.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.NewString("10.0.0.4:1234"),
+	}, emptyDests())
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -945,7 +1103,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// The notReady pod is now ready!
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	rw.checkDests(dests{
+		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.NewString("10.0.0.4:1234"),
+	}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.1:1234", "10.0.0.2:1234", "10.0.0.4:1234")
@@ -957,7 +1118,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Swing to a different pods.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.3:1234", "10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.3:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.3:1234")
@@ -969,7 +1130,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Scale down by 1.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.2:1234")})
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234")

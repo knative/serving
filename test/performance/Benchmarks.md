@@ -100,7 +100,7 @@ need to add the following:
 
 ```yaml
 - name: mako
-  image: gcr.io/knative-performance/mako-microservice:latest
+  image: gcr.io/knative-tests/test-infra/mako-microservice:latest
   env:
     - name: GOOGLE_APPLICATION_CREDENTIALS
       value: /var/secret/robot.json

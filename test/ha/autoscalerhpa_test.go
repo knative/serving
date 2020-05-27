@@ -22,8 +22,10 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -38,6 +40,8 @@ const (
 
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
+	cancel := logstream.Start(t)
+	defer cancel()
 
 	if err := waitForDeploymentScale(clients, autoscalerHPADeploymentName, haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
@@ -45,7 +49,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	leaderController, err := getLeader(t, clients, autoscalerHPALease)
 	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
+		t.Fatal("Failed to get leader:", err)
 	}
 
 	names, resources := createPizzaPlanetService(t,
@@ -65,7 +69,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	// Make sure a new leader has been elected
 	if _, err = getLeader(t, clients, autoscalerHPALease); err != nil {
-		t.Fatalf("Failed to find new leader: %v", err)
+		t.Fatal("Failed to find new leader:", err)
 	}
 
 	url := resources.Service.Status.URL.URL()
@@ -81,7 +85,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	t.Log("Service should be able to generate a new revision after changing the leader controller")
 	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
 	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText2)

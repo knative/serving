@@ -35,6 +35,6 @@ func main() {
 		Domain: env.FullHostName,
 	}
 	if err := config.DeleteDNSRecord(record, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone); err != nil {
-		log.Fatalf("Failed to setup DNS record: %v", err)
+		log.Fatal("Failed to setup DNS record: ", err)
 	}
 }

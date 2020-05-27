@@ -27,7 +27,6 @@ spec:
     metadata:
       labels:
         app: "storage-version-migration"
-        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       restartPolicy: OnFailure

@@ -2,6 +2,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -15,18 +17,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy
+  namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
     leaderelection:
@@ -92,6 +108,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -397,6 +415,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -444,6 +479,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: contour.heptio.com
   names:
@@ -520,6 +557,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -1191,6 +1230,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -1238,6 +1294,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: projectcontour.io
   names:
@@ -1314,12 +1372,16 @@ kind: ServiceAccount
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -1334,6 +1396,8 @@ kind: Role
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1353,6 +1417,8 @@ kind: Job
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ttlSecondsAfterFinished: 0
   template:
@@ -1362,14 +1428,18 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        # This version is set to latest because Job specs are immutable;
+        # if we change this on each version, you can no longer upgrade
+        # just by applying the deployment YAML.
+        # See #2423, #2395, #2150, and #2030 for earlier questions about this.
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --namespace=contour-external
         - --incluster
         - --kube
+        - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
@@ -1389,6 +1459,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: contour
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1416,7 +1488,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - extensions
+  - "networking.k8s.io"
   resources:
   - ingresses
   verbs:
@@ -1426,11 +1498,14 @@ rules:
 - apiGroups:
   - "networking.k8s.io"
   resources:
-  - ingresses
+  - "ingresses/status"
   verbs:
   - get
   - list
   - watch
+  - patch
+  - post
+  - update
 - apiGroups: ["contour.heptio.com"]
   resources: ["ingressroutes", "tlscertificatedelegations"]
   verbs:
@@ -1464,6 +1539,8 @@ kind: Role
 metadata:
   name: contour-leaderelection
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1489,6 +1566,8 @@ kind: RoleBinding
 metadata:
   name: contour-leaderelection
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -1503,6 +1582,8 @@ kind: Service
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ports:
   - port: 8001
@@ -1526,6 +1607,8 @@ metadata:
     # for information about enabling the PROXY protocol on the ELB to recover
     # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   externalTrafficPolicy: Local
   ports:
@@ -1544,6 +1627,7 @@ kind: Deployment
 metadata:
   labels:
     app: contour
+    networking.knative.dev/ingress-provider: contour
   name: contour
   namespace: contour-external
 spec:
@@ -1588,7 +1672,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         name: contour
         ports:
@@ -1618,6 +1702,11 @@ spec:
           mountPath: /config
           readOnly: true
         env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -1649,6 +1738,7 @@ kind: DaemonSet
 metadata:
   labels:
     app: envoy
+    networking.knative.dev/ingress-provider: contour
   name: envoy
   namespace: contour-external
 spec:
@@ -1674,7 +1764,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -1697,7 +1787,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.13.1
+        image: docker.io/envoyproxy/envoy:v1.14.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -1750,7 +1840,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -1767,7 +1857,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-      automountServiceAccountToken: false
+      serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
@@ -1779,14 +1869,14 @@ spec:
         secret:
           secretName: cacert
       restartPolicy: Always
----
-
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1800,18 +1890,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy
+  namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
     leaderelection:
@@ -1877,6 +1981,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -2182,6 +2288,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -2229,6 +2352,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: contour.heptio.com
   names:
@@ -2305,6 +2430,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -2976,6 +3103,23 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
+                    clientValidation:
+                      description: 'ClientValidation defines how to verify the client
+                        certificate when an external client establishes a TLS connection
+                        to Envoy. This setting: 1. Enables TLS client certificate
+                        validation. 2. Requires clients to present a TLS certificate
+                        (i.e. not optional validation). 3. Specifies how the client
+                        certificate will be validated.'
+                      properties:
+                        caSecret:
+                          description: Name of a Kubernetes secret that contains a
+                            CA certificate bundle. The client certificate must validate
+                            against the certificates in the bundle.
+                          minLength: 1
+                          type: string
+                      required:
+                      - caSecret
+                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -3023,6 +3167,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: projectcontour.io
   names:
@@ -3099,12 +3245,16 @@ kind: ServiceAccount
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -3119,6 +3269,8 @@ kind: Role
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3138,6 +3290,8 @@ kind: Job
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ttlSecondsAfterFinished: 0
   template:
@@ -3147,14 +3301,18 @@ spec:
     spec:
       containers:
       - name: contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        # This version is set to latest because Job specs are immutable;
+        # if we change this on each version, you can no longer upgrade
+        # just by applying the deployment YAML.
+        # See #2423, #2395, #2150, and #2030 for earlier questions about this.
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --namespace=contour-internal
         - --incluster
         - --kube
+        - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
@@ -3174,6 +3332,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: contour
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3201,7 +3361,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - extensions
+  - "networking.k8s.io"
   resources:
   - ingresses
   verbs:
@@ -3211,11 +3371,14 @@ rules:
 - apiGroups:
   - "networking.k8s.io"
   resources:
-  - ingresses
+  - "ingresses/status"
   verbs:
   - get
   - list
   - watch
+  - patch
+  - post
+  - update
 - apiGroups: ["contour.heptio.com"]
   resources: ["ingressroutes", "tlscertificatedelegations"]
   verbs:
@@ -3249,6 +3412,8 @@ kind: Role
 metadata:
   name: contour-leaderelection
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3274,6 +3439,8 @@ kind: RoleBinding
 metadata:
   name: contour-leaderelection
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -3288,6 +3455,8 @@ kind: Service
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ports:
   - port: 8001
@@ -3311,6 +3480,8 @@ metadata:
     # for information about enabling the PROXY protocol on the ELB to recover
     # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   # externalTrafficPolicy: Local
   ports:
@@ -3329,6 +3500,7 @@ kind: Deployment
 metadata:
   labels:
     app: contour
+    networking.knative.dev/ingress-provider: contour
   name: contour
   namespace: contour-internal
 spec:
@@ -3373,7 +3545,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         name: contour
         ports:
@@ -3403,6 +3575,11 @@ spec:
           mountPath: /config
           readOnly: true
         env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -3434,6 +3611,7 @@ kind: DaemonSet
 metadata:
   labels:
     app: envoy
+    networking.knative.dev/ingress-provider: contour
   name: envoy
   namespace: contour-internal
 spec:
@@ -3459,7 +3637,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -3482,7 +3660,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.13.1
+        image: docker.io/envoyproxy/envoy:v1.14.1
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -3535,7 +3713,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4bc052a0060959c946d566963d1501ced6bb681cdd1ea21467abdf8828366c8a
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:05026eaed72965d6215b3d33578bc8bd35ff65e2c4373464305ee3173f0d9ccd
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -3552,7 +3730,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-      automountServiceAccountToken: false
+      serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
       - name: envoy-config
@@ -3564,7 +3742,5 @@ spec:
         secret:
           secretName: cacert
       restartPolicy: Always
----
-
 
 ---

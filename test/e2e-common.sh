@@ -250,11 +250,11 @@ function install_ambassador() {
   kubectl apply -n ambassador -f ${AMBASSADOR_MANIFESTS_PATH} || return 1
   UNINSTALL_LIST+=( "${AMBASSADOR_MANIFESTS_PATH}" )
 
-  echo ">> Fixing Ambassador's permissions"
-  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
+#  echo ">> Fixing Ambassador's permissions"
+#  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
 
-  echo ">> Enabling Knative support in Ambassador"
-  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
+#  echo ">> Enabling Knative support in Ambassador"
+#  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
 
   echo ">> Patching Ambassador"
   # Scale replicas of the Ambassador gateway to handle large qps
@@ -285,8 +285,6 @@ function install_contour() {
 # Parameters: $1 - Knative Serving YAML file
 #             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving_standard() {
-  readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
-
   echo ">> Creating ${SYSTEM_NAMESPACE} namespace if it does not exist"
   kubectl get ns ${SYSTEM_NAMESPACE} || kubectl create namespace ${SYSTEM_NAMESPACE}
   if (( MESH )); then
@@ -325,9 +323,17 @@ function install_knative_serving_standard() {
   fi
 
   echo ">> Installing Cert-Manager"
+  readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
   UNINSTALL_LIST+=( "${INSTALL_CERT_MANAGER_YAML}" )
+  readonly NET_CERTMANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml"
+  echo "net-certmanager YAML: ${NET_CERTMANAGER_YAML}"
+  local CERT_YAML_NAME=${TMP_DIR}/${NET_CERTMANAGER_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${NET_CERTMANAGER_YAML} > ${CERT_YAML_NAME}
+  kubectl apply \
+      -f "${CERT_YAML_NAME}" || return 1
+  UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
@@ -340,14 +346,6 @@ function install_knative_serving_standard() {
 	    -f "${CORE_YAML_NAME}" \
 	    -f "${HPA_YAML_NAME}" || return 1
     UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
-
-    # ${SERVING_CERT_MANAGER_YAML} is set when calling
-    # build_knative_from_source
-    local CERT_YAML_NAME=${TMP_DIR}/${SERVING_CERT_MANAGER_YAML##*/}
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CERT_MANAGER_YAML} > ${CERT_YAML_NAME}
-    echo "Knative TLS YAML: ${CERT_YAML_NAME}"
-    kubectl apply \
-      -f "${CERT_YAML_NAME}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
@@ -492,7 +490,7 @@ function test_setup() {
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
     kubectl label namespace serving-tests-security istio-injection=enabled
-    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ || return 1
+    ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/security/ --selector=test.knative.dev/dependency=istio-sidecar || return 1
   fi
 
   echo ">> Uploading test images..."
@@ -507,7 +505,7 @@ function test_setup() {
   echo ">> Waiting for Ingress provider to be running..."
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_ip istio-system istio-ingressgateway
+    wait_until_service_has_external_http_address istio-system istio-ingressgateway
   fi
   if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
@@ -523,7 +521,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=kourier
     export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
     wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_ip kourier-system kourier
+    wait_until_service_has_external_http_address kourier-system kourier
   fi
   if [[ -n "${AMBASSADOR_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Ambassador
@@ -531,7 +529,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=ambassador
     export GATEWAY_NAMESPACE_OVERRIDE=ambassador
     wait_until_pods_running ambassador || return 1
-    wait_until_service_has_external_ip ambassador ambassador
+    wait_until_service_has_external_http_address ambassador ambassador
   fi
   if [[ -n "${CONTOUR_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Contour

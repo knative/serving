@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
@@ -291,7 +292,7 @@ func TestIstioProbing(t *testing.T) {
 			}
 			err = g.Wait()
 			if err != nil {
-				t.Fatalf("Failed to probe the Service: %v", err)
+				t.Fatal("Failed to probe the Service:", err)
 			}
 		})
 	}
@@ -325,16 +326,11 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
 
-	var selectors []string
-	for k, v := range gw.Spec.Selector {
-		selectors = append(selectors, k+"="+v)
-	}
-	selector := strings.Join(selectors, ",")
-
+	selector := labels.SelectorFromSet(gw.Spec.Selector).String()
 	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to list Gateway pods: %v", err)
+		t.Fatal("Failed to list Gateway pods:", err)
 	}
 
 	// TODO(bancel): there is a race condition here if a pod listed in the call above is deleted before calling watch below
@@ -343,7 +339,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 	wg.Add(len(pods.Items))
 	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to watch Gateway pods: %v", err)
+		t.Fatal("Failed to watch Gateway pods:", err)
 	}
 	defer wtch.Stop()
 
@@ -363,7 +359,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 
 	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to delete Gateway pods: %v", err)
+		t.Fatal("Failed to delete Gateway pods:", err)
 	}
 
 	wg.Wait()
@@ -377,7 +373,7 @@ func setupHTTPS(t *testing.T, kubeClient *pkgTest.KubeClient, hosts []string) sp
 
 	cert, key, err := generateCertificate(hosts)
 	if err != nil {
-		t.Fatalf("Failed to generate the certificate: %v", err)
+		t.Fatal("Failed to generate the certificate:", err)
 	}
 
 	rootCAs, _ := x509.SystemCertPool()

@@ -25,7 +25,7 @@ import (
 )
 
 // +genclient
-// +genreconciler
+// +genreconciler:krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Ingress is a collection of rules that allow inbound connections to reach the endpoints defined
@@ -60,6 +60,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Ingress.
 	_ kmeta.OwnerRefable = (*Ingress)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Ingress)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -209,8 +212,19 @@ type HTTPIngressPath struct {
 	// +optional
 	Path string `json:"path,omitempty"`
 
+	// RewriteHost rewrites the incoming request's host header. The request will
+	// then be re-evaluated based on the new host header.
+	//
+	// This field is currently experimental and not supported by all Ingress
+	// implementations.
+	//
+	// If RewriteHost is specified, Splits must not be.
+	RewriteHost string `json:"rewriteHost,omitempty"`
+
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
+	//
+	// If Splits are specified, RewriteHost must not be.
 	Splits []IngressBackendSplit `json:"splits"`
 
 	// AppendHeaders allow specifying additional HTTP headers to add
@@ -342,3 +356,8 @@ const (
 	// IngressConditionLoadBalancerReady is set when the Ingress has a ready LoadBalancer.
 	IngressConditionLoadBalancerReady apis.ConditionType = "LoadBalancerReady"
 )
+
+// GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
+func (t *Ingress) GetStatus() *duckv1.Status {
+	return &t.Status.Status
+}

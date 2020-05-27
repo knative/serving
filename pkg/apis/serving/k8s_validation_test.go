@@ -34,8 +34,8 @@ import (
 
 func enableMultiContainer(ctx context.Context, t *testing.T) context.Context {
 	return config.ToContext(ctx, &config.Config{
-		Defaults: &config.Defaults{
-			EnableMultiContainer: true,
+		Features: &config.Features{
+			MultiContainer: config.Enabled,
 		},
 	})
 }
@@ -168,7 +168,7 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{
@@ -219,7 +219,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
@@ -370,7 +370,7 @@ func TestContainerValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Failed to parse image reference",
 			Paths:   []string{"image"},
-			Details: "image: \"foo:bar:baz\", error: could not parse reference: foo:bar:baz",
+			Details: `image: "foo:bar:baz", error: could not parse reference: foo:bar:baz`,
 		},
 	}, {
 		name: "has a lifecycle",

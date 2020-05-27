@@ -75,7 +75,7 @@ func fetchStatusInternal(ctx context.Context, duration time.Duration,
 		// Overlay the desired and ready pod counts.
 		deployments, err := f()
 		if err != nil {
-			log.Printf("Error getting deployment(s): %v", err)
+			log.Print("Error getting deployment(s): ", err)
 			return err
 		}
 
@@ -111,7 +111,7 @@ func FetchSKSStatus(
 		// Overlay the SKS "mode".
 		skses, err := sksl.ServerlessServices(namespace).List(selector)
 		if err != nil {
-			log.Printf("Error listing serverless services: %v", err)
+			log.Print("Error listing serverless services: ", err)
 			return err
 		}
 		for _, sks := range skses {

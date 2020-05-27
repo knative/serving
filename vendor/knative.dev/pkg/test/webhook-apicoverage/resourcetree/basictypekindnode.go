@@ -73,7 +73,7 @@ func (b *BasicTypeKindNode) string(v reflect.Value) string {
 		}
 	case reflect.Float32, reflect.Float64:
 		if v.Float() != 0 {
-			return fmt.Sprintf("%f", v.Float())
+			return fmt.Sprint(v.Float())
 		}
 	case reflect.String:
 		if v.Len() != 0 {

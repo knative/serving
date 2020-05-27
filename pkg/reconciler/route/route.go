@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
@@ -115,10 +116,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
-		// Need to update ObservedGeneration, otherwise Route's Ready state won't
-		// be propagated to Service and the Service's RoutesReady will stay in
-		// 'Unknown'.
-		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -165,7 +162,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }
@@ -189,6 +185,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
+		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
@@ -198,6 +195,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 
 	for domain := range domainToTagMap {
 		if domains.IsClusterLocal(domain) {
+			r.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
 			delete(domainToTagMap, domain)
 		}
 	}
@@ -248,7 +246,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
-			// When httpProtocol is enabled, downward http scheme.
+			// When httpProtocol is enabled, downgrade http scheme.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -257,6 +255,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 					}
 				}
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
+				r.Status.MarkHTTPDowngrade(cert.Name)
 			}
 		}
 	}
@@ -325,7 +324,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		return nil, trafficErr
 	}
 	if badTarget != nil && isTargetError {
-		logger.Infof("Marking bad traffic target: %v", badTarget)
+		logger.Info("Marking bad traffic target: ", badTarget)
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.

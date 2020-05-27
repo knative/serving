@@ -53,6 +53,16 @@ function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
+
+  echo "Running storage migration job"
+  local MIGRATION_YAML=${TMP_DIR}/${SERVING_STORAGE_VERSION_MIGRATE_YAML##*/}
+  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_STORAGE_VERSION_MIGRATE_YAML} > ${MIGRATION_YAML}
+
+  kubectl delete -f ${MIGRATION_YAML} --ignore-not-found
+  kubectl apply -f ${MIGRATION_YAML}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+  echo "Finished running storage migration job"
+  kubectl get jobs -A
 }
 
 function knative_setup() {

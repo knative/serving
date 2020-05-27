@@ -47,9 +47,7 @@ type Autoscaler struct {
 	lister       corev1listers.EndpointsLister
 	reporterCtx  context.Context
 
-	// State in panic mode. Carries over multiple Scale calls. Guarded
-	// by the stateMux.
-	stateMux     sync.Mutex
+	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
 
@@ -129,6 +127,8 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // Scale calculates the desired scale based on current statistics given the current time.
 // desiredPodCount is the calculated pod count the autoscaler would like to set.
 // validScale signifies whether the desiredPodCount should be applied or not.
+// Scale is not thread safe in regards to panic state, but it's thread safe in
+// regards to acquiring the decider spec.
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
@@ -193,10 +193,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger.With(zap.String("mode", "panic")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue)
 
-	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
 
-	a.stateMux.Lock()
-	defer a.stateMux.Unlock()
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING.")
@@ -228,7 +226,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
-	// - the excess burst capacity based on stable value for now, since we don't want to
+	// - the excess burst capacity based on panic value, since we don't want to
 	//   be making knee-jerk decisions about Activator in the request path.
 	//   Negative EBC means that the deployment does not have enough capacity to serve
 	//   the desired burst off hand.
@@ -249,7 +247,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		// numAct stays 1, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - observedStableValue -
+		excessBCF = math.Floor(totCap - observedPanicValue -
 			a.deciderSpec.TargetBurstCapacity)
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))

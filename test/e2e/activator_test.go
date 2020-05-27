@@ -66,7 +66,7 @@ func TestActivatorOverload(t *testing.T) {
 			service.Spec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
 		})
 	if err != nil {
-		t.Fatalf("Unable to create resources: %v", err)
+		t.Fatal("Unable to create resources:", err)
 	}
 
 	// Make sure the service responds correctly before scaling to 0.
@@ -90,7 +90,7 @@ func TestActivatorOverload(t *testing.T) {
 	domain := resources.Route.Status.URL.Host
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatalf("Error creating the Spoofing client: %v", err)
+		t.Fatal("Error creating the Spoofing client:", err)
 	}
 
 	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)

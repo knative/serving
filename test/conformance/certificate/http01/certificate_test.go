@@ -46,12 +46,12 @@ func TestHTTP01Challenge(t *testing.T) {
 				return len(c.Status.HTTP01Challenges) == len(c.Spec.DNSNames), nil
 			},
 			t.Name()); err != nil {
-			t.Fatalf("failed to wait for HTTP01 challenges: %v", err)
+			t.Fatal("failed to wait for HTTP01 challenges:", err)
 		}
 
 		cert, err := clients.NetworkingClient.Certificates.Get(cert.Name, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("failed to fetch certificate: %v", err)
+			t.Fatal("failed to fetch certificate:", err)
 		}
 
 		utils.VerifyChallenges(t, clients, cert)
