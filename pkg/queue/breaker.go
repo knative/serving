@@ -114,9 +114,7 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
 		return ErrRequestQueueFull
 	}
 
-	defer func() {
-		b.releasePending()
-	}()
+	defer b.releasePending()
 
 	// Wait for capacity in the active queue.
 	if err := b.sem.acquire(ctx); err != nil {
