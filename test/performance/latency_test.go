@@ -28,12 +28,12 @@ import (
 	"time"
 
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/junit"
+	perf "knative.dev/pkg/test/performance"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/pkg/test/testgrid"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	"knative.dev/test-infra/pkg/junit"
-	perf "knative.dev/test-infra/pkg/performance"
-	"knative.dev/test-infra/pkg/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 )
@@ -49,24 +49,23 @@ const (
 func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	t.Helper()
 	tName := t.Name()
-	perfClients, err := Setup(t)
+	clients, err := Setup()
 	if err != nil {
-		t.Fatalf("Cannot initialize performance client: %v", err)
+		t.Fatal("Cannot initialize performance clients:", err)
 	}
 
-	clients := perfClients.E2EClients
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   img,
 	}
 
-	defer TearDown(perfClients, names, t.Logf)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
+	defer TearDown(clients, names, t.Logf)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
 	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 
 	routeURL := objs.Route.Status.URL.URL()
@@ -85,7 +84,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
-		t.Fatalf("Cannot resolve service endpoint: %v", err)
+		t.Fatal("Cannot resolve service endpoint:", err)
 	}
 
 	u, _ := url.Parse(routeURL.String())
@@ -111,7 +110,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
 
 	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {
-		t.Fatalf("Cannot create output xml: %v", err)
+		t.Fatal("Cannot create output xml:", err)
 	}
 }
 

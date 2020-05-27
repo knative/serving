@@ -97,7 +97,7 @@ mkdir -p ${GOPATH}/src/knative.dev
 cd ${GOPATH}/src/knative.dev
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
 cd serving
-git remote add upstream git@github.com:knative/serving.git
+git remote add upstream https://github.com/knative/serving.git
 git remote set-url --push upstream no_push
 ```
 
@@ -193,14 +193,19 @@ off-machine registry.
 Run:
 
 ```shell
+ko apply --selector knative.dev/crd-install=true -f config/
+while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+  echo "Waiting on Knative CRDs"; sleep 1
+done
+
 ko apply -f config/
 
 # Optional steps
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
-ko delete -f config/post-install --ignore-not-found
-ko apply -f config/post-install
+ko delete -f config/post-install/default-domain.yaml --ignore-not-found
+ko apply -f config/post-install/default-domain.yaml
 ```
 
 The above step is equivalent to applying the `serving.yaml` for released

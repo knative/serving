@@ -131,6 +131,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1beta1.Service, error) {
 	service := Service(names, fopt...)
+	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingBetaClient.Services.Create(service)
 	return svc, err

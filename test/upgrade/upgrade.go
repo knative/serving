@@ -68,7 +68,7 @@ func createNewService(serviceName string, t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
-		t.Fatalf("Failed to create Service: %v", err)
+		t.Fatal("Failed to create Service:", err)
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)

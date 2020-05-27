@@ -76,36 +76,22 @@ type RevisionTemplateSpec struct {
 type DeprecatedRevisionServingStateType string
 
 const (
-	// The revision is ready to serve traffic. It should have Kubernetes
-	// resources, and the Istio route should be pointed to the given resources.
+	// DeprecatedRevisionServingStateActive is set when the revision is ready to
+	// serve traffic. It should have Kubernetes resources, and the Istio route
+	// should be pointed to the given resources.
 	DeprecatedRevisionServingStateActive DeprecatedRevisionServingStateType = "Active"
-	// The revision is not currently serving traffic, but could be made to serve
-	// traffic quickly. It should have Kubernetes resources, but the Istio route
-	// should be pointed to the activator.
+	// DeprecatedRevisionServingStateReserve is set when the revision is not
+	// currently serving traffic, but could be made to serve traffic quickly. It
+	// should have Kubernetes resources, but the Istio route should be pointed to
+	// the activator.
 	DeprecatedRevisionServingStateReserve DeprecatedRevisionServingStateType = "Reserve"
-	// The revision has been decommissioned and is not needed to serve traffic
-	// anymore. It should not have any Istio routes or Kubernetes resources.
-	// A Revision may be brought out of retirement, but it may take longer than
-	// it would from a "Reserve" state.
+	// DeprecatedRevisionServingStateRetired is set when the revision has been
+	// decommissioned and is not needed to serve traffic anymore. It should not
+	// have any Istio routes or Kubernetes resources.  A Revision may be brought
+	// out of retirement, but it may take longer than it would from a "Reserve"
+	// state.
 	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
-)
-
-// DeprecatedRevisionRequestConcurrencyModelType is an enumeration of the
-// concurrency models supported by a Revision.
-// DEPRECATED in favor of an integer based ContainerConcurrency setting.
-// TODO(vagababov): retire completely in 0.9.
-type DeprecatedRevisionRequestConcurrencyModelType string
-
-const (
-	// DeprecatedRevisionRequestConcurrencyModelSingle guarantees that only one
-	// request will be handled at a time (concurrently) per instance
-	// of Revision Container.
-	DeprecatedRevisionRequestConcurrencyModelSingle DeprecatedRevisionRequestConcurrencyModelType = "Single"
-	// DeprecatedRevisionRequestConcurencyModelMulti allows more than one request to
-	// be handled at a time (concurrently) per instance of Revision
-	// Container.
-	DeprecatedRevisionRequestConcurrencyModelMulti DeprecatedRevisionRequestConcurrencyModelType = "Multi"
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
@@ -130,25 +116,7 @@ type RevisionSpec struct {
 	// +optional
 	DeprecatedServingState DeprecatedRevisionServingStateType `json:"servingState,omitempty"`
 
-	// DeprecatedConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the
-	// Revision. Defaults to Multi.
-	// Deprecated in favor of ContainerConcurrency.
-	// +optional
-	DeprecatedConcurrencyModel DeprecatedRevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
-
-	// DeprecatedBuildName optionally holds the name of the Build responsible for
-	// producing the container image for its Revision.
-	// DEPRECATED: Use DeprecatedBuildRef instead.
-	// +optional
-	DeprecatedBuildName string `json:"buildName,omitempty"`
-
-	// DeprecatedBuildRef holds the reference to the build (if there is one) responsible
-	// for producing the container image for this Revision. Otherwise, nil
-	// +optional
-	DeprecatedBuildRef *corev1.ObjectReference `json:"buildRef,omitempty"`
-
-	// Container defines the unit of execution for this Revision.
+	// DeprecatedContainer defines the unit of execution for this Revision.
 	// In the context of a Revision, we disallow a number of the fields of
 	// this Container, including: name and lifecycle.
 	// See also the runtime contract for more information about the execution
@@ -185,12 +153,32 @@ type RevisionStatus struct {
 	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 
-	// ImageDigest holds the resolved digest for the image specified
+	// DeprecatedImageDigest holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
 	// of Revision. This field holds the digest value regardless of whether
 	// a tag or digest was originally specified in the Container object. It
 	// may be empty if the image comes from a registry listed to skip resolution.
+	// If multiple containers specified then DeprecatedImageDigest holds the digest
+	// for serving container.
+	// DEPRECATED: Use ContainerStatuses instead.
+	// TODO(savitaashture) Remove deprecatedImageDigest.
+	// ref https://kubernetes.io/docs/reference/using-api/deprecation-policy for deprecation.
 	// +optional
+	DeprecatedImageDigest string `json:"imageDigest,omitempty"`
+
+	// ContainerStatuses is a slice of images present in .Spec.Container[*].Image
+	// to their respective digests and their container name.
+	// The digests are resolved during the creation of Revision.
+	// ContainerStatuses holds the container name and image digests
+	// for both serving and non serving containers.
+	// ref: http://bit.ly/image-digests
+	// +optional
+	ContainerStatuses []ContainerStatuses `json:"containerStatuses,omitempty"`
+}
+
+// ContainerStatuses holds the information of container name and image digest value
+type ContainerStatuses struct {
+	Name        string `json:"name,omitempty"`
 	ImageDigest string `json:"imageDigest,omitempty"`
 }
 

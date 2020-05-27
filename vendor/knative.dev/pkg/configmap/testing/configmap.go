@@ -1,5 +1,6 @@
 /*
 Copyright 2019 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,6 +21,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
@@ -76,7 +78,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	exampleBody := orig.Data[configmap.ExampleKey]
 	// Check that exampleBody does not have lines that end in a trailing space,
 	for i, line := range strings.Split(exampleBody, "\n") {
-		if strings.HasSuffix(line, " ") {
+		if strings.TrimRightFunc(line, unicode.IsSpace) != line {
 			t.Errorf("line %d of %q example contains trailing spaces", i, name)
 		}
 	}

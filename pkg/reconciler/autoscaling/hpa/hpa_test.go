@@ -26,8 +26,6 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
@@ -35,6 +33,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -43,10 +42,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
-	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -55,11 +55,13 @@ import (
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
@@ -71,20 +73,39 @@ const (
 )
 
 func TestControllerCanReconcile(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
-	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
-			Name:      autoscalerconfig.ConfigName,
+	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	ctl := NewController(ctx, configmap.NewStaticWatcher(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      autoscalerconfig.ConfigName,
+			},
+			Data: map[string]string{},
 		},
-		Data: map[string]string{},
-	}))
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      deployment.ConfigName,
+			},
+			Data: map[string]string{
+				deployment.QueueSidecarImageKey: "motorbike-sidecar",
+			},
+		}))
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
-	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
+	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
@@ -447,14 +468,12 @@ func TestReconcile(t *testing.T) {
 
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				KubeClient:        kubeclient.Get(ctx),
-				Client:            servingclient.Get(ctx),
-				SKSLister:         listers.GetServerlessServiceLister(),
-				MetricLister:      listers.GetMetricLister(),
-				ServiceLister:     listers.GetK8sServiceLister(),
-				PSInformerFactory: podscalable.Get(ctx),
+				Client:       servingclient.Get(ctx),
+				SKSLister:    listers.GetServerlessServiceLister(),
+				MetricLister: listers.GetMetricLister(),
 			},
-			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
+			kubeClient: kubeclient.Get(ctx),
+			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, autoscaling.HPA,

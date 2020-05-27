@@ -21,10 +21,10 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +55,7 @@ type reconciler struct {
 var _ namespacereconciler.Interface = (*reconciler)(nil)
 var domainTemplateRegex *regexp.Regexp = regexp.MustCompile(`^\*\..+$`)
 
-func certClass(ctx context.Context, r *v1.Namespace) string {
+func certClass(ctx context.Context, r *corev1.Namespace) string {
 	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
 		return class
 	}
@@ -77,7 +77,15 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
-	if ns.Labels[networking.DisableWildcardCertLabelKey] == "true" {
+	disabledWildcardCertValue, hasDisabledWildcardCertValue := ns.Labels[networking.DisableWildcardCertLabelKey]
+	deprecatedDisabledWildcardCertValue, hasDeprecatedDisabledWildcardCertValue := ns.Labels[networking.DeprecatedDisableWildcardCertLabelKey]
+
+	if hasDisabledWildcardCertValue && hasDeprecatedDisabledWildcardCertValue && !strings.EqualFold(disabledWildcardCertValue, deprecatedDisabledWildcardCertValue) {
+		return fmt.Errorf("both %s and %s are specified but values do not match", networking.DisableWildcardCertLabelKey, networking.DeprecatedDisableWildcardCertLabelKey)
+	}
+
+	if strings.EqualFold(disabledWildcardCertValue, "true") ||
+		strings.EqualFold(deprecatedDisabledWildcardCertValue, "true") {
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 
@@ -134,7 +142,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	return nil
 }
 
-func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *v1.Namespace, certs []*v1alpha1.Certificate) error {
+func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namespace, certs []*v1alpha1.Certificate) error {
 	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range certs {
 		if metav1.IsControlledBy(cert, ns) {

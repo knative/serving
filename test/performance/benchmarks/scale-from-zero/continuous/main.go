@@ -244,7 +244,7 @@ func testScaleFromZero(clients *test.Clients, count int) {
 	parallelTag := fmt.Sprintf("parallel=%d", count)
 	mc, err := mako.Setup(context.Background(), parallelTag)
 	if err != nil {
-		log.Fatalf("failed to setup mako: %v", err)
+		log.Fatal("failed to setup mako: ", err)
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	defer qclose(ctx)
@@ -277,7 +277,7 @@ func main() {
 	flag.Parse()
 	clients, err := clientsFromConfig()
 	if err != nil {
-		log.Fatalf("Failed to setup clients: %v", err)
+		log.Fatal("Failed to setup clients: ", err)
 	}
 
 	testScaleFromZero(clients, *parallelCount)

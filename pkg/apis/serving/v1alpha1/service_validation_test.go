@@ -604,38 +604,6 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid v1beta1 subset (deprecated field within inline spec)",
-		s: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: &RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							DeprecatedConcurrencyModel: "Multi",
-							RevisionSpec: v1.RevisionSpec{
-								PodSpec: corev1.PodSpec{
-									Containers: []corev1.Container{{
-										Image: "helloworld",
-									}},
-								},
-							},
-						},
-					},
-				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
-						TrafficTarget: v1.TrafficTarget{
-							RevisionName: "valid-00001",
-							Percent:      ptr.Int64(100),
-						},
-					}},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("spec.template.spec.concurrencyModel"),
-	}, {
 		name: "valid v1beta1 subset (run latest)",
 		s: &Service{
 			ObjectMeta: metav1.ObjectMeta{

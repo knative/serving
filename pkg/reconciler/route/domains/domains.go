@@ -75,6 +75,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 		Namespace:   r.Namespace,
 		Domain:      domain,
 		Annotations: annotations,
+		Labels:      rLabels,
 	}
 
 	networkConfig := config.FromContext(ctx).Network

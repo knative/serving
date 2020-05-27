@@ -272,9 +272,9 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 func validateContainers(ctx context.Context, containers []corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
-	cfg := config.FromContextOrDefaults(ctx).Defaults
-	if !cfg.EnableMultiContainer {
-		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("enable-multi-container is off, "+
+	features := config.FromContextOrDefaults(ctx).Features
+	if features.MultiContainer != config.Enabled {
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
 			"but found %d containers", len(containers))})
 	} else {
 		errs = errs.Also(validateContainersPorts(containers).ViaField("containers"))

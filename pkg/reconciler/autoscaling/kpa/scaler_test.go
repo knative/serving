@@ -66,6 +66,7 @@ const (
 )
 
 func TestScaler(t *testing.T) {
+	const activationTimeout = progressDeadline + activationTimeoutBuffer
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -77,6 +78,7 @@ func TestScaler(t *testing.T) {
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
+		configMutator       func(*config.Config)
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -131,15 +133,77 @@ func TestScaler(t *testing.T) {
 			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
-		label:         "waits to scale to zero after idle period (custom PA window)",
+		label:         "waits to scale to zero after idle period; sks in proxy mode",
 		startReplicas: 1,
 		scaleTo:       0,
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow))
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			s.Spec.Mode = nv1a1.SKSOperationModeProxy
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero after idle period (custom PA window)",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
+	}, {
+		label:         "can scale to zero after grace period, but 0 PA retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = "0"
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantScaling: true,
+	}, {
+		label:         "can't scale to zero after grace period, but before last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  false,
+		wantCBCount:  1,
+	}, {
+		label:         "can't scale to zero after grace period, but before last pod retention, pa defined",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = (2 * gracePeriod).String()
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 0 // Disabled in CM.
+		},
+		wantReplicas: 0,
+		wantScaling:  false,
+		wantCBCount:  1,
+	}, {
+		label:         "scale to zero after grace period, and after last pod retention",
+		startReplicas: 1,
+		scaleTo:       0,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = gracePeriod
+		},
+		wantReplicas: 0,
+		wantScaling:  true,
 	}, {
 		label:         "scale to zero after grace period",
 		startReplicas: 1,
@@ -172,6 +236,22 @@ func TestScaler(t *testing.T) {
 			markSKSInProxyFor(s, gracePeriod-time.Second)
 		},
 		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before grace period, sks in proxy long) and last pod timeout positive",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+		},
+		configMutator: func(c *config.Config) {
+			// This is shorter than gracePeriod=60s.
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 42 * time.Second
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			markSKSInProxyFor(s, gracePeriod)
+		},
 	}, {
 		label:         "waits to scale to zero (just before grace period, sks in proxy long)",
 		startReplicas: 1,
@@ -352,7 +432,7 @@ func TestScaler(t *testing.T) {
 				func(action clientgotesting.Action) (bool, runtime.Object, error) {
 					patch := action.(clientgotesting.PatchAction)
 					if !test.wantScaling {
-						t.Errorf("don't want scaling, but got patch: %s", string(patch.GetPatch()))
+						t.Error("Don't want scaling, but got patch:", string(patch.GetPatch()))
 					}
 					gotScaling = true
 					return true, nil, nil
@@ -368,10 +448,14 @@ func TestScaler(t *testing.T) {
 				test.sks(sks)
 			}
 
-			ctx = config.ToContext(ctx, defaultConfig())
-			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
+			cfg := defaultConfig()
+			if test.configMutator != nil {
+				test.configMutator(cfg)
+			}
+			ctx = config.ToContext(ctx, cfg)
+			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -454,10 +538,10 @@ func TestDisableScaleToZero(t *testing.T) {
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
-				t.Error("Scale got an unexpected error: ", err)
+				t.Error("Scale got an unexpected error:", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -539,12 +623,12 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Resource: "deployments",
 	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Create() = %v", err)
+		t.Fatal("Create() =", err)
 	}
 
 	deployment := &appsv1.Deployment{}
 	if err := duck.FromUnstructured(u, deployment); err != nil {
-		t.Fatalf("FromUnstructured() = %v", err)
+		t.Fatal("FromUnstructured() =", err)
 	}
 	return deployment
 }

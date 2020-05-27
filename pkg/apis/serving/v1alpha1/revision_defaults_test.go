@@ -89,6 +89,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -262,31 +263,6 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(123),
-					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-				},
-				DeprecatedContainer: &corev1.Container{
-					Name:           config.DefaultUserContainerName,
-					Resources:      defaultResources,
-					ReadinessProbe: defaultProbe,
-				},
-			},
-		},
-	}, {
-		name: "fall back to concurrency model",
-		in: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				DeprecatedContainer:        &corev1.Container{},
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: nil, // unspecified
-				},
-			},
-		},
-		want: &Revision{
-			Spec: RevisionSpec{
-				DeprecatedConcurrencyModel: "Single",
-				RevisionSpec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
 				DeprecatedContainer: &corev1.Container{

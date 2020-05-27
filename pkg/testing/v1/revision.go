@@ -177,8 +177,15 @@ func MarkRevisionReady(r *v1.Revision) {
 func WithRevisionLabel(key, value string) RevisionOption {
 	return func(config *v1.Revision) {
 		if config.Labels == nil {
-			config.Labels = make(map[string]string)
+			config.Labels = make(map[string]string, 1)
 		}
 		config.Labels[key] = value
+	}
+}
+
+// WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
+func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.ContainerStatuses = containerStatus
 	}
 }

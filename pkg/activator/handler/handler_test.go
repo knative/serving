@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -39,12 +40,12 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,10 +102,10 @@ func TestActivationHandler(t *testing.T) {
 		throttler: fakeThrottler{err: context.DeadlineExceeded},
 	}, {
 		name:      "overflow",
-		wantBody:  "activator overload\n",
+		wantBody:  "pending request queue full\n",
 		wantCode:  http.StatusServiceUnavailable,
 		wantErr:   nil,
-		throttler: fakeThrottler{err: anet.ErrActivatorOverload},
+		throttler: fakeThrottler{err: queue.ErrRequestQueueFull},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -151,7 +152,7 @@ func TestActivationHandler(t *testing.T) {
 
 			gotBody, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Fatalf("Error reading body: %v", err)
+				t.Fatal("Error reading body:", err)
 			}
 			if string(gotBody) != test.wantBody {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
@@ -237,7 +238,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 			cfg, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
 			if err != nil {
-				t.Fatalf("Failed to generate config: %v", err)
+				t.Fatal("Failed to generate config:", err)
 			}
 			if err := oct.ApplyConfig(cfg); err != nil {
 				t.Errorf("Failed to apply tracer config: %v", err)
@@ -265,7 +266,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
 
-			spanNames := []string{"throttler_try", "/", "proxy"}
+			spanNames := []string{"throttler_try", "/", "activator_proxy"}
 			for i, spanName := range spanNames[0:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
 					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)

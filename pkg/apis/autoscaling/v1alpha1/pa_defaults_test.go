@@ -62,6 +62,12 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			})
 			s.OnConfigChanged(&v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: config.FeaturesConfigName,
+				},
+				Data: map[string]string{},
+			})
+			s.OnConfigChanged(&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: autoscalerconfig.ConfigName,
 				},
 				Data: map[string]string{

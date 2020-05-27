@@ -19,10 +19,10 @@ package gc
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	cm "knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
@@ -58,36 +58,18 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 	return func(configMap *corev1.ConfigMap) (*Config, error) {
 		c := defaultConfig()
 
-		for _, dur := range []struct {
-			key   string
-			field *time.Duration
-		}{{
-			key:   "stale-revision-create-delay",
-			field: &c.StaleRevisionCreateDelay,
-		}, {
-			key:   "stale-revision-timeout",
-			field: &c.StaleRevisionTimeout,
-		}, {
-			key:   "stale-revision-lastpinned-debounce",
-			field: &c.StaleRevisionLastpinnedDebounce,
-		}} {
-			if raw, ok := configMap.Data[dur.key]; ok {
-				val, err := time.ParseDuration(raw)
-				if err != nil {
-					return nil, err
-				}
-				*dur.field = val
-			}
+		if err := cm.Parse(configMap.Data,
+			cm.AsDuration("stale-revision-create-delay", &c.StaleRevisionCreateDelay),
+			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
+			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
+
+			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
+		); err != nil {
+			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
-		if raw, ok := configMap.Data["stale-revision-minimum-generations"]; ok {
-			val, err := strconv.ParseInt(raw, 10 /*base*/, 64 /*bit count*/)
-			if err != nil {
-				return nil, err
-			} else if val < 0 {
-				return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", val)
-			}
-			c.StaleRevisionMinimumGenerations = val
+		if c.StaleRevisionMinimumGenerations < 0 {
+			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
 		}
 
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {

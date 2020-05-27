@@ -26,10 +26,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/pool"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -193,12 +193,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
 				// as we tear down the things they are probing.
 				defer pm.Stop()
-				t.Fatalf("Unexpected error: %v", err)
+				t.Fatal("Unexpected error:", err)
 			}
 
 			// This ProberManager implementation waits for minProbes before actually stopping.
 			if err := pm.Stop(); err != nil {
-				t.Fatalf("Stop() = %v", err)
+				t.Fatal("Stop() =", err)
 			}
 			// Check each of the local SLOs
 			pm.Foreach(func(u *url.URL, p test.Prober) {

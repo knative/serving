@@ -403,67 +403,6 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 	}
 }
 
-func TestRevisionBuildRefFromName(t *testing.T) {
-	r := &Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "foo-space",
-			Name:      "foo",
-		},
-		Spec: RevisionSpec{
-			DeprecatedBuildName: "bar-build",
-		},
-	}
-	got := *r.DeprecatedBuildRef()
-	want := corev1.ObjectReference{
-		APIVersion: "build.knative.dev/v1alpha1",
-		Kind:       "Build",
-		Namespace:  "foo-space",
-		Name:       "bar-build",
-	}
-	if got != want {
-		t.Errorf("got: %#v, want: %#v", got, want)
-	}
-}
-
-func TestRevisionBuildRef(t *testing.T) {
-	buildRef := corev1.ObjectReference{
-		APIVersion: "testing.build.knative.dev/v1alpha1",
-		Kind:       "Build",
-		Namespace:  "foo-space",
-		Name:       "foo-build",
-	}
-	r := &Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "foo-space",
-			Name:      "foo",
-		},
-		Spec: RevisionSpec{
-			DeprecatedBuildName: "bar",
-			DeprecatedBuildRef:  &buildRef,
-		},
-	}
-	got := *r.DeprecatedBuildRef()
-	want := buildRef
-	if got != want {
-		t.Errorf("got: %#v, want: %#v", got, want)
-	}
-}
-
-func TestRevisionBuildRefNil(t *testing.T) {
-	r := &Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "foo-space",
-			Name:      "foo",
-		},
-	}
-	got := r.DeprecatedBuildRef()
-
-	var want *corev1.ObjectReference
-	if got != want {
-		t.Errorf("got: %#v, want: %#v", got, want)
-	}
-}
-
 func TestRevisionGetProtocol(t *testing.T) {
 	containerWithPortName := func(name string) corev1.Container {
 		return corev1.Container{Ports: []corev1.ContainerPort{{Name: name}}}

@@ -17,6 +17,8 @@ limitations under the License.
 package network
 
 import (
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -34,6 +36,12 @@ const (
 	// We should consider exposing this as a configuration.
 	DefaultConnTimeout = 200 * time.Millisecond
 
+	// DefaultDrainTimeout is the time that Knative components on the data
+	// path will wait before shutting down server, but after starting to fail
+	// readiness probes to ensure network layer propagation and so that no requests
+	// are routed to this pod.
+	DefaultDrainTimeout = 30 * time.Second
+
 	// UserAgentKey is the constant for header "User-Agent".
 	UserAgentKey = "User-Agent"
 
@@ -42,4 +50,18 @@ const (
 	// with this header will not be passed to the user container or
 	// included in request metrics.
 	ProbeHeaderName = "K-Network-Probe"
+
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	KubeProbeUAPrefix = "kube-probe/"
+
+	// Istio with mTLS rewrites probes, but their probes pass a different
+	// user-agent.  So we augment the probes with this header.
+	KubeletProbeHeaderName = "K-Kubelet-Probe"
 )
+
+// IsKubeletProbe returns true if the request is a Kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeHeaderName) != ""
+}

@@ -18,10 +18,13 @@ package deployment
 
 import (
 	"errors"
-	"strings"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -29,25 +32,45 @@ const (
 	ConfigName = "config-deployment"
 
 	// QueueSidecarImageKey is the config map key for queue sidecar image
-	QueueSidecarImageKey           = "queueSidecarImage"
-	registriesSkippingTagResolving = "registriesSkippingTagResolving"
+	QueueSidecarImageKey = "queueSidecarImage"
+
+	// ProgressDeadlineDefault is the default value for the config's
+	// ProgressDeadlineSeconds. This does not match the K8s default value of 600s.
+	ProgressDeadlineDefault = 120 * time.Second
+
+	registriesSkippingTagResolvingKey = "registriesSkippingTagResolving"
+
+	// ProgressDeadlineKey is the key to configure deployment progress deadline.
+	ProgressDeadlineKey = "progressDeadline"
 )
+
+func defaultConfig() *Config {
+	return &Config{
+		ProgressDeadline:               ProgressDeadlineDefault,
+		RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+	}
+}
 
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
-	nc := &Config{}
-	qsideCarImage, ok := configMap[QueueSidecarImageKey]
-	if !ok {
-		return nil, errors.New("queue sidecar image is missing")
-	}
-	nc.QueueSidecarImage = qsideCarImage
+	nc := defaultConfig()
 
-	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
-		// It is ok if registries are missing.
-		nc.RegistriesSkippingTagResolving = sets.NewString("ko.local", "dev.local")
-	} else {
-		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
+	if err := cm.Parse(configMap,
+		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
+		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
+		cm.AsStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
+	); err != nil {
+		return nil, err
 	}
+
+	if nc.QueueSidecarImage == "" {
+		return nil, errors.New("queueSidecarImage cannot be empty or unset")
+	}
+
+	if nc.ProgressDeadline <= 0 {
+		return nil, fmt.Errorf("progressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
+	}
+
 	return nc, nil
 }
 
@@ -64,4 +87,8 @@ type Config struct {
 
 	// Repositories for which tag to digest resolving should be skipped
 	RegistriesSkippingTagResolving sets.String
+
+	// ProgressDeadline is the time in seconds we wait for the deployment to
+	// be ready before considering it failed.
+	ProgressDeadline time.Duration
 }

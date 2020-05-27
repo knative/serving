@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
@@ -87,6 +88,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
@@ -135,6 +137,7 @@ func TestRouteConversion(t *testing.T) {
 								Host:   "hostname.com",
 							},
 						},
+						Hostname: "hostname.com",
 					},
 					URL: &apis.URL{
 						Scheme: "http",
@@ -298,7 +301,7 @@ func TestRouteConversion(t *testing.T) {
 			if err := got.ConvertFrom(context.Background(), beta); err != nil {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
+			if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
 			}
 		})
@@ -318,7 +321,7 @@ func TestRouteConversion(t *testing.T) {
 			if err := got.ConvertFrom(context.Background(), beta); err != nil {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
+			if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("roundtrip (-want, +got) = %v", diff)
 			}
 		})

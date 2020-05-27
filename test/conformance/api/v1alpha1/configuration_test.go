@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -59,13 +60,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"labelY": "def",
 	}
 	// Copy over new labels.
-	if cfg.Labels == nil {
-		cfg.Labels = newLabels
-	} else {
-		for k, v := range newLabels {
-			cfg.Labels[k] = v
-		}
-	}
+	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
 	cfg, err := clients.ServingAlphaClient.Configs.Update(cfg)
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)
@@ -97,14 +92,8 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"annotationA": "123",
 		"annotationB": "456",
 	}
-	if cfg.Annotations == nil {
-		cfg.Annotations = newAnnotations
-	} else {
-		// Copy over new annotations.
-		for k, v := range newAnnotations {
-			cfg.Annotations[k] = v
-		}
-	}
+
+	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
 	cfg, err = clients.ServingAlphaClient.Configs.Update(cfg)
 	if err != nil {
 		t.Fatalf("Failed to update annotations for Configuration %s: %v", names.Config, err)
@@ -162,7 +151,7 @@ func checkNoKeysPresent(expected map[string]string, actual map[string]string, t 
 		}
 	}
 	if len(present) != 0 {
-		t.Logf("Unexpected keys: %v", present)
+		t.Log("Unexpected keys:", present)
 	}
 	return len(present) == 0
 }

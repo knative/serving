@@ -31,6 +31,11 @@ var condSet = apis.NewLivingConditionSet(
 	MetricConditionReady,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Metric) GetConditionSet() apis.ConditionSet {
+	return condSet
+}
+
 // GetGroupVersionKind implements OwnerRefable.
 func (m *Metric) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Metric")

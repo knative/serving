@@ -68,11 +68,11 @@ func getTargetHostEnv() string {
 func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
 	target, err := url.Parse(proxyURL)
 	if err != nil {
-		log.Fatalf("Failed to parse url %v", proxyURL)
+		log.Fatal("Failed to parse url ", proxyURL)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		log.Printf("error reverse proxying request: %v", err)
+		log.Print("error reverse proxying request: ", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)
 	}
 	return proxy
@@ -92,12 +92,12 @@ func main() {
 	if gateway != "" {
 		targetHost = gateway
 	}
-	targetURL := fmt.Sprintf("http://%s", targetHost)
+	targetURL := fmt.Sprint("http://", targetHost)
 	log.Print("target is " + targetURL)
 	httpProxy = initialHTTPProxy(targetURL)
 
-	address := fmt.Sprintf(":%s", port)
-	log.Printf("Listening on address: %s", address)
+	address := fmt.Sprint(":", port)
+	log.Print("Listening on address: ", address)
 	// Handle forwarding requests which uses "K-Network-Hash" header.
 	probeHandler := network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP
 	test.ListenAndServeGracefully(address, probeHandler)

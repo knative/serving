@@ -786,7 +786,7 @@ func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Co
 	s.SetDefaults(context.Background())
 	cfg, err := resources.MakeConfiguration(s)
 	if err != nil {
-		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
+		panic(fmt.Sprint("MakeConfiguration() = ", err))
 	}
 	for _, opt := range co {
 		opt(cfg)
@@ -799,7 +799,7 @@ func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1.Rout
 	s.SetDefaults(context.Background())
 	route, err := resources.MakeRoute(s)
 	if err != nil {
-		panic(fmt.Sprintf("MakeRoute() = %v", err))
+		panic(fmt.Sprint("MakeRoute() = ", err))
 	}
 	for _, opt := range ro {
 		opt(route)

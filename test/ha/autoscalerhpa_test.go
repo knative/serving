@@ -22,7 +22,11 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	pkgHa "knative.dev/pkg/test/ha"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -37,14 +41,19 @@ const (
 
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
+	cancel := logstream.Start(t)
+	defer cancel()
 
-	if err := scaleUpDeployment(clients, autoscalerHPADeploymentName); err != nil {
-		t.Fatalf("Failed to scale deployment: %v", err)
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), haReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
 	}
-	defer scaleDownDeployment(clients, autoscalerHPADeploymentName)
-	test.CleanupOnInterrupt(func() { scaleDownDeployment(clients, autoscalerHPADeploymentName) })
 
-	names, resources := createPizzaPlanetService(t, "pizzaplanet-service",
+	leaderController, err := pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), "" /*use arbitrary name as there was no previous leader*/)
+	if err != nil {
+		t.Fatal("Failed to get leader:", err)
+	}
+
+	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 			autoscaling.MetricAnnotationKey: autoscaling.CPU,
@@ -53,24 +62,22 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	leaderController, err := getLeader(t, clients, autoscalerHPALease)
-	if err != nil {
-		t.Fatalf("Failed to get leader: %v", err)
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
+		&metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("Failed to delete pod %s: %v", leaderController, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
-
-	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
+	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leaderController, system.Namespace()); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, autoscalerHPALease); err != nil {
-		t.Fatalf("Failed to find new leader: %v", err)
+	if _, err = pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), leaderController); err != nil {
+		t.Fatal("Failed to find new leader:", err)
 	}
 
 	url := resources.Service.Status.URL.URL()
-	assertServiceWorks(t, clients, names, url, test.PizzaPlanetText1)
+	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText1)
 
 	t.Log("Updating the Service after selecting new leader controller in order to generate a new revision")
 	names.Image = test.PizzaPlanet2
@@ -82,8 +89,8 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	t.Log("Service should be able to generate a new revision after changing the leader controller")
 	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("New image not reflected in Service: %v", err)
+		t.Fatal("New image not reflected in Service:", err)
 	}
 
-	assertServiceWorks(t, clients, names, url, test.PizzaPlanetText2)
+	assertServiceEventuallyWorks(t, clients, names, url, test.PizzaPlanetText2)
 }

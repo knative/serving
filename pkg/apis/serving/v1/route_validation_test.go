@@ -491,8 +491,25 @@ func TestRouteValidation(t *testing.T) {
 			Message: "not a DNS 1035 label: [must be no more than 63 characters]",
 			Paths:   []string{"metadata.name"},
 		},
+	}, {
+		name: "invalid tag name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Tag:          "foo@",
+					RevisionName: "bar",
+					Percent:      ptr.Int64(100),
+				}},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "invalid value: not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"spec.traffic.tag[0]"},
+		},
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())

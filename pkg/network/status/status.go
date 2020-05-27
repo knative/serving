@@ -344,25 +344,27 @@ func (m *Prober) processWorkItem() bool {
 	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
 		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			// We only want to know that the Gateway is configured, not that the configuration is valid.
-			// Therefore, we can safely ignore any TLS certificate validation.
-			InsecureSkipVerify: true,
-		},
-		DialContext: func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
-			// Requests with the IP as hostname and the Host header set do no pass client-side validation
-			// because the HTTP client validates that the hostname (not the Host header) matches the server
-			// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
-			// hostname and it is substituted it here with the target IP.
-			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
-		}}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		// We only want to know that the Gateway is configured, not that the configuration is valid.
+		// Therefore, we can safely ignore any TLS certificate validation.
+		InsecureSkipVerify: true,
+	}
+	transport.DialContext = func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
+		// Requests with the IP as hostname and the Host header set do no pass client-side validation
+		// because the HTTP client validates that the hostname (not the Host header) matches the server
+		// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
+		// hostname and it is substituted it here with the target IP.
+		return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
+	}
 
 	probeURL := deepCopy(item.url)
 	probeURL.Path = path.Join(probeURL.Path, probePath)
 
+	ctx, cancel := context.WithTimeout(item.context, probeTimeout)
+	defer cancel()
 	ok, err := prober.Do(
-		item.context,
+		ctx,
 		transport,
 		probeURL.String(),
 		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),

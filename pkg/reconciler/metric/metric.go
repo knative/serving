@@ -18,7 +18,6 @@ package metric
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -40,9 +39,18 @@ func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric)
 	metric.Status.InitializeConditions()
 
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
-		// If create or update fails, we won't be able to collect at all.
-		metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection")
-		return fmt.Errorf("failed to initiate or update scraping: %w", err)
+		switch err {
+		case metrics.ErrFailedGetEndpoints:
+			metric.Status.MarkMetricNotReady("NoEndpoints", err.Error())
+		case metrics.ErrDidNotReceiveStat:
+			metric.Status.MarkMetricFailed("DidNotReceiveStat", err.Error())
+		default:
+			metric.Status.MarkMetricFailed("CollectionFailed",
+				"Failed to reconcile metric collection: "+err.Error())
+		}
+
+		// We don't return an error because retrying is of no use. We'll be poked by collector on a change.
+		return nil
 	}
 
 	metric.Status.MarkMetricReady()

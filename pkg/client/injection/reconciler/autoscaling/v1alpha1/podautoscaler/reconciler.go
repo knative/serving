@@ -20,15 +20,15 @@ package podautoscaler
 
 import (
 	context "context"
-	"encoding/json"
-	"reflect"
+	json "encoding/json"
+	reflect "reflect"
 
 	zap "go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	equality "k8s.io/apimachinery/pkg/api/equality"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	types "k8s.io/apimachinery/pkg/types"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	cache "k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
@@ -82,6 +82,9 @@ type reconcilerImpl struct {
 	// reconciler is the implementation of the business logic of the resource.
 	reconciler Interface
 
+	// finalizerName is the name of the finalizer to reconcile.
+	finalizerName string
+
 	// classValue is the resource annotation[autoscaling.knative.dev/class] instance value this reconciler instance filters on.
 	classValue string
 }
@@ -96,16 +99,20 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 	}
 
 	rec := &reconcilerImpl{
-		Client:     client,
-		Lister:     lister,
-		Recorder:   recorder,
-		reconciler: r,
-		classValue: classValue,
+		Client:        client,
+		Lister:        lister,
+		Recorder:      recorder,
+		reconciler:    r,
+		finalizerName: defaultFinalizerName,
+		classValue:    classValue,
 	}
 
 	for _, opts := range options {
 		if opts.ConfigStore != nil {
 			rec.configStore = opts.ConfigStore
+		}
+		if opts.FinalizerName != "" {
+			rec.finalizerName = opts.FinalizerName
 		}
 	}
 
@@ -141,7 +148,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("resource %q no longer exists", key)
+		logger.Debugf("resource %q no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
@@ -171,6 +178,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// Reconcile this copy of the resource and then write back any status
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.
 		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
@@ -200,15 +208,21 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	if reconcileEvent != nil {
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
-			logger.Infow("returned an event", zap.Any("event", reconcileEvent))
+			logger.Infow("Returned an event", zap.Any("event", reconcileEvent))
 			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)
+
+			// the event was wrapped inside an error, consider the reconciliation as failed
+			if _, isEvent := reconcileEvent.(*reconciler.ReconcilerEvent); !isEvent {
+				return reconcileEvent
+			}
 			return nil
-		} else {
-			logger.Errorw("returned an error", zap.Error(reconcileEvent))
-			r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
-			return reconcileEvent
 		}
+
+		logger.Errorw("Returned an error", zap.Error(reconcileEvent))
+		r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
+		return reconcileEvent
 	}
+
 	return nil
 }
 
@@ -242,9 +256,8 @@ func (r *reconcilerImpl) updateStatus(existing *v1alpha1.PodAutoscaler, desired 
 
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
-// updates defaultFinalizerName.
+// updates defaultFinalizerName or its override.
 func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1alpha1.PodAutoscaler) (*v1alpha1.PodAutoscaler, error) {
-	finalizerName := defaultFinalizerName
 
 	getter := r.Lister.PodAutoscalers(resource.Namespace)
 
@@ -262,20 +275,20 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	existingFinalizers := sets.NewString(existing.Finalizers...)
 	desiredFinalizers := sets.NewString(resource.Finalizers...)
 
-	if desiredFinalizers.Has(finalizerName) {
-		if existingFinalizers.Has(finalizerName) {
+	if desiredFinalizers.Has(r.finalizerName) {
+		if existingFinalizers.Has(r.finalizerName) {
 			// Nothing to do.
 			return resource, nil
 		}
 		// Add the finalizer.
-		finalizers = append(existing.Finalizers, finalizerName)
+		finalizers = append(existing.Finalizers, r.finalizerName)
 	} else {
-		if !existingFinalizers.Has(finalizerName) {
+		if !existingFinalizers.Has(r.finalizerName) {
 			// Nothing to do.
 			return resource, nil
 		}
 		// Remove the finalizer.
-		existingFinalizers.Delete(finalizerName)
+		existingFinalizers.Delete(r.finalizerName)
 		finalizers = existingFinalizers.List()
 	}
 
@@ -313,12 +326,12 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 
 	// If this resource is not being deleted, mark the finalizer.
 	if resource.GetDeletionTimestamp().IsZero() {
-		finalizers.Insert(defaultFinalizerName)
+		finalizers.Insert(r.finalizerName)
 	}
 
 	resource.Finalizers = finalizers.List()
 
-	// Synchronize the finalizers filtered by defaultFinalizerName.
+	// Synchronize the finalizers filtered by r.finalizerName.
 	return r.updateFinalizersFiltered(ctx, resource)
 }
 
@@ -336,15 +349,15 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1alpha1.
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
 			if event.EventType == v1.EventTypeNormal {
-				finalizers.Delete(defaultFinalizerName)
+				finalizers.Delete(r.finalizerName)
 			}
 		}
 	} else {
-		finalizers.Delete(defaultFinalizerName)
+		finalizers.Delete(r.finalizerName)
 	}
 
 	resource.Finalizers = finalizers.List()
 
-	// Synchronize the finalizers filtered by defaultFinalizerName.
+	// Synchronize the finalizers filtered by r.finalizerName.
 	return r.updateFinalizersFiltered(ctx, resource)
 }
