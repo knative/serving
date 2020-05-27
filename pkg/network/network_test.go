@@ -200,14 +200,14 @@ func TestConfiguration(t *testing.T) {
 			}
 			actualConfigCM, err := NewConfigFromConfigMap(config)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v",
-					tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v",
+					err, tt.wantErr)
 			}
 
 			actualConfig, err := NewConfigFromMap(tt.data)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v",
-					tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v",
+					err, tt.wantErr)
 			}
 			if diff := cmp.Diff(actualConfigCM, actualConfig); diff != "" {
 				t.Errorf("Config mismatch: diff(-want,+got):\n%s", diff)
@@ -317,14 +317,14 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			actualConfigCM, err := NewConfigFromConfigMap(tt.config)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v",
-					tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v",
+					err, tt.wantErr)
 			}
 
 			actualConfig, err := NewConfigFromMap(tt.config.Data)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v",
-					tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v",
+					err, tt.wantErr)
 			}
 
 			if diff := cmp.Diff(actualConfigCM, actualConfig); diff != "" {

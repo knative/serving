@@ -50,7 +50,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(cm, c); diff != "" {
-		t.Fatalf("Test: want %v, but got %v", cm, c)
+		t.Fatalf("Config mismatch: diff(-want,+got):\n%s", diff)
 	}
 	if got := c.LoggingConfig; got == "" {
 		t.Error("LoggingConfig = empty, want not empty")

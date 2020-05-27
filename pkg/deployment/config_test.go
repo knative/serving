@@ -138,10 +138,10 @@ func TestControllerConfiguration(t *testing.T) {
 
 			gotConfig, err := NewConfigFromMap(tt.data)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewConfigFromMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v", err, tt.wantErr)
 			}
 			if diff := cmp.Diff(gotConfig, gotConfigCM); diff != "" {
-				t.Fatalf("Test: %q; want %v, but got %v", tt.name, gotConfig, gotConfigCM)
+				t.Fatalf("Config mismatch: diff(-want,+got):\n%s", diff)
 			}
 		})
 	}
