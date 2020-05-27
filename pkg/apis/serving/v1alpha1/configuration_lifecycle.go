@@ -32,7 +32,7 @@ func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 // and the configuration resource has been observed.
 func (c *Configuration) IsReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation && revCondSet.Manage(&cs).IsHappy()
+	return cs.ObservedGeneration == c.Generation && confCondSet.Manage(&cs).IsHappy()
 }
 
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready

@@ -18,7 +18,15 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"knative.dev/pkg/apis"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+)
+
+var routeCondSet = apis.NewLivingConditionSet(
+	v1.RouteConditionAllTrafficAssigned,
+	v1.RouteConditionIngressReady,
+	v1.RouteConditionCertificateProvisioned,
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.
@@ -30,5 +38,5 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 // and the revision resource has been observed.
 func (r *Route) IsReady() bool {
 	rs := r.Status
-	return rs.ObservedGeneration == r.Generation && apis.NewLivingConditionSet().Manage(&rs).IsHappy()
+	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).IsHappy()
 }

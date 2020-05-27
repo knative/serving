@@ -21,6 +21,8 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+var configCondSet = apis.NewLivingConditionSet()
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
@@ -30,5 +32,5 @@ func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 // and the configuration resource has been observed.
 func (c *Configuration) IsReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation && apis.NewLivingConditionSet().Manage(&cs).IsHappy()
+	return cs.ObservedGeneration == c.Generation && configCondSet.Manage(&cs).IsHappy()
 }
