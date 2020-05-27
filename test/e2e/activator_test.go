@@ -219,6 +219,6 @@ func TestActivatorRevisionTimeout(t *testing.T) {
 	// Among 5 requests only 2 should be handled by user containers. Of those 2 handled requests, 1st req finishes at 10s and 2nd request gets
 	// response bytes written before timeout. Rest of them(3 req) should timeout in activator.
 	if successResp != 2 || timeoutResp != 3 {
-		t.Errorf("want successful:2 timeout:3, got succeess: %d; timeout: %d; responses collection: %v", successResp, timeoutResp, resp)
+		t.Errorf("Want successful:2 timeout:3, got succeess: %d; timeout: %d; responses collection: %v", successResp, timeoutResp, resp)
 	}
 }

@@ -28,11 +28,11 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
-type timeoutFunc func(req *http.Request) time.Duration
+type TimeoutFunc func(req *http.Request) time.Duration
 
 type timeToFirstByteTimeoutHandler struct {
 	handler     http.Handler
-	timeoutFunc timeoutFunc
+	timeoutFunc TimeoutFunc
 	body        string
 }
 
@@ -52,7 +52,7 @@ type timeToFirstByteTimeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeoutFunc timeoutFunc) http.Handler {
+func NewTimeToFirstByteTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc) http.Handler {
 	return &timeToFirstByteTimeoutHandler{
 		handler:     h,
 		body:        msg,

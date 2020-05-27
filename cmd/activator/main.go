@@ -208,10 +208,10 @@ func main() {
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
 	ah = handler.NewTimeToFirstByteTimeoutHandler(ah, "activator request timeout", func(r *http.Request) time.Duration {
 		rev := util.RevisionFrom(r.Context())
-		if rev != nil && rev.Spec.TimeoutSeconds != nil {
+		if rev != nil {
 			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
 		}
-		return time.Duration(apiconfig.DefaultRevisionTimeoutSeconds) * time.Second
+		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second
 	})
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)

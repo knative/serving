@@ -86,7 +86,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		timeoutFunc        timeoutFunc
+		timeoutFunc        TimeoutFunc
 		handler            func(mux *sync.Mutex, writeErrors chan error) http.Handler
 		timeoutMessage     string
 		wantStatus         int
