@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -44,8 +45,9 @@ type BreakerParams struct {
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	pendingRequests chan struct{}
-	sem             *semaphore
+	inFlight   int64
+	totalSlots int64
+	sem        *semaphore
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -62,31 +64,59 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 	sem := newSemaphore(params.MaxConcurrency, params.InitialCapacity)
 	return &Breaker{
-		pendingRequests: make(chan struct{}, params.QueueDepth+params.MaxConcurrency),
-		sem:             sem,
+		totalSlots: int64(params.QueueDepth + params.MaxConcurrency),
+		sem:        sem,
 	}
+}
+
+// tryAcquirePending tries to acquire a slot on the pending "queue".
+func (b *Breaker) tryAcquirePending() bool {
+	// This is an atomic version of:
+	//
+	// if inFlight == totalSlots {
+	//   return false
+	// } else {
+	//   inFlight++
+	//   return true
+	// }
+	//
+	// We can't just use an atomic increment as we need to check if we're
+	// "allowed" to increment first. Since a Load and a CompareAndSwap are
+	// not done atomically, we need to retry until the CompareAndSwap succeeds
+	// (it fails if we're raced to it) or if we don't fulfill the condition
+	// anymore.
+	for {
+		cur := atomic.LoadInt64(&b.inFlight)
+		if cur == b.totalSlots {
+			return false
+		}
+		if atomic.CompareAndSwapInt64(&b.inFlight, cur, cur+1) {
+			return true
+		}
+	}
+}
+
+// releasePending releases a slot on the pending "queue".
+func (b *Breaker) releasePending() {
+	atomic.AddInt64(&b.inFlight, -1)
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
 // richer semantics in the caller.
 // The caller on success must execute the callback when done with work.
 func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
-	select {
-	default:
-		// Pending request queue is full.  Report failure.
+	if !b.tryAcquirePending() {
 		return nil, false
-	case b.pendingRequests <- struct{}{}:
-		// Pending request has capacity, reserve a slot, if there's one
-		// available.
-		if !b.sem.tryAcquire(ctx) {
-			<-b.pendingRequests
-			return nil, false
-		}
-		return func() {
-			b.sem.release()
-			<-b.pendingRequests
-		}, true
 	}
+
+	if !b.sem.tryAcquire(ctx) {
+		b.releasePending()
+		return nil, false
+	}
+	return func() {
+		b.sem.release()
+		b.releasePending()
+	}, true
 }
 
 // Maybe conditionally executes thunk based on the Breaker concurrency
@@ -94,37 +124,31 @@ func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 // already consumed, Maybe returns immediately without calling thunk. If
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
-	select {
-	default:
-		// Pending request queue is full.  Report failure.
+	if !b.tryAcquirePending() {
 		return ErrRequestQueueFull
-	case b.pendingRequests <- struct{}{}:
-		// Pending request has capacity.
-		// Defer releasing pending request queue.
-		defer func() {
-			<-b.pendingRequests
-		}()
-
-		// Wait for capacity in the active queue.
-		if err := b.sem.acquire(ctx); err != nil {
-			return err
-		}
-		// Defer releasing capacity in the active.
-		// It's safe to ignore the error returned by release since we
-		// make sure the semaphore is only manipulated here and acquire
-		// + release calls are equally paired.
-		defer b.sem.release()
-
-		// Do the thing.
-		thunk()
-		// Report success
-		return nil
 	}
+
+	defer b.releasePending()
+
+	// Wait for capacity in the active queue.
+	if err := b.sem.acquire(ctx); err != nil {
+		return err
+	}
+	// Defer releasing capacity in the active.
+	// It's safe to ignore the error returned by release since we
+	// make sure the semaphore is only manipulated here and acquire
+	// + release calls are equally paired.
+	defer b.sem.release()
+
+	// Do the thing.
+	thunk()
+	// Report success
+	return nil
 }
 
 // InFlight returns the number of requests currently in flight in this breaker.
 func (b *Breaker) InFlight() int {
-	return len(b.pendingRequests)
+	return int(atomic.LoadInt64(&b.inFlight))
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
