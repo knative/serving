@@ -157,9 +157,7 @@ func (s *UntypedStore) OnConfigChanged(c *corev1.ConfigMap) {
 	s.logger.Infof("%s config %q config was added or updated: %#v", s.name, name, result)
 	storage.Store(result)
 
-	go func() {
-		for _, f := range s.onAfterStore {
-			f(name, result)
-		}
-	}()
+	for _, f := range s.onAfterStore {
+		f(name, result)
+	}
 }

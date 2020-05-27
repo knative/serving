@@ -177,7 +177,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
@@ -291,7 +291,7 @@ func TestIngressFailureRecovery(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
@@ -386,7 +386,7 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 func TestRouteAutoTLSNotEnabled(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }
