@@ -6,7 +6,6 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
-	github.com/emicklei/go-restful-swagger12 v0.0.0-20170208215640-dcef7f557305 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.3.5
 	github.com/google/go-cmp v0.4.0
@@ -20,7 +19,6 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
-	github.com/munnerz/goautoneg v0.0.0-20190414153302-2ae31c8b6b30 // indirect
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
@@ -37,15 +35,26 @@ require (
 	istio.io/api v0.0.0-20191115173247-e1a1952e5b81
 	istio.io/client-go v0.0.0-20191120150049-26c62a04cdbc
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
+	k8s.io/api v0.17.6
+	k8s.io/apimachinery v0.17.6
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/metrics v0.17.2
+	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
+	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200521155757-e78d17bc250e
-	knative.dev/pkg v0.0.0-20200527024749-495174c96651
-	knative.dev/test-infra v0.0.0-20200527032149-1fa26194e82d
+	knative.dev/pkg v0.0.0-20200527173759-2d1a04d1ff82
+	knative.dev/test-infra v0.0.0-20200527185659-fc87694eb879
+)
+
+// pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180
+// etcd go lib hasn't upgraded yet (etcd lib comes from custom metrics server)
+//
+// a side effect is we need to pin other deps to when they used the older grpc version
+replace (
+	cloud.google.com/go => cloud.google.com/go v0.52.0
+	google.golang.org/api => google.golang.org/api v0.15.1
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20200115191322-ca5a22157cba
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 )
 
 replace (
@@ -53,19 +62,20 @@ replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.4.0+incompatible
 	github.com/coreos/etcd => github.com/coreos/etcd v3.3.13+incompatible
 
-	github.com/kubernetes-incubator/custom-metrics-apiserver => github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
+	github.com/kubernetes-incubator/custom-metrics-apiserver => github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20200323093244-5046ce1afe6b
 
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 
 	github.com/tsenart/vegeta => github.com/tsenart/vegeta v1.2.1-0.20190917092155-ab06ddb56e2f
 
-	k8s.io/api => k8s.io/api v0.16.4
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.16.4
-	k8s.io/apimachinery => k8s.io/apimachinery v0.16.4
-	k8s.io/apiserver => k8s.io/apiserver v0.16.4
-	k8s.io/client-go => k8s.io/client-go v0.16.4
-	k8s.io/code-generator => k8s.io/code-generator v0.16.4
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20190816220812-743ec37842bf
+	k8s.io/api => k8s.io/api v0.17.6
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.17.6
+	k8s.io/apimachinery => k8s.io/apimachinery v0.17.6
+	k8s.io/apiserver => k8s.io/apiserver v0.17.6
+	k8s.io/client-go => k8s.io/client-go v0.17.6
+	k8s.io/code-generator => k8s.io/code-generator v0.17.6
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
+	k8s.io/metrics => k8s.io/metrics v0.17.6
 
 	knative.dev/serving/vendor/k8s.io/code-generator/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
 )

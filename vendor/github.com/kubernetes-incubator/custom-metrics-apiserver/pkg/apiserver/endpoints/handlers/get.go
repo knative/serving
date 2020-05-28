@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
@@ -60,7 +61,7 @@ func ListResourceWithOptions(r cm_rest.ListerWithOptions, scope handlers.Request
 		ctx = request.WithNamespace(ctx, namespace)
 
 		opts := metainternalversion.ListOptions{}
-		if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), scope.MetaGroupVersion, &opts); err != nil {
+		if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), scope.MetaGroupVersion, &opts); err != nil {
 			err = errors.NewBadRequest(err.Error())
 			writeError(&scope, err, w, req)
 			return
