@@ -220,7 +220,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPodCount > a.maxPanicPods {
 			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPodCount)
-			a.panicTime = now
 			a.maxPanicPods = desiredPodCount
 		} else if desiredPodCount < a.maxPanicPods {
 			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPodCount)

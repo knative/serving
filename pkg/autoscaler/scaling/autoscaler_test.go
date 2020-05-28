@@ -183,6 +183,44 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 101, 99, 1), na, true})
 }
 
+func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
+	// Do initial jump from 10 to 25 pods.
+	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
+	a := newTestAutoscaler(t, 1, 98, metrics)
+	fake.Endpoints(10, fake.TestService)
+
+	na := expectedNA(a, 10)
+	tm := time.Now()
+	expectScale(t, a, tm, ScaleResult{25, expectedEBC(1, 98, 25, 10), na, true})
+	if a.panicTime != tm {
+		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
+	}
+	// Now the stable window has passed, and we've been adding 1 pod per cycle.
+	// For window of 60s, that's +30 pods.
+	// Checkpoint in the middle.
+	fake.Endpoints(25+15, fake.TestService)
+
+	a.metricClient = &fake.MetricClient{StableConcurrency: 30, PanicConcurrency: 41}
+	tm = tm.Add(stableWindow / 2)
+
+	na = expectedNA(a, 40)
+	expectScale(t, a, tm, ScaleResult{41, expectedEBC(1, 98, 41, 40), na, true})
+	if a.panicTime == tm {
+		t.Error("Panic Time should not have moved")
+	}
+
+	// Now at the end. Panic must end.
+	fake.Endpoints(25+30, fake.TestService)
+	a.metricClient = &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 56}
+	tm = tm.Add(stableWindow/2 + tickInterval)
+
+	na = expectedNA(a, 55)
+	expectScale(t, a, tm, ScaleResult{50 /* no longer in panic*/, expectedEBC(1, 98, 56, 55), na, true})
+	if !a.panicTime.IsZero() {
+		t.Errorf("PanicTime = %v, want: 0", a.panicTime)
+	}
+}
+
 func TestAutoscalerStableModeDecrease(t *testing.T) {
 	metrics := &fake.MetricClient{StableConcurrency: 100.0, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 98, metrics)
