@@ -121,11 +121,24 @@ func MakeIngressSpec(
 				}
 
 				if name == traffic.DefaultTarget {
+					// To provide a information if a request is routed via the "default route" or not,
+					// the header "Knative-Serving-Default-Route: true" is appended here.
+					// If the header has "true" and there is a "Knative-Serving-Tag" header,
+					// then the request is having the undefined tag header, which will be observed in queue-proxy.
 					rule.HTTP.Paths[0].AppendHeaders[network.DefaultRouteHeaderName] = "true"
+					// Add ingress paths for a request with the tag header.
+					// If a request has one of the `names`(tag name) except the default path,
+					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
 						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
 				} else {
-
+					// If a request is routed by a tag-attached hostname instead of the tag header,
+					// the request may not have the tag header "Knative-Serving-Tag",
+					// even though the ingress path used in the case is also originated
+					// from the same Knative route with the ingress path for the tag based routing.
+					//
+					// To prevent such inconsistency,
+					// the tag header is appended with the tag correspondig to the tag-attached hostname
 					rule.HTTP.Paths[0].AppendHeaders[network.TagHeaderName] = name
 				}
 			}
@@ -203,7 +216,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 }
 
 func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
-	paths := []netv1alpha1.HTTPIngressPath{}
+	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {

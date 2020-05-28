@@ -221,9 +221,10 @@ type HTTPIngressPath struct {
 	// If RewriteHost is specified, Splits must not be.
 	RewriteHost string `json:"rewriteHost,omitempty"`
 
-	// Headers is a map from a header name to a header value which has a format of ECMAscript style regex.
-	// These headers are matched with the incoming request,
-	// and only the request matched with all the headers follows the ingress rule.
+	// Headers defines header matching rules which is a map from a header name
+	// to HeaderMatch which specify a matching condition.
+	// When a request matched with all the header matching rules,
+	// the request is routed by the corresponding ingress rule.
 	// If it is empty, the headers are not used for matching
 	// +optional
 	Headers map[string]HeaderMatch `json:"headers,omitempty"`
