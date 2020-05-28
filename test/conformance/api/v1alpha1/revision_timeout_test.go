@@ -91,51 +91,44 @@ func TestRevisionTimeout(t *testing.T) {
 		expectedStatus int
 		initialSleep   int
 		sleep          int
-	}{
-		{
-			name:           "when scaling up from 0 and does not exceed timeout seconds",
-			shouldScaleTo0: true,
-			timeoutSeconds: 5,
-			expectedStatus: http.StatusOK,
-			initialSleep:   0,
-			sleep:          0,
-		},
-		{
-			name:           "when scaling up from 0 and it writes first byte before timeout",
-			shouldScaleTo0: true,
-			timeoutSeconds: 5,
-			expectedStatus: http.StatusOK,
-			initialSleep:   0,
-			sleep:          10,
-		},
-		{
-			name:           "when scaling up from 0 and it does exceed timeout seconds",
-			shouldScaleTo0: true,
-			timeoutSeconds: 1, // If the pods come up faster than 1s, this test might fail.
-			expectedStatus: http.StatusGatewayTimeout,
-		},
-		{
-			name:           "when pods already exist, and it does not exceed timeout seconds",
-			timeoutSeconds: 5,
-			expectedStatus: http.StatusOK,
-			initialSleep:   2,
-			sleep:          0,
-		},
-		{
-			name:           "when pods already exist, and it does exceed timeout seconds",
-			timeoutSeconds: 5,
-			expectedStatus: http.StatusGatewayTimeout,
-			initialSleep:   7,
-			sleep:          1,
-		},
-		{
-			name:           "when pods already exist, and it writes first byte before timeout",
-			timeoutSeconds: 5,
-			expectedStatus: http.StatusOK,
-			initialSleep:   0,
-			sleep:          10,
-		},
-	}
+	}{{
+		name:           "when scaling up from 0 and does not exceed timeout seconds",
+		shouldScaleTo0: true,
+		timeoutSeconds: 5,
+		expectedStatus: http.StatusOK,
+		initialSleep:   0,
+		sleep:          0,
+	}, {
+		name:           "when scaling up from 0 and it writes first byte before timeout",
+		shouldScaleTo0: true,
+		timeoutSeconds: 5,
+		expectedStatus: http.StatusOK,
+		initialSleep:   0,
+		sleep:          10,
+	}, {
+		name:           "when scaling up from 0 and it does exceed timeout seconds",
+		shouldScaleTo0: true,
+		timeoutSeconds: 1, // If the pods come up faster than 1s, this test might fail.
+		expectedStatus: http.StatusGatewayTimeout,
+	}, {
+		name:           "when pods already exist, and it does not exceed timeout seconds",
+		timeoutSeconds: 5,
+		expectedStatus: http.StatusOK,
+		initialSleep:   2,
+		sleep:          0,
+	}, {
+		name:           "when pods already exist, and it does exceed timeout seconds",
+		timeoutSeconds: 5,
+		expectedStatus: http.StatusGatewayTimeout,
+		initialSleep:   7,
+		sleep:          1,
+	}, {
+		name:           "when pods already exist, and it writes first byte before timeout",
+		timeoutSeconds: 5,
+		expectedStatus: http.StatusOK,
+		initialSleep:   0,
+		sleep:          10,
+	}}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

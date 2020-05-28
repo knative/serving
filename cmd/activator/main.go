@@ -207,8 +207,7 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
 	ah = handler.NewTimeToFirstByteTimeoutHandler(ah, "activator request timeout", func(r *http.Request) time.Duration {
-		rev := util.RevisionFrom(r.Context())
-		if rev != nil {
+		if rev := util.RevisionFrom(r.Context()); rev != nil {
 			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
 		}
 		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second
