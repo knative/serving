@@ -210,14 +210,20 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	desiredPodCount := desiredStablePodCount
 	if !a.panicTime.IsZero() {
+		// In some edgecases stable window metric might be larger
+		// than panic one. And we should provision for stable as for panic,
+		// so pick the larger of the two.
+		if desiredPodCount < desiredPanicPodCount {
+			desiredPodCount = desiredPanicPodCount
+		}
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
-		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
+		if desiredPodCount > a.maxPanicPods {
+			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPodCount)
 			a.panicTime = now
-			a.maxPanicPods = desiredPanicPodCount
-		} else if desiredPanicPodCount < a.maxPanicPods {
-			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
+			a.maxPanicPods = desiredPodCount
+		} else if desiredPodCount < a.maxPanicPods {
+			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
