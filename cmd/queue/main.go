@@ -350,7 +350,11 @@ func main() {
 	defer reportTicker.Stop()
 
 	stats := network.NewRequestStats(time.Now())
-	go queue.ReportStats(time.Now(), stats, reportTicker.C, promStatReporter.Report)
+	go func() {
+		for now := range reportTicker.C {
+			promStatReporter.Report(stats.Report(now))
+		}
+	}()
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)
