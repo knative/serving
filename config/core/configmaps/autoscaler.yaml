@@ -106,8 +106,9 @@ data:
     # enters panic mode. When operating in panic mode, the autoscaler
     # scales on the average concurrency over the panic window which is
     # panic-window-percentage of the stable-window.
+    # Must be in the [1, 100] range.
     # When computing the panic window it will be rounded to the closest
-    # whole second.
+    # whole second, at least 1s.
     panic-window-percentage: "10.0"
 
     # The percentage of the container concurrency target at which to
