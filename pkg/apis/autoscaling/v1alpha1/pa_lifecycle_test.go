@@ -1011,6 +1011,9 @@ func TestTypicalFlow(t *testing.T) {
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
+	if !r.IsActive() {
+		t.Error("Active was not set.")
+	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 }
