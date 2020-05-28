@@ -153,6 +153,11 @@ func (pa *PodAutoscaler) IsReady() bool {
 	return pa.Generation == pas.ObservedGeneration && podCondSet.Manage(&pas).IsHappy()
 }
 
+// IsActive returns true if the pod autoscaler is finished scaling.
+func (pas *PodAutoscalerStatus) IsActive() bool {
+	return pas.GetCondition(PodAutoscalerConditionActive).IsTrue()
+}
+
 // IsActivating returns true if the pod autoscaler is Activating if it is neither
 // Active nor Inactive
 func (pas *PodAutoscalerStatus) IsActivating() bool {

@@ -182,7 +182,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	now := time.Now()
 	logger := logging.FromContext(ctx)
 	switch {
-	case pa.IsReady(): // Active=True
+	case pa.IsActive(): // Active=True
 		// Don't scale-to-zero if the PA is active
 		// but return `(0, false)` to mark PA inactive, instead.
 		sw := aresources.StableWindow(pa, cfgAS)

@@ -1196,7 +1196,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		if err != nil {
 			return true, err
 		}
-		return newKPA.IsReady(), nil
+		return newKPA.IsActive(), nil
 	}); err != nil {
 		t.Fatal("PA failed to become ready:", err)
 	}
