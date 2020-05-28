@@ -27,9 +27,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -61,15 +59,6 @@ import (
 )
 
 const (
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
-
-	// Duration the /wait-for-drain handler should wait before returning.
-	// This is to give Istio a little bit more time to remove the pod
-	// from its configuration and propagate that to all istio-proxies
-	// in the mesh.
-	drainSleepDuration = 20 * time.Second
-
 	badProbeTemplate   = "unexpected probe header value: %s"
 	failingHealthcheck = "failing healthcheck"
 
@@ -111,12 +100,6 @@ type config struct {
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
 
-	// /var/log configuration
-	EnableVarLogCollection bool   `split_words:"true"` // optional
-	UserContainerName      string `split_words:"true"` // optional
-	VarLogVolumeName       string `split_words:"true"` // optional
-	InternalVolumePath     string `split_words:"true"` // optional
-
 	// DownwardAPI configuration for pod labels
 	DownwardAPILabelsPath string `split_words:"true"`
 
@@ -129,7 +112,7 @@ type config struct {
 }
 
 // Make handler a closure for testing.
-func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
@@ -137,7 +120,7 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		}
 
 		if tracingEnabled {
-			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "queue_proxy")
 			r = r.WithContext(proxyCtx)
 			defer proxySpan.End()
 		}
@@ -147,9 +130,9 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		if activator.Name == network.KnativeProxyHeader(r) {
 			in, out = network.ProxiedIn, network.ProxiedOut
 		}
-		reqChan <- network.ReqEvent{Time: time.Now(), Type: in}
+		stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: in})
 		defer func() {
-			reqChan <- network.ReqEvent{Time: time.Now(), Type: out}
+			stats.HandleEvent(network.ReqEvent{Time: time.Now(), Type: out})
 		}()
 		network.RewriteHostOut(r)
 
@@ -157,7 +140,7 @@ func proxyHandler(reqChan chan network.ReqEvent, breaker *queue.Breaker, tracing
 		if breaker != nil {
 			var waitSpan *trace.Span
 			if tracingEnabled {
-				_, waitSpan = trace.StartSpan(r.Context(), "queueWait")
+				_, waitSpan = trace.StartSpan(r.Context(), "queue_wait")
 			}
 			if err := breaker.Maybe(r.Context(), func() {
 				waitSpan.End()
@@ -348,10 +331,6 @@ func main() {
 		})),
 		zap.String(logkey.Pod, env.ServingPod))
 
-	if err := validateEnv(env); err != nil {
-		logger.Fatalw("Error validating env", zap.Error(err))
-	}
-
 	// Report stats on Go memory usage every 30 seconds.
 	msp := metrics.NewMemStatsAll()
 	msp.Start(context.Background(), 30*time.Second)
@@ -367,19 +346,21 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
-
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	stats := network.NewRequestStats(time.Now())
+	go func() {
+		for now := range reportTicker.C {
+			promStatReporter.Report(stats.Report(now))
+		}
+	}()
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(env, healthState, probe, reqChan, logger)
+	server := buildServer(env, healthState, probe, stats, logger)
 	adminServer := buildAdminServer(healthState, logger)
 	metricsServer := buildMetricsServer(promStatReporter)
 
@@ -403,15 +384,6 @@ func main() {
 		}(name, server)
 	}
 
-	// Setup /var/log.
-	// Logic that isn't required to be executed before the critical path
-	// and should be started last to not impact start up latency
-	go func() {
-		if env.EnableVarLogCollection {
-			createVarLogLink(env)
-		}
-	}()
-
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exit unexpectedly. We fold both signals together because we only want
 	// to act on the first of those to reach here.
@@ -424,8 +396,8 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
-			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-			time.Sleep(drainSleepDuration)
+			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
+			time.Sleep(pkgnet.DefaultDrainTimeout)
 
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
@@ -447,21 +419,6 @@ func main() {
 	}
 }
 
-func validateEnv(env config) error {
-	if !env.EnableVarLogCollection {
-		return nil
-	}
-
-	if env.VarLogVolumeName == "" {
-		return errors.New("VAR_LOG_VOLUME_NAME must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-	if env.InternalVolumePath == "" {
-		return errors.New("INTERNAL_VOLUME_PATH must be specified when ENABLE_VAR_LOG_COLLECTION is true")
-	}
-
-	return nil
-}
-
 func buildProbe(probeJSON string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
@@ -470,7 +427,7 @@ func buildProbe(probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan network.ReqEvent,
+func buildServer(env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
@@ -494,7 +451,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(composedHandler, breaker, env)
 	}
-	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
+	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
@@ -578,17 +535,6 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter) *http.S
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
-	}
-}
-
-// createVarLogLink creates a symlink allowing the fluentd daemon set to capture the
-// logs from the user container /var/log. See fluentd config for more details.
-func createVarLogLink(env config) {
-	link := strings.Join([]string{env.ServingNamespace, env.ServingPod, env.UserContainerName}, "_")
-	target := path.Join("..", env.VarLogVolumeName)
-	source := path.Join(env.InternalVolumePath, link)
-	if err := os.Symlink(target, source); err != nil {
-		logger.Errorw("Failed to create /var/log symlink. Log collection will not work.", zap.Error(err))
 	}
 }
 

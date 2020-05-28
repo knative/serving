@@ -178,7 +178,7 @@ func WithServiceGeneration(generation int64) ServiceOption {
 	}
 }
 
-// WithServiceGeneration sets the service's observed generation to it's generation
+// WithServiceObservedGeneration sets the service's observed generation to it's generation
 func WithServiceObservedGeneration(svc *v1alpha1.Service) {
 	svc.Status.ObservedGeneration = svc.Generation
 }

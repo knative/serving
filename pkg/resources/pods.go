@@ -70,6 +70,8 @@ func pendingTerminatingCount(pods []*corev1.Pod) (int, int, error) {
 	return pending, terminating, nil
 }
 
+// PodIPsByAge returns the list of running pod (terminating
+// and non-running are excluded) IP addresses, sorted descending by pod age.
 func (pc PodAccessor) PodIPsByAge() ([]string, error) {
 	pods, err := pc.podsLister.List(pc.selector)
 	if err != nil {

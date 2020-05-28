@@ -34,7 +34,7 @@ func TestForwardedShimHandler(t *testing.T) {
 		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
 		xfp:  "p",
-		want: "for=127.0.0.1;host=h;proto=p, for=\"[::1]\"",
+		want: `for=127.0.0.1;host=h;proto=p, for="[::1]"`,
 	}, {
 		name: "single xff",
 		xff:  "127.0.0.1",
@@ -44,17 +44,17 @@ func TestForwardedShimHandler(t *testing.T) {
 	}, {
 		name: "multiple xff, no xfh, no xfp",
 		xff:  "127.0.0.1, ::1",
-		want: "for=127.0.0.1, for=\"[::1]\"",
+		want: `for=127.0.0.1, for="[::1]"`,
 	}, {
 		name: "multiple xff, no xfh",
 		xff:  "127.0.0.1, ::1",
 		xfp:  "p",
-		want: "for=127.0.0.1;proto=p, for=\"[::1]\"",
+		want: `for=127.0.0.1;proto=p, for="[::1]"`,
 	}, {
 		name: "multiple xff, no xfp",
 		xff:  "127.0.0.1, ::1",
 		xfh:  "h",
-		want: "for=127.0.0.1;host=h, for=\"[::1]\"",
+		want: `for=127.0.0.1;host=h, for="[::1]"`,
 	}, {
 		name: "only xfh",
 		xfh:  "h",
@@ -114,7 +114,7 @@ func TestForwardedShimHandler(t *testing.T) {
 			ForwardedShimHandler(h).ServeHTTP(resp, req)
 
 			if test.want != got {
-				t.Errorf("Wrong header value. Want %q, got %q", test.want, got)
+				t.Errorf("Header = %s, want: %s", test.want, got)
 			}
 		})
 	}

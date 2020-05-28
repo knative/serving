@@ -186,3 +186,61 @@ func eventFunc(stats *RequestStats, typ ReqEventType) func(int64) {
 		})
 	}
 }
+
+func BenchmarkRequestStatsDirect(b *testing.B) {
+	stats := NewRequestStats(time.Now())
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Millisecond)
+		for {
+			select {
+			case <-ticker.C:
+				stats.Report(time.Now())
+			}
+		}
+	}()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			stats.HandleEvent(ReqEvent{
+				Time: time.Now(),
+				Type: ReqIn,
+			})
+			stats.HandleEvent(ReqEvent{
+				Time: time.Now(),
+				Type: ReqOut,
+			})
+		}
+	})
+}
+
+func BenchmarkRequestStatsThroughChannels(b *testing.B) {
+	reqChan := make(chan ReqEvent, 100)
+	stats := NewRequestStats(time.Now())
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Millisecond)
+		for {
+			select {
+			case event := <-reqChan:
+				stats.HandleEvent(event)
+			case <-ticker.C:
+				stats.Report(time.Now())
+			}
+		}
+	}()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			reqChan <- ReqEvent{
+				Time: time.Time{},
+				Type: ReqIn,
+			}
+
+			reqChan <- ReqEvent{
+				Time: time.Time{},
+				Type: ReqOut,
+			}
+		}
+	})
+}

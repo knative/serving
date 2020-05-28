@@ -125,6 +125,22 @@ func TestCanScaleToZero(t *testing.T) {
 		result: true,
 		grace:  10 * time.Second,
 	}, {
+		name: "inactive condition (LTT exact grace period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
+					},
+					// LTT = 10 seconds ago.
+				}},
+			},
+		},
+		result: true,
+		grace:  10 * time.Second,
+	}, {
 		name: "inactive condition (LTT less than grace period ago)",
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
@@ -151,6 +167,90 @@ func TestCanScaleToZero(t *testing.T) {
 	}
 }
 
+func TestInactiveFor(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name   string
+		status PodAutoscalerStatus
+		result time.Duration
+	}{{
+		name:   "empty status",
+		status: PodAutoscalerStatus{},
+		result: -1,
+	}, {
+		name: "unknown condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		result: -1,
+	}, {
+		name: "active condition",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		result: -1,
+	}, {
+		name: "inactive condition (no LTT)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					// No LTT = beginning of time, so for sure we can.
+				}},
+			},
+		},
+		result: time.Since(time.Time{}),
+	}, {
+		name: "inactive condition (LTT longer than idle period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
+					},
+					// LTT = 30 seconds ago.
+				}},
+			},
+		},
+		result: 30 * time.Second,
+	}, {
+		name: "inactive condition (LTT less than idle period ago)",
+		status: PodAutoscalerStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   PodAutoscalerConditionActive,
+					Status: corev1.ConditionFalse,
+					LastTransitionTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
+					},
+					// LTT = 10 seconds ago.
+				}},
+			},
+		},
+		result: 10 * time.Second,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.InactiveFor(now), tc.result; got != want {
+				t.Errorf("InactiveFor = %v, want: %v", got, want)
+			}
+		})
+	}
+}
 func TestActiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -228,18 +328,12 @@ func TestActiveFor(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
-			t.Errorf("ActiveFor = %v, want: %v", got, want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.ActiveFor(now), tc.result; got != want {
+				t.Errorf("ActiveFor = %v, want: %v", got, want)
+			}
+		})
 	}
-}
-
-func absDiff(a, b time.Duration) time.Duration {
-	a -= b
-	if a < 0 {
-		a *= -1
-	}
-	return a
 }
 
 func TestCanFailActivation(t *testing.T) {
@@ -315,8 +409,8 @@ func TestCanFailActivation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanFailActivation(now, tc.grace); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			if got, want := tc.status.CanFailActivation(now, tc.grace), tc.result; got != want {
+				t.Errorf("CanFailActivation = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -367,9 +461,11 @@ func TestIsActivating(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivating, tc.status.IsActivating(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.IsActivating(), tc.isActivating; got != want {
+				t.Errorf("IsActivating = %v, want: %v", got, want)
+			}
+		})
 	}
 }
 
@@ -467,9 +563,11 @@ func TestIsReady(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+				t.Errorf("IsReady = %v, want: %v", got, want)
+			}
+		})
 	}
 }
 
@@ -511,10 +609,10 @@ func TestTargetAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotTarget, gotOK := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
-				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
+				t.Errorf("Target = %v; want: %v", gotTarget, tc.wantTarget)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("got ok: %v wanted %v", gotOK, tc.wantOK)
+				t.Errorf("OK = %v; want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -721,7 +819,14 @@ func TestWindowAnnotation(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.WindowAnnotationKey: "120s",
 		}),
-		wantWindow: time.Second * 120,
+		wantWindow: 120 * time.Second,
+		wantOK:     true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.WindowAnnotationKey: "2m33s",
+		}),
+		wantWindow: 153 * time.Second,
 		wantOK:     true,
 	}, {
 		name: "invalid",
@@ -736,10 +841,10 @@ func TestWindowAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotWindow, gotOK := tc.pa.Window()
 			if gotWindow != tc.wantWindow {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantWindow, gotWindow)
+				t.Errorf("Window = %v, want: %v", gotWindow, tc.wantWindow)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -776,10 +881,10 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicWindowPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+				t.Errorf("PanicWindowPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -816,10 +921,10 @@ func TestTargetUtilization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetUtilization()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("%q target utilization: %v want: %v", tc.name, got, want)
+				t.Errorf("TU = %v, want: %v", got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -849,17 +954,17 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gotPercentage, gotOK := tc.pa.PanicThresholdPercentage()
 			if gotPercentage != tc.wantPercentage {
-				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
+				t.Errorf("PanicThresholdPercentage = %v, want: %v", gotPercentage, tc.wantPercentage)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
 }
 
 func pa(annotations map[string]string) *PodAutoscaler {
-	p := &PodAutoscaler{
+	return &PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   "test-namespace",
 			Name:        "test-name",
@@ -870,7 +975,6 @@ func pa(annotations map[string]string) *PodAutoscaler {
 		},
 		Status: PodAutoscalerStatus{},
 	}
-	return p
 }
 
 func TestTypicalFlow(t *testing.T) {
@@ -919,7 +1023,6 @@ func TestTargetBC(t *testing.T) {
 	}{{
 		name: "not present",
 		pa:   pa(map[string]string{}),
-		want: 0.0,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
@@ -946,17 +1049,16 @@ func TestTargetBC(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "NPH",
 		}),
-		want: 0.0,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.TargetBC()
 			if got, want := got, tc.want; got != want {
-				t.Errorf("%q target burst capacity: %v want: %v", tc.name, got, want)
+				t.Errorf("TBC = %v, want: %v", got, want)
 			}
 			if gotOK != tc.wantOK {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -990,5 +1092,51 @@ func TestPodAutoscalerGetGroupVersionKind(t *testing.T) {
 	}
 	if got := p.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestScaleToZeroPodRetention(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   time.Duration
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "311s",
+		}),
+		want:   311 * time.Second,
+		wantOK: true,
+	}, {
+		name: "complex",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "4m21s",
+		}),
+		want:   261 * time.Second,
+		wantOK: true,
+	}, {
+		name: "invalid",
+		pa: pa(map[string]string{
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "365d",
+		}),
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.ScaleToZeroPodRetention()
+			if got != tc.want {
+				t.Errorf("ScaleToZeroPodRetention = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
 	}
 }

@@ -137,7 +137,7 @@ func main() {
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
 	cmw.Watch(metrics.ConfigMapName(),
-		metrics.UpdateExporterFromConfigMap(component, logger),
+		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -225,11 +225,17 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
 	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
-		podCounter := resources.NewScopedEndpointsCounter(
-			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		// TODO(vagababov): while metric name == revision name, we should utilize the proper
-		// values from the labels.
-		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, metric.Name)
+		if metric.Spec.ScrapeTarget == "" {
+			return nil, nil
+		}
+
+		revisionName := metric.Labels[serving.RevisionLabelKey]
+		if revisionName == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Metric %s", serving.RevisionLabelKey, metric.Name)
+		}
+
+		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
+		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
 		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
 	}
 }

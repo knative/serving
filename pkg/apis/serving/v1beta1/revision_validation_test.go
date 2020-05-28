@@ -384,7 +384,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &v1.RevisionSpec{
@@ -411,6 +411,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -519,6 +520,7 @@ func TestImmutableFields(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -541,7 +543,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("50m"),
+								corev1.ResourceCPU: resource.MustParse("50m"),
 							},
 						},
 					}},
@@ -557,7 +559,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("100m"),
+								corev1.ResourceCPU: resource.MustParse("100m"),
 							},
 						},
 					}},
@@ -788,7 +790,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "",
+					autoscaling.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -799,10 +801,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: (&apis.FieldError{
-			Message: "expected 1 <=  <= 2147483647",
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
-		}).ViaField("annotations").ViaField("metadata"),
+		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",
 		rts: &v1.RevisionTemplateSpec{
@@ -821,7 +821,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
+			Paths:   []string{"[" + serving.QueueSideCarResourcePercentageAnnotation + "]"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",

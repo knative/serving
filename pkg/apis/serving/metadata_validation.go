@@ -25,18 +25,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 )
 
 var (
-	allowedAnnotations = map[string]struct{}{
-		UpdaterAnnotation:                {},
-		CreatorAnnotation:                {},
-		RevisionLastPinnedAnnotationKey:  {},
-		GroupNamePrefix + "forceUpgrade": {},
-	}
+	allowedAnnotations = sets.NewString(
+		UpdaterAnnotation,
+		CreatorAnnotation,
+		RevisionLastPinnedAnnotationKey,
+		GroupNamePrefix+"forceUpgrade",
+	)
 )
 
 // ValidateObjectMetadata validates that `metadata` stanza of the
@@ -51,7 +53,7 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object) *apis.Field
 
 func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
 	for key := range annotations {
-		if _, ok := allowedAnnotations[key]; !ok && strings.HasPrefix(key, GroupNamePrefix) {
+		if !allowedAnnotations.Has(key) && strings.HasPrefix(key, GroupNamePrefix) {
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
@@ -71,8 +73,8 @@ func ValidateQueueSidecarAnnotation(annotations map[string]string) *apis.FieldEr
 	if err != nil {
 		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(QueueSideCarResourcePercentageAnnotation)
 	}
-	if value <= 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, QueueSideCarResourcePercentageAnnotation)
+	if value < 0.1 || value > 100 {
+		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(QueueSideCarResourcePercentageAnnotation)
 	}
 	return nil
 }
@@ -95,9 +97,15 @@ func ValidateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
 	if containerConcurrency != nil {
 		cfg := config.FromContextOrDefaults(ctx).Defaults
-		if *containerConcurrency < 0 || *containerConcurrency > cfg.ContainerConcurrencyMaxLimit {
+
+		var minContainerConcurrency int64
+		if !cfg.AllowContainerConcurrencyZero {
+			minContainerConcurrency = 1
+		}
+
+		if *containerConcurrency < minContainerConcurrency || *containerConcurrency > cfg.ContainerConcurrencyMaxLimit {
 			return apis.ErrOutOfBoundsValue(
-				*containerConcurrency, 0, cfg.ContainerConcurrencyMaxLimit, apis.CurrentField)
+				*containerConcurrency, minContainerConcurrency, cfg.ContainerConcurrencyMaxLimit, apis.CurrentField)
 		}
 	}
 	return nil

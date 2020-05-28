@@ -52,6 +52,11 @@ var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
+func (*Revision) GetConditionSet() apis.ConditionSet {
+	return revisionCondSet
+}
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
@@ -131,9 +136,6 @@ func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) 
 func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {
 	ds := serving.TransformDeploymentStatus(original)
 	cond := ds.GetCondition(serving.DeploymentConditionReady)
-	if cond == nil {
-		return
-	}
 
 	m := revisionCondSet.Manage(rs)
 	switch cond.Status {

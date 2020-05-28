@@ -2,6 +2,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -15,24 +17,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: envoy
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
     leaderelection:
@@ -98,6 +108,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -467,6 +479,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: contour.heptio.com
   names:
@@ -543,6 +557,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -1278,6 +1294,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: projectcontour.io
   names:
@@ -1354,12 +1372,16 @@ kind: ServiceAccount
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -1374,6 +1396,8 @@ kind: Role
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1393,6 +1417,8 @@ kind: Job
 metadata:
   name: contour-certgen
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ttlSecondsAfterFinished: 0
   template:
@@ -1406,7 +1432,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         command:
         - contour
@@ -1433,6 +1459,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: contour
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1511,6 +1539,8 @@ kind: Role
 metadata:
   name: contour-leaderelection
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -1536,6 +1566,8 @@ kind: RoleBinding
 metadata:
   name: contour-leaderelection
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -1550,6 +1582,8 @@ kind: Service
 metadata:
   name: contour
   namespace: contour-external
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ports:
   - port: 8001
@@ -1573,6 +1607,8 @@ metadata:
     # for information about enabling the PROXY protocol on the ELB to recover
     # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   externalTrafficPolicy: Local
   ports:
@@ -1591,6 +1627,7 @@ kind: Deployment
 metadata:
   labels:
     app: contour
+    networking.knative.dev/ingress-provider: contour
   name: contour
   namespace: contour-external
 spec:
@@ -1635,7 +1672,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         name: contour
         ports:
@@ -1701,6 +1738,7 @@ kind: DaemonSet
 metadata:
   labels:
     app: envoy
+    networking.knative.dev/ingress-provider: contour
   name: envoy
   namespace: contour-external
 spec:
@@ -1726,7 +1764,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -1802,7 +1840,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -1831,14 +1869,14 @@ spec:
         secret:
           secretName: cacert
       restartPolicy: Always
----
-
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1852,24 +1890,32 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: envoy
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 data:
   contour.yaml: |
     leaderelection:
@@ -1935,6 +1981,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -2304,6 +2352,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: contour.heptio.com
   names:
@@ -2380,6 +2430,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: httpproxies.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.virtualhost.fqdn
@@ -3115,6 +3167,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   group: projectcontour.io
   names:
@@ -3191,12 +3245,16 @@ kind: ServiceAccount
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -3211,6 +3269,8 @@ kind: Role
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3230,6 +3290,8 @@ kind: Job
 metadata:
   name: contour-certgen
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ttlSecondsAfterFinished: 0
   template:
@@ -3243,7 +3305,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         command:
         - contour
@@ -3270,6 +3332,8 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: contour
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3348,6 +3412,8 @@ kind: Role
 metadata:
   name: contour-leaderelection
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 rules:
 - apiGroups:
   - ""
@@ -3373,6 +3439,8 @@ kind: RoleBinding
 metadata:
   name: contour-leaderelection
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -3387,6 +3455,8 @@ kind: Service
 metadata:
   name: contour
   namespace: contour-internal
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   ports:
   - port: 8001
@@ -3410,6 +3480,8 @@ metadata:
     # for information about enabling the PROXY protocol on the ELB to recover
     # the original remote IP address.
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   # externalTrafficPolicy: Local
   ports:
@@ -3428,6 +3500,7 @@ kind: Deployment
 metadata:
   labels:
     app: contour
+    networking.knative.dev/ingress-provider: contour
   name: contour
   namespace: contour-internal
 spec:
@@ -3472,7 +3545,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         name: contour
         ports:
@@ -3538,6 +3611,7 @@ kind: DaemonSet
 metadata:
   labels:
     app: envoy
+    networking.knative.dev/ingress-provider: contour
   name: envoy
   namespace: contour-internal
 spec:
@@ -3563,7 +3637,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         lifecycle:
           preStop:
@@ -3639,7 +3713,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4f7ff8187ef1d0872f345c9ef35b8e976e9e87248da5f7509477661cdbcd0cd3
+        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:25776cd920a8961746503d4bf923774a5b312a793e13ef4bcd01ae948ef0b748
         imagePullPolicy: Always
         name: envoy-initconfig
         volumeMounts:
@@ -3668,7 +3742,5 @@ spec:
         secret:
           secretName: cacert
       restartPolicy: Always
----
-
 
 ---

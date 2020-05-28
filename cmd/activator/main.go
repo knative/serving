@@ -233,7 +233,7 @@ func main() {
 
 	// Watch the observability config map
 	configMapWatcher.Watch(metrics.ConfigMapName(),
-		metrics.UpdateExporterFromConfigMap(component, logger),
+		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
 
@@ -271,7 +271,8 @@ func main() {
 
 	// The drain has started (we are now failing readiness probes).  Let the effects of this
 	// propagate so that new requests are no longer routed our way.
-	time.Sleep(30 * time.Second)
+	logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
+	time.Sleep(pkgnet.DefaultDrainTimeout)
 	logger.Info("Done waiting, shutting down servers.")
 
 	// Drain outstanding requests, and stop accepting new ones.

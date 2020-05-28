@@ -24,7 +24,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -78,8 +77,8 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	reqChan := make(chan network.ReqEvent, 10)
-	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
+	stats := network.NewRequestStats(time.Now())
+	h := proxyHandler(breaker, stats, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -90,13 +89,9 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	req.Header.Set(network.ProxyHeaderName, activator.Name)
 	h(writer, req)
-	select {
-	case e := <-reqChan:
-		if e.Type != network.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out waiting for an event to be intercepted")
+
+	if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
+		t.Errorf("ProxiedRequestCount = %v, want 1", got)
 	}
 }
 
@@ -170,32 +165,6 @@ func TestProbeHandler(t *testing.T) {
 				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
 			}
 		})
-	}
-}
-
-func TestCreateVarLogLink(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
-	if err != nil {
-		t.Errorf("Failed to created temporary directory: %v", err)
-	}
-	defer os.RemoveAll(dir)
-	var env = config{
-		ServingNamespace:   "default",
-		ServingPod:         "service-7f97f9465b-5kkm5",
-		UserContainerName:  "user-container",
-		VarLogVolumeName:   "knative-var-log",
-		InternalVolumePath: dir,
-	}
-	createVarLogLink(env)
-
-	source := path.Join(dir, "default_service-7f97f9465b-5kkm5_user-container")
-	want := "../knative-var-log"
-	got, err := os.Readlink(source)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if got != want {
-		t.Errorf("Incorrect symlink = %q, want %q, diff: %s", got, want, cmp.Diff(got, want))
 	}
 }
 
@@ -483,13 +452,11 @@ func TestQueueTraceSpans(t *testing.T) {
 				if !tc.infiniteCC {
 					breaker = queue.NewBreaker(params)
 				}
-				reqChan := make(chan network.ReqEvent, 10)
-
 				proxy.Transport = &ochttp.Transport{
 					Base: pkgnet.AutoTransport,
 				}
 
-				h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
+				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
 				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{}, logger)
@@ -501,14 +468,14 @@ func TestQueueTraceSpans(t *testing.T) {
 			if len(gotSpans) != tc.wantSpans {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
-			spanNames := []string{"probe", "/", "proxy"}
+			spanNames := []string{"probe", "/", "queue_proxy"}
 			if !tc.probeTrace {
 				spanNames = spanNames[1:]
 			}
 			// We want to add `queueWait` span only if there is possible queueing
 			// and if the tests actually expects tracing.
 			if !tc.infiniteCC && tc.wantSpans > 1 {
-				spanNames = append([]string{"queueWait"}, spanNames...)
+				spanNames = append([]string{"queue_wait"}, spanNames...)
 			}
 			gs := []string{}
 			for i := 0; i < len(gotSpans); i++ {
@@ -534,8 +501,7 @@ func TestQueueTraceSpans(t *testing.T) {
 
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
+	stats := network.NewRequestStats(time.Now())
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
@@ -544,7 +510,11 @@ func BenchmarkProxyHandler(b *testing.B) {
 	if err != nil {
 		b.Fatal("Failed to create stats reporter:", err)
 	}
-	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	go func() {
+		for now := range reportTicker.C {
+			promStatReporter.Report(stats.Report(now))
+		}
+	}()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
@@ -559,7 +529,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		breaker: nil,
 	}}
 	for _, tc := range tests {
-		h := proxyHandler(reqChan, tc.breaker, true /*tracingEnabled*/, baseHandler)
+		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {

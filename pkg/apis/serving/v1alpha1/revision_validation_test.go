@@ -39,43 +39,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-func TestConcurrencyModelValidation(t *testing.T) {
-	tests := []struct {
-		name string
-		cm   DeprecatedRevisionRequestConcurrencyModelType
-		want *apis.FieldError
-	}{{
-		name: "single",
-		cm:   DeprecatedRevisionRequestConcurrencyModelSingle,
-		want: nil,
-	}, {
-		name: "multi",
-		cm:   DeprecatedRevisionRequestConcurrencyModelMulti,
-		want: nil,
-	}, {
-		name: "empty",
-		cm:   "",
-		want: nil,
-	}, {
-		name: "bogus",
-		cm:   "bogus",
-		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
-	}, {
-		name: "balderdash",
-		cm:   "balderdash",
-		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.cm.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got): \n%s", diff)
-			}
-		})
-	}
-}
-
 func TestServingStateType(t *testing.T) {
 	tests := []struct {
 		name string
@@ -140,11 +103,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			DeprecatedConcurrencyModel: "Multi",
-			DeprecatedBuildName:        "banana",
 		},
-		want: apis.ErrDisallowedFields("buildName", "concurrencyModel", "container",
-			"generation", "servingState"),
+		want: apis.ErrDisallowedFields("container", "generation", "servingState"),
 	}, {
 		name: "missing container",
 		rs: &RevisionSpec{
@@ -249,24 +209,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {
-		name: "has build ref (disallowed)",
-		rs: &RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "helloworld",
-			},
-			DeprecatedBuildRef: &corev1.ObjectReference{},
-		},
-		want: apis.ErrDisallowedFields("buildRef"),
-	}, {
-		name: "bad concurrency model",
-		rs: &RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "helloworld",
-			},
-			DeprecatedConcurrencyModel: "bogus",
-		},
-		want: apis.ErrInvalidValue("bogus", "concurrencyModel"),
-	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
@@ -302,6 +244,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -459,7 +402,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
+			Paths:   []string{"[" + serving.QueueSideCarResourcePercentageAnnotation + "]"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
@@ -485,7 +428,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "",
+					autoscaling.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: RevisionSpec{
@@ -494,10 +437,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: (&apis.FieldError{
-			Message: "expected 1 <=  <= 2147483647",
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
-		}).ViaField("annotations").ViaField("metadata"),
+		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
 		ctx:  autoscalerConfigCtx(false, 1),
@@ -705,6 +646,7 @@ func TestImmutableFields(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -727,7 +669,7 @@ func TestImmutableFields(t *testing.T) {
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"): resource.MustParse("50m"),
+							corev1.ResourceCPU: resource.MustParse("50m"),
 						},
 					},
 				},
@@ -742,7 +684,7 @@ func TestImmutableFields(t *testing.T) {
 					Image: "busybox",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"): resource.MustParse("100m"),
+							corev1.ResourceCPU: resource.MustParse("100m"),
 						},
 					},
 				},
@@ -784,38 +726,6 @@ func TestImmutableFields(t *testing.T) {
 			Details: `{v1alpha1.RevisionSpec}.DeprecatedContainer.Image:
 	-: "busybox"
 	+: "helloworld"
-`,
-		},
-	}, {
-		name: "bad (concurrency model change)",
-		new: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "helloworld",
-				},
-				DeprecatedConcurrencyModel: "Multi",
-			},
-		},
-		old: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Image: "helloworld",
-				},
-				DeprecatedConcurrencyModel: "Single",
-			},
-		},
-		want: &apis.FieldError{
-			Message: "Immutable fields changed (-old +new)",
-			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.DeprecatedConcurrencyModel:
-	-: "Single"
-	+: "Multi"
 `,
 		},
 	}, {

@@ -120,8 +120,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
+			"sidecar.istio.io/inject": strconv.FormatBool(inject),
 		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -186,11 +185,7 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
-		withInternalVisibility,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		}))
+	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -291,10 +286,7 @@ func TestCallToPublicService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
-		}))
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

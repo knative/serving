@@ -22,23 +22,27 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/system"
+	pkgTest "knative.dev/pkg/test"
+	pkgHa "knative.dev/pkg/test/ha"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 )
 
-const (
-	controllerDeploymentName = "controller"
-)
+const controllerDeploymentName = "controller"
 
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
+	cancel := logstream.Start(t)
+	defer cancel()
 
-	if err := waitForDeploymentScale(clients, controllerDeploymentName, haReplicas); err != nil {
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, controllerDeploymentName, system.Namespace(), haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", controllerDeploymentName, haReplicas, err)
 	}
 
-	leaderController, err := getLeader(t, clients, controllerDeploymentName)
+	leaderController, err := pkgHa.WaitForNewLeader(clients.KubeClient, controllerDeploymentName, system.Namespace(), "" /*use arbitrary name as there was no previous leader*/)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -47,14 +51,17 @@ func TestControllerHA(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController, &metav1.DeleteOptions{})
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
+		&metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("Failed to delete pod %s: %v", leaderController, err)
+	}
 
-	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
+	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leaderController, system.Namespace()); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, controllerDeploymentName); err != nil {
+	if _, err = pkgHa.WaitForNewLeader(clients.KubeClient, controllerDeploymentName, system.Namespace(), leaderController); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 

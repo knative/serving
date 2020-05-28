@@ -42,11 +42,11 @@ spec:
 
         resources:
           requests:
-            cpu: 20m
-            memory: 20Mi
+            cpu: 100m
+            memory: 100Mi
           limits:
-            cpu: 200m
-            memory: 200Mi
+            cpu: 500m
+            memory: 500Mi
 
         env:
         - name: SYSTEM_NAMESPACE
@@ -57,6 +57,8 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+        - name: WEBHOOK_PORT
+          value: "8443"
 
         # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
         - name: METRICS_DOMAIN
@@ -72,6 +74,16 @@ spec:
           containerPort: 8008
         - name: https-webhook
           containerPort: 8443
+
+        readinessProbe: &probe
+          periodSeconds: 1
+          httpGet:
+            scheme: HTTPS
+            port: 8443
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "webhook"
+        livenessProbe: *probe
 
 ---
 apiVersion: v1

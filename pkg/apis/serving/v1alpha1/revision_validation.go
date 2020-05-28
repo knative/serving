@@ -120,16 +120,8 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))
 	}
 
-	if rs.DeprecatedBuildRef != nil {
-		errs = errs.Also(apis.ErrDisallowedFields("buildRef"))
-	}
-
-	if err := rs.DeprecatedConcurrencyModel.Validate(ctx).ViaField("concurrencyModel"); err != nil {
-		errs = errs.Also(err)
-	} else {
-		if rs.ContainerConcurrency != nil {
-			errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
-		}
+	if rs.ContainerConcurrency != nil {
+		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 	}
 
 	if rs.TimeoutSeconds != nil {
@@ -148,17 +140,5 @@ func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis
 		return nil
 	default:
 		return apis.ErrInvalidValue(ss, apis.CurrentField)
-	}
-}
-
-// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
-func (cm DeprecatedRevisionRequestConcurrencyModelType) Validate(ctx context.Context) *apis.FieldError {
-	switch cm {
-	case DeprecatedRevisionRequestConcurrencyModelType(""),
-		DeprecatedRevisionRequestConcurrencyModelMulti,
-		DeprecatedRevisionRequestConcurrencyModelSingle:
-		return nil
-	default:
-		return apis.ErrInvalidValue(cm, apis.CurrentField)
 	}
 }

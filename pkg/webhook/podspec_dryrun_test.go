@@ -108,6 +108,28 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 		modifyContext: dryRunNotSupported,
 	}, {
+		name: "dryrun strict mode",
+		s: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "valid",
+				Namespace: "foo",
+				Annotations: map[string]string{
+					"features.knative.dev/podspec-dryrun": "strict",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		modifyContext: dryRunNotSupported,
+		want:          "dry run failed with fakekube does not support dry run: spec.template",
+	}, {
 		name: "no template found",
 		s: &v1.Service{
 			ObjectMeta: om,

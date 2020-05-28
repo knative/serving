@@ -24,9 +24,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -200,12 +202,12 @@ func TestMetricCollectorScraper(t *testing.T) {
 	// Deleting the metric should cause a calculation error.
 	coll.Delete(defaultNamespace, defaultName)
 	_, _, err = coll.StableAndPanicConcurrency(metricKey, now)
-	if err != ErrNotScraping {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
+	if err != ErrNotCollecting {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotCollecting)
 	}
 	_, _, err = coll.StableAndPanicRPS(metricKey, now)
-	if err != ErrNotScraping {
-		t.Errorf("StableAndPanicRPS() = %v, want %v", err, ErrNotScraping)
+	if err != ErrNotCollecting {
+		t.Errorf("StableAndPanicRPS() = %v, want %v", err, ErrNotCollecting)
 	}
 }
 
@@ -224,12 +226,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 		AverageConcurrentRequests: wantStat,
 		RequestCount:              wantStat,
 	}
-	scraper := &testScraper{
-		s: func() (Stat, error) {
-			return stat, nil
-		},
-	}
-	factory := scraperFactory(scraper, nil)
+	factory := scraperFactory(nil, nil)
 
 	coll := NewMetricCollector(factory, logger)
 	coll.tickProvider = mtp.NewTicker // custom ticker.
@@ -387,6 +384,19 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 }
 
+func TestDoubleWatch(t *testing.T) {
+	defer func() {
+		if x := recover(); x == nil {
+			t.Error("Expected panic")
+		}
+	}()
+	logger := TestLogger(t)
+	factory := scraperFactory(nil, nil)
+	coll := NewMetricCollector(factory, logger)
+	coll.Watch(func(types.NamespacedName) {})
+	coll.Watch(func(types.NamespacedName) {})
+}
+
 func TestMetricCollectorError(t *testing.T) {
 	testMetric := &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
@@ -437,15 +447,23 @@ func TestMetricCollectorError(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			factory := scraperFactory(test.scraper, nil)
+			mtp := &fake.ManualTickProvider{
+				Channel: make(chan time.Time),
+			}
 			coll := NewMetricCollector(factory, logger)
+			coll.tickProvider = mtp.NewTicker
+
 			watchCh := make(chan types.NamespacedName)
 			coll.Watch(func(key types.NamespacedName) {
 				watchCh <- key
 			})
+
+			// Create a collection and immediately tick.
 			coll.CreateOrUpdate(testMetric)
-			key := types.NamespacedName{Namespace: testMetric.Namespace, Name: testMetric.Name}
+			mtp.Channel <- time.Now()
 
 			// Expect an event to be propagated because we're erroring.
+			key := types.NamespacedName{Namespace: testMetric.Namespace, Name: testMetric.Name}
 			event := <-watchCh
 			if event != key {
 				t.Fatalf("Event = %v, want %v", event, key)
@@ -497,14 +515,15 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		}
 		c.record(stat)
 	}
-	st, pan, noData := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
-	if noData {
+
+	now = now.Add(time.Duration(9) * time.Second)
+	if c.concurrencyBuckets.IsEmpty(now) {
 		t.Fatal("Unexpected NoData error")
 	}
-	if got, want := st, 11.5; got != want {
+	if got, want := c.concurrencyBuckets.WindowAverage(now), 11.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
 	}
-	if got, want := pan, 13.5; got != want {
+	if got, want := c.concurrencyPanicBuckets.WindowAverage(now), 13.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
 	}
 }

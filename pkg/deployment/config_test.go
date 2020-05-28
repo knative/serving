@@ -31,7 +31,7 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
-const noSidecarImage = ""
+const defaultSidecarImage = "defaultImage"
 
 func TestControllerConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)
@@ -62,33 +62,33 @@ func TestControllerConfiguration(t *testing.T) {
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-			QueueSidecarImage:              noSidecarImage,
+			QueueSidecarImage:              defaultSidecarImage,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey:              noSidecarImage,
+			QueueSidecarImageKey:              defaultSidecarImage,
 			registriesSkippingTagResolvingKey: "ko.local,,",
 		},
 	}, {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
-			QueueSidecarImage:              noSidecarImage,
+			QueueSidecarImage:              defaultSidecarImage,
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: noSidecarImage,
+			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "444s",
 		},
 	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-			QueueSidecarImage:              noSidecarImage,
+			QueueSidecarImage:              defaultSidecarImage,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey:              noSidecarImage,
+			QueueSidecarImageKey:              defaultSidecarImage,
 			registriesSkippingTagResolvingKey: "ko.local,ko.dev",
 		},
 	}, {
@@ -99,28 +99,28 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller configuration invalid progress deadline",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: noSidecarImage,
+			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "not-a-duration",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline II",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: noSidecarImage,
+			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "-21s",
 		},
 	}, {
 		name:    "controller configuration invalid progress deadline III",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: noSidecarImage,
+			QueueSidecarImageKey: defaultSidecarImage,
 			ProgressDeadlineKey:  "0ms",
 		},
 	}}
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotConfig, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+			gotConfigCM, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: system.Namespace(),
 					Name:      ConfigName,
@@ -132,8 +132,16 @@ func TestControllerConfiguration(t *testing.T) {
 				t.Fatalf("NewConfigFromConfigMap() error = %v, want: %v", err, tt.wantErr)
 			}
 
-			if got, want := gotConfig, tt.wantConfig; !cmp.Equal(got, want) {
+			if got, want := gotConfigCM, tt.wantConfig; !cmp.Equal(got, want) {
 				t.Error("Config mismatch, diff(-want,+got):", cmp.Diff(want, got))
+			}
+
+			gotConfig, err := NewConfigFromMap(tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewConfigFromMap() error = %v, WantErr %v", err, tt.wantErr)
+			}
+			if diff := cmp.Diff(gotConfig, gotConfigCM); diff != "" {
+				t.Fatalf("Config mismatch: diff(-want,+got):\n%s", diff)
 			}
 		})
 	}

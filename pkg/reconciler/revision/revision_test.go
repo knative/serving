@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -346,12 +345,17 @@ func TestRevWithImageDigests(t *testing.T) {
 
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
+			Name:  "first",
 			Image: "gcr.io/repo/image",
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8888,
 			}},
 		}, {
+			Name:  "second",
 			Image: "docker.io/repo/image",
+		}, {
+			Name:  "third",
+			Image: "docker.io/anotherrepo/image",
 		}},
 	})
 	createRevision(t, ctx, controller, rev)
@@ -368,6 +372,11 @@ func TestRevWithImageDigests(t *testing.T) {
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
 		t.Error("Image digests does not match with the provided containers")
+	}
+	for i, c := range rev.Spec.Containers {
+		if c.Name != rev.Status.ContainerStatuses[i].Name {
+			t.Error("Container statuses do not match the order of containers in spec")
+		}
 	}
 	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
 	updateRevision(t, ctx, controller, rev)
@@ -593,47 +602,6 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		configMapToUpdate *corev1.ConfigMap
 		callback          func(*testing.T) func(runtime.Object) HookResult
 	}{{
-		name: "Disable /var/log Collection", // Should set ENABLE_VAR_LOG_COLLECTION to false
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      metrics.ConfigMapName(),
-			},
-			Data: map[string]string{
-				"logging.enable-var-log-collection": "false",
-			},
-		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
-
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.QueueContainerName {
-						for _, e := range c.Env {
-							if e.Name == "ENABLE_VAR_LOG_COLLECTION" {
-								flag, err := strconv.ParseBool(e.Value)
-								if err != nil {
-									t.Errorf("Invalid ENABLE_VAR_LOG_COLLECTION value: %q", e.Name)
-									return HookIncomplete
-								}
-								if flag {
-									t.Errorf("ENABLE_VAR_LOG_COLLECTION = %v, want: %v", flag, false)
-									return HookIncomplete
-								}
-								return HookComplete
-							}
-						}
-
-						t.Error("ENABLE_VAR_LOG_COLLECTION is not set")
-						return HookIncomplete
-					}
-				}
-				t.Logf("The deployment spec doesn't contain the expected container %q", resources.QueueContainerName)
-				return HookIncomplete
-			}
-		},
-	}, {
 		name: "Update QueueProxy Image", // Should update queueSidecarImage
 		configMapToUpdate: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

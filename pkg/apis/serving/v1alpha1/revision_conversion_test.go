@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -94,55 +95,6 @@ func TestRevisionConversion(t *testing.T) {
 				ContainerStatuses: []ContainerStatuses{},
 			},
 		},
-	}, {
-		name:     "bad roundtrip w/ build ref",
-		badField: "buildRef",
-		in: &Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "asdf",
-				Namespace:  "blah",
-				Generation: 1,
-			},
-			Spec: RevisionSpec{
-				DeprecatedBuildRef: &corev1.ObjectReference{
-					APIVersion: "build.knative.dev/v1alpha1",
-					Kind:       "Build",
-					Name:       "foo",
-				},
-				RevisionSpec: v1.RevisionSpec{
-					PodSpec: corev1.PodSpec{
-						ServiceAccountName: "robocop",
-						Containers: []corev1.Container{{
-							Image: "busybox",
-							VolumeMounts: []corev1.VolumeMount{{
-								MountPath: "/mount/path",
-								Name:      "the-name",
-								ReadOnly:  true,
-							}},
-						}},
-						Volumes: []corev1.Volume{{
-							Name: "the-name",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: "foo",
-								},
-							},
-						}},
-					},
-					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: ptr.Int64(53),
-				},
-			},
-			Status: RevisionStatus{
-				Status: duckv1.Status{
-					ObservedGeneration: 1,
-					Conditions: duckv1.Conditions{{
-						Type:   "Ready",
-						Status: "True",
-					}},
-				},
-			},
-		},
 	}}
 
 	toDeprecated := func(in *Revision) *Revision {
@@ -172,7 +124,7 @@ func TestRevisionConversion(t *testing.T) {
 			if err := got.ConvertFrom(context.Background(), beta); err != nil {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
+			if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
@@ -199,7 +151,7 @@ func TestRevisionConversion(t *testing.T) {
 			if err := got.ConvertFrom(context.Background(), beta); err != nil {
 				t.Errorf("ConvertFrom() = %v", err)
 			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
+			if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 			}
 		})
@@ -246,7 +198,7 @@ func TestRevisionConversionForMultiContainer(t *testing.T) {
 	if err := got.ConvertFrom(context.Background(), beta); err != nil {
 		t.Errorf("ConvertFrom() = %v", err)
 	}
-	if diff := cmp.Diff(input, got); diff != "" {
+	if diff := cmp.Diff(input, got, cmpopts.EquateEmpty()); diff != "" {
 		t.Errorf("Roundtrip (-want, +got): \n%s", diff)
 	}
 }

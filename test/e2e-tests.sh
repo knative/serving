@@ -62,7 +62,11 @@ failed=0
 # Run tests serially in the mesh and https scenarios
 parallelism=""
 use_https=""
-(( MESH )) && parallelism="-parallel 1"
+if (( MESH )); then
+  parallelism="-parallel 1"
+  # This is a workaround until Istio fixes https://github.com/istio/istio/issues/23485.
+  kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
+fi
 
 if [[ "${ISTIO_VERSION}" == "1.5-latest" ]]; then
   parallelism="-parallel 1"
@@ -78,18 +82,29 @@ if (( HTTPS )); then
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}'
+add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
+
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v certificate) \
-  ./test/e2e \
+  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+  ./test/e2e ./test/e2e/hpa \
   ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+# We run KIngress conformance ingress separately, to make it easier to skip some tests.
+go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
+  -run="Test[^U]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
+
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.

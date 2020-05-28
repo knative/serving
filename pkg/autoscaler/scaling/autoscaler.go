@@ -200,6 +200,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		logger.Info("PANICKING.")
 		a.panicTime = now
 		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
+	} else if isOverPanicThreshold {
+		// If we're still over panic threshold right now — extend the panic window.
+		a.panicTime = now
 	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
@@ -210,14 +213,19 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	desiredPodCount := desiredStablePodCount
 	if !a.panicTime.IsZero() {
+		// In some edgecases stable window metric might be larger
+		// than panic one. And we should provision for stable as for panic,
+		// so pick the larger of the two.
+		if desiredPodCount < desiredPanicPodCount {
+			desiredPodCount = desiredPanicPodCount
+		}
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
-		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
-			a.panicTime = now
-			a.maxPanicPods = desiredPanicPodCount
-		} else if desiredPanicPodCount < a.maxPanicPods {
-			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
+		if desiredPodCount > a.maxPanicPods {
+			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPodCount)
+			a.maxPanicPods = desiredPodCount
+		} else if desiredPodCount < a.maxPanicPods {
+			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
@@ -226,7 +234,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
-	// - the excess burst capacity based on stable value for now, since we don't want to
+	// - the excess burst capacity based on panic value, since we don't want to
 	//   be making knee-jerk decisions about Activator in the request path.
 	//   Negative EBC means that the deployment does not have enough capacity to serve
 	//   the desired burst off hand.
@@ -247,7 +255,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		// numAct stays 1, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - observedStableValue -
+		excessBCF = math.Floor(totCap - observedPanicValue -
 			a.deciderSpec.TargetBurstCapacity)
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))

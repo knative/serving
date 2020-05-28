@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -97,54 +98,31 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	var digestGrp errgroup.Group
-	type digestData struct {
-		digestValue        string
-		containerName      string
-		isServingContainer bool
-		image              string
-		digestError        error
-	}
-
-	digests := make(chan digestData, len(rev.Spec.Containers))
-	for _, container := range rev.Spec.Containers {
+	containerStatuses := make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	for i, container := range rev.Spec.Containers {
 		container := container // Standard Go concurrency pattern.
+		i := i
 		digestGrp.Go(func() error {
 			digest, err := c.resolver.Resolve(container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
-				err = fmt.Errorf("failed to resolve image to digest: %w", err)
-				digests <- digestData{
-					image:       container.Image,
-					digestError: err,
-				}
-			} else {
-				isServingContainer := len(rev.Spec.Containers) == 1 || len(container.Ports) != 0
-				digests <- digestData{
-					digestValue:        digest,
-					containerName:      container.Name,
-					isServingContainer: isServingContainer,
-				}
+				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
+			}
+			if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
+				rev.Status.DeprecatedImageDigest = digest
+			}
+			containerStatuses[i] = v1.ContainerStatuses{
+				Name:        container.Name,
+				ImageDigest: digest,
 			}
 			return nil
 		})
 	}
-	digestGrp.Wait()
-	close(digests)
-	for v := range digests {
-		if v.digestError != nil {
-			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-				v1.RevisionContainerMissingMessage(
-					v.image, v.digestError.Error()))
-			return v.digestError
-		}
-		if v.isServingContainer {
-			rev.Status.DeprecatedImageDigest = v.digestValue
-		}
-		rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
-			Name:        v.containerName,
-			ImageDigest: v.digestValue,
-		})
+	if err := digestGrp.Wait(); err != nil {
+		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
+		return err
 	}
+	rev.Status.ContainerStatuses = containerStatuses
 	return nil
 }
 
@@ -190,7 +168,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 			"Revision becomes ready upon all resources being ready")
 	}
 
-	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 

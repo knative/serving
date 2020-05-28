@@ -19,11 +19,12 @@ package deployment
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	cm "knative.dev/pkg/configmap"
 )
 
 const (
@@ -53,25 +54,23 @@ func defaultConfig() *Config {
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := defaultConfig()
-	qsideCarImage, ok := configMap[QueueSidecarImageKey]
-	if !ok {
-		return nil, errors.New("queue sidecar image is missing")
-	}
-	nc.QueueSidecarImage = qsideCarImage
 
-	if pd, ok := configMap[ProgressDeadlineKey]; ok {
-		v, err := time.ParseDuration(pd)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing %s=%s as duration, %w", ProgressDeadlineKey, pd, err)
-		} else if v <= 0 {
-			return nil, fmt.Errorf("%s cannot be non-positive duration, was %v", ProgressDeadlineKey, v)
-		}
-		nc.ProgressDeadline = v
+	if err := cm.Parse(configMap,
+		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
+		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
+		cm.AsStringSet(registriesSkippingTagResolvingKey, &nc.RegistriesSkippingTagResolving),
+	); err != nil {
+		return nil, err
 	}
 
-	if registries, ok := configMap[registriesSkippingTagResolvingKey]; ok {
-		nc.RegistriesSkippingTagResolving = sets.NewString(strings.Split(registries, ",")...)
+	if nc.QueueSidecarImage == "" {
+		return nil, errors.New("queueSidecarImage cannot be empty or unset")
 	}
+
+	if nc.ProgressDeadline <= 0 {
+		return nil, fmt.Errorf("progressDeadline cannot be a non-positive duration, was %v", nc.ProgressDeadline)
+	}
+
 	return nc, nil
 }
 

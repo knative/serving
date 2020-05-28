@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	// Inject the fakes for informers this reconciler depends on.
-	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -54,6 +53,7 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
+	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/pkg/system/testing"
 
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -287,7 +287,7 @@ func TestReconcile(t *testing.T) {
 			knCertificateLister: listers.GetKnCertificateLister(),
 		}
 
-		return namespacereconciler.NewReconciler(ctx, logging.FromContext(ctx), kubeclient.Get(ctx),
+		return namespacereconciler.NewReconciler(ctx, logging.FromContext(ctx), fakekubeclient.Get(ctx),
 			listers.GetNamespaceLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: &config.Config{

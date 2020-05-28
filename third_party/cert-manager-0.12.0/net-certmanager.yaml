@@ -18,7 +18,7 @@ metadata:
   # These are the permissions needed by the `cert-manager` `Certificate` implementation.
   name: knative-serving-certmanager
   labels:
-    serving.knative.dev/release: "v20200501-507f8f4"
+    serving.knative.dev/release: "v20200528-9146236"
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
@@ -44,13 +44,72 @@ rules:
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: config.webhook.net-certmanager.networking.internal.knative.dev
+  labels:
+    serving.knative.dev/release: "v20200528-9146236"
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: net-certmanager-webhook
+      namespace: knative-serving
+  failurePolicy: Fail
+  sideEffects: None
+  name: config.webhook.net-certmanager.networking.internal.knative.dev
+  namespaceSelector:
+    matchExpressions:
+    - key: serving.knative.dev/release
+      operator: Exists
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: net-certmanager-webhook-certs
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: "v20200528-9146236"
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200501-507f8f4"
+    serving.knative.dev/release: "v20200528-9146236"
     networking.knative.dev/certificate-provider: cert-manager
 data:
   _example: |
@@ -97,7 +156,7 @@ metadata:
   name: networking-certmanager
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200501-507f8f4"
+    serving.knative.dev/release: "v20200528-9146236"
     networking.knative.dev/certificate-provider: cert-manager
 spec:
   selector:
@@ -109,14 +168,14 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-certmanager
-        serving.knative.dev/release: "v20200501-507f8f4"
+        serving.knative.dev/release: "v20200528-9146236"
     spec:
       serviceAccountName: controller
       containers:
       - name: networking-certmanager
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:4906e7b85bdd1427c3e2281bd1344a6b1d7e717fdca62a40e8bd1a04ab8461b2
+        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:58318efa62d2d387d3b4d348391ba2c8b13874cbeafc8b9e1935226a33c01a1a
         resources:
           requests:
             cpu: 30m
@@ -149,7 +208,7 @@ kind: Service
 metadata:
   labels:
     app: networking-certmanager
-    serving.knative.dev/release: "v20200501-507f8f4"
+    serving.knative.dev/release: "v20200528-9146236"
     networking.knative.dev/certificate-provider: cert-manager
   name: networking-certmanager
   namespace: knative-serving
@@ -164,5 +223,116 @@ spec:
     targetPort: 8008
   selector:
     app: networking-certmanager
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: net-certmanager-webhook
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: "v20200528-9146236"
+spec:
+  selector:
+    matchLabels:
+      app: net-certmanager-webhook
+      role: net-certmanager-webhook
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app: net-certmanager-webhook
+        role: net-certmanager-webhook
+        serving.knative.dev/release: "v20200528-9146236"
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: webhook
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:9b1371bd2866b70d0db723613971ba6a628ecde46210ae78d260970394b96fda
+        resources:
+          requests:
+            cpu: 20m
+            memory: 20Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+          name: METRICS_DOMAIN
+          value: knative.dev/net-certmanager
+        - name: WEBHOOK_NAME
+          value: net-certmanager-webhook
+        securityContext:
+          allowPrivilegeEscalation: false
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        - name: https-webhook
+          containerPort: 8443
+
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: net-certmanager-webhook
+  namespace: knative-serving
+  labels:
+    role: net-certmanager-webhook
+    serving.knative.dev/release: "v20200528-9146236"
+spec:
+  ports:
+  - # Define metrics and profiling for them to be accessible within service meshes.
+    name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  - name: https-webhook
+    port: 443
+    targetPort: 8443
+  selector:
+    app: net-certmanager-webhook
 
 ---

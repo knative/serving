@@ -5,6 +5,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: knative-contour-core
   labels:
+    networking.knative.dev/ingress-provider: contour
     serving.knative.dev/controller: "true"
 rules:
 - apiGroups: ["projectcontour.io"]
@@ -33,7 +34,8 @@ metadata:
   name: config-contour
   namespace: knative-serving
   labels:
-    serving.knative.dev/release: "v20200507-8f27913"
+    networking.knative.dev/ingress-provider: contour
+    serving.knative.dev/release: "v20200527-d62309d"
 data:
   _example: |
     ################################
@@ -75,6 +77,8 @@ kind: Deployment
 metadata:
   name: contour-ingress-controller
   namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: contour
 spec:
   replicas: 1
   selector:
@@ -90,7 +94,7 @@ spec:
       - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:e2f5b37dabcbc1741be1965ebc47f3f20521d12caf8dd798bc788bdb2d51bf12
+        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:e6228f84f06f950240e6cc236f18cabcad890386ce2ba358d40c4f9b69652bfa
         resources:
           requests:
             cpu: 40m

@@ -45,7 +45,7 @@ func decodeTemplate(ctx context.Context, val interface{}) (*v1.RevisionTemplateS
 	return templ, nil
 }
 
-func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) *apis.FieldError {
+func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, mode DryRunMode) *apis.FieldError {
 	om := metav1.ObjectMeta{
 		GenerateName: "dry-run-validation",
 		Namespace:    namespace,
@@ -66,11 +66,11 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) 
 		Spec:       *podSpec,
 	}
 
-	return dryRunPodSpec(ctx, pod)
+	return dryRunPodSpec(ctx, pod, mode)
 }
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
-func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
+func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) *apis.FieldError {
 	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 	pods := client.CoreV1().Pods(pod.GetNamespace())
@@ -79,7 +79,7 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod) *apis.FieldError {
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
 		// Ignore failures for implementations that don't support dry-run.
 		// This likely means there are other webhooks on the PodSpec Create action which do not declare sideEffects:none
-		if strings.Contains(err.Error(), "does not support dry run") {
+		if mode != DryRunStrict && strings.Contains(err.Error(), "does not support dry run") {
 			logger.Warnw("dry run validation failed, a webhook did not support dry-run", zap.Error(err))
 			return nil
 		}

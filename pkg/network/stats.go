@@ -17,6 +17,7 @@ limitations under the License.
 package network
 
 import (
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -54,25 +55,10 @@ func NewRequestStats(startedAt time.Time) *RequestStats {
 }
 
 // RequestStats collects statistics about requests as they flow in and out of the system.
-// It's usually used in a flow where events are generated asynchronously and fed into
-// the object by reading from a channel. Report is likewise called from a different
-// channel so the pattern usually looks like:
-//
-// stats := NewRequestStats(time)
-// for {
-//   switch {
-//   case e <- reqChan:
-//     stats.HandleEvent(e)
-//   case now <- reportChan:
-//     stats.Report(now)
-//   }
-// }
-//
-// The individual functions are not thread-safe. They are safe to use in the
-// single-threaded pattern shown above.
-//
 // +k8s:deepcopy-gen=false
 type RequestStats struct {
+	mux sync.Mutex
+
 	// State variables that track the current state. Not reset after reporting.
 	concurrency, proxiedConcurrency float64
 	lastChange                      time.Time
@@ -123,6 +109,9 @@ func (s *RequestStats) compute(now time.Time) {
 // HandleEvent handles an incoming or outgoing request event and updates
 // the state accordingly.
 func (s *RequestStats) HandleEvent(event ReqEvent) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	s.compute(event.Time)
 
 	switch event.Type {
@@ -144,6 +133,9 @@ func (s *RequestStats) HandleEvent(event ReqEvent) {
 // Report returns averageConcurrency, averageProxiedConcurrency, requestCount and proxiedCount
 // relative to the given time. The state will be reset for another reporting cycle afterwards.
 func (s *RequestStats) Report(now time.Time) RequestStatsReport {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	s.compute(now)
 	defer s.reset()
 

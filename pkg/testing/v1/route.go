@@ -159,6 +159,26 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
+// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled with AutoTLSNotEnabledMessage
+// after initialized the Service's conditions.
+func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+}
+
+// TLSNotEnabledForClusterLocalMessage calls MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage
+// after initialized the Service's conditions.
+func WithRouteConditionsTLSNotEnabledForClusterLocalMessage(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
+}
+
+// WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
+func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkHTTPDowngrade(routenames.Certificate(rt))
+}
+
 // MarkTrafficAssigned calls the method of the same name on .Status
 func MarkTrafficAssigned(r *v1.Route) {
 	r.Status.MarkTrafficAssigned()
