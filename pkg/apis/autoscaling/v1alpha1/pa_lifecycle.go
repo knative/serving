@@ -163,7 +163,7 @@ func (pa *PodAutoscaler) IsActivating() bool {
 // IsInactive returns true if the pod autoscaler is Inactive.
 func (pa *PodAutoscaler) IsInactive() bool {
 	cond := pa.Status.GetCondition(PodAutoscalerConditionActive)
-	return pa.Generation != pa.Status.ObservedGeneration &&
+	return pa.Generation == pa.Status.ObservedGeneration &&
 		cond != nil && cond.Status == corev1.ConditionFalse
 }
 
