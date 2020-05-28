@@ -28,8 +28,7 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
-// TimeoutFunc should calculate/process then return the duration
-// to be used by the timeout handler.
+// TimeoutFunc returns the timeout duration to be used by the timeout handler.
 type TimeoutFunc func(req *http.Request) time.Duration
 
 type timeToFirstByteTimeoutHandler struct {
@@ -38,7 +37,7 @@ type timeToFirstByteTimeoutHandler struct {
 	body        string
 }
 
-// TimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
+// NewTimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
 // given time limit from the timeout function in which the first byte of
 // the response must be written.
 //
