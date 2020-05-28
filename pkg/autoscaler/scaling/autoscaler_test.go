@@ -195,9 +195,8 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 	if a.panicTime != tm {
 		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
 	}
-	// Now the stable window has passed, and we've been adding 1 pod per cycle.
-	// For window of 60s, that's +30 pods.
-	// Checkpoint in the middle.
+	// Now the half of the stable window has passed, and we've been adding 1 pod per cycle.
+	// For window of 60s, that's +15 pods.
 	fake.Endpoints(25+15, fake.TestService)
 
 	a.metricClient = &fake.MetricClient{StableConcurrency: 30, PanicConcurrency: 41}
@@ -209,7 +208,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 		t.Error("Panic Time should not have moved")
 	}
 
-	// Now at the end. Panic must end.
+	// Now at the end. Panic must end. And +30 pods.
 	fake.Endpoints(25+30, fake.TestService)
 	a.metricClient = &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 56}
 	tm = tm.Add(stableWindow/2 + tickInterval)
