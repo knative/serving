@@ -83,7 +83,7 @@ var (
 
 	defaultQueueContainer = &corev1.Container{
 		Name:      QueueContainerName,
-		Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
 		Ports:     append(queueNonServingPorts, queueHTTPPort),
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{

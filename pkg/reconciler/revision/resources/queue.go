@@ -78,9 +78,35 @@ var (
 	}
 )
 
-func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
-	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
+
+	for _, r := range []struct {
+		Name    corev1.ResourceName
+		Request *resource.Quantity
+		Limit   *resource.Quantity
+	}{{
+		Name:    corev1.ResourceCPU,
+		Request: cfg.QueueSidecarCPURequest,
+		Limit:   cfg.QueueSidecarCPULimit,
+	}, {
+		Name:    corev1.ResourceMemory,
+		Request: cfg.QueueSidecarMemoryRequest,
+		Limit:   cfg.QueueSidecarMemoryLimit,
+	}, {
+		Name:    corev1.ResourceEphemeralStorage,
+		Request: cfg.QueueSidecarEphemeralStorageRequest,
+		Limit:   cfg.QueueSidecarEphemeralStorageLimit,
+	}} {
+		if r.Request != nil {
+			resourceRequests[r.Name] = *r.Request
+		}
+		if r.Limit != nil {
+			resourceLimits[r.Name] = *r.Limit
+		}
+	}
+
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
 	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
@@ -246,7 +272,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(rev.GetAnnotations(), container),
+		Resources:       createQueueResources(deploymentConfig, rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
