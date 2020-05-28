@@ -200,6 +200,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		logger.Info("PANICKING.")
 		a.panicTime = now
 		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
+	} else if isOverPanicThreshold {
+		// If we're still over panic threshold right now — extend the panic window.
+		a.panicTime = now
 	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
