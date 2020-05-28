@@ -182,7 +182,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	now := time.Now()
 	logger := logging.FromContext(ctx)
 	switch {
-	case pa.IsActive(): // Active=True
+	case pa.Status.IsActive(): // Active=True
 		// Don't scale-to-zero if the PA is active
 		// but return `(0, false)` to mark PA inactive, instead.
 		sw := aresources.StableWindow(pa, cfgAS)
@@ -256,7 +256,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			logger.Info("Probe for revision is already in flight")
 		}
 		return desiredScale, false
-	case pa.Status.IsActivating(): // Active=Unknown
+	default: // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
@@ -264,10 +264,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
-	default: // All variants of Activating should be handled above. This is unexpected.
-		logger.Error("PA handled an unexpected activation state")
-		return scaleUnknown, false
-	}
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32,
