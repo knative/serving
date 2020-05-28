@@ -273,6 +273,26 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 1),
 	}, {
+		label: "AutoscalerPanicStableLargerThanPanic",
+		as:    newTestAutoscaler(t, 1, 100, &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 30}),
+		prepFunc: func(a *Autoscaler) {
+			a.panicTime = time.Now().Add(-5 * time.Second)
+			a.maxPanicPods = 5
+		},
+		baseScale: 5,
+		wantScale: 50, // Note that we use stable concurrency value for desired scale.
+		wantEBC:   expectedEBC(1, 100, 30, 5),
+	}, {
+		label: "AutoscalerPanicStableLessThanPanic",
+		as:    newTestAutoscaler(t, 1, 100, &fake.MetricClient{StableConcurrency: 20, PanicConcurrency: 30}),
+		prepFunc: func(a *Autoscaler) {
+			a.panicTime = time.Now().Add(-5 * time.Second)
+			a.maxPanicPods = 5
+		},
+		baseScale: 5,
+		wantScale: 30, // And here we use panic, since it's larger.
+		wantEBC:   expectedEBC(1, 100, 30, 5),
+	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
 		baseScale: 5,
