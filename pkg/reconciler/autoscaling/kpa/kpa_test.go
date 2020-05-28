@@ -1588,7 +1588,6 @@ func decider(ns, name string, desiredScale, ebc, nact int32) *scaling.Decider {
 		},
 		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      10.0,
-			TickInterval:        2 * time.Second,
 			TargetValue:         100,
 			TotalValue:          100,
 			TargetBurstCapacity: 211,
