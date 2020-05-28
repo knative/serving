@@ -19,16 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
-	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -36,6 +33,8 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
+
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 // createService creates a service in namespace with the name names.Service
@@ -44,20 +43,6 @@ func createService(t *testing.T, clients *test.Clients, names test.ResourceNames
 	service := v1test.Service(names, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
-}
-
-func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) error {
-	patches := []jsonpatch.JsonPatchOperation{{
-		Operation: "replace",
-		Path:      "/spec/template/spec/timeoutSeconds",
-		Value:     revisionTimeoutSeconds,
-	}}
-	patchBytes, err := json.Marshal(patches)
-	if err != nil {
-		return err
-	}
-	_, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
-	return err
 }
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
