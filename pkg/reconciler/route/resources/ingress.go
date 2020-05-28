@@ -138,7 +138,7 @@ func MakeIngressSpec(
 					// from the same Knative route with the ingress path for the tag based routing.
 					//
 					// To prevent such inconsistency,
-					// the tag header is appended with the tag correspondig to the tag-attached hostname
+					// the tag header is appended with the tag corresponding to the tag-attached hostname
 					rule.HTTP.Paths[0].AppendHeaders[network.TagHeaderName] = name
 				}
 			}
