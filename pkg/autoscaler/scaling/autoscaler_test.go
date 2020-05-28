@@ -190,7 +190,8 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 	fake.Endpoints(10, fake.TestService)
 
 	na := expectedNA(a, 10)
-	tm := time.Now()
+	start := time.Now()
+	tm := start
 	expectScale(t, a, tm, ScaleResult{25, expectedEBC(1, 98, 25, 10), na, true})
 	if a.panicTime != tm {
 		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
@@ -204,7 +205,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 
 	na = expectedNA(a, 40)
 	expectScale(t, a, tm, ScaleResult{41, expectedEBC(1, 98, 41, 40), na, true})
-	if a.panicTime == tm {
+	if a.panicTime != start {
 		t.Error("Panic Time should not have moved")
 	}
 
