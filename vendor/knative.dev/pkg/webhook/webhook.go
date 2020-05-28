@@ -253,6 +253,7 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.WriteHeader(http.StatusOK)
 		}
+		return
 	}
 
 	// Verify the content type is accurate.
