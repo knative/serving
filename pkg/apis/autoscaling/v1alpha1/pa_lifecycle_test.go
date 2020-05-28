@@ -424,7 +424,7 @@ func TestIsActivating(t *testing.T) {
 	}{{
 		name:         "empty status",
 		status:       PodAutoscalerStatus{},
-		isActivating: false,
+		isActivating: true,
 	}, {
 		name: "active=unknown",
 		status: PodAutoscalerStatus{
@@ -462,7 +462,8 @@ func TestIsActivating(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsActivating(), tc.isActivating; got != want {
+			pa := PodAutoscaler{Status: tc.status}
+			if got, want := pa.IsActivating(), tc.isActivating; got != want {
 				t.Errorf("IsActivating = %v, want: %v", got, want)
 			}
 		})
@@ -996,7 +997,8 @@ func TestTypicalFlow(t *testing.T) {
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
 	apistest.CheckConditionFailed(r, PodAutoscalerConditionActive, t)
-	if !r.IsInactive() {
+	pa := PodAutoscaler{Status: *r}
+	if !pa.IsInactive() {
 		t.Error("IsInactive was not set.")
 	}
 	apistest.CheckConditionFailed(r, PodAutoscalerConditionReady, t)

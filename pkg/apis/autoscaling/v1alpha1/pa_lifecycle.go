@@ -154,15 +154,17 @@ func (pas *PodAutoscalerStatus) IsReady() bool {
 
 // IsActivating returns true if the pod autoscaler is Activating if it is neither
 // Active nor Inactive
-func (pas *PodAutoscalerStatus) IsActivating() bool {
-	cond := pas.GetCondition(PodAutoscalerConditionActive)
-	return cond != nil && cond.Status == corev1.ConditionUnknown
+func (pa *PodAutoscaler) IsActivating() bool {
+	cond := pa.Status.GetCondition(PodAutoscalerConditionActive)
+	return pa.Generation != pa.Status.ObservedGeneration ||
+		cond == nil || cond.Status == corev1.ConditionUnknown
 }
 
 // IsInactive returns true if the pod autoscaler is Inactive.
-func (pas *PodAutoscalerStatus) IsInactive() bool {
-	cond := pas.GetCondition(PodAutoscalerConditionActive)
-	return cond != nil && cond.Status == corev1.ConditionFalse
+func (pa *PodAutoscaler) IsInactive() bool {
+	cond := pa.Status.GetCondition(PodAutoscalerConditionActive)
+	return pa.Generation != pa.Status.ObservedGeneration &&
+		cond != nil && cond.Status == corev1.ConditionFalse
 }
 
 // GetCondition gets the condition `t`.

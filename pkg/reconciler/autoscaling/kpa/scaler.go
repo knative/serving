@@ -182,7 +182,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	now := time.Now()
 	logger := logging.FromContext(ctx)
 	switch {
-	case pa.Status.IsActivating(): // Active=Unknown
+	case pa.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
@@ -301,7 +301,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 && !pa.Status.IsActivating() {
+	if desiredScale < 0 && !pa.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
