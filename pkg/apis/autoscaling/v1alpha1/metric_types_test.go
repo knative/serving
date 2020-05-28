@@ -17,8 +17,6 @@ package v1alpha1
 
 import (
 	"testing"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMetricGetStatus(t *testing.T) {
@@ -28,15 +26,5 @@ func TestMetricGetStatus(t *testing.T) {
 
 	if got, want := r.GetStatus(), &r.Status.Status; got != want {
 		t.Errorf("GetStatus=%v, want=%v", got, want)
-	}
-}
-
-func TestMetricGetObjectMeta(t *testing.T) {
-	r := &Metric{
-		TypeMeta: metav1.TypeMeta{},
-	}
-
-	if got, want := r.GetTypeMeta(), &r.TypeMeta; got != want {
-		t.Errorf("GetTypeMeta=%v, want=%v", got, want)
 	}
 }
