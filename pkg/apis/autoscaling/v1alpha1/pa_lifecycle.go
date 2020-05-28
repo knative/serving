@@ -150,7 +150,7 @@ func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool
 // PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (pa *PodAutoscaler) IsReady() bool {
 	pas := pa.Status
-	return pa.Generation == pas.ObservedGeneration && podCondSet.Manage(pas).IsHappy()
+	return pa.Generation == pas.ObservedGeneration && podCondSet.Manage(&pas).IsHappy()
 }
 
 // IsActivating returns true if the pod autoscaler is Activating if it is neither
