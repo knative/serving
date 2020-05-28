@@ -17,6 +17,7 @@ limitations under the License.
 package configmap
 
 import (
+	"fmt"
 	"hash/crc32"
 )
 
@@ -29,6 +30,6 @@ const (
 )
 
 // Checksum generates a checksum for the example value to be compared against a respective label.
-func Checksum(value string) uint32 {
-	return crc32.ChecksumIEEE([]byte(value))
+func Checksum(value string) string {
+	return fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(value)))
 }

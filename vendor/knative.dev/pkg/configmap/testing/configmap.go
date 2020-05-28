@@ -86,7 +86,7 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 	// Check that the hashed exampleBody matches the assigned label, if present.
 	gotChecksum, hasExampleChecksumLabel := orig.Labels[configmap.ExampleChecksumLabel]
 	if hasExampleBody && hasExampleChecksumLabel {
-		wantChecksum := fmt.Sprint(configmap.Checksum(exampleBody))
+		wantChecksum := configmap.Checksum(exampleBody)
 		if gotChecksum != wantChecksum {
 			t.Errorf("example checksum label = %s, want %s", gotChecksum, wantChecksum)
 		}
