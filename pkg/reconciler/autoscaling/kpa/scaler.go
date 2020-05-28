@@ -264,6 +264,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
+	}
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32,
