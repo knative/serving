@@ -261,7 +261,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 		}
 
 	case pc.ready < minReady:
-		if pc.want > 0 || pa.IsActivating() {
+		if pc.want > 0 || !pa.IsInactive() {
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
 		}
