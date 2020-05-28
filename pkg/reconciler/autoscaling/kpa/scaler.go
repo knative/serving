@@ -265,7 +265,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
 	default: // All variants of Activating should be handled above. This is unexpected.
-		logger.Error("PA handled an unexpected activation state.")
+		logger.Error("PA handled an unexpected activation state")
 		return scaleUnknown, false
 	}
 }
