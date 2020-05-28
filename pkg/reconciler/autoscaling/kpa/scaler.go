@@ -256,14 +256,16 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			logger.Info("Probe for revision is already in flight")
 		}
 		return desiredScale, false
-
-	default: // Active=Unknown
+	case pa.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
 			return desiredScale, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
+		return scaleUnknown, false
+	default: // All variants of Activating should be handled above. This is unexpected.
+		logger.Error("PA handled an unexpected activation state.")
 		return scaleUnknown, false
 	}
 }
