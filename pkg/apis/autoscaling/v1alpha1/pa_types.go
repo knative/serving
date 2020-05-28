@@ -145,11 +145,6 @@ type PodAutoscalerList struct {
 	Items []PodAutoscaler `json:"items"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the PodAutoscaler. Implements the KRShaped interface.
-func (t *PodAutoscaler) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
 func (t *PodAutoscaler) GetStatus() *duckv1.Status {
 	return &t.Status.Status
