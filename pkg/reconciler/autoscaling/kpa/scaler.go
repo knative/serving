@@ -204,7 +204,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		logger.Infof("Sleeping additionally for %v before can scale to 0", sw-af)
 		ks.enqueueCB(pa, sw-af)
 		return 1, true
-	case pa.IsInactive(): // Active=False
+	case pa.Status.IsInactive(): // Active=False
 		// Probe synchronously, to see if Activator is already in the path.
 		r, err := ks.activatorProbe(pa, ks.transport)
 		logger.Infof("Probing activator = %v, err = %v", r, err)
@@ -256,7 +256,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			logger.Info("Probe for revision is already in flight")
 		}
 		return desiredScale, false
-	case pa.IsActivating(): // Active=Unknown
+	case pa.Status.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
@@ -304,7 +304,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 && !pa.IsActivating() {
+	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
