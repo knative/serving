@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -41,6 +42,14 @@ func TestServiceDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Service, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestServiceGetConditionSet(t *testing.T) {
+	s := &Service{}
+
+	if got, want := s.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
 	}
 }
 
