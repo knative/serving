@@ -543,7 +543,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("50m"),
+								corev1.ResourceCPU: resource.MustParse("50m"),
 							},
 						},
 					}},
@@ -559,7 +559,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("100m"),
+								corev1.ResourceCPU: resource.MustParse("100m"),
 							},
 						},
 					}},
