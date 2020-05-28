@@ -26,7 +26,7 @@ import (
 )
 
 // +genclient
-// +genreconciler:class=autoscaling.knative.dev/class
+// +genreconciler:class=autoscaling.knative.dev/class,krshapedlogic=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative
