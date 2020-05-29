@@ -21,8 +21,6 @@ metadata:
     serving.knative.dev/release: devel
 
 data:
-  allow-zero-initial-scale: "true"
-  initial-scale: "0"
   _example: |
     ################################
     #                              #

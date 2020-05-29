@@ -187,7 +187,7 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 	// Do initial jump from 10 to 25 pods.
 	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
-	a := newTestAutoscaler(t, 1, 98, metrics)
+	a := newTestAutoscaler(t, 1, 98, 1, metrics)
 	fake.Endpoints(10, fake.TestService)
 
 	na := expectedNA(a, 10)
@@ -225,7 +225,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 func TestAutoscalerExtendPanicWindow(t *testing.T) {
 	// Do initial jump from 10 to 25 pods.
 	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
-	a := newTestAutoscaler(t, 1, 98, metrics)
+	a := newTestAutoscaler(t, 1, 98, 1, metrics)
 	fake.Endpoints(10, fake.TestService)
 
 	na := expectedNA(a, 10)
