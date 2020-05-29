@@ -94,17 +94,17 @@ func TestRevisionTimeout(t *testing.T) {
 	}{{
 		name:           "when scaling up from 0 and does not exceed timeout seconds",
 		shouldScaleTo0: true,
-		timeoutSeconds: 5,
+		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
 		initialSleep:   0,
 		sleep:          0,
 	}, {
 		name:           "when scaling up from 0 and it writes first byte before timeout",
 		shouldScaleTo0: true,
-		timeoutSeconds: 5,
+		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
 		initialSleep:   0,
-		sleep:          10,
+		sleep:          15,
 	}, {
 		name:           "when scaling up from 0 and it does exceed timeout seconds",
 		shouldScaleTo0: true,
@@ -112,22 +112,22 @@ func TestRevisionTimeout(t *testing.T) {
 		expectedStatus: http.StatusGatewayTimeout,
 	}, {
 		name:           "when pods already exist, and it does not exceed timeout seconds",
-		timeoutSeconds: 5,
+		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
 		initialSleep:   2,
 		sleep:          0,
 	}, {
 		name:           "when pods already exist, and it does exceed timeout seconds",
-		timeoutSeconds: 5,
+		timeoutSeconds: 10,
 		expectedStatus: http.StatusGatewayTimeout,
-		initialSleep:   7,
-		sleep:          1,
+		initialSleep:   12,
+		sleep:          0,
 	}, {
 		name:           "when pods already exist, and it writes first byte before timeout",
-		timeoutSeconds: 5,
+		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
 		initialSleep:   0,
-		sleep:          10,
+		sleep:          15,
 	}}
 
 	for _, tc := range testCases {
