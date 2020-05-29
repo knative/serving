@@ -67,24 +67,29 @@ func (mtp *ManualTickProvider) NewTicker(time.Duration) *time.Ticker {
 	}
 }
 
+// SetStableAndPanicConcurrency sets the stable and panic concurrencies.
+func (mc *MetricClient) SetStableAndPanicConcurrency(s, p float64) {
+	mc.StableConcurrency, mc.PanicConcurrency = s, p
+}
+
 // StableAndPanicConcurrency returns stable/panic concurrency stored in the object
 // and the result of Errf as the error.
-func (t *MetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (mc *MetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	var err error
-	if t.ErrF != nil {
-		err = t.ErrF(key, now)
+	if mc.ErrF != nil {
+		err = mc.ErrF(key, now)
 	}
-	return t.StableConcurrency, t.PanicConcurrency, err
+	return mc.StableConcurrency, mc.PanicConcurrency, err
 }
 
 // StableAndPanicRPS returns stable/panic RPS stored in the object
 // and the result of Errf as the error.
-func (t *MetricClient) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (mc *MetricClient) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	var err error
-	if t.ErrF != nil {
-		err = t.ErrF(key, now)
+	if mc.ErrF != nil {
+		err = mc.ErrF(key, now)
 	}
-	return t.StableRPS, t.PanicRPS, err
+	return mc.StableRPS, mc.PanicRPS, err
 }
 
 // StaticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
