@@ -20,18 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
-
-var serviceCondSet = apis.NewLivingConditionSet(
-	v1.ServiceConditionConfigurationsReady,
-	v1.ServiceConditionRoutesReady,
-)
-
-// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
-func (*Service) GetConditionSet() apis.ConditionSet {
-	return serviceCondSet
-}
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
@@ -43,4 +32,11 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 func (s *Service) IsReady() bool {
 	ss := s.Status
 	return ss.ObservedGeneration == s.Generation && apis.NewLivingConditionSet().Manage(&ss).IsHappy()
+}
+
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (s *Service) IsFailed() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		apis.NewLivingConditionSet().Manage(&ss).GetTopLevelCondition().IsFalse()
 }

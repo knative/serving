@@ -49,6 +49,13 @@ func (r *Route) IsReady() bool {
 	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).IsHappy()
 }
 
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (r *Route) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		routeCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()

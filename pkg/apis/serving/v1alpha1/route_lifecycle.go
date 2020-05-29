@@ -32,11 +32,6 @@ var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionCertificateProvisioned,
 )
 
-// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
-func (*Route) GetConditionSet() apis.ConditionSet {
-	return routeCondSet
-}
-
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Route")
 }
@@ -46,6 +41,12 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 func (r *Route) IsReady() bool {
 	rs := r.Status
 	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).IsHappy()
+}
+
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (r *Route) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
 }
 
 func (rs *RouteStatus) GetCondition(t apis.ConditionType) *apis.Condition {

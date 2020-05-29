@@ -33,11 +33,6 @@ var revisionCondSet = apis.NewLivingConditionSet(
 	v1.RevisionConditionContainerHealthy,
 )
 
-// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
-func (*Revision) GetConditionSet() apis.ConditionSet {
-	return revisionCondSet
-}
-
 // GetGroupVersionKind returns the GroupVersionKind.
 func (*Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
@@ -48,4 +43,11 @@ func (*Revision) GetGroupVersionKind() schema.GroupVersionKind {
 func (r *Revision) IsReady() bool {
 	rs := r.Status
 	return rs.ObservedGeneration == r.Generation && revisionCondSet.Manage(&rs).IsHappy()
+}
+
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (r *Revision) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		routeCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
 }

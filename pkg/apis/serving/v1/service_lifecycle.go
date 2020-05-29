@@ -52,6 +52,13 @@ func (s *Service) IsReady() bool {
 	return ss.ObservedGeneration == s.Generation && serviceCondSet.Manage(&ss).IsHappy()
 }
 
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (s *Service) IsFailed() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		serviceCondSet.Manage(&ss).GetTopLevelCondition().IsFalse()
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (ss *ServiceStatus) InitializeConditions() {
 	serviceCondSet.Manage(ss).InitializeConditions()

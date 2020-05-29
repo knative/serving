@@ -108,9 +108,7 @@ func IsRouteReady(r *v1alpha1.Route) (bool, error) {
 // IsRouteFailed will check the status conditions of the route and return true if the route is
 // not ready.
 func IsRouteFailed(r *v1alpha1.Route) (bool, error) {
-	rs := r.Status
-	return rs.ObservedGeneration == r.Generation &&
-		r.GetConditionSet().Manage(&rs).GetTopLevelCondition().IsFalse(), nil
+	return r.IsFailed(), nil
 }
 
 // AllRouteTrafficAtRevision will check the revision that route r is routing

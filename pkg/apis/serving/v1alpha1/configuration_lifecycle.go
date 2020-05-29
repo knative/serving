@@ -24,11 +24,6 @@ import (
 
 var confCondSet = apis.NewLivingConditionSet()
 
-// GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
-func (*Configuration) GetConditionSet() apis.ConditionSet {
-	return confCondSet
-}
-
 func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
@@ -38,6 +33,12 @@ func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 func (c *Configuration) IsReady() bool {
 	cs := c.Status
 	return cs.ObservedGeneration == c.Generation && confCondSet.Manage(&cs).IsHappy()
+}
+
+// IsFailed returns true if the resource has observed the latest generation and ready is false.
+func (c *Configuration) IsFailed() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation && confCondSet.Manage(&cs).GetTopLevelCondition().IsFalse()
 }
 
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready

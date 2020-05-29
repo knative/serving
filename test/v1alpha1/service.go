@@ -343,9 +343,7 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 
 // IsServiceFailed checks the Ready status condition of the service and returns true only if Ready is set to False.
 func IsServiceFailed(s *v1alpha1.Service) (bool, error) {
-	ss := s.Status
-	return ss.ObservedGeneration == s.Generation &&
-		s.GetConditionSet().Manage(&ss).GetTopLevelCondition().IsFalse(), nil
+	return s.IsFailed(), nil
 }
 
 // IsServiceRoutesFailed checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
