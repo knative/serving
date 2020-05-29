@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -62,6 +63,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Service.
 	_ kmeta.OwnerRefable = (*Service)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Service)(nil)
 )
 
 // ConditionType represents a Service condition value
@@ -79,4 +83,14 @@ type ServiceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Service `json:"items"`
+}
+
+// GetStatus retrieves the duck Status for the Service.
+func (s *Service) GetStatus() *duckv1.Status {
+	return &s.Status.Status
+}
+
+// GetConditionSet returns the condition set for the Service.
+func (s *Service) GetConditionSet() apis.ConditionSet {
+	return s.GetConditionSet()
 }

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -54,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Configuration)(nil)
 )
 
 const (
@@ -70,4 +74,14 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
+}
+
+// GetStatus retrieves the duck Status for the Configuration.
+func (c *Configuration) GetStatus() *duckv1.Status {
+	return &c.Status.Status
+}
+
+// GetConditionSet returns the condition set for the Configuration.
+func (c *Configuration) GetConditionSet() apis.ConditionSet {
+	return c.GetConditionSet()
 }
