@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -54,6 +55,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Revision.
 	_ kmeta.OwnerRefable = (*Revision)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Revision)(nil)
 )
 
 const (
@@ -70,4 +74,14 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
+}
+
+// GetStatus retrieves the duck Status for the Revision.
+func (r *Revision) GetStatus() *duckv1.Status {
+	return &r.Status.Status
+}
+
+// GetConditionSet returns the condition set for the Revision.
+func (r *Revision) GetConditionSet() apis.ConditionSet {
+	return r.GetConditionSet()
 }
