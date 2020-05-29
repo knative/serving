@@ -104,6 +104,18 @@ func CheckRouteState(client *test.ServingBetaClients, name string, inState func(
 	return nil
 }
 
+// IsRouteReady will check the status conditions of the route and return true if the route is
+// ready.
+func IsRouteReady(r *v1beta1.Route) (bool, error) {
+	return r.IsReady(), nil
+}
+
+// IsRouteFailed will check the status conditions of the route and return true if the route is
+// not ready.
+func IsRouteFailed(r *v1beta1.Route) (bool, error) {
+	return r.IsFailed(), nil
+}
+
 // RetryingRouteInconsistency retries common requests seen when creating a new route
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
@@ -123,16 +135,4 @@ func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1beta1.Route) 
 		}
 		return false, nil
 	}
-}
-
-// IsRouteReady will check the status conditions of the route and return true if the route is
-// ready.
-func IsRouteReady(r *v1beta1.Route) (bool, error) {
-	return r.IsReady(), nil
-}
-
-// IsRouteFailed will check the status conditions of the route and return true if the route is
-// not ready.
-func IsRouteFailed(r *v1beta1.Route) (bool, error) {
-	return r.IsFailed(), nil
 }

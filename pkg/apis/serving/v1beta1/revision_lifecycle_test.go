@@ -46,14 +46,6 @@ func TestRevisionDuckTypes(t *testing.T) {
 	}
 }
 
-func TestRevisionGetConditionSet(t *testing.T) {
-	r := &Revision{}
-
-	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
-		t.Errorf("GetTopLevelCondition=%v, want=%v", got, want)
-	}
-}
-
 func TestRevisionGetGroupVersionKind(t *testing.T) {
 	r := &Revision{}
 	want := schema.GroupVersionKind{
