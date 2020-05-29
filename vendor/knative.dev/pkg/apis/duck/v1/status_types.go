@@ -96,7 +96,7 @@ func (source *Status) ConvertTo(ctx context.Context, sink *Status, predicates ..
 	sink.ObservedGeneration = source.ObservedGeneration
 	if source.Annotations != nil {
 		// This will deep copy the map.
-		sink.Annotations = kmeta.UnionMaps(source.Annotations, nil)
+		sink.Annotations = kmeta.UnionMaps(source.Annotations)
 	}
 
 	conditions := make(apis.Conditions, 0, len(source.Conditions))
