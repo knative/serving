@@ -44,6 +44,9 @@ func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.
 		return err
 	}
 	_, err = client.Poll(req, v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedResponse))))
+	if err != nil {
+		return fmt.Errorf("failed to get expected response from %q: %w", url.String(), err)
+	}
 	return err
 }
 
