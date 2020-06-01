@@ -183,6 +183,70 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 101, 99, 1), na, true})
 }
 
+func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
+	// Do initial jump from 10 to 25 pods.
+	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
+	a := newTestAutoscaler(t, 1, 98, metrics)
+	fake.Endpoints(10, fake.TestService)
+
+	na := expectedNA(a, 10)
+	start := time.Now()
+	tm := start
+	expectScale(t, a, tm, ScaleResult{25, expectedEBC(1, 98, 25, 10), na, true})
+	if a.panicTime != tm {
+		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
+	}
+	// Now the half of the stable window has passed, and we've been adding 1 pod per cycle.
+	// For window of 60s, that's +15 pods.
+	fake.Endpoints(25+15, fake.TestService)
+
+	metrics.SetStableAndPanicConcurrency(30, 41)
+	tm = tm.Add(stableWindow / 2)
+
+	na = expectedNA(a, 40)
+	expectScale(t, a, tm, ScaleResult{41, expectedEBC(1, 98, 41, 40), na, true})
+	if a.panicTime != start {
+		t.Error("Panic Time should not have moved")
+	}
+
+	// Now at the end. Panic must end. And +30 pods.
+	fake.Endpoints(25+30, fake.TestService)
+	metrics.SetStableAndPanicConcurrency(50, 56)
+	tm = tm.Add(stableWindow/2 + tickInterval)
+
+	na = expectedNA(a, 55)
+	expectScale(t, a, tm, ScaleResult{50 /* no longer in panic*/, expectedEBC(1, 98, 56, 55), na, true})
+	if !a.panicTime.IsZero() {
+		t.Errorf("PanicTime = %v, want: 0", a.panicTime)
+	}
+}
+
+func TestAutoscalerExtendPanicWindow(t *testing.T) {
+	// Do initial jump from 10 to 25 pods.
+	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
+	a := newTestAutoscaler(t, 1, 98, metrics)
+	fake.Endpoints(10, fake.TestService)
+
+	na := expectedNA(a, 10)
+	start := time.Now()
+	tm := start
+	expectScale(t, a, tm, ScaleResult{25, expectedEBC(1, 98, 25, 10), na, true})
+	if a.panicTime != tm {
+		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
+	}
+	// Now the half of the stable window has passed, and we're still surging.
+	fake.Endpoints(25+15, fake.TestService)
+
+	metrics.SetStableAndPanicConcurrency(30, 80)
+	tm = tm.Add(stableWindow / 2)
+
+	na = expectedNA(a, 40)
+	expectScale(t, a, tm, ScaleResult{80, expectedEBC(1, 98, 80, 40), na, true})
+	if a.panicTime != tm {
+		t.Errorf("PanicTime = %v, want: %v", a.panicTime, tm)
+	}
+}
+
 func TestAutoscalerStableModeDecrease(t *testing.T) {
 	metrics := &fake.MetricClient{StableConcurrency: 100.0, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 98, metrics)
@@ -190,8 +254,7 @@ func TestAutoscalerStableModeDecrease(t *testing.T) {
 	na := expectedNA(a, 8)
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 98, 100, 8), na, true})
 
-	metrics.StableConcurrency = 50
-	metrics.PanicConcurrency = 50
+	metrics.SetStableAndPanicConcurrency(50, 50)
 	expectScale(t, a, time.Now(), ScaleResult{5, expectedEBC(10, 98, 50, 8), na, true})
 }
 
@@ -214,23 +277,36 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{6, expectedEBC(1, 101, 6, 1), na, true})
 
+	tm := time.Now()
 	fake.Endpoints(6, fake.TestService)
 	na = expectedNA(a, 6)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 36, 36
-	expectScale(t, a, time.Now(), ScaleResult{36, expectedEBC(1, 101, 36, 6), na, true})
+	metrics.SetStableAndPanicConcurrency(36, 36)
+	expectScale(t, a, tm, ScaleResult{36, expectedEBC(1, 101, 36, 6), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
 
 	fake.Endpoints(36, fake.TestService)
 	na = expectedNA(a, 36)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 216, 216
-	expectScale(t, a, time.Now(), ScaleResult{216, expectedEBC(1, 101, 216, 36), na, true})
+	metrics.SetStableAndPanicConcurrency(216, 216)
+	tm = tm.Add(time.Second)
+	expectScale(t, a, tm, ScaleResult{216, expectedEBC(1, 101, 216, 36), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
 
 	fake.Endpoints(216, fake.TestService)
 	na = expectedNA(a, 216)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 1296, 1296
-	expectScale(t, a, time.Now(), ScaleResult{1296, expectedEBC(1, 101, 1296, 216), na, true})
+	metrics.SetStableAndPanicConcurrency(1296, 1296)
+	expectScale(t, a, tm, ScaleResult{1296, expectedEBC(1, 101, 1296, 216), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
+
 	fake.Endpoints(1296, fake.TestService)
 	na = expectedNA(a, 1296)
-	expectScale(t, a, time.Now(), ScaleResult{1296, expectedEBC(1, 101, 1296, 1296), na, true})
+	tm = tm.Add(time.Second)
+	expectScale(t, a, tm, ScaleResult{1296, expectedEBC(1, 101, 1296, 1296), na, true})
 }
 
 func TestAutoscalerScale(t *testing.T) {
@@ -272,6 +348,26 @@ func TestAutoscalerScale(t *testing.T) {
 		baseScale: 1,
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 1),
+	}, {
+		label: "AutoscalerPanicStableLargerThanPanic",
+		as:    newTestAutoscaler(t, 1, 100, &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 30}),
+		prepFunc: func(a *Autoscaler) {
+			a.panicTime = time.Now().Add(-5 * time.Second)
+			a.maxPanicPods = 5
+		},
+		baseScale: 5,
+		wantScale: 50, // Note that we use stable concurrency value for desired scale.
+		wantEBC:   expectedEBC(1, 100, 30, 5),
+	}, {
+		label: "AutoscalerPanicStableLessThanPanic",
+		as:    newTestAutoscaler(t, 1, 100, &fake.MetricClient{StableConcurrency: 20, PanicConcurrency: 30}),
+		prepFunc: func(a *Autoscaler) {
+			a.panicTime = time.Now().Add(-5 * time.Second)
+			a.maxPanicPods = 5
+		},
+		baseScale: 5,
+		wantScale: 30, // And here we use panic, since it's larger.
+		wantEBC:   expectedEBC(1, 100, 30, 5),
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
@@ -333,8 +429,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 	expectScale(t, a, panicTime, ScaleResult{100, expectedEBC(10, 93, 1000, 10), na, true})
 
 	// Traffic dropped off, scale stays as we're still in panic.
-	metrics.PanicConcurrency = 1
-	metrics.StableConcurrency = 1
+	metrics.SetStableAndPanicConcurrency(1, 1)
 	expectScale(t, a, panicTime.Add(30*time.Second), ScaleResult{100, expectedEBC(10, 93, 1, 10), na, true})
 
 	// Scale down after the StableWindow

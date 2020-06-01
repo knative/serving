@@ -306,8 +306,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							corev1.ResourceName("memory"): resource.MustParse("2Gi"),
-							corev1.ResourceName("cpu"):    resource.MustParse("2"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+							corev1.ResourceCPU:    resource.MustParse("2"),
 						},
 					}},
 				}
@@ -315,13 +315,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
-				corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
+				corev1.ResourceMemory: resource.MustParse("0.4Gi"),
+				corev1.ResourceCPU:    resource.MustParse("0.4"),
 			}
 			c.Image = "alpine"
 		}),
 	}, {
-		name: "resources percentage in annotations small than min allowed",
+		name: "resources percentage in annotations smaller than min allowed",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
@@ -335,8 +335,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-							corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
 						},
 					},
 				}}
@@ -344,13 +344,13 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("25m"),
-				corev1.ResourceName("memory"): resource.MustParse("50Mi"),
+				corev1.ResourceCPU:    resource.MustParse("25m"), // clamped to boundary in resourceboundary.go
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
 			}
 			c.Image = "alpine"
 		}),
 	}, {
-		name: "Invalid resources percentage in annotations",
+		name: "invalid resources percentage in annotations",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
@@ -364,8 +364,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-							corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
 						},
 					},
 				}}
@@ -373,7 +373,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.Image = "alpine"
 		}),
@@ -392,7 +392,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("memory"): resource.MustParse("900000Pi"),
+							corev1.ResourceMemory: resource.MustParse("900000Pi"),
 						},
 					},
 				}}
@@ -400,8 +400,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("25m"),
-				corev1.ResourceName("memory"): resource.MustParse("200Mi"),
+				corev1.ResourceCPU:    resource.MustParse("25m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
 			}
 			c.Image = "alpine"
 		}),
@@ -421,19 +421,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-				t.Error("makeQueueContainerWithPercentageAnnotation (-want, +got) =", diff)
-			}
-			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
-				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
-			}
-			if test.want.Resources.Requests.Cpu().Cmp(*got.Resources.Requests.Cpu()) != 0 {
-				t.Errorf("Resources.Request.CPU = %v, want: %v", got.Resources.Requests.Cpu(), test.want.Resources.Requests.Cpu())
-			}
-			if test.want.Resources.Requests.Memory().Cmp(*got.Resources.Requests.Memory()) != 0 {
-				t.Errorf("Resources.Requests.Memory = %v, want: %v", got.Resources.Requests.Memory(), test.want.Resources.Requests.Memory())
-			}
-			if test.want.Resources.Limits.Cpu().Cmp(*got.Resources.Limits.Cpu()) != 0 {
-				t.Errorf("Resources.Limits.CPU  = %v, want: %v", got.Resources.Limits.Cpu(), test.want.Resources.Limits.Cpu())
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
@@ -486,7 +474,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
 		c.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse("25m"),
+			corev1.ResourceCPU: resource.MustParse("25m"),
 		}
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
@@ -625,7 +613,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
@@ -667,7 +655,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
@@ -719,7 +707,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
