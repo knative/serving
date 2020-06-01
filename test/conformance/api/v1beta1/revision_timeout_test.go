@@ -179,7 +179,7 @@ func TestRevisionTimeout(t *testing.T) {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
-				t.Log("Probing to force at least pods", &serviceURL)
+				t.Log("Probing to force at least one pod", serviceURL.String())
 				if _, err := pkgTest.WaitForEndpointState(
 					clients.KubeClient,
 					t.Logf,
