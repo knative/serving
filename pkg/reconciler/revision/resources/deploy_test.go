@@ -87,7 +87,7 @@ var (
 					Command: []string{"/ko-app/queue", "-probe-period", "0"},
 				},
 			},
-			PeriodSeconds:  1,
+			PeriodSeconds:  10,
 			TimeoutSeconds: 10,
 		},
 		SecurityContext: queueSecurityContext,

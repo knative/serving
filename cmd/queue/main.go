@@ -279,6 +279,7 @@ func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
 		}
 		defer res.Body.Close()
 		success := health.IsHTTPProbeReady(res)
+
 		// The check for preferForScaledown() fails readiness faster
 		// in the presence of the label
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
