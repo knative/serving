@@ -21,18 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/serving"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/autoscaler/scaling"
-)
-
-const (
-	testNamespace = "test-namespace"
-	testRevision  = "test-Revision"
 )
 
 var (
@@ -66,11 +60,11 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		}, "max length must be 255 characters",
 	}}
 
-	uniScalerFactory := getTestUniScalerFactory()
+	uniScalerFactory := testUniScalerFactory()
 	decider := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
+			Namespace: autoscalerfake.TestNamespace,
+			Name:      autoscalerfake.TestRevision,
 		},
 		Spec: scaling.DeciderSpec{
 			ServiceName: "wholesome-service",
@@ -94,7 +88,7 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	// Now blank out service name and give correct labels.
 	decider.Spec.ServiceName = ""
 	decider.Labels = map[string]string{
-		serving.RevisionLabelKey:      testRevision,
+		serving.RevisionLabelKey:      autoscalerfake.TestRevision,
 		serving.ServiceLabelKey:       "some-nice-service",
 		serving.ConfigurationLabelKey: "test-config",
 	}
@@ -108,28 +102,16 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	}
 }
 
-func endpoints(ns, n string) {
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      n,
-		},
-		Subsets: []corev1.EndpointSubset{{}},
-	}
-	kubeClient.CoreV1().Endpoints(ns).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-}
-
 func TestUniScalerFactoryFunc(t *testing.T) {
-	endpoints(testNamespace, "magic-services-offered")
-	uniScalerFactory := getTestUniScalerFactory()
+	autoscalerfake.Endpoints(1, "magic-services-offered")
+	uniScalerFactory := testUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
 		decider := &scaling.Decider{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testRevision,
+				Namespace: autoscalerfake.TestNamespace,
+				Name:      autoscalerfake.TestRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey:      testRevision,
+					serving.RevisionLabelKey:      autoscalerfake.TestRevision,
 					serving.ServiceLabelKey:       srv,
 					serving.ConfigurationLabelKey: "test-config",
 				},
@@ -145,6 +127,6 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	}
 }
 
-func getTestUniScalerFactory() func(decider *scaling.Decider) (scaling.UniScaler, error) {
-	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &autoscalerfake.StaticMetricClient)
+func testUniScalerFactory() func(decider *scaling.Decider) (scaling.UniScaler, error) {
+	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &autoscalerfake.MetricClient{})
 }
