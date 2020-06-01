@@ -256,8 +256,7 @@ func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		// Return nil error for retrying
-		return fmt.Errorf("error creating request: %w", err)
+		return fmt.Errorf("probe failed: error creating request: %w", err)
 	}
 	// Add the header to indicate this is a probe request.
 	req.Header.Add(network.ProbeHeaderName, queue.Name)
