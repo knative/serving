@@ -253,7 +253,9 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
 func (c *Reconciler) computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+	logger := logging.FromContext(ctx)
 	minReady := c.activeThreshold(ctx, pa)
+	logger.Debugf("computeActiveCondition pc is %#v, minReady is %v", pc, minReady)
 
 	switch {
 	case pc.want == 0:
