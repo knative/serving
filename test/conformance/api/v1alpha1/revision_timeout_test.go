@@ -29,7 +29,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -141,13 +140,10 @@ func TestRevisionTimeout(t *testing.T) {
 			defer test.TearDown(clients, names)
 
 			t.Log("Creating a new Service ")
-			svc, err := createLatestService(t, clients, names, tc.timeoutSeconds)
+			_, err := createLatestService(t, clients, names, tc.timeoutSeconds)
 			if err != nil {
 				t.Fatal("Failed to create Service:", err)
 			}
-
-			names.Route = serviceresourcenames.Route(svc)
-			names.Config = serviceresourcenames.Configuration(svc)
 
 			t.Log("The Service will be updated with the name of the Revision once it is created")
 			revisionName, err := v1a1test.WaitForServiceLatestRevision(clients, names)
@@ -183,7 +179,7 @@ func TestRevisionTimeout(t *testing.T) {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
-				t.Log("Probing to force at least non-zero pods", &serviceURL)
+				t.Log("Probing to force at least one pod", &serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(
 					clients.KubeClient,
 					t.Logf,
