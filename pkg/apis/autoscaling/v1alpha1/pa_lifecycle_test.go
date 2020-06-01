@@ -1014,7 +1014,6 @@ func TestTypicalFlow(t *testing.T) {
 	if !r.IsActive() {
 		t.Error("Active was not set.")
 	}
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 }
 
