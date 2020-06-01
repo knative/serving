@@ -621,7 +621,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						Command: []string{"/ko-app/queue", "-probe-period", "0"},
 					},
 				},
-				PeriodSeconds:  1,
+				PeriodSeconds:  10,
 				TimeoutSeconds: 10,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
