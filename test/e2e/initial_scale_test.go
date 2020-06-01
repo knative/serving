@@ -73,7 +73,7 @@ func TestInitScalePositive(t *testing.T) {
 }
 
 func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
-	t.Log("Creating a new Service.", "service", names.Service)
+	t.Log("Creating a new Service", "service", names.Service)
 	_, err := v1test.CreateService(t, clients, names,
 		v1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
@@ -85,6 +85,9 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
 	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service)
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
+		if s.Generation != s.Status.ObservedGeneration || !s.Status.IsReady() {
+			return false, nil
+		}
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
@@ -95,13 +98,13 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		}
 		gotPods := len(podList.Items)
 		if gotPods == wantPods {
-			return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+			return true, nil
 		}
 		if gotPods > wantPods {
 			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)
 		}
 		return false, nil
 	}, "ServiceIsReadyWithWantPods"); err != nil {
-		t.Fatal("Service does not have the desired number of pods running:", err)
+		t.Fatal("Service is not ready with the desired number of pods running:", err)
 	}
 }

@@ -313,6 +313,7 @@ func (c *Reconciler) activeThreshold(ctx context.Context, pa *pav1alpha1.PodAuto
 	} else {
 		min = int32(math.Max(float64(min), float64(defaultScale)))
 	}
+	logger.Debugf("Active threshold is %d", min)
 	return int(min)
 }
 
