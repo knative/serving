@@ -26,16 +26,14 @@ import (
 
 func TestFirstAvailable(t *testing.T) {
 	t.Run("1 tracker, 1 slot", func(t *testing.T) {
-		podTrackers := []*podTracker{
-			&podTracker{
-				dest: "this-is-nowhere",
-				b: queue.NewBreaker(queue.BreakerParams{
-					QueueDepth:      1,
-					MaxConcurrency:  1,
-					InitialCapacity: 1,
-				}),
-			},
-		}
+		podTrackers := []*podTracker{{
+			dest: "this-is-nowhere",
+			b: queue.NewBreaker(queue.BreakerParams{
+				QueueDepth:      1,
+				MaxConcurrency:  1,
+				InitialCapacity: 1,
+			}),
+		}}
 
 		ctx := context.Background()
 		cb, tracker := firstAvailableLBPolicy(ctx, podTrackers)
@@ -54,24 +52,21 @@ func TestFirstAvailable(t *testing.T) {
 		}
 	})
 	t.Run("2 trackers, 1 slot", func(t *testing.T) {
-		podTrackers := []*podTracker{
-			&podTracker{
-				dest: "down-by-the-river",
-				b: queue.NewBreaker(queue.BreakerParams{
-					QueueDepth:      1,
-					MaxConcurrency:  1,
-					InitialCapacity: 1,
-				}),
-			},
-			&podTracker{
-				dest: "heart-of-gold",
-				b: queue.NewBreaker(queue.BreakerParams{
-					QueueDepth:      1,
-					MaxConcurrency:  1,
-					InitialCapacity: 1,
-				}),
-			},
-		}
+		podTrackers := []*podTracker{{
+			dest: "down-by-the-river",
+			b: queue.NewBreaker(queue.BreakerParams{
+				QueueDepth:      1,
+				MaxConcurrency:  1,
+				InitialCapacity: 1,
+			}),
+		}, {
+			dest: "heart-of-gold",
+			b: queue.NewBreaker(queue.BreakerParams{
+				QueueDepth:      1,
+				MaxConcurrency:  1,
+				InitialCapacity: 1,
+			}),
+		}}
 
 		ctx := context.Background()
 		cb, tracker := firstAvailableLBPolicy(ctx, podTrackers)
