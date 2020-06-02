@@ -374,7 +374,7 @@ function install_knative_serving_standard() {
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
     fi
   else
-    echo "Knative YAML: $SERVING_RELEASE_YAML"
+    echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
