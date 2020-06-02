@@ -48,5 +48,5 @@ func (r *Revision) IsReady() bool {
 func (r *Revision) IsFailed() bool {
 	rs := r.Status
 	return rs.ObservedGeneration == r.Generation &&
-		routeCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
+		revisionCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
 }

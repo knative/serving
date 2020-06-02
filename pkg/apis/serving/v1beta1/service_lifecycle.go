@@ -36,7 +36,7 @@ func (*Service) GetGroupVersionKind() schema.GroupVersionKind {
 // and the service resource has been observed.
 func (s *Service) IsReady() bool {
 	ss := s.Status
-	return ss.ObservedGeneration == s.Generation && apis.NewLivingConditionSet().Manage(&ss).IsHappy()
+	return ss.ObservedGeneration == s.Generation && serviceCondSet.Manage(&ss).IsHappy()
 }
 
 // IsFailed returns true if the resource has observed the latest generation and ready is false.
