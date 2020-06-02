@@ -201,12 +201,13 @@ off-machine registry.
 Run:
 
 ```shell
-ko apply --selector knative.dev/crd-install=true -f config/
+ko apply --selector knative.dev/crd-install=true -Rf config/
 while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Knative CRDs"; sleep 1
 done
 
-ko apply -f config/core/
+ko apply -Rf config/core/
+kubectl apply -f ./third_party/net-istio.yaml
 
 # Optional steps
 
@@ -311,7 +312,7 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/core/ \
+  -Rf config/core/ \
   -f ./third_party/net-istio.yaml \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
