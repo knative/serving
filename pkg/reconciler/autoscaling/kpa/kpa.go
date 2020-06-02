@@ -210,6 +210,7 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.Sugar
 	computeActiveCondition(pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
+	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
