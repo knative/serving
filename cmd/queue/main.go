@@ -467,7 +467,6 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", func(*http.Request) time.Duration {
 		return timeout
 	})
-	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(composedHandler, env)
@@ -476,6 +475,9 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 
 	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, env, logger)
 	composedHandler = network.NewProbeHandler(composedHandler)
+	// We might want sometimes capture the probes/healthchecks in the request
+	// logs. Hence we need to have RequestLogHandler to be the first one.
+	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 }
@@ -565,7 +567,6 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 	}
 	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
 		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo), env.ServingEnableProbeRequestLog)
-
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
 		return currentHandler
