@@ -60,6 +60,11 @@ var (
 		stats.UnitDimensionless)
 )
 
+const (
+	defaultTargetName   = "default"
+	undefinedTargetName = "undefined"
+)
+
 type requestMetricsHandler struct {
 	next     http.Handler
 	statsCtx context.Context
@@ -75,7 +80,7 @@ type appRequestMetricsHandler struct {
 func NewRequestMetricsHandler(next http.Handler,
 	ns, service, config, rev, pod string) (http.Handler, error) {
 	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
-		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
+		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey)
 	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
@@ -117,13 +122,16 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime)
+		routeTag := GetRouteTagNameFromRequest(r)
 		if err != nil {
-			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
+			ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
+				http.StatusInternalServerError, routeTag)
 			pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 				responseTimeInMsecM.M(float64(latency.Milliseconds())))
 			panic(err)
 		}
-		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
+			rr.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))
 	}()
@@ -189,9 +197,32 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 				appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
 			panic(err)
 		}
+
 		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
 		pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
 			appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
 	}()
 	h.next.ServeHTTP(rr, r)
+}
+
+// GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
+func GetRouteTagNameFromRequest(r *http.Request) string {
+	name := r.Header.Get(network.TagHeaderName)
+	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
+
+	if name == "" {
+		if isDefaultRoute == "" {
+			// If there are no tag header and no `Knative-Serving-Default-Route` header,
+			// it means that the tag header based routing is disabled, so the tag value is set to `disabled`.
+			return "disabled"
+		}
+		// If there is no tag header, just returns "default".
+		return defaultTargetName
+	} else if isDefaultRoute == "true" {
+		// If there is a tag header with not-empty string and the request is routed via the default route,
+		// returns "undefined".
+		return undefinedTargetName
+	}
+	// Otherwise, returns the value of the tag header.
+	return name
 }

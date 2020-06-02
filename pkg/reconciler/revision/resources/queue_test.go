@@ -75,6 +75,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		lc   logging.Config
+		nc   network.Config
 		oc   metrics.ObservabilityConfig
 		dc   deployment.Config
 		want corev1.Container
