@@ -54,7 +54,7 @@ function update_knative() {
   local n=0
   until [ $n -ge 3 ]
   do
-    ko apply -f config/ && break
+    ko apply -Rf serving/config/core/ && kubectl apply -f serving/third_party/net-istio.yaml && break
     n=$[$n+1]
   done
   if [ $n == 3 ]; then
