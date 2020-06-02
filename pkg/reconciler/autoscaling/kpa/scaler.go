@@ -93,6 +93,7 @@ type scaler struct {
 	// For service initial scale.
 	initialScaleTime  time.Duration
 	lastReconcileTime *time.Time
+	initialScale      *int32
 }
 
 // newScaler creates a scaler.
@@ -314,8 +315,13 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	min, max := pa.ScaleBounds()
 	initialScale := getInitialScale(ctx, pa)
+	if ks.initialScale == nil || initialScale != *ks.initialScale {
+		ks.lastReconcileTime = nil
+		ks.initialScaleTime = 0 * time.Second
+		ks.initialScale = &initialScale
+	}
 	asConfig := config.FromContext(ctx).Autoscaler
-	if initialScale > min && initialScale > 1 {
+	if *ks.initialScale > min && *ks.initialScale > 1 {
 		// We need to manually set the initial scale here for a short period of time, even though
 		// Autoscaler.Scale(...) will set it too. This is because even though both scaler.Scale(...)
 		// and Autoscaler.Scale(...) are triggered by KPA reconciliation, scaler.Scale(...) will
@@ -324,7 +330,7 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		// This creates a problem in the scenario where minScale < initialScale, in that a newly
 		// created service will have minScale number of pods created, then a few seconds later it
 		// will adjust the scale to initialScale.
-		if pa.Status.ActualScale != nil && *pa.Status.ActualScale == initialScale {
+		if pa.Status.ActualScale != nil && *pa.Status.ActualScale == *ks.initialScale {
 			if ks.lastReconcileTime != nil {
 				ks.initialScaleTime += time.Since(*ks.lastReconcileTime)
 			}
@@ -332,8 +338,8 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 			ks.lastReconcileTime = &now
 		}
 		if ks.initialScaleTime < asConfig.StableWindow/2 {
-			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
-			min = initialScale
+			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, *ks.initialScale)
+			min = *ks.initialScale
 		}
 	}
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {

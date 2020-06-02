@@ -51,6 +51,8 @@ func TestInitScaleZero(t *testing.T) {
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 0)
+	t.Log("Updating the Service with a new initial scale")
+	patchAndVerifyInitialScaleService(t, clients, names, 5)
 }
 
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
@@ -70,6 +72,8 @@ func TestInitScalePositive(t *testing.T) {
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 3)
+	t.Log("Updating the Service with a new initial scale")
+	patchAndVerifyInitialScaleService(t, clients, names, 0)
 }
 
 func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
@@ -81,13 +85,36 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 	if err != nil {
 		t.Fatal("Failed creating initial service:", err)
 	}
+	verifyInitialScaleService(t, clients, names, wantPods)
+}
 
+func patchAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
+	t.Log("Updating Service", "service", names.Service)
+	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
+	}
+	_, err = v1test.PatchService(t, clients, service,
+		v1testing.WithConfigAnnotations(map[string]string{
+			autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
+		}))
+	if err != nil {
+		t.Fatal("Failed updating service:", err)
+	}
+	verifyInitialScaleService(t, clients, names, wantPods)
+}
+
+func verifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
-	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service)
+	var gotPods int
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
 		if s.Generation != s.Status.ObservedGeneration || !s.Status.IsReady() {
 			return false, nil
 		}
+		if s.Status.LatestCreatedRevisionName == "" {
+			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
+		}
+		selector := fmt.Sprintf("%s=%s", serving.RevisionLabelKey, s.Status.LatestCreatedRevisionName)
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
@@ -96,7 +123,7 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		if err != nil {
 			return false, err
 		}
-		gotPods := len(podList.Items)
+		gotPods = len(podList.Items)
 		if gotPods == wantPods {
 			return true, nil
 		}
@@ -105,6 +132,6 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		}
 		return false, nil
 	}, "ServiceIsReadyWithWantPods"); err != nil {
-		t.Fatal("Service is not ready with the desired number of pods running:", err)
+		t.Fatalf("Service is not ready with the desired number of pods running (want = %d, got = %d): %v", wantPods, gotPods, err)
 	}
 }

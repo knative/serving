@@ -29,7 +29,6 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	v1 "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,12 +41,11 @@ const MinActivators = 2
 
 // Autoscaler stores current state of an instance of an autoscaler.
 type Autoscaler struct {
-	namespace       string
-	revision        string
-	metricClient    metrics.MetricClient
-	endpointslister corev1listers.EndpointsLister
-	revisionlister  v1.RevisionLister
-	reporterCtx     context.Context
+	namespace    string
+	revision     string
+	metricClient metrics.MetricClient
+	lister       corev1listers.EndpointsLister
+	reporterCtx  context.Context
 
 	// State in panic mode.
 	panicTime    time.Time
@@ -101,11 +99,11 @@ func New(
 	}
 
 	return &Autoscaler{
-		namespace:       namespace,
-		revision:        revision,
-		metricClient:    metricClient,
-		endpointslister: lister,
-		reporterCtx:     reporterCtx,
+		namespace:    namespace,
+		revision:     revision,
+		metricClient: metricClient,
+		lister:       lister,
+		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
@@ -124,7 +122,7 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 
 	// Update the podCounter if service name changes.
 	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
-		a.podCounter = resources.NewScopedEndpointsCounter(a.endpointslister, a.namespace,
+		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
 			deciderSpec.ServiceName)
 	}
 	a.deciderSpec = deciderSpec

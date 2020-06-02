@@ -77,8 +77,9 @@ func TestScaler(t *testing.T) {
 		minScale                    int32
 		maxScale                    int32
 		revisionInitialScale        *int32
-		lastReconcileTime           *time.Time
-		initialScaleTime            time.Duration
+		scalerLastReconcileTime     *time.Time
+		scalerInitialScaleTime      time.Duration
+		scalerInitialScale          *int32
 		wantReplicas                int32
 		wantScaling                 bool
 		sks                         SKSOption
@@ -89,6 +90,7 @@ func TestScaler(t *testing.T) {
 		wantAsyncProbeCount         int
 		wantLastReconcileTimeUpdate bool
 		wantInitialScaleTimeUpdate  bool
+		wantInitialScaleUpdate      bool
 	}{{
 		label:         "waits to scale to zero (just before idle period)",
 		startReplicas: 1,
@@ -432,16 +434,40 @@ func TestScaler(t *testing.T) {
 			c.Autoscaler.AllowZeroInitialScale = false
 			c.Autoscaler.InitialScale = 3
 		},
-		startReplicas:               3,
-		scaleTo:                     1,
-		lastReconcileTime:           &now,
-		wantReplicas:                3,
-		wantScaling:                 false,
+		startReplicas:           3,
+		scaleTo:                 1,
+		scalerLastReconcileTime: &now,
+		// Because stable window is 5 mins for the tests, this should make sure that we have scaled at
+		// the initial scale for enough time and it shouldn't adjust the calculated scale.
+		scalerInitialScaleTime:      5 * time.Minute,
+		scalerInitialScale:          ptr.Int32(int32(3)),
+		wantReplicas:                1,
+		wantScaling:                 true,
 		wantLastReconcileTimeUpdate: true,
 		wantInitialScaleTimeUpdate:  true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
 			k.Status.ActualScale = ptr.Int32(int32(3))
+		},
+	}, {
+		label: "cluster initial scale updated",
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.AllowZeroInitialScale = false
+			c.Autoscaler.InitialScale = 3
+		},
+		startReplicas:               0,
+		scaleTo:                     1,
+		scalerInitialScale:          ptr.Int32(int32(1)),
+		scalerInitialScaleTime:      1 * time.Second,
+		scalerLastReconcileTime:     &now,
+		wantReplicas:                3,
+		wantScaling:                 true,
+		wantLastReconcileTimeUpdate: true,
+		wantInitialScaleTimeUpdate:  true,
+		wantInitialScaleUpdate:      true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+			k.Status.ActualScale = ptr.Int32(int32(1))
 		},
 	}, {
 		label:                       "revision initial scale",
@@ -456,18 +482,39 @@ func TestScaler(t *testing.T) {
 			paMarkActive(k, time.Now())
 		},
 	}, {
-		label:                       "revision initial scale have scaled",
-		startReplicas:               3,
-		scaleTo:                     1,
-		revisionInitialScale:        ptr.Int32(int32(3)),
-		lastReconcileTime:           &now,
-		wantReplicas:                3,
-		wantScaling:                 false,
+		label:                   "revision initial scale have scaled",
+		startReplicas:           3,
+		scaleTo:                 1,
+		revisionInitialScale:    ptr.Int32(int32(3)),
+		scalerLastReconcileTime: &now,
+		scalerInitialScale:      ptr.Int32(int32(3)),
+		// Because stable window is 5 mins for the tests, this should make sure that we have scaled at
+		// the initial scale for enough time and it shouldn't adjust the calculated scale.
+		scalerInitialScaleTime:      5 * time.Minute,
+		wantReplicas:                1,
+		wantScaling:                 true,
 		wantLastReconcileTimeUpdate: true,
 		wantInitialScaleTimeUpdate:  true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
 			k.Status.ActualScale = ptr.Int32(int32(3))
+		},
+	}, {
+		label:                       "revision initial scale updated",
+		startReplicas:               0,
+		scaleTo:                     1,
+		revisionInitialScale:        ptr.Int32(int32(3)),
+		scalerInitialScale:          ptr.Int32(int32(1)),
+		scalerInitialScaleTime:      1 * time.Second,
+		scalerLastReconcileTime:     &now,
+		wantReplicas:                3,
+		wantScaling:                 true,
+		wantLastReconcileTimeUpdate: true,
+		wantInitialScaleTimeUpdate:  true,
+		wantInitialScaleUpdate:      true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now())
+			k.Status.ActualScale = ptr.Int32(int32(1))
 		},
 	}}
 
@@ -490,8 +537,9 @@ func TestScaler(t *testing.T) {
 			}
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
-			revisionScaler.lastReconcileTime = test.lastReconcileTime
-			revisionScaler.initialScaleTime = test.initialScaleTime
+			revisionScaler.lastReconcileTime = test.scalerLastReconcileTime
+			revisionScaler.initialScaleTime = test.scalerInitialScaleTime
+			revisionScaler.initialScale = test.scalerInitialScale
 
 			// We test like this because the dynamic client's fake doesn't properly handle
 			// patch modes prior to 1.13 (where vaikas added JSON Patch support).
@@ -541,21 +589,30 @@ func TestScaler(t *testing.T) {
 				checkReplicas(t, dynamicClient, deployment, test.wantReplicas)
 			}
 			if test.wantLastReconcileTimeUpdate {
-				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; gotUpdatedLastReconcileTime.Sub(now) == 0*time.Second {
-					t.Error("lastReconcileTime not updated")
+				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; (gotUpdatedLastReconcileTime == nil && test.scalerLastReconcileTime == nil) || (gotUpdatedLastReconcileTime != nil && test.scalerLastReconcileTime != nil && gotUpdatedLastReconcileTime.Sub(now) == 0*time.Second) {
+					t.Error("scalerLastReconcileTime not updated")
 				}
 			} else {
-				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; gotUpdatedLastReconcileTime != nil {
-					t.Error("lastReconcileTime should not be updated")
+				if gotUpdatedLastReconcileTime := revisionScaler.lastReconcileTime; (gotUpdatedLastReconcileTime == nil && test.scalerLastReconcileTime != nil) || gotUpdatedLastReconcileTime != nil {
+					t.Error("scalerLastReconcileTime should not be updated")
 				}
 			}
 			if test.wantInitialScaleTimeUpdate {
-				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime == 0*time.Second {
-					t.Error("initialScaleTime not updated")
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime == test.scalerInitialScaleTime {
+					t.Error("scalerInitialScaleTime not updated")
 				}
 			} else {
-				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime > 0*time.Second {
-					t.Error("initialScaleTime should not be updated")
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime != test.scalerInitialScaleTime {
+					t.Error("scalerInitialScaleTime should not be updated")
+				}
+			}
+			if test.wantInitialScaleUpdate {
+				if gotUpdatedInitialScale := *revisionScaler.initialScale; gotUpdatedInitialScale == *test.scalerInitialScale {
+					t.Error("scalerInitialScale not updated")
+				}
+			} else if test.scalerInitialScale != nil {
+				if gotUpdatedInitialScale := *revisionScaler.initialScale; gotUpdatedInitialScale != *test.scalerInitialScale {
+					t.Error("scalerInitialScale should not be updated")
 				}
 			}
 		})

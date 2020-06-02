@@ -26,7 +26,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
 	fakeclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	informers "knative.dev/serving/pkg/client/informers/externalversions"
 )
 
 var (
@@ -36,8 +35,6 @@ var (
 	KubeInformer = kubeinformers.NewSharedInformerFactory(KubeClient, 0)
 	// ServingClient holds instances of interfaces for making requests to Knative serving client.
 	ServingClient = fakeclientset.NewSimpleClientset()
-	// RevInformer constructs a fake v1 revision informer factory.
-	RevInformer = informers.NewSharedInformerFactory(ServingClient, 0).Serving().V1().Revisions()
 )
 
 const (
