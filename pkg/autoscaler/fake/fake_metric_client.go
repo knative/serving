@@ -92,14 +92,6 @@ func (mc *MetricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 	return mc.StableRPS, mc.PanicRPS, err
 }
 
-// StaticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
-var StaticMetricClient = MetricClient{
-	StableConcurrency: 10.0,
-	PanicConcurrency:  10.0,
-	StableRPS:         10.0,
-	PanicRPS:          10.0,
-}
-
 // Endpoints is used to create endpoints.
 func Endpoints(count int, svc string) {
 	epAddresses := make([]corev1.EndpointAddress, count)

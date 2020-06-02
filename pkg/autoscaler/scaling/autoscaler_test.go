@@ -556,7 +556,7 @@ func expectScale(t *testing.T, a UniScaler, now time.Time, want ScaleResult) {
 }
 
 func TestStartInPanicMode(t *testing.T) {
-	metrics := &fake.StaticMetricClient
+	metrics := &staticMetricClient
 	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
@@ -599,7 +599,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 func TestNewFail(t *testing.T) {
 	eraseEndpoints()
-	metrics := &fake.StaticMetricClient
+	metrics := &staticMetricClient
 	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
@@ -629,4 +629,12 @@ func reset() {
 		stableRPSM.Name(), panicRPSM.Name(),
 		targetRPSM.Name(), panicM.Name())
 	register()
+}
+
+// staticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
+var staticMetricClient = fake.MetricClient{
+	StableConcurrency: 10.0,
+	PanicConcurrency:  10.0,
+	StableRPS:         10.0,
+	PanicRPS:          10.0,
 }
