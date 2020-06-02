@@ -182,6 +182,14 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	now := time.Now()
 	logger := logging.FromContext(ctx)
 	switch {
+	case pa.Status.IsActivating(): // Active=Unknown
+		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
+		if pa.Status.CanFailActivation(now, activationTimeout) {
+			logger.Info("Activation has timed out after ", activationTimeout)
+			return desiredScale, true
+		}
+		ks.enqueueCB(pa, activationTimeout)
+		return scaleUnknown, false
 	case pa.Status.IsActive(): // Active=True
 		// Don't scale-to-zero if the PA is active
 		// but return `(0, false)` to mark PA inactive, instead.
@@ -204,7 +212,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		logger.Infof("Sleeping additionally for %v before can scale to 0", sw-af)
 		ks.enqueueCB(pa, sw-af)
 		return 1, true
-	case pa.Status.IsInactive(): // Active=False
+	default: // Active=False
 		// Probe synchronously, to see if Activator is already in the path.
 		r, err := ks.activatorProbe(pa, ks.transport)
 		logger.Infof("Probing activator = %v, err = %v", r, err)
@@ -256,14 +264,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			logger.Info("Probe for revision is already in flight")
 		}
 		return desiredScale, false
-	default: // Active=Unknown
-		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
-		if pa.Status.CanFailActivation(now, activationTimeout) {
-			logger.Info("Activation has timed out after ", activationTimeout)
-			return desiredScale, true
-		}
-		ks.enqueueCB(pa, activationTimeout)
-		return scaleUnknown, false
 	}
 }
 
