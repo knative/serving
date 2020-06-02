@@ -42,8 +42,6 @@ LATEST_NET_ISTIO_RELEASE_VERSION=$(
 
 function install_latest_release() {
   header "Installing Knative latest public release"
-  local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  local yaml="serving.yaml"
 
   install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
