@@ -32,6 +32,7 @@ func PreProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 	if newStatus.ObservedGeneration != resource.GetGeneration() {
 		condSet := resource.GetConditionSet()
 		manager := condSet.Manage(newStatus)
+		manager.InitializeConditions()
 
 		// Reset Ready/Successful to unknown. The reconciler is expected to overwrite this.
 		manager.MarkUnknown(condSet.GetTopLevelConditionType(), failedGenerationBump, "unsuccessfully observed a new generation")
