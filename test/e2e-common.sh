@@ -311,7 +311,9 @@ function install_knative_serving_standard() {
     SERVING_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
     wget "${url}/${yaml}" -O "${SERVING_YAML}" \
       || fail_test "Unable to download latest knative/serving release."
-    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" $SERVING_YAML
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_YAML}
+    echo sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_YAML}
+    grep "namespace: " $SERVING_YAML
     echo "Knative YAML: ${SERVING_YAML}"
     ko apply -f "${SERVING_YAML}" --selector=knative.dev/crd-install=true || return 1
   fi
