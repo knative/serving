@@ -307,7 +307,7 @@ function install_knative_serving_standard() {
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
     local yaml="serving.yaml"
 
-    SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
+    local SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
     wget "${url}/${yaml}" -O "${SERVING_RELEASE_YAML}" \
       || fail_test "Unable to download latest knative/serving release."
 
