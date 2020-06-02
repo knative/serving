@@ -146,6 +146,7 @@ while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.co
   echo "Waiting on Istio CRDs"; sleep 1
 done
 kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
+kubectl apply -f ./third_party/net-istio.yaml
 ```
 
 Follow the
@@ -205,7 +206,7 @@ while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.st
   echo "Waiting on Knative CRDs"; sleep 1
 done
 
-ko apply -f config/
+ko apply -f config/core/
 
 # Optional steps
 
@@ -310,7 +311,8 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/ \
+  -f config/core/ \
+  -f ./third_party/net-istio.yaml \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
