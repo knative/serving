@@ -70,8 +70,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		revInitScaleInt, err := strconv.Atoi(revInitScale)
 		if err != nil {
 			logger.Errorf("Error processing revision initial scale %d: %v", revInitScale, err)
-		}
-		if revInitScaleInt > 1 {
+		} else {
 			initScale = int32(revInitScaleInt)
 		}
 	}

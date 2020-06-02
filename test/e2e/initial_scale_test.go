@@ -52,7 +52,7 @@ func TestInitScaleZero(t *testing.T) {
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 0)
 	t.Log("Updating the Service with a new initial scale")
-	patchAndVerifyInitialScaleService(t, clients, names, 5)
+	patchAndVerifyInitialScaleService(t, clients, names, 2)
 }
 
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
@@ -106,13 +106,12 @@ func patchAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, name
 
 func verifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
 	t.Logf("Waiting for Service %q to transition to Ready with %d number of pods.", names.Service, wantPods)
-	var gotPods int
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
 		if s.Generation != s.Status.ObservedGeneration || !s.Status.IsReady() {
 			return false, nil
 		}
 		if s.Status.LatestCreatedRevisionName == "" {
-			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
+			return false, fmt.Errorf("latestCreatedRevisionName is not present in Service status: %v", s)
 		}
 		selector := fmt.Sprintf("%s=%s", serving.RevisionLabelKey, s.Status.LatestCreatedRevisionName)
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
@@ -123,15 +122,15 @@ func verifyInitialScaleService(t *testing.T, clients *test.Clients, names test.R
 		if err != nil {
 			return false, err
 		}
-		gotPods = len(podList.Items)
+		gotPods := len(podList.Items)
 		if gotPods == wantPods {
 			return true, nil
 		}
 		if gotPods > wantPods {
-			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)
+			return false, fmt.Errorf("service has more pods running (want = %d, got = %d)", wantPods, gotPods)
 		}
 		return false, nil
 	}, "ServiceIsReadyWithWantPods"); err != nil {
-		t.Fatalf("Service is not ready with the desired number of pods running (want = %d, got = %d): %v", wantPods, gotPods, err)
+		t.Fatalf("Service timed out getting ready or has more pods running: %v", err)
 	}
 }

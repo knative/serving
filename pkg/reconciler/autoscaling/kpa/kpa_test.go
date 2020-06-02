@@ -221,8 +221,8 @@ func TestReconcile(t *testing.T) {
 	now := time.Now()
 	scalerKey := ""
 	type scalerInitialScale struct {
-		initialScaleTime  time.Duration
-		lastReconcileTime *time.Time
+		initialScaleDuration time.Duration
+		lastReconcileTime    *time.Time
 	}
 
 	// Set up a default deployment with the appropriate scale so that we don't
@@ -275,8 +275,6 @@ func TestReconcile(t *testing.T) {
 	deciderKey := struct{}{}
 	retryAttempted := false
 
-	autoscalerConfigWithInitialScale, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
-	autoscalerConfigWithInitialScale.InitialScale = 20
 	defaultCtx := autoscalerConfigCtx(t, false, 1)
 
 	// Note: due to how KPA reconciler works we are dependent on the
@@ -1020,7 +1018,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "revision initial scale > minScale, have not reached initial scale",
-		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 1), scalerKey, &scalerInitialScale{initialScaleTime: 0 * time.Second, lastReconcileTime: nil}),
+		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 1), scalerKey, &scalerInitialScale{initialScaleDuration: 0, lastReconcileTime: nil}),
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(defaultScale, defaultScale), WithReachabilityReachable,
@@ -1041,7 +1039,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "revision initial scale reached",
-		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 1), scalerKey, &scalerInitialScale{initialScaleTime: 60 * time.Second, lastReconcileTime: &now}),
+		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 1), scalerKey, &scalerInitialScale{initialScaleDuration: 60 * time.Second, lastReconcileTime: &now}),
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(20, defaultScale), WithReachabilityReachable,
@@ -1059,7 +1057,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "cluster initial scale > minScale, have not reached initial scale",
-		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 20), scalerKey, &scalerInitialScale{initialScaleTime: 0 * time.Second, lastReconcileTime: nil}),
+		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 20), scalerKey, &scalerInitialScale{initialScaleDuration: 0, lastReconcileTime: nil}),
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(defaultScale, defaultScale), WithReachabilityReachable,
@@ -1080,7 +1078,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "cluster initial scale reached",
-		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 20), scalerKey, &scalerInitialScale{initialScaleTime: 60 * time.Second, lastReconcileTime: &now}),
+		Ctx:  context.WithValue(autoscalerConfigCtx(t, false, 20), scalerKey, &scalerInitialScale{initialScaleDuration: 60 * time.Second, lastReconcileTime: &now}),
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(20, defaultScale), WithReachabilityReachable,
@@ -1142,7 +1140,7 @@ func TestReconcile(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		if scalerInfo := ctx.Value(scalerKey); scalerInfo != nil {
 			scaler.lastReconcileTime = scalerInfo.(*scalerInitialScale).lastReconcileTime
-			scaler.initialScaleTime = scalerInfo.(*scalerInitialScale).initialScaleTime
+			scaler.initialScaleDuration = scalerInfo.(*scalerInitialScale).initialScaleDuration
 		}
 		r := &Reconciler{
 			Base: &areconciler.Base{

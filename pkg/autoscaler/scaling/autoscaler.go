@@ -111,7 +111,7 @@ func New(
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
 
-		initialScaleTime: 0 * time.Second,
+		initialScaleTime: 0,
 	}, nil
 }
 

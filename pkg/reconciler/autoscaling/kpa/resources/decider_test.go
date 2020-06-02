@@ -135,6 +135,10 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(WithPAInitialScale("5")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withInitialScale(5), withInitialScaleAnnotation("5")),
 	}, {
+		name: "with invalid initial scale annotation",
+		pa:   pa(WithPAInitialScale("invalid")),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withInitialScaleAnnotation("invalid")),
+	}, {
 		name: "use cluster initial scale",
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.InitialScale = 3

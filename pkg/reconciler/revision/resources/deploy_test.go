@@ -725,7 +725,7 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, asConfig, &deploymentConfig); err == nil {
+		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -784,14 +784,7 @@ func TestMakeDeployment(t *testing.T) {
 		rev: revision("bar", "foo",
 			withoutLabels,
 			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
+				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			},
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
@@ -803,14 +796,7 @@ func TestMakeDeployment(t *testing.T) {
 		rev: revision("bar", "foo",
 			withoutLabels,
 			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
+				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 			},
 		),

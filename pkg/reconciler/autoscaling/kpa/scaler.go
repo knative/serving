@@ -91,9 +91,9 @@ type scaler struct {
 	enqueueCB    func(interface{}, time.Duration)
 
 	// For service initial scale.
-	initialScaleTime  time.Duration
-	lastReconcileTime *time.Time
-	initialScale      *int32
+	initialScaleDuration time.Duration
+	lastReconcileTime    *time.Time
+	initialScale         *int32
 }
 
 // newScaler creates a scaler.
@@ -317,7 +317,7 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 	initialScale := getInitialScale(ctx, pa)
 	if ks.initialScale == nil || initialScale != *ks.initialScale {
 		ks.lastReconcileTime = nil
-		ks.initialScaleTime = 0 * time.Second
+		ks.initialScaleDuration = 0 * time.Second
 		ks.initialScale = &initialScale
 	}
 	asConfig := config.FromContext(ctx).Autoscaler
@@ -332,12 +332,12 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		// will adjust the scale to initialScale.
 		if pa.Status.ActualScale != nil && *pa.Status.ActualScale == *ks.initialScale {
 			if ks.lastReconcileTime != nil {
-				ks.initialScaleTime += time.Since(*ks.lastReconcileTime)
+				ks.initialScaleDuration += time.Since(*ks.lastReconcileTime)
 			}
 			now := time.Now()
 			ks.lastReconcileTime = &now
 		}
-		if ks.initialScaleTime < asConfig.StableWindow/2 {
+		if ks.initialScaleDuration < asConfig.StableWindow/2 {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, *ks.initialScale)
 			min = *ks.initialScale
 		}

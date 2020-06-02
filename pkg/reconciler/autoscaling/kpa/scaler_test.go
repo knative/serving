@@ -538,7 +538,7 @@ func TestScaler(t *testing.T) {
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
 			revisionScaler.lastReconcileTime = test.scalerLastReconcileTime
-			revisionScaler.initialScaleTime = test.scalerInitialScaleTime
+			revisionScaler.initialScaleDuration = test.scalerInitialScaleTime
 			revisionScaler.initialScale = test.scalerInitialScale
 
 			// We test like this because the dynamic client's fake doesn't properly handle
@@ -598,11 +598,11 @@ func TestScaler(t *testing.T) {
 				}
 			}
 			if test.wantInitialScaleTimeUpdate {
-				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime == test.scalerInitialScaleTime {
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleDuration; gotUpdatedInitialScaleTime == test.scalerInitialScaleTime {
 					t.Error("scalerInitialScaleTime not updated")
 				}
 			} else {
-				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleTime; gotUpdatedInitialScaleTime != test.scalerInitialScaleTime {
+				if gotUpdatedInitialScaleTime := revisionScaler.initialScaleDuration; gotUpdatedInitialScaleTime != test.scalerInitialScaleTime {
 					t.Error("scalerInitialScaleTime should not be updated")
 				}
 			}

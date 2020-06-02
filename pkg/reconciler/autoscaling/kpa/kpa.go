@@ -302,8 +302,8 @@ func (c *Reconciler) activeThreshold(ctx context.Context, pa *pav1alpha1.PodAuto
 	}
 
 	if c.scaler.lastReconcileTime != nil {
-		c.scaler.initialScaleTime += time.Since(*c.scaler.lastReconcileTime)
-		if c.scaler.initialScaleTime < config.FromContext(ctx).Autoscaler.StableWindow {
+		c.scaler.initialScaleDuration += time.Since(*c.scaler.lastReconcileTime)
+		if c.scaler.initialScaleDuration < config.FromContext(ctx).Autoscaler.StableWindow {
 			defaultScale = initScale
 		}
 	} else {

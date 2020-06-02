@@ -57,10 +57,13 @@ var (
 	}
 
 	// The default CM values.
-	logConfig        logging.Config
-	traceConfig      tracingconfig.Config
-	obsConfig        metrics.ObservabilityConfig
-	asConfig, _      = autoscalerconfig.NewConfigFromMap(map[string]string{})
+	logConfig   logging.Config
+	traceConfig tracingconfig.Config
+	obsConfig   metrics.ObservabilityConfig
+	asConfig    = autoscalerconfig.Config{
+		InitialScale:          1,
+		AllowZeroInitialScale: false,
+	}
 	deploymentConfig deployment.Config
 )
 
@@ -255,7 +258,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					}},
 				}
 			}
-			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, asConfig, &test.cc)
+			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, &asConfig, &test.cc)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -384,7 +387,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, asConfig, &deploymentConfig)
+			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -459,7 +462,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		}
 	})
 
-	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, asConfig, &deploymentConfig)
+	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -531,7 +534,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		}
 	})
 
-	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, asConfig, &deploymentConfig)
+	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -707,7 +710,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Value: string(wantProbeJSON),
 			})
 
-			got, err := makeQueueContainer(testRev, &logConfig, &traceConfig, &obsConfig, asConfig, &deploymentConfig)
+			got, err := makeQueueContainer(testRev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
 			}

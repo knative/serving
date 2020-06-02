@@ -248,7 +248,7 @@ func MakeDeployment(rev *v1.Revision,
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := ptr.Int32(autoscalerConfig.InitialScale)
+	replicaCount := autoscalerConfig.InitialScale
 	ann, found := rev.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		initialScale, err := strconv.Atoi(ann)
@@ -256,7 +256,7 @@ func MakeDeployment(rev *v1.Revision,
 			return nil, fmt.Errorf("failed to process initialScale annotation: %w", err)
 		}
 		if initialScale != 0 || autoscalerConfig.AllowZeroInitialScale {
-			replicaCount = ptr.Int32(int32(initialScale))
+			replicaCount = int32(initialScale)
 		}
 	}
 
@@ -272,7 +272,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                replicaCount,
+			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
