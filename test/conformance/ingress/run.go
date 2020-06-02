@@ -23,7 +23,7 @@ func RunConformance(t *testing.T) {
 	t.Run("basics/http2", TestBasicsHTTP2)
 
 	t.Run("grpc", TestGRPC)
-	t.Run("grpc/split", TestGRPC)
+	t.Run("grpc/split", TestGRPCSplit)
 
 	t.Run("headers/pre-split", TestPreSplitSetHeaders)
 	t.Run("headers/post-split", TestPostSplitSetHeaders)
