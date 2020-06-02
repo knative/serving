@@ -157,6 +157,7 @@ function build_knative_from_source() {
 #             $2 - Knative Monitoring YAML file (optional)
 function install_knative_serving() {
   local version=${1:-"head"}
+  echo "Install Knative Serving for version: $version"
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
     install_knative_serving_standard "$version" "$2"
     return
@@ -296,7 +297,7 @@ function install_knative_serving_standard() {
   add_trap "kubectl delete namespace ${SYSTEM_NAMESPACE} --ignore-not-found=true" SIGKILL SIGTERM SIGQUIT
 
   echo ">> Installing Knative CRD"
-  SERVING_YAML=""
+  SERVING_RELEASE_YAML=""
   if [[ "$1" == "head" ]]; then
     # If we need to build from source, then kick that off first.
     build_knative_from_source
@@ -308,14 +309,14 @@ function install_knative_serving_standard() {
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
     local yaml="serving.yaml"
 
-    SERVING_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
-    wget "${url}/${yaml}" -O "${SERVING_YAML}" \
+    SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
+    wget "${url}/${yaml}" -O "${SERVING_RELEASE_YAML}" \
       || fail_test "Unable to download latest knative/serving release."
-    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_YAML}
-    echo sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_YAML}
-    grep "namespace: " $SERVING_YAML
-    echo "Knative YAML: ${SERVING_YAML}"
-    ko apply -f "${SERVING_YAML}" --selector=knative.dev/crd-install=true || return 1
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
+    echo sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
+    grep "namespace: " $SERVING_RELEASE_YAML
+    echo "Knative YAML: ${SERVING_RELEASE_YAML}"
+    ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
   fi
 
   echo ">> Installing Ingress"
@@ -355,7 +356,7 @@ function install_knative_serving_standard() {
   UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
 
   echo ">> Installing Knative serving"
-  if [[ -z "$SERVING_YAML" ]]; then
+  if [[ "$1" == "head" ]]; then
     local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
     local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
@@ -373,12 +374,12 @@ function install_knative_serving_standard() {
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
     fi
   else
-    echo "Knative YAML: $SERVING_YAML"
+    echo "Knative YAML: $SERVING_RELEASE_YAML"
     # If we are installing from provided yaml, then only install non-istio bits here,
     # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${SERVING_YAML}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
-    UNINSTALL_LIST+=( "${SERVING_YAML}" )
+    ko apply -f "${SERVING_RELEASE_YAML}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
+    UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
 
     if (( INSTALL_MONITORING )); then
       echo ">> Installing Monitoring"
