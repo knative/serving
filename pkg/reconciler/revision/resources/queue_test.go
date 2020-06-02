@@ -61,9 +61,7 @@ var (
 	traceConfig      tracingconfig.Config
 	obsConfig        metrics.ObservabilityConfig
 	asConfig         autoscalerconfig.Config
-	deploymentConfig = deployment.Config{
-		ProgressDeadline: deployment.ProgressDeadlineDefault,
-	}
+	deploymentConfig deployment.Config
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
@@ -126,15 +124,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
-		cc: deployment.Config{
-			QueueSidecarImage: "alpine",
-		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"SERVING_SERVICE": "svc",
 			})
-			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "config owner as env var, zero concurrency",
@@ -157,7 +150,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_NAMESPACE":     "baz",
 				"SERVING_REVISION":      "blah",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "logging configuration as env var",
@@ -179,7 +171,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_NAMESPACE":      "log",
 				"SERVING_REVISION":       "this",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "container concurrency 10",
@@ -192,7 +183,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			c.Env = env(map[string]string{
 				"CONTAINER_CONCURRENCY": "10",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "request log configuration as env var",
@@ -210,7 +200,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
 				"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "request metrics backend as env var",
@@ -226,7 +215,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			c.Env = env(map[string]string{
 				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "enable profiling",
@@ -315,7 +303,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("0.4Gi"),
 				corev1.ResourceCPU:    resource.MustParse("0.4"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
 		name: "resources percentage in annotations smaller than min allowed",
@@ -342,7 +329,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				corev1.ResourceCPU:    resource.MustParse("25m"), // clamped to boundary in resourceboundary.go
 				corev1.ResourceMemory: resource.MustParse("50Mi"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
 		name: "invalid resources percentage in annotations",
@@ -368,7 +354,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			c.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
 		name: "resources percentage in annotations bigger than than math.MaxInt64",
@@ -394,14 +379,12 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				corev1.ResourceCPU:    resource.MustParse("25m"),
 				corev1.ResourceMemory: resource.MustParse("200Mi"),
 			}
-			c.Image = "alpine"
 		}),
 	}}
 
-	cc := deployment.Config{QueueSidecarImage: "alpine"}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &cc)
+			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -474,8 +457,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			PeriodSeconds:  1,
 			TimeoutSeconds: 10,
 		}
-	},
-	)
+	})
 
 	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
@@ -547,8 +529,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
 		}
-	},
-	)
+	})
 
 	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
