@@ -56,9 +56,12 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
+	"knative.dev/serving/pkg/activator/util"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 )
@@ -203,6 +206,12 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
+	ah = handler.NewTimeToFirstByteTimeoutHandler(ah, "activator request timeout", func(r *http.Request) time.Duration {
+		if rev := util.RevisionFrom(r.Context()); rev != nil {
+			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
+		}
+		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second
+	})
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
