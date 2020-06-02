@@ -105,12 +105,12 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-				corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("100m"),
-				corev1.ResourceName("memory"): resource.MustParse("258Mi"),
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("258Mi"),
 			},
 		}), rtesting.WithConfigAnnotations(map[string]string{
 			serving.QueueSideCarResourcePercentageAnnotation: "0.2",
