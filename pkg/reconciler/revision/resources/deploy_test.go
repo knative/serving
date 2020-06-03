@@ -732,11 +732,11 @@ func TestMissingProbeError(t *testing.T) {
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name                string
-		rev                 *v1.Revision
-		clusterInitialScale *int32
-		want                *appsv1.Deployment
-		dc                  deployment.Config
+		name string
+		rev  *v1.Revision
+		want *appsv1.Deployment
+		dc   deployment.Config
+		ac   *autoscalerconfig.Config
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -779,8 +779,10 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
 	}, {
-		name:                "cluster initial scale",
-		clusterInitialScale: ptr.Int32(int32(10)),
+		name: "cluster initial scale",
+		ac: &autoscalerconfig.Config{
+			InitialScale: 10,
+		},
 		rev: revision("bar", "foo",
 			withoutLabels,
 			func(revision *v1.Revision) {
@@ -791,8 +793,10 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.Replicas = ptr.Int32(int32(10))
 		}),
 	}, {
-		name:                "cluster initial scale override by revision initial scale",
-		clusterInitialScale: ptr.Int32(int32(10)),
+		name: "cluster initial scale override by revision initial scale",
+		ac: &autoscalerconfig.Config{
+			InitialScale: 10,
+		},
 		rev: revision("bar", "foo",
 			withoutLabels,
 			func(revision *v1.Revision) {
@@ -810,21 +814,19 @@ func TestMakeDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
-			asConfigPtr, err := autoscalerconfig.NewConfigFromMap(map[string]string{})
-			if err != nil {
-				t.Fatalf("Error creating default autoscaler config: %v", err)
-			}
-			if test.clusterInitialScale != nil {
-				asConfigPtr.InitialScale = *test.clusterInitialScale
+			if test.ac == nil {
+				test.ac = &autoscalerconfig.Config{
+					InitialScale: 1,
+				}
 			}
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, asConfigPtr, &deploymentConfig)
+				&obsConfig, test.ac, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, asConfigPtr, &test.dc)
+				&network.Config{}, &obsConfig, test.ac, &test.dc)
 			if err != nil {
 				t.Fatal("got unexpected error:", err)
 			}

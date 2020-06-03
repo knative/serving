@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
-	fakeclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 )
 
 var (
@@ -33,8 +32,6 @@ var (
 	KubeClient = fakek8s.NewSimpleClientset()
 	// KubeInformer constructs a new instance of sharedInformerFactory for all namespaces.
 	KubeInformer = kubeinformers.NewSharedInformerFactory(KubeClient, 0)
-	// ServingClient holds instances of interfaces for making requests to Knative serving client.
-	ServingClient = fakeclientset.NewSimpleClientset()
 )
 
 const (
