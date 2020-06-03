@@ -23,9 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// ExampleKey signifies a given example configuration in a ConfigMap.
-const ExampleKey = "_example"
-
 // Logger is the interface that UntypedStore expects its logger to conform to.
 // UntypedStore will log when updates succeed or fail.
 type Logger interface {
