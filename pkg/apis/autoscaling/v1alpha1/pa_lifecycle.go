@@ -174,7 +174,7 @@ func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Conditi
 	return podCondSet.Manage(pas).GetCondition(t)
 }
 
-// InitializeConditions initializes the conditionhs of the PA.
+// InitializeConditions initializes the conditions of the PA.
 func (pas *PodAutoscalerStatus) InitializeConditions() {
 	podCondSet.Manage(pas).InitializeConditions()
 }

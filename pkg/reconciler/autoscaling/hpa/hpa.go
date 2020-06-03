@@ -108,7 +108,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		pa.Status.MarkActive()
 	}
 
-	pa.Status.ObservedGeneration = pa.Generation
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
