@@ -37,11 +37,13 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 // and the revision resource has been observed.
 func (r *Route) IsReady() bool {
 	rs := r.Status
-	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).IsHappy()
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RouteConditionReady).IsTrue()
 }
 
 // IsFailed returns true if the resource has observed the latest generation and ready is false.
 func (r *Route) IsFailed() bool {
 	rs := r.Status
-	return rs.ObservedGeneration == r.Generation && routeCondSet.Manage(&rs).GetTopLevelCondition().IsFalse()
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RouteConditionReady).IsFalse()
 }
