@@ -62,7 +62,7 @@ $SERVING_ROOT/test/upload-test-images.sh
 
 ## Adding a test
 
-Tests need to be exported and accessible downstream so they should be placed in 
+Tests need to be exported and accessible downstream so they should be placed in
 non-test files (ie. sometest.go). Additionally, invoke your test in the default
 `RunConformance` function in [`run.go`](./run.go).  This function is the entry
 point by which tests are executed.
@@ -106,4 +106,3 @@ func TestYourIngressConformance(t *testing.T) {
 }
 
 ```
-
