@@ -29,7 +29,7 @@ func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := &timeoutWriter{w: recorder}
 	handler.WriteHeader(http.StatusOK)
-	handler.TimeoutAndWriteError("error")
+	handler.timeoutAndWriteError("error")
 	if _, err := io.WriteString(handler, "test"); err != nil {
 		t.Fatalf("handler.Write() = %v, want no error", err)
 	}
@@ -45,7 +45,7 @@ func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
 func TestTimeoutWriterDoesntFlushAfterTimeout(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := &timeoutWriter{w: recorder}
-	handler.TimeoutAndWriteError("error")
+	handler.timeoutAndWriteError("error")
 	handler.Flush()
 
 	if got, want := recorder.Flushed, false; got != want {
@@ -66,16 +66,14 @@ func TestTimeoutWriterFlushesAfterTimeout(t *testing.T) {
 func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := &timeoutWriter{w: recorder}
-	handler.TimeoutAndWriteError("error")
+	handler.timeoutAndWriteError("error")
 	if _, err := handler.Write([]byte("hello")); err != http.ErrHandlerTimeout {
 		t.Errorf("ErrHandlerTimeout got %v, want: %s", err, http.ErrHandlerTimeout)
 	}
 }
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
-	const (
-		longTimeout = 10 * time.Second
-	)
+	const longTimeout = 10 * time.Second
 
 	longTimeoutFunc := func(*http.Request) time.Duration {
 		return longTimeout
