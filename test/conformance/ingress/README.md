@@ -62,12 +62,13 @@ $SERVING_ROOT/test/upload-test-images.sh
 
 ## Adding a test
 
-Tests need to be exported and accessible downstream so they should be placed in 
+Tests need to be exported and accessible downstream so they should be placed in
 non-test files (ie. sometest.go). Additionally, invoke your test in the default
-`RunConformance` function in [`run.go`](./run.go).  This function is the entry
+`RunConformance` function in [`run.go`](./run.go). This function is the entry
 point by which tests are executed.
 
-This approach aims to reduce the changes required when tests are added & removed.
+This approach aims to reduce the changes required when tests are added &
+removed.
 
 ## Running the tests
 
@@ -87,9 +88,8 @@ go test -v -tags=e2e -count=1 test/conformance/ingress \
 
 ## Running the tests downstream
 
-To run all the conformance tests in your own repo we encourage adopting
-the [`RunConformance`](./run.go) function to run all your tests. 
-
+To run all the conformance tests in your own repo we encourage adopting the
+[`RunConformance`](./run.go) function to run all your tests.
 
 To do so would look something like:
 
@@ -106,4 +106,3 @@ func TestYourIngressConformance(t *testing.T) {
 }
 
 ```
-
