@@ -39,6 +39,7 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
+	defaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -2563,7 +2564,11 @@ func ingressWithClass(r *v1.Route, tc *traffic.Config, class string, io ...Ingre
 }
 
 func baseIngressWithClass(r *v1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class)
+	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class, *defaultsConfig)
 
 	for _, opt := range io {
 		opt(ingress)

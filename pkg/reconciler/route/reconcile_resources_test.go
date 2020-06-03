@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	defaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -230,7 +231,11 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 		SecretName:      "test-secret",
 		SecretNamespace: "test-ns",
 	}}
-	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
+	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress", *defaultsConfig)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}

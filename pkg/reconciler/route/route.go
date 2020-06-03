@@ -34,6 +34,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
+	configDefaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -100,7 +101,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 	return serviceCopy, err
 }
 
-func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route, defaultsConfig configDefaults.Defaults) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
@@ -145,7 +146,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	}
 
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), defaultsConfig, acmeChallenges...)
 
 	if err != nil {
 		return err
@@ -167,9 +168,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	ingressClass string, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
+	ingressClass string, defaultsConfig configDefaults.Defaults, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
 
-	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, defaultsConfig, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}

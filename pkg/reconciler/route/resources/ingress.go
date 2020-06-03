@@ -27,6 +27,7 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -54,9 +55,10 @@ func MakeIngress(
 	tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
+	defaults config.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, acmeChallenges...)
+	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, defaults, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +88,7 @@ func MakeIngressSpec(
 	tls []netv1alpha1.IngressTLS,
 	targets map[string]traffic.RevisionTargets,
 	visibility map[string]netv1alpha1.IngressVisibility,
+	defaults config.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (netv1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
@@ -111,7 +114,7 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name], defaults)
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
 				rule.HTTP.Paths = append(
@@ -173,13 +176,19 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *netv1alpha1.IngressRule {
+func makeIngressRule(
+	domains []string,
+	ns string,
+	visibility netv1alpha1.IngressVisibility,
+	targets traffic.RevisionTargets,
+	defaults config.Defaults,
+) *netv1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
 	var (
 		// TODO: What should be the minimum duration?
-		duration    time.Duration = 10 * time.Millisecond
+		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Minute
 		sawDuration bool          = false
 	)
 
