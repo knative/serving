@@ -435,12 +435,6 @@ func (u *fakeUniScaler) Scale(context.Context, time.Time) ScaleResult {
 	return ScaleResult{u.replicas, u.surplus, u.numActivators, u.scaled}
 }
 
-func (u *fakeUniScaler) getScaleCount() int {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
-	return u.scaleCount
-}
-
 func (u *fakeUniScaler) setScaleResult(replicas, surplus, na int32, scaled bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
