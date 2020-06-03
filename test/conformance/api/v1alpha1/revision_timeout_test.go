@@ -160,7 +160,7 @@ func TestRevisionTimeout(t *testing.T) {
 				t.Fatalf("Unable to fetch URLs from service: %#v", service.Status)
 			}
 
-			serviceURL := url.URL(*service.Status.URL)
+			serviceURL := service.Status.URL.URL()
 
 			if tc.shouldScaleTo0 {
 				t.Log("Waiting to scale down to 0")
@@ -173,20 +173,20 @@ func TestRevisionTimeout(t *testing.T) {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
-				t.Log("Probing to force at least one pod", serviceURL.String())
+				t.Log("Probing to force at least one pod", serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(
 					clients.KubeClient,
 					t.Logf,
-					&serviceURL,
+					serviceURL,
 					v1a1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
 					"WaitForSuccessfulResponse",
 					test.ServingFlags.ResolvableDomain,
 					test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
-					t.Fatalf("Error probing %s: %v", &serviceURL, err)
+					t.Fatalf("Error probing %s: %v", serviceURL, err)
 				}
 			}
 
-			if err := sendRequest(t, clients, &serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
+			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
 				t.Errorf("Failed request with intialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
 			}
