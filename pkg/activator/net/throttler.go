@@ -107,6 +107,7 @@ type breaker interface {
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
+	lbPolicy             lbPolicy
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
@@ -148,11 +149,16 @@ func newRevisionThrottler(revID types.NamespacedName,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
-	var revBreaker breaker
+	var (
+		revBreaker breaker
+		lbp        lbPolicy
+	)
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
+		lbp = randomLBPolicy
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = firstAvailableLBPolicy
 	}
 	return &revisionThrottler{
 		revID:                revID,
@@ -161,28 +167,11 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:               logger,
 		protocol:             proto,
 		activatorIndex:       -1, // Start with unknown.
+		lbPolicy:             lbp,
 	}
 }
 
 func noop() {}
-
-// pickPod picks the first tracker that has open capacity if container concurrency
-// if limited, random pod otherwise.
-func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracker) {
-	// Infinite capacity, pick random. We have to do this
-	// otherwise _all_ the requests will go to the first pod
-	// since it has unlimited capacity.
-	if cc == 0 {
-		return noop, tgs[rand.Intn(len(tgs))]
-	}
-
-	for _, t := range tgs {
-		if cb, ok := t.Reserve(ctx); ok {
-			return cb, t
-		}
-	}
-	return noop, nil
-}
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
@@ -193,7 +182,7 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	if rt.clusterIPTracker != nil {
 		return noop, rt.clusterIPTracker
 	}
-	return pickPod(ctx, rt.assignedTrackers, rt.containerConcurrency)
+	return rt.lbPolicy(ctx, rt.assignedTrackers)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {

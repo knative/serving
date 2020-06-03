@@ -424,7 +424,7 @@ func TestIsActivating(t *testing.T) {
 	}{{
 		name:         "empty status",
 		status:       PodAutoscalerStatus{},
-		isActivating: false,
+		isActivating: true,
 	}, {
 		name: "active=unknown",
 		status: PodAutoscalerStatus{
@@ -564,7 +564,8 @@ func TestIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+			pa := PodAutoscaler{Status: tc.status}
+			if got, want := pa.IsReady(), tc.isReady; got != want {
 				t.Errorf("IsReady = %v, want: %v", got, want)
 			}
 		})
@@ -1010,7 +1011,9 @@ func TestTypicalFlow(t *testing.T) {
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	if !r.IsActive() {
+		t.Error("Active was not set.")
+	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 }
 

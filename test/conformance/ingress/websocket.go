@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2019 The Knative Authors
 
@@ -19,30 +17,29 @@ limitations under the License.
 package ingress
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
-	"net"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc"
+	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
-	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-// TestGRPC verifies that GRPC may be used via a simple Ingress.
-func TestGRPC(t *testing.T) {
+// TestWebsocket verifies that websockets may be used via a simple Ingress.
+func TestWebsocket(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
 	const suffix = "- pong"
-	name, port, cancel := CreateGRPCService(t, clients, suffix)
+	name, port, cancel := CreateWebsocketService(t, clients, suffix)
 	defer cancel()
 
 	domain := name + ".example.com"
@@ -67,43 +64,35 @@ func TestGRPC(t *testing.T) {
 	})
 	defer cancel()
 
-	conn, err := grpc.Dial(
-		domain+":80",
-		grpc.WithInsecure(),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			return dialCtx(ctx, "unused", addr)
-		}),
-	)
+	dialer := websocket.Dialer{
+		NetDialContext:   dialCtx,
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 45 * time.Second,
+	}
+
+	u := url.URL{Scheme: "ws", Host: domain, Path: "/"}
+	conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 	if err != nil {
 		t.Fatal("Dial() =", err)
 	}
 	defer conn.Close()
-	pc := ping.NewPingServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	stream, err := pc.PingStream(ctx)
-	if err != nil {
-		t.Fatal("PingStream() =", err)
-	}
 
 	for i := 0; i < 100; i++ {
-		checkGRPCRoundTrip(t, stream, suffix)
+		checkWebsocketRoundTrip(t, conn, suffix)
 	}
 }
 
-// TestGRPCSplit verifies that websockets may be used across a traffic split.
-func TestGRPCSplit(t *testing.T) {
+// TestWebsocketSplit verifies that websockets may be used across a traffic split.
+func TestWebsocketSplit(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
 	const suffixBlue = "- blue"
-	blueName, bluePort, cancel := CreateGRPCService(t, clients, suffixBlue)
+	blueName, bluePort, cancel := CreateWebsocketService(t, clients, suffixBlue)
 	defer cancel()
 
 	const suffixGreen = "- green"
-	greenName, greenPort, cancel := CreateGRPCService(t, clients, suffixGreen)
+	greenName, greenPort, cancel := CreateWebsocketService(t, clients, suffixGreen)
 	defer cancel()
 
 	// The suffixes we expect to see.
@@ -139,39 +128,30 @@ func TestGRPCSplit(t *testing.T) {
 	})
 	defer cancel()
 
-	conn, err := grpc.Dial(
-		domain+":80",
-		grpc.WithInsecure(),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			return dialCtx(ctx, "unused", addr)
-		}),
-	)
-	if err != nil {
-		t.Fatal("Dial() =", err)
+	dialer := websocket.Dialer{
+		NetDialContext:   dialCtx,
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 45 * time.Second,
 	}
-	defer conn.Close()
-	pc := ping.NewPingServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	u := url.URL{Scheme: "ws", Host: domain, Path: "/"}
 
 	const maxRequests = 100
 	got := sets.NewString()
 	for i := 0; i < maxRequests; i++ {
-		stream, err := pc.PingStream(ctx)
+		conn, _, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err != nil {
-			t.Errorf("PingStream() = %v", err)
-			continue
+			t.Fatal("Dial() =", err)
 		}
+		defer conn.Close()
 
-		suffix := findGRPCSuffix(t, stream)
+		suffix := findWebsocketSuffix(t, conn)
 		if suffix == "" {
 			continue
 		}
 		got.Insert(suffix)
 
 		for j := 0; j < 10; j++ {
-			checkGRPCRoundTrip(t, stream, suffix)
+			checkWebsocketRoundTrip(t, conn, suffix)
 		}
 
 		if want.Equal(got) {
@@ -184,38 +164,38 @@ func TestGRPCSplit(t *testing.T) {
 	t.Errorf("(over %d requests) (-want, +got) = %s", maxRequests, cmp.Diff(want, got))
 }
 
-func findGRPCSuffix(t *testing.T, stream ping.PingService_PingStreamClient) string {
-	// Establish the suffix that corresponds to this stream.
+func findWebsocketSuffix(t *testing.T, conn *websocket.Conn) string {
+	// Establish the suffix that corresponds to this socket.
 	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
-		t.Errorf("Error sending request: %v", err)
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		t.Errorf("WriteMessage() = %v", err)
 		return ""
 	}
 
-	resp, err := stream.Recv()
+	_, recv, err := conn.ReadMessage()
 	if err != nil {
-		t.Errorf("Error receiving response: %v", err)
+		t.Errorf("ReadMessage() = %v", err)
 		return ""
 	}
-	gotMsg := resp.Msg
+	gotMsg := string(recv)
 	if !strings.HasPrefix(gotMsg, message) {
-		t.Errorf("Recv() = %s, wanted %s prefix", gotMsg, message)
+		t.Errorf("ReadMessage() = %s, wanted %s prefix", gotMsg, message)
 		return ""
 	}
 	return strings.TrimSpace(strings.TrimPrefix(gotMsg, message))
 }
 
-func checkGRPCRoundTrip(t *testing.T, stream ping.PingService_PingStreamClient, suffix string) {
+func checkWebsocketRoundTrip(t *testing.T, conn *websocket.Conn, suffix string) {
 	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
-		t.Errorf("Error sending request: %v", err)
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		t.Errorf("WriteMessage() = %v", err)
 		return
 	}
 
 	// Read back the echoed message and compared with sent.
-	if resp, err := stream.Recv(); err != nil {
-		t.Errorf("Error receiving response: %v", err)
-	} else if got, want := resp.Msg, message+suffix; got != want {
-		t.Errorf("Recv() = %s, wanted %s", got, want)
+	if _, recv, err := conn.ReadMessage(); err != nil {
+		t.Errorf("ReadMessage() = %v", err)
+	} else if got, want := string(recv), message+" "+suffix; got != want {
+		t.Errorf("ReadMessage() = %s, wanted %s", got, want)
 	}
 }

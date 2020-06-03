@@ -85,8 +85,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 		cm.AsQuantity("revision-cpu-request", &nc.RevisionCPURequest),
 		cm.AsQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
+		cm.AsQuantity("revision-ephemeral-storage-request", &nc.RevisionEphemeralStorageRequest),
 		cm.AsQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
 		cm.AsQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
+		cm.AsQuantity("revision-ephemeral-storage-limit", &nc.RevisionEphemeralStorageLimit),
 	); err != nil {
 		return nil, err
 	}
@@ -139,10 +141,12 @@ type Defaults struct {
 	// a containerConcurrency of 0 (i.e. unbounded).
 	AllowContainerConcurrencyZero bool
 
-	RevisionCPURequest    *resource.Quantity
-	RevisionCPULimit      *resource.Quantity
-	RevisionMemoryRequest *resource.Quantity
-	RevisionMemoryLimit   *resource.Quantity
+	RevisionCPURequest              *resource.Quantity
+	RevisionCPULimit                *resource.Quantity
+	RevisionMemoryRequest           *resource.Quantity
+	RevisionMemoryLimit             *resource.Quantity
+	RevisionEphemeralStorageRequest *resource.Quantity
+	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
 // UserContainerName returns the name of the user container based on the context.
