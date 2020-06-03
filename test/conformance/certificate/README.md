@@ -4,8 +4,8 @@
 
 Tests need to be exported and accessible downstream so they should be placed in
 non-test files (ie. sometest.go). Additionally, invoke your test in the default
-`RunConformance` function in [`run.go`](./http01/run.go).  This function is the entry
-point by which tests are executed.
+`RunConformance` function in [`run.go`](./http01/run.go). This function is the
+entry point by which tests are executed.
 
 This approach aims to reduce the changes required when tests are added & removed.
 
