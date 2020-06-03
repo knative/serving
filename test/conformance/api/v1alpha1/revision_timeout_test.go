@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -59,8 +59,8 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	}()
 	u, _ := url.Parse(endpoint.String())
 	q := u.Query()
-	q.Set("initialTimeout", fmt.Sprintf("%d", initialSleep.Milliseconds()))
-	q.Set("timeout", fmt.Sprintf("%d", sleep.Milliseconds()))
+	q.Set("initialTimeout", fmt.Sprint(initialSleep.Milliseconds()))
+	q.Set("timeout", fmt.Sprint(sleep.Milliseconds()))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -87,23 +87,20 @@ func TestRevisionTimeout(t *testing.T) {
 		name           string
 		shouldScaleTo0 bool
 		timeoutSeconds int64
+		initialSleep   time.Duration
+		sleep          time.Duration
 		expectedStatus int
-		initialSleep   int
-		sleep          int
 	}{{
 		name:           "when scaling up from 0 and does not exceed timeout seconds",
 		shouldScaleTo0: true,
 		timeoutSeconds: 10,
 		expectedStatus: http.StatusOK,
-		initialSleep:   0,
-		sleep:          0,
 	}, {
 		name:           "when scaling up from 0 and it writes first byte before timeout",
 		shouldScaleTo0: true,
 		timeoutSeconds: 10,
+		sleep:          15 * time.Second,
 		expectedStatus: http.StatusOK,
-		initialSleep:   0,
-		sleep:          15,
 	}, {
 		name:           "when scaling up from 0 and it does exceed timeout seconds",
 		shouldScaleTo0: true,
@@ -112,21 +109,18 @@ func TestRevisionTimeout(t *testing.T) {
 	}, {
 		name:           "when pods already exist, and it does not exceed timeout seconds",
 		timeoutSeconds: 10,
+		initialSleep:   2 * time.Second,
 		expectedStatus: http.StatusOK,
-		initialSleep:   2,
-		sleep:          0,
 	}, {
 		name:           "when pods already exist, and it does exceed timeout seconds",
 		timeoutSeconds: 10,
+		initialSleep:   12 * time.Second,
 		expectedStatus: http.StatusGatewayTimeout,
-		initialSleep:   12,
-		sleep:          0,
 	}, {
 		name:           "when pods already exist, and it writes first byte before timeout",
 		timeoutSeconds: 10,
+		sleep:          15 * time.Second,
 		expectedStatus: http.StatusOK,
-		initialSleep:   0,
-		sleep:          15,
 	}}
 
 	for _, tc := range testCases {
@@ -175,7 +169,7 @@ func TestRevisionTimeout(t *testing.T) {
 					t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 				}
 
-				if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(revision), clients); err != nil {
+				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
@@ -192,8 +186,8 @@ func TestRevisionTimeout(t *testing.T) {
 				}
 			}
 
-			if err := sendRequest(t, clients, &serviceURL, time.Duration(tc.initialSleep)*time.Second, time.Duration(tc.sleep)*time.Second, tc.expectedStatus); err != nil {
-				t.Errorf("Failed request with intialSleep %ds, sleep %ds, with revision timeout %ds and expecting status %v: %v",
+			if err := sendRequest(t, clients, &serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
+				t.Errorf("Failed request with intialSleep %v, sleep %v, with revision timeout %ds and expecting status %v: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
 			}
 		})

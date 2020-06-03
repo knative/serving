@@ -89,7 +89,7 @@ func (h *timeToFirstByteTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http
 			}
 			return
 		case <-timeout.C:
-			if tw.TimeoutAndWriteError(h.body) {
+			if tw.timeoutAndWriteError(h.body) {
 				return
 			}
 		}
@@ -112,7 +112,6 @@ type timeoutWriter struct {
 }
 
 var _ http.Flusher = (*timeoutWriter)(nil)
-
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Flush() {
@@ -158,13 +157,13 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	tw.w.WriteHeader(code)
 }
 
-// TimeoutAndError writes an error to the response write if
+// timeoutAndError writes an error to the response write if
 // nothing has been written on the writer before. Returns whether
 // an error was written or not.
 //
 // If this writes an error, all subsequent calls to Write will
 // result in http.ErrHandlerTimeout.
-func (tw *timeoutWriter) TimeoutAndWriteError(msg string) bool {
+func (tw *timeoutWriter) timeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
