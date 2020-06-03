@@ -21,6 +21,8 @@ package junit
 import (
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"log"
 )
 
 // TestStatusEnum is a enum for test result status
@@ -143,4 +145,25 @@ func UnMarshal(buf []byte) (*TestSuites, error) {
 		return nil, err
 	}
 	return &testSuites, nil
+}
+
+// CreateXMLErrorMsg outputs a junit testsuite, testname and error message to the destination path
+// in XML format
+func CreateXMLErrorMsg(testSuite, testName, errMsg, dest string) {
+	suites := TestSuites{}
+	suite := TestSuite{Name: testSuite}
+	var errP *string
+	if errMsg != "" {
+		errP = &errMsg
+	}
+	suite.AddTestCase(TestCase{
+		Name:    testName,
+		Failure: errP,
+	})
+	suites.AddTestSuite(&suite)
+	contents, err := suites.ToBytes("", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ioutil.WriteFile(dest, contents, 0644)
 }

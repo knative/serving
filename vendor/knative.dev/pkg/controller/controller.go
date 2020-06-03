@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -448,7 +449,7 @@ func (c *Impl) processNextWorkItem() bool {
 func (c *Impl) handleErr(err error, key types.NamespacedName) {
 	c.logger.Errorw("Reconcile error", zap.Error(err))
 
-	// Re-queue the key if it's an transient error.
+	// Re-queue the key if it's a transient error.
 	// We want to check that the queue is shutting down here
 	// since controller Run might have exited by now (since while this item was
 	// being processed, queue.Len==0).
@@ -483,8 +484,8 @@ func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInf
 }
 
 // NewPermanentError returns a new instance of permanentError.
-// Users can wrap an error as permanentError with this in reconcile,
-// when he does not expect the key to get re-queued.
+// Users can wrap an error as permanentError with this in reconcile
+// when they do not expect the key to get re-queued.
 func NewPermanentError(err error) error {
 	return permanentError{e: err}
 }
@@ -495,15 +496,20 @@ type permanentError struct {
 	e error
 }
 
-// IsPermanentError returns true if given error is permanentError
+// IsPermanentError returns true if the given error is a permanentError or
+// wraps a permanentError.
 func IsPermanentError(err error) bool {
-	switch err.(type) {
-	case permanentError:
-		return true
-	default:
-		return false
-	}
+	return errors.Is(err, permanentError{})
 }
+
+// Is implements the Is() interface of error. It returns whether the target
+// error can be treated as equivalent to a permanentError.
+func (permanentError) Is(target error) bool {
+	_, ok := target.(permanentError)
+	return ok
+}
+
+var _ error = permanentError{}
 
 // Error implements the Error() interface of error.
 func (err permanentError) Error() string {
@@ -512,6 +518,12 @@ func (err permanentError) Error() string {
 	}
 
 	return err.e.Error()
+}
+
+// Unwrap implements the Unwrap() interface of error. It returns the error
+// wrapped inside permanentError.
+func (err permanentError) Unwrap() error {
+	return err.e
 }
 
 // Informer is the group of methods that a type must implement to be passed to
