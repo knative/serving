@@ -281,12 +281,16 @@ func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
 		defer res.Body.Close()
 		success := health.IsHTTPProbeReady(res)
 
-		// The check for preferForScaledown() fails readiness faster
-		// in the presence of the label
+		// Both preferPodForScaledown and IsHTTPProbeShuttingDon can fail readiness faster.
+		// The check for preferPodForScaledown() fails readiness faster in the presence of the label,
+		// while shutting down has a different response code than not ready.
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		} else if !success && preferScaleDown {
 			return false, errors.New("failing probe deliberately for pod scaledown")
+		}
+		if health.IsHTTPProbeShuttingDown(res) {
+			return false, errors.New("failing probe deliberately for shutdown")
 		}
 		return success, nil
 	}, ctx.Done())

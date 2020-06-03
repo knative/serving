@@ -24,8 +24,11 @@ import (
 
 const (
 	// Return `queue` as body for 200 responses to indicate the response is from queue-proxy.
-	aliveBody    = "queue"
+	aliveBody = "queue"
+	// Return `queue not ready` as body for 503 response for queue not yet ready.
 	notAliveBody = "queue not ready"
+	// Return `shutting down` as body for 503 response if the queue got a shutdown request.
+	shuttingDownBody = "shutting down"
 )
 
 // State holds state about the current healthiness of the component.
@@ -101,11 +104,16 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 		io.WriteString(w, notAliveBody)
 	}
 
+	sendShuttingDown := func() {
+		w.WriteHeader(http.StatusConflict)
+		io.WriteString(w, shuttingDownBody)
+	}
+
 	switch {
 	case !isAggressive && h.IsAlive():
 		sendAlive()
 	case h.IsShuttingDown():
-		sendNotAlive()
+		sendShuttingDown()
 	case prober != nil && !prober():
 		sendNotAlive()
 	default:

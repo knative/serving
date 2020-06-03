@@ -103,3 +103,13 @@ func IsHTTPProbeReady(res *http.Response) bool {
 	// response status code between 200-399 indicates success
 	return res.StatusCode >= 200 && res.StatusCode < 400
 }
+
+// IsHTTPProbeShuttingDown checks whether the Response indicates the prober is shutting down.
+func IsHTTPProbeShuttingDown(res *http.Response) bool {
+	if res == nil {
+		return false
+	}
+
+	// status 409 indicates the probe returned a shutdown scenario.
+	return res.StatusCode == http.StatusConflict
+}

@@ -166,6 +166,41 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
+func TestIsHTTPProbeShuttingDown(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantResult bool
+	}{{
+		name:       "statusCode: 409",
+		statusCode: 409,
+		wantResult: true,
+	}, {
+		name:       "statusCode: 503",
+		statusCode: 503,
+		wantResult: false,
+	}, {
+		name:       "statusCode: 200",
+		statusCode: 200,
+		wantResult: false,
+	}, {
+		name:       "statusCode: 301",
+		statusCode: 301,
+		wantResult: false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := http.Response{StatusCode: test.statusCode}
+			result := IsHTTPProbeShuttingDown(&response)
+			if result != test.wantResult {
+				t.Errorf("IsHTTPProbeShuttingDown returned unexpected result: got %v want %v",
+					result, test.wantResult)
+			}
+		})
+	}
+}
+
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	urlParsed, err := url.Parse(serverURL)
 	if err != nil {
