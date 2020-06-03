@@ -87,9 +87,8 @@ go test -v -tags=e2e -count=1 test/conformance/ingress \
 
 ## Running the tests downstream
 
-To run all the conformance tests in your own repo we encourage adopting
-the [`RunConformance`](./run.go) function to run all your tests.
-
+To run all the conformance tests in your own repo we encourage adopting the
+[`RunConformance`](./run.go) function to run all your tests.
 
 To do so would look something like:
 
