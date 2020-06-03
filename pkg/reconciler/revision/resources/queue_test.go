@@ -56,6 +56,12 @@ var (
 		},
 	}
 
+	containers = []corev1.Container{{
+		Name:           servingContainerName,
+		Image:          "busybox",
+		ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+	}}
+
 	// The default CM values.
 	logConfig        logging.Config
 	traceConfig      tracingconfig.Config
@@ -77,14 +83,8 @@ func TestMakeQueueContainer(t *testing.T) {
 	}{{
 		name: "no owner no autoscaler single",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-		),
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"CONTAINER_CONCURRENCY": "1",
@@ -101,20 +101,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					Name:          string(networking.ProtocolH2C),
 				}},
 			}}),
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				revision.Spec.PodSpec = corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:           servingContainerName,
-						ReadinessProbe: testProbe,
-						Ports: []corev1.ContainerPort{{
-							ContainerPort: 1955,
-							Name:          string(networking.ProtocolH2C),
-						}},
-					}},
-				}
-			}),
-		),
+			withContainerConcurrency(1)),
 		cc: deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -130,9 +117,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "service name in labels",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
+			withContainers(containers),
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.ObjectMeta.Labels = map[string]string{
@@ -147,9 +132,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "config owner as env var, zero concurrency",
 		rev: revision("blah", "baz",
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
+			withContainers(containers),
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
 				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
@@ -171,14 +154,8 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "logging configuration as env var",
 		rev: revision("this", "log",
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			withContainerConcurrency(0)),
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		lc: logging.Config{
 			LoggingConfig: "The logging configuration goes here",
 			LoggingLevel: map[string]zapcore.Level{
@@ -196,13 +173,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "container concurrency 10",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(10),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
+			withContainers(containers),
 			withContainerConcurrency(10)),
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -212,14 +183,8 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			withContainerConcurrency(0)),
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
@@ -233,14 +198,8 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			withContainerConcurrency(0)),
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		oc: metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -252,16 +211,8 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
-=======
-			withContainers([]corev1.Container{{
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			withContainerConcurrency(0)),
->>>>>>> Refactored testcase
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -272,14 +223,11 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "custom TimeoutSeconds",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-				revision.Spec.TimeoutSeconds = ptr.Int64(99)
-			}),
+			withContainers(containers),
+			withContainerConcurrency(1)),
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"REVISION_TIMEOUT_SECONDS": "99",
+				"REVISION_TIMEOUT_SECONDS": "45",
 			})
 		}),
 	}}

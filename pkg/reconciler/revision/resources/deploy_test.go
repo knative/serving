@@ -657,9 +657,6 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with tcp readiness probe",
-		rev: revision("bar", "foo", func(revision *v1.Revision) {
-			container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-		}),
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1053,13 +1050,8 @@ func TestMakeDeployment(t *testing.T) {
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
-			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
+			}})),
 		want: appsv1deployment(),
-		),
-		want: makeDeployment(),
 	}, {
 		name: "with owner",
 		rev: revision("bar", "foo",
@@ -1072,22 +1064,10 @@ func TestMakeDeployment(t *testing.T) {
 			withOwnerReference("parent-config"),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-			}),
+			}})),
 		want: appsv1deployment(),
-		),
-		want: makeDeployment(),
 	}, {
 		name: "with sidecar annotation override",
-		rev: revision("bar", "foo", withoutLabels, func(revision *v1.Revision) {
-			revision.ObjectMeta.Annotations = map[string]string{
-				sidecarIstioInjectAnnotation: "false",
-			}
-			container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-		}),
-		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1102,7 +1082,7 @@ func TestMakeDeployment(t *testing.T) {
 					sidecarIstioInjectAnnotation: "false",
 				}
 			}),
-		want: makeDeployment(func(deploy *appsv1.Deployment) {
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Annotations[sidecarIstioInjectAnnotation] = "false"
 			deploy.Spec.Template.Annotations[sidecarIstioInjectAnnotation] = "false"
 		}),
@@ -1111,9 +1091,15 @@ func TestMakeDeployment(t *testing.T) {
 		dc: deployment.Config{
 			ProgressDeadline: 42 * time.Second,
 		},
-		rev: revision("bar", "foo", withoutLabels, func(revision *v1.Revision) {
-			container(revision.Spec.GetContainer(), withTCPReadinessProbe())
-		}),
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatuses{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
@@ -1139,46 +1125,3 @@ func TestMakeDeployment(t *testing.T) {
 		})
 	}
 }
-
-func TestProgressDeadlineOverride(t *testing.T) {
-	rev := revision("bar", "foo",
-		withContainers([]corev1.Container{{
-			Name:  servingContainerName,
-			Image: "busybox",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8888,
-			}},
-			ReadinessProbe: withTCPReadinessProbe(12345),
-		}, {
-			Name:  sidecarContainerName,
-			Image: "ubuntu",
-		}}),
-		withoutLabels,
-		WithContainerStatuses([]v1.ContainerStatuses{{
-			ImageDigest: "busybox@sha256:deadbeef",
-		}, {
-			ImageDigest: "ubuntu@sha256:deadbffe",
-		}}),
-	)
-	want := makeDeployment(func(d *appsv1.Deployment) {
-		d.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-	})
-
-	dc := &deployment.Config{
-		ProgressDeadline: 42 * time.Second,
-	}
-	podSpec, err := makePodSpec(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, dc)
-	if err != nil {
-		t.Fatal("makePodSpec returned error:", err)
-	}
-	want.Spec.Template.Spec = *podSpec
-	got, err := MakeDeployment(rev, &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &asConfig, dc)
-	if err != nil {
-		t.Fatal("MakeDeployment returned error:", err)
-	}
-	if !cmp.Equal(want, got, cmp.AllowUnexported(resource.Quantity{})) {
-		t.Error("MakeDeployment (-want, +got) =", cmp.Diff(want, got, cmp.AllowUnexported(resource.Quantity{})))
-	}
-}
->>>>>>> Add multi container changes to deploy PodSpec
