@@ -134,7 +134,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	rev.SetDefaults(ctx)
-	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
 	phases := []struct {

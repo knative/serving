@@ -57,7 +57,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// assumptions about defaulting.
 	pa.SetDefaults(ctx)
 
-	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
 	// HPA-class PAs don't yet support scale-to-zero

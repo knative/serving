@@ -108,7 +108,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	r.SetDefaults(ctx)
-	r.Status.InitializeConditions()
 
 	logger.Debugf("Reconciling route: %#v", r)
 

@@ -59,7 +59,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	config.SetDefaults(ctx)
-	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)

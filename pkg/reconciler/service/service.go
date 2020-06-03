@@ -68,7 +68,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
 	service.SetDefaults(ctx)
-	service.Status.InitializeConditions()
 
 	config, err := c.config(ctx, logger, service)
 	if err != nil {

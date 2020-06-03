@@ -77,8 +77,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// assumptions about defaulting.
 	pa.SetDefaults(ctx)
 
-	pa.Status.InitializeConditions()
-
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
 	sksName := anames.SKS(pa.Name)

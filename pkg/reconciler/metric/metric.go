@@ -36,7 +36,6 @@ var _ metricreconciler.Interface = (*reconciler)(nil)
 
 func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
 	metric.SetDefaults(ctx)
-	metric.Status.InitializeConditions()
 
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch err {
