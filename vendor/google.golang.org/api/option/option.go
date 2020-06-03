@@ -6,7 +6,6 @@
 package option
 
 import (
-	"crypto/tls"
 	"net/http"
 
 	"golang.org/x/oauth2"
@@ -143,7 +142,6 @@ func (w withGRPCDialOption) Apply(o *internal.DialSettings) {
 
 // WithGRPCConnectionPool returns a ClientOption that creates a pool of gRPC
 // connections that requests will be balanced between.
-//
 // This is an EXPERIMENTAL API and may be changed or removed in the future.
 func WithGRPCConnectionPool(size int) ClientOption {
 	return withGRPCConnectionPool(size)
@@ -152,7 +150,8 @@ func WithGRPCConnectionPool(size int) ClientOption {
 type withGRPCConnectionPool int
 
 func (w withGRPCConnectionPool) Apply(o *internal.DialSettings) {
-	o.GRPCConnPoolSize = int(w)
+	balancer := grpc.RoundRobin(internal.NewPoolResolver(int(w), o))
+	o.GRPCDialOpts = append(o.GRPCDialOpts, grpc.WithBalancer(balancer))
 }
 
 // WithAPIKey returns a ClientOption that specifies an API key to be used
@@ -229,43 +228,11 @@ func (w withRequestReason) Apply(o *internal.DialSettings) {
 // settings on gRPC and HTTP clients.
 // An example reason would be to bind custom telemetry that overrides the defaults.
 func WithTelemetryDisabled() ClientOption {
-	return withTelemetryDisabled{}
+	return withTelemetryDisabledOption{}
 }
 
-type withTelemetryDisabled struct{}
+type withTelemetryDisabledOption struct{}
 
-func (w withTelemetryDisabled) Apply(o *internal.DialSettings) {
+func (w withTelemetryDisabledOption) Apply(o *internal.DialSettings) {
 	o.TelemetryDisabled = true
-}
-
-// ClientCertSource is a function that returns a TLS client certificate to be used
-// when opening TLS connections.
-//
-// It follows the same semantics as crypto/tls.Config.GetClientCertificate.
-//
-// This is an EXPERIMENTAL API and may be changed or removed in the future.
-type ClientCertSource = func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
-
-// WithClientCertSource returns a ClientOption that specifies a
-// callback function for obtaining a TLS client certificate.
-//
-// This option is used for supporting mTLS authentication, where the
-// server validates the client certifcate when establishing a connection.
-//
-// The callback function will be invoked whenever the server requests a
-// certificate from the client. Implementations of the callback function
-// should try to ensure that a valid certificate can be repeatedly returned
-// on demand for the entire life cycle of the transport client. If a nil
-// Certificate is returned (i.e. no Certificate can be obtained), an error
-// should be returned.
-//
-// This is an EXPERIMENTAL API and may be changed or removed in the future.
-func WithClientCertSource(s ClientCertSource) ClientOption {
-	return withClientCertSource{s}
-}
-
-type withClientCertSource struct{ s ClientCertSource }
-
-func (w withClientCertSource) Apply(o *internal.DialSettings) {
-	o.ClientCertSource = w.s
 }

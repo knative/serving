@@ -24,6 +24,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
+// Validate implements apis.Validatable interface.
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 	return serving.ValidateObjectMetadata(ctx, pa.GetObjectMeta()).ViaField("metadata").
 		Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))

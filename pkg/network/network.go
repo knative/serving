@@ -137,6 +137,19 @@ const (
 	// AutoscalingUserAgent is the user-agent header value set in probe
 	// requests sent by autoscaling implementations.
 	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
+
+	// TagHeaderName is the name of the header entry which has a tag name as value.
+	// The tag name specifies which route was expected to be chosen by Ingress.
+	TagHeaderName = "Knative-Serving-Tag"
+
+	// DefaultRouteHeaderName is the name of the header entry
+	// identifying whether a request is routed via the default route or not.
+	// It has one of the string value "true" or "false".
+	DefaultRouteHeaderName = "Knative-Serving-Default-Route"
+
+	// TagHeaderBasedRoutingKey is the name of the configuration entry
+	// that specifies enabling tag header based routing or not.
+	TagHeaderBasedRoutingKey = "tagHeaderBasedRouting"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -195,6 +208,9 @@ type Config struct {
 
 	// DefaultCertificateClass specifies the default Certificate class.
 	DefaultCertificateClass string
+
+	// TagHeaderBasedRouting specifies if TagHeaderBasedRouting is enabled or not.
+	TagHeaderBasedRouting bool
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -270,6 +286,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	templateCache.Add(nc.TagTemplate, t)
 
 	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
+	nc.TagHeaderBasedRouting = strings.EqualFold(data[TagHeaderBasedRoutingKey], "enabled")
 
 	switch strings.ToLower(data[HTTPProtocolKey]) {
 	case "", string(HTTPEnabled):
@@ -291,13 +308,12 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 func (c *Config) GetDomainTemplate() *template.Template {
 	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
 		return tt.(*template.Template)
-	} else {
-		// Should not really happen outside of route/ingress unit tests.
-		nt := template.Must(template.New("domain-template").Parse(
-			c.DomainTemplate))
-		templateCache.Add(c.DomainTemplate, nt)
-		return nt
 	}
+	// Should not really happen outside of route/ingress unit tests.
+	nt := template.Must(template.New("domain-template").Parse(
+		c.DomainTemplate))
+	templateCache.Add(c.DomainTemplate, nt)
+	return nt
 }
 
 func checkDomainTemplate(t *template.Template) error {
@@ -331,16 +347,16 @@ func checkDomainTemplate(t *template.Template) error {
 	return nil
 }
 
+// GetTagTemplate returns the go template for the route tag.
 func (c *Config) GetTagTemplate() *template.Template {
 	if tt, ok := templateCache.Get(c.TagTemplate); ok {
 		return tt.(*template.Template)
-	} else {
-		// Should not really happen outside of route/ingress unit tests.
-		nt := template.Must(template.New("tag-template").Parse(
-			c.TagTemplate))
-		templateCache.Add(c.TagTemplate, nt)
-		return nt
 	}
+	// Should not really happen outside of route/ingress unit tests.
+	nt := template.Must(template.New("tag-template").Parse(
+		c.TagTemplate))
+	templateCache.Add(c.TagTemplate, nt)
+	return nt
 }
 
 func checkTagTemplate(t *template.Template) error {

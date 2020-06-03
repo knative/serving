@@ -87,10 +87,12 @@ func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError
-	// Must provide as least one split.
-	if len(h.Splits) == 0 {
-		all = all.Also(apis.ErrMissingField("splits"))
-	} else {
+	switch {
+	case len(h.Splits) == 0 && h.RewriteHost == "":
+		all = all.Also(apis.ErrMissingOneOf("splits", "rewriteHost"))
+	case len(h.Splits) != 0 && h.RewriteHost != "":
+		all = all.Also(apis.ErrMultipleOneOf("splits", "rewriteHost"))
+	case len(h.Splits) != 0:
 		totalPct := 0
 		for idx, split := range h.Splits {
 			if err := split.Validate(ctx); err != nil {
@@ -108,6 +110,7 @@ func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 			})
 		}
 	}
+
 	if h.Retries != nil {
 		all = all.Also(h.Retries.Validate(ctx).ViaField("retries"))
 	}

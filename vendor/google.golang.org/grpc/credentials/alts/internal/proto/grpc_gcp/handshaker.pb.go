@@ -982,11 +982,11 @@ var fileDescriptor_54c074f40c7c7e99 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // HandshakerServiceClient is the client API for HandshakerService service.
 //
@@ -1002,10 +1002,10 @@ type HandshakerServiceClient interface {
 }
 
 type handshakerServiceClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewHandshakerServiceClient(cc grpc.ClientConnInterface) HandshakerServiceClient {
+func NewHandshakerServiceClient(cc *grpc.ClientConn) HandshakerServiceClient {
 	return &handshakerServiceClient{cc}
 }
 

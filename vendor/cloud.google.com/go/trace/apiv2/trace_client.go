@@ -25,7 +25,7 @@ import (
 
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/option"
-	gtransport "google.golang.org/api/transport/grpc"
+	"google.golang.org/api/transport"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -70,8 +70,8 @@ func defaultCallOptions() *CallOptions {
 //
 // Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type Client struct {
-	// Connection pool of gRPC connections to the service.
-	connPool gtransport.ConnPool
+	// The connection to the service.
+	conn *grpc.ClientConn
 
 	// The gRPC API client.
 	client cloudtracepb.TraceServiceClient
@@ -91,32 +91,30 @@ type Client struct {
 // timed event which forms a node of the trace tree. A single trace may
 // contain span(s) from multiple services.
 func NewClient(ctx context.Context, opts ...option.ClientOption) (*Client, error) {
-	connPool, err := gtransport.DialPool(ctx, append(defaultClientOptions(), opts...)...)
+	conn, err := transport.DialGRPC(ctx, append(defaultClientOptions(), opts...)...)
 	if err != nil {
 		return nil, err
 	}
 	c := &Client{
-		connPool:    connPool,
+		conn:        conn,
 		CallOptions: defaultCallOptions(),
 
-		client: cloudtracepb.NewTraceServiceClient(connPool),
+		client: cloudtracepb.NewTraceServiceClient(conn),
 	}
 	c.setGoogleClientInfo()
 
 	return c, nil
 }
 
-// Connection returns a connection to the API service.
-//
-// Deprecated.
+// Connection returns the client's connection to the API service.
 func (c *Client) Connection() *grpc.ClientConn {
-	return c.connPool.Conn()
+	return c.conn
 }
 
 // Close closes the connection to the API service. The user should invoke this when
 // the client is no longer required.
 func (c *Client) Close() error {
-	return c.connPool.Close()
+	return c.conn.Close()
 }
 
 // setGoogleClientInfo sets the name and version of the application in

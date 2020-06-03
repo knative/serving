@@ -33,6 +33,7 @@ import (
 type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
+// Config contains the configmaps requires for revision reconciliation.
 type Config struct {
 	Autoscaler    *autoscalerconfig.Config
 	Defaults      *config.Defaults

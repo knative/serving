@@ -61,9 +61,7 @@ var (
 	traceConfig      tracingconfig.Config
 	obsConfig        metrics.ObservabilityConfig
 	asConfig         autoscalerconfig.Config
-	deploymentConfig = deployment.Config{
-		ProgressDeadline: deployment.ProgressDeadlineDefault,
-	}
+	deploymentConfig deployment.Config
 )
 
 const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
@@ -81,7 +79,6 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: queueContainer(func(c *corev1.Container) {
@@ -90,11 +87,10 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "no owner no autoscaler single",
+		name: "custom sidecar image, container port, protocol",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				revision.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           containerName,
@@ -117,35 +113,27 @@ func TestMakeQueueContainer(t *testing.T) {
 				"QUEUE_SERVING_PORT":    "8013",
 				"CONTAINER_CONCURRENCY": "1",
 			})
-		},
-		),
+		}),
 	}, {
 		name: "service name in labels",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				revision.ObjectMeta.Labels = map[string]string{
 					serving.ServiceLabelKey: "svc",
 				}
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
-		cc: deployment.Config{
-			QueueSidecarImage: "alpine",
-		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"SERVING_SERVICE": "svc",
 			})
-			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "config owner as env var, zero concurrency",
 		rev: revision("blah", "baz",
 			withContainerConcurrency(0),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -162,14 +150,12 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_NAMESPACE":     "baz",
 				"SERVING_REVISION":      "blah",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "logging configuration as env var",
 		rev: revision("this", "log",
-			withContainerConcurrency(0),
+			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		lc: logging.Config{
@@ -180,34 +166,29 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":  "0",
 				"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
 				"SERVING_LOGGING_LEVEL":  "error",
 				"SERVING_NAMESPACE":      "log",
 				"SERVING_REVISION":       "this",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "container concurrency 10",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(10),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"CONTAINER_CONCURRENCY": "10",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(0),
+			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{
@@ -216,18 +197,15 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":            "0",
 				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
 				"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(0),
+			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{
@@ -235,26 +213,35 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY":           "0",
 				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
 			})
-			c.Ports = append(queueNonServingPorts, queueHTTPPort)
 		}),
 	}, {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(0),
+			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
 				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
 			}),
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "0",
-				"ENABLE_PROFILING":      "true",
+				"ENABLE_PROFILING": "true",
 			})
 			c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort)
+		}),
+	}, {
+		name: "custom TimeoutSeconds",
+		rev: revision("bar", "foo",
+			withContainerConcurrency(1),
+			func(revision *v1.Revision) {
+				container(revision.Spec.GetContainer(), withTCPReadinessProbe())
+				revision.Spec.TimeoutSeconds = ptr.Int64(99)
+			}),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"REVISION_TIMEOUT_SECONDS": "99",
+			})
 		}),
 	}}
 
@@ -296,8 +283,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta.Labels = map[string]string{}
 				revision.ObjectMeta.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "20",
 				}
@@ -306,8 +291,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							corev1.ResourceName("memory"): resource.MustParse("2Gi"),
-							corev1.ResourceName("cpu"):    resource.MustParse("2"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+							corev1.ResourceCPU:    resource.MustParse("2"),
 						},
 					}},
 				}
@@ -315,18 +300,15 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
-				corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
+				corev1.ResourceMemory: resource.MustParse("0.4Gi"),
+				corev1.ResourceCPU:    resource.MustParse("0.4"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
-		name: "resources percentage in annotations small than min allowed",
+		name: "resources percentage in annotations smaller than min allowed",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta.Labels = map[string]string{}
 				revision.ObjectMeta.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				}
@@ -335,8 +317,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-							corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
 						},
 					},
 				}}
@@ -344,18 +326,15 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("25m"),
-				corev1.ResourceName("memory"): resource.MustParse("50Mi"),
+				corev1.ResourceCPU:    resource.MustParse("25m"), // clamped to boundary in resourceboundary.go
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
-		name: "Invalid resources percentage in annotations",
+		name: "invalid resources percentage in annotations",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta.Labels = map[string]string{}
 				revision.ObjectMeta.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "foo",
 				}
@@ -364,8 +343,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse("50m"),
-							corev1.ResourceName("memory"): resource.MustParse("128Mi"),
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
 						},
 					},
 				}}
@@ -373,17 +352,14 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
-			c.Image = "alpine"
 		}),
 	}, {
 		name: "resources percentage in annotations bigger than than math.MaxInt64",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(45)
-				revision.ObjectMeta.Labels = map[string]string{}
 				revision.ObjectMeta.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "100",
 				}
@@ -392,7 +368,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceName("memory"): resource.MustParse("900000Pi"),
+							corev1.ResourceMemory: resource.MustParse("900000Pi"),
 						},
 					},
 				}}
@@ -400,17 +376,15 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"):    resource.MustParse("25m"),
-				corev1.ResourceName("memory"): resource.MustParse("200Mi"),
+				corev1.ResourceCPU:    resource.MustParse("25m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
 			}
-			c.Image = "alpine"
 		}),
 	}}
 
-	cc := deployment.Config{QueueSidecarImage: "alpine"}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &cc)
+			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -421,19 +395,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-				t.Error("makeQueueContainerWithPercentageAnnotation (-want, +got) =", diff)
-			}
-			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
-				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
-			}
-			if test.want.Resources.Requests.Cpu().Cmp(*got.Resources.Requests.Cpu()) != 0 {
-				t.Errorf("Resources.Request.CPU = %v, want: %v", got.Resources.Requests.Cpu(), test.want.Resources.Requests.Cpu())
-			}
-			if test.want.Resources.Requests.Memory().Cmp(*got.Resources.Requests.Memory()) != 0 {
-				t.Errorf("Resources.Requests.Memory = %v, want: %v", got.Resources.Requests.Memory(), test.want.Resources.Requests.Memory())
-			}
-			if test.want.Resources.Limits.Cpu().Cmp(*got.Resources.Limits.Cpu()) != 0 {
-				t.Errorf("Resources.Limits.CPU  = %v, want: %v", got.Resources.Limits.Cpu(), test.want.Resources.Limits.Cpu())
+				t.Error("makeQueueContainer (-want, +got) =", diff)
 			}
 		})
 	}
@@ -443,8 +405,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	rev := revision("bar", "foo",
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
-			revision.Spec.TimeoutSeconds = ptr.Int64(45)
-			revision.ObjectMeta.Labels = map[string]string{}
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				ReadinessProbe: &corev1.Probe{
@@ -486,7 +446,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
 		c.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse("25m"),
+			corev1.ResourceCPU: resource.MustParse("25m"),
 		}
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
@@ -497,8 +457,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			PeriodSeconds:  1,
 			TimeoutSeconds: 10,
 		}
-	},
-	)
+	})
 
 	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
@@ -517,8 +476,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	rev := revision("bar", "foo",
 		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
-			revision.Spec.TimeoutSeconds = ptr.Int64(45)
-			revision.ObjectMeta.Labels = map[string]string{}
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: containerName,
 				Ports: []corev1.ContainerPort{{
@@ -572,8 +529,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
 		}
-	},
-	)
+	})
 
 	got, err := makeQueueContainer(rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
 	if err != nil {
@@ -625,7 +581,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
@@ -633,7 +589,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 						Command: []string{"/ko-app/queue", "-probe-period", "0"},
 					},
 				},
-				PeriodSeconds:  1,
+				PeriodSeconds:  10,
 				TimeoutSeconds: 10,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
@@ -667,7 +623,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
@@ -719,7 +675,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceCPU: resource.MustParse("25m"),
 			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{

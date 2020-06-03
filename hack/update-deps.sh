@@ -27,7 +27,7 @@ cd ${ROOT_DIR}
 export GO111MODULE=on
 
 # This controls the release branch we track.
-VERSION="release-0.15"
+VERSION="master"
 
 # The list of dependencies that we track at HEAD and periodically
 # float forward in this repository.
@@ -62,8 +62,8 @@ go mod vendor
 echo "Applying patches"
 git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
 
-rm -rf $(find vendor/ -name 'OWNERS')
-rm -rf $(find vendor/ -name '*_test.go')
+# Remove unwanted vendor files
+find vendor/ \( -name "OWNERS" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
 
 export GOFLAGS=-mod=vendor
 

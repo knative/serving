@@ -269,10 +269,12 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-cpu-request":    "100m",
-					"revision-memory-request": "200M",
-					"revision-cpu-limit":      "300m",
-					"revision-memory-limit":   "400M",
+					"revision-cpu-request":               "100m",
+					"revision-memory-request":            "200M",
+					"revision-ephemeral-storage-request": "300m",
+					"revision-cpu-limit":                 "400M",
+					"revision-memory-limit":              "500m",
+					"revision-ephemeral-storage-limit":   "600M",
 				},
 			})
 
@@ -287,12 +289,14 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name: config.DefaultUserContainerName,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse("100m"),
-								corev1.ResourceMemory: resource.MustParse("200M"),
+								corev1.ResourceCPU:              resource.MustParse("100m"),
+								corev1.ResourceMemory:           resource.MustParse("200M"),
+								corev1.ResourceEphemeralStorage: resource.MustParse("300m"),
 							},
 							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse("300m"),
-								corev1.ResourceMemory: resource.MustParse("400M"),
+								corev1.ResourceCPU:              resource.MustParse("400M"),
+								corev1.ResourceMemory:           resource.MustParse("500m"),
+								corev1.ResourceEphemeralStorage: resource.MustParse("600M"),
 							},
 						},
 						ReadinessProbe: defaultProbe,

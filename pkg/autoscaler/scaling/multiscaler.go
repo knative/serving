@@ -32,6 +32,10 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
+// tickInterval is how often the Autoscaler evaluates the metrics
+// and issues a decision.
+const tickInterval = 2 * time.Second
+
 // Decider is a resource which observes the request load of a Revision and
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
@@ -43,8 +47,6 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
-	// TickInterval denotes how often we evaluate the scale suggestion.
-	TickInterval     time.Duration
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
 	// The metric used for scaling, i.e. concurrency, rps.
@@ -192,7 +194,7 @@ func NewMultiScaler(
 }
 
 // Get returns the copy of the current Decider.
-func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
+func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
@@ -229,22 +231,16 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 }
 
 // Update applied the desired DeciderSpec to a currently running Decider.
-func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
+func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
-	logger := m.logger.With(zap.String(logkey.Key, key.String()))
-	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
-		oldDeciderSpec := scaler.decider.Spec
 		// Make sure we store the copy.
 		scaler.decider = decider.DeepCopy()
 		scaler.scaler.Update(&decider.Spec)
-		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
-			m.updateRunner(ctx, scaler)
-		}
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
@@ -252,7 +248,7 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 }
 
 // Delete stops and removes a Decider.
-func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error {
+func (m *MultiScaler) Delete(_ context.Context, namespace, name string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
@@ -286,14 +282,9 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
-	runner.stopCh <- struct{}{}
-	m.runScalerTicker(ctx, runner)
-}
-
 func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
 	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
-	ticker := m.tickProvider(runner.decider.Spec.TickInterval)
+	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
 		for {

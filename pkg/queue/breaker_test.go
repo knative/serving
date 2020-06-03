@@ -251,7 +251,7 @@ func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 
 func TestSemaphoreAcquireNonBlockingHasNoCapacity(t *testing.T) {
 	sem := newSemaphore(1, 0)
-	if sem.tryAcquire(context.Background()) {
+	if sem.tryAcquire() {
 		t.Error("Should have failed immediately")
 	}
 }

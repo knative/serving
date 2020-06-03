@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -125,13 +126,13 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(acr float64, apcr float64, rc float64, prc float64) {
+func (r *PrometheusStatsReporter) Report(stats network.RequestStatsReport) {
 	// Requests per second is a rate over time while concurrency is not.
 	rp := r.reportingPeriod.Seconds()
-	r.requestsPerSecond.Set(rc / rp)
-	r.proxiedRequestsPerSecond.Set(prc / rp)
-	r.averageConcurrentRequests.Set(acr)
-	r.averageProxiedConcurrentRequests.Set(apcr)
+	r.requestsPerSecond.Set(stats.RequestCount / rp)
+	r.proxiedRequestsPerSecond.Set(stats.ProxiedRequestCount / rp)
+	r.averageConcurrentRequests.Set(stats.AverageConcurrency)
+	r.averageProxiedConcurrentRequests.Set(stats.AverageProxiedConcurrency)
 	r.processUptime.Set(time.Since(r.startTime).Seconds())
 }
 
