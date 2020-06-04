@@ -27,7 +27,7 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	defaultsConfig "knative.dev/serving/pkg/apis/config"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -57,7 +57,7 @@ func MakeIngress(
 	tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
-	defaults defaultsConfig.Defaults,
+	defaults apisconfig.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
 	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, defaults, acmeChallenges...)
@@ -90,7 +90,7 @@ func MakeIngressSpec(
 	tls []netv1alpha1.IngressTLS,
 	targets map[string]traffic.RevisionTargets,
 	visibility map[string]netv1alpha1.IngressVisibility,
-	defaults defaultsConfig.Defaults,
+	defaults apisconfig.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (netv1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
@@ -207,7 +207,7 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets, defaults defaultsConfig.Defaults) *netv1alpha1.IngressRule {
+func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets, defaults apisconfig.Defaults) *netv1alpha1.IngressRule {
 	return &netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
@@ -219,7 +219,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string, defaults defaultsConfig.Defaults) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string, defaults apisconfig.Defaults) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
@@ -233,7 +233,7 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults defaultsConfig.Defaults) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults apisconfig.Defaults) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 

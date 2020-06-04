@@ -31,7 +31,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	defaults "knative.dev/serving/pkg/apis/config"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -79,7 +79,7 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -99,7 +99,7 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 		networking.IngressClassAnnotationKey: testIngressClass,
 		corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
 	}), WithRouteUID("1234-5678"), WithURL)
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -225,7 +225,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}}
 
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -303,7 +303,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			"myroute.default.example.com":       netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -489,7 +489,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 	cfg.Network.TagHeaderBasedRouting = true
 	ctx := config.ToContext(context.Background(), cfg)
 
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -516,7 +516,7 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -569,7 +569,7 @@ func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -619,7 +619,7 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -670,7 +670,7 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -724,7 +724,7 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -777,7 +777,7 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -839,7 +839,7 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -888,7 +888,7 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -945,7 +945,7 @@ func TestMakeIngress_WithTLS(t *testing.T) {
 			TLS:   tls,
 		},
 	}
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -1073,7 +1073,7 @@ func TestMakeIngress_ACMEChallenges(t *testing.T) {
 			}}},
 	}}
 
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -1112,7 +1112,7 @@ func TestMakeIngress_FailToGenerateDomain(t *testing.T) {
 			TagTemplate:         network.DefaultTagTemplate,
 		},
 	})
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -1158,7 +1158,7 @@ func TestMakeIngress_FailToGenerateTagHost(t *testing.T) {
 			TagTemplate:         "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
 		},
 	})
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	defaultsConfig, err := apisconfig.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
