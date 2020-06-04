@@ -257,8 +257,9 @@ of:
 - **If you change an input to generated code**, then you must run
   [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
 
-  - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.),
-  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.).
+  - Type definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - The `_example` value of config maps (to keep the `knative.dev/example-checksum` label in sync).
 
 - **If you change a package's deps** (including adding external dep), then you
   must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
