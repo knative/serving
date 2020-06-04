@@ -51,6 +51,7 @@ import (
 	activatorutil "knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -62,7 +63,7 @@ const (
 	badProbeTemplate   = "unexpected probe header value: %s"
 	failingHealthcheck = "failing healthcheck"
 
-	healthURLTemplate = "http://127.0.0.1:%d"
+	healthURLPrefix = "http://127.0.0.1:"
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
@@ -76,6 +77,13 @@ var (
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
+
+// Scaled down config to use during exec probing.
+type probeConfig struct {
+	QueueServingPort int `split_words:"true" required:"true"`
+	// DownwardAPI configuration for pod labels
+	DownwardAPILabelsPath string `split_words:"true"`
+}
 
 type config struct {
 	ContainerConcurrency   int    `split_words:"true" required:"true"`
@@ -236,40 +244,35 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 	}
 }
 
-func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
-	if port <= 0 {
-		return fmt.Errorf("port must be a positive value, got %d", port)
+func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
+	if env.QueueServingPort <= 0 {
+		return fmt.Errorf("port must be a positive value, got %d", env.QueueServingPort)
 	}
 
-	url := fmt.Sprintf(healthURLTemplate, port)
+	url := healthURLPrefix + strconv.Itoa(env.QueueServingPort)
 	timeoutDuration := readiness.PollTimeout
 	if timeoutSeconds != 0 {
 		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
 	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("probe failed: error creating request: %w", err)
+	}
+	// Add the header to indicate this is a probe request.
+	req.Header.Add(network.ProbeHeaderName, queue.Name)
+	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
+
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			// Do not use the cached connection
-			DisableKeepAlives: true,
-		},
 		Timeout: timeoutDuration,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
 	defer cancel()
-	stopCh := ctx.Done()
 
 	var lastErr error
 	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		var req *http.Request
-		req, lastErr = http.NewRequest(http.MethodGet, url, nil)
-		if lastErr != nil {
-			// Return nil error for retrying
-			return false, nil
-		}
-		// Add the header to indicate this is a probe request.
-		req.Header.Add(network.ProbeHeaderName, queue.Name)
-		req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
 		res, lastErr := httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying
@@ -277,6 +280,7 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 		}
 		defer res.Body.Close()
 		success := health.IsHTTPProbeReady(res)
+
 		// The check for preferForScaledown() fails readiness faster
 		// in the presence of the label
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
@@ -285,7 +289,7 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 			return false, errors.New("failing probe deliberately for pod scaledown")
 		}
 		return success, nil
-	}, stopCh)
+	}, ctx.Done())
 
 	if lastErr != nil {
 		return fmt.Errorf("failed to probe: %w", lastErr)
@@ -302,21 +306,27 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 func main() {
 	flag.Parse()
 
-	// Parse the environment.
-	var env config
-	if err := envconfig.Process("", &env); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout, env); err != nil {
+		// Parse the environment.
+		var env probeConfig
+		if err := envconfig.Process("", &env); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := probeQueueHealthPath(*readinessProbeTimeout, env); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
+	}
+
+	// Parse the environment.
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	// Setup the logger.
@@ -444,6 +454,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	breaker := buildBreaker(env)
 	metricsSupported := supportsMetrics(env, logger)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
+	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -453,9 +464,9 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	}
 	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
-		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
-	composedHandler = pushRequestLogHandler(composedHandler, env)
+	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", func(*http.Request) time.Duration {
+		return timeout
+	})
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(composedHandler, env)
@@ -464,6 +475,9 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 
 	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, env, logger)
 	composedHandler = network.NewProbeHandler(composedHandler)
+	// We might want sometimes capture the probes/healthchecks in the request
+	// logs. Hence we need to have RequestLogHandler to be the first one.
+	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 }
@@ -553,7 +567,6 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 	}
 	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
 		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo), env.ServingEnableProbeRequestLog)
-
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
 		return currentHandler

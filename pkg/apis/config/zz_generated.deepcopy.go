@@ -43,6 +43,16 @@ func (in *Defaults) DeepCopyInto(out *Defaults) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.RevisionEphemeralStorageRequest != nil {
+		in, out := &in.RevisionEphemeralStorageRequest, &out.RevisionEphemeralStorageRequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.RevisionEphemeralStorageLimit != nil {
+		in, out := &in.RevisionEphemeralStorageLimit, &out.RevisionEphemeralStorageLimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	return
 }
 

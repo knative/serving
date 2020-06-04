@@ -18,6 +18,8 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
@@ -25,7 +27,28 @@ const (
 	DefaultUserPort = 8080
 )
 
+var revisionCondSet = apis.NewLivingConditionSet(
+	v1.RevisionConditionResourcesAvailable,
+	v1.RevisionConditionContainerHealthy,
+)
+
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
+}
+
+// IsReady returns if the revision is ready to serve the requested revision
+// and the revision resource has been observed.
+func (r *Revision) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RevisionConditionReady).IsTrue()
+}
+
+// IsFailed returns true if the resource has observed the latest generation
+// and ready is false.
+func (r *Revision) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RevisionConditionReady).IsFalse()
 }

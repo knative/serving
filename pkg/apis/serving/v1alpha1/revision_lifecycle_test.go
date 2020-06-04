@@ -759,7 +759,48 @@ func TestGetContainer(t *testing.T) {
 			Image: "foo",
 		},
 	}, {
-		name: "get first container info even after passing multiple",
+		name: "get container info",
+		status: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "servingContainer",
+						Image: "firstImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "servingContainer",
+			Image: "firstImage",
+		},
+	}, {
+		name: "get serving container info even if there are multiple containers",
+		status: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "firstContainer",
+						Image: "firstImage",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:  "secondContainer",
+						Image: "secondImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "firstContainer",
+			Image: "firstImage",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
+		},
+	}, {
+		name: "get empty container when passed multiple containers without the container port",
 		status: RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -773,10 +814,7 @@ func TestGetContainer(t *testing.T) {
 				},
 			},
 		},
-		want: &corev1.Container{
-			Name:  "firstContainer",
-			Image: "firstImage",
-		},
+		want: &corev1.Container{},
 	}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

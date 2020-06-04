@@ -221,6 +221,14 @@ type HTTPIngressPath struct {
 	// If RewriteHost is specified, Splits must not be.
 	RewriteHost string `json:"rewriteHost,omitempty"`
 
+	// Headers defines header matching rules which is a map from a header name
+	// to HeaderMatch which specify a matching condition.
+	// When a request matched with all the header matching rules,
+	// the request is routed by the corresponding ingress rule.
+	// If it is empty, the headers are not used for matching
+	// +optional
+	Headers map[string]HeaderMatch `json:"headers,omitempty"`
+
 	// Splits defines the referenced service endpoints to which the traffic
 	// will be forwarded to.
 	//
@@ -360,4 +368,10 @@ const (
 // GetStatus retrieves the status of the Ingress. Implements the KRShaped interface.
 func (t *Ingress) GetStatus() *duckv1.Status {
 	return &t.Status.Status
+}
+
+// HeaderMatch represents a matching value of Headers in HTTPIngressPath.
+// Currently, only the exact matching is supported.
+type HeaderMatch struct {
+	Exact string `json:"exact"`
 }

@@ -69,11 +69,19 @@ func (e LastPinnedParseError) Error() string {
 }
 
 // GetContainer returns a pointer to the relevant corev1.Container field.
-// It is never nil and should be exactly the specified container as guaranteed
-// by validation.
+// It is never nil and should be exactly the specified container if len(containers) == 1 or
+// if there are multiple containers it returns the container which has Ports
+// as guaranteed by validation.
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
-	if len(rs.Containers) > 0 {
+	switch {
+	case len(rs.Containers) == 1:
 		return &rs.Containers[0]
+	case len(rs.Containers) > 1:
+		for i := range rs.Containers {
+			if len(rs.Containers[i].Ports) != 0 {
+				return &rs.Containers[i]
+			}
+		}
 	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}

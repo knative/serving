@@ -200,7 +200,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 	// For window of 60s, that's +15 pods.
 	fake.Endpoints(25+15, fake.TestService)
 
-	a.metricClient = &fake.MetricClient{StableConcurrency: 30, PanicConcurrency: 41}
+	metrics.SetStableAndPanicConcurrency(30, 41)
 	tm = tm.Add(stableWindow / 2)
 
 	na = expectedNA(a, 40)
@@ -211,7 +211,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 
 	// Now at the end. Panic must end. And +30 pods.
 	fake.Endpoints(25+30, fake.TestService)
-	a.metricClient = &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 56}
+	metrics.SetStableAndPanicConcurrency(50, 56)
 	tm = tm.Add(stableWindow/2 + tickInterval)
 
 	na = expectedNA(a, 55)
@@ -237,7 +237,7 @@ func TestAutoscalerExtendPanicWindow(t *testing.T) {
 	// Now the half of the stable window has passed, and we're still surging.
 	fake.Endpoints(25+15, fake.TestService)
 
-	a.metricClient = &fake.MetricClient{StableConcurrency: 30, PanicConcurrency: 80}
+	metrics.SetStableAndPanicConcurrency(30, 80)
 	tm = tm.Add(stableWindow / 2)
 
 	na = expectedNA(a, 40)
@@ -254,8 +254,7 @@ func TestAutoscalerStableModeDecrease(t *testing.T) {
 	na := expectedNA(a, 8)
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 98, 100, 8), na, true})
 
-	metrics.StableConcurrency = 50
-	metrics.PanicConcurrency = 50
+	metrics.SetStableAndPanicConcurrency(50, 50)
 	expectScale(t, a, time.Now(), ScaleResult{5, expectedEBC(10, 98, 50, 8), na, true})
 }
 
@@ -278,23 +277,36 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{6, expectedEBC(1, 101, 6, 1), na, true})
 
+	tm := time.Now()
 	fake.Endpoints(6, fake.TestService)
 	na = expectedNA(a, 6)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 36, 36
-	expectScale(t, a, time.Now(), ScaleResult{36, expectedEBC(1, 101, 36, 6), na, true})
+	metrics.SetStableAndPanicConcurrency(36, 36)
+	expectScale(t, a, tm, ScaleResult{36, expectedEBC(1, 101, 36, 6), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
 
 	fake.Endpoints(36, fake.TestService)
 	na = expectedNA(a, 36)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 216, 216
-	expectScale(t, a, time.Now(), ScaleResult{216, expectedEBC(1, 101, 216, 36), na, true})
+	metrics.SetStableAndPanicConcurrency(216, 216)
+	tm = tm.Add(time.Second)
+	expectScale(t, a, tm, ScaleResult{216, expectedEBC(1, 101, 216, 36), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
 
 	fake.Endpoints(216, fake.TestService)
 	na = expectedNA(a, 216)
-	metrics.PanicConcurrency, metrics.StableConcurrency = 1296, 1296
-	expectScale(t, a, time.Now(), ScaleResult{1296, expectedEBC(1, 101, 1296, 216), na, true})
+	metrics.SetStableAndPanicConcurrency(1296, 1296)
+	expectScale(t, a, tm, ScaleResult{1296, expectedEBC(1, 101, 1296, 216), na, true})
+	if got, want := a.panicTime, tm; got != tm {
+		t.Errorf("PanicTime = %v, want: %v", got, want)
+	}
+
 	fake.Endpoints(1296, fake.TestService)
 	na = expectedNA(a, 1296)
-	expectScale(t, a, time.Now(), ScaleResult{1296, expectedEBC(1, 101, 1296, 1296), na, true})
+	tm = tm.Add(time.Second)
+	expectScale(t, a, tm, ScaleResult{1296, expectedEBC(1, 101, 1296, 1296), na, true})
 }
 
 func TestAutoscalerScale(t *testing.T) {
@@ -417,8 +429,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 	expectScale(t, a, panicTime, ScaleResult{100, expectedEBC(10, 93, 1000, 10), na, true})
 
 	// Traffic dropped off, scale stays as we're still in panic.
-	metrics.PanicConcurrency = 1
-	metrics.StableConcurrency = 1
+	metrics.SetStableAndPanicConcurrency(1, 1)
 	expectScale(t, a, panicTime.Add(30*time.Second), ScaleResult{100, expectedEBC(10, 93, 1, 10), na, true})
 
 	// Scale down after the StableWindow
@@ -545,7 +556,7 @@ func expectScale(t *testing.T, a UniScaler, now time.Time, want ScaleResult) {
 }
 
 func TestStartInPanicMode(t *testing.T) {
-	metrics := &fake.StaticMetricClient
+	metrics := &staticMetricClient
 	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
@@ -588,7 +599,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 func TestNewFail(t *testing.T) {
 	eraseEndpoints()
-	metrics := &fake.StaticMetricClient
+	metrics := &staticMetricClient
 	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
@@ -618,4 +629,12 @@ func reset() {
 		stableRPSM.Name(), panicRPSM.Name(),
 		targetRPSM.Name(), panicM.Name())
 	register()
+}
+
+// staticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
+var staticMetricClient = fake.MetricClient{
+	StableConcurrency: 10.0,
+	PanicConcurrency:  10.0,
+	StableRPS:         10.0,
+	PanicRPS:          10.0,
 }

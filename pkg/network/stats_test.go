@@ -192,11 +192,8 @@ func BenchmarkRequestStatsDirect(b *testing.B) {
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Millisecond)
-		for {
-			select {
-			case <-ticker.C:
-				stats.Report(time.Now())
-			}
+		for range ticker.C {
+			stats.Report(time.Now())
 		}
 	}()
 

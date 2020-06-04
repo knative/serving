@@ -59,8 +59,8 @@ const (
 
 // defined here so that it can be mocked for unit testing
 var logFatalf = log.Fatalf
-
 var ctx = context.Background()
+var client *gcs.GCSClient
 
 // Job struct represents a job directory in gcs.
 // gcs job StoragePath will be derived from Type if it's defined,
@@ -128,7 +128,9 @@ func GetLocalArtifactsDir() string {
 
 // Initialize wraps gcs authentication, have to be invoked before any other functions
 func Initialize(serviceAccount string) error {
-	return gcs.Authenticate(ctx, serviceAccount)
+	var err error
+	client, err = gcs.NewClient(ctx, serviceAccount)
+	return err
 }
 
 // NewJob creates new job struct
@@ -158,13 +160,13 @@ func NewJob(jobName, jobType, orgName, repoName string, pullID int) *Job {
 
 // PathExists checks if the storage path of a job exists in gcs or not
 func (j *Job) PathExists() bool {
-	return gcs.Exists(ctx, BucketName, j.StoragePath)
+	return client.Exists(ctx, BucketName, j.StoragePath)
 }
 
 // GetLatestBuildNumber gets the latest build number for job
 func (j *Job) GetLatestBuildNumber() (int, error) {
 	logFilePath := path.Join(j.StoragePath, Latest)
-	contents, err := gcs.Read(ctx, BucketName, logFilePath)
+	contents, err := client.ReadObject(ctx, BucketName, logFilePath)
 	if err != nil {
 		return 0, err
 	}
@@ -223,7 +225,7 @@ func (j *Job) GetBuilds() []Build {
 // for job, keeps the ones that can be parsed as integer
 func (j *Job) GetBuildIDs() []int {
 	var buildIDs []int
-	gcsBuildPaths := gcs.ListDirectChildren(ctx, j.Bucket, j.StoragePath)
+	gcsBuildPaths, _ := client.ListDirectChildren(ctx, j.Bucket, j.StoragePath)
 	for _, gcsBuildPath := range gcsBuildPaths {
 		if buildID, err := getBuildIDFromBuildPath(gcsBuildPath); err == nil {
 			buildIDs = append(buildIDs, buildID)
@@ -256,12 +258,12 @@ func (j *Job) GetLatestBuilds(count int) []Build {
 
 // IsStarted check if build has started by looking at "started.json" file
 func (b *Build) IsStarted() bool {
-	return gcs.Exists(ctx, BucketName, path.Join(b.StoragePath, StartedJSON))
+	return client.Exists(ctx, BucketName, path.Join(b.StoragePath, StartedJSON))
 }
 
 // IsFinished check if build has finished by looking at "finished.json" file
 func (b *Build) IsFinished() bool {
-	return gcs.Exists(ctx, BucketName, path.Join(b.StoragePath, FinishedJSON))
+	return client.Exists(ctx, BucketName, path.Join(b.StoragePath, FinishedJSON))
 }
 
 // GetStartTime gets started timestamp of a build,
@@ -286,7 +288,8 @@ func (b *Build) GetFinishTime() (int64, error) {
 
 // GetArtifacts gets gcs path for all artifacts of current build
 func (b *Build) GetArtifacts() []string {
-	return gcs.ListChildrenFiles(ctx, BucketName, b.GetArtifactsDir())
+	artifacts, _ := client.ListChildrenFiles(ctx, BucketName, b.GetArtifactsDir())
+	return artifacts
 }
 
 // GetArtifactsDir gets gcs path for artifacts of current build
@@ -302,7 +305,7 @@ func (b *Build) GetBuildLogPath() string {
 // ReadFile reads given file of current build,
 // relPath is the file path relative to build directory
 func (b *Build) ReadFile(relPath string) ([]byte, error) {
-	return gcs.Read(ctx, BucketName, path.Join(b.StoragePath, relPath))
+	return client.ReadObject(ctx, BucketName, path.Join(b.StoragePath, relPath))
 }
 
 // ParseLog parses the build log and returns the lines where the checkLog func does not return an empty slice,
@@ -310,7 +313,7 @@ func (b *Build) ReadFile(relPath string) ([]byte, error) {
 func (b *Build) ParseLog(checkLog func(s []string) *string) ([]string, error) {
 	var logs []string
 
-	f, err := gcs.NewReader(ctx, b.Bucket, b.GetBuildLogPath())
+	f, err := client.NewReader(ctx, b.Bucket, b.GetBuildLogPath())
 	if err != nil {
 		return logs, err
 	}
@@ -333,7 +336,7 @@ func getBuildIDFromBuildPath(buildPath string) (int, error) {
 // unmarshalJSONFile reads a file from gcs, parses it with xml and write to v.
 // v must be an arbitrary struct, slice, or string.
 func unmarshalJSONFile(storagePath string, v interface{}) error {
-	contents, err := gcs.Read(ctx, BucketName, storagePath)
+	contents, err := client.ReadObject(ctx, BucketName, storagePath)
 	if err != nil {
 		return err
 	}

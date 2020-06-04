@@ -35,16 +35,15 @@ source $(dirname $0)/e2e-common.sh
 # tagged release on the current branch will be used.
 LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 
+# Latest net-istio release.
+LATEST_NET_ISTIO_RELEASE_VERSION=$(
+  curl --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
+    | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
+
 function install_latest_release() {
   header "Installing Knative latest public release"
-  local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  local yaml="serving.yaml"
 
-  local RELEASE_YAML="$(mktemp)"
-  wget "${url}/${yaml}" -O "${RELEASE_YAML}" \
-      || fail_test "Unable to download latest Knative release."
-
-  install_knative_serving "${RELEASE_YAML}" \
+  install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
 }

@@ -137,6 +137,19 @@ const (
 	// AutoscalingUserAgent is the user-agent header value set in probe
 	// requests sent by autoscaling implementations.
 	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
+
+	// TagHeaderName is the name of the header entry which has a tag name as value.
+	// The tag name specifies which route was expected to be chosen by Ingress.
+	TagHeaderName = "Knative-Serving-Tag"
+
+	// DefaultRouteHeaderName is the name of the header entry
+	// identifying whether a request is routed via the default route or not.
+	// It has one of the string value "true" or "false".
+	DefaultRouteHeaderName = "Knative-Serving-Default-Route"
+
+	// TagHeaderBasedRoutingKey is the name of the configuration entry
+	// that specifies enabling tag header based routing or not.
+	TagHeaderBasedRoutingKey = "tagHeaderBasedRouting"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -195,6 +208,9 @@ type Config struct {
 
 	// DefaultCertificateClass specifies the default Certificate class.
 	DefaultCertificateClass string
+
+	// TagHeaderBasedRouting specifies if TagHeaderBasedRouting is enabled or not.
+	TagHeaderBasedRouting bool
 }
 
 // HTTPProtocol indicates a type of HTTP endpoint behavior
@@ -270,6 +286,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	templateCache.Add(nc.TagTemplate, t)
 
 	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
+	nc.TagHeaderBasedRouting = strings.EqualFold(data[TagHeaderBasedRoutingKey], "enabled")
 
 	switch strings.ToLower(data[HTTPProtocolKey]) {
 	case "", string(HTTPEnabled):

@@ -169,9 +169,7 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestProbeQueueInvalidPort(t *testing.T) {
-	const port = 0 // invalid port
-
-	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(1, probeConfig{QueueServingPort: 0}); err == nil {
 		t.Error("Expected error, got nil")
 	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -179,9 +177,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	port := 12345 // some random port (that's not listening)
-
-	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(1, probeConfig{QueueServingPort: 12345}); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -205,7 +201,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1, config{})
+	err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port})
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -235,7 +231,7 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1, config{}); err != nil {
+	if err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
@@ -276,7 +272,10 @@ func TestProbeFailFast(t *testing.T) {
 	f.Close()
 
 	start := time.Now()
-	if err = probeQueueHealthPath(port, 1 /*seconds*/, config{DownwardAPILabelsPath: f.Name()}); err == nil {
+	if err = probeQueueHealthPath(1 /*seconds*/, probeConfig{
+		QueueServingPort:      port,
+		DownwardAPILabelsPath: f.Name(),
+	}); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
@@ -307,7 +306,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	}
 
 	timeout := 1
-	if err = probeQueueHealthPath(port, timeout, config{}); err == nil {
+	if err = probeQueueHealthPath(timeout, probeConfig{QueueServingPort: port}); err == nil {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
@@ -341,7 +340,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 
 	timeout := 0
-	if err := probeQueueHealthPath(port, timeout, config{}); err != nil {
+	if err := probeQueueHealthPath(timeout, probeConfig{QueueServingPort: port}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
