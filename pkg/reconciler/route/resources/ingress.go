@@ -240,8 +240,9 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 	// TODO: How should defaults.RevisionTimeoutSeconds be worked into this?
 
 	var (
-		// TODO: What should be the minimum duration? 10ms is arbitrary.
-		duration    time.Duration = time.Duration(10) * time.Millisecond
+		// TODO: What should be the minimum duration? defaults.RevisionTimeoutSeconds may not be appropriate.
+		// In particular, as coded this can't set a timeout shorter than defaults.RevisionTimeoutSeconds; is that actually desirable?
+		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
 		sawDuration               = false
 	)
 
