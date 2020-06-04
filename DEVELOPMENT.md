@@ -208,8 +208,8 @@ ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml
 ```
 
-The above step is equivalent to applying the `serving.yaml` for released
-versions of Knative Serving.
+The above step is equivalent to applying the `serving-crds.yaml` and
+`serving-core.yaml` for released versions of Knative Serving.
 
 You can see things running with:
 
