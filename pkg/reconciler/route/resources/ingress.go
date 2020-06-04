@@ -237,9 +237,11 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
+	// TODO: How should defaults.RevisionTimeoutSeconds be worked into this?
+
 	var (
-		// TODO: What should be the minimum duration?
-		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
+		// TODO: What should be the minimum duration? 10ms is arbitrary.
+		duration    time.Duration = time.Duration(10) * time.Millisecond
 		sawDuration               = false
 	)
 
@@ -271,6 +273,9 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 
 	var timeout *metav1.Duration
 	if sawDuration {
+		if duration > time.Duration(defaults.MaxRevisionTimeoutSeconds)*time.Second {
+			duration = time.Duration(defaults.MaxRevisionTimeoutSeconds) * time.Second
+		}
 		timeout = &metav1.Duration{Duration: duration}
 	}
 	return &netv1alpha1.HTTPIngressPath{
