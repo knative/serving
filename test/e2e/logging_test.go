@@ -141,7 +141,7 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 		return corev1.Pod{}, err
 	}
 
-	if len(pods.Items) != 1 {
+	if len(pods.Items) == 0 {
 		return corev1.Pod{}, fmt.Errorf("Expect 1 pod, but got %d for %s:%s", len(pods.Items), system.Namespace(), rev)
 	}
 
