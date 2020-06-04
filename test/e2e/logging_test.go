@@ -167,8 +167,12 @@ func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 			return false, err
 		}
 
-		t.Logf("Got logs: %v", buf)
-		for _, log := range strings.Split(buf.String(), "\n") {
+		logs := buf.String()
+		t.Logf("Got logs: %s", logs)
+		for _, log := range strings.Split(logs, "\n") {
+			if len(log) == 0 {
+				continue
+			}
 			var result map[string]interface{}
 			if err := json.Unmarshal([]byte(log), &result); err != nil {
 				t.Logf("Failed to parse log `%s` into json: %v", log, err)
