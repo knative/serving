@@ -70,6 +70,14 @@ func (r *Revision) IsReady() bool {
 		rs.GetCondition(RevisionConditionReady).IsTrue()
 }
 
+// IsFailed returns true if the resource has observed the latest generation
+// and ready is false.
+func (r *Revision) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RevisionConditionReady).IsFalse()
+}
+
 // GetContainerConcurrency returns the container concurrency. If
 // container concurrency is not set, the default value will be returned.
 // We use the original default (0) here for backwards compatibility.

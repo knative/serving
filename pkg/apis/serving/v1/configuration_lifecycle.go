@@ -42,6 +42,14 @@ func (c *Configuration) IsReady() bool {
 		cs.GetCondition(ConfigurationConditionReady).IsTrue()
 }
 
+// IsFailed returns true if the resource has observed
+// the latest generation and ready is false.
+func (c *Configuration) IsFailed() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(ConfigurationConditionReady).IsFalse()
+}
+
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
 // and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
 // it returns false.

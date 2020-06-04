@@ -168,6 +168,71 @@ func TestServiceIsReady(t *testing.T) {
 	}
 }
 
+func TestServiceIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   ServiceStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   ServiceStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: ServiceConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: ServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ServiceConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Service{Status: tc.status}
+			if e, a := tc.isFailed, r.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
 func TestServiceHappyPath(t *testing.T) {
 	svc := &ServiceStatus{}
 	svc.InitializeConditions()
