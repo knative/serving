@@ -101,7 +101,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 	return serviceCopy, err
 }
 
-func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route, defaultsConfig configDefaults.Defaults) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
@@ -145,9 +145,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route, defaultsCon
 		return err
 	}
 
-	cfg := config.FromContextOrDefaults(ctx)
+	cfg := configDefaults.FromContextOrDefaults(ctx)
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), cfg.defaults, acmeChallenges...)
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), *cfg.Defaults, acmeChallenges...)
 
 	if err != nil {
 		return err
