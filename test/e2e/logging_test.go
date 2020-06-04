@@ -45,7 +45,6 @@ const request_log_template = `
 `
 
 func TestRequestLogs(t *testing.T) {
-	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
 
@@ -61,15 +60,18 @@ func TestRequestLogs(t *testing.T) {
 	patchedObcm.Data["logging.request-log-template"] = request_log_template
 	patchedObcm.Data["logging.enable-probe-request-log"] = "true"
 	patchCM(clients, patchedObcm)
-	defer patchCM(clients, obcm)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	cleanup := func() {
+		patchCM(clients, obcm)
+		test.TearDown(clients, names)
+	}
+	test.CleanupOnInterrupt(cleanup)
+	t.Cleanup(cleanup)
 
 	t.Log("Creating a new Service")
 
@@ -101,35 +103,40 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	// A request was sent to / in WaitForEndpointState.
-	if err := waitForLog(clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		if v, ok := log["requestUrl"]; !ok {
+	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
+		v, ok := log["requestUrl"]
+		if !ok {
 			return false
-		} else if v.(string) != "/" {
+		}
+		if v.(string) != "/" {
 			return false
 		}
 
-		if v, ok := log["userAgent"]; !ok {
+		v, ok = log["userAgent"]
+		if !ok {
 			return false
-		} else {
-			return v.(string) != network.QueueProxyUserAgent
 		}
+		return v.(string) != network.QueueProxyUserAgent
 	}); err != nil {
 		t.Fatalf("Got error waiting for normal request logs: %v", err)
 	}
 
 	// Health check requests are sent to / with a specific userAgent value periodically.
-	if err := waitForLog(clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		if v, ok := log["requestUrl"]; !ok {
+	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
+		v, ok := log["requestUrl"]
+		if !ok {
 			return false
-		} else if v.(string) != "/" {
+		}
+		if v.(string) != "/" {
 			return false
 		}
 
-		if v, ok := log["userAgent"]; !ok {
+		v, ok = log["userAgent"]
+		if !ok {
 			return false
-		} else {
-			return v.(string) == network.QueueProxyUserAgent
 		}
+		return v.(string) == network.QueueProxyUserAgent
+
 	}); err != nil {
 		t.Fatalf("Got error waiting for health check log: %v", err)
 	}
@@ -151,7 +158,7 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 
 // waitForLog fetches the logs from a container of a pod decided by the given parameters
 // until the given condition is meet or timeout. Most of knative logs are in json format.
-func waitForLog(clients *test.Clients, ns, podName, container string, condition func(log map[string]interface{}) bool) error {
+func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log map[string]interface{}) bool) error {
 	return wait.PollImmediate(time.Second, 30*time.Second, func() (bool, error) {
 		podLogOpts := corev1.PodLogOptions{Container: container}
 
@@ -168,9 +175,11 @@ func waitForLog(clients *test.Clients, ns, podName, container string, condition 
 			return false, err
 		}
 
+		t.Logf("Got logs: %v", buf)
 		for _, log := range strings.Split(buf.String(), "\n") {
 			var result map[string]interface{}
 			if err := json.Unmarshal([]byte(log), &result); err != nil {
+				t.Logf("Failed to parse log `%s` into json: %v", log, err)
 				continue
 			}
 
