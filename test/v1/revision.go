@@ -72,7 +72,7 @@ func CheckRevisionState(client *test.ServingClients, name string, inState func(r
 // ready to serve traffic. It will return false if the status indicates a state other than deploying
 // or being ready. It will also return false if the type of the condition is unexpected.
 func IsRevisionReady(r *v1.Revision) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+	return r.IsReady(), nil
 }
 
 // IsRevisionPinned will check if the revision is pinned to a route.
