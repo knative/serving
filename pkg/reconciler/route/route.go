@@ -145,8 +145,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route, defaultsCon
 		return err
 	}
 
+	cfg := config.FromContextOrDefaults(ctx)
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), defaultsConfig, acmeChallenges...)
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), cfg.defaults, acmeChallenges...)
 
 	if err != nil {
 		return err
