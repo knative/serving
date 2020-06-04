@@ -72,7 +72,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
-	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceFailed, "ServiceIsFailed"); err != nil {
+	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceFailed, "ServiceIsNotReady"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
 

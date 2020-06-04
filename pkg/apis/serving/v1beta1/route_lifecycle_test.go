@@ -159,3 +159,68 @@ func TestRouteIsReady(t *testing.T) {
 		})
 	}
 }
+
+func TestRouteIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   v1.RouteStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   v1.RouteStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RouteConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Route{Status: tc.status}
+			if e, a := tc.isFailed, r.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}

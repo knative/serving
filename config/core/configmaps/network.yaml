@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+    knative.dev/example-checksum: "8b4ff3d6"
 data:
   _example: |
     ################################
@@ -107,4 +107,3 @@ data:
     # 3. Redirected: The Knative ingress will send a 302 redirect for all
     # http connections, asking the clients to use HTTPS
     httpProtocol: "Enabled"
-

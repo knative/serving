@@ -28,15 +28,18 @@ func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
 
-// IsReady returns if the configuration is ready to serve the requested configuration
-// and the configuration resource has been observed.
+// IsReady returns if the configuration is ready to serve the requested
+// configuration and the configuration resource has been observed.
 func (c *Configuration) IsReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation && configCondSet.Manage(&cs).IsHappy()
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(ConfigurationConditionReady).IsTrue()
 }
 
-// IsFailed returns true if the resource has observed the latest generation and ready is false.
+// IsFailed returns true if the resource has observed
+// the latest generation and ready is false.
 func (c *Configuration) IsFailed() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation && configCondSet.Manage(&cs).GetTopLevelCondition().IsFalse()
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(ConfigurationConditionReady).IsFalse()
 }
