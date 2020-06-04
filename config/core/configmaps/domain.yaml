@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+    knative.dev/example-checksum: "327d2082"
 data:
   _example: |
     ################################
@@ -47,7 +47,7 @@ data:
     example.org: |
       selector:
         app: nonprofit
-    
+
     # Routes having domain suffix of 'svc.cluster.local' will not be exposed
     # through Ingress. You can define your own label selector to assign that
     # domain suffix to your Route here, or you can set the label
@@ -57,4 +57,3 @@ data:
     svc.cluster.local: |
       selector:
         app: secret
-  

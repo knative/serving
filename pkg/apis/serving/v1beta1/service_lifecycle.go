@@ -16,9 +16,34 @@ limitations under the License.
 
 package v1beta1
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+)
+
+var serviceCondSet = apis.NewLivingConditionSet(
+	v1.ServiceConditionConfigurationsReady,
+	v1.ServiceConditionRoutesReady,
+)
 
 // GetGroupVersionKind returns the GroupVersionKind.
-func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
+func (*Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")
+}
+
+// IsReady returns if the service is ready to serve the requested service
+// and the service resource has been observed.
+func (s *Service) IsReady() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		ss.GetCondition(ServiceConditionReady).IsTrue()
+}
+
+// IsFailed returns true if the resource has observed
+// the latest generation and ready is false.
+func (s *Service) IsFailed() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		ss.GetCondition(ServiceConditionReady).IsFalse()
 }
