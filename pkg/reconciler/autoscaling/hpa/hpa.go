@@ -102,7 +102,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
-	if !sks.Status.IsReady() {
+	if !sks.IsReady() {
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
 	} else {
 		pa.Status.MarkActive()

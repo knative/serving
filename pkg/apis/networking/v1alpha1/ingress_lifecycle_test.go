@@ -107,7 +107,8 @@ func TestIngressTypicalFlow(t *testing.T) {
 	)
 	apistest.CheckConditionSucceeded(r, IngressConditionLoadBalancerReady, t)
 	apistest.CheckConditionSucceeded(r, IngressConditionReady, t)
-	if !r.IsReady() {
+	i := &Ingress{Status: *r}
+	if !i.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 
@@ -118,7 +119,8 @@ func TestIngressTypicalFlow(t *testing.T) {
 	// Mark network configured, and check that ingress is ready again
 	r.MarkNetworkConfigured()
 	apistest.CheckConditionSucceeded(r, IngressConditionReady, t)
-	if !r.IsReady() {
+	i = &Ingress{Status: *r}
+	if !i.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 

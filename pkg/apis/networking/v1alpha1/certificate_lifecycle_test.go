@@ -62,11 +62,12 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 }
 
 func TestMarkReady(t *testing.T) {
-	c := &CertificateStatus{}
-	c.InitializeConditions()
-	apistest.CheckConditionOngoing(c, CertificateConditionReady, t)
+	cs := &CertificateStatus{}
+	cs.InitializeConditions()
+	apistest.CheckConditionOngoing(cs, CertificateConditionReady, t)
 
-	c.MarkReady()
+	cs.MarkReady()
+	c := &Certificate{Status: *cs}
 	if !c.IsReady() {
 		t.Error("IsReady=false, want: true")
 	}
@@ -77,7 +78,7 @@ func TestMarkNotReady(t *testing.T) {
 	c.InitializeConditions()
 	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 
-	c.MarkNotReady("unknow", "unknown")
+	c.MarkNotReady("unknown", "unknown")
 	apistest.CheckCondition(c, CertificateConditionReady, corev1.ConditionUnknown)
 }
 
