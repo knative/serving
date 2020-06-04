@@ -239,7 +239,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 
 	var (
 		// TODO: What should be the minimum duration?
-		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Seconds
+		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
 		sawDuration               = false
 	)
 
