@@ -137,7 +137,7 @@ func TestObservedConcurrency(t *testing.T) {
 }
 
 func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
-	clients, err := Setup()
+	clients, err := setup()
 	if err != nil {
 		t.Fatal("Cannot initialize performance client:", err)
 	}
@@ -147,8 +147,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		Image:   "observed-concurrency",
 	}
 
-	defer TearDown(clients, names, t.Logf)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, t.Logf) })
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	t.Log("Creating a new Service")
 	objs, err := v1test.CreateServiceReady(t, clients, &names,
