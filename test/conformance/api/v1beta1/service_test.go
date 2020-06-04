@@ -42,7 +42,7 @@ import (
 //    a. Update Labels
 //    b. Update Annotations
 func TestService(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -181,7 +181,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 }
 
 func TestServiceBYOName(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
