@@ -27,7 +27,7 @@ const (
 	aliveBody = "queue"
 	// Return `queue not ready` as body for 503 response for queue not yet ready.
 	notAliveBody = "queue not ready"
-	// Return `shutting down` as body for 503 response if the queue got a shutdown request.
+	// Return `shutting down` as body for 410 response if the queue got a shutdown request.
 	shuttingDownBody = "shutting down"
 )
 
