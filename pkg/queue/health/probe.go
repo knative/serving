@@ -110,6 +110,6 @@ func IsHTTPProbeShuttingDown(res *http.Response) bool {
 		return false
 	}
 
-	// status 409 indicates the probe returned a shutdown scenario.
-	return res.StatusCode == http.StatusConflict
+	// status 410 (Gone) indicates the probe returned a shutdown scenario.
+	return res.StatusCode == http.StatusGone
 }

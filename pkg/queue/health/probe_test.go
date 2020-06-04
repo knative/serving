@@ -172,8 +172,8 @@ func TestIsHTTPProbeShuttingDown(t *testing.T) {
 		statusCode int
 		wantResult bool
 	}{{
-		name:       "statusCode: 409",
-		statusCode: 409,
+		name:       "statusCode: 410",
+		statusCode: 410,
 		wantResult: true,
 	}, {
 		name:       "statusCode: 503",

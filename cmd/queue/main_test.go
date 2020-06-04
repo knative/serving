@@ -214,7 +214,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		w.WriteHeader(http.StatusConflict)
+		w.WriteHeader(http.StatusGone)
 	})
 
 	defer ts.Close()

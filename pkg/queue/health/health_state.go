@@ -105,7 +105,7 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 	}
 
 	sendShuttingDown := func() {
-		w.WriteHeader(http.StatusConflict)
+		w.WriteHeader(http.StatusGone)
 		io.WriteString(w, shuttingDownBody)
 	}
 

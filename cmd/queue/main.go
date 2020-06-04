@@ -281,7 +281,7 @@ func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
 		defer res.Body.Close()
 		success := health.IsHTTPProbeReady(res)
 
-		// Both preferPodForScaledown and IsHTTPProbeShuttingDon can fail readiness faster.
+		// Both preferPodForScaledown and IsHTTPProbeShuttingDown can fail readiness faster.
 		// The check for preferPodForScaledown() fails readiness faster in the presence of the label,
 		// while shutting down has a different response code than not ready.
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
