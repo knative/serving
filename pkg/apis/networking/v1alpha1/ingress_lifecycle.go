@@ -92,10 +92,10 @@ func (is *IngressStatus) MarkIngressNotReady(reason, message string) {
 	ingressCondSet.Manage(is).MarkUnknown(IngressConditionReady, reason, message)
 }
 
-// IsReady looks at the conditions and if the Status has a condition
-// IngressConditionReady returns true if ConditionStatus is True
-// and the Ingress resource has been observed.
+// IsReady returns true if the Status condition MetricConditionReady
+// is true and the latest spec has been observed.
 func (i *Ingress) IsReady() bool {
 	is := i.Status
-	return is.ObservedGeneration == i.Generation && ingressCondSet.Manage(&is).IsHappy()
+	return is.ObservedGeneration == i.Generation &&
+		is.GetCondition(IngressConditionReady).IsTrue()
 }

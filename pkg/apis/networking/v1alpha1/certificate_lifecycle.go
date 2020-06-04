@@ -50,10 +50,12 @@ func (cs *CertificateStatus) MarkResourceNotOwned(kind, name string) {
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
-// IsReady returns true is the Certificate is ready and the Certificate resource has been observed.
+// IsReady returns true is the Certificate is ready
+// and the Certificate resource has been observed.
 func (c *Certificate) IsReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation && certificateCondSet.Manage(&cs).IsHappy()
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(CertificateConditionReady).IsTrue()
 }
 
 // GetCondition gets a specific condition of the Certificate status.
