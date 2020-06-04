@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-    knative.dev/example-checksum: "82c28949"
+    knative.dev/example-checksum: "ecd27502"
 data:
   _example: |
     ################################
@@ -54,12 +54,3 @@ data:
     # retryPeriod is how long the leader election client waits between tries of
     # actions; 2 seconds is the value used by core kubernetes controllers.
     retryPeriod: "2s"
-    # enabledComponents is a comma-delimited list of component names for which
-    # leader election is enabled. Valid values are:
-    #
-    # - controller
-    # - hpaautoscaler
-    # - certcontroller
-    # - istiocontroller
-    # - nscontroller
-    enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"

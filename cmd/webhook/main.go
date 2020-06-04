@@ -159,7 +159,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
 			metrics.ConfigMapName():           metrics.NewObservabilityConfigFromConfigMap,
 			logging.ConfigMapName():           logging.NewConfigFromConfigMap,
-			pkgleaderelection.ConfigMapName(): leaderelection.ValidateConfig,
+			pkgleaderelection.ConfigMapName(): leaderelection.NewLeaderElectionConfigFromConfigMap,
 			domainconfig.DomainConfigName:     domainconfig.NewDomainFromConfigMap,
 			defaultconfig.DefaultsConfigName:  defaultconfig.NewDefaultsConfigFromConfigMap,
 		},

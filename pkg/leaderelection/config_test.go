@@ -24,19 +24,16 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	. "knative.dev/pkg/configmap/testing"
 	kle "knative.dev/pkg/leaderelection"
 )
 
 func okConfig() *kle.Config {
 	return &kle.Config{
-		ResourceLock:      "leases",
-		LeaseDuration:     15 * time.Second,
-		RenewDeadline:     10 * time.Second,
-		RetryPeriod:       2 * time.Second,
-		EnabledComponents: sets.NewString("controller"),
+		ResourceLock:  "leases",
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
 	}
 }
 
@@ -71,19 +68,11 @@ func TestValidateConfig(t *testing.T) {
 			return data
 		}(),
 		err: errors.New(`failed to parse "renewDeadline": time: invalid duration not a duration`),
-	}, {
-		name: "invalid component",
-		data: func() map[string]string {
-			data := okData()
-			data["enabledComponents"] = "controller,frobulator"
-			return data
-		}(),
-		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller"]`),
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
+			actualConfig, actualErr := NewLeaderElectionConfigFromConfigMap(&corev1.ConfigMap{Data: tc.data})
 			if tc.err != nil && tc.err.Error() != actualErr.Error() {
 				t.Fatalf("%v: expected error %v, got %v", tc.name, tc.err, actualErr)
 			}
@@ -112,16 +101,15 @@ func TestServingConfig(t *testing.T) {
 	}, {
 		name: "Example config",
 		want: &kle.Config{
-			ResourceLock:      "leases",
-			LeaseDuration:     15 * time.Second,
-			RenewDeadline:     10 * time.Second,
-			RetryPeriod:       2 * time.Second,
-			EnabledComponents: validComponents,
+			ResourceLock:  "leases",
+			LeaseDuration: 15 * time.Second,
+			RenewDeadline: 10 * time.Second,
+			RetryPeriod:   2 * time.Second,
 		},
 		data: example,
 	}} {
 		t.Run(test.name, func(t *testing.T) {
-			cm, err := ValidateConfig(test.data)
+			cm, err := NewLeaderElectionConfigFromConfigMap(test.data)
 			if err != nil {
 				t.Fatal("Error parsing config =", err)
 			}

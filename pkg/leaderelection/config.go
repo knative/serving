@@ -17,35 +17,11 @@ limitations under the License.
 package leaderelection
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	kle "knative.dev/pkg/leaderelection"
 )
 
-var (
-	validComponents = sets.NewString(
-		"controller",
-		"hpaautoscaler",
-		"certcontroller",
-		"istiocontroller",
-		"nscontroller")
-)
-
-// ValidateConfig enriches the leader election config validation
-// with extra validations specific to serving.
-func ValidateConfig(configMap *corev1.ConfigMap) (*kle.Config, error) {
-	config, err := kle.NewConfigFromMap(configMap.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	for component := range config.EnabledComponents {
-		if !validComponents.Has(component) {
-			return nil, fmt.Errorf("invalid enabledComponent %q: valid values are %q", component, validComponents.List())
-		}
-	}
-
-	return config, nil
+// NewLeaderElectionConfigFromConfigMap creates a leader election Config from the supplied ConfigMap.
+func NewLeaderElectionConfigFromConfigMap(configMap *corev1.ConfigMap) (*kle.Config, error) {
+	return kle.NewConfigFromMap(configMap.Data)
 }

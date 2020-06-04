@@ -84,6 +84,8 @@ spec:
             - name: k-kubelet-probe
               value: "webhook"
         livenessProbe: *probe
+        args:
+        - "--leader-election-disabled"
 
 ---
 apiVersion: v1
