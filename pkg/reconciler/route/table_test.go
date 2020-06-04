@@ -2559,11 +2559,23 @@ func simpleIngress(t *testing.T, r *v1.Route, tc *traffic.Config, io ...IngressO
 	return baseIngressWithClass(t, r, tc, TestIngressClass, io...)
 }
 
-func ingressWithClass(t *testing.T, r *v1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
+func ingressWithClass(
+	t *testing.T,
+	r *v1.Route,
+	tc *traffic.Config,
+	class string,
+	io ...IngressOption,
+) *netv1alpha1.Ingress {
 	return baseIngressWithClass(t, r, tc, class, io...)
 }
 
-func baseIngressWithClass(t *testing.T, r *v1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
+func baseIngressWithClass(
+	t *testing.T,
+	r *v1.Route,
+	tc *traffic.Config,
+	class string,
+	io ...IngressOption,
+) *netv1alpha1.Ingress {
 	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
