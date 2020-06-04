@@ -237,23 +237,15 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
-	// TODO: How should defaults.RevisionTimeoutSeconds be worked into this?
-
-	var (
-		// TODO: What should be the minimum duration? defaults.RevisionTimeoutSeconds may not be appropriate.
-		// In particular, as coded this can't set a timeout shorter than defaults.RevisionTimeoutSeconds; is that actually desirable?
-		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
-		sawDuration               = false
-	)
+	var timeout *time.Duration
 
 	for _, t := range targets {
 		if t.Percent == nil || *t.Percent == 0 {
 			continue
 		}
 
-		if t.Timeout != nil && duration.Nanoseconds() < t.Timeout.Nanoseconds() {
-			duration = *t.Timeout
-			sawDuration = true
+		if t.Timeout != nil && (timeout == nil || *timeout < *t.Timeout) {
+			timeout = t.Timeout
 		}
 
 		splits = append(splits, netv1alpha1.IngressBackendSplit{
@@ -272,15 +264,22 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 		})
 	}
 
-	var timeout *metav1.Duration
-	if sawDuration {
-		if duration > time.Duration(defaults.MaxRevisionTimeoutSeconds)*time.Second {
-			duration = time.Duration(defaults.MaxRevisionTimeoutSeconds) * time.Second
+	var timeoutDuration *metav1.Duration
+
+	if timeout != nil {
+		if timeout.Seconds() > float64(defaults.MaxRevisionTimeoutSeconds) {
+			var t = time.Duration(defaults.MaxRevisionTimeoutSeconds) * time.Second
+			timeout = &t
 		}
-		timeout = &metav1.Duration{Duration: duration}
+
+		// TODO: How should defaults.RevisionTimeoutSeconds be worked into this?
+
+		// TODO: What should be the minimum duration?
+
+		timeoutDuration = &metav1.Duration{Duration: *timeout}
 	}
 	return &netv1alpha1.HTTPIngressPath{
 		Splits:  splits,
-		Timeout: timeout,
+		Timeout: timeoutDuration,
 	}
 }
