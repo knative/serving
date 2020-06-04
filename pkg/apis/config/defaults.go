@@ -24,6 +24,7 @@ import (
 	"math"
 	"text/template"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,16 +48,29 @@ const (
 	DefaultUserContainerName = "user-container"
 
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
-	DefaultContainerConcurrency int64 = 0
+	DefaultContainerConcurrency = 0
 
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
-	DefaultMaxRevisionContainerConcurrency int64 = 1000
+	DefaultMaxRevisionContainerConcurrency = 1000
 
 	// DefaultAllowContainerConcurrencyZero is whether, by default,
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
-	DefaultAllowContainerConcurrencyZero bool = true
+	DefaultAllowContainerConcurrencyZero = true
 )
+
+var (
+	templateCache *lru.Cache
+
+	// Verify the default template is valid.
+	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store 10 latest templates.
+	templateCache, _ = lru.New(10)
+}
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
@@ -113,6 +127,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
 		return nil, fmt.Errorf("error executing template: %w", err)
 	}
+	templateCache.Add(nc.UserContainerNameTemplate, tmpl)
 
 	return nc, nil
 }
@@ -151,8 +166,14 @@ type Defaults struct {
 
 // UserContainerName returns the name of the user container based on the context.
 func (d *Defaults) UserContainerName(ctx context.Context) string {
-	tmpl := template.Must(
-		template.New("user-container").Parse(d.UserContainerNameTemplate))
+	var tmpl *template.Template
+	if tt, ok := templateCache.Get(d.UserContainerNameTemplate); ok {
+		tmpl = tt.(*template.Template)
+	} else {
+		// Fallback for unit tests.
+		tmpl = template.Must(
+			template.New("user-container").Parse(d.UserContainerNameTemplate))
+	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
