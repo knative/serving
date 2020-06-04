@@ -127,7 +127,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 		if err != nil {
 			return true, err
 		}
-		return ing.Status.IsReady(), nil
+		return ing.IsReady(), nil
 	}); err != nil {
 		return nil, err
 	}

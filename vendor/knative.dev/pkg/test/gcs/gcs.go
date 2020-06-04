@@ -120,7 +120,7 @@ func (g *GCSClient) list(ctx context.Context, bucketName, storagePath, exclusion
 	if err != nil {
 		return nil, err
 	}
-	var filePaths []string
+	filePaths := make([]string, 0, len(objsAttrs))
 	for _, attrs := range objsAttrs {
 		filePaths = append(filePaths, path.Join(attrs.Prefix, attrs.Name))
 	}

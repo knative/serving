@@ -78,7 +78,8 @@ func TestSSTypicalFlow(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, ServerlessServiceConditionReady, t)
 
 	// Or another way to check the same condition.
-	if !r.IsReady() {
+	ss := &ServerlessService{Status: *r}
+	if !ss.IsReady() {
 		t.Error("IsReady=false, want: true")
 	}
 	r.MarkEndpointsNotReady("random")
