@@ -125,12 +125,12 @@ func TestMetricCollectorScraper(t *testing.T) {
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const (
-		reportConcurrency = 10.0
-		reportRPS         = 20.0
-		wantConcurrency   = 3 * 10. // In 3 seconds we'll scrape 3 times.
-		wantRPS           = 3 * 20.
-		wantPConcurrency  = 3 * 10.
-		wantPRPS          = 3 * 20.
+		reportConcurrency = 10
+		reportRPS         = 20
+		wantConcurrency   = 3 * 10 // In 3 seconds we'll scrape 3 times.
+		wantRPS           = 3 * 20
+		wantPConcurrency  = 3 * 10
+		wantPRPS          = 3 * 20
 	)
 	stat := Stat{
 		Time:                      now,
@@ -506,9 +506,9 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
 	}
 	now := time.Now()
-	for i := 0; i < 10; i++ {
+	for i := time.Duration(0); i < 10; i++ {
 		stat := Stat{
-			Time:                      now.Add(time.Duration(i) * time.Second),
+			Time:                      now.Add(i * time.Second),
 			PodName:                   "testPod",
 			AverageConcurrentRequests: float64(i + 5),
 			RequestCount:              float64(i + 5),
@@ -516,7 +516,7 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		c.record(stat)
 	}
 
-	now = now.Add(time.Duration(9) * time.Second)
+	now = now.Add(9 * time.Second)
 	if c.concurrencyBuckets.IsEmpty(now) {
 		t.Fatal("Unexpected NoData error")
 	}
