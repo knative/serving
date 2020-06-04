@@ -491,7 +491,12 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 	cfg.Network.TagHeaderBasedRouting = true
 	ctx := config.ToContext(context.Background(), cfg)
 
-	ci, err := MakeIngressSpec(ctx, r, nil, targets, nil /* visibility */)
+	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	ci, err := MakeIngressSpec(ctx, r, nil, targets, nil /* visibility */, *defaultsConfig)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
