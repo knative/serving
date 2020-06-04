@@ -212,6 +212,34 @@ func TestProbeQueueNotReady(t *testing.T) {
 	}
 }
 
+func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusGone)
+	})
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	start := time.Now()
+	if err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port}); err == nil {
+		t.Error("probeQueueHealthPath did not fail")
+	}
+
+	// if fails due to timeout and not cancelation, then it took too long
+	if time.Since(start) >= 1*time.Second {
+		t.Error("took too long to fail")
+	}
+}
+
 func TestProbeQueueReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
