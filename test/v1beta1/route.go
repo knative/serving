@@ -118,8 +118,8 @@ func IsRouteFailed(r *v1beta1.Route) (bool, error) {
 
 // RetryingRouteInconsistency conditionally retries common requests seen when creating a new route.
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
-	var successes int
 	if test.ServingFlags.IngressRetries > 0 {
+		var successes int
 		return func(resp *spoof.Response) (bool, error) {
 			success, err := innerCheck(resp)
 			if !success {
