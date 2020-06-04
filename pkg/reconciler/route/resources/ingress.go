@@ -240,7 +240,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults de
 	var (
 		// TODO: What should be the minimum duration?
 		duration    time.Duration = time.Duration(defaults.RevisionTimeoutSeconds) * time.Minute
-		sawDuration bool          = false
+		sawDuration               = false
 	)
 
 	for _, t := range targets {
@@ -269,7 +269,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults de
 		})
 	}
 
-	var timeout *metav1.Duration = nil
+	var timeout *metav1.Duration
 	if sawDuration {
 		timeout = &metav1.Duration{Duration: duration}
 	}
