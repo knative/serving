@@ -28,8 +28,6 @@ You must install these tools:
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
    built in (1.13 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
-1. [`dep`](https://github.com/golang/dep): For managing external Go
-   dependencies.
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
@@ -262,15 +260,15 @@ of:
   - The `_example` value of config maps (to keep the
     `knative.dev/example-checksum` label in sync).
 
-- **If you change a package's deps** (including adding external dep), then you
-  must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
+- **If you change a package's deps** (including adding an external dependency),
+  then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
 These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
 diffs for each pull request.
 
-update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies
-are required, you need to run "dep ensure -update package-name" manually.
+update-deps.sh runs go get/mod command. In some cases, if newer dependencies
+are required, you need to run "go get" manually.
 
 Once the codegen and dependency information is correct, redeploying the
 controller is simply:
@@ -281,6 +279,14 @@ ko apply -f config/controller.yaml
 
 Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
 [completely redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
+
+### Updating existing dependencies
+
+To update existing dependencies execute
+
+```shell
+./hack/update-deps.sh --upgrade && ./hack/update-codegen.sh
+```
 
 ## Clean up
 
