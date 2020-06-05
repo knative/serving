@@ -20,6 +20,8 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     knative.dev/example-checksum: "cf88a4cf"
+  annotations:
+    knative.dev/example-checksum: cf88a4cf
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
