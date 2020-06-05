@@ -21,7 +21,7 @@ metadata:
     serving.knative.dev/release: devel
     knative.dev/example-checksum: "327d2082"
   annotations:
-    knative.dev/example-checksum: 327d2082
+    knative.dev/example-checksum: aa261100
 data:
   _example: |
     ################################
