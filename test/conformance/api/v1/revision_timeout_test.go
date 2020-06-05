@@ -75,7 +75,7 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 
 	t.Logf("Response status code: %v, expected: %v", resp.StatusCode, expectedResponseCode)
 	if expectedResponseCode != resp.StatusCode {
-		return fmt.Errorf("response status code = %v, want: %v", resp.StatusCode, expectedResponseCode)
+		return fmt.Errorf("response status code = %v, want = %v, response = %v", resp.StatusCode, expectedResponseCode, resp)
 	}
 	return nil
 }
@@ -94,13 +94,13 @@ func TestRevisionTimeout(t *testing.T) {
 	}{{
 		name:           "when scaling up from 0 and does not exceed timeout seconds",
 		shouldScaleTo0: true,
-		timeoutSeconds: 10,
+		timeoutSeconds: 20,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "when scaling up from 0 and it writes first byte before timeout",
 		shouldScaleTo0: true,
-		timeoutSeconds: 10,
-		sleep:          15 * time.Second,
+		timeoutSeconds: 20,
+		sleep:          25 * time.Second,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "when scaling up from 0 and it does exceed timeout seconds",
