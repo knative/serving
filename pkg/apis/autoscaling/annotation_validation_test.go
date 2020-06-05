@@ -38,8 +38,8 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{},
 	}, {
 		name:        "invalid class",
-		annotations: map[string]string{ClassAnnotationKey: "unsupport.knative.dev"},
-		expectErr:   "invalid value: unsupport.knative.dev: " + ClassAnnotationKey,
+		annotations: map[string]string{ClassAnnotationKey: "unsupported.knative.dev"},
+		expectErr:   "invalid value: unsupported.knative.dev: " + ClassAnnotationKey,
 	}, {
 		name:        "non-knative.dev domain class",
 		annotations: map[string]string{ClassAnnotationKey: "some.other.domain"},
