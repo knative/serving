@@ -19,7 +19,6 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-    knative.dev/example-checksum: "cf88a4cf"
   annotations:
     knative.dev/example-checksum: 3d5b261a
 data:
