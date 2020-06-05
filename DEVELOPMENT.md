@@ -208,8 +208,10 @@ ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml
 ```
 
-The above step is equivalent to applying the `serving-crds.yaml` and
-`serving-core.yaml` for released versions of Knative Serving.
+The above step is equivalent to applying the `serving-crds.yaml`,
+`serving-core.yaml`, `serving-hpa.yaml` and `serving-nscert.yaml` for released
+versions of Knative Serving and additionally applying **net-istio** as the
+ingress implementation.
 
 You can see things running with:
 
