@@ -42,11 +42,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsDuration("leaseDuration", &config.LeaseDuration),
 		cm.AsDuration("renewDeadline", &config.RenewDeadline),
 		cm.AsDuration("retryPeriod", &config.RetryPeriod),
-
-		// enabledComponents are not validated here, because they are dependent on
-		// the component. Components should provide additional validation for this
-		// field.
-		cm.AsStringSet("enabledComponents", &config.EnabledComponents),
 	); err != nil {
 		return nil, err
 	}
@@ -71,35 +66,18 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // contained within a single namespace. Typically these will correspond to a
 // single source repository, viz: serving or eventing.
 type Config struct {
-	ResourceLock      string
-	LeaseDuration     time.Duration
-	RenewDeadline     time.Duration
-	RetryPeriod       time.Duration
-	EnabledComponents sets.String
-}
-
-func (c *Config) GetComponentConfig(name string) ComponentConfig {
-	if c.EnabledComponents.Has(name) {
-		return ComponentConfig{
-			Component:     name,
-			LeaderElect:   true,
-			ResourceLock:  c.ResourceLock,
-			LeaseDuration: c.LeaseDuration,
-			RenewDeadline: c.RenewDeadline,
-			RetryPeriod:   c.RetryPeriod,
-		}
-	}
-
-	return defaultComponentConfig(name)
+	ResourceLock  string
+	LeaseDuration time.Duration
+	RenewDeadline time.Duration
+	RetryPeriod   time.Duration
 }
 
 func defaultConfig() *Config {
 	return &Config{
-		ResourceLock:      "leases",
-		LeaseDuration:     15 * time.Second,
-		RenewDeadline:     10 * time.Second,
-		RetryPeriod:       2 * time.Second,
-		EnabledComponents: sets.NewString(),
+		ResourceLock:  "leases",
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
 	}
 }
 

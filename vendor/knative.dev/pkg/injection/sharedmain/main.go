@@ -58,6 +58,15 @@ import (
 	"knative.dev/pkg/webhook"
 )
 
+var (
+	masterURL = flag.String("master", "",
+		"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "",
+		"Path to a kubeconfig. Only required if out-of-cluster.")
+	leaderElectionDisabled = flag.Bool("leader-election-disabled", false,
+		"Set this flag to true to disable leader election.")
+)
+
 // GetConfig returns a rest.Config to be used for kubernetes client creation.
 // It does so in the following order:
 //   1. Use the passed kubeconfig/masterURL.
@@ -127,16 +136,20 @@ func Main(component string, ctors ...injection.ControllerConstructor) {
 // MainWithContext runs the generic main flow for non-webhook controllers. Use
 // WebhookMainWithContext if you need to serve webhooks.
 func MainWithContext(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
-	MainWithConfig(ctx, component, ParseAndGetConfigOrDie(), ctors...)
+	MainWithConfig(ctx, component, ctors...)
 }
 
 // MainWithConfig runs the generic main flow for non-webhook controllers. Use
 // WebhookMainWithConfig if you need to serve webhooks.
-func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, ctors ...injection.ControllerConstructor) {
+func MainWithConfig(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 	log.Printf("Registering %d controllers", len(ctors))
+
+	flag.Parse()
+
+	cfg := GetConfigOrDie()
 
 	MemStatsOrDie(ctx)
 
@@ -186,35 +199,37 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 		<-ctx.Done()
 	}
 
-	// Set up leader election config
-	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
-	if err != nil {
-		logger.Fatalw("Error loading leader election configuration", zap.Error(err))
-	}
-	leConfig := leaderElectionConfig.GetComponentConfig(component)
-
-	if !leConfig.LeaderElect {
+	if *leaderElectionDisabled {
 		logger.Infof("%v will not run in leader-elected mode", component)
 		run(ctx)
 	} else {
-		RunLeaderElected(ctx, logger, run, leConfig)
+		// Set up leader election config.
+		leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
+		if err != nil {
+			logger.Fatalw("Error loading leader election configuration", zap.Error(err))
+		}
+		RunLeaderElected(ctx, logger, run, component, leaderElectionConfig)
 	}
 }
 
 // WebhookMainWithContext runs the generic main flow for controllers and
 // webhooks. Use MainWithContext if you do not need to serve webhooks.
 func WebhookMainWithContext(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
-	WebhookMainWithConfig(ctx, component, ParseAndGetConfigOrDie(), ctors...)
+	WebhookMainWithConfig(ctx, component, ctors...)
 }
 
 // WebhookMainWithConfig runs the generic main flow for controllers and webhooks
 // with the given config. Use MainWithConfig if you do not need to serve
 // webhooks.
-func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Config, ctors ...injection.ControllerConstructor) {
+func WebhookMainWithConfig(ctx context.Context, component string, ctors ...injection.ControllerConstructor) {
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 	log.Printf("Registering %d controllers", len(ctors))
+
+	flag.Parse()
+
+	cfg := GetConfigOrDie()
 
 	MemStatsOrDie(ctx)
 
@@ -285,22 +300,12 @@ func flush(logger *zap.SugaredLogger) {
 	metrics.FlushExporter()
 }
 
-// ParseAndGetConfigOrDie parses the rest config flags and creates a client or
-// dies by calling log.Fatalf.
-func ParseAndGetConfigOrDie() *rest.Config {
-	var (
-		masterURL = flag.String("master", "",
-			"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-		kubeconfig = flag.String("kubeconfig", "",
-			"Path to a kubeconfig. Only required if out-of-cluster.")
-	)
-	flag.Parse()
-
+// GetConfigOrDie creates a client from flags or dies by calling log.Fatalf.
+func GetConfigOrDie() *rest.Config {
 	cfg, err := GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
 		log.Fatalf("Error building kubeconfig: %v", err)
 	}
-
 	return cfg
 }
 
@@ -417,7 +422,7 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 
 // RunLeaderElected runs the given function in leader elected mode. The function
 // will be run only once the leader election lock is obtained.
-func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(context.Context), leConfig kle.ComponentConfig) {
+func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(context.Context), component string, leConfig *kle.Config) {
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		// Create event broadcaster
@@ -429,7 +434,7 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 				&typedcorev1.EventSinkImpl{Interface: kubeclient.Get(ctx).CoreV1().Events(system.Namespace())}),
 		}
 		recorder = eventBroadcaster.NewRecorder(
-			scheme.Scheme, corev1.EventSource{Component: leConfig.Component})
+			scheme.Scheme, corev1.EventSource{Component: component})
 		go func() {
 			<-ctx.Done()
 			for _, w := range watches {
@@ -444,12 +449,12 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 	if err != nil {
 		logger.Fatalw("Failed to get unique ID for leader election", zap.Error(err))
 	}
-	logger.Infof("%v will run in leader-elected mode with id %v", leConfig.Component, id)
+	logger.Infof("%v will run in leader-elected mode with id %v", component, id)
 
 	// rl is the resource used to hold the leader election lock.
 	rl, err := resourcelock.New(leConfig.ResourceLock,
 		system.Namespace(), // use namespace we are running in
-		leConfig.Component, // component is used as the resource name
+		component,          // component is used as the resource name
 		kubeclient.Get(ctx).CoreV1(),
 		kubeclient.Get(ctx).CoordinationV1(),
 		resourcelock.ResourceLockConfig{
@@ -474,6 +479,6 @@ func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(c
 		},
 		ReleaseOnCancel: true,
 		// TODO: use health check watchdog, knative/pkg#1048
-		Name: leConfig.Component,
+		Name: component,
 	})
 }
