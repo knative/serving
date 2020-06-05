@@ -62,11 +62,15 @@ go mod vendor
 echo "Applying patches"
 git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
 
+echo "Removing unwanted vendor files"
+
 # Remove unwanted vendor files
 find vendor/ \( -name "OWNERS" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
 
 export GOFLAGS=-mod=vendor
 
+echo "Updating licenses"
 update_licenses third_party/VENDOR-LICENSE "./..."
 
+echo "Removing broken symlinks"
 remove_broken_symlinks ./vendor
