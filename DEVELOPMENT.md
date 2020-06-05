@@ -217,13 +217,15 @@ You can see things running with:
 
 ```console
 kubectl -n knative-serving get pods
-NAME                                READY   STATUS      RESTARTS   AGE
-activator-5b87795885-f8t7k          2/2     Running     0          18m
-autoscaler-6495f7f79d-86jsr         2/2     Running     0          18m
-controller-5fd7fddc58-klmt4         1/1     Running     0          18m
-default-domain-6hs98                0/1     Completed   0          13s
-networking-istio-6755db495d-wtj4d   1/1     Running     0          18m
-webhook-84b8c9886d-dsqqv            1/1     Running     0          18m
+NAME                                  READY   STATUS    RESTARTS   AGE
+activator-7454cd659f-rrz86            1/1     Running   0          105s
+autoscaler-58cbfd4985-fl5h7           1/1     Running   0          105s
+autoscaler-hpa-77964b9b8c-9sbgq       1/1     Running   0          105s
+controller-847b7cc977-5mvvq           1/1     Running   0          105s
+istio-webhook-69bf66f869-cgc4l        1/1     Running   0          105s
+networking-istio-dcf7944fb-5m25h      1/1     Running   0          105s
+networking-ns-cert-56c58544db-sgstd   1/1     Running   0          105s
+webhook-6b6c77567f-flr59              1/1     Running   0          105s
 ```
 
 You can access the Knative Serving Controller's logs with:
