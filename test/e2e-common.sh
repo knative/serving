@@ -305,11 +305,12 @@ function install_knative_serving_standard() {
   else
     # Download the latest release of Knative Serving.
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-    local yaml="serving.yaml"
 
     local SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
-    wget "${url}/${yaml}" -O "${SERVING_RELEASE_YAML}" \
-      || fail_test "Unable to download latest knative/serving release."
+    wget "${url}/serving-crds.yaml" -O "${SERVING_RELEASE_YAML}" \
+      || fail_test "Unable to download latest knative/serving CRD file."
+    wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
+      || fail_test "Unable to download latest knative/serving core file."
 
     # Replace the default system namespace with the test's system namespace.
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
@@ -375,10 +376,8 @@ function install_knative_serving_standard() {
     fi
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
-    # If we are installing from provided yaml, then only install non-istio bits here,
-    # and if we choose to install istio below, then pass the whole file as the rest.
     # We use ko because it has better filtering support for CRDs.
-    ko apply -f "${SERVING_RELEASE_YAML}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
+    ko apply -f "${SERVING_RELEASE_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
 
     if (( INSTALL_MONITORING )); then

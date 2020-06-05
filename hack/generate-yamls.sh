@@ -48,7 +48,6 @@ fi
 rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 
 # Generated Knative component YAML files
-readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
 readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
@@ -98,11 +97,6 @@ ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
-# Create serving.yaml with all of the default components
-cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
-cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
-cat "./third_party/net-istio.yaml" >> "${SERVING_YAML}"
-
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/metrics/prometheus \
@@ -145,10 +139,9 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f con
 
 echo "All manifests generated"
 
-# List generated YAML files, with serving.yaml first.
+# List generated YAML files, with serving-core.yaml first.
 
 cat << EOF > ${YAML_LIST_FILE}
-${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
 ${SERVING_STORAGE_VERSION_MIGRATE_YAML}
