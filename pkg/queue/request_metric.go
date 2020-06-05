@@ -61,8 +61,9 @@ var (
 )
 
 const (
-	defaultTargetName   = "default"
-	undefinedTargetName = "undefined"
+	defaultTagName   = "DEFAULT"
+	undefinedTagName = "UNDEFINED"
+	disabledTagName  = "DISABLED"
 )
 
 type requestMetricsHandler struct {
@@ -214,14 +215,14 @@ func GetRouteTagNameFromRequest(r *http.Request) string {
 		if isDefaultRoute == "" {
 			// If there are no tag header and no `Knative-Serving-Default-Route` header,
 			// it means that the tag header based routing is disabled, so the tag value is set to `disabled`.
-			return "disabled"
+			return disabledTagName
 		}
 		// If there is no tag header, just returns "default".
-		return defaultTargetName
+		return defaultTagName
 	} else if isDefaultRoute == "true" {
 		// If there is a tag header with not-empty string and the request is routed via the default route,
 		// returns "undefined".
-		return undefinedTargetName
+		return undefinedTagName
 	}
 	// Otherwise, returns the value of the tag header.
 	return name

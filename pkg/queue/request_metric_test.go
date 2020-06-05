@@ -57,7 +57,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
-		"tag":                             "disabled",
+		"tag":                             disabledTagName,
 	}
 
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
@@ -104,7 +104,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	req.Header.Del(network.TagHeaderName)
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
-	wantTags["tag"] = "default"
+	wantTags["tag"] = defaultTagName
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	reset()
@@ -112,7 +112,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
-	wantTags["tag"] = "undefined"
+	wantTags["tag"] = undefinedTagName
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	reset()
@@ -156,7 +156,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
-			"tag":                             "disabled",
+			"tag":                             disabledTagName,
 		}
 		metricstest.CheckCountData(t, "request_count", wantTags, 1)
 		metricstest.CheckDistributionCount(t, "request_latencies", wantTags, 1) // Dummy latency range.
