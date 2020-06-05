@@ -267,8 +267,8 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
 diffs for each pull request.
 
-update-deps.sh runs go get/mod command. In some cases, if newer dependencies
-are required, you need to run "go get" manually.
+update-deps.sh runs go get/mod command. In some cases, if newer dependencies are
+required, you need to run "go get" manually.
 
 Once the codegen and dependency information is correct, redeploying the
 controller is simply:
