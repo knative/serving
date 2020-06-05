@@ -151,6 +151,7 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 // waitForLog fetches the logs from a container of a pod decided by the given parameters
 // until the given condition is meet or timeout. Most of knative logs are in json format.
 func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log map[string]interface{}) bool) error {
+	var buf bytes.Buffer
 	return wait.PollImmediate(time.Second, 30*time.Second, func() (bool, error) {
 		podLogOpts := corev1.PodLogOptions{Container: container}
 
@@ -161,8 +162,8 @@ func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 		}
 		defer podLogs.Close()
 
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, podLogs)
+		buf.Reset()
+		_, err = io.Copy(&buf, podLogs)
 		if err != nil {
 			return false, err
 		}
