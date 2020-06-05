@@ -68,11 +68,6 @@ const (
 	controllerNum   = 2
 )
 
-var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-)
-
 func main() {
 	// Initialize early to get access to flags and merge them with the autoscaler flags.
 	customMetricsAdapter := &basecmd.AdapterBase{}
@@ -89,10 +84,7 @@ func main() {
 		log.Fatal("Error exporting go memstats view: ", err)
 	}
 
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatal("Error building kubeconfig: ", err)
-	}
+	cfg := sharedmain.GetConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
@@ -107,6 +99,7 @@ func main() {
 
 	kubeClient := kubeclient.Get(ctx)
 
+	var err error
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
