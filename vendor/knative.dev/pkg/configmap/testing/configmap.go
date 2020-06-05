@@ -83,12 +83,12 @@ func ConfigMapsFromTestFile(t *testing.T, name string, allowed ...string) (*core
 		}
 	}
 
-	// Check that the hashed exampleBody matches the assigned label, if present.
-	gotChecksum, hasExampleChecksumLabel := orig.Labels[configmap.ExampleChecksumLabel]
-	if hasExampleBody && hasExampleChecksumLabel {
+	// Check that the hashed exampleBody matches the assigned annotation, if present.
+	gotChecksum, hasExampleChecksumAnnotation := orig.Annotations[configmap.ExampleChecksumAnnotation]
+	if hasExampleBody && hasExampleChecksumAnnotation {
 		wantChecksum := configmap.Checksum(exampleBody)
 		if gotChecksum != wantChecksum {
-			t.Errorf("example checksum label = %s, want %s", gotChecksum, wantChecksum)
+			t.Errorf("example checksum annotation = %s, want %s", gotChecksum, wantChecksum)
 		}
 	}
 
