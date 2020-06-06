@@ -43,7 +43,7 @@ You must install these tools:
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
-   - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
+   - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/quickstart)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
    - If developing locally with Docker or Minikube, you can set
      `KO_DOCKER_REPO=ko.local` (preferred) or use the `-L` flag to `ko` to build
