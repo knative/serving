@@ -165,7 +165,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	)
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomChoice2
+		lbp = randomChoice2Policy
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = firstAvailableLBPolicy

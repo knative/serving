@@ -38,8 +38,8 @@ func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTrack
 	return noop, targets[rand.Intn(len(targets))]
 }
 
-// randomChoice2 implements the Power of 2 choices LB algorithm
-func randomChoice2(_ context.Context, targets []*podTracker) (func(), *podTracker) {
+// randomChoice2Policy implements the Power of 2 choices LB algorithm
+func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
 	// Avoid random if possible.
 	l := len(targets)
 	// One tracker = no choice.
@@ -50,12 +50,12 @@ func randomChoice2(_ context.Context, targets []*podTracker) (func(), *podTracke
 		}, targets[0]
 	}
 	r1, r2 := 0, 1
-	// Two trackers - we know the both contestants,
+	// Two trackers - we know both contestants,
 	// otherwise pick 2 random unequal integers.
 	if l > 2 {
-		r1, r2 = rand.Intn(l), rand.Intn(l)
-		for r1 == r2 {
-			r2 = rand.Intn(l)
+		r1, r2 = rand.Intn(l), rand.Intn(l-1)
+		if r2 >= r1 {
+			r2++
 		}
 	}
 
