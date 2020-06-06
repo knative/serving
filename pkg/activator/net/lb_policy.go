@@ -36,7 +36,7 @@ func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTrack
 	return noop, targets[rand.Intn(len(targets))]
 }
 
-// randomChoice2 implementes the Power of 2 choices LB algorithm
+// randomChoice2 implements the Power of 2 choices LB algorithm
 func randomChoice2(_ context.Context, targets []*podTracker) (func(), *podTracker) {
 	// Avoid random if possible.
 	l := len(targets)
