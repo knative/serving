@@ -28,12 +28,13 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-//This test checks if the activator can probe
-//the service when istio end user auth policy is
+//TestProbeWhitelist checks if the activator can probe
+//the service when istio end user auth is
 //applied on the service.
 //This test needs istio side car injected and
 //istio policy check enabled.
-//policy is present in test/config/security/policy.yaml
+//request authentication is present in test/config/security/request_authentication_svc.yaml
+//authorization policy is present in test/config/security/authorization_service.yaml
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
 	t.Parallel()
@@ -43,7 +44,8 @@ func TestProbeWhitelist(t *testing.T) {
 	clients := SetupServingNamespaceforSecurityTesting(t)
 
 	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
+		//explicit service name instead of random one for using in request authentication match labels
+		Service: "probe-whitelist-test-svc",
 		Image:   "helloworld",
 	}
 
@@ -61,7 +63,7 @@ func TestProbeWhitelist(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUnauthorized))),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusForbidden))),
 		"HelloWorldServesAuthFailed",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
@@ -70,6 +72,6 @@ func TestProbeWhitelist(t *testing.T) {
 		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {
 			t.Skip("Side car not enabled, skipping test")
 		}
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status %d: %v", url, names.Route, http.StatusUnauthorized, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status %d: %v", url, names.Route, http.StatusForbidden, err)
 	}
 }

@@ -41,3 +41,22 @@ spec:
        # serving-tests
        # * This is for access to k8s services from serving-tests. e.g TestVisibilitySplit
        namespaces: ["knative-serving", "istio-system", "serving-tests"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: probe-whitelist-authz-policy
+  namespace: serving-tests-security
+  labels:
+    test.knative.dev/dependency: istio-sidecar
+spec:
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths:
+        - /metrics
+        - /healthz
+  selector:
+    matchLabels:
+      serving.knative.dev/service: probe-whitelist-test-svc
