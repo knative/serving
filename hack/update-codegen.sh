@@ -28,6 +28,9 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vend
 
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
+# Make sure our dependencies are up-to-date
+${REPO_ROOT_DIR}/hack/update-deps.sh
+
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
@@ -84,6 +87,3 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/logging \
   -i knative.dev/serving/pkg/metrics \
   -i knative.dev/serving/pkg/network
-
-# Make sure our dependencies are up-to-date
-${REPO_ROOT_DIR}/hack/update-deps.sh
