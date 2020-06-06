@@ -70,6 +70,16 @@ var (
 type podTracker struct {
 	dest string
 	b    breaker
+	// weight is used for LB policy implementations.
+	weight int32
+}
+
+func (p *podTracker) addWeight(w int32) {
+	atomic.AddInt32(&p.weight, w)
+}
+
+func (p *podTracker) getWeight() int32 {
+	return atomic.LoadInt32(&p.weight)
 }
 
 func (p *podTracker) String() string {
@@ -155,7 +165,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	)
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomLBPolicy
+		lbp = randomChoice2
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = firstAvailableLBPolicy

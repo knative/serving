@@ -36,6 +36,39 @@ func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTrack
 	return noop, targets[rand.Intn(len(targets))]
 }
 
+// randomChoice2 implements the Power of 2 choices LB algorithm
+func randomChoice2(_ context.Context, targets []*podTracker) (func(), *podTracker) {
+	// Avoid random if possible.
+	l := len(targets)
+	// One tracker = no choice.
+	if l == 1 {
+		targets[0].addWeight(1)
+		return func() {
+			targets[0].addWeight(-1)
+		}, targets[0]
+	}
+	r1, r2 := 0, 1
+	// Two trackers - we know the both contestants,
+	// otherwise pick 2 random unequal integers.
+	if l > 2 {
+		r1, r2 = rand.Intn(l), rand.Intn(l)
+		for r1 == r2 {
+			r2 = rand.Intn(l)
+		}
+	}
+
+	t1, t2 := targets[r1], targets[r2]
+	// Possible race here, but this policy is for CC=0,
+	// so fine.
+	if t1.getWeight() > t2.getWeight() {
+		t1, t2 = t2, t1
+	}
+	t1.addWeight(1)
+	return func() {
+		t1.addWeight(-1)
+	}, t1
+}
+
 // firstAvailableLBPolicy is a load balancer policy, that picks the first target
 // that has capacity to serve the request right now.
 func firstAvailableLBPolicy(ctx context.Context, targets []*podTracker) (func(), *podTracker) {
