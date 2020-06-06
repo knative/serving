@@ -38,8 +38,12 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vend
 
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
+# Make sure our codegen tool's dependencies are up-to-date
+${REPO_ROOT_DIR}/hack/update-deps.sh
+
 chmod +x ${CODEGEN_PKG}/generate-groups.sh
 chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
+
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -85,5 +89,6 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/metrics \
   -i knative.dev/serving/pkg/network
 
-# Make sure our dependencies are up-to-date
+# Make sure our generated code's dependencies are updated.
 ${REPO_ROOT_DIR}/hack/update-deps.sh
+
