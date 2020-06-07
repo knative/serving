@@ -40,7 +40,7 @@ import (
 //    a. Update Labels
 //    b. Update Annotations
 func TestRunLatestService(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -180,7 +180,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1al
 }
 
 func TestRunLatestServiceBYOName(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
