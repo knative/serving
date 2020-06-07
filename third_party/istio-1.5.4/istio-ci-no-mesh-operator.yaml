@@ -27,14 +27,14 @@ spec:
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
     pilot:
-      autoscaleMin: 3
-      autoscaleMax: 10
+      autoscaleMin: 6
+      autoscaleMax: 20
       cpu:
         targetAverageUtilization: 60
     gateways:
       istio-ingressgateway:
-        autoscaleMin: 2
-        autoscaleMax: 5
+        autoscaleMin: 4
+        autoscaleMax: 10
 
   addonComponents:
     pilot:
@@ -43,17 +43,23 @@ spec:
       enabled: false
 
   components:
+    pilot:
+      k8s:
+        resources:
+          requests:
+            cpu: 1000m # override from default 500m
+            memory: 4096Mi # ... default 2048Mi
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
         k8s:
           resources:
             limits:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 6000m
+              memory: 4096Mi
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 2000m
+              memory: 2048Mi
           service:
             type: LoadBalancer
             ports:
@@ -77,11 +83,11 @@ spec:
         k8s:
           resources:
             limits:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 6000m
+              memory: 4096Mi
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 2000m
+              memory: 2048Mi
           service:
             type: ClusterIP
             ports:

@@ -18,8 +18,8 @@ metadata:
     app: istiod
     release: istio
 spec:
-  maxReplicas: 10
-  minReplicas: 3
+  maxReplicas: 20
+  minReplicas: 6
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -436,8 +436,8 @@ data:
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
-    autoscaleMax: 10
-    autoscaleMin: 3
+    autoscaleMax: 20
+    autoscaleMin: 6
     configMap: true
     configNamespace: istio-config
     configSource:
@@ -8671,11 +8671,11 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 3000m
-            memory: 2048Mi
+            cpu: 6000m
+            memory: 4096Mi
           requests:
-            cpu: 1000m
-            memory: 1024Mi
+            cpu: 2000m
+            memory: 2048Mi
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -8725,8 +8725,8 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 5
-  minReplicas: 2
+  maxReplicas: 10
+  minReplicas: 4
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -8989,11 +8989,11 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 3000m
-            memory: 2048Mi
+            cpu: 6000m
+            memory: 4096Mi
           requests:
-            cpu: 1000m
-            memory: 1024Mi
+            cpu: 2000m
+            memory: 2048Mi
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -9088,8 +9088,8 @@ metadata:
     
     release: istio
 spec:
-  maxReplicas: 5
-  minReplicas: 2
+  maxReplicas: 10
+  minReplicas: 4
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9164,8 +9164,8 @@ metadata:
     app: istiod
     release: istio
 spec:
-  maxReplicas: 10
-  minReplicas: 3
+  maxReplicas: 20
+  minReplicas: 6
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9582,8 +9582,8 @@ data:
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
-    autoscaleMax: 10
-    autoscaleMin: 3
+    autoscaleMax: 20
+    autoscaleMin: 6
     configMap: true
     configNamespace: istio-config
     configSource:
@@ -9857,8 +9857,8 @@ spec:
           timeoutSeconds: 5
         resources:
           requests:
-            cpu: 500m
-            memory: 2048Mi
+            cpu: 1000m
+            memory: 4096Mi
         securityContext:
           capabilities:
             drop:
