@@ -20,11 +20,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {

@@ -28,6 +28,7 @@ import (
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
+	"knative.dev/networking/pkg/apis/networking"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -37,7 +38,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"

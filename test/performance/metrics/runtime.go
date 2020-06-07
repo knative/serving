@@ -24,9 +24,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242

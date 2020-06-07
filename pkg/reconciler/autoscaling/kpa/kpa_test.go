@@ -28,6 +28,9 @@ import (
 
 	// These are the fake informers we want setup.
 
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
@@ -39,7 +42,6 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
@@ -57,6 +59,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -70,7 +73,6 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -1008,9 +1010,10 @@ func TestReconcile(t *testing.T) {
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				Client:       servingclient.Get(ctx),
-				SKSLister:    listers.GetServerlessServiceLister(),
-				MetricLister: listers.GetMetricLister(),
+				Client:           servingclient.Get(ctx),
+				NetworkingClient: networkingclient.Get(ctx),
+				SKSLister:        listers.GetServerlessServiceLister(),
+				MetricLister:     listers.GetMetricLister(),
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			podsLister:      listers.GetPodsLister(),
@@ -1102,7 +1105,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	sks.Status.PrivateServiceName = "bogus"
 
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1168,7 +1171,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kpa := revisionresources.MakePA(rev)
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 
 	sksl := fakesksinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -1244,7 +1247,7 @@ func TestUpdate(t *testing.T) {
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, sks.Status.PrivateServiceName)
@@ -1311,7 +1314,7 @@ func TestControllerCreateError(t *testing.T) {
 
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	sks.Status.PrivateServiceName = "bogus"
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1347,7 +1350,7 @@ func TestControllerUpdateError(t *testing.T) {
 
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	sks.Status.PrivateServiceName = "bogus"
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1382,7 +1385,7 @@ func TestControllerGetError(t *testing.T) {
 
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	sks.Status.PrivateServiceName = "bogus"
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)

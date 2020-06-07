@@ -22,9 +22,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	net "knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/ptr"
-	net "knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"

@@ -32,14 +32,14 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
+	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 )

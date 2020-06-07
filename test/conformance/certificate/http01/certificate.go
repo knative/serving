@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
 	utils "knative.dev/serving/test/conformance/certificate"
 )

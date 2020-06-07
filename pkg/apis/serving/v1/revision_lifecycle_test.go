@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -35,7 +36,6 @@ import (
 	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
-	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
 

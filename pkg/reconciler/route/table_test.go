@@ -29,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
@@ -39,8 +42,6 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -1814,6 +1815,7 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			kubeclient:          kubeclient.Get(ctx),
 			client:              servingclient.Get(ctx),
+			netclient:           networkingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -2366,6 +2368,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		r := &Reconciler{
 			kubeclient:          kubeclient.Get(ctx),
 			client:              servingclient.Get(ctx),
+			netclient:           networkingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
@@ -2485,6 +2488,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 		r := &Reconciler{
 			kubeclient:          kubeclient.Get(ctx),
 			client:              servingclient.Get(ctx),
+			netclient:           networkingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),

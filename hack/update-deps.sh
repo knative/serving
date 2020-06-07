@@ -34,6 +34,7 @@ VERSION="master"
 FLOATING_DEPS=(
   "knative.dev/test-infra@${VERSION}"
   "knative.dev/pkg@${VERSION}"
+  "knative.dev/networking@${VERSION}"
   "knative.dev/caching@${VERSION}"
 )
 

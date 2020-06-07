@@ -25,7 +25,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 

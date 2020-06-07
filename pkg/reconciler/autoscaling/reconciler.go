@@ -20,12 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
+	nlisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	nlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
@@ -37,9 +38,10 @@ import (
 
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
-	Client       clientset.Interface
-	SKSLister    nlisters.ServerlessServiceLister
-	MetricLister listers.MetricLister
+	Client           clientset.Interface
+	NetworkingClient netclientset.Interface
+	SKSLister        nlisters.ServerlessServiceLister
+	MetricLister     listers.MetricLister
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
@@ -52,7 +54,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 	if errors.IsNotFound(err) {
 		logger.Info("SKS does not exist; creating.")
 		sks = resources.MakeSKS(pa, mode, numActivators)
-		if _, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks); err != nil {
+		if _, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks); err != nil {
 			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
 		logger.Info("Created SKS")
@@ -67,7 +69,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
-			if sks, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			if sks, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}
 		}

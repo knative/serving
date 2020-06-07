@@ -21,13 +21,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/networking/pkg/client/injection/client"
+	kcertinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	nsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace"
 	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
-	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/serving/pkg/network"
@@ -48,7 +48,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	knCertificateInformer := kcertinformer.Get(ctx)
 
 	c := &reconciler{
-		client:              servingclient.Get(ctx),
+		client:              client.Get(ctx),
 		knCertificateLister: knCertificateInformer.Lister(),
 	}
 

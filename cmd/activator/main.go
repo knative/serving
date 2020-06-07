@@ -39,6 +39,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -58,7 +59,6 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
 	apiconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
