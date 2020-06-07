@@ -33,7 +33,6 @@ import (
 //applied on the service.
 //This test needs istio side car injected and
 //istio policy check enabled.
-//request authentication is present in test/config/security/request_authentication_svc.yaml
 //authorization policy is present in test/config/security/authorization_service.yaml
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
@@ -44,7 +43,7 @@ func TestProbeWhitelist(t *testing.T) {
 	clients := SetupServingNamespaceforSecurityTesting(t)
 
 	names := test.ResourceNames{
-		//explicit service name instead of random one for using in request authentication match labels
+		//explicit service name instead of random one for using in auth policy match labels
 		Service: "probe-whitelist-test-svc",
 		Image:   "helloworld",
 	}
