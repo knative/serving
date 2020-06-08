@@ -299,10 +299,11 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 
 	patcher := r.Client.NetworkingV1alpha1().Ingresses(resource.Namespace)
 
-	resource, err = patcher.Patch(resource.Name, types.MergePatchType, patch)
+	resourceName := resource.Name
+	resource, err = patcher.Patch(resourceName, types.MergePatchType, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q: %v", resource.Name, err)
+			"Failed to update finalizers for %q: %v", resourceName, err)
 	} else {
 		r.Recorder.Eventf(resource, v1.EventTypeNormal, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())
