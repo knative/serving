@@ -169,6 +169,11 @@ func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEn
 }
 
 func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
+	// If downwardAPILabelsPath is empty, feature is disabled.
+	if downwardAPILabelsPath == "" {
+		return false, nil
+	}
+
 	// Short circuit a rejection when no label path file is mounted
 	if _, err := os.Stat(downwardAPILabelsPath); os.IsNotExist(err) {
 		return false, nil

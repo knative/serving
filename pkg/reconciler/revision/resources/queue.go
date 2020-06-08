@@ -226,9 +226,11 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 	ports = append(ports, servingPort)
 
+	scaleDownLabelPath := ""
 	var volumeMounts []corev1.VolumeMount
 	if autoscalerConfig.EnableGracefulScaledown {
 		volumeMounts = append(volumeMounts, labelVolumeMount)
+		scaleDownLabelPath = fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)
 	}
 
 	container := rev.Spec.GetContainer()
@@ -322,7 +324,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+			Value: scaleDownLabelPath,
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,

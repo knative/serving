@@ -727,7 +727,7 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
 	"METRICS_DOMAIN":                        metrics.Domain(),
 	"QUEUE_SERVING_PORT":                    "8012",
-	"DOWNWARD_API_LABELS_PATH":              fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+	"DOWNWARD_API_LABELS_PATH":              "",
 	"ENABLE_PROFILING":                      "false",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",
 }
