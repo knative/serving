@@ -29,6 +29,7 @@ import (
 	equality "k8s.io/apimachinery/pkg/api/equality"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -63,8 +64,30 @@ type Finalizer interface {
 	FinalizeKind(ctx context.Context, o *v1.Namespace) reconciler.Event
 }
 
+// ReadOnlyInterface defines the strongly typed interfaces to be implemented by a
+// controller reconciling v1.Namespace if they want to process resources for which
+// they are not the leader.
+type ReadOnlyInterface interface {
+	// ObserveKind implements logic to observe v1.Namespace.
+	// This method should not write to the API.
+	ObserveKind(ctx context.Context, o *v1.Namespace) reconciler.Event
+}
+
+// ReadOnlyFinalizer defines the strongly typed interfaces to be implemented by a
+// controller finalizing v1.Namespace if they want to process tombstoned resources
+// even when they are not the leader.  Due to the nature of how finalizers are handled
+// there are no guarantees that this will be called.
+type ReadOnlyFinalizer interface {
+	// ObserveFinalizeKind implements custom logic to observe the final state of v1.Namespace.
+	// This method should not write to the API.
+	ObserveFinalizeKind(ctx context.Context, o *v1.Namespace) reconciler.Event
+}
+
 // reconcilerImpl implements controller.Reconciler for v1.Namespace resources.
 type reconcilerImpl struct {
+	// LeaderAwareFuncs is inlined to help us implement reconciler.LeaderAware
+	reconciler.LeaderAwareFuncs
+
 	// Client is used to write back status updates.
 	Client kubernetes.Interface
 
@@ -89,13 +112,39 @@ type reconcilerImpl struct {
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*reconcilerImpl)(nil)
 
+// Check that our generated Reconciler is always LeaderAware.
+var _ reconciler.LeaderAware = (*reconcilerImpl)(nil)
+
 func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client kubernetes.Interface, lister corev1.NamespaceLister, recorder record.EventRecorder, r Interface, options ...controller.Options) controller.Reconciler {
 	// Check the options function input. It should be 0 or 1.
 	if len(options) > 1 {
 		logger.Fatalf("up to one options struct is supported, found %d", len(options))
 	}
 
+	// Fail fast when users inadvertently implement the other LeaderAware interface.
+	// For the typed reconcilers, Promote shouldn't take any arguments.
+	if _, ok := r.(reconciler.LeaderAware); ok {
+		logger.Fatalf("%T implements the incorrect LeaderAware interface.  Promote() should not take an argument as genreconciler handles the enqueuing automatically.", r)
+	}
+	// TODO: Consider validating when folks implement ReadOnlyFinalizer, but not Finalizer.
+
 	rec := &reconcilerImpl{
+		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
+			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				all, err := lister.List(labels.Everything())
+				if err != nil {
+					return err
+				}
+				for _, elt := range all {
+					// TODO: Consider letting users specify a filter in options.
+					enq(bkt, types.NamespacedName{
+						Namespace: elt.GetNamespace(),
+						Name:      elt.GetName(),
+					})
+				}
+				return nil
+			},
+		},
 		Client:        client,
 		Lister:        lister,
 		Recorder:      recorder,
@@ -119,6 +168,25 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client kubern
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
+	// Convert the namespace/name string into a distinct namespace and name
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorf("invalid resource key: %s", key)
+		return nil
+	}
+	// Establish whether we are the leader for use below.
+	isLeader := r.IsLeaderFor(types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	})
+	roi, isROI := r.reconciler.(ReadOnlyInterface)
+	rof, isROF := r.reconciler.(ReadOnlyFinalizer)
+	if !isLeader && !isROI && !isROF {
+		// If we are not the leader, and we don't implement either ReadOnly
+		// interface, then take a fast-path out.
+		return nil
+	}
+
 	// If configStore is set, attach the frozen configuration to the context.
 	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)
@@ -126,15 +194,6 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	// Add the recorder to context.
 	ctx = controller.WithEventRecorder(ctx, r.Recorder)
-
-	// Convert the namespace/name string into a distinct namespace and name
-
-	_, name, err := cache.SplitMetaNamespaceKey(key)
-
-	if err != nil {
-		logger.Errorf("invalid resource key: %s", key)
-		return nil
-	}
 
 	// Get the resource with this namespace/name.
 
@@ -155,20 +214,28 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	var reconcileEvent reconciler.Event
 	if resource.GetDeletionTimestamp().IsZero() {
-		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
+		if isLeader {
+			// Append the target method to the logger.
+			logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
-		// Set and update the finalizer on resource if r.reconciler
-		// implements Finalizer.
-		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
-			return fmt.Errorf("failed to set finalizers: %w", err)
+			// Set and update the finalizer on resource if r.reconciler
+			// implements Finalizer.
+			if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
+				return fmt.Errorf("failed to set finalizers: %w", err)
+			}
+
+			// Reconcile this copy of the resource and then write back any status
+			// updates regardless of whether the reconciliation errored out.
+			reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
+		} else if isROI {
+			// Append the target method to the logger.
+			logger = logger.With(zap.String("targetMethod", "ObserveKind"))
+
+			// Observe any changes to this resource, since we are not the leader.
+			reconcileEvent = roi.ObserveKind(ctx, resource)
 		}
-
-		// Reconcile this copy of the resource and then write back any status
-		// updates regardless of whether the reconciliation errored out.
-		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
-
-	} else if fin, ok := r.reconciler.(Finalizer); ok {
+	} else if fin, ok := r.reconciler.(Finalizer); isLeader && ok {
 		// Append the target method to the logger.
 		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
 
@@ -178,6 +245,12 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
+	} else if !isLeader && isROF {
+		// Append the target method to the logger.
+		logger = logger.With(zap.String("targetMethod", "ObserveFinalizeKind"))
+
+		// For finalizing reconcilers, just observe when we aren't the leader.
+		reconcileEvent = rof.ObserveFinalizeKind(ctx, resource)
 	}
 
 	// Synchronize the status.
@@ -186,6 +259,9 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the injectionInformer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
+	} else if !isLeader {
+		logger.Warn("Saw status changes when we aren't the leader!")
+		// TODO: Consider logging the diff at Debug?
 	} else if err = r.updateStatus(original, resource); err != nil {
 		logger.Warnw("Failed to update resource status", zap.Error(err))
 		r.Recorder.Eventf(resource, v1.EventTypeWarning, "UpdateFailed",

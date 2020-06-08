@@ -54,6 +54,10 @@ func conversionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Con
 
 		ctx := logging.WithLogger(r.Context(), logger)
 		response := apixv1.ConversionReview{
+			// Use the same type meta as the request - this is required by the K8s API
+			// note: v1beta1 & v1 ConversionReview shapes are identical so even though
+			// we're using v1 types we still support v1beta1 conversion requests
+			TypeMeta: review.TypeMeta,
 			Response: c.Convert(ctx, review.Request),
 		}
 
