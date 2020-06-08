@@ -54,6 +54,9 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// otherwise pick 2 random unequal integers.
 	if l > 2 {
 		r1, r2 = rand.Intn(l), rand.Intn(l-1)
+		// shift second half of second rand.Intn down so we're picking
+		// from range of numbers other than r1.
+		// i.e. rand.Intn(l-1) range is now from range [0,r1),[r1+1,l).
 		if r2 >= r1 {
 			r2++
 		}
