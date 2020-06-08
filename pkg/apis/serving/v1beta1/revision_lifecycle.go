@@ -18,18 +18,11 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/apis"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
 	// DefaultUserPort is the system default port value exposed on the user-container.
 	DefaultUserPort = 8080
-)
-
-var revisionCondSet = apis.NewLivingConditionSet(
-	v1.RevisionConditionResourcesAvailable,
-	v1.RevisionConditionContainerHealthy,
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.

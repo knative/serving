@@ -68,19 +68,24 @@ func process(data []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	labels := traverse(content, "metadata", "labels")
-	if labels == nil {
-		// TODO(markusthoemmes): Potentially handle missing metadata and labels?
-		return nil, errors.New("'metadata.labels' not found")
+	metadata := traverse(content, "metadata")
+	if metadata == nil {
+		return nil, errors.New("'metadata' not found")
+	}
+
+	annotations := traverse(metadata, "annotations")
+	if annotations == nil {
+		annotations = &yaml.Node{Kind: yaml.MappingNode}
+		metadata.Content = append(metadata.Content, strNode("annotations"), annotations)
 	}
 
 	checksum := configmap.Checksum(example.Value)
-	existingLabel := value(labels, configmap.ExampleChecksumLabel)
-	if existingLabel != nil {
-		existingLabel.Value = checksum
+	existingAnnotation := value(annotations, configmap.ExampleChecksumAnnotation)
+	if existingAnnotation != nil {
+		existingAnnotation.Value = checksum
 	} else {
-		labels.Content = append(labels.Content,
-			strNode(configmap.ExampleChecksumLabel),
+		annotations.Content = append(annotations.Content,
+			strNode(configmap.ExampleChecksumAnnotation),
 			strNode(checksum))
 	}
 

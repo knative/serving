@@ -32,8 +32,46 @@ type lbPolicy func(ctx context.Context, targets []*podTracker) (func(), *podTrac
 
 // randomLBPolicy is a load balancer policy that picks a random target.
 // This approximates the LB policy done by K8s Service (IPTables based).
+//
+// nolint // This is currently unused but kept here for posterity.
 func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
 	return noop, targets[rand.Intn(len(targets))]
+}
+
+// randomChoice2Policy implements the Power of 2 choices LB algorithm
+func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
+	// Avoid random if possible.
+	l := len(targets)
+	// One tracker = no choice.
+	if l == 1 {
+		targets[0].addWeight(1)
+		return func() {
+			targets[0].addWeight(-1)
+		}, targets[0]
+	}
+	r1, r2 := 0, 1
+	// Two trackers - we know both contestants,
+	// otherwise pick 2 random unequal integers.
+	if l > 2 {
+		r1, r2 = rand.Intn(l), rand.Intn(l-1)
+		// shift second half of second rand.Intn down so we're picking
+		// from range of numbers other than r1.
+		// i.e. rand.Intn(l-1) range is now from range [0,r1),[r1+1,l).
+		if r2 >= r1 {
+			r2++
+		}
+	}
+
+	pick, alt := targets[r1], targets[r2]
+	// Possible race here, but this policy is for CC=0,
+	// so fine.
+	if pick.getWeight() > alt.getWeight() {
+		pick = alt
+	}
+	pick.addWeight(1)
+	return func() {
+		pick.addWeight(-1)
+	}, pick
 }
 
 // firstAvailableLBPolicy is a load balancer policy, that picks the first target

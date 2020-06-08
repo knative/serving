@@ -18,13 +18,6 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/apis"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-)
-
-var serviceCondSet = apis.NewLivingConditionSet(
-	v1.ServiceConditionConfigurationsReady,
-	v1.ServiceConditionRoutesReady,
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.

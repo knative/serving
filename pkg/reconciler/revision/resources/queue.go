@@ -25,13 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -226,9 +226,11 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 	ports = append(ports, servingPort)
 
+	scaleDownLabelPath := ""
 	var volumeMounts []corev1.VolumeMount
 	if autoscalerConfig.EnableGracefulScaledown {
 		volumeMounts = append(volumeMounts, labelVolumeMount)
+		scaleDownLabelPath = fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)
 	}
 
 	container := rev.Spec.GetContainer()
@@ -322,7 +324,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+			Value: scaleDownLabelPath,
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,

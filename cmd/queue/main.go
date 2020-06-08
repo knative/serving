@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -49,7 +50,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	activatorutil "knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
@@ -169,8 +169,8 @@ func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEn
 }
 
 func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
-	// Short circuit a rejection when no label path file is mounted
-	if _, err := os.Stat(downwardAPILabelsPath); os.IsNotExist(err) {
+	// If downwardAPILabelsPath is empty, feature is disabled.
+	if downwardAPILabelsPath == "" {
 		return false, nil
 	}
 

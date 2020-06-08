@@ -19,11 +19,12 @@ package route
 import (
 	"context"
 
+	netclient "knative.dev/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
-	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
@@ -72,6 +73,7 @@ func newControllerWithClock(
 	c := &Reconciler{
 		kubeclient:          kubeclient.Get(ctx),
 		client:              servingclient.Get(ctx),
+		netclient:           netclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),

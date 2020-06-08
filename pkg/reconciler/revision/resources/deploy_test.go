@@ -29,12 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -163,7 +163,7 @@ var (
 			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+			Value: "",
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
@@ -774,13 +774,25 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
+		name: "with graceful scaledown disabled",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+		),
+		ac: autoscalerconfig.Config{
+			EnableGracefulScaledown: false,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(),
+				queueContainer(
+					withEnvVar("DOWNWARD_API_LABELS_PATH", ""),
+				),
+			},
+		),
+	}, {
 		name: "with graceful scaledown enabled",
 		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
+			withContainers(containers),
 			WithContainerStatuses([]v1.ContainerStatuses{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),

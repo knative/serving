@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -68,8 +69,8 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
 		ctx, istioClient := fakeistioclient.With(ctx, ls.GetIstioObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
-		ctx, dynamicClient := fakedynamicclient.With(ctx,
-			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
+		ctx, netclient := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
+		ctx, dynamicClient := fakedynamicclient.With(ctx, ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
@@ -106,6 +107,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			kubeClient.PrependReactor("*", "*", reactor)
 			istioClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
+			netclient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 		}
@@ -120,7 +122,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, kubeClient, cachingClient}
+		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, netclient, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList
