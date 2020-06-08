@@ -38,6 +38,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -45,7 +46,6 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"

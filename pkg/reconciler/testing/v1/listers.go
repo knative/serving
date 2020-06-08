@@ -30,24 +30,26 @@ import (
 	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "knative.dev/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
+	networking "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
+	istiolisters "knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3"
+	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	networking "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	fakeistioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned/fake"
-	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
-	fakekubeclientset.AddToScheme,
-	fakeistioclientset.AddToScheme,
-	fakeservingclientset.AddToScheme,
-	fakecachingclientset.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
+	fakecachingclientset.AddToScheme,
+	fakeistioclientset.AddToScheme,
+	fakekubeclientset.AddToScheme,
+	fakenetworkingclientset.AddToScheme,
+	fakeservingclientset.AddToScheme,
 }
 
 type Listers struct {
@@ -94,6 +96,10 @@ func (l *Listers) GetCachingObjects() []runtime.Object {
 
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
+}
+
+func (l *Listers) GetNetworkingObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakenetworkingclientset.AddToScheme)
 }
 
 func (l *Listers) GetIstioObjects() []runtime.Object {

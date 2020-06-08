@@ -21,7 +21,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	net "knative.dev/serving/pkg/apis/networking"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
 

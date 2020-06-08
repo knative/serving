@@ -24,10 +24,11 @@ import (
 	"time"
 
 	// Inject the informers this controller depends on.
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
@@ -45,14 +46,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
@@ -192,7 +193,7 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Rout
 			serving.RouteNamespaceLabelKey: route.Namespace,
 		}).String(),
 	}
-	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
+	ingresses, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
 	if err != nil {
 		t.Errorf("Ingress.Get(%v) = %v", opts, err)
 	}

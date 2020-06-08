@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"

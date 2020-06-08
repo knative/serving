@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
 )
 
 const (
