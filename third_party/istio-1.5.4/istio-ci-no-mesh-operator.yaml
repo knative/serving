@@ -26,40 +26,47 @@ spec:
       # The third-party-jwt is not enabled on all k8s.
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
-    pilot:
-      autoscaleMin: 15
-      autoscaleMax: 15
-      cpu:
-        targetAverageUtilization: 60
-    gateways:
-      istio-ingressgateway:
-        autoscaleMin: 4
-        autoscaleMax: 10
 
   addonComponents:
-    pilot:
-      enabled: true
     prometheus:
       enabled: false
 
   components:
     pilot:
+      enabled: true
       k8s:
+        hpaSpec:
+          maxReplicas: 10
+          minReplicas: 2
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-pilot
         resources:
+          limits:
+            cpu: 5800m
+            memory: 12G
           requests:
-            cpu: 1000m # override from default 500m
-            memory: 4096Mi # ... default 2048Mi
+            cpu: 4800m
+            memory: 2G
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
         k8s:
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 3
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-ingressgateway
           resources:
             limits:
               cpu: 6000m
-              memory: 4096Mi
+              memory: 512Mi
             requests:
-              cpu: 2000m
-              memory: 2048Mi
+              cpu: 4000m
+              memory: 512Mi
           service:
             type: LoadBalancer
             ports:
@@ -81,13 +88,20 @@ spec:
       - name: cluster-local-gateway
         enabled: true
         k8s:
+          hpaSpec:
+            maxReplicas: 5
+            minReplicas: 3
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: istio-ingressgateway
           resources:
             limits:
               cpu: 6000m
-              memory: 4096Mi
+              memory: 512Mi
             requests:
-              cpu: 2000m
-              memory: 2048Mi
+              cpu: 4000m
+              memory: 512Mi
           service:
             type: ClusterIP
             ports:
