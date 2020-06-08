@@ -174,11 +174,6 @@ func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 		return false, nil
 	}
 
-	// Short circuit a rejection when no label path file is mounted
-	if _, err := os.Stat(downwardAPILabelsPath); os.IsNotExist(err) {
-		return false, nil
-	}
-
 	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
 	if err != nil {
 		return false, err
