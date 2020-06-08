@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ import (
 func TestRandomChoice2(t *testing.T) {
 	t.Run("1 tracker", func(t *testing.T) {
 		podTrackers := makeTrackers(1, 0)
-		cb, pt := randomChoice2(context.Background(), podTrackers)
+		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		t.Cleanup(cb)
 		if got, want := pt.dest, podTrackers[0].dest; got != want {
 			t.Errorf("pt.dest = %s, want: %s", got, want)
@@ -36,7 +37,7 @@ func TestRandomChoice2(t *testing.T) {
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
-		cb, pt = randomChoice2(context.Background(), podTrackers)
+		cb, pt = randomChoice2Policy(context.Background(), podTrackers)
 		if got, want := pt.dest, podTrackers[0].dest; got != want {
 			t.Errorf("pt.dest = %s, want: %s", got, want)
 		}
@@ -50,21 +51,21 @@ func TestRandomChoice2(t *testing.T) {
 	})
 	t.Run("2 trackers", func(t *testing.T) {
 		podTrackers := makeTrackers(2, 0)
-		cb, pt := randomChoice2(context.Background(), podTrackers)
+		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		t.Cleanup(cb)
 		wantW := int32(1) // to avoid casting on every check.
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
 		// Must return a different one.
-		cb, pt = randomChoice2(context.Background(), podTrackers)
+		cb, pt = randomChoice2Policy(context.Background(), podTrackers)
 		dest := pt.dest
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
 		cb()
 		// Should return the same one.
-		_, pt = randomChoice2(context.Background(), podTrackers)
+		_, pt = randomChoice2Policy(context.Background(), podTrackers)
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
@@ -74,20 +75,20 @@ func TestRandomChoice2(t *testing.T) {
 	})
 	t.Run("3 trackers", func(t *testing.T) {
 		podTrackers := makeTrackers(3, 0)
-		cb, pt := randomChoice2(context.Background(), podTrackers)
+		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		t.Cleanup(cb)
 		wantW := int32(1) // to avoid casting on every check.
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
 		// Must return a different one.
-		cb, pt = randomChoice2(context.Background(), podTrackers)
+		cb, pt = randomChoice2Policy(context.Background(), podTrackers)
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
 		cb()
 		// Should return same or the other unsued one.
-		_, pt = randomChoice2(context.Background(), podTrackers)
+		_, pt = randomChoice2Policy(context.Background(), podTrackers)
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
@@ -155,4 +156,40 @@ func TestFirstAvailable(t *testing.T) {
 			t.Errorf("Tracker = %s, want: %s", got, want)
 		}
 	})
+}
+
+func BenchmarkPolicy(b *testing.B) {
+	for _, test := range []struct {
+		name   string
+		policy lbPolicy
+	}{{
+		name:   "random",
+		policy: randomLBPolicy,
+	}, {
+		name:   "random-power-of-2-choice",
+		policy: randomChoice2Policy,
+	}, {
+		name:   "first-available",
+		policy: firstAvailableLBPolicy,
+	}} {
+		for _, n := range []int{1, 2, 3, 10, 100} {
+			b.Run(fmt.Sprintf("%s-%d-trackers-sequential", test.name, n), func(b *testing.B) {
+				targets := makeTrackers(n, 0)
+				for i := 0; i < b.N; i++ {
+					cb, _ := test.policy(nil, targets)
+					cb()
+				}
+			})
+
+			b.Run(fmt.Sprintf("%s-%d-trackers-parallel", test.name, n), func(b *testing.B) {
+				targets := makeTrackers(n, 0)
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						cb, _ := test.policy(nil, targets)
+						cb()
+					}
+				})
+			})
+		}
+	}
 }
