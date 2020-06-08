@@ -266,7 +266,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	if err != nil {
 		return err
 	}
-	if !rev.Status.IsReady() {
+	if !rev.IsReady() {
 		return errUnreadyRevision(rev)
 	}
 	ntt := tt.DeepCopy()

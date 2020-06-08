@@ -270,8 +270,74 @@ func TestRevisionIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+			r := Revision{Status: tc.status}
+			if got, want := r.IsReady(), tc.isReady; got != want {
 				t.Errorf("isReady =  %v want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestRevisionIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   RevisionStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   RevisionStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: RevisionStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RevisionConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Revision{Status: tc.status}
+			if e, a := tc.isFailed, r.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
 	}
