@@ -94,13 +94,13 @@ func TestRevisionTimeout(t *testing.T) {
 	}{{
 		name:           "when scaling up from 0 and does not exceed timeout seconds",
 		shouldScaleTo0: true,
-		timeoutSeconds: 20,
+		timeoutSeconds: 40,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "when scaling up from 0 and it writes first byte before timeout",
 		shouldScaleTo0: true,
-		timeoutSeconds: 20,
-		sleep:          25 * time.Second,
+		timeoutSeconds: 40,
+		sleep:          45 * time.Second,
 		expectedStatus: http.StatusOK,
 	}, {
 		name:           "when scaling up from 0 and it does exceed timeout seconds",
