@@ -502,29 +502,17 @@ func TestRouteLabelValidation(t *testing.T) {
 		r    *Route
 		want *apis.FieldError
 	}{{
-		name: "valid visibility name",
+		name: "visibility label specified",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "my-realm",
 				},
 			},
 			Spec: validRouteSpec,
 		},
 		want: nil,
-	}, {
-		name: "invalid visibility name",
-		r: &Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Labels: map[string]string{
-					serving.VisibilityLabelKey: "bad-value",
-				},
-			},
-			Spec: validRouteSpec,
-		},
-		want: apis.ErrInvalidValue("bad-value", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid knative service name",
 		r: &Route{

@@ -111,14 +111,6 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 	return nil
 }
 
-// ValidateClusterVisibilityLabel function validates the visibility label on a Route
-func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
-	if label != VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, VisibilityLabelKey)
-	}
-	return
-}
-
 // SetUserInfo sets creator and updater annotations
 func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
 	if ui := apis.GetUserInfo(ctx); ui != nil {

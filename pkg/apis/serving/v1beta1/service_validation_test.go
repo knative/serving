@@ -72,12 +72,12 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid visibility label",
+		name: "visibility label specified",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "my-realm",
 				},
 			},
 			Spec: v1.ServiceSpec{
@@ -116,21 +116,6 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
-	}, {
-		name: "invalid visibility label value",
-		r: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-				Labels: map[string]string{
-					serving.VisibilityLabelKey: "bad-label",
-				},
-			},
-			Spec: v1.ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec:         goodRouteSpec,
-			},
-		},
-		want: apis.ErrInvalidValue("bad-label", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid release",
 		r: &Service{

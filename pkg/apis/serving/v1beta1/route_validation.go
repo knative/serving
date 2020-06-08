@@ -48,7 +48,6 @@ func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
 		case key == serving.VisibilityLabelKey:
-			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):

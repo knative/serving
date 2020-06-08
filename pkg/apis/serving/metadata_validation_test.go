@@ -354,35 +354,6 @@ func TestValidateContainerConcurrency(t *testing.T) {
 	}
 }
 
-func TestValidateClusterVisibilityLabel(t *testing.T) {
-	tests := []struct {
-		name      string
-		label     string
-		expectErr *apis.FieldError
-	}{{
-		name:      "empty label",
-		label:     "",
-		expectErr: apis.ErrInvalidValue("", VisibilityLabelKey),
-	}, {
-		name:  "valid label",
-		label: VisibilityClusterLocal,
-	}, {
-		name:      "invalid label",
-		label:     "not-cluster-local",
-		expectErr: apis.ErrInvalidValue("not-cluster-local", VisibilityLabelKey),
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := ValidateClusterVisibilityLabel(test.label)
-			if got, want := err.Error(), test.expectErr.Error(); got != want {
-				t.Errorf("\nGot:  %q\nwant: %q", got, want)
-			}
-		})
-	}
-
-}
-
 type withPod struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
