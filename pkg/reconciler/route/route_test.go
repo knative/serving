@@ -1391,21 +1391,21 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("Reconcile() =", err)
 			}
 
+			wantDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
+			var gotDomain string
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				r, err := routeClient.Get(route.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
-				// Wait for the reconcile to propagate.
-				return !cmp.Equal(r.Status, route.Status), nil
+				// Wait for the domain to propagate.
+				if r.Status.URL == nil {
+					return false, nil
+				}
+				gotDomain = r.Status.URL.Host
+				return gotDomain == wantDomain, nil
 			}); err != nil {
-				t.Fatal("Failed to see route update propagation:", err)
-			}
-
-			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
-			if route.Status.URL.Host != expectedDomain {
-				t.Errorf("Domain = %q, want: %q", route.Status.URL.Host, expectedDomain)
+				t.Fatalf("Failed to see route domain propagation, got %s, want %s: %v", gotDomain, wantDomain, err)
 			}
 		})
 	}
