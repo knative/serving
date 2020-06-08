@@ -40,26 +40,11 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const request_log_template = `
-{"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "userAgent": "{{js .Request.UserAgent}}"}
-`
-
 func TestRequestLogs(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
 	clients := Setup(t)
-
-	// Patch config-observability to enable request logs
-	obcm, err := rawCM(clients, "config-observability")
-	if err != nil {
-		t.Errorf("Error retrieving observability configmap: %v", err)
-	}
-
-	patchedObcm := obcm.DeepCopy()
-	patchedObcm.Data["logging.request-log-template"] = request_log_template
-	patchedObcm.Data["logging.enable-probe-request-log"] = "true"
-	patchCM(clients, patchedObcm)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -67,7 +52,6 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	cleanup := func() {
-		patchCM(clients, obcm)
 		test.TearDown(clients, names)
 	}
 	test.CleanupOnInterrupt(cleanup)
@@ -96,7 +80,13 @@ func TestRequestLogs(t *testing.T) {
 
 	// A request was sent to / in WaitForEndpointState.
 	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		v, ok := log["requestUrl"]
+		r, ok := log["httpRequest"]
+		if !ok {
+			return false
+		}
+
+		m := r.(map[string]interface{})
+		v, ok := m["requestUrl"]
 		if !ok {
 			return false
 		}
@@ -104,7 +94,7 @@ func TestRequestLogs(t *testing.T) {
 			return false
 		}
 
-		v, ok = log["userAgent"]
+		v, ok = m["userAgent"]
 		if !ok {
 			return false
 		}
@@ -115,7 +105,13 @@ func TestRequestLogs(t *testing.T) {
 
 	// Health check requests are sent to / with a specific userAgent value periodically.
 	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		v, ok := log["requestUrl"]
+		r, ok := log["httpRequest"]
+		if !ok {
+			return false
+		}
+
+		m := r.(map[string]interface{})
+		v, ok := m["requestUrl"]
 		if !ok {
 			return false
 		}
@@ -123,7 +119,7 @@ func TestRequestLogs(t *testing.T) {
 			return false
 		}
 
-		v, ok = log["userAgent"]
+		v, ok = m["userAgent"]
 		if !ok {
 			return false
 		}
