@@ -27,8 +27,8 @@ spec:
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
     pilot:
-      autoscaleMin: 6
-      autoscaleMax: 20
+      autoscaleMin: 15
+      autoscaleMax: 15
       cpu:
         targetAverageUtilization: 60
     gateways:

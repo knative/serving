@@ -18,8 +18,8 @@ metadata:
     app: istiod
     release: istio
 spec:
-  maxReplicas: 20
-  minReplicas: 6
+  maxReplicas: 15
+  minReplicas: 15
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -436,8 +436,8 @@ data:
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
-    autoscaleMax: 20
-    autoscaleMin: 6
+    autoscaleMax: 15
+    autoscaleMin: 15
     configMap: true
     configNamespace: istio-config
     configSource:
@@ -9164,8 +9164,8 @@ metadata:
     app: istiod
     release: istio
 spec:
-  maxReplicas: 20
-  minReplicas: 6
+  maxReplicas: 15
+  minReplicas: 15
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9582,8 +9582,8 @@ data:
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
-    autoscaleMax: 20
-    autoscaleMin: 6
+    autoscaleMax: 15
+    autoscaleMin: 15
     configMap: true
     configNamespace: istio-config
     configSource:
