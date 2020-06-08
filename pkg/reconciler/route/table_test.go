@@ -39,7 +39,6 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	defaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -2576,11 +2575,7 @@ func baseIngressWithClass(
 	class string,
 	io ...IngressOption,
 ) *netv1alpha1.Ingress {
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
-	if err != nil {
-		t.Errorf("Unexpected error %v", err)
-	}
-	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class, *defaultsConfig)
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2594,11 +2589,7 @@ func ingressWithTLS(t *testing.T, r *v1.Route, tc *traffic.Config, tls []netv1al
 }
 
 func baseIngressWithTLS(t *testing.T, r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
-	defaultsConfig, err := defaults.NewDefaultsConfigFromMap(nil)
-	if err != nil {
-		t.Errorf("Unexpected error %v", err)
-	}
-	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, TestIngressClass, *defaultsConfig, challenges...)
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, TestIngressClass, challenges...)
 
 	for _, opt := range io {
 		opt(ingress)

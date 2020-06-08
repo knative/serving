@@ -57,10 +57,9 @@ func MakeIngress(
 	tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
-	defaults apisconfig.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, defaults, acmeChallenges...)
+	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +89,6 @@ func MakeIngressSpec(
 	tls []netv1alpha1.IngressTLS,
 	targets map[string]traffic.RevisionTargets,
 	visibility map[string]netv1alpha1.IngressVisibility,
-	defaults apisconfig.Defaults,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (netv1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
@@ -106,6 +104,8 @@ func MakeIngressSpec(
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
 	networkConfig := config.FromContext(ctx).Network
+
+	defaults := apisconfig.FromContextOrDefaults(ctx).Defaults
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -207,7 +207,7 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets, defaults apisconfig.Defaults) *netv1alpha1.IngressRule {
+func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets, defaults *apisconfig.Defaults) *netv1alpha1.IngressRule {
 	return &netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
@@ -219,7 +219,7 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string, defaults apisconfig.Defaults) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string, defaults *apisconfig.Defaults) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
@@ -233,7 +233,7 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults apisconfig.Defaults) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults *apisconfig.Defaults) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
@@ -267,13 +267,6 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults ap
 	var timeoutDuration *metav1.Duration
 
 	if timeout != nil {
-		if timeout.Seconds() > float64(defaults.MaxRevisionTimeoutSeconds) {
-			var t = time.Duration(defaults.MaxRevisionTimeoutSeconds) * time.Second
-			timeout = &t
-		}
-
-		// TODO: How should defaults.RevisionTimeoutSeconds be worked into this?
-
 		// TODO: What should be the minimum duration?
 
 		timeoutDuration = &metav1.Duration{Duration: *timeout}

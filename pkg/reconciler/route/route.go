@@ -34,7 +34,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
-	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -145,9 +144,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	cfg := apisconfig.FromContextOrDefaults(ctx)
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), *cfg.Defaults, acmeChallenges...)
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
 
 	if err != nil {
 		return err
@@ -169,9 +167,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	ingressClass string, defaultsConfig apisconfig.Defaults, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
+	ingressClass string, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
 
-	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, defaultsConfig, acmeChallenges...)
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
