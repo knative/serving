@@ -53,7 +53,7 @@ const (
 	testRevision  = "test-revision"
 
 	probeFreq     = 50 * time.Millisecond
-	updateTimeout = 6 * probeFreq
+	updateTimeout = 8 * probeFreq
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -441,7 +441,7 @@ func TestRevisionWatcher(t *testing.T) {
 				case update := <-updateCh:
 					updates = append(updates, update)
 				case <-time.After(updateTimeout):
-					t.Error("Timed out waiting for update event")
+					t.Fatal("Timed out waiting for update event")
 				}
 			}
 			if got, want := rw.podsAddressable, !tc.noPodAddressability; got != want {
