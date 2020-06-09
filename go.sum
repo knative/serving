@@ -1327,8 +1327,8 @@ knative.dev/pkg v0.0.0-20200603222317-b79e4a24ca50 h1:sbJMCCtOENPgfE5dUSwBUxZtJz
 knative.dev/pkg v0.0.0-20200603222317-b79e4a24ca50/go.mod h1:8IfPj/lpuKHHg82xZCl2wuFZ3BM96To72sN1W8T9wjQ=
 knative.dev/pkg v0.0.0-20200605170718-b7125260dc6f h1:2WVJ2b5Yws8klA2yCNkprY8EaQAR/mCVdV9XeI/4/Y0=
 knative.dev/pkg v0.0.0-20200605170718-b7125260dc6f/go.mod h1:ItJ3UvcHFt7qMoowI2uXfaGMWNGIMYAtzAbdsi+b0Cg=
-knative.dev/pkg v0.0.0-20200606224418-7ed1d4a552bc h1:oBoCkjjSI0Q2H4yWANAi3CgQ5XQAuOkGIgqvfU0Hk+E=
-knative.dev/pkg v0.0.0-20200606224418-7ed1d4a552bc/go.mod h1:ItJ3UvcHFt7qMoowI2uXfaGMWNGIMYAtzAbdsi+b0Cg=
+knative.dev/pkg v0.0.0-20200609135932-0c198ddb9228 h1:J4xAugpm7d1OdCPNdGC8lBM7JsOPRTooz1rhqpHAvg8=
+knative.dev/pkg v0.0.0-20200609135932-0c198ddb9228/go.mod h1:Ap/HE9hVqeI+/TtEmeClB61c6SFs6923AsU/juovj3w=
 knative.dev/sample-controller v0.0.0-20200510050845-bf7c19498b7e/go.mod h1:D2ZDLrR9Dq9LiiVN7TatzI7WMcEPgk1MHbbhgBKE6W8=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
@@ -1346,6 +1346,8 @@ knative.dev/test-infra v0.0.0-20200605033518-4b5d9e1bbdbe h1:8jvsC2cS3Xc/KOPnCOJ
 knative.dev/test-infra v0.0.0-20200605033518-4b5d9e1bbdbe/go.mod h1:wsGme3loBZjSjhuaTUhejJ34EOwKZ5KXkweKL0zSKhM=
 knative.dev/test-infra v0.0.0-20200606045118-14ebc4a42974 h1:CrZmlbB+j3ZF/aTrfyypY5ulX2w7XrkfeXKQsbkqzTg=
 knative.dev/test-infra v0.0.0-20200606045118-14ebc4a42974/go.mod h1://I6IZIF0QDgs5wotU243ZZ5cTpm6/GthayjUenBBc0=
+knative.dev/test-infra v0.0.0-20200608183332-3442736aebd0 h1:4vtwMZF9yw+onnENJC1IETToafDFuF/pEdPx3IyNz1w=
+knative.dev/test-infra v0.0.0-20200608183332-3442736aebd0/go.mod h1://I6IZIF0QDgs5wotU243ZZ5cTpm6/GthayjUenBBc0=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
