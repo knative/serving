@@ -50,7 +50,9 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	return errs
 }
 
-// validateLabels function validates service labels
+// validateLabels function validates service labels.
+// Any label with prefix serving.knative.dev is not allowed except
+// serving.knative.dev/visibility label.
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key := range s.GetLabels() {
 		switch {

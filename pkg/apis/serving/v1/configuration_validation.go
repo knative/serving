@@ -71,6 +71,8 @@ func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldE
 }
 
 // validateLabels function validates configuration labels
+// Any label with prefix serving.knative.dev is not allowed except
+// serving.knative.dev/visibility , serving.knative.dev/service, serving.knative.dev/route label.
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {

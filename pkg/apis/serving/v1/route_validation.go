@@ -207,6 +207,8 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // validateLabels function validates route labels.
+// Any label with prefix serving.knative.dev is not allowed except
+// serving.knative.dev/visibility , serving.knative.dev/service label.
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
