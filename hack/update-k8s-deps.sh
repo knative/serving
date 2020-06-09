@@ -57,8 +57,5 @@ OPENAPI_SHA=$(curl -L "https://api.github.com/repos/kubernetes/kube-openapi/git/
 
 update_module "k8s.io/kube-openapi" "${OPENAPI_SHA}"
 
-# See: https://github.com/kubernetes-sigs/custom-metrics-apiserver/issues/67
-echo "YOU MANUALLY NEED TO BUMP github.com/kubernetes-incubator/custom-metrics-apiserver"
-
 ./hack/update-deps.sh
 
