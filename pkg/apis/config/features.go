@@ -33,7 +33,8 @@ const (
 	Enabled Flag = "Enabled"
 	// Disabled turns off an optional behavior.
 	Disabled Flag = "Disabled"
-	// Allowed drops strict validation for optionally supported values.
+	// Allowed neither explicitly disables or enables a behavior.
+	// eg. allow a client to control behavior with an annotation or allow a new value through validation.
 	Allowed Flag = "Allowed"
 )
 
