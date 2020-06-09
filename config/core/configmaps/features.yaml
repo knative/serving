@@ -44,7 +44,7 @@ data:
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
     #
-    # When "allowed", the client may enable the behavior with the 
+    # When "allowed", the client may enable the behavior with the
     # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
     # When "enabled"  the server will always run the extra validation.
     podspec-dryrun: "allowed"
