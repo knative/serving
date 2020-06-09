@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -46,6 +47,13 @@ func TestControllerConfigurationFromFile(t *testing.T) {
 		want := defaultConfig()
 		// We require QSI to be explicitly set. So do it here.
 		want.QueueSidecarImage = "ko://knative.dev/serving/cmd/queue"
+
+		// The following are in the example yaml, to show usage,
+		// but default is nil, i.e. inheriting k8s.
+		// So for this test we ignore those, but verify the other fields.
+		got.QueueSidecarCPULimit = nil
+		got.QueueSidecarMemoryRequest, got.QueueSidecarMemoryLimit = nil, nil
+		got.QueueSidecarEphemeralStorageRequest, got.QueueSidecarEphemeralStorageLimit = nil, nil
 		if !cmp.Equal(got, want) {
 			t.Error("Example stanza does not match default, diff(-want,+got):", cmp.Diff(want, got))
 		}
@@ -63,6 +71,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
 			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -74,6 +83,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
 			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
@@ -85,11 +95,34 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
 			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
 			registriesSkippingTagResolvingKey: "ko.local,ko.dev",
+		},
+	}, {
+		name: "controller configuration with custom queue sidecar resource request/limits",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving:      sets.NewString("ko.local", "dev.local"),
+			QueueSidecarImage:                   defaultSidecarImage,
+			ProgressDeadline:                    ProgressDeadlineDefault,
+			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
+			QueueSidecarMemoryRequest:           resourcePtr(resource.MustParse("456M")),
+			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("789m")),
+			QueueSidecarCPULimit:                resourcePtr(resource.MustParse("987M")),
+			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("654m")),
+			QueueSidecarEphemeralStorageLimit:   resourcePtr(resource.MustParse("321M")),
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:                   defaultSidecarImage,
+			queueSidecarCPURequestKey:              "123m",
+			queueSidecarMemoryRequestKey:           "456M",
+			queueSidecarEphemeralStorageRequestKey: "789m",
+			queueSidecarCPULimitKey:                "987M",
+			queueSidecarMemoryLimitKey:             "654m",
+			queueSidecarEphemeralStorageLimitKey:   "321M",
 		},
 	}, {
 		name:    "controller with no side car image",
@@ -145,4 +178,8 @@ func TestControllerConfiguration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func resourcePtr(q resource.Quantity) *resource.Quantity {
+	return &q
 }
