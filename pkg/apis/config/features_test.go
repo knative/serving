@@ -59,18 +59,21 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr: false,
 		wantFeatures: &Features{
 			MultiContainer: Allowed,
+			PodSpecDryRun:  Disabled,
 		},
 		data: map[string]string{
 			"multi-container": "Allowed",
 		},
 	}, {
-		name:    "multi-container Enabled",
+		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: &Features{
 			MultiContainer: Enabled,
+			PodSpecDryRun:  Enabled,
 		},
 		data: map[string]string{
 			"multi-container": "Enabled",
+			"podspec-dryrun":  "Enabled",
 		},
 	}}
 
