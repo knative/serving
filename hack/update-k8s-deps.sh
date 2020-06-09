@@ -28,7 +28,6 @@ K8S_DEPS=(
   "k8s.io/apiserver"
   "k8s.io/code-generator"
   "k8s.io/client-go"
-  "k8s.io/metrics"
 )
 
 function update_module {
