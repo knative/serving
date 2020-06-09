@@ -84,6 +84,8 @@ func TestHelloWorld(t *testing.T) {
 	} else {
 		t.Fatalf("Failed to get Service name from Revision label")
 	}
+
+	t.Fatal("Intentionally fail this test")
 }
 
 func TestQueueSideCarResourceLimit(t *testing.T) {
