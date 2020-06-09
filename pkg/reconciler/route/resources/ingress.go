@@ -29,7 +29,6 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
@@ -105,8 +104,6 @@ func MakeIngressSpec(
 
 	networkConfig := config.FromContext(ctx).Network
 
-	defaults := apisconfig.FromContextOrDefaults(ctx).Defaults
-
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
 		// If this is a public target (or not being marked as cluster-local), we also make public rule.
@@ -118,7 +115,7 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name], defaults)
+			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
 			if networkConfig.TagHeaderBasedRouting {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -134,7 +131,7 @@ func MakeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names, defaults), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -207,24 +204,24 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets, defaults *apisconfig.Defaults) *netv1alpha1.IngressRule {
+func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *netv1alpha1.IngressRule {
 	return &netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, defaults),
+				*makeBaseIngressPath(ns, targets),
 			},
 		},
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string, defaults *apisconfig.Defaults) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ns, targets[name], defaults)
+			path := makeBaseIngressPath(ns, targets[name])
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -233,7 +230,7 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults *apisconfig.Defaults) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
@@ -267,9 +264,6 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults *a
 	var timeoutDuration *metav1.Duration
 
 	if timeout != nil {
-		// TODO: What should be the minimum duration?
-		// TODO: if defaults remains unused, stop passing it in. DONOTSUBMIT without resolving this.
-
 		timeoutDuration = &metav1.Duration{Duration: *timeout}
 	}
 	return &netv1alpha1.HTTPIngressPath{
