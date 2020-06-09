@@ -43,6 +43,7 @@ import (
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
+	fakenetworkingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
 }
