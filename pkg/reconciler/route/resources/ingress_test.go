@@ -105,7 +105,6 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 
 func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	longDuration := 10 * time.Minute
-
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -495,7 +494,6 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
@@ -591,7 +589,6 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
@@ -639,7 +636,6 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
@@ -690,7 +686,6 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
@@ -740,7 +735,6 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
@@ -799,7 +793,6 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
@@ -845,7 +838,6 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
