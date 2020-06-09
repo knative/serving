@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,6 +32,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
+
+	gorillawebsocket "github.com/gorilla/websocket"
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -89,7 +92,11 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 		case sm := <-statChan:
 			go func() {
 				for _, msg := range sm {
-					if err := statSink.Send(msg); err != nil {
+					b, err := json.Marshal(msg)
+					if err != nil {
+						logger.Errorw("Error while marshaling stat", zap.Error(err))
+					}
+					if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
 						logger.Errorw("Error while sending stat", zap.Error(err))
 					}
 				}
