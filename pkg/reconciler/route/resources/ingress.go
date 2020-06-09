@@ -268,6 +268,7 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets, defaults *a
 
 	if timeout != nil {
 		// TODO: What should be the minimum duration?
+		// TODO: if defaults remains unused, stop passing it in. DONOTSUBMIT without resolving this.
 
 		timeoutDuration = &metav1.Duration{Duration: *timeout}
 	}
