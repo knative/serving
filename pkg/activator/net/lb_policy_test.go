@@ -158,6 +158,38 @@ func TestFirstAvailable(t *testing.T) {
 	})
 }
 
+func TestRoundRobin(t *testing.T) {
+	rrp := newRoundRobinPolicy()
+	podTrackers := makeTrackers(3, 1)
+	cb, pt := rrp(context.Background(), podTrackers)
+	t.Cleanup(cb)
+	if got, want := pt, podTrackers[0]; got != want {
+		t.Fatalf("Tracker = %v, want: %v", got, want)
+	}
+	cb, pt = rrp(context.Background(), podTrackers)
+	t.Cleanup(cb)
+	if got, want := pt, podTrackers[1]; got != want {
+		t.Fatalf("Tracker = %v, want: %v", got, want)
+	}
+	cb, pt = rrp(context.Background(), podTrackers)
+	if got, want := pt, podTrackers[2]; got != want {
+		t.Fatalf("Tracker = %v, want: %v", got, want)
+	}
+	_, pt = rrp(context.Background(), podTrackers)
+	t.Cleanup(cb)
+	if pt != nil {
+		t.Fatal("Wanted nil, got: ", pt)
+	}
+
+	// Reset last one.
+	cb()
+	cb, pt = rrp(context.Background(), podTrackers)
+	if got, want := pt, podTrackers[2]; got != want {
+		t.Fatalf("Tracker = %v, want: %v", got, want)
+	}
+	t.Cleanup(cb)
+}
+
 func BenchmarkPolicy(b *testing.B) {
 	for _, test := range []struct {
 		name   string
@@ -171,6 +203,9 @@ func BenchmarkPolicy(b *testing.B) {
 	}, {
 		name:   "first-available",
 		policy: firstAvailableLBPolicy,
+	}, {
+		name:   "round-robin",
+		policy: newRoundRobinPolicy(),
 	}} {
 		for _, n := range []int{1, 2, 3, 10, 100} {
 			b.Run(fmt.Sprintf("%s-%d-trackers-sequential", test.name, n), func(b *testing.B) {

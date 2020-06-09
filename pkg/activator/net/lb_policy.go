@@ -21,6 +21,7 @@ package net
 import (
 	"context"
 	"math/rand"
+	"sync"
 )
 
 // lbPolicy is a functor that selects a target pod from the list, or (noop, nil) if
@@ -83,4 +84,35 @@ func firstAvailableLBPolicy(ctx context.Context, targets []*podTracker) (func(),
 		}
 	}
 	return noop, nil
+}
+
+type roundRobinPolicyT struct {
+	mu  sync.Mutex
+	idx int
+}
+
+func newRoundRobinPolicy() lbPolicy {
+	rrp := roundRobinPolicyT{}
+	return func(ctx context.Context, targets []*podTracker) (func(), *podTracker) {
+		rrp.mu.Lock()
+		defer rrp.mu.Unlock()
+		// The number of trackers might have shrunk, so reset to 0.
+		l := len(targets)
+		if rrp.idx >= l {
+			rrp.idx = 0
+		}
+
+		// Now for |targets| elements and check every next one in
+		// round robin fashion.
+		for i := 0; i < l; i++ {
+			p := (rrp.idx + i) % l
+			if cb, ok := targets[p].Reserve(ctx); ok {
+				// We want to start with the next index.
+				rrp.idx = p + 1
+				return cb, targets[p]
+			}
+		}
+		// We exhausted all the options...
+		return noop, nil
+	}
 }
