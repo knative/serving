@@ -43,8 +43,8 @@ require (
 	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
 	knative.dev/networking v0.0.0-20200607161819-2086ac6759c2
-	knative.dev/pkg v0.0.0-20200606224418-7ed1d4a552bc
-	knative.dev/test-infra v0.0.0-20200606045118-14ebc4a42974
+	knative.dev/pkg v0.0.0-20200609135932-0c198ddb9228
+	knative.dev/test-infra v0.0.0-20200608183332-3442736aebd0
 )
 
 // pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180

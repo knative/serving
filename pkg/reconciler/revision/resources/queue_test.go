@@ -78,7 +78,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev  *v1.Revision
 		lc   logging.Config
 		oc   metrics.ObservabilityConfig
-		cc   deployment.Config
+		dc   deployment.Config
 		want corev1.Container
 	}{{
 		name: "no owner no autoscaler single",
@@ -102,7 +102,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			}}),
 			withContainerConcurrency(1)),
-		cc: deployment.Config{
+		dc: deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
 		want: queueContainer(func(c *corev1.Container) {
@@ -230,6 +230,41 @@ func TestMakeQueueContainer(t *testing.T) {
 				"REVISION_TIMEOUT_SECONDS": "45",
 			})
 		}),
+	}, {
+		name: "default resource config",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			withContainerConcurrency(1)),
+		dc: deployment.Config{
+			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("25m"),
+			}
+			c.Resources.Limits = nil
+		}),
+	}, {
+		name: "overridden resources",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			withContainerConcurrency(1)),
+		dc: deployment.Config{
+			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
+			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
+			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("789m")),
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse("123m"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("456M"),
+			}
+			c.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("789m"),
+			}
+		}),
 	}}
 
 	for _, test := range tests {
@@ -242,7 +277,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					}},
 				}
 			}
-			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, &asConfig, &test.cc)
+			got, err := makeQueueContainer(test.rev, &test.lc, &traceConfig, &test.oc, &asConfig, &test.dc)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -265,6 +300,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		want corev1.Container
+		dc   deployment.Config
 	}{{
 		name: "resources percentage in annotations",
 		rev: revision("bar", "foo",
@@ -318,7 +354,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			}
 		}),
 	}, {
-		name: "invalid resources percentage in annotations",
+		name: "invalid resources percentage in annotations uses defaults",
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
@@ -336,6 +372,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					},
 				}}
 			}),
+		dc: deployment.Config{
+			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
+		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
@@ -360,6 +399,9 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					},
 				}}
 			}),
+		dc: deployment.Config{
+			QueueSidecarCPURequest: resourcePtr(resource.MustParse("25m")),
+		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
@@ -371,7 +413,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &deploymentConfig)
+			got, err := makeQueueContainer(test.rev, &logConfig, &traceConfig, &obsConfig, &asConfig, &test.dc)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
@@ -432,9 +474,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		c.Env = env(map[string]string{
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
 		})
-		c.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("25m"),
-		}
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
@@ -567,9 +606,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("25m"),
-			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
@@ -609,9 +645,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("25m"),
-			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
@@ -661,9 +694,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("25m"),
-			}
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
@@ -774,4 +804,8 @@ func sortEnv(envs []corev1.EnvVar) {
 	sort.SliceStable(envs, func(i, j int) bool {
 		return envs[i].Name < envs[j].Name
 	})
+}
+
+func resourcePtr(q resource.Quantity) *resource.Quantity {
+	return &q
 }

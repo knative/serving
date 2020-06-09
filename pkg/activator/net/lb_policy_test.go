@@ -158,6 +158,82 @@ func TestFirstAvailable(t *testing.T) {
 	})
 }
 
+func TestRoundRobin(t *testing.T) {
+	t.Run("with cc=1", func(t *testing.T) {
+		rrp := newRoundRobinPolicy()
+		podTrackers := makeTrackers(3, 1)
+		cb, pt := rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[0]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		cb, pt = rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[1]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		// This will make it use shorter array, jump over and start from 0.
+		// But it's occupied already, so will fail to acquire.
+		_, pt = rrp(context.Background(), podTrackers[:1])
+		if pt != nil {
+			t.Fatal("Wanted nil, got: ", pt)
+		}
+
+		cb, pt = rrp(context.Background(), podTrackers)
+		if got, want := pt, podTrackers[2]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		_, pt = rrp(context.Background(), podTrackers)
+		if pt != nil {
+			t.Fatal("Wanted nil, got: ", pt)
+		}
+
+		// Reset last one.
+		cb()
+		cb, pt = rrp(context.Background(), podTrackers)
+		if got, want := pt, podTrackers[2]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		t.Cleanup(cb)
+	})
+	t.Run("with cc=2", func(t *testing.T) {
+		rrp := newRoundRobinPolicy()
+		podTrackers := makeTrackers(3, 2)
+		cb, pt := rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[0]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		cb, pt = rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[1]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		// This will make it use shorter array, jump over and start from 0.
+		cb, pt = rrp(context.Background(), podTrackers[:1])
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[0]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		cb, pt = rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[1]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		cb, pt = rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[2]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+		// Now index 0 has already 2 slots occupied, so is 1, so we should get 2 again.
+		cb, pt = rrp(context.Background(), podTrackers)
+		t.Cleanup(cb)
+		if got, want := pt, podTrackers[2]; got != want {
+			t.Fatalf("Tracker = %v, want: %v", got, want)
+		}
+	})
+}
+
 func BenchmarkPolicy(b *testing.B) {
 	for _, test := range []struct {
 		name   string
@@ -171,6 +247,9 @@ func BenchmarkPolicy(b *testing.B) {
 	}, {
 		name:   "first-available",
 		policy: firstAvailableLBPolicy,
+	}, {
+		name:   "round-robin",
+		policy: newRoundRobinPolicy(),
 	}} {
 		for _, n := range []int{1, 2, 3, 10, 100} {
 			b.Run(fmt.Sprintf("%s-%d-trackers-sequential", test.name, n), func(b *testing.B) {
