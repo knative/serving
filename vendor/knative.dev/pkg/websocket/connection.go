@@ -312,6 +312,11 @@ func (c *ManagedConnection) Send(msg interface{}) error {
 	return c.write(websocket.BinaryMessage, b.Bytes())
 }
 
+// SendRaw sends a message over the websocket connection without performing any encoding.
+func (c *ManagedConnection) SendRaw(messageType int, msg []byte) error {
+	return c.write(messageType, msg)
+}
+
 // Shutdown closes the websocket connection.
 func (c *ManagedConnection) Shutdown() error {
 	c.closeOnce.Do(func() {
