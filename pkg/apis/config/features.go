@@ -29,14 +29,18 @@ const (
 	// FeaturesConfigName is the name of the ConfigMap for the features.
 	FeaturesConfigName = "config-features"
 
-	Enabled  Flag = "Enabled"
-	Allowed  Flag = "Allowed"
+	// Enabled turns on an optional behavior.
+	Enabled Flag = "Enabled"
+	// Disabled turns off an optional behavior.
 	Disabled Flag = "Disabled"
+	// Allowed drops strict validation for optionally supported values.
+	Allowed Flag = "Allowed"
 )
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
 		MultiContainer: Disabled,
+		PodSpecDryRun:  Disabled,
 	}
 }
 
@@ -45,6 +49,9 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
 
 	if err := cm.Parse(data, AsFlag("multi-container", &nc.MultiContainer)); err != nil {
+		return nil, err
+	}
+	if err := cm.Parse(data, AsFlag("podspec-dryrun", &nc.PodSpecDryRun)); err != nil {
 		return nil, err
 	}
 	return nc, nil
@@ -58,6 +65,7 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 // Features specifies which features are allowed by the webhook.
 type Features struct {
 	MultiContainer Flag
+	PodSpecDryRun  Flag
 }
 
 // AsFlag parses the value at key as a Flag into the target, if it exists.
