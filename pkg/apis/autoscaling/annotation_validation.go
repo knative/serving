@@ -162,7 +162,7 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Concurrency, RPS:
+			case CPU:
 				return nil
 			}
 		default:
