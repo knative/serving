@@ -416,20 +416,23 @@ function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
   local args=" $@ "
-  local go_test="go test -v ${args/ -v / }"
+  # local go_test="go test -v ${args/ -v / }"
   # Just run regular go tests if not on Prow.
-  echo "Running tests with '${go_test}'"
+  # echo "Running tests with '${go_test}'"
   local report="$(mktemp)"
-  capture_output "${report}" ${go_test}
-  local failed=$?
-  echo "Finished run, return code is ${failed}"
-  # Install go-junit-report if necessary.
-  run_go_tool github.com/jstemmer/go-junit-report go-junit-report --help > /dev/null 2>&1
   local xml="$(mktemp_with_extension ${ARTIFACTS}/junit_XXXXXXXX xml)"
-  cat ${report} \
-      | go-junit-report \
-      | sed -e "s#\"\(github\.com/knative\|knative\.dev\)/${REPO_NAME}/#\"#g" \
-      > ${xml}
+  run_go_tool gotest.tools/gotestsum gotestsum --help > /dev/null 2>&1
+  local go_test="gotestsum --format=standard-verbose --junitfile=${xml} -- ${args}"
+  capture_output "${report}" ${go_test}
+  # local failed=$?
+  # echo "Finished run, return code is ${failed}"
+  # Install go-junit-report if necessary.
+  # run_go_tool github.com/jstemmer/go-junit-report go-junit-report --help >
+  # /dev/null 2>&1
+  # cat ${report} \
+  #     | go-junit-report \
+  #     | sed -e "s#\"\(github\.com/knative\|knative\.dev\)/${REPO_NAME}/#\"#g" \
+  #     > ${xml}
   echo "XML report written to ${xml}"
   if [[ -n "$(grep '<testsuites></testsuites>' ${xml})" ]]; then
     # XML report is empty, something's wrong; use the output as failure reason
