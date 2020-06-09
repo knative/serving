@@ -163,12 +163,18 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker breaker
 		lbp        lbPolicy
 	)
-	if containerConcurrency == 0 {
+	switch {
+	case containerConcurrency == 0:
 		revBreaker = newInfiniteBreaker(logger)
 		lbp = randomChoice2Policy
-	} else {
+	case containerConcurrency <= 3:
+		// For very low CC values use first available pod.
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = firstAvailableLBPolicy
+	default:
+		// Otherwise RR.
+		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = newRoundRobinPolicy()
 	}
 	return &revisionThrottler{
 		revID:                revID,
