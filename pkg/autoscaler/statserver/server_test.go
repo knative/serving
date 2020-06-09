@@ -175,12 +175,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 }
 
 func BenchmarkStatServer(b *testing.B) {
-	encodingName := map[bool]string{
-		false: "gob",
-		true:  "json",
-	}
-
-	for _, jsonEncoding := range []bool{false, true} {
+	for encoding, jsonEncoding := range map[string]bool{"json": true, "gob": false} {
 		for _, numMsgs := range []int{1, 5, 100} {
 			statsCh := make(chan metrics.StatMessage, numMsgs)
 			server := newTestServer(statsCh)
@@ -196,7 +191,7 @@ func BenchmarkStatServer(b *testing.B) {
 				msgs[i] = newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51)
 			}
 
-			b.Run(fmt.Sprintf("%d-msgs-%s-encoding-sequential", numMsgs, encodingName[jsonEncoding]), func(b *testing.B) {
+			b.Run(fmt.Sprintf("%d-msgs-%s-encoding-sequential", numMsgs, encoding), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					for _, msg := range msgs {
 						if err := send(statSink, msg, jsonEncoding); err != nil {
