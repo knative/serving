@@ -122,17 +122,17 @@ func TestDryRunFeatureFlag(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		dryRunEnabled bool
-		want          string
+		name       string
+		dryRunFlag config.Flag
+		want       string
 	}{{
-		name:          "enabled dry-run",
-		dryRunEnabled: true,
-		want:          "could not traverse nested spec.template field",
+		name:       "enabled dry-run",
+		dryRunFlag: config.Enabled,
+		want:       "could not traverse nested spec.template field",
 	}, {
-		name:          "disabled dry-run",
-		dryRunEnabled: false,
-		want:          "", // expect no error despite invalid data.
+		name:       "disabled dry-run",
+		dryRunFlag: config.Disabled,
+		want:       "", // expect no error despite invalid data.
 	}}
 
 	for _, test := range tests {
@@ -140,10 +140,7 @@ func TestDryRunFeatureFlag(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
 			ctx = logging.WithLogger(ctx, logger)
-
-			if test.dryRunEnabled {
-				ctx = enableDryRun(ctx, t)
-			}
+			ctx = enableDryRun(ctx, t, test.dryRunFlag)
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(data)
@@ -228,10 +225,10 @@ func TestSkipUpdate(t *testing.T) {
 	}
 }
 
-func enableDryRun(ctx context.Context, t *testing.T) context.Context {
+func enableDryRun(ctx context.Context, t *testing.T, flag config.Flag) context.Context {
 	return config.ToContext(ctx, &config.Config{
 		Features: &config.Features{
-			PodSpecDryRun: config.Enabled,
+			PodSpecDryRun: flag,
 		},
 	})
 }

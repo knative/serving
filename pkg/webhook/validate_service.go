@@ -49,9 +49,12 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 
 	var mode DryRunMode
 	features := config.FromContextOrDefaults(ctx).Features
-	if features.PodSpecDryRun == config.Enabled {
+	switch features.PodSpecDryRun {
+	case config.Enabled:
 		mode = DryRunEnabled
-	} else {
+	case config.Disabled:
+		mode = DryRunMode("")
+	default:
 		mode = DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
 	}
 
