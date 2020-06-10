@@ -58,7 +58,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "multi-container Allowed",
 		wantErr: false,
 		wantFeatures: &Features{
-			MultiContainer: Allowed,
+			MultiContainer:  Allowed,
+			LearningFeature: Disabled,
 		},
 		data: map[string]string{
 			"multi-container": "Allowed",
@@ -67,7 +68,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "multi-container Enabled",
 		wantErr: false,
 		wantFeatures: &Features{
-			MultiContainer: Enabled,
+			MultiContainer:  Enabled,
+			LearningFeature: Disabled,
 		},
 		data: map[string]string{
 			"multi-container": "Enabled",
