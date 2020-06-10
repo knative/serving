@@ -124,6 +124,8 @@ go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
   ${parallelism} \
+  #./test/e2e ./test/e2e/hpa \
+  ./test/e2e \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # We just want to collect log from TestService's error.
