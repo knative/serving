@@ -40,11 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	podInfoVolumeName = "podinfo"
-	podInfoVolumePath = "/etc/podinfo"
-)
-
 var (
 	varLogVolume = corev1.Volume{
 		Name: "knative-var-log",
