@@ -55,7 +55,7 @@ spec:
         enabled: true
         k8s:
           hpaSpec:
-            maxReplicas: 1
+            maxReplicas: 2
             minReplicas: 1
             scaleTargetRef:
               apiVersion: apps/v1
@@ -90,7 +90,7 @@ spec:
         enabled: true
         k8s:
           hpaSpec:
-            maxReplicas: 1
+            maxReplicas: 2
             minReplicas: 1
             scaleTargetRef:
               apiVersion: apps/v1

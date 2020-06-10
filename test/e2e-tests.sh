@@ -120,7 +120,7 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m -run TestService \
+go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
 #  ./test/e2e \
   ${parallelism} \
