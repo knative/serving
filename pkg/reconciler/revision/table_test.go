@@ -39,7 +39,6 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -703,8 +702,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
-	)
+		cfg.Observability, cfg.Deployment)
 	if err != nil {
 		t.Fatal("failed to create deployment")
 	}
@@ -764,9 +762,8 @@ func ReconcilerTestConfig() *config.Config {
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging:    &logging.Config{},
-		Tracing:    &tracingconfig.Config{},
-		Autoscaler: &autoscalerconfig.Config{},
-		Defaults:   &defaultconfig.Defaults{},
+		Logging:  &logging.Config{},
+		Tracing:  &tracingconfig.Config{},
+		Defaults: &defaultconfig.Defaults{},
 	}
 }
