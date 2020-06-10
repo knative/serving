@@ -49,7 +49,7 @@ github.com/NYTimes/gziphandler
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/aws/aws-sdk-go v1.29.34
+# github.com/aws/aws-sdk-go v1.30.5
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -1227,7 +1227,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
-# knative.dev/pkg v0.0.0-20200609135932-0c198ddb9228
+# knative.dev/pkg v0.0.0-20200609184032-fef70cc2616b
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1344,7 +1344,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200608183332-3442736aebd0
+# knative.dev/test-infra v0.0.0-20200610052322-f0f63d4ead3d
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v2 v2.0.1
@@ -1353,7 +1353,7 @@ sigs.k8s.io/structured-merge-diff/v2/merge
 sigs.k8s.io/structured-merge-diff/v2/schema
 sigs.k8s.io/structured-merge-diff/v2/typed
 sigs.k8s.io/structured-merge-diff/v2/value
-# sigs.k8s.io/yaml v1.1.0
+# sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
 # cloud.google.com/go => cloud.google.com/go v0.52.0
 # google.golang.org/api => google.golang.org/api v0.15.1
