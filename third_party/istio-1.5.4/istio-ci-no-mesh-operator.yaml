@@ -19,6 +19,7 @@ spec:
     global:
       proxy:
         autoInject: disabled
+        accessLogFile: "/dev/stdout"
       disablePolicyChecks: true
       defaultPodDisruptionBudget:
         enabled: false
@@ -36,8 +37,8 @@ spec:
       enabled: true
       k8s:
         hpaSpec:
-          maxReplicas: 10
-          minReplicas: 2
+          maxReplicas: 1
+          minReplicas: 1
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -54,8 +55,8 @@ spec:
         enabled: true
         k8s:
           hpaSpec:
-            maxReplicas: 5
-            minReplicas: 3
+            maxReplicas: 1
+            minReplicas: 1
             scaleTargetRef:
               apiVersion: apps/v1
               kind: Deployment
@@ -89,8 +90,8 @@ spec:
         enabled: true
         k8s:
           hpaSpec:
-            maxReplicas: 5
-            minReplicas: 3
+            maxReplicas: 1
+            minReplicas: 1
             scaleTargetRef:
               apiVersion: apps/v1
               kind: Deployment

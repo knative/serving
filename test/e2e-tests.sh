@@ -120,11 +120,10 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m \
+go_test_e2e -timeout=30m -run TestService \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
 #  ./test/e2e \
   ${parallelism} \
-  -run TestService \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # We just want to collect log from TestService's error.

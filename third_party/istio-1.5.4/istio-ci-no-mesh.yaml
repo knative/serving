@@ -6679,13 +6679,13 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
 spec:
-  maxReplicas: 5
+  maxReplicas: 1
   metrics:
   - resource:
       name: cpu
       targetAverageUtilization: 80
     type: Resource
-  minReplicas: 3
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -7041,13 +7041,13 @@ metadata:
   name: cluster-local-gateway
   namespace: istio-system
 spec:
-  maxReplicas: 5
+  maxReplicas: 1
   metrics:
   - resource:
       name: cpu
       targetAverageUtilization: 80
     type: Resource
-  minReplicas: 3
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -7117,13 +7117,13 @@ metadata:
   name: istiod
   namespace: istio-system
 spec:
-  maxReplicas: 10
+  maxReplicas: 1
   metrics:
   - resource:
       name: cpu
       targetAverageUtilization: 80
     type: Resource
-  minReplicas: 2
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -7583,7 +7583,7 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
+    accessLogFile: "/dev/stdout"
 
     accessLogFormat: ""
 
@@ -7949,7 +7949,7 @@ data:
         "prometheusNamespace": "istio-system",
         "proxy": {
           "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
+          "accessLogFile": "/dev/stdout",
           "accessLogFormat": "",
           "autoInject": "disabled",
           "clusterDomain": "cluster.local",
