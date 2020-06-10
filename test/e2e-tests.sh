@@ -124,11 +124,7 @@ go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
   ${parallelism} \
-  ./test/e2e ./test/e2e/hpa \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
-
-# We just want to collect log from TestService's error.
-success
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
 go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
@@ -140,6 +136,9 @@ if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
+
+# We just want to collect log from TestService's error.
+success
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
