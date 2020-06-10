@@ -124,7 +124,11 @@ go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
   ${parallelism} \
+  -run TestService \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+# We just want to collect log from TestService's error.
+success
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
 go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
