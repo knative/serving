@@ -21,7 +21,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -81,8 +80,6 @@ var (
 // Scaled down config to use during exec probing.
 type probeConfig struct {
 	QueueServingPort int `split_words:"true" required:"true"`
-	// DownwardAPI configuration for pod labels
-	DownwardAPILabelsPath string `split_words:"true"`
 }
 
 type config struct {
@@ -107,9 +104,6 @@ type config struct {
 	ServingPod                   string `split_words:"true" required:"true"`
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
-
-	// DownwardAPI configuration for pod labels
-	DownwardAPILabelsPath string `split_words:"true"`
 
 	// Tracing configuration
 	TracingConfigDebug                bool                      `split_words:"true"` // optional
@@ -168,31 +162,7 @@ func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEn
 	}
 }
 
-func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
-	// If downwardAPILabelsPath is empty, feature is disabled.
-	if downwardAPILabelsPath == "" {
-		return false, nil
-	}
-
-	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
-	if err != nil {
-		return false, err
-	}
-
-	content := string(contentBytes)
-	if content == "" {
-		return false, nil
-	}
-
-	scaleDown, err := strconv.ParseBool(content)
-	if err != nil {
-		return false, fmt.Errorf("failed parsing the label value: %w", err)
-	}
-
-	return scaleDown, nil
-}
-
-func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler, env config, logger *zap.SugaredLogger) http.HandlerFunc {
+func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 
@@ -211,18 +181,6 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 			http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 			probeSpan.Annotate([]trace.Attribute{
 				trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
-			return
-		}
-
-		preferScaledown, err := preferPodForScaledown(env.DownwardAPILabelsPath)
-		if err != nil {
-			logger.Errorw("Failed to determine scale down preference", zap.Error(err))
-		}
-		if preferScaledown {
-			//Deliberately failing the readiness probe when pod is labelled for scale down
-			http.Error(w, failingHealthcheck, http.StatusBadRequest)
-			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "intentionally failing health check")}, "error")
 			return
 		}
 
@@ -279,20 +237,13 @@ func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
 			return false, nil
 		}
 		defer res.Body.Close()
-		success := health.IsHTTPProbeReady(res)
 
-		// Both preferPodForScaledown and IsHTTPProbeShuttingDown can fail readiness faster.
-		// The check for preferPodForScaledown() fails readiness faster in the presence of the label,
-		// while shutting down has a different response code than not ready.
-		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		} else if !success && preferScaleDown {
-			return false, errors.New("failing probe deliberately for pod scaledown")
-		}
+		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
 		if health.IsHTTPProbeShuttingDown(res) {
 			return false, errors.New("failing probe deliberately for shutdown")
 		}
-		return success, nil
+
+		return health.IsHTTPProbeReady(res), nil
 	}, ctx.Done())
 
 	if lastErr != nil {
@@ -477,7 +428,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
-	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, env, logger)
+	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, logger)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.

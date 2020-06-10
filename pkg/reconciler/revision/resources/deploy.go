@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -41,13 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	podInfoVolumeName  = "podinfo"
-	podInfoVolumePath  = "/etc/podinfo"
-	metadataLabelsRef  = "metadata.labels"
-	metadataLabelsPath = "labels"
-)
-
 var (
 	varLogVolume = corev1.Volume{
 		Name: "knative-var-log",
@@ -60,27 +52,6 @@ var (
 		Name:        varLogVolume.Name,
 		MountPath:   "/var/log",
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
-	}
-
-	labelVolume = corev1.Volume{
-		Name: podInfoVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			DownwardAPI: &corev1.DownwardAPIVolumeSource{
-				Items: []corev1.DownwardAPIVolumeFile{
-					{
-						Path: metadataLabelsPath,
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	labelVolumeMount = corev1.VolumeMount{
-		Name:      podInfoVolumeName,
-		MountPath: podInfoVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -127,10 +98,6 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	}
 
 	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
-
-	if autoscalerConfig.EnableGracefulScaledown {
-		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
-	}
 
 	return podSpec, nil
 }
