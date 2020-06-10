@@ -36,7 +36,8 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer: Disabled,
+		MultiContainer:  Disabled,
+		LearningFeature: Allowed,
 	}
 }
 
@@ -57,7 +58,8 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	MultiContainer Flag
+	MultiContainer  Flag
+	LearningFeature Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
