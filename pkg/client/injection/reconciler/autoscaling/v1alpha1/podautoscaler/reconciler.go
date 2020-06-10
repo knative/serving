@@ -175,9 +175,13 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			logger.Warnw("Failed to set finalizers", zap.Error(err))
 		}
 
+		reconciler.PreProcessReconcile(ctx, resource)
+
 		// Reconcile this copy of the resource and then write back any status
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
+
+		reconciler.PostProcessReconcile(ctx, resource)
 
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.
@@ -306,10 +310,11 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 
 	patcher := r.Client.AutoscalingV1alpha1().PodAutoscalers(resource.Namespace)
 
-	resource, err = patcher.Patch(resource.Name, types.MergePatchType, patch)
+	resourceName := resource.Name
+	resource, err = patcher.Patch(resourceName, types.MergePatchType, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q: %v", resource.Name, err)
+			"Failed to update finalizers for %q: %v", resourceName, err)
 	} else {
 		r.Recorder.Eventf(resource, v1.EventTypeNormal, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())

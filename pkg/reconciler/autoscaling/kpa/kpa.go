@@ -23,12 +23,12 @@ import (
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
+	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
@@ -122,7 +122,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	//			this revision, e.g. after a restart) but PA status is inactive (it was
 	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
-	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == -1 && pa.Status.IsInactive() {
+	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == scaleUnknown && pa.Status.IsInactive() {
 		logger.Infof("SKS should be in proxy mode: want = %d, ebc = %d, #act's = %d PA Inactive? = %v",
 			want, decider.Status.ExcessBurstCapacity, decider.Status.NumActivators,
 			pa.Status.IsInactive())
@@ -144,7 +144,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	// Currently, SKS.IsReady==True when revision has >0 ready pods.
-	if sks.Status.IsReady() {
+	if sks.IsReady() {
 		podEndpointCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		ready, err = podEndpointCounter.ReadyCount()
 		if err != nil {
@@ -210,7 +210,6 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.Sugar
 	computeActiveCondition(pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
-	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 

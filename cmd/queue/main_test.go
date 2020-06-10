@@ -77,8 +77,8 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	reqChan := make(chan network.ReqEvent, 10)
-	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
+	stats := network.NewRequestStats(time.Now())
+	h := proxyHandler(breaker, stats, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -89,13 +89,9 @@ func TestHandlerReqEvent(t *testing.T) {
 
 	req.Header.Set(network.ProxyHeaderName, activator.Name)
 	h(writer, req)
-	select {
-	case e := <-reqChan:
-		if e.Type != network.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v", e.Type, network.ProxiedIn)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out waiting for an event to be intercepted")
+
+	if got := stats.Report(time.Now()).ProxiedRequestCount; got != 1 {
+		t.Errorf("ProxiedRequestCount = %v, want 1", got)
 	}
 }
 
@@ -173,9 +169,7 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestProbeQueueInvalidPort(t *testing.T) {
-	const port = 0 // invalid port
-
-	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(1, probeConfig{QueueServingPort: 0}); err == nil {
 		t.Error("Expected error, got nil")
 	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -183,9 +177,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	port := 12345 // some random port (that's not listening)
-
-	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(1, probeConfig{QueueServingPort: 12345}); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -209,7 +201,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1, config{})
+	err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port})
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -217,6 +209,34 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusGone)
+	})
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	start := time.Now()
+	if err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port}); err == nil {
+		t.Error("probeQueueHealthPath did not fail")
+	}
+
+	// if fails due to timeout and not cancelation, then it took too long
+	if time.Since(start) >= 1*time.Second {
+		t.Error("took too long to fail")
 	}
 }
 
@@ -239,7 +259,7 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1, config{}); err != nil {
+	if err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
@@ -280,7 +300,10 @@ func TestProbeFailFast(t *testing.T) {
 	f.Close()
 
 	start := time.Now()
-	if err = probeQueueHealthPath(port, 1 /*seconds*/, config{DownwardAPILabelsPath: f.Name()}); err == nil {
+	if err = probeQueueHealthPath(1 /*seconds*/, probeConfig{
+		QueueServingPort:      port,
+		DownwardAPILabelsPath: f.Name(),
+	}); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
@@ -311,7 +334,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	}
 
 	timeout := 1
-	if err = probeQueueHealthPath(port, timeout, config{}); err == nil {
+	if err = probeQueueHealthPath(timeout, probeConfig{QueueServingPort: port}); err == nil {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
@@ -345,7 +368,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 
 	timeout := 0
-	if err := probeQueueHealthPath(port, timeout, config{}); err != nil {
+	if err := probeQueueHealthPath(timeout, probeConfig{QueueServingPort: port}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
@@ -456,13 +479,11 @@ func TestQueueTraceSpans(t *testing.T) {
 				if !tc.infiniteCC {
 					breaker = queue.NewBreaker(params)
 				}
-				reqChan := make(chan network.ReqEvent, 10)
-
 				proxy.Transport = &ochttp.Transport{
 					Base: pkgnet.AutoTransport,
 				}
 
-				h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
+				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
 				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{}, logger)
@@ -507,8 +528,7 @@ func TestQueueTraceSpans(t *testing.T) {
 
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqChan := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
+	stats := network.NewRequestStats(time.Now())
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
@@ -517,7 +537,11 @@ func BenchmarkProxyHandler(b *testing.B) {
 	if err != nil {
 		b.Fatal("Failed to create stats reporter:", err)
 	}
-	go queue.ReportStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	go func() {
+		for now := range reportTicker.C {
+			promStatReporter.Report(stats.Report(now))
+		}
+	}()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
@@ -532,7 +556,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		breaker: nil,
 	}}
 	for _, tc := range tests {
-		h := proxyHandler(reqChan, tc.breaker, true /*tracingEnabled*/, baseHandler)
+		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {

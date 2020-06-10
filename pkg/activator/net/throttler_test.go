@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/controller"
@@ -41,7 +42,6 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"

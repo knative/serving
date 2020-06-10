@@ -25,13 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -78,9 +78,35 @@ var (
 	}
 )
 
-func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
-	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
+
+	for _, r := range []struct {
+		Name    corev1.ResourceName
+		Request *resource.Quantity
+		Limit   *resource.Quantity
+	}{{
+		Name:    corev1.ResourceCPU,
+		Request: cfg.QueueSidecarCPURequest,
+		Limit:   cfg.QueueSidecarCPULimit,
+	}, {
+		Name:    corev1.ResourceMemory,
+		Request: cfg.QueueSidecarMemoryRequest,
+		Limit:   cfg.QueueSidecarMemoryLimit,
+	}, {
+		Name:    corev1.ResourceEphemeralStorage,
+		Request: cfg.QueueSidecarEphemeralStorageRequest,
+		Limit:   cfg.QueueSidecarEphemeralStorageLimit,
+	}} {
+		if r.Request != nil {
+			resourceRequests[r.Name] = *r.Request
+		}
+		if r.Limit != nil {
+			resourceLimits[r.Name] = *r.Limit
+		}
+	}
+
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
 	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
@@ -148,11 +174,19 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 					Command: []string{"/ko-app/queue", "-probe-period", "0"},
 				},
 			},
-			// We want to mark the service as not ready as soon as the
-			// PreStop handler is called, so we need to check a little
-			// bit more often than the default.  It is a small
-			// sacrifice for a low rate of 503s.
-			PeriodSeconds: 1,
+			// The exec probe enables us to retry failed probes quickly to get sub-second
+			// resolution and achieve faster cold-starts.  However, for draining pods as
+			// part of the K8s lifecycle this period will bound the tail of how quickly
+			// we can remove a Pod's endpoint from the K8s service.
+			//
+			// The trade-off here is that exec probes cost CPU to run, and for idle pods
+			// (e.g. due to minScale) we see ~50m/{period} of idle CPU usage in the
+			// queue-proxy.  So while setting this to 1s results in slightly faster drains
+			// it also means that in the steady state the queue-proxy is consuming 10x
+			// more CPU due to probes than with a period of 10s.
+			//
+			// See also: https://github.com/knative/serving/issues/8147
+			PeriodSeconds: 10,
 			// We keep the connection open for a while because we're
 			// actively probing the user-container on that endpoint and
 			// thus don't want to be limited by K8s granularity here.
@@ -218,9 +252,11 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 	ports = append(ports, servingPort)
 
+	scaleDownLabelPath := ""
 	var volumeMounts []corev1.VolumeMount
 	if autoscalerConfig.EnableGracefulScaledown {
 		volumeMounts = append(volumeMounts, labelVolumeMount)
+		scaleDownLabelPath = fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)
 	}
 
 	container := rev.Spec.GetContainer()
@@ -236,7 +272,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(rev.GetAnnotations(), container),
+		Resources:       createQueueResources(deploymentConfig, rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
@@ -314,7 +350,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: metrics.Domain(),
 		}, {
 			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+			Value: scaleDownLabelPath,
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"knative.dev/serving/pkg/network"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -42,44 +43,39 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 		config    string
 		revision  string
 		pod       string
-	}{
-		{
-			"Empty_Namespace_Value",
-			"Expected namespace empty error",
-			errors.New("namespace must not be empty"),
-			"",
-			config,
-			revision,
-			pod,
-		},
-		{
-			"Empty_Config_Value",
-			"Expected config empty error",
-			errors.New("config must not be empty"),
-			namespace,
-			"",
-			revision,
-			pod,
-		},
-		{
-			"Empty_Revision_Value",
-			"Expected revision empty error",
-			errors.New("revision must not be empty"),
-			namespace,
-			config,
-			"",
-			pod,
-		},
-		{
-			"Empty_Pod_Value",
-			"Expected pod empty error",
-			errors.New("pod must not be empty"),
-			namespace,
-			config,
-			revision,
-			"",
-		},
-	}
+	}{{
+		"Empty_Namespace_Value",
+		"Expected namespace empty error",
+		errors.New("namespace must not be empty"),
+		"",
+		config,
+		revision,
+		pod,
+	}, {
+		"Empty_Config_Value",
+		"Expected config empty error",
+		errors.New("config must not be empty"),
+		namespace,
+		"",
+		revision,
+		pod,
+	}, {
+		"Empty_Revision_Value",
+		"Expected revision empty error",
+		errors.New("revision must not be empty"),
+		namespace,
+		config,
+		"",
+		pod,
+	}, {
+		"Empty_Pod_Value",
+		"Expected pod empty error",
+		errors.New("pod must not be empty"),
+		namespace,
+		config,
+		revision,
+		"",
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -154,8 +150,7 @@ func TestReporterReport(t *testing.T) {
 		expectedConcurrency:         3,
 		expectedProxiedRequestCount: 15,
 		expectedProxiedConcurrency:  2,
-	},
-	}
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -165,7 +160,12 @@ func TestReporterReport(t *testing.T) {
 			}
 			// Make the value slightly more interesting, rather than microseconds.
 			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(test.concurrency, test.proxiedConcurrency, test.reqCount, test.proxiedReqCount)
+			reporter.Report(network.RequestStatsReport{
+				AverageConcurrency:        test.concurrency,
+				AverageProxiedConcurrency: test.proxiedConcurrency,
+				RequestCount:              test.reqCount,
+				ProxiedRequestCount:       test.proxiedReqCount,
+			})
 			checkData(t, requestsPerSecondGV, test.expectedReqCount)
 			checkData(t, averageConcurrentRequestsGV, test.expectedConcurrency)
 			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)

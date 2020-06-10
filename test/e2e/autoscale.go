@@ -302,11 +302,12 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration) error {
 	// Short-circuit traffic generation once we exit from the check logic.
 	done := time.After(duration)
-	timer := time.Tick(2 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timer:
+		case <-ticker.C:
 			// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
 			// to verify that the number of pods doesn't go down while we are scaling up.
 			got, err := numberOfReadyPods(ctx)

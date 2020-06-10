@@ -123,7 +123,8 @@ func TestMetricIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			m := Metric{Status: tc.status}
+			if e, a := tc.isReady, m.IsReady(); e != a {
 				t.Errorf("Ready = %v, want: %v", a, e)
 			}
 		})

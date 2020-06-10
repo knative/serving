@@ -386,10 +386,10 @@ func TestContainerValidation(t *testing.T) {
 			Image: "foo",
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceName("memory"): resource.MustParse("250M"),
+					corev1.ResourceMemory: resource.MustParse("250M"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse("25m"),
+					corev1.ResourceCPU: resource.MustParse("25m"),
 				},
 			},
 		},

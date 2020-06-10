@@ -32,6 +32,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -40,7 +41,6 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -70,6 +70,16 @@ var (
 type podTracker struct {
 	dest string
 	b    breaker
+	// weight is used for LB policy implementations.
+	weight int32
+}
+
+func (p *podTracker) addWeight(w int32) {
+	atomic.AddInt32(&p.weight, w)
+}
+
+func (p *podTracker) getWeight() int32 {
+	return atomic.LoadInt32(&p.weight)
 }
 
 func (p *podTracker) String() string {
@@ -107,6 +117,7 @@ type breaker interface {
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
+	lbPolicy             lbPolicy
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
@@ -148,11 +159,22 @@ func newRevisionThrottler(revID types.NamespacedName,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
-	var revBreaker breaker
-	if containerConcurrency == 0 {
+	var (
+		revBreaker breaker
+		lbp        lbPolicy
+	)
+	switch {
+	case containerConcurrency == 0:
 		revBreaker = newInfiniteBreaker(logger)
-	} else {
+		lbp = randomChoice2Policy
+	case containerConcurrency <= 3:
+		// For very low CC values use first available pod.
 		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = firstAvailableLBPolicy
+	default:
+		// Otherwise RR.
+		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = newRoundRobinPolicy()
 	}
 	return &revisionThrottler{
 		revID:                revID,
@@ -161,28 +183,11 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:               logger,
 		protocol:             proto,
 		activatorIndex:       -1, // Start with unknown.
+		lbPolicy:             lbp,
 	}
 }
 
 func noop() {}
-
-// pickPod picks the first tracker that has open capacity if container concurrency
-// if limited, random pod otherwise.
-func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracker) {
-	// Infinite capacity, pick random. We have to do this
-	// otherwise _all_ the requests will go to the first pod
-	// since it has unlimited capacity.
-	if cc == 0 {
-		return noop, tgs[rand.Intn(len(tgs))]
-	}
-
-	for _, t := range tgs {
-		if cb, ok := t.Reserve(ctx); ok {
-			return cb, t
-		}
-	}
-	return noop, nil
-}
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
@@ -193,7 +198,7 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	if rt.clusterIPTracker != nil {
 		return noop, rt.clusterIPTracker
 	}
-	return pickPod(ctx, rt.assignedTrackers, rt.containerConcurrency)
+	return rt.lbPolicy(ctx, rt.assignedTrackers)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {

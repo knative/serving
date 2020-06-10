@@ -48,6 +48,7 @@ func TestDefaultsConfigurationFromFile(t *testing.T) {
 	// So for this test we ignore those, but verify the other fields.
 	got.RevisionCPULimit, got.RevisionCPURequest = nil, nil
 	got.RevisionMemoryLimit, got.RevisionMemoryRequest = nil, nil
+	got.RevisionEphemeralStorageLimit, got.RevisionEphemeralStorageRequest = nil, nil
 	want := defaultDefaultsConfig()
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("Example does not represent default config: diff(-want,+got)\n", diff)

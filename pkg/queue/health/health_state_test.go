@@ -97,8 +97,8 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		name:         "shuttingDown: true, K-Probe",
 		state:        &State{shuttingDown: true},
 		isAggressive: false,
-		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
+		wantStatus:   http.StatusGone,
+		wantBody:     shuttingDownBody,
 	}, {
 		name:         "no prober, shuttingDown: false",
 		state:        &State{},
@@ -110,8 +110,8 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		state:        &State{shuttingDown: true},
 		prober:       func() bool { return true },
 		isAggressive: true,
-		wantStatus:   http.StatusServiceUnavailable,
-		wantBody:     notAliveBody,
+		wantStatus:   http.StatusGone,
+		wantBody:     shuttingDownBody,
 	}, {
 		name:         "prober: true, shuttingDown: false",
 		state:        &State{},

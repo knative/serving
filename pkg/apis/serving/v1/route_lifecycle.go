@@ -22,8 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 var routeCondSet = apis.NewLivingConditionSet(
@@ -45,6 +45,22 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 // IsReady returns if the route is ready to serve the requested configuration.
 func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
+}
+
+// IsReady returns true if the Status condition RouteConditionReady
+// is true and the latest spec has been observed.
+func (r *Route) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RouteConditionReady).IsTrue()
+}
+
+// IsFailed returns true if the resource has observed
+// the latest generation and ready is false.
+func (r *Route) IsFailed() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation &&
+		rs.GetCondition(RouteConditionReady).IsFalse()
 }
 
 // InitializeConditions sets the initial values to the conditions.

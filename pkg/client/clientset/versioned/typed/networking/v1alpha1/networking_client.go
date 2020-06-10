@@ -20,7 +20,7 @@ package v1alpha1
 
 import (
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 

@@ -22,15 +22,17 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
 
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -38,7 +40,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -71,9 +72,10 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			Client:       servingclient.Get(ctx),
-			SKSLister:    sksInformer.Lister(),
-			MetricLister: metricInformer.Lister(),
+			Client:           servingclient.Get(ctx),
+			NetworkingClient: networkingclient.Get(ctx),
+			SKSLister:        sksInformer.Lister(),
+			MetricLister:     metricInformer.Lister(),
 		},
 		endpointsLister: endpointsInformer.Lister(),
 		podsLister:      podsInformer.Lister(),

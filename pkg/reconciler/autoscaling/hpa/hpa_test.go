@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	// Inject our fake informers
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake"
@@ -32,7 +34,6 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,6 +44,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
 
+	"knative.dev/networking/pkg/apis/networking"
+	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -51,8 +54,6 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
-	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -468,9 +469,10 @@ func TestReconcile(t *testing.T) {
 
 		r := &Reconciler{
 			Base: &areconciler.Base{
-				Client:       servingclient.Get(ctx),
-				SKSLister:    listers.GetServerlessServiceLister(),
-				MetricLister: listers.GetMetricLister(),
+				Client:           servingclient.Get(ctx),
+				NetworkingClient: networkingclient.Get(ctx),
+				SKSLister:        listers.GetServerlessServiceLister(),
+				MetricLister:     listers.GetMetricLister(),
 			},
 			kubeClient: kubeclient.Get(ctx),
 			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),

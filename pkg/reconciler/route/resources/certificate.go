@@ -21,13 +21,13 @@ import (
 	"hash/adler32"
 	"sort"
 
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
-	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )

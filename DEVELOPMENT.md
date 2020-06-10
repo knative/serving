@@ -28,8 +28,6 @@ You must install these tools:
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
    built in (1.13 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
-1. [`dep`](https://github.com/golang/dep): For managing external Go
-   dependencies.
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
@@ -208,20 +206,24 @@ ko delete -f config/post-install/default-domain.yaml --ignore-not-found
 ko apply -f config/post-install/default-domain.yaml
 ```
 
-The above step is equivalent to applying the `serving.yaml` for released
-versions of Knative Serving.
+The above step is equivalent to applying the `serving-crds.yaml`,
+`serving-core.yaml`, `serving-hpa.yaml` and `serving-nscert.yaml` for released
+versions of Knative Serving and additionally applying **net-istio** as the
+ingress implementation.
 
 You can see things running with:
 
 ```console
 kubectl -n knative-serving get pods
-NAME                                READY   STATUS      RESTARTS   AGE
-activator-5b87795885-f8t7k          2/2     Running     0          18m
-autoscaler-6495f7f79d-86jsr         2/2     Running     0          18m
-controller-5fd7fddc58-klmt4         1/1     Running     0          18m
-default-domain-6hs98                0/1     Completed   0          13s
-networking-istio-6755db495d-wtj4d   1/1     Running     0          18m
-webhook-84b8c9886d-dsqqv            1/1     Running     0          18m
+NAME                                  READY   STATUS    RESTARTS   AGE
+activator-7454cd659f-rrz86            1/1     Running   0          105s
+autoscaler-58cbfd4985-fl5h7           1/1     Running   0          105s
+autoscaler-hpa-77964b9b8c-9sbgq       1/1     Running   0          105s
+controller-847b7cc977-5mvvq           1/1     Running   0          105s
+istio-webhook-69bf66f869-cgc4l        1/1     Running   0          105s
+networking-istio-dcf7944fb-5m25h      1/1     Running   0          105s
+networking-ns-cert-56c58544db-sgstd   1/1     Running   0          105s
+webhook-6b6c77567f-flr59              1/1     Running   0          105s
 ```
 
 You can access the Knative Serving Controller's logs with:
@@ -257,18 +259,20 @@ of:
 - **If you change an input to generated code**, then you must run
   [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
 
-  - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.),
-  - Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.).
+  - Type definitions annotated with `// +k8s:deepcopy-gen=true`.
+  - The `_example` value of config maps (to keep the
+    `knative.dev/example-checksum` label in sync).
 
-- **If you change a package's deps** (including adding external dep), then you
-  must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
+- **If you change a package's deps** (including adding an external dependency),
+  then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
 These are both idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
 diffs for each pull request.
 
-update-deps.sh runs "dep ensure" command. In some cases, if newer dependencies
-are required, you need to run "dep ensure -update package-name" manually.
+update-deps.sh runs go get/mod command. In some cases, if newer dependencies are
+required, you need to run "go get" manually.
 
 Once the codegen and dependency information is correct, redeploying the
 controller is simply:
@@ -279,6 +283,14 @@ ko apply -f config/controller.yaml
 
 Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
 [completely redeploy `Knative Serving`](./DEVELOPMENT.md#starting-knative-serving).
+
+### Updating existing dependencies
+
+To update existing dependencies execute
+
+```shell
+./hack/update-deps.sh --upgrade && ./hack/update-codegen.sh
+```
 
 ## Clean up
 

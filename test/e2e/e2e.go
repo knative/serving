@@ -32,9 +32,9 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/networking"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	presources "knative.dev/serving/pkg/resources"
 	"knative.dev/serving/test"

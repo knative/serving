@@ -97,7 +97,7 @@ go_test_e2e -timeout=30m \
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
 go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
   `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
-  -run="Test[^U]" \
+  -run="TestIngressConformance/^[^u]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
@@ -137,12 +137,14 @@ add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | 
 # Save activator HPA original values for later use.
 min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
 max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
+hpa_template='{"spec": {"maxReplicas": %s, "minReplicas": %s}}'
+
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type 'merge' \
-  --patch '{"spec": {"maxReplicas": '2', "minReplicas": '2'}}'
+  --type "merge" \
+  --patch "$(printf "$hpa_template" "2" "2")"
 add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
   --type 'merge' \
-  --patch '{\"spec\": {\"maxReplicas\": '$max_replicas', \"minReplicas\": '$minReplicas'}}'" SIGKILL SIGTERM SIGQUIT
+  --patch $(printf "$hpa_template" "$max_replicas" "$min_replicas")" SIGKILL SIGTERM SIGQUIT
 
 for deployment in controller autoscaler-hpa; do
   # Make sure all pods run in leader-elected mode.
@@ -169,8 +171,8 @@ for deployment in controller autoscaler-hpa; do
   kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=1
 done
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type 'merge' \
-  --patch '{"spec": {"maxReplicas": '$max_replicas', "minReplicas": '$min_replicas'}}'
+  --type "merge" \
+  --patch "$(printf "$hpa_template" "2" "2")"
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state

@@ -26,9 +26,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
-	networkingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
@@ -140,7 +141,7 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 // newNetworkingClients instantiates and returns the networking clientset required to make requests
 // to Networking resources on the Knative service cluster
 func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
+	cs, err := netclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

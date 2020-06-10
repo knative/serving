@@ -235,9 +235,7 @@ func init() {
 	proto.RegisterType((*TestIamPermissionsResponse)(nil), "google.iam.v1.TestIamPermissionsResponse")
 }
 
-func init() {
-	proto.RegisterFile("google/iam/v1/iam_policy.proto", fileDescriptor_d2728eb97d748a32)
-}
+func init() { proto.RegisterFile("google/iam/v1/iam_policy.proto", fileDescriptor_d2728eb97d748a32) }
 
 var fileDescriptor_d2728eb97d748a32 = []byte{
 	// 514 bytes of a gzipped FileDescriptorProto
@@ -278,11 +276,11 @@ var fileDescriptor_d2728eb97d748a32 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // IAMPolicyClient is the client API for IAMPolicy service.
 //
@@ -306,10 +304,10 @@ type IAMPolicyClient interface {
 }
 
 type iAMPolicyClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewIAMPolicyClient(cc grpc.ClientConnInterface) IAMPolicyClient {
+func NewIAMPolicyClient(cc *grpc.ClientConn) IAMPolicyClient {
 	return &iAMPolicyClient{cc}
 }
 
