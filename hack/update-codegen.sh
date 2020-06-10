@@ -29,9 +29,10 @@ fi
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 # Compute _example checksum for all configmaps.
+go install "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen"
 for file in "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
 do
-  go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "$file"
+  ${GOPATH}/bin/hash-gen "$file"
 done
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
