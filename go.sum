@@ -1358,6 +1358,8 @@ knative.dev/pkg v0.0.0-20200609184032-fef70cc2616b h1:L25RYK4WW4kVVUQHl6JA3oacGT
 knative.dev/pkg v0.0.0-20200609184032-fef70cc2616b/go.mod h1:rA+FklsrVahwF4a+D63NyHJlzDoAFH81K4J5CYuE3bA=
 knative.dev/pkg v0.0.0-20200611204322-2ddcfef739a2 h1:GMCS1McFzXLs+Q5jj/iKyue+Gbx4BytNZAhRpLamdz8=
 knative.dev/pkg v0.0.0-20200611204322-2ddcfef739a2/go.mod h1:rA+FklsrVahwF4a+D63NyHJlzDoAFH81K4J5CYuE3bA=
+knative.dev/pkg v0.0.0-20200614232523-aec2008e6656 h1:DHmOWuH1kfJnk4q/ZNZPbDR5dzpWDpHWh5IP9sCbvdE=
+knative.dev/pkg v0.0.0-20200614232523-aec2008e6656/go.mod h1:rA+FklsrVahwF4a+D63NyHJlzDoAFH81K4J5CYuE3bA=
 knative.dev/sample-controller v0.0.0-20200510050845-bf7c19498b7e/go.mod h1:D2ZDLrR9Dq9LiiVN7TatzI7WMcEPgk1MHbbhgBKE6W8=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
@@ -1374,8 +1376,8 @@ knative.dev/test-infra v0.0.0-20200522180958-6a0a9b9d893a/go.mod h1:n9eQkzmSNj8B
 knative.dev/test-infra v0.0.0-20200606045118-14ebc4a42974 h1:CrZmlbB+j3ZF/aTrfyypY5ulX2w7XrkfeXKQsbkqzTg=
 knative.dev/test-infra v0.0.0-20200606045118-14ebc4a42974/go.mod h1://I6IZIF0QDgs5wotU243ZZ5cTpm6/GthayjUenBBc0=
 knative.dev/test-infra v0.0.0-20200610141822-fd009ecf10fe/go.mod h1:vyiP+4ospN/PJgwVzHkjnhlNP4uBPnvwkgb9dPCFSj4=
-knative.dev/test-infra v0.0.0-20200612005123-35b61c499a41 h1:KJMDpNdLRN39P/U6rspOTLorWEKcUZfy09gkLmWB0Ik=
-knative.dev/test-infra v0.0.0-20200612005123-35b61c499a41/go.mod h1:vyiP+4ospN/PJgwVzHkjnhlNP4uBPnvwkgb9dPCFSj4=
+knative.dev/test-infra v0.0.0-20200612191923-a4dd434e085b h1:QF1luh24SFfO3llKMl3i1drC6hBBqXCO1D8QV13gkNY=
+knative.dev/test-infra v0.0.0-20200612191923-a4dd434e085b/go.mod h1:+BfrTJpc++rH30gX/C0QY6NT2eYVzycll52uw6CrQnc=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
