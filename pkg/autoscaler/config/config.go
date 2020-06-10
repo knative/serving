@@ -44,9 +44,6 @@ type Config struct {
 	// Feature flags.
 	EnableScaleToZero bool
 
-	// Enable connection-aware pod scaledown
-	EnableGracefulScaledown bool
-
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
@@ -90,7 +87,6 @@ type Config struct {
 func defaultConfig() *Config {
 	return &Config{
 		EnableScaleToZero:                  true,
-		EnableGracefulScaledown:            false,
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
 		ContainerConcurrencyTargetDefault:  100,
 		// TODO(#1956): Tune target usage based on empirical data.
@@ -119,7 +115,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsString("pod-autoscaler-class", &lc.PodAutoscalerClass),
 
 		cm.AsBool("enable-scale-to-zero", &lc.EnableScaleToZero),
-		cm.AsBool("enable-graceful-scaledown", &lc.EnableGracefulScaledown),
 		cm.AsBool("allow-zero-initial-scale", &lc.AllowZeroInitialScale),
 
 		cm.AsFloat64("max-scale-up-rate", &lc.MaxScaleUpRate),

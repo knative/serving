@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "62090295"
+    knative.dev/example-checksum: "78334715"
 data:
   _example: |
     ################################
@@ -159,11 +159,6 @@ data:
     # The larger of this flag and `scale-to-zero-grace-period` will effectively
     # detemine how the last pod will hang around.
     scale-to-zero-pod-retention-period: "0s"
-
-    # Enable graceful scaledown feature flag.
-    # Once enabled, it allows the autoscaler to prioritize pods processing
-    # fewer (or zero) requests for removal when scaling down.
-    enable-graceful-scaledown: "false"
 
     # pod-autoscaler-class specifies the default pod autoscaler class
     # that should be used if none is specified. If omitted, the Knative
