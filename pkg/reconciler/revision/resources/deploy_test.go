@@ -37,7 +37,6 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
@@ -468,7 +467,6 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		oc   metrics.ObservabilityConfig
-		ac   autoscalerconfig.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -928,7 +926,7 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &test.ac, &deploymentConfig)
+			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -941,7 +939,7 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
+		&network.Config{}, &obsConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -1031,13 +1029,13 @@ func TestMakeDeployment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, &asConfig, &deploymentConfig)
+				&obsConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &asConfig, &test.dc)
+				&network.Config{}, &obsConfig, &test.dc)
 			if err != nil {
 				t.Fatal("got unexpected error:", err)
 			}
