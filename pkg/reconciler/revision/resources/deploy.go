@@ -41,10 +41,8 @@ import (
 )
 
 const (
-	podInfoVolumeName  = "podinfo"
-	podInfoVolumePath  = "/etc/podinfo"
-	metadataLabelsRef  = "metadata.labels"
-	metadataLabelsPath = "labels"
+	podInfoVolumeName = "podinfo"
+	podInfoVolumePath = "/etc/podinfo"
 )
 
 var (
