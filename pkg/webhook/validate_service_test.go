@@ -140,7 +140,7 @@ func TestDryRunFeatureFlag(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
 			ctx = logging.WithLogger(ctx, logger)
-			ctx = enableDryRun(ctx, t, test.dryRunFlag)
+			ctx = enableDryRun(ctx, test.dryRunFlag)
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(data)
@@ -225,7 +225,7 @@ func TestSkipUpdate(t *testing.T) {
 	}
 }
 
-func enableDryRun(ctx context.Context, t *testing.T, flag config.Flag) context.Context {
+func enableDryRun(ctx context.Context, flag config.Flag) context.Context {
 	return config.ToContext(ctx, &config.Config{
 		Features: &config.Features{
 			PodSpecDryRun: flag,
