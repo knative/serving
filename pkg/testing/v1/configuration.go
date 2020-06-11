@@ -63,10 +63,8 @@ func WithConfigGeneration(gen int64) ConfigOption {
 }
 
 // WithConfigObservedGen sets the observed generation of the Configuration.
-func WithConfigObservedGen(cfg *v1.Configuration) ConfigOption {
-	return func(cfg *v1.Configuration) {
-		cfg.Status.ObservedGeneration = cfg.Generation
-	}
+func WithConfigObservedGen(cfg *v1.Configuration) {
+	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name

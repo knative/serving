@@ -56,10 +56,8 @@ func WithRouteGeneration(generation int64) RouteOption {
 }
 
 // WithRouteObservedGeneration sets the route's observed generation to it's generation
-func WithRouteObservedGeneration() RouteOption {
-	return func(r *v1.Route) {
-		r.Status.ObservedGeneration = r.Generation
-	}
+func WithRouteObservedGeneration(r *v1.Route) {
+	r.Status.ObservedGeneration = r.Generation
 }
 
 // WithRouteFinalizer adds the Route finalizer to the Route.
