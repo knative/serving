@@ -20,6 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     networking.knative.dev/wildcard-certificate-provider: nscert
+    knative.dev/high-availability: "true"
 spec:
   selector:
     matchLabels:
