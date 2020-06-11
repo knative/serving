@@ -70,7 +70,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "inline - byo rev name used in traffic serialize, with retry",
 		Objects: []runtime.Object{
-			DefaultService("byo-rev", "foo", WithNamedRevision),
+			DefaultService("byo-rev", "foo", WithNamedRevision, WithServiceGeneration(1)),
 			config("byo-rev", "foo",
 				WithNamedRevision,
 				WithConfigGeneration(2)),
@@ -81,11 +81,13 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
 				// Route conditions should be at init state while Config should be OutOfDate
-				WithInitSvcConditions, WithOutOfDateConfig),
+				WithInitSvcConditions, WithOutOfDateConfig,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}, {
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
 				// Route conditions should be at init state while Config should be OutOfDate
-				WithInitSvcConditions, WithOutOfDateConfig),
+				WithInitSvcConditions, WithOutOfDateConfig,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -99,8 +101,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "inline - byo rev name - existing revision - same spec",
 		Objects: []runtime.Object{
-			DefaultService("byo-rev", "foo", WithNamedRevision,
-				WithServiceGeneration(2), WithServiceObservedGeneration),
+			DefaultService("byo-rev", "foo", WithNamedRevision, WithServiceGeneration(2)),
 			config("byo-rev", "foo", WithNamedRevision,
 				WithConfigGeneration(2), WithConfigObservedGen),
 			route("byo-rev", "foo", WithNamedRevision,
@@ -125,13 +126,13 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
 				// The first reconciliation will initialize the status conditions.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(2), WithServiceObservedGeneration),
 		}},
 	}, {
 		Name: "inline - byo rev name - existing older revision with same spec",
 		Objects: []runtime.Object{
-			DefaultService("byo-rev", "foo", WithNamedRevision,
-				WithServiceGeneration(2), WithServiceObservedGeneration),
+			DefaultService("byo-rev", "foo", WithNamedRevision, WithServiceGeneration(2)),
 			config("byo-rev", "foo", WithNamedRevision,
 				WithConfigGeneration(2), WithConfigObservedGen),
 			route("byo-rev", "foo", WithNamedRevision,
@@ -143,13 +144,13 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-rev",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo",
-				WithNamedRevision, WithInitSvcConditions),
+				WithNamedRevision, WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(2), WithServiceObservedGeneration),
 		}},
 	}, {
 		Name: "inline - byo rev name - existing older revision with different spec",
 		Objects: []runtime.Object{
-			DefaultService("byo-rev", "foo", WithNamedRevision,
-				WithServiceGeneration(2), WithServiceObservedGeneration),
+			DefaultService("byo-rev", "foo", WithNamedRevision, WithServiceGeneration(2)),
 			config("byo-rev", "foo", WithNamedRevision,
 				WithConfigGeneration(2), WithConfigObservedGen),
 			route("byo-rev", "foo", WithNamedRevision,
@@ -174,12 +175,14 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-rev",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
-				WithInitSvcConditions, MarkRevisionNameTaken),
+				WithInitSvcConditions, WithServiceObservedGenFailure, MarkRevisionNameTaken,
+				WithServiceGeneration(2), WithServiceObservedGeneration,
+			),
 		}},
 	}, {
 		Name: "inline - byo rev name used in traffic",
 		Objects: []runtime.Object{
-			DefaultService("byo-rev", "foo", WithNamedRevision),
+			DefaultService("byo-rev", "foo", WithNamedRevision, WithServiceGeneration(1)),
 		},
 		Key: "foo/byo-rev",
 		WantCreates: []runtime.Object{
@@ -189,7 +192,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
 				// The first reconciliation will initialize the status conditions.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "byo-rev"),
@@ -198,7 +202,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create route and configuration",
 		Objects: []runtime.Object{
-			DefaultService("run-latest", "foo", WithRunLatestRollout),
+			DefaultService("run-latest", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []runtime.Object{
@@ -208,7 +212,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
@@ -217,7 +222,8 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
-			DefaultService("no-updates", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("no-updates", "foo", WithRunLatestRollout, WithInitSvcConditions,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 			route("no-updates", "foo", WithRunLatestRollout),
 			config("no-updates", "foo", WithRunLatestRollout),
 		},
@@ -271,7 +277,8 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update route and configuration",
 		Objects: []runtime.Object{
-			DefaultService("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("update-route-and-config", "foo", WithRunLatestRollout,
+				WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
@@ -289,7 +296,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1.Service) {
 				svc.Spec.GetTemplate().Name = "update-route-and-config-blah"
-			}, WithInitSvcConditions),
+			}, WithInitSvcConditions, WithServiceGeneration(1)),
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// Change the concurrency to ensure it is corrected.
@@ -313,15 +320,17 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("update-route-and-config", "foo", WithRunLatestRollout, func(svc *v1.Service) {
 				svc.Spec.GetTemplate().Name = "update-route-and-config-blah"
-			}, WithInitSvcConditions, func(svc *v1.Service) {
-				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
-			}),
+			}, WithInitSvcConditions, WithServiceGeneration(1), WithServiceObservedGeneration,
+				func(svc *v1.Service) {
+					svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
+				}),
 		}},
 	}, {
 		Name: "update route and configuration labels",
 		Objects: []runtime.Object{
 			// Mutate the Service to add some more labels
-			DefaultService("update-route-and-config-labels", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
+			DefaultService("update-route-and-config-labels", "foo", WithRunLatestRollout,
+				WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
 			config("update-route-and-config-labels", "foo", WithRunLatestRollout),
 			route("update-route-and-config-labels", "foo", WithRunLatestRollout),
 		},
@@ -382,7 +391,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "routes"),
 		},
 		Objects: []runtime.Object{
-			DefaultService("create-route-failure", "foo", WithRunLatestRollout),
+			DefaultService("create-route-failure", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 		},
 		Key: "foo/create-route-failure",
 		WantCreates: []runtime.Object{
@@ -392,7 +401,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("create-route-failure", "foo", WithRunLatestRollout,
 				// First reconcile initializes conditions.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "create-route-failure"),
@@ -408,7 +418,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "configurations"),
 		},
 		Objects: []runtime.Object{
-			DefaultService("create-config-failure", "foo", WithRunLatestRollout),
+			DefaultService("create-config-failure", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 		},
 		Key: "foo/create-config-failure",
 		WantCreates: []runtime.Object{
@@ -418,7 +428,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("create-config-failure", "foo", WithRunLatestRollout,
 				// First reconcile initializes conditions.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
@@ -433,7 +444,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			DefaultService("update-route-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("update-route-failure", "foo", WithRunLatestRollout,
+				WithInitSvcConditions),
 			// Mutate the Route to have an unexpected body to trigger an update.
 			route("update-route-failure", "foo", WithRunLatestRollout, MutateRoute),
 			config("update-route-failure", "foo", WithRunLatestRollout),
@@ -453,7 +465,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "configurations"),
 		},
 		Objects: []runtime.Object{
-			DefaultService("update-config-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("update-config-failure", "foo", WithRunLatestRollout,
+				WithInitSvcConditions, WithServiceGeneration(1), WithServiceObservedGeneration),
 			route("update-config-failure", "foo", WithRunLatestRollout),
 			// Mutate the Config to have an unexpected body to trigger an update.
 			config("update-config-failure", "foo", WithRunLatestRollout,
@@ -475,7 +488,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			DefaultService("run-latest", "foo", WithRunLatestRollout),
+			DefaultService("run-latest", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []runtime.Object{
@@ -486,7 +499,8 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
 				// We attempt to update the Service to initialize its
 				// conditions, which is where we induce the failure.
-				WithInitSvcConditions),
+				WithInitSvcConditions, WithServiceObservedGenFailure,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
@@ -498,7 +512,7 @@ func TestReconcile(t *testing.T) {
 		Name: "route and config ready, propagate ready",
 		// When both route and config are ready, the service should become ready.
 		Objects: []runtime.Object{
-			DefaultService("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(
@@ -527,7 +541,7 @@ func TestReconcile(t *testing.T) {
 		// When both route and config are ready, the service should become ready.
 		Objects: []runtime.Object{
 			DefaultService("all-ready", "foo", WithRunLatestRollout, WithInitSvcConditions,
-				WithReadyConfig("all-ready-00001")),
+				WithReadyConfig("all-ready-00001"), WithServiceGeneration(1)),
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
@@ -556,7 +570,7 @@ func TestReconcile(t *testing.T) {
 		// When both route and config are ready, but the route points to the previous revision
 		// the service should not be ready.
 		Objects: []runtime.Object{
-			DefaultService("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("config-only-ready", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
@@ -584,7 +598,7 @@ func TestReconcile(t *testing.T) {
 		// Gen 2: config update fails;
 		//    => service is still OK serving Gen 1.
 		Objects: []runtime.Object{
-			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1.TrafficTarget{
@@ -610,7 +624,7 @@ func TestReconcile(t *testing.T) {
 		Name: "configuration failure is propagated",
 		// When config fails, the service should fail.
 		Objects: []runtime.Object{
-			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
 			config("config-fails", "foo", WithRunLatestRollout, WithConfigGeneration(1), WithConfigObservedGen,
 				WithLatestCreated("config-fails-00001"), MarkLatestCreatedFailed("blah")),
@@ -625,7 +639,7 @@ func TestReconcile(t *testing.T) {
 		Name: "route failure is propagated",
 		// When route fails, the service should fail.
 		Objects: []runtime.Object{
-			DefaultService("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
+			DefaultService("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceGeneration(1)),
 			route("route-fails", "foo", WithRunLatestRollout,
 				RouteFailed("Propagate me, please", "")),
 			config("route-fails", "foo", WithRunLatestRollout, WithConfigGeneration(1), WithConfigObservedGen,
@@ -644,14 +658,15 @@ func TestReconcile(t *testing.T) {
 		Name:    "existing configuration without an owner causes a failure",
 		WantErr: true,
 		Objects: []runtime.Object{
-			DefaultService("run-latest", "foo", WithRunLatestRollout),
+			DefaultService("run-latest", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 			config("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
 		},
 		Key: "foo/run-latest",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
-				WithInitSvcConditions, MarkConfigurationNotOwned),
+				WithInitSvcConditions, MarkConfigurationNotOwned,
+				WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own configuration: "run-latest"`),
@@ -660,7 +675,7 @@ func TestReconcile(t *testing.T) {
 		Name:    "existing route without an owner causes a failure",
 		WantErr: true,
 		Objects: []runtime.Object{
-			DefaultService("run-latest", "foo", WithRunLatestRollout),
+			DefaultService("run-latest", "foo", WithRunLatestRollout, WithServiceGeneration(1)),
 			config("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout, WithRouteOwnersRemoved),
 		},
@@ -668,7 +683,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
-				WithInitSvcConditions, MarkRouteNotOwned),
+				WithInitSvcConditions, MarkRouteNotOwned, WithServiceGeneration(1), WithServiceObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `service: "run-latest" does not own route: "run-latest"`),
