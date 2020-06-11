@@ -49,7 +49,7 @@ func defaultFeaturesConfig() *Features {
 func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
 
-	if err := cm.Parse(data, AsFlag("multi-container", &nc.MultiContainer)); err != nil {
+	if err := cm.Parse(data, asFlag("multi-container", &nc.MultiContainer)); err != nil {
 		return nil, err
 	}
 	if err := cm.Parse(data, AsFlag("kubernetes/podspec-dryrun", &nc.PodSpecDryRun)); err != nil {
@@ -69,8 +69,8 @@ type Features struct {
 	PodSpecDryRun  Flag
 }
 
-// AsFlag parses the value at key as a Flag into the target, if it exists.
-func AsFlag(key string, target *Flag) cm.ParseFunc {
+// asFlag parses the value at key as a Flag into the target, if it exists.
+func asFlag(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
