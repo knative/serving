@@ -53,7 +53,7 @@ func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	case config.Enabled:
 		mode = DryRunEnabled
 	case config.Disabled:
-		mode = DryRunMode("")
+		return nil
 	default:
 		mode = DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
 	}
