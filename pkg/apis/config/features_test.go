@@ -89,7 +89,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "kubernetes/field-ref Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			KubernetesFieldRef: Allowed,
+			FieldRef: Allowed,
 		}),
 		data: map[string]string{
 			"kubernetes/field-ref": "Allowed",
@@ -98,7 +98,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "kubernetes/field-ref Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			KubernetesFieldRef: Enabled,
+			FieldRef: Enabled,
 		}),
 		data: map[string]string{
 			"kubernetes/field-ref": "Enabled",
@@ -107,7 +107,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "kubernetes/field-ref Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			KubernetesFieldRef: Disabled,
+			FieldRef: Disabled,
 		}),
 		data: map[string]string{
 			"kubernetes/field-ref": "Disabled",
