@@ -114,7 +114,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		if err != nil {
 			errs = errs.Also(err.ViaField("volumes"))
 		}
-		errs = errs.Also(serving.ValidateContainer(
+		errs = errs.Also(serving.ValidateContainer(ctx,
 			*rs.DeprecatedContainer, volumes).ViaField("container"))
 	default:
 		errs = errs.Also(apis.ErrMissingOneOf("container", "containers"))

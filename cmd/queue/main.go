@@ -77,11 +77,6 @@ var (
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
 
-// Scaled down config to use during exec probing.
-type probeConfig struct {
-	QueueServingPort int `split_words:"true" required:"true"`
-}
-
 type config struct {
 	ContainerConcurrency   int    `split_words:"true" required:"true"`
 	QueueServingPort       int    `split_words:"true" required:"true"`
@@ -202,12 +197,12 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 	}
 }
 
-func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
-	if env.QueueServingPort <= 0 {
-		return fmt.Errorf("port must be a positive value, got %d", env.QueueServingPort)
+func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
+	if queueServingPort <= 0 {
+		return fmt.Errorf("port must be a positive value, got %d", queueServingPort)
 	}
 
-	url := healthURLPrefix + strconv.Itoa(env.QueueServingPort)
+	url := healthURLPrefix + strconv.Itoa(queueServingPort)
 	timeoutDuration := readiness.PollTimeout
 	if timeoutSeconds != 0 {
 		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
@@ -263,17 +258,19 @@ func main() {
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		// Parse the environment.
-		var env probeConfig
-		if err := envconfig.Process("", &env); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+		queueServingPort, err := strconv.Atoi(os.Getenv("QUEUE_SERVING_PORT"))
+		if err != nil {
+			// used instead of the logger to produce a concise event message
+			fmt.Fprintln(os.Stderr, "parse queue port:", err)
 			os.Exit(1)
 		}
-		if err := probeQueueHealthPath(*readinessProbeTimeout, env); err != nil {
+
+		if err := probeQueueHealthPath(*readinessProbeTimeout, queueServingPort); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+
 		os.Exit(0)
 	}
 

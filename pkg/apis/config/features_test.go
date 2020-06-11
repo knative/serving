@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -57,23 +58,59 @@ func TestFeaturesConfiguration(t *testing.T) {
 	}, {
 		name:    "multi-container Allowed",
 		wantErr: false,
-		wantFeatures: &Features{
+		wantFeatures: defaultWith(&Features{
 			MultiContainer: Allowed,
-			PodSpecDryRun:  Allowed, // Default value
-		},
+			PodSpecDryRun:  Allowed,
+		}),
 		data: map[string]string{
 			"multi-container": "Allowed",
 		},
 	}, {
 		name:    "features Enabled",
 		wantErr: false,
-		wantFeatures: &Features{
+		wantFeatures: defaultWith(&Features{
 			MultiContainer: Enabled,
 			PodSpecDryRun:  Enabled,
-		},
+		}),
 		data: map[string]string{
 			"multi-container":           "Enabled",
 			"kubernetes/podspec-dryrun": "Enabled",
+		},
+	}, {
+		name:    "multi-container Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			MultiContainer: Disabled,
+		}),
+		data: map[string]string{
+			"multi-container": "Disabled",
+		},
+	}, {
+		name:    "kubernetes/field-ref Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			KubernetesFieldRef: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes/field-ref": "Allowed",
+		},
+	}, {
+		name:    "kubernetes/field-ref Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			KubernetesFieldRef: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes/field-ref": "Enabled",
+		},
+	}, {
+		name:    "kubernetes/field-ref Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			KubernetesFieldRef: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes/field-ref": "Disabled",
 		},
 	}}
 
@@ -93,4 +130,17 @@ func TestFeaturesConfiguration(t *testing.T) {
 			}
 		})
 	}
+}
+
+// defaultWith returns the default *Feature patched with the provided *Features.
+func defaultWith(p *Features) *Features {
+	f := defaultFeaturesConfig()
+	pType := reflect.ValueOf(p).Elem()
+	fType := reflect.ValueOf(f).Elem()
+	for i := 0; i < pType.NumField(); i++ {
+		if pType.Field(i).Interface().(Flag) != "" {
+			fType.Field(i).Set(pType.Field(i))
+		}
+	}
+	return f
 }

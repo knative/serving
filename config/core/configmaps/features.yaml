@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: a3e7194d
+    knative.dev/example-checksum: 3711c469
 data:
   _example: |
     ################################
@@ -40,6 +40,11 @@ data:
 
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
+
+
+    # Indicates whether Kubernetes FieldRef support is enabled
+    kubernetes/field-ref: "disabled"
+
 
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.

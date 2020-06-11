@@ -55,7 +55,7 @@ func WithRouteGeneration(generation int64) RouteOption {
 	}
 }
 
-// WithRouteObservedGeneneration sets the route's observed generation to it's generation
+// WithRouteObservedGeneration sets the route's observed generation to it's generation
 func WithRouteObservedGeneration(r *v1.Route) {
 	r.Status.ObservedGeneration = r.Generation
 }
@@ -121,6 +121,7 @@ func WithURL(r *v1.Route) {
 	}
 }
 
+// WithHTTPSDomain sets the .Status.URL field to a https-domain based on the name and namespace.
 func WithHTTPSDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "https",
@@ -166,8 +167,9 @@ func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
 	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 }
 
-// TLSNotEnabledForClusterLocalMessage calls MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage
-// after initialized the Service's conditions.
+// WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls
+// MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage after initialized
+// the Service's conditions.
 func WithRouteConditionsTLSNotEnabledForClusterLocalMessage(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 	rt.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
