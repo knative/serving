@@ -127,7 +127,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
-	readyBeforeReconcile := rev.Status.IsReady()
+	readyBeforeReconcile := rev.IsReady()
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -159,7 +159,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		}
 	}
 
-	readyAfterReconcile := rev.Status.IsReady()
+	readyAfterReconcile := rev.IsReady()
 	if !readyBeforeReconcile && readyAfterReconcile {
 		logging.FromContext(ctx).Info("Revision became ready")
 		controller.GetEventRecorder(ctx).Event(

@@ -18,12 +18,10 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -97,15 +95,6 @@ func TestHandlerReqEvent(t *testing.T) {
 
 func TestProbeHandler(t *testing.T) {
 	logger = TestLogger(t)
-	f, err := ioutil.TempFile("", "labels")
-	if err != nil {
-		t.Errorf("Failed to created temporary file: %v", err)
-	}
-	defer os.RemoveAll(f.Name())
-	if _, err = f.Write([]byte("true")); err != nil {
-		t.Errorf("failed to write to the file %v", err)
-	}
-	f.Close()
 
 	testcases := []struct {
 		name          string
@@ -113,7 +102,6 @@ func TestProbeHandler(t *testing.T) {
 		wantCode      int
 		wantBody      string
 		requestHeader string
-		cfg           config
 	}{{
 		name:          "unexpected probe header",
 		prober:        func() bool { return true },
@@ -126,13 +114,6 @@ func TestProbeHandler(t *testing.T) {
 		wantCode:      http.StatusOK,
 		wantBody:      queue.Name,
 		requestHeader: queue.Name,
-	}, {
-		name:          "fail readiness",
-		prober:        nil,
-		wantCode:      http.StatusBadRequest,
-		wantBody:      "failing healthcheck",
-		requestHeader: queue.Name,
-		cfg:           config{DownwardAPILabelsPath: f.Name()},
 	}, {
 		name:          "nil probe function",
 		prober:        nil,
@@ -154,7 +135,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, tc.cfg, logger)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -212,6 +193,34 @@ func TestProbeQueueNotReady(t *testing.T) {
 	}
 }
 
+func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusGone)
+	})
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	start := time.Now()
+	if err = probeQueueHealthPath(1, probeConfig{QueueServingPort: port}); err == nil {
+		t.Error("probeQueueHealthPath did not fail")
+	}
+
+	// if fails due to timeout and not cancelation, then it took too long
+	if time.Since(start) >= 1*time.Second {
+		t.Error("took too long to fail")
+	}
+}
+
 func TestProbeQueueReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
@@ -237,51 +246,6 @@ func TestProbeQueueReady(t *testing.T) {
 
 	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
-	}
-}
-
-func TestProbeFailFast(t *testing.T) {
-	f, err := ioutil.TempFile("", "labels")
-	if err != nil {
-		t.Errorf("Failed to created temporary file: %v", err)
-	}
-	defer os.RemoveAll(f.Name())
-
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
-			t.Fatal("Failed to process downward API labels:", err)
-		} else if preferScaledown {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-	})
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	if _, err = f.Write([]byte("true")); err != nil {
-		t.Errorf("failed writing to file %v", err)
-	}
-	f.Close()
-
-	start := time.Now()
-	if err = probeQueueHealthPath(1 /*seconds*/, probeConfig{
-		QueueServingPort:      port,
-		DownwardAPILabelsPath: f.Name(),
-	}); err == nil {
-		t.Error("probeQueueHealthPath did not fail")
-	}
-
-	// if fails due to timeout and not cancelation, then it took too long
-	if time.Since(start) >= 1*time.Second {
-		t.Error("took too long to fail")
 	}
 }
 
@@ -458,7 +422,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{}, logger)
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

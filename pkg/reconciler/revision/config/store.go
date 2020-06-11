@@ -35,7 +35,6 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 // Config contains the configmaps requires for revision reconciliation.
 type Config struct {
-	Autoscaler    *autoscalerconfig.Config
 	Defaults      *config.Defaults
 	Deployment    *deployment.Config
 	Logging       *logging.Config
@@ -88,7 +87,6 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load returns the config from the store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
 		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
 		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/networking/pkg/apis/networking"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
@@ -38,7 +39,6 @@ import (
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	activatortest "knative.dev/serving/pkg/activator/testing"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -53,7 +53,7 @@ const (
 	testRevision  = "test-revision"
 
 	probeFreq     = 50 * time.Millisecond
-	updateTimeout = 6 * probeFreq
+	updateTimeout = 8 * probeFreq
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -441,7 +441,7 @@ func TestRevisionWatcher(t *testing.T) {
 				case update := <-updateCh:
 					updates = append(updates, update)
 				case <-time.After(updateTimeout):
-					t.Error("Timed out waiting for update event")
+					t.Fatal("Timed out waiting for update event")
 				}
 			}
 			if got, want := rw.podsAddressable, !tc.noPodAddressability; got != want {

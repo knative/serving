@@ -44,11 +44,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -94,8 +94,8 @@ func TestIstioProbing(t *testing.T) {
 		domain = strings.SplitN(objects.Route.Status.URL.Host, ".", 2)[1]
 	}()
 
-	tlsOptions := &istiov1alpha3.Server_TLSOptions{
-		Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
+	tlsOptions := &istiov1alpha3.ServerTLSSettings{
+		Mode:              istiov1alpha3.ServerTLSSettings_SIMPLE,
 		PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
 		ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
 	}

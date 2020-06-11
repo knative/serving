@@ -30,9 +30,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
 )
 
@@ -73,7 +73,7 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 // IsCertificateReady will check the status conditions of the certificate and return true if the certificate is
 // ready.
 func IsCertificateReady(c *v1alpha1.Certificate) (bool, error) {
-	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
+	return c.IsReady(), nil
 }
 
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate

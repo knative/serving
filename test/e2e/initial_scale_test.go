@@ -97,7 +97,7 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		}
 		gotPods := len(podList.Items)
 		if gotPods == wantPods {
-			return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+			return s.IsReady(), nil
 		}
 		if gotPods > wantPods {
 			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)

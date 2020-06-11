@@ -14,7 +14,6 @@ require (
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.0
-	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
@@ -32,19 +31,20 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/api v0.20.0
-	google.golang.org/grpc v1.28.0
-	istio.io/api v0.0.0-20191115173247-e1a1952e5b81
-	istio.io/client-go v0.0.0-20191120150049-26c62a04cdbc
+	google.golang.org/grpc v1.28.1
+	istio.io/api v0.0.0-20200512234804-e5412c253ffe
+	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
-	k8s.io/api v0.17.6
-	k8s.io/apimachinery v0.17.6
+	k8s.io/api v0.18.1
+	k8s.io/apimachinery v0.18.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	k8s.io/metrics v0.17.6
-	knative.dev/caching v0.0.0-20200521155757-e78d17bc250e
-	knative.dev/pkg v0.0.0-20200528190300-08a86da47d28
-	knative.dev/test-infra v0.0.0-20200528222301-350178ab2a0e
+	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
+	knative.dev/networking v0.0.0-20200607161819-2086ac6759c2
+	knative.dev/pkg v0.0.0-20200609184032-fef70cc2616b
+	knative.dev/test-infra v0.0.0-20200610052322-f0f63d4ead3d
 )
 
 // pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180

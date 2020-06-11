@@ -28,7 +28,7 @@ import (
 	cm "knative.dev/pkg/configmap"
 )
 
-const ConfigMapNameEnv = "CONFIG_LEADERELECTION_NAME"
+const configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
 
 var validResourceLocks = sets.NewString("leases", "configmaps", "endpoints")
 
@@ -123,7 +123,7 @@ func defaultComponentConfig(name string) ComponentConfig {
 // ConfigMapName returns the name of the configmap to read for leader election
 // settings.
 func ConfigMapName() string {
-	cm := os.Getenv(ConfigMapNameEnv)
+	cm := os.Getenv(configMapNameEnv)
 	if cm == "" {
 		return "config-leader-election"
 	}

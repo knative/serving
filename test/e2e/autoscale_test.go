@@ -24,16 +24,14 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -231,79 +229,4 @@ func TestFastScaleToZero(t *testing.T) {
 	}
 
 	t.Logf("Total time to scale down: %v", time.Since(st))
-}
-
-func TestGracefulScaledown(t *testing.T) {
-	t.Skip()
-	cancel := logstream.Start(t)
-	defer cancel()
-
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 1 /* target */, 1, /* targetUtilization */
-		wsHostnameTestImageName, nil, /* no validation */
-		rtesting.WithContainerConcurrency(1),
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey: "-1",
-		}))
-	defer test.TearDown(ctx.clients, ctx.names)
-
-	autoscalerConfigMap, err := rawCM(ctx.clients, autoscalerconfig.ConfigName)
-	if err != nil {
-		t.Errorf("Error retrieving autoscaler configmap: %v", err)
-	}
-
-	patchedAutoscalerConfigMap := autoscalerConfigMap.DeepCopy()
-	patchedAutoscalerConfigMap.Data["enable-graceful-scaledown"] = "true"
-	patchCM(ctx.clients, patchedAutoscalerConfigMap)
-	defer patchCM(ctx.clients, autoscalerConfigMap)
-	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
-
-	if err = assertGracefulScaledown(t, ctx, 4 /* desired pods */); err != nil {
-		t.Errorf("Failed: %v", err)
-	}
-}
-
-func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
-	// start x running pods; x == size
-	hostConnMap, err := uniqueHostConnections(t, ctx.names, size)
-	if err != nil {
-		return err
-	}
-
-	// only keep openConnCount connections open for the test
-	openConnCount := size / 2
-	deleteHostConnections(hostConnMap, size-openConnCount)
-
-	defer deleteHostConnections(hostConnMap, openConnCount)
-
-	timer := time.NewTicker(2 * time.Second)
-	for range timer.C {
-		readyCount, err := numberOfReadyPods(ctx)
-		if err != nil {
-			return err
-		}
-
-		if int(readyCount) < openConnCount {
-			return fmt.Errorf("failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), openConnCount)
-		}
-
-		if int(readyCount) == openConnCount {
-			pods, err := allPods(ctx)
-			if err != nil {
-				return err
-			}
-
-			for _, p := range pods {
-				if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
-					continue
-				}
-
-				if _, ok := hostConnMap.Load(p.Name); !ok {
-					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
-				}
-			}
-			break
-		}
-	}
-
-	return nil
 }

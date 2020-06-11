@@ -19,6 +19,8 @@ package autoscaling
 import "time"
 
 const (
+	domain = ".knative.dev"
+
 	// InternalGroupName is the internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 

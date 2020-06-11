@@ -161,7 +161,73 @@ func TestConfigurationIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+			c := Configuration{Status: tc.status}
+			if e, a := tc.isReady, c.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
+func TestConfigurationIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   ConfigurationStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   ConfigurationStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: ConfigurationStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: ConfigurationStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: ConfigurationStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: ConfigurationConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: ConfigurationStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := Configuration{Status: tc.status}
+			if e, a := tc.isFailed, c.IsFailed(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
@@ -231,7 +297,8 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isUpdateToDate, tc.status.IsLatestReadyRevisionNameUpToDate(); e != a {
+		c := Configuration{Status: tc.status}
+		if e, a := tc.isUpdateToDate, c.IsLatestReadyRevisionNameUpToDate(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}

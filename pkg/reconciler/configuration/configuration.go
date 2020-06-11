@@ -130,7 +130,7 @@ func (c *Reconciler) findAndSetLatestReadyRevision(ctx context.Context, config *
 		return err
 	}
 	for _, rev := range sortedRevisions {
-		if rev.Status.IsReady() {
+		if rev.IsReady() {
 			old, new := config.Status.LatestReadyRevisionName, rev.Name
 			config.Status.SetLatestReadyRevisionName(rev.Name)
 			if old != new {

@@ -24,7 +24,6 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -61,14 +60,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().Metrics().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
-
-		// Group=networking.internal.knative.dev, Version=v1alpha1
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("certificates"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Certificates().Informer()}, nil
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("ingresses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Ingresses().Informer()}, nil
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("serverlessservices"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ServerlessServices().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1
 	case v1.SchemeGroupVersion.WithResource("configurations"):

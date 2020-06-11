@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	net "knative.dev/serving/pkg/network"
 )
 

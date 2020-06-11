@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/serving/pkg/apis/networking"
 	test "knative.dev/serving/test"
 )
 

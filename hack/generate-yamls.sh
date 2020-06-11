@@ -48,13 +48,11 @@ fi
 rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 
 # Generated Knative component YAML files
-readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.yaml
 readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
-readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 
 readonly MONITORING_FILES=${YAML_OUTPUT_DIR}/monitoring.lst
@@ -96,16 +94,8 @@ ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.y
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
 
-# Create cert-manager related yaml
-cat "./third_party/cert-manager-0.12.0/net-certmanager.yaml" > "${SERVING_CERT_MANAGER_YAML}"
-
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
-
-# Create serving.yaml with all of the default components
-cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
-cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
-cat "./third_party/net-istio.yaml" >> "${SERVING_YAML}"
 
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
@@ -149,16 +139,14 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/memory -f con
 
 echo "All manifests generated"
 
-# List generated YAML files, with serving.yaml first.
+# List generated YAML files, with serving-core.yaml first.
 
 cat << EOF > ${YAML_LIST_FILE}
-${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
 ${SERVING_STORAGE_VERSION_MIGRATE_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
-${SERVING_CERT_MANAGER_YAML}
 ${SERVING_NSCERT_YAML}
 ${MONITORING_FILES}
 ${MONITORING_YAML}
