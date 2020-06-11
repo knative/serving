@@ -5367,7 +5367,6 @@ spec:
           - $(POD_NAMESPACE).svc.cluster.local
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
-          - --log_output_level=ads:debug
           - --serviceCluster
           - istio-ingressgateway
           - --trust-domain=cluster.local
@@ -5721,7 +5720,6 @@ spec:
         - $(POD_NAMESPACE).svc.cluster.local
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --log_output_level=ads:debug
         - --serviceCluster
         - cluster-local-gateway
         - --trust-domain=cluster.local
