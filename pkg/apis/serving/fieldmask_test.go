@@ -415,31 +415,59 @@ func TestEnvVarMask(t *testing.T) {
 }
 
 func TestEnvVarSourceMask(t *testing.T) {
-	want := &corev1.EnvVarSource{
-		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{},
-		SecretKeyRef:    &corev1.SecretKeySelector{},
-	}
-	in := &corev1.EnvVarSource{
-		ConfigMapKeyRef:  &corev1.ConfigMapKeySelector{},
-		SecretKeyRef:     &corev1.SecretKeySelector{},
-		FieldRef:         &corev1.ObjectFieldSelector{},
-		ResourceFieldRef: &corev1.ResourceFieldSelector{},
-	}
+	tests := []struct {
+		name     string
+		fieldRef bool
+		in       *corev1.EnvVarSource
+		want     *corev1.EnvVarSource
+	}{{
+		name:     "FieldRef false",
+		fieldRef: false,
+		in: &corev1.EnvVarSource{
+			ConfigMapKeyRef:  &corev1.ConfigMapKeySelector{},
+			SecretKeyRef:     &corev1.SecretKeySelector{},
+			FieldRef:         &corev1.ObjectFieldSelector{},
+			ResourceFieldRef: &corev1.ResourceFieldSelector{},
+		},
+		want: &corev1.EnvVarSource{
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{},
+			SecretKeyRef:    &corev1.SecretKeySelector{},
+		},
+	}, {
+		name:     "FieldRef true",
+		fieldRef: true,
+		in: &corev1.EnvVarSource{
+			ConfigMapKeyRef:  &corev1.ConfigMapKeySelector{},
+			SecretKeyRef:     &corev1.SecretKeySelector{},
+			FieldRef:         &corev1.ObjectFieldSelector{},
+			ResourceFieldRef: &corev1.ResourceFieldSelector{},
+		},
+		want: &corev1.EnvVarSource{
+			ConfigMapKeyRef:  &corev1.ConfigMapKeySelector{},
+			SecretKeyRef:     &corev1.SecretKeySelector{},
+			FieldRef:         &corev1.ObjectFieldSelector{},
+			ResourceFieldRef: &corev1.ResourceFieldSelector{},
+		},
+	}}
 
-	got := EnvVarSourceMask(in)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := EnvVarSourceMask(test.in, test.fieldRef)
 
-	if &want == &got {
-		t.Error("Input and output share addresses. Want different addresses")
-	}
+			if &test.want == &got {
+				t.Error("Input and output share addresses. Want different addresses")
+			}
 
-	if diff, err := kmp.SafeDiff(want, got); err != nil {
-		t.Errorf("Got error comparing output, err = %v", err)
-	} else if diff != "" {
-		t.Errorf("EnvVarSourceMask (-want, +got): %s", diff)
-	}
+			if diff, err := kmp.SafeDiff(test.want, got); err != nil {
+				t.Errorf("Got error comparing output, err = %v", err)
+			} else if diff != "" {
+				t.Errorf("EnvVarSourceMask (-want, +got): %s", diff)
+			}
 
-	if got = EnvVarSourceMask(nil); got != nil {
-		t.Errorf("EnvVarSourceMask(nil) = %v, want: nil", got)
+			if got = EnvVarSourceMask(nil, test.fieldRef); got != nil {
+				t.Errorf("EnvVarSourceMask(nil) = %v, want: nil", got)
+			}
+		})
 	}
 }
 
