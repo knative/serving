@@ -60,18 +60,21 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer: Allowed,
+			PodSpecDryRun:  Allowed,
 		}),
 		data: map[string]string{
 			"multi-container": "Allowed",
 		},
 	}, {
-		name:    "multi-container Enabled",
+		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer: Enabled,
+			PodSpecDryRun:  Enabled,
 		}),
 		data: map[string]string{
-			"multi-container": "Enabled",
+			"multi-container":           "Enabled",
+			"kubernetes/podspec-dryrun": "Enabled",
 		},
 	}, {
 		name:    "multi-container Disabled",

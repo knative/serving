@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -46,10 +47,20 @@ const (
 func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
 
+	var mode DryRunMode
+	features := config.FromContextOrDefaults(ctx).Features
+	switch features.PodSpecDryRun {
+	case config.Enabled:
+		mode = DryRunEnabled
+	case config.Disabled:
+		return nil
+	default:
+		mode = DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
+	}
+
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
 	// of this are well-tested. Only run extra validation for the dry-run test.
 	// This will be in place to while the feature is tested for compatibility and later removed.
-	mode := DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
 	if mode != DryRunStrict && mode != DryRunEnabled {
 		return nil
 	}
