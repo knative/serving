@@ -72,8 +72,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecDryRun:  Enabled,
 		},
 		data: map[string]string{
-			"multi-container": "Enabled",
-			"podspec-dryrun":  "Enabled",
+			"multi-container":           "Enabled",
+			"kubernetes/podspec-dryrun": "Enabled",
 		},
 	}}
 
