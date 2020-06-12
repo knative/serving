@@ -86,7 +86,7 @@ func main() {
 	// things that are outside of expected bounds.
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs, t.analyzers...)
 
-	// Send 2000 QPS (2 per ms) for the given duration with a 30s request timeout.
+	// Send 3000 QPS (3 per ms) for the given duration with a 30s request timeout.
 	rate := vegeta.Rate{Freq: 3, Per: time.Millisecond}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
