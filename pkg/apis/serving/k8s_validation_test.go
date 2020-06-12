@@ -43,7 +43,7 @@ func withMultiContainer() configOption {
 
 func withFieldRef() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.KubernetesFieldRef = config.Enabled
+		cfg.Features.FieldRef = config.Enabled
 		return cfg
 	}
 }
