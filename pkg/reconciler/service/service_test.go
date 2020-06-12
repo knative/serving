@@ -175,7 +175,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-rev",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
-				WithInitSvcConditions, WithServiceObservedGenFailure, MarkRevisionNameTaken,
+				WithInitSvcConditions, MarkRevisionNameTaken,
 				WithServiceGeneration(2), WithServiceObservedGeneration,
 			),
 		}},
