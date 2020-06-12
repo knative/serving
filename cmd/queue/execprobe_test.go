@@ -151,8 +151,7 @@ func TestProbeQueueReady(t *testing.T) {
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	os.Setenv(queuePortEnvVar, u.Port())
 
-	const timeoutSec = 1
-	if rv := standaloneProbeMain(timeoutSec); rv != 0 {
+	if rv := standaloneProbeMain(0 /*use default*/); rv != 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
@@ -179,8 +178,8 @@ func TestProbeQueueTimeout(t *testing.T) {
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	os.Setenv(queuePortEnvVar, u.Port())
 
-	const timeoutSec = 1
-	if rv := standaloneProbeMain(timeoutSec); rv == 0 {
+	const timeout = time.Second
+	if rv := standaloneProbeMain(timeout); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 

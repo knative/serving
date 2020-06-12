@@ -63,7 +63,7 @@ const (
 // until the HTTP endpoint responds with success. This allows us to get an
 // initial readiness result much faster than the effective upstream Kubernetes
 // minimum of 1 second.
-func standaloneProbeMain(timeoutSeconds int) (exitCode int) {
+func standaloneProbeMain(timeout time.Duration) (exitCode int) {
 	queueServingPort, err := strconv.ParseUint(os.Getenv(queuePortEnvVar), 10, 16 /*ports are 16 bit*/)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "parse queue port:", err)
@@ -74,9 +74,8 @@ func standaloneProbeMain(timeoutSeconds int) (exitCode int) {
 		return 1
 	}
 
-	timeout := readiness.PollTimeout
-	if timeoutSeconds != 0 {
-		timeout = time.Duration(timeoutSeconds) * time.Second
+	if timeout == 0 {
+		timeout = readiness.PollTimeout
 	}
 
 	if err := probeQueueHealthPath(timeout, int(queueServingPort)); err != nil {

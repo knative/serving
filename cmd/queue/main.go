@@ -194,7 +194,7 @@ func main() {
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		os.Exit(standaloneProbeMain(*readinessProbeTimeout))
+		os.Exit(standaloneProbeMain(time.Duration(*readinessProbeTimeout) * time.Second))
 	}
 
 	// Parse the environment.
