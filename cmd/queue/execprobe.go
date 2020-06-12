@@ -32,11 +32,20 @@ import (
 	"knative.dev/serving/pkg/queue/readiness"
 )
 
+const (
+	healthURLPrefix = "http://127.0.0.1:"
+
+	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
+	// started as early as possible while still wanting to give the container some breathing
+	// room to get up and running.
+	aggressivePollInterval = 25 * time.Millisecond
+)
+
 // As well as running as a long-running proxy server, the Queue Proxy can be
 // run as an exec probe if the `--probe-period` flag is passed.
 //
 // In this mode, the exec probe (repeatedly) sends an HTTP request to the Queue
-// Proxy server with a Probe header.  The handler for this probe request
+// Proxy server with a Probe header. The handler for this probe request
 // (knativeProbeHandler) then performs the actual health check against the user
 // container. The exec probe binary exits 0 (success) if it eventually gets a
 // 200 status code back from the knativeProbeHandler, or 1 (fail) if it never

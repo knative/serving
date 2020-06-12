@@ -59,11 +59,6 @@ import (
 const (
 	badProbeTemplate = "unexpected probe header value: %s"
 
-	healthURLPrefix = "http://127.0.0.1:"
-	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
-	// started as early as possible while still wanting to give the container some breathing
-	// room to get up and running.
-	aggressivePollInterval = 25 * time.Millisecond
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
 )
