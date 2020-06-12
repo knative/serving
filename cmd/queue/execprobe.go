@@ -1,0 +1,134 @@
+/*
+Copyright 2020 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/health"
+	"knative.dev/serving/pkg/queue/readiness"
+)
+
+const (
+	healthURLPrefix = "http://127.0.0.1:"
+
+	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
+	// started as early as possible while still wanting to give the container some breathing
+	// room to get up and running.
+	aggressivePollInterval = 25 * time.Millisecond
+)
+
+// As well as running as a long-running proxy server, the Queue Proxy can be
+// run as an exec probe if the `--probe-period` flag is passed.
+//
+// In this mode, the exec probe (repeatedly) sends an HTTP request to the Queue
+// Proxy server with a Probe header. The handler for this probe request
+// (knativeProbeHandler) then performs the actual health check against the user
+// container. The exec probe binary exits 0 (success) if it eventually gets a
+// 200 status code back from the knativeProbeHandler, or 1 (fail) if it never
+// does.
+//
+// The reason we use an exec probe to hit an HTTP endpoint on the Queue
+// Proxy to then run the actual probe against the user container rather than
+// using an HTTP probe directly is because an exec probe can be launched
+// immediately after the container starts, whereas an HTTP probe would
+// initially race with the server starting up and fail. The minimum retry
+// period after this failure in upstream kubernetes is a second. The exec
+// probe, on the other hand, automatically polls on an aggressivePollInterval
+// until the HTTP endpoint responds with success. This allows us to get an
+// initial readiness result much faster than the effective upstream Kubernetes
+// minimum of 1 second.
+func standaloneProbeMain(timeout int) (exitCode int) {
+	queueServingPort, err := strconv.Atoi(os.Getenv("QUEUE_SERVING_PORT"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "parse queue port:", err)
+		return 1
+	}
+
+	if err := probeQueueHealthPath(timeout, queueServingPort); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	return 0
+}
+
+func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
+	if queueServingPort <= 0 {
+		return fmt.Errorf("port must be a positive value, got %d", queueServingPort)
+	}
+
+	url := healthURLPrefix + strconv.Itoa(queueServingPort)
+	timeoutDuration := readiness.PollTimeout
+	if timeoutSeconds != 0 {
+		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("probe failed: error creating request: %w", err)
+	}
+
+	// Add the header to indicate this is a probe request.
+	req.Header.Add(network.ProbeHeaderName, queue.Name)
+	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
+
+	httpClient := &http.Client{
+		Timeout: timeoutDuration,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer cancel()
+
+	var lastErr error
+	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
+	// invocation of conditionFunc, it exits immediately without trying for a second time.
+	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
+		res, lastErr := httpClient.Do(req)
+		if lastErr != nil {
+			// Return nil error for retrying
+			return false, nil
+		}
+		defer res.Body.Close()
+
+		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
+		if health.IsHTTPProbeShuttingDown(res) {
+			return false, errors.New("failing probe deliberately for shutdown")
+		}
+
+		return health.IsHTTPProbeReady(res), nil
+	}, ctx.Done())
+
+	if lastErr != nil {
+		return fmt.Errorf("failed to probe: %w", lastErr)
+	}
+
+	// An http.StatusOK was never returned during probing
+	if timeoutErr != nil {
+		return errors.New("probe returned not ready")
+	}
+
+	return nil
+}
