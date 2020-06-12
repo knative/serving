@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -36,7 +35,6 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
@@ -59,8 +57,7 @@ import (
 )
 
 const (
-	badProbeTemplate   = "unexpected probe header value: %s"
-	failingHealthcheck = "failing healthcheck"
+	badProbeTemplate = "unexpected probe header value: %s"
 
 	healthURLPrefix = "http://127.0.0.1:"
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
@@ -197,81 +194,12 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 	}
 }
 
-func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
-	if queueServingPort <= 0 {
-		return fmt.Errorf("port must be a positive value, got %d", queueServingPort)
-	}
-
-	url := healthURLPrefix + strconv.Itoa(queueServingPort)
-	timeoutDuration := readiness.PollTimeout
-	if timeoutSeconds != 0 {
-		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
-	}
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return fmt.Errorf("probe failed: error creating request: %w", err)
-	}
-	// Add the header to indicate this is a probe request.
-	req.Header.Add(network.ProbeHeaderName, queue.Name)
-	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
-
-	httpClient := &http.Client{
-		Timeout: timeoutDuration,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
-	defer cancel()
-
-	var lastErr error
-	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
-	// invocation of conditionFunc, it exits immediately without trying for a second time.
-	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		res, lastErr := httpClient.Do(req)
-		if lastErr != nil {
-			// Return nil error for retrying
-			return false, nil
-		}
-		defer res.Body.Close()
-
-		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
-		if health.IsHTTPProbeShuttingDown(res) {
-			return false, errors.New("failing probe deliberately for shutdown")
-		}
-
-		return health.IsHTTPProbeReady(res), nil
-	}, ctx.Done())
-
-	if lastErr != nil {
-		return fmt.Errorf("failed to probe: %w", lastErr)
-	}
-
-	// An http.StatusOK was never returned during probing
-	if timeoutErr != nil {
-		return errors.New("probe returned not ready")
-	}
-
-	return nil
-}
-
 func main() {
 	flag.Parse()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		queueServingPort, err := strconv.Atoi(os.Getenv("QUEUE_SERVING_PORT"))
-		if err != nil {
-			// used instead of the logger to produce a concise event message
-			fmt.Fprintln(os.Stderr, "parse queue port:", err)
-			os.Exit(1)
-		}
-
-		if err := probeQueueHealthPath(*readinessProbeTimeout, queueServingPort); err != nil {
-			// used instead of the logger to produce a concise event message
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
+		os.Exit(standaloneProbeMain(*readinessProbeTimeout))
 	}
 
 	// Parse the environment.
