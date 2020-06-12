@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -47,9 +46,9 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(&queueProbed, 1)
+		queueProbed++
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
@@ -77,9 +76,9 @@ func TestProbeQueueNotReady(t *testing.T) {
 }
 
 func TestProbeShuttingDown(t *testing.T) {
-	queueProbed := int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(&queueProbed, 1)
+		queueProbed++
 		w.WriteHeader(http.StatusGone)
 	})
 
@@ -135,9 +134,9 @@ func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(&queueProbed, 1)
+		queueProbed++
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -161,9 +160,9 @@ func TestProbeQueueReady(t *testing.T) {
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(&queueProbed, 1)
+		queueProbed++
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -191,9 +190,10 @@ func TestProbeQueueTimeout(t *testing.T) {
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := int32(0)
+	count := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		if atomic.AddInt32(&count, 1) < 9 {
+		count++
+		if count < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
