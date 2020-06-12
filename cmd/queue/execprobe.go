@@ -39,6 +39,8 @@ const (
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
 	aggressivePollInterval = 25 * time.Millisecond
+
+	queuePortEnvVar = "QUEUE_SERVING_PORT"
 )
 
 // As well as running as a long-running proxy server, the Queue Proxy can be
@@ -61,14 +63,23 @@ const (
 // until the HTTP endpoint responds with success. This allows us to get an
 // initial readiness result much faster than the effective upstream Kubernetes
 // minimum of 1 second.
-func standaloneProbeMain(timeout int) (exitCode int) {
-	queueServingPort, err := strconv.Atoi(os.Getenv("QUEUE_SERVING_PORT"))
+func standaloneProbeMain(timeoutSeconds int) (exitCode int) {
+	queueServingPort, err := strconv.ParseUint(os.Getenv(queuePortEnvVar), 10, 16 /*ports are 16 bit*/)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "parse queue port:", err)
 		return 1
 	}
+	if queueServingPort == 0 {
+		fmt.Fprintln(os.Stderr, "port must be a positive value, got 0")
+		return 1
+	}
 
-	if err := probeQueueHealthPath(timeout, queueServingPort); err != nil {
+	timeout := readiness.PollTimeout
+	if timeoutSeconds != 0 {
+		timeout = time.Duration(timeoutSeconds) * time.Second
+	}
+
+	if err := probeQueueHealthPath(timeout, int(queueServingPort)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -76,16 +87,8 @@ func standaloneProbeMain(timeout int) (exitCode int) {
 	return 0
 }
 
-func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
-	if queueServingPort <= 0 {
-		return fmt.Errorf("port must be a positive value, got %d", queueServingPort)
-	}
-
+func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 	url := healthURLPrefix + strconv.Itoa(queueServingPort)
-	timeoutDuration := readiness.PollTimeout
-	if timeoutSeconds != 0 {
-		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
-	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -97,16 +100,19 @@ func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
 	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
 
 	httpClient := &http.Client{
-		Timeout: timeoutDuration,
+		Timeout: timeout,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	var lastErr error
+	var (
+		lastErr error
+		res     *http.Response
+	)
 	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		res, lastErr := httpClient.Do(req)
+		res, lastErr = httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying
 			return false, nil
@@ -115,9 +121,9 @@ func probeQueueHealthPath(timeoutSeconds, queueServingPort int) error {
 
 		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
 		if health.IsHTTPProbeShuttingDown(res) {
-			return false, errors.New("failing probe deliberately for shutdown")
+			lastErr = errors.New("failing probe deliberately for shutdown")
+			return false, lastErr
 		}
-
 		return health.IsHTTPProbeReady(res), nil
 	}, ctx.Done())
 
