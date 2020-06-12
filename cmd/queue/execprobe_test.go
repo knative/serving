@@ -153,7 +153,7 @@ func TestProbeQueueReady(t *testing.T) {
 
 	const timeoutSec = 1
 	if rv := standaloneProbeMain(timeoutSec); rv != 0 {
-		t.Error("Unexpected return value from standaloneProbeMain: ", rv)
+		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
 	if queueProbed == 0 {
@@ -181,7 +181,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 	const timeoutSec = 1
 	if rv := standaloneProbeMain(timeoutSec); rv == 0 {
-		t.Error("Unexpected return value from standaloneProbeMain: ", rv)
+		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
 	ts.Close()
