@@ -20,21 +20,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue/readiness"
 )
 
 func TestProbeQueueInvalidPort(t *testing.T) {
-	if err := probeQueueHealthPath(1, 0); err == nil {
-		t.Error("Expected error, got nil")
-	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
-		t.Errorf("Unexpected not ready message: %s", diff)
+	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
+	for _, port := range []string{"-1", "0", "66000"} {
+		os.Setenv(queuePortEnvVar, port)
+		if rv := standaloneProbeMain(1); rv != 1 {
+			t.Error("Unexpected return code", rv)
+		}
 	}
 }
 
@@ -45,9 +46,9 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := ptr.Int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(queueProbed, 1)
+		queueProbed++
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
@@ -63,13 +64,43 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(1, port)
+	err = probeQueueHealthPath(time.Second, port)
 
-	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
-		t.Errorf("Unexpected not ready message: %s", diff)
+	if err == nil || err.Error() != "probe returned not ready" {
+		t.Error("Unexpected not ready error:", err)
 	}
 
-	if atomic.LoadInt32(queueProbed) == 0 {
+	if queueProbed == 0 {
+		t.Error("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeShuttingDown(t *testing.T) {
+	queueProbed := 0
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
+		queueProbed++
+		w.WriteHeader(http.StatusGone)
+	})
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	}
+
+	err = probeQueueHealthPath(time.Second, port)
+
+	if err == nil || err.Error() != "failed to probe: failing probe deliberately for shutdown" {
+		t.Error("Unexpected error:", err)
+	}
+
+	if queueProbed == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
@@ -103,9 +134,9 @@ func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := ptr.Int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(queueProbed, 1)
+		queueProbed++
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -116,24 +147,22 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
+	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
+	os.Setenv(queuePortEnvVar, u.Port())
+
+	if rv := standaloneProbeMain(0 /*use default*/); rv != 0 {
+		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if err = probeQueueHealthPath(1, port); err != nil {
-		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
-	}
-
-	if atomic.LoadInt32(queueProbed) == 0 {
+	if queueProbed == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := ptr.Int32(0)
+	queueProbed := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		atomic.AddInt32(queueProbed, 1)
+		queueProbed++
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -145,27 +174,26 @@ func TestProbeQueueTimeout(t *testing.T) {
 		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("failed to convert port(%s) to int", u.Port())
-	}
+	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
+	os.Setenv(queuePortEnvVar, u.Port())
 
-	timeout := 1
-	if err = probeQueueHealthPath(timeout, port); err == nil {
-		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
+	const timeout = time.Second
+	if rv := standaloneProbeMain(timeout); rv == 0 {
+		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
 	ts.Close()
 
-	if atomic.LoadInt32(queueProbed) == 0 {
+	if queueProbed == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := ptr.Int32(0)
+	count := 0
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		if atomic.AddInt32(count, 1) < 9 {
+		count++
+		if count < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -184,8 +212,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	timeout := 0
-	if err := probeQueueHealthPath(timeout, port); err != nil {
+	if err := probeQueueHealthPath(readiness.PollTimeout, port); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
