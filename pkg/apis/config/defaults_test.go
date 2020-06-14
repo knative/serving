@@ -87,19 +87,6 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"allow-container-concurrency-zero": "false",
 		},
 	}, {
-		name:    "invalid multi container flag value",
-		wantErr: false,
-		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
-			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-			UserContainerNameTemplate:     DefaultUserContainerName,
-			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
-			AllowContainerConcurrencyZero: DefaultAllowContainerConcurrencyZero,
-		},
-		data: map[string]string{
-			"enable-multi-container": "invalid",
-		},
-	}, {
 		name:    "invalid allow container concurrency zero flag value",
 		wantErr: false,
 		wantDefaults: &Defaults{
