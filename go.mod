@@ -43,7 +43,7 @@ require (
 	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
 	knative.dev/networking v0.0.0-20200611155523-bd13675bcf70
-	knative.dev/pkg v0.0.0-20200614232523-aec2008e6656
+	knative.dev/pkg v0.0.0-20200615224524-dbd32a77f41c
 	knative.dev/test-infra v0.0.0-20200612191923-a4dd434e085b
 )
 
