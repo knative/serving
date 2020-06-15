@@ -83,7 +83,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1.Route) erro
 		route.Name,
 		func(r *v1.Route) (bool, error) {
 			url = r.Status.URL.URL()
-			return url != nil, nil
+			return url.String() != "", nil
 		},
 		"RouteDomain",
 	)
