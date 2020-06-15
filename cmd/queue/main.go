@@ -66,7 +66,7 @@ const (
 var (
 	logger *zap.SugaredLogger
 
-	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 )
 
 type config struct {
@@ -194,7 +194,7 @@ func main() {
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		os.Exit(standaloneProbeMain(time.Duration(*readinessProbeTimeout) * time.Second))
+		os.Exit(standaloneProbeMain(*readinessProbeTimeout))
 	}
 
 	// Parse the environment.

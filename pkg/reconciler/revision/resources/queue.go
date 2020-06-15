@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -198,20 +199,19 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		return out
 	}
 
-	timeout := 1
-
+	timeout := time.Second
 	if in.TimeoutSeconds > 1 {
-		timeout = int(in.TimeoutSeconds)
+		timeout = time.Duration(in.TimeoutSeconds) * time.Second
 	}
 
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
+				Command: []string{"/ko-app/queue", "-probe-period", timeout.String()},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
-		TimeoutSeconds:      int32(timeout),
+		TimeoutSeconds:      int32(timeout.Seconds()),
 		SuccessThreshold:    in.SuccessThreshold,
 		FailureThreshold:    in.FailureThreshold,
 		InitialDelaySeconds: in.InitialDelaySeconds,
