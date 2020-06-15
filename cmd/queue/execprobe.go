@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -116,9 +118,15 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 			// Return nil error for retrying
 			return false, nil
 		}
-		defer res.Body.Close()
 
-		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
+		defer func() {
+			// Ensure body is read and closed to ensure connection can be re-used via keep-alive.
+			// No point handling errors here, connection just won't be reused.
+			io.Copy(ioutil.Discard, res.Body)
+			res.Body.Close()
+		}()
+
+		// Fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
 		if health.IsHTTPProbeShuttingDown(res) {
 			lastErr = errors.New("failing probe deliberately for shutdown")
 			return false, lastErr
