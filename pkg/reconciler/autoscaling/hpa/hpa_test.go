@@ -499,16 +499,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	return s
 }
 
-type metricOption func(*asv1a1.Metric)
-
-func metric(pa *asv1a1.PodAutoscaler, msvcName string, opts ...metricOption) *asv1a1.Metric {
-	m := aresources.MakeMetric(context.Background(), pa, msvcName, defaultConfig().Autoscaler)
-	for _, o := range opts {
-		o(m)
-	}
-	return m
-}
-
 func defaultConfig() *config.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(nil)
 	return &config.Config{
