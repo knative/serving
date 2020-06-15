@@ -60,7 +60,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	t.Logf("Creating a new Service %s", names.Service)
-	svc, err := createService(t, clients, names, 2)
+	svc, err := v1b1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
