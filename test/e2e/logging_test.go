@@ -79,16 +79,16 @@ func TestRequestLogs(t *testing.T) {
 
 	// A request was sent to / in WaitForEndpointState.
 	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HttpRequest.RequestURL != "/" &&
-			log.HttpRequest.UserAgent != network.QueueProxyUserAgent
+		return log.HTTPRequest.RequestURL != "/" &&
+			log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
 	}); err != nil {
 		t.Fatalf("Got error waiting for normal request logs: %v", err)
 	}
 
 	// Health check requests are sent to / with a specific userAgent value periodically.
 	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HttpRequest.RequestURL != "/" &&
-			log.HttpRequest.UserAgent == network.QueueProxyUserAgent
+		return log.HTTPRequest.RequestURL != "/" &&
+			log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
 	}); err != nil {
 		t.Fatalf("Got error waiting for health check log: %v", err)
 	}
@@ -143,7 +143,7 @@ func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 }
 
 type logLine struct {
-	HttpRequest httpRequest `json:"httpRequest"`
+	HTTPRequest httpRequest `json:"httpRequest"`
 }
 
 type httpRequest struct {
