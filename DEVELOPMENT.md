@@ -229,7 +229,7 @@ webhook-6b6c77567f-flr59              1/1     Running   0          105s
 You can access the Knative Serving Controller's logs with:
 
 ```shell
-kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name)
+kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name) -c controller
 ```
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to
