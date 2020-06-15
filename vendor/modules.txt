@@ -1227,7 +1227,11 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
+<<<<<<< HEAD
 # knative.dev/pkg v0.0.0-20200614232523-aec2008e6656
+=======
+# knative.dev/pkg v0.0.0-20200615224524-dbd32a77f41c
+>>>>>>> 57bd2148e... Regen code after https://github.com/knative/pkg/pull/1404
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
