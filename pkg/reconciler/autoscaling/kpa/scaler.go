@@ -117,7 +117,7 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
 
-	return fmt.Sprintf("http://%s:%d/healthz", svc, port)
+	return fmt.Sprintf("http://%s:%d/%s", svc, port, network.ProbePath)
 }
 
 // activatorProbe returns true if via probe it determines that the
