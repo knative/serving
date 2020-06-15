@@ -30,13 +30,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -52,8 +50,7 @@ const (
 	successRateSLO       = 0.999
 	autoscaleSleep       = 500
 
-	wsHostnameTestImageName = "wsserver-hostname"
-	autoscaleTestImageName  = "autoscale"
+	autoscaleTestImageName = "autoscale"
 )
 
 type testContext struct {
@@ -265,17 +262,6 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("Scaled down.")
-}
-
-func allPods(ctx *testContext) ([]corev1.Pod, error) {
-	pods, err := ctx.clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(
-		metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{serving.RevisionLabelKey: ctx.resources.Revision.Name}).String()})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods for revision %s: %w", ctx.resources.Revision.Name, err)
-	}
-
-	return pods.Items, nil
 }
 
 func numberOfReadyPods(ctx *testContext) (float64, error) {
