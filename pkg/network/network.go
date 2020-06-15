@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	// ProbeHeaderName is the name of a path that activator, autoscaler and
+	// ProbePath is the name of a path that activator, autoscaler and
 	// prober(used by KIngress generally) use for health check.
 	ProbePath = "/healthz"
 
