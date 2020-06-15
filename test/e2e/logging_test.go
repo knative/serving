@@ -19,16 +19,15 @@ limitations under the License.
 package e2e
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
-	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/system"
@@ -79,59 +78,26 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	// A request was sent to / in WaitForEndpointState.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		r, ok := log["httpRequest"]
-		if !ok {
-			return false
-		}
-
-		m := r.(map[string]interface{})
-		v, ok := m["requestUrl"]
-		if !ok {
-			return false
-		}
-		if v.(string) != "/" {
-			return false
-		}
-
-		v, ok = m["userAgent"]
-		if !ok {
-			return false
-		}
-		return v.(string) != network.QueueProxyUserAgent
+	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+		return log.HTTPRequest.RequestURL == "/" &&
+			log.HTTPRequest.UserAgent != network.QueueProxyUserAgent
 	}); err != nil {
 		t.Fatalf("Got error waiting for normal request logs: %v", err)
 	}
 
 	// Health check requests are sent to / with a specific userAgent value periodically.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log map[string]interface{}) bool {
-		r, ok := log["httpRequest"]
-		if !ok {
-			return false
-		}
-
-		m := r.(map[string]interface{})
-		v, ok := m["requestUrl"]
-		if !ok {
-			return false
-		}
-		if v.(string) != "/" {
-			return false
-		}
-
-		v, ok = m["userAgent"]
-		if !ok {
-			return false
-		}
-		return v.(string) == network.QueueProxyUserAgent
-
+	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+		return log.HTTPRequest.RequestURL == "/" &&
+			log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
 	}); err != nil {
 		t.Fatalf("Got error waiting for health check log: %v", err)
 	}
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", rev)})
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(metav1.ListOptions{
+		LabelSelector: labels.Set{"app": rev}.String(),
+	})
 
 	if err != nil {
 		return corev1.Pod{}, err
@@ -146,40 +112,41 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 
 // waitForLog fetches the logs from a container of a pod decided by the given parameters
 // until the given condition is meet or timeout. Most of knative logs are in json format.
-func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log map[string]interface{}) bool) error {
-	var buf bytes.Buffer
+func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log logLine) bool) error {
 	return wait.PollImmediate(time.Second, 30*time.Second, func() (bool, error) {
-		podLogOpts := corev1.PodLogOptions{Container: container}
-
-		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &podLogOpts)
+		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
+			Container: container,
+		})
 		podLogs, err := req.Stream()
 		if err != nil {
 			return false, err
 		}
 		defer podLogs.Close()
 
-		buf.Reset()
-		_, err = io.Copy(&buf, podLogs)
-		if err != nil {
-			return false, err
-		}
-
-		logs := buf.String()
-		t.Logf("Got logs: %s", logs)
-		for _, log := range strings.Split(logs, "\n") {
-			if len(log) == 0 {
+		scanner := bufio.NewScanner(podLogs)
+		for scanner.Scan() {
+			t.Logf("%s/%s log: %s", podName, container, scanner.Text())
+			if len(scanner.Bytes()) == 0 {
 				continue
 			}
-			var result map[string]interface{}
-			if err := json.Unmarshal([]byte(log), &result); err != nil {
-				t.Logf("Failed to parse log `%s` into json: %v", log, err)
+			var result logLine
+			if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
+				t.Logf("Failed to parse log `%s` into json: %v", scanner.Text(), err)
 				continue
 			}
-
 			if condition(result) {
 				return true, nil
 			}
 		}
-		return false, nil
+		return false, scanner.Err()
 	})
+}
+
+type logLine struct {
+	HTTPRequest httpRequest `json:"httpRequest"`
+}
+
+type httpRequest struct {
+	RequestURL string `json:"requestUrl"`
+	UserAgent  string `json:"userAgent"`
 }
