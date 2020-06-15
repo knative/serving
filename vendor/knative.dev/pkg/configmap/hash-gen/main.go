@@ -29,9 +29,10 @@ import (
 )
 
 func main() {
-	fileName := os.Args[1]
-	if err := processFile(fileName); err != nil {
-		log.Fatal(err)
+	for _, fileName := range os.Args[1:] {
+		if err := processFile(fileName); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
