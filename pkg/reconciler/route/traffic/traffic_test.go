@@ -77,6 +77,34 @@ var (
 	niceOldRev *v1.Revision
 	niceNewRev *v1.Revision
 
+	// revOldDeadlineConfig has two good revisions: revOldDeadlineOldRev and revOldDeadlineNewRev
+	// revOldDeadlineOldRev has a deadline specified, and revOldDeadlineNewRev does not
+	revOldDeadlineConfig *v1.Configuration
+	revOldDeadlineOldRev *v1.Revision
+	revOldDeadlineNewRev *v1.Revision
+
+	// revNewDeadlineConfig has two good revisions: revNewDeadlineOldRev and revNewDeadlineNewRev
+	// revNewDeadlineNewRev has a deadline specified, and revNewDeadlineOldRev does not
+	revNewDeadlineConfig *v1.Configuration
+	revNewDeadlineOldRev *v1.Revision
+	revNewDeadlineNewRev *v1.Revision
+
+	// revBothDeadlineConfig has two good revisions: revBothDeadlineOldRev and revBothDeadlineNewRev
+	// both revisions have a deadline specified
+	revBothDeadlineConfig *v1.Configuration
+	revBothDeadlineOldRev *v1.Revision
+	revBothDeadlineNewRev *v1.Revision
+
+	shortTimeoutSeconds  int64
+	longTimeoutSeconds   int64
+	shortTimeoutDuration time.Duration
+	longTimeoutDuration  time.Duration
+
+	oldTimeoutSeconds  int64
+	newTimeoutSeconds  int64
+	oldTimeoutDuration time.Duration
+	newTimeoutDuration time.Duration
+
 	configLister listers.ConfigurationLister
 	revLister    listers.RevisionLister
 
@@ -84,6 +112,21 @@ var (
 )
 
 func setUp() {
+	shortTimeoutSeconds = 5 // arbitrary, but shorter than longTimeoutSeconds
+	longTimeoutSeconds = 6  // arbitrary, but longer than shortTimeoutSeconds
+
+	if !(0 < shortTimeoutSeconds && shortTimeoutSeconds < longTimeoutSeconds) {
+		panic("timeouts not set up correctly")
+	}
+
+	shortTimeoutDuration = time.Duration(shortTimeoutSeconds) * time.Second
+	longTimeoutDuration = time.Duration(longTimeoutSeconds) * time.Second
+
+	oldTimeoutDuration = longTimeoutDuration
+	newTimeoutDuration = shortTimeoutDuration
+	oldTimeoutSeconds = longTimeoutSeconds
+	newTimeoutSeconds = shortTimeoutSeconds
+
 	emptyConfig = getTestEmptyConfig("empty")
 	revDeletedConfig = testConfigWithDeletedRevision("latest-rev-deleted")
 	unreadyConfig, unreadyRev = getTestUnreadyConfig("unready")
@@ -91,6 +134,13 @@ func setUp() {
 	inactiveConfig, inactiveRev = getTestInactiveConfig("inactive")
 	goodConfig, goodOldRev, goodNewRev = getTestReadyConfig("good")
 	niceConfig, niceOldRev, niceNewRev = getTestReadyConfig("nice")
+	revOldDeadlineConfig, revOldDeadlineOldRev, revOldDeadlineNewRev = getTestReadyConfig("old-deadline")
+	revOldDeadlineOldRev.Spec.TimeoutSeconds = &oldTimeoutSeconds
+	revNewDeadlineConfig, revNewDeadlineOldRev, revNewDeadlineNewRev = getTestReadyConfig("new-deadline")
+	revNewDeadlineNewRev.Spec.TimeoutSeconds = &newTimeoutSeconds
+	revBothDeadlineConfig, revBothDeadlineOldRev, revBothDeadlineNewRev = getTestReadyConfig("both-deadline")
+	revBothDeadlineOldRev.Spec.TimeoutSeconds = &oldTimeoutSeconds
+	revBothDeadlineNewRev.Spec.TimeoutSeconds = &newTimeoutSeconds
 	servingClient := fakeclientset.NewSimpleClientset()
 
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
@@ -108,6 +158,9 @@ func setUp() {
 		emptyConfig,
 		goodConfig, goodOldRev, goodNewRev,
 		niceConfig, niceOldRev, niceNewRev,
+		revOldDeadlineConfig, revOldDeadlineOldRev, revOldDeadlineNewRev,
+		revNewDeadlineConfig, revNewDeadlineOldRev, revNewDeadlineNewRev,
+		revBothDeadlineConfig, revBothDeadlineOldRev, revBothDeadlineNewRev,
 	}
 
 	for _, obj := range objs {
@@ -1059,5 +1112,206 @@ func testNetworkConfig() *config.Config {
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
+	}
+}
+
+// Splitting traffic between a fixed revision and the latest revision (canary); old revision has a deadline.
+func TestBuildTrafficConfiguration_OldDeadline(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revOldDeadlineConfig.Name,
+					RevisionName:      revOldDeadlineOldRev.Name,
+					Percent:           ptr.Int64(90),
+					LatestRevision:    ptr.Bool(false),
+				},
+				Active:   true,
+				Protocol: net.ProtocolHTTP1,
+				Timeout:  &oldTimeoutDuration,
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revOldDeadlineConfig.Name,
+					RevisionName:      revOldDeadlineNewRev.Name,
+					Percent:           ptr.Int64(10),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revOldDeadlineConfig.Name,
+				RevisionName:      revOldDeadlineOldRev.Name,
+				Percent:           ptr.Int64(90),
+				LatestRevision:    ptr.Bool(false),
+			},
+			Active:   true,
+			Protocol: net.ProtocolHTTP1,
+			Timeout:  &oldTimeoutDuration,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revOldDeadlineConfig.Name,
+				RevisionName:      revOldDeadlineNewRev.Name,
+				Percent:           ptr.Int64(10),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			revOldDeadlineConfig.Name: revOldDeadlineConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			revOldDeadlineOldRev.Name: revOldDeadlineOldRev,
+			revOldDeadlineNewRev.Name: revOldDeadlineNewRev,
+		},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		RevisionName: revOldDeadlineOldRev.Name,
+		Percent:      ptr.Int64(90),
+	}, v1.TrafficTarget{
+		ConfigurationName: revOldDeadlineConfig.Name,
+		Percent:           ptr.Int64(10),
+	}))); err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+	}
+}
+
+// Splitting traffic between a fixed revision and the latest revision (canary); new revision has a deadline.
+func TestBuildTrafficConfiguration_NewDeadline(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revNewDeadlineConfig.Name,
+					RevisionName:      revNewDeadlineOldRev.Name,
+					Percent:           ptr.Int64(90),
+					LatestRevision:    ptr.Bool(false),
+				},
+				Active:   true,
+				Protocol: net.ProtocolHTTP1,
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revNewDeadlineConfig.Name,
+					RevisionName:      revNewDeadlineNewRev.Name,
+					Percent:           ptr.Int64(10),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+				Timeout:  &newTimeoutDuration,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revNewDeadlineConfig.Name,
+				RevisionName:      revNewDeadlineOldRev.Name,
+				Percent:           ptr.Int64(90),
+				LatestRevision:    ptr.Bool(false),
+			},
+			Active:   true,
+			Protocol: net.ProtocolHTTP1,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revNewDeadlineConfig.Name,
+				RevisionName:      revNewDeadlineNewRev.Name,
+				Percent:           ptr.Int64(10),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+			Timeout:  &newTimeoutDuration,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			revNewDeadlineConfig.Name: revNewDeadlineConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			revNewDeadlineOldRev.Name: revNewDeadlineOldRev,
+			revNewDeadlineNewRev.Name: revNewDeadlineNewRev,
+		},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		RevisionName: revNewDeadlineOldRev.Name,
+		Percent:      ptr.Int64(90),
+	}, v1.TrafficTarget{
+		ConfigurationName: revNewDeadlineConfig.Name,
+		Percent:           ptr.Int64(10),
+	}))); err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+	}
+}
+
+// Splitting traffic between a fixed revision and the latest revision (canary);
+// both revisions have a deadline, and the longer one is used.
+func TestBuildTrafficConfiguration_BothDeadline(t *testing.T) {
+	expected := &Config{
+		Targets: map[string]RevisionTargets{
+			DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revBothDeadlineConfig.Name,
+					RevisionName:      revBothDeadlineOldRev.Name,
+					Percent:           ptr.Int64(90),
+					LatestRevision:    ptr.Bool(false),
+				},
+				Active:   true,
+				Protocol: net.ProtocolHTTP1,
+				Timeout:  &oldTimeoutDuration,
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: revBothDeadlineConfig.Name,
+					RevisionName:      revBothDeadlineNewRev.Name,
+					Percent:           ptr.Int64(10),
+					LatestRevision:    ptr.Bool(true),
+				},
+				Active:   true,
+				Protocol: net.ProtocolH2C,
+				Timeout:  &newTimeoutDuration,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revBothDeadlineConfig.Name,
+				RevisionName:      revBothDeadlineOldRev.Name,
+				Percent:           ptr.Int64(90),
+				LatestRevision:    ptr.Bool(false),
+			},
+			Active:   true,
+			Protocol: net.ProtocolHTTP1,
+			Timeout:  &oldTimeoutDuration,
+		}, {
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: revBothDeadlineConfig.Name,
+				RevisionName:      revBothDeadlineNewRev.Name,
+				Percent:           ptr.Int64(10),
+				LatestRevision:    ptr.Bool(true),
+			},
+			Active:   true,
+			Protocol: net.ProtocolH2C,
+			Timeout:  &newTimeoutDuration,
+		}},
+		Configurations: map[string]*v1.Configuration{
+			revBothDeadlineConfig.Name: revBothDeadlineConfig,
+		},
+		Revisions: map[string]*v1.Revision{
+			revBothDeadlineOldRev.Name: revBothDeadlineOldRev,
+			revBothDeadlineNewRev.Name: revBothDeadlineNewRev,
+		},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		RevisionName: revBothDeadlineOldRev.Name,
+		Percent:      ptr.Int64(90),
+	}, v1.TrafficTarget{
+		ConfigurationName: revBothDeadlineConfig.Name,
+		Percent:           ptr.Int64(10),
+	}))); err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
 	}
 }
