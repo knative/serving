@@ -38,8 +38,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		Image:  test.PizzaPlanet1,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	t.Logf("Creating new configuration %s", names.Config)
 	if _, err := v1b1test.CreateConfiguration(t, clients, names); err != nil {

@@ -61,8 +61,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")

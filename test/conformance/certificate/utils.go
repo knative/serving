@@ -36,8 +36,10 @@ import (
 	"knative.dev/serving/test"
 )
 
-// CreateCertificate creates a Certificate with the given DNS names
-func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (*v1alpha1.Certificate, context.CancelFunc) {
+// CreateCertificate creates a Certificate with the given DNS names. The
+// certificate is automatically cleaned up when the test ends or is
+// interrupted.
+func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) *v1alpha1.Certificate {
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
@@ -55,19 +57,17 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 		},
 	}
 
-	cleanup := func() {
+	test.EnsureCleanup(t, func() {
 		clients.NetworkingClient.Certificates.Delete(cert.Name, &metav1.DeleteOptions{})
 		clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(cert.Spec.SecretName, &metav1.DeleteOptions{})
-	}
-
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	cert, err := clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
 		t.Fatal("Error creating Certificate:", err)
 	}
 
-	return cert, cleanup
+	return cert
 }
 
 // IsCertificateReady will check the status conditions of the certificate and return true if the certificate is
