@@ -34,6 +34,10 @@ import (
 )
 
 const (
+	// ProbePath is the name of a path that activator, autoscaler and
+	// prober(used by KIngress generally) use for health check.
+	ProbePath = "/healthz"
+
 	// ProbeHeaderName is the name of a header that can be added to
 	// requests to probe the knative networking layer.  Requests
 	// with this header will not be passed to the user container or

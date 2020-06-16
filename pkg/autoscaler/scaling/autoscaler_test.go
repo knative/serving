@@ -70,7 +70,9 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 }
 
 func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
-	return int32(math.Floor(totCap/targetUtilization*numPods - targetBC - recordedConcurrency))
+	// Extra float64 cast disables fused multiply-subtract to force identical behavior on
+	// all platforms. See floating point section in https://golang.org/ref/spec#Operators.
+	return int32(math.Floor(float64(totCap/targetUtilization*numPods) - targetBC - recordedConcurrency))
 }
 
 func expectedNA(a *Autoscaler, numP float64) int32 {

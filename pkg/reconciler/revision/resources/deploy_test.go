@@ -37,7 +37,6 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
@@ -161,9 +160,6 @@ var (
 		}, {
 			Name:  "METRICS_DOMAIN",
 			Value: metrics.Domain(),
-		}, {
-			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: "",
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
@@ -304,12 +300,6 @@ func withEnvVar(name, value string) containerOption {
 			Name:  name,
 			Value: value,
 		})
-	}
-}
-
-func withPodLabelsVolumeMount() containerOption {
-	return func(container *corev1.Container) {
-		container.VolumeMounts = append(container.VolumeMounts, labelVolumeMount)
 	}
 }
 
@@ -477,7 +467,6 @@ func TestMakePodSpec(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		oc   metrics.ObservabilityConfig
-		ac   autoscalerconfig.Config
 		want *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -774,87 +763,6 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "with graceful scaledown disabled",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-		),
-		ac: autoscalerconfig.Config{
-			EnableGracefulScaledown: false,
-		},
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(),
-				queueContainer(
-					withEnvVar("DOWNWARD_API_LABELS_PATH", ""),
-				),
-			},
-		),
-	}, {
-		name: "with graceful scaledown enabled",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			WithContainerStatuses([]v1.ContainerStatuses{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-		),
-		ac: autoscalerconfig.Config{
-			EnableGracefulScaledown: true,
-		},
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(
-					withEnvVar("DOWNWARD_API_LABELS_PATH", fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)),
-					withPodLabelsVolumeMount(),
-				),
-			},
-			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, labelVolume)
-			},
-		),
-	}, {
-		name: "with graceful scaledown enabled for multi container",
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:  servingContainerName,
-				Image: "busybox",
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: v1.DefaultUserPort,
-				}},
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}, {
-				Name:  sidecarContainerName,
-				Image: "ubuntu",
-			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}, {
-				ImageDigest: "ubuntu@sha256:deadbffe",
-			}}),
-		),
-		ac: autoscalerconfig.Config{
-			EnableGracefulScaledown: true,
-		},
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				sidecarContainer(sidecarContainerName, func(container *corev1.Container) {
-					container.Image = "ubuntu@sha256:deadbffe"
-				}),
-				queueContainer(
-					withEnvVar("DOWNWARD_API_LABELS_PATH", fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)),
-					withPodLabelsVolumeMount(),
-				),
-			},
-			func(podSpec *corev1.PodSpec) {
-				podSpec.Volumes = append(podSpec.Volumes, labelVolume)
-			},
-		),
-	}, {
 		name: "complex pod spec",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
@@ -1018,7 +926,7 @@ func TestMakePodSpec(t *testing.T) {
 			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
 				return x.Cmp(y) == 0
 			})
-			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &test.ac, &deploymentConfig)
+			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
@@ -1031,7 +939,7 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &asConfig, &deploymentConfig); err == nil {
+		&network.Config{}, &obsConfig, &deploymentConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -1121,13 +1029,13 @@ func TestMakeDeployment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
-				&obsConfig, &asConfig, &deploymentConfig)
+				&obsConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &asConfig, &test.dc)
+				&network.Config{}, &obsConfig, &test.dc)
 			if err != nil {
 				t.Fatal("got unexpected error:", err)
 			}

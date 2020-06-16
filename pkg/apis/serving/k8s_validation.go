@@ -181,14 +181,15 @@ func validateKeyToPath(k2p corev1.KeyToPath) *apis.FieldError {
 	return errs
 }
 
-func validateEnvValueFrom(source *corev1.EnvVarSource) *apis.FieldError {
+func validateEnvValueFrom(ctx context.Context, source *corev1.EnvVarSource) *apis.FieldError {
 	if source == nil {
 		return nil
 	}
-	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source))
+	features := config.FromContextOrDefaults(ctx).Features
+	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.FieldRef != config.Disabled))
 }
 
-func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
+func validateEnvVar(ctx context.Context, env corev1.EnvVar) *apis.FieldError {
 	errs := apis.CheckDisallowedFields(env, *EnvVarMask(&env))
 
 	if env.Name == "" {
@@ -200,13 +201,13 @@ func validateEnvVar(env corev1.EnvVar) *apis.FieldError {
 		})
 	}
 
-	return errs.Also(validateEnvValueFrom(env.ValueFrom).ViaField("valueFrom"))
+	return errs.Also(validateEnvValueFrom(ctx, env.ValueFrom).ViaField("valueFrom"))
 }
 
-func validateEnv(envVars []corev1.EnvVar) *apis.FieldError {
+func validateEnv(ctx context.Context, envVars []corev1.EnvVar) *apis.FieldError {
 	var errs *apis.FieldError
 	for i, env := range envVars {
-		errs = errs.Also(validateEnvVar(env).ViaIndex(i))
+		errs = errs.Also(validateEnvVar(ctx, env).ViaIndex(i))
 	}
 	return errs
 }
@@ -257,7 +258,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
+		errs = errs.Also(ValidateContainer(ctx, ps.Containers[0], volumes).
 			ViaFieldIndex("containers", 0))
 	default:
 		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes))
@@ -282,9 +283,9 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 			// Probes are not allowed on other than serving container,
 			// ref: http://bit.ly/probes-condition
 			if len(containers[i].Ports) == 0 {
-				errs = errs.Also(validateSidecarContainer(containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(validateSidecarContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
 			} else {
-				errs = errs.Also(ValidateContainer(containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(ValidateContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
 			}
 		}
 	}
@@ -309,7 +310,7 @@ func validateContainersPorts(containers []corev1.Container) *apis.FieldError {
 }
 
 // validateSidecarContainer validate fields for non serving containers
-func validateSidecarContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
+func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	if container.LivenessProbe != nil {
 		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
@@ -319,11 +320,11 @@ func validateSidecarContainer(container corev1.Container, volumes sets.String) *
 		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
 			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
 	}
-	return errs.Also(validate(container, volumes))
+	return errs.Also(validate(ctx, container, volumes))
 }
 
 // ValidateContainer validate fields for serving containers
-func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
+func ValidateContainer(ctx context.Context, container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	// Single container cannot have multiple ports
 	errs = errs.Also(portValidation(container.Ports).ViaField("ports"))
@@ -331,7 +332,7 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Readiness Probes
 	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
-	return errs.Also(validate(container, volumes))
+	return errs.Also(validate(ctx, container, volumes))
 }
 
 func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
@@ -345,7 +346,7 @@ func portValidation(containerPorts []corev1.ContainerPort) *apis.FieldError {
 	return nil
 }
 
-func validate(container corev1.Container, volumes sets.String) *apis.FieldError {
+func validate(ctx context.Context, container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -360,7 +361,7 @@ func validate(container corev1.Container, volumes sets.String) *apis.FieldError 
 	}
 
 	// Env
-	errs = errs.Also(validateEnv(container.Env).ViaField("env"))
+	errs = errs.Also(validateEnv(ctx, container.Env).ViaField("env"))
 	// EnvFrom
 	errs = errs.Also(validateEnvFrom(container.EnvFrom).ViaField("envFrom"))
 	// Image

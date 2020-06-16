@@ -184,17 +184,16 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 		}
 	}
 
-	exampleData, hasExampleData := newObj.Data[configmap.ExampleKey]
-	exampleChecksum, hasExampleChecksumAnnotation := newObj.Annotations[configmap.ExampleChecksumAnnotation]
-	if hasExampleData && hasExampleChecksumAnnotation &&
-		exampleChecksum != configmap.Checksum(exampleData) {
-		return fmt.Errorf(
-			"%q modified, you likely wanted to create an unindented configuration",
-			configmap.ExampleKey)
-	}
-
-	var err error
 	if constructor, ok := ac.constructors[newObj.Name]; ok {
+		// Only validate example data if this is a configMap we know about.
+		exampleData, hasExampleData := newObj.Data[configmap.ExampleKey]
+		exampleChecksum, hasExampleChecksumAnnotation := newObj.Annotations[configmap.ExampleChecksumAnnotation]
+		if hasExampleData && hasExampleChecksumAnnotation &&
+			exampleChecksum != configmap.Checksum(exampleData) {
+			return fmt.Errorf(
+				"%q modified, you likely wanted to create an unindented configuration",
+				configmap.ExampleKey)
+		}
 
 		inputs := []reflect.Value{
 			reflect.ValueOf(&newObj),
@@ -204,11 +203,11 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.Admiss
 		errVal := outputs[1]
 
 		if !errVal.IsNil() {
-			err = errVal.Interface().(error)
+			return errVal.Interface().(error)
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (ac *reconciler) registerConfig(name string, constructor interface{}) {

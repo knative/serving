@@ -24,14 +24,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"runtime"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 )
@@ -108,29 +105,10 @@ func (r *digestResolver) Resolve(
 	if registriesToSkip.Has(tag.Registry.RegistryStr()) {
 		return "", nil
 	}
-	platform := v1.Platform{
-		Architecture: runtime.GOARCH,
-		OS:           runtime.GOOS,
-	}
-	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc), remote.WithPlatform(platform))
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image information: %w", err)
-	}
 
-	// TODO(#3997): Use remote.Get to resolve manifest lists to digests as well
-	// once CRI-O is fixed: https://github.com/cri-o/cri-o/issues/2157
-	switch desc.MediaType {
-	case types.OCIImageIndex, types.DockerManifestList:
-		img, err := desc.Image()
-		if err != nil {
-			return "", fmt.Errorf("failed to get image reference: %w", err)
-		}
-		dgst, err := img.Digest()
-		if err != nil {
-			return "", fmt.Errorf("failed to get image digest: %w", err)
-		}
-		return fmt.Sprintf("%s@%s", tag.Repository.String(), dgst), nil
-	default:
-		return fmt.Sprintf("%s@%s", tag.Repository.String(), desc.Digest), nil
+	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	if err != nil {
+		return "", err
 	}
+	return fmt.Sprintf("%s@%s", tag.Repository.String(), desc.Digest), nil
 }

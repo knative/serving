@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -61,7 +62,7 @@ func TestProbe(t *testing.T) {
 
 	defer server.Shutdown(0)
 	go server.listenAndServe()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.listenAddr()), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", server.listenAddr(), network.ProbePath), nil)
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}
@@ -175,40 +176,27 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 }
 
 func BenchmarkStatServer(b *testing.B) {
+	statsCh := make(chan metrics.StatMessage, 1)
+	server := newTestServer(statsCh)
+	go server.listenAndServe()
+	defer server.Shutdown(time.Second)
+
+	statSink, err := dial(server.listenAddr())
+	if err != nil {
+		b.Fatal("Dial failed:", err)
+	}
+
+	msg := newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51)
+
 	for encoding, jsonEncoding := range map[string]bool{"json": true, "gob": false} {
-		for _, numMsgs := range []int{1, 5, 100} {
-			statsCh := make(chan metrics.StatMessage, numMsgs)
-			server := newTestServer(statsCh)
-			go server.listenAndServe()
-
-			statSink, err := dial(server.listenAddr())
-			if err != nil {
-				b.Fatal("Dial failed:", err)
-			}
-
-			msgs := make([]metrics.StatMessage, numMsgs)
-			for i := 0; i < numMsgs; i++ {
-				msgs[i] = newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51)
-			}
-
-			b.Run(fmt.Sprintf("%d-msgs-%s-encoding-sequential", numMsgs, encoding), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					for _, msg := range msgs {
-						if err := send(statSink, msg, jsonEncoding); err != nil {
-							b.Fatal("Expected send to succeed, but got:", err)
-						}
-					}
-
-					for range msgs {
-						if _, ok := <-statsCh; !ok {
-							b.Fatal("Statistic not received")
-						}
-					}
+		b.Run(fmt.Sprintf("%s-encoding-sequential", encoding), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if err := send(statSink, msg, jsonEncoding); err != nil {
+					b.Fatal("Expected send to succeed, but got:", err)
 				}
-			})
-
-			server.Shutdown(time.Second)
-		}
+				<-statsCh
+			}
+		})
 	}
 }
 
