@@ -23,9 +23,11 @@ import (
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
@@ -33,6 +35,10 @@ import (
 var (
 	target   = flag.String("target", "", "The target to attack.")
 	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
+)
+
+const (
+	namespace = "default"
 )
 
 func main() {
@@ -86,14 +92,19 @@ func main() {
 	// things that are outside of expected bounds.
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs, t.analyzers...)
 
-	// Send 3000 QPS (3 per ms) for the given duration with a 30s request timeout.
-	rate := vegeta.Rate{Freq: 3, Per: time.Millisecond}
+	// Send 1k QPS for the given duration with a 30s request timeout.
+	rate := vegeta.Rate{Freq: 1000, Per: time.Second}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
 	// Create a new aggregateResult to accumulate the results.
 	ar := metrics.NewAggregateResult(int(duration.Seconds()))
 
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: *target,
+	})
+	log.Printf("Selector: %v", selector)
+	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
 LOOP:
@@ -110,8 +121,14 @@ LOOP:
 				// our loop.
 				break LOOP
 			}
-			// Handle the result for this request
+			// Handle the result for this request.
 			metrics.HandleResult(q, *res, t.stat, ar)
+		case ds := <-deploymentStatus:
+			// Add a sample point for the deployment status.
+			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+				"dp": float64(ds.DesiredReplicas),
+				"ap": float64(ds.ReadyReplicas),
+			})
 		}
 	}
 
