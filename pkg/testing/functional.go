@@ -311,6 +311,14 @@ func WithHosts(index int, hosts ...string) IngressOption {
 	}
 }
 
+// WithLoadbalancerFailed marks the respective status as failed using
+// the given reason and message.
+func WithLoadbalancerFailed(reason, message string) IngressOption {
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Status.MarkLoadBalancerFailed(reason, message)
+	}
+}
+
 // SKSOption is a callback type for decorate SKS objects.
 type SKSOption func(sks *netv1alpha1.ServerlessService)
 
