@@ -6097,7 +6097,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: gcr.io/howardjohn-istio/pilot:1592262028
+        image: gcr.io/howardjohn-istio/pilot:1592348892
         name: discovery
         ports:
         - containerPort: 8080
