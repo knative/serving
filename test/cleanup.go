@@ -78,7 +78,7 @@ func EnsureCleanup(t *testing.T, cleanup func()) {
 }
 
 // EnsureTearDown will delete created names when the test ends, either via
-// t.Cleanup, or on interrupt via EnsureCleanup.
+// t.Cleanup, or on interrupt via CleanupOnInterrupt.
 func EnsureTearDown(t *testing.T, clients *Clients, names ResourceNames) {
 	EnsureCleanup(t, func() { TearDown(clients, names) })
 }
