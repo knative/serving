@@ -130,8 +130,7 @@ func TestRevisionTimeout(t *testing.T) {
 				Image:   test.Timeout,
 			}
 
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 
 			t.Log("Creating a new Service ")
 			_, err := createService(t, clients, names, tc.timeoutSeconds)

@@ -120,8 +120,7 @@ func TestServiceGenerateName(t *testing.T) {
 	}
 
 	// Cleanup on test failure.
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer func() { test.TearDown(clients, names) }()
+	test.EnsureTearDown(t, clients, names)
 
 	// Create the service using the generate name field. If the service does not become ready this will fail.
 	t.Log("Creating new service with generateName", generateName)
@@ -156,8 +155,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 		Image: test.HelloWorld,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer func() { test.TearDown(clients, names) }()
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating new configuration with generateName", generateName)
 	config, err := v1test.CreateConfiguration(t, clients, names, setConfigurationGenerateName(generateName))

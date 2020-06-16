@@ -60,8 +60,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		Route:  svcName,
 		Image:  "timeout",
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Route and Configuration")
 	if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
@@ -170,8 +169,7 @@ func TestDestroyPodTimely(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
@@ -255,8 +253,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "autoscale",
 	}
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))

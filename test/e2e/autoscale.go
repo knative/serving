@@ -179,8 +179,8 @@ func toPercentageString(f float64) string {
 // setup creates a new service, with given service options.
 // It returns a testContext that has resources, K8s clients and other needed
 // data points.
-// It sets up CleanupOnInterrupt as well that will destroy the resources
-// when the test terminates.
+// It sets up EnsureTearDown to ensure that resources are cleaned up when the
+// test terminates.
 func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
@@ -190,7 +190,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		Service: test.ObjectNameForTest(t),
 		Image:   image,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
@@ -378,7 +378,6 @@ func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	}
 
 	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
