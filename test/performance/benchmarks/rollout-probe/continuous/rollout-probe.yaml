@@ -117,7 +117,7 @@ spec:
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: rollout-probe-activator-with-cc-50
+  name: rollout-probe-activator-with-cc
 spec:
   # Run every thirty minutes, offset from other jobs.
   schedule: "12,42 * * * *"
@@ -130,7 +130,7 @@ spec:
           containers:
           - name: rollout-probe
             image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
-            args: ["-target=activator-with-cc-50", "--duration=3m"]
+            args: ["-target=activator-with-cc", "--duration=3m"]
             resources:
               requests:
                 cpu: 1000m
@@ -159,7 +159,7 @@ spec:
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: rollout-probe-queue-with-cc-50
+  name: rollout-probe-queue-with-cc
 spec:
   # Run every thirty minutes, offset from other jobs.
   schedule: "15,45 * * * *"
@@ -172,7 +172,7 @@ spec:
           containers:
           - name: rollout-probe
             image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
-            args: ["-target=queue-with-cc-50", "--duration=3m"]
+            args: ["-target=queue-with-cc", "--duration=3m"]
             resources:
               requests:
                 cpu: 1000m
