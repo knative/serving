@@ -40,15 +40,15 @@ const (
 	// The following keys are used to configure metrics reporting.
 	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
-	AllowStackdriverCustomMetricsKey    = "metrics.allow-stackdriver-custom-metrics"
-	BackendDestinationKey               = "metrics.backend-destination"
-	ReportingPeriodKey                  = "metrics.reporting-period-seconds"
-	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
+	AllowStackdriverCustomMetricsKey = "metrics.allow-stackdriver-custom-metrics"
+	BackendDestinationKey            = "metrics.backend-destination"
+	ReportingPeriodKey               = "metrics.reporting-period-seconds"
 	// Stackdriver client configuration keys
-	StackdriverProjectIDKey   = "metrics.stackdriver-project-id"
-	StackdriverGCPLocationKey = "metrics.stackdriver-gcp-location"
-	StackdriverClusterNameKey = "metrics.stackdriver-cluster-name"
-	StackdriverUseSecretKey   = "metrics.stackdriver-use-secret"
+	StackdriverProjectIDKey             = "metrics.stackdriver-project-id"
+	StackdriverGCPLocationKey           = "metrics.stackdriver-gcp-location"
+	StackdriverClusterNameKey           = "metrics.stackdriver-cluster-name"
+	StackdriverUseSecretKey             = "metrics.stackdriver-use-secret"
+	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
 
 	DomainEnv = "METRICS_DOMAIN"
 
@@ -67,6 +67,7 @@ const (
 	CollectorAddressKey = "metrics.opencensus-address"
 	CollectorSecureKey  = "metrics.opencensus-require-tls"
 
+	prometheusPortEnvName = "METRICS_PROMETHEUS_PORT"
 	defaultPrometheusPort = 9090
 	maxPrometheusPort     = 65535
 	minPrometheusPort     = 1024
@@ -217,11 +218,18 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	if mc.backendDestination == Prometheus {
 		pp := ops.PrometheusPort
 		if pp == 0 {
-			pp = defaultPrometheusPort
+			var err error
+			pp, err = prometheusPort()
+			if err != nil {
+				return nil, fmt.Errorf("failed to determine Prometheus port: %w", err)
+			}
 		}
+
 		if pp < minPrometheusPort || pp > maxPrometheusPort {
-			return nil, fmt.Errorf("invalid port %v, should between %v and %v", pp, minPrometheusPort, maxPrometheusPort)
+			return nil, fmt.Errorf("invalid port %d, should be between %d and %d",
+				pp, minPrometheusPort, maxPrometheusPort)
 		}
+
 		mc.prometheusPort = pp
 	}
 
@@ -325,6 +333,25 @@ following import:
 import (
 	_ "knative.dev/pkg/metrics/testing"
 )`, DomainEnv, DomainEnv))
+}
+
+// prometheusPort returns the TCP port number configured via the environment
+// for the Prometheus metrics exporter if it's set, a default value otherwise.
+// No validation is performed on the port value, other than ensuring that value
+// is a valid port number (16-bit unsigned integer).
+func prometheusPort() (int, error) {
+	ppStr := os.Getenv(prometheusPortEnvName)
+	if ppStr == "" {
+		return defaultPrometheusPort, nil
+	}
+
+	pp, err := strconv.ParseUint(ppStr, 10, 16)
+	if err != nil {
+		return -1, fmt.Errorf("the environment variable %q could not be parsed as a port number: %w",
+			prometheusPortEnvName, err)
+	}
+
+	return int(pp), nil
 }
 
 // JsonToMetricsOptions converts a json string of a

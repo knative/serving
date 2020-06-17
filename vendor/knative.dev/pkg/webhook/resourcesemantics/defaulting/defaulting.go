@@ -30,6 +30,7 @@ import (
 	jsonpatch "gomodules.xyz/jsonpatch/v2"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
@@ -172,6 +173,12 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 			continue
 		}
 		webhook.Webhooks[i].Rules = rules
+		webhook.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "webhooks.knative.dev/exclude",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			}},
+		}
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
