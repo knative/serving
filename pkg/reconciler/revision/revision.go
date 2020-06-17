@@ -128,13 +128,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
 	readyBeforeReconcile := rev.IsReady()
-
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	rev.SetDefaults(ctx)
-	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
 	phases := []struct {

@@ -50,14 +50,6 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	pa.SetDefaults(ctx)
-
-	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
 	// HPA-class PAs don't yet support scale-to-zero
