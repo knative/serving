@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
@@ -46,6 +47,17 @@ func TestRouteDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Route, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestRouteGetConditionSet(t *testing.T) {
+	r := &Route{}
+
+	actual := r.GetConditionSet().GetTopLevelConditionType()
+	expected := apis.ConditionReady
+
+	if actual != expected {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", actual, expected)
 	}
 }
 
