@@ -28,6 +28,8 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
+const initiallyActiveAnnotation = "InitiallyActive"
+
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 )
@@ -172,14 +174,20 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsFalse()
 }
 
-// IsInitiallyActive returns true if the pod autoscaler has reached its initial scale.
-func (pas *PodAutoscalerStatus) IsInitiallyActive() bool {
-	return pas.GetCondition(PodAutoscalerConditionInitiallyActive).IsTrue()
+// HasBeenActive returns true if the pod autoscaler has reached its initial scale.
+func (pas *PodAutoscalerStatus) HasBeenActive() bool {
+	if val, ok := pas.Annotations[initiallyActiveAnnotation]; !ok || val != "true" {
+		return false
+	}
+	return true
 }
 
 // MarkInitiallyActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
 func (pas *PodAutoscalerStatus) MarkInitiallyActive() {
-	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionInitiallyActive)
+	if pas.Annotations == nil {
+		pas.Annotations = map[string]string{}
+	}
+	pas.Annotations[initiallyActiveAnnotation] = "true"
 }
 
 // GetCondition gets the condition `t`.
