@@ -66,7 +66,7 @@ var revCondSet = apis.NewLivingConditionSet(
 )
 
 // GetConditionSet retrieves the ConditionSet of the Revision. Implements the KRShaped interface.
-func (r *Revision) GetConditionSet() apis.ConditionSet {
+func (*Revision) GetConditionSet() apis.ConditionSet {
 	return revCondSet
 }
 

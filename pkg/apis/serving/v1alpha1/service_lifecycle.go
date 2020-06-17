@@ -31,7 +31,7 @@ var serviceCondSet = apis.NewLivingConditionSet(
 )
 
 // GetConditionSet retrieves the ConditionSet of the Service. Implements the KRShaped interface.
-func (s *Service) GetConditionSet() apis.ConditionSet {
+func (*Service) GetConditionSet() apis.ConditionSet {
 	return serviceCondSet
 }
 

@@ -33,7 +33,7 @@ var routeCondSet = apis.NewLivingConditionSet(
 )
 
 // GetConditionSet retrieves the ConditionSet of the Route. Implements the KRShaped interface.
-func (r *Route) GetConditionSet() apis.ConditionSet {
+func (*Route) GetConditionSet() apis.ConditionSet {
 	return routeCondSet
 }
 

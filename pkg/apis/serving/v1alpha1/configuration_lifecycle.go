@@ -25,7 +25,7 @@ import (
 var confCondSet = apis.NewLivingConditionSet()
 
 // GetConditionSet retrieves the ConditionSet of the Configuration. Implements the KRShaped interface.
-func (c *Configuration) GetConditionSet() apis.ConditionSet {
+func (*Configuration) GetConditionSet() apis.ConditionSet {
 	return confCondSet
 }
 

@@ -69,11 +69,8 @@ func TestServiceGeneration(t *testing.T) {
 func TestServiceGetConditionSet(t *testing.T) {
 	s := &Service{}
 
-	actual := s.GetConditionSet().GetTopLevelConditionType()
-	expected := apis.ConditionReady
-
-	if actual != expected {
-		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", actual, expected)
+	if got, want := s.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", got, want)
 	}
 }
 

@@ -53,11 +53,8 @@ func TestRouteDuckTypes(t *testing.T) {
 func TestRouteGetConditionSet(t *testing.T) {
 	r := &Route{}
 
-	actual := r.GetConditionSet().GetTopLevelConditionType()
-	expected := apis.ConditionReady
-
-	if actual != expected {
-		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", actual, expected)
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", got, want)
 	}
 }
 
