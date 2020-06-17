@@ -52,6 +52,10 @@ func (c *FakeNetworkingV1alpha3) VirtualServices(namespace string) v1alpha3.Virt
 	return &FakeVirtualServices{c, namespace}
 }
 
+func (c *FakeNetworkingV1alpha3) WorkloadEntries(namespace string) v1alpha3.WorkloadEntryInterface {
+	return &FakeWorkloadEntries{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeNetworkingV1alpha3) RESTClient() rest.Interface {

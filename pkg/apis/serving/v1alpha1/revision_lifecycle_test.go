@@ -26,13 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -759,7 +759,48 @@ func TestGetContainer(t *testing.T) {
 			Image: "foo",
 		},
 	}, {
-		name: "get first container info even after passing multiple",
+		name: "get container info",
+		status: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "servingContainer",
+						Image: "firstImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "servingContainer",
+			Image: "firstImage",
+		},
+	}, {
+		name: "get serving container info even if there are multiple containers",
+		status: RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "firstContainer",
+						Image: "firstImage",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:  "secondContainer",
+						Image: "secondImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "firstContainer",
+			Image: "firstImage",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
+		},
+	}, {
+		name: "get empty container when passed multiple containers without the container port",
 		status: RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -773,10 +814,7 @@ func TestGetContainer(t *testing.T) {
 				},
 			},
 		},
-		want: &corev1.Container{
-			Name:  "firstContainer",
-			Image: "firstImage",
-		},
+		want: &corev1.Container{},
 	}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

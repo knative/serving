@@ -30,14 +30,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
 )
 
-// CreateCertificate creates a Certificate with the given DNS names
-func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (*v1alpha1.Certificate, context.CancelFunc) {
+// CreateCertificate creates a Certificate with the given DNS names. The
+// certificate is automatically cleaned up when the test ends or is
+// interrupted.
+func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) *v1alpha1.Certificate {
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
@@ -55,25 +57,23 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 		},
 	}
 
-	cleanup := func() {
+	test.EnsureCleanup(t, func() {
 		clients.NetworkingClient.Certificates.Delete(cert.Name, &metav1.DeleteOptions{})
 		clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(cert.Spec.SecretName, &metav1.DeleteOptions{})
-	}
-
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	cert, err := clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
 		t.Fatal("Error creating Certificate:", err)
 	}
 
-	return cert, cleanup
+	return cert
 }
 
 // IsCertificateReady will check the status conditions of the certificate and return true if the certificate is
 // ready.
 func IsCertificateReady(c *v1alpha1.Certificate) (bool, error) {
-	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
+	return c.IsReady(), nil
 }
 
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate

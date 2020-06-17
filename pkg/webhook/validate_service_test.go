@@ -30,6 +30,7 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -74,7 +75,7 @@ func TestServiceValidation(t *testing.T) {
 		name: "invalid structure",
 		data: map[string]interface{}{
 			"metadata": validMetadata,
-			"spec":     true, // Invalid, spec is expcted to be a struct
+			"spec":     true, // Invalid, spec is expected to be a struct
 		},
 		want: "could not traverse nested spec.template field",
 	}, {
@@ -97,6 +98,52 @@ func TestServiceValidation(t *testing.T) {
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
+
+			got := ValidateRevisionTemplate(ctx, unstruct)
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got=nil, want=%q", test.want)
+				}
+			} else if !strings.Contains(got.Error(), test.want) {
+				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
+			}
+		})
+	}
+}
+
+func TestDryRunFeatureFlag(t *testing.T) {
+	data := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"name":        "valid",
+			"namespace":   "foo",
+			"annotations": map[string]interface{}{}, // Skip validation because no test annotation
+		},
+		"spec": true, // Invalid, spec is expected to be a struct
+	}
+
+	tests := []struct {
+		name       string
+		dryRunFlag config.Flag
+		want       string
+	}{{
+		name:       "enabled dry-run",
+		dryRunFlag: config.Enabled,
+		want:       "could not traverse nested spec.template field",
+	}, {
+		name:       "disabled dry-run",
+		dryRunFlag: config.Disabled,
+		want:       "", // expect no error despite invalid data.
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := fakekubeclient.With(context.Background())
+			logger := logtesting.TestLogger(t)
+			ctx = logging.WithLogger(ctx, logger)
+			ctx = enableDryRun(ctx, test.dryRunFlag)
+
+			unstruct := &unstructured.Unstructured{}
+			unstruct.SetUnstructuredContent(data)
 
 			got := ValidateRevisionTemplate(ctx, unstruct)
 			if got == nil {
@@ -176,4 +223,12 @@ func TestSkipUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func enableDryRun(ctx context.Context, flag config.Flag) context.Context {
+	return config.ToContext(ctx, &config.Config{
+		Features: &config.Features{
+			PodSpecDryRun: flag,
+		},
+	})
 }

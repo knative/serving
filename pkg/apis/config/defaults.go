@@ -24,6 +24,7 @@ import (
 	"math"
 	"text/template"
 
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,16 +48,29 @@ const (
 	DefaultUserContainerName = "user-container"
 
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
-	DefaultContainerConcurrency int64 = 0
+	DefaultContainerConcurrency = 0
 
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
-	DefaultMaxRevisionContainerConcurrency int64 = 1000
+	DefaultMaxRevisionContainerConcurrency = 1000
 
 	// DefaultAllowContainerConcurrencyZero is whether, by default,
 	// containerConcurrency can be set to zero (i.e. unbounded) by users.
-	DefaultAllowContainerConcurrencyZero bool = true
+	DefaultAllowContainerConcurrencyZero = true
 )
+
+var (
+	templateCache *lru.Cache
+
+	// Verify the default template is valid.
+	_ = template.Must(template.New("user-container-template").Parse(DefaultUserContainerName))
+)
+
+func init() {
+	// The only failure is due to negative size.
+	// Store 10 latest templates.
+	templateCache, _ = lru.New(10)
+}
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
@@ -83,10 +97,12 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
 		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
 
-		asQuantity("revision-cpu-request", &nc.RevisionCPURequest),
-		asQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
-		asQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
-		asQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
+		cm.AsQuantity("revision-cpu-request", &nc.RevisionCPURequest),
+		cm.AsQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
+		cm.AsQuantity("revision-ephemeral-storage-request", &nc.RevisionEphemeralStorageRequest),
+		cm.AsQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
+		cm.AsQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
+		cm.AsQuantity("revision-ephemeral-storage-limit", &nc.RevisionEphemeralStorageLimit),
 	); err != nil {
 		return nil, err
 	}
@@ -111,6 +127,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	if err := tmpl.Execute(ioutil.Discard, metav1.ObjectMeta{}); err != nil {
 		return nil, fmt.Errorf("error executing template: %w", err)
 	}
+	templateCache.Add(nc.UserContainerNameTemplate, tmpl)
 
 	return nc, nil
 }
@@ -139,33 +156,27 @@ type Defaults struct {
 	// a containerConcurrency of 0 (i.e. unbounded).
 	AllowContainerConcurrencyZero bool
 
-	RevisionCPURequest    *resource.Quantity
-	RevisionCPULimit      *resource.Quantity
-	RevisionMemoryRequest *resource.Quantity
-	RevisionMemoryLimit   *resource.Quantity
+	RevisionCPURequest              *resource.Quantity
+	RevisionCPULimit                *resource.Quantity
+	RevisionMemoryRequest           *resource.Quantity
+	RevisionMemoryLimit             *resource.Quantity
+	RevisionEphemeralStorageRequest *resource.Quantity
+	RevisionEphemeralStorageLimit   *resource.Quantity
 }
 
 // UserContainerName returns the name of the user container based on the context.
 func (d *Defaults) UserContainerName(ctx context.Context) string {
-	tmpl := template.Must(
-		template.New("user-container").Parse(d.UserContainerNameTemplate))
+	var tmpl *template.Template
+	if tt, ok := templateCache.Get(d.UserContainerNameTemplate); ok {
+		tmpl = tt.(*template.Template)
+	} else {
+		// Fallback for unit tests.
+		tmpl = template.Must(
+			template.New("user-container").Parse(d.UserContainerNameTemplate))
+	}
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, apis.ParentMeta(ctx)); err != nil {
 		return ""
 	}
 	return buf.String()
-}
-
-// asQuantity parses the value at key as a *resource.Quantity into the target, if it exists.
-func asQuantity(key string, target **resource.Quantity) cm.ParseFunc {
-	return func(data map[string]string) error {
-		if raw, ok := data[key]; !ok {
-			*target = nil
-		} else if val, err := resource.ParseQuantity(raw); err != nil {
-			return err
-		} else {
-			*target = &val
-		}
-		return nil
-	}
 }

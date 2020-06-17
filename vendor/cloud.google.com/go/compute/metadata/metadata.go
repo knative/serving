@@ -61,14 +61,24 @@ var (
 	instID  = &cachedValue{k: "instance/id", trim: true}
 )
 
-var defaultClient = &Client{hc: &http.Client{
-	Transport: &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout:   2 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-	},
-}}
+var (
+	defaultClient = &Client{hc: &http.Client{
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout:   2 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+		},
+	}}
+	subscribeClient = &Client{hc: &http.Client{
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout:   2 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+		},
+	}}
+)
 
 // NotDefinedError is returned when requested metadata is not defined.
 //
@@ -195,9 +205,10 @@ func systemInfoSuggestsGCE() bool {
 	return name == "Google" || name == "Google Compute Engine"
 }
 
-// Subscribe calls Client.Subscribe on the default client.
+// Subscribe calls Client.Subscribe on a client designed for subscribing (one with no
+// ResponseHeaderTimeout).
 func Subscribe(suffix string, fn func(v string, ok bool) error) error {
-	return defaultClient.Subscribe(suffix, fn)
+	return subscribeClient.Subscribe(suffix, fn)
 }
 
 // Get calls Client.Get on the default client.
@@ -268,14 +279,9 @@ type Client struct {
 	hc *http.Client
 }
 
-// NewClient returns a Client that can be used to fetch metadata.
-// Returns the client that uses the specified http.Client for HTTP requests.
-// If nil is specified, returns the default client.
+// NewClient returns a Client that can be used to fetch metadata. All HTTP requests
+// will use the given http.Client instead of the default client.
 func NewClient(c *http.Client) *Client {
-	if c == nil {
-		return defaultClient
-	}
-
 	return &Client{hc: c}
 }
 

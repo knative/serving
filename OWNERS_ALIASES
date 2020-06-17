@@ -11,6 +11,7 @@ aliases:
   - mattmoor
   - tcnghia
   - vagababov
+  - whaught
 
   toc:
   - evankanderson
@@ -76,6 +77,7 @@ aliases:
   - vagababov
   - ZhiminXiang
   networking-reviewers:
+  - andrew-su
   - JRBANCEL
   - markusthoemmes
   - mdemirhan

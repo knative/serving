@@ -44,11 +44,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -60,12 +60,15 @@ func TestIstioProbing(t *testing.T) {
 
 	clients := e2e.Setup(t)
 	namespace := system.Namespace()
+
 	// Save the current Gateway to restore it after the test
 	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 	}
-	restore := func() {
+
+	// After the test ends, restore the old gateway
+	test.EnsureCleanup(t, func() {
 		curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
@@ -74,9 +77,7 @@ func TestIstioProbing(t *testing.T) {
 		if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
 			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 		}
-	}
-	test.CleanupOnInterrupt(restore)
-	defer restore()
+	})
 
 	// Create a dummy service to get the domain name
 	var domain string
@@ -94,8 +95,8 @@ func TestIstioProbing(t *testing.T) {
 		domain = strings.SplitN(objects.Route.Status.URL.Host, ".", 2)[1]
 	}()
 
-	tlsOptions := &istiov1alpha3.Server_TLSOptions{
-		Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
+	tlsOptions := &istiov1alpha3.ServerTLSSettings{
+		Mode:              istiov1alpha3.ServerTLSSettings_SIMPLE,
 		PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
 		ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
 	}
@@ -260,8 +261,7 @@ func TestIstioProbing(t *testing.T) {
 			setupGateway(t, clients, names, domain, namespace, c.servers)
 
 			// Create the service and wait for it to be ready
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 			_, err = v1test.CreateServiceReady(t, clients, &names)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -109,6 +110,21 @@ func AsStringSet(key string, target *sets.String) ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			*target = sets.NewString(strings.Split(raw, ",")...)
+		}
+		return nil
+	}
+}
+
+// AsQuantity parses the value at key as a *resource.Quantity into the target, if it exists
+func AsQuantity(key string, target **resource.Quantity) ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			val, err := resource.ParseQuantity(raw)
+			if err != nil {
+				return fmt.Errorf("failed to parse %q: %w", key, err)
+			}
+
+			*target = &val
 		}
 		return nil
 	}

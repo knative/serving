@@ -30,13 +30,14 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network/prober"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
 )
@@ -46,7 +47,9 @@ const (
 	probeConcurrency = 15
 	// probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
-	probePath    = "/healthz"
+	// initialDelay defines the delay before enqueuing a probing request the first time.
+	// It gives times for the change to propagate and prevents unnecessary retries.
+	initialDelay = 200 * time.Millisecond
 )
 
 var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
@@ -134,7 +137,12 @@ func NewProber(
 		ingressStates: make(map[string]*ingressState),
 		podContexts:   make(map[string]cancelContext),
 		workQueue: workqueue.NewNamedRateLimitingQueue(
-			workqueue.DefaultControllerRateLimiter(),
+			workqueue.NewMaxOfRateLimiter(
+				// Per item exponential backoff
+				workqueue.NewItemExponentialFailureRateLimiter(50*time.Millisecond, 30*time.Second),
+				// Global rate limiter
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(50), 100)},
+			),
 			"ProbingQueue"),
 		targetLister:     targetLister,
 		readyCallback:    readyCallback,
@@ -252,7 +260,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 		for _, wi := range ipWorkItems {
 			wi.podState = podState
 			wi.context = podCtx
-			m.workQueue.AddRateLimited(wi)
+			m.workQueue.AddAfter(wi, initialDelay)
 			m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
 				wi.url, wi.podIP, wi.podPort, m.workQueue.Len())
 		}
@@ -359,7 +367,7 @@ func (m *Prober) processWorkItem() bool {
 	}
 
 	probeURL := deepCopy(item.url)
-	probeURL.Path = path.Join(probeURL.Path, probePath)
+	probeURL.Path = path.Join(probeURL.Path, network.ProbePath)
 
 	ctx, cancel := context.WithTimeout(item.context, probeTimeout)
 	defer cancel()

@@ -19,6 +19,7 @@ package statserver
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -33,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -60,7 +62,7 @@ func TestProbe(t *testing.T) {
 
 	defer server.Shutdown(0)
 	go server.listenAndServe()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.listenAddr()), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", server.listenAddr(), network.ProbePath), nil)
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}
@@ -85,8 +87,13 @@ func TestStatsReceived(t *testing.T) {
 
 	statSink := dialOK(server.listenAddr(), t)
 
-	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
+	// gob encoding
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, false)
+
+	// json encoding
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, true)
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, true)
 
 	closeSink(statSink, t)
 }
@@ -100,14 +107,16 @@ func TestServerShutdown(t *testing.T) {
 	listenAddr := server.listenAddr()
 	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
 
 	server.Shutdown(time.Second)
 	// We own the channel.
 	close(statsCh)
 
 	// Send a statistic to the server
-	send(statSink, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), t)
+	if err := send(statSink, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), false); err != nil {
+		t.Fatal("Expected send to succeed, got:", err)
+	}
 
 	// Check the statistic was not received
 	_, ok := <-statsCh
@@ -129,7 +138,7 @@ func TestServerShutdown(t *testing.T) {
 	}
 
 	// Check that new connections are refused with some error
-	if _, err := dial(listenAddr, t); err == nil {
+	if _, err := dial(listenAddr); err == nil {
 		t.Fatal("Connection not refused")
 	}
 
@@ -147,7 +156,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	listenAddr := server.listenAddr()
 	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
 
 	closeSink(statSink, t)
 
@@ -166,6 +175,31 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
+func BenchmarkStatServer(b *testing.B) {
+	statsCh := make(chan metrics.StatMessage, 1)
+	server := newTestServer(statsCh)
+	go server.listenAndServe()
+	defer server.Shutdown(time.Second)
+
+	statSink, err := dial(server.listenAddr())
+	if err != nil {
+		b.Fatal("Dial failed:", err)
+	}
+
+	msg := newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51)
+
+	for encoding, jsonEncoding := range map[string]bool{"json": true, "gob": false} {
+		b.Run(fmt.Sprintf("%s-encoding-sequential", encoding), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if err := send(statSink, msg, jsonEncoding); err != nil {
+					b.Fatal("Expected send to succeed, but got:", err)
+				}
+				<-statsCh
+			}
+		})
+	}
+}
+
 func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) metrics.StatMessage {
 	return metrics.StatMessage{
 		Key: revKey,
@@ -177,14 +211,17 @@ func newStatMessage(revKey types.NamespacedName, podName string, averageConcurre
 	}
 }
 
-func assertReceivedOK(sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage, t *testing.T) bool {
-	send(statSink, sm, t)
+func assertReceivedOK(t *testing.T, sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage, jsonEncoding bool) bool {
+	if err := send(statSink, sm, jsonEncoding); err != nil {
+		t.Fatal("Expected send to succeed, got:", err)
+	}
+
 	recv, ok := <-statsCh
 	if !ok {
-		t.Fatalf("statistic not received")
+		t.Fatal("Statistic not received")
 	}
 	if recv.Stat.Time == (time.Time{}) {
-		t.Fatalf("Stat time is nil")
+		t.Fatal("Stat time is nil")
 	}
 	ignoreTimeField := cmpopts.IgnoreFields(metrics.StatMessage{}, "Stat.Time")
 	if !cmp.Equal(sm, recv, ignoreTimeField) {
@@ -194,17 +231,17 @@ func assertReceivedOK(sm metrics.StatMessage, statSink *websocket.Conn, statsCh 
 }
 
 func dialOK(serverURL string, t *testing.T) *websocket.Conn {
-	statSink, err := dial(serverURL, t)
+	statSink, err := dial(serverURL)
 	if err != nil {
 		t.Fatal("Dial failed:", err)
 	}
 	return statSink
 }
 
-func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
+func dial(serverURL string) (*websocket.Conn, error) {
 	u, err := url.Parse(serverURL)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	u.Scheme = "ws"
 
@@ -215,16 +252,26 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 	return statSink, err
 }
 
-func send(statSink *websocket.Conn, sm metrics.StatMessage, t *testing.T) {
+func send(statSink *websocket.Conn, sm metrics.StatMessage, jsonEncoding bool) error {
 	var b bytes.Buffer
-	enc := gob.NewEncoder(&b)
+
+	var enc encoder = gob.NewEncoder(&b)
+	messageType := websocket.BinaryMessage
+
+	if jsonEncoding {
+		enc = json.NewEncoder(&b)
+		messageType = websocket.TextMessage
+	}
 
 	if err := enc.Encode(sm); err != nil {
-		t.Fatal("Failed to encode data from stats channel:", err)
+		return fmt.Errorf("failed to encode data from stats channel: %w", err)
 	}
-	if err := statSink.WriteMessage(websocket.BinaryMessage, b.Bytes()); err != nil {
-		t.Fatal("Failed to write to stat sink:", err)
+
+	if err := statSink.WriteMessage(messageType, b.Bytes()); err != nil {
+		return fmt.Errorf("failed to write to stat sink: %w", err)
 	}
+
+	return nil
 }
 
 func closeSink(statSink *websocket.Conn, t *testing.T) {
@@ -268,4 +315,9 @@ type testListener struct {
 func (t *testListener) Accept() (net.Conn, error) {
 	t.listenAddr <- "http://" + t.Listener.Addr().String()
 	return t.Listener.Accept()
+}
+
+// encoder is the interface implemented by gob.Encoder and json.Encoder
+type encoder interface {
+	Encode(interface{}) error
 }

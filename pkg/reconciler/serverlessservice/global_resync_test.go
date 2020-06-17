@@ -20,24 +20,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	"knative.dev/serving/pkg/apis/networking"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -94,34 +94,15 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		return ctrl.Run(1, ctx.Done())
 	})
 
-	// Due to the fact that registering reactors is not guarded by locks in k8s
-	// fake clients we need to pre-register those.
-	updateHooks := NewHooks()
-	updateHooks.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
-		eps := obj.(*corev1.Endpoints)
-		if eps.Name == sks1 {
-			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
-			return HookComplete
-		}
-		if eps.Name == networking.ActivatorServiceName {
-			// Expected, but not the one we're waiting for.
-			t.Log("Registering activator endpoint update")
-		} else {
-			// Something's broken.
-			t.Errorf("Unexpected endpoint update for %s", eps.Name)
-		}
-		return HookIncomplete
-	})
-
 	// Inactive, will reconcile.
 	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
 	// Active, should not visibly reconcile.
 	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
 
-	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
+	if _, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatal("Error creating SKS1:", err)
 	}
-	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
+	if _, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
 		t.Fatal("Error creating SKS2:", err)
 	}
 
@@ -140,7 +121,17 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		t.Fatal("Error creating activator endpoints:", err)
 	}
 
-	if err := updateHooks.WaitForHooks(3 * time.Second); err != nil {
-		t.Fatal("Hooks timed out:", err)
+	// Actively wait for the endpoints to change their value.
+	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+		ep, err := eps.Endpoints(ns1).Get(sks1)
+		if err != nil {
+			return false, err
+		}
+		if cmp.Equal(ep.Subsets, resources.FilterSubsetPorts(sksObj1, aEps.Subsets)) {
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatal("Failed to see Public Endpoints propagation:", err)
 	}
 }

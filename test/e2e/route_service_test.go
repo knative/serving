@@ -47,8 +47,7 @@ func TestRoutesNotReady(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{
@@ -66,13 +65,13 @@ func TestRoutesNotReady(t *testing.T) {
 	}
 
 	t.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == False.", names.Service)
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceFailed, "ServiceIsNotReady"); err != nil {
 		t.Fatalf("Failed waiting for Service %q to transition to Ready == False: %#v", names.Service, err)
 	}
 
 	t.Logf("Validating Route %q has reconciled to Ready == False.", serviceresourcenames.Route(svc))
 	// Check Route is not ready
-	if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), v1test.IsRouteNotReady); err != nil {
+	if err = v1test.CheckRouteState(clients.ServingClient, serviceresourcenames.Route(svc), v1test.IsRouteFailed); err != nil {
 		t.Fatalf("The Route %q was marked as Ready to serve traffic but it should not be: %#v", serviceresourcenames.Route(svc), err)
 	}
 
@@ -147,8 +146,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 				Image:   test.PizzaPlanet1,
 			}
 
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 
 			st.Log("Creating a new Service")
 			svc, err := v1test.CreateService(st, clients, names, testCase.withTrafficSpec)

@@ -19,13 +19,14 @@ package hpa
 import (
 	"context"
 
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler"
 	"knative.dev/pkg/logging"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/deployment"
 
@@ -59,9 +60,10 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			Client:       servingclient.Get(ctx),
-			SKSLister:    sksInformer.Lister(),
-			MetricLister: metricInformer.Lister(),
+			Client:           servingclient.Get(ctx),
+			NetworkingClient: networkingclient.Get(ctx),
+			SKSLister:        sksInformer.Lister(),
+			MetricLister:     metricInformer.Lister(),
 		},
 
 		kubeClient: kubeclient.Get(ctx),

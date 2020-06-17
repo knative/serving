@@ -65,8 +65,7 @@ func testAutoTLS(t *testing.T) {
 	if len(env.TLSServiceName) != 0 {
 		names.Service = env.TLSServiceName
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {

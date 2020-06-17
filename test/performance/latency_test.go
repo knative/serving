@@ -49,7 +49,7 @@ const (
 func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	t.Helper()
 	tName := t.Name()
-	clients, err := Setup()
+	clients, err := setup()
 	if err != nil {
 		t.Fatal("Cannot initialize performance clients:", err)
 	}
@@ -59,8 +59,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		Image:   img,
 	}
 
-	defer TearDown(clients, names, t.Logf)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names, t.Logf) })
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Service")
 	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)

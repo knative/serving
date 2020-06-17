@@ -109,7 +109,8 @@ func (s *Status) GetCondition(t apis.ConditionType) *apis.Condition {
 func (source *Status) ConvertTo(ctx context.Context, sink *Status) {
 	sink.ObservedGeneration = source.ObservedGeneration
 	if source.Annotations != nil {
-		sink.Annotations = kmeta.UnionMaps(source.Annotations, nil)
+		// This will deep copy the map.
+		sink.Annotations = kmeta.UnionMaps(source.Annotations)
 	}
 	for _, c := range source.Conditions {
 		switch c.Type {

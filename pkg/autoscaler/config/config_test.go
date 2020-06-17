@@ -83,7 +83,6 @@ func TestNewConfig(t *testing.T) {
 		name: "with default toggles set",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
-			"enable-graceful-scaledown":               "false",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
@@ -115,20 +114,17 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with toggles on strange casing",
 		input: map[string]string{
-			"enable-scale-to-zero":      "TRUE",
-			"enable-graceful-scaledown": "FALSE",
+			"enable-scale-to-zero": "TRUE",
 		},
 		want: defaultConfig(),
 	}, {
 		name: "with toggles explicitly flipped",
 		input: map[string]string{
-			"enable-scale-to-zero":      "false",
-			"enable-graceful-scaledown": "true",
+			"enable-scale-to-zero": "false",
 		},
 		want: func() *Config {
 			c := defaultConfig()
 			c.EnableScaleToZero = false
-			c.EnableGracefulScaledown = true
 			return c
 		}(),
 	}, {
@@ -230,8 +226,7 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "panic window percentage too small",
 		input: map[string]string{
-			"stable-window":           "12s",
-			"panic-window-percentage": "5", // 0.6s < BucketSize
+			"panic-window-percentage": "0.1",
 		},
 		wantErr: true,
 	}, {

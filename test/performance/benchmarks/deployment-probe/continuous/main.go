@@ -38,9 +38,10 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/signals"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/test/mako"
 	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 )
@@ -188,14 +189,15 @@ func main() {
 	defer revisionWI.Stop()
 	revisionSeen := sets.String{}
 
-	ingressWI, err := sc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(lo)
+	nc := networkingclient.Get(ctx)
+	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch ingresss: %v", err)
 	}
 	defer ingressWI.Stop()
 	ingressSeen := sets.String{}
 
-	sksWI, err := sc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(lo)
+	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch skss: %v", err)
 	}
