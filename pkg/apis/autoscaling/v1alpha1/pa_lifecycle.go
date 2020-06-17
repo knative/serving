@@ -172,6 +172,16 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsFalse()
 }
 
+// IsInitiallyActive returns true if the pod autoscaler has reached its initial scale.
+func (pas *PodAutoscalerStatus) IsInitiallyActive() bool {
+	return pas.GetCondition(PodAutoscalerConditionInitiallyActive).IsTrue()
+}
+
+// MarkInitiallyActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
+func (pas *PodAutoscalerStatus) MarkInitiallyActive() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionInitiallyActive)
+}
+
 // GetCondition gets the condition `t`.
 func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return podCondSet.Manage(pas).GetCondition(t)
