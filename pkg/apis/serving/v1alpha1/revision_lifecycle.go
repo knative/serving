@@ -65,6 +65,11 @@ var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetConditionSet retrieves the ConditionSet of the Revision. Implements the KRShaped interface.
+func (r *Revision) GetConditionSet() apis.ConditionSet {
+	return revCondSet
+}
+
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
