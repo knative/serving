@@ -18,8 +18,10 @@ package resources
 
 import (
 	"context"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -73,6 +75,25 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,
+			InitialScale:        GetInitialScale(config, pa),
 		},
 	}
+}
+
+// GetInitialScale returns the calculated initial scale based on the autoscaler
+// ConfigMap and PA initial scale annotation value.
+// TODO(taragu): This function is exported and will be reused in other packages.
+func GetInitialScale(asConfig *autoscalerconfig.Config, pa *v1alpha1.PodAutoscaler) int32 {
+	initialScale := asConfig.InitialScale
+	revisionInitialScale, ok := pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	if ok {
+		revInitialScaleInt, err := strconv.Atoi(revisionInitialScale)
+		if err == nil {
+			if revInitialScaleInt == 0 && !asConfig.AllowZeroInitialScale {
+				return initialScale
+			}
+			initialScale = int32(revInitialScaleInt)
+		}
+	}
+	return initialScale
 }
