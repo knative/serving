@@ -196,11 +196,11 @@ func isNewExporterRequired(newConfig *metricsConfig) bool {
 
 	// If the OpenCensus address has changed, restart the exporter.
 	// TODO(evankanderson): Should we just always restart the opencensus agent?
-	if newConfig.backendDestination == OpenCensus {
+	if newConfig.backendDestination == openCensus {
 		return newConfig.collectorAddress != cc.collectorAddress || newConfig.requireSecure != cc.requireSecure
 	}
 
-	return newConfig.backendDestination == Stackdriver && newConfig.stackdriverClientConfig != cc.stackdriverClientConfig
+	return newConfig.backendDestination == stackdriver && newConfig.stackdriverClientConfig != cc.stackdriverClientConfig
 }
 
 // newMetricsExporter gets a metrics exporter based on the config.
@@ -218,13 +218,13 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 	var err error
 	var e view.Exporter
 	switch config.backendDestination {
-	case OpenCensus:
+	case openCensus:
 		e, err = newOpenCensusExporter(config, logger)
-	case Stackdriver:
+	case stackdriver:
 		e, err = newStackdriverExporter(config, logger)
-	case Prometheus:
+	case prometheus:
 		e, err = newPrometheusExporter(config, logger)
-	case None:
+	case none:
 		e, err = nil, nil
 	default:
 		err = fmt.Errorf("unsupported metrics backend %v", config.backendDestination)

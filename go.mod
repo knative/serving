@@ -42,9 +42,9 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
-	knative.dev/networking v0.0.0-20200616153925-dae85aaabc08
-	knative.dev/pkg v0.0.0-20200616232624-ffb929374a39
-	knative.dev/test-infra v0.0.0-20200617011927-7220df1de9de
+	knative.dev/networking v0.0.0-20200617160325-c5b1bddf865c
+	knative.dev/pkg v0.0.0-20200617194224-40c7e164ccd7
+	knative.dev/test-infra v0.0.0-20200617184924-0fc4e2aeef74
 )
 
 // pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180

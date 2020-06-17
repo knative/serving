@@ -37,40 +37,44 @@ import (
 type metricsBackend string
 
 const (
+	// BackendDestinationKey points to the config map entry key for metrics backend destination.
+	BackendDestinationKey = "metrics.backend-destination"
+	// DomainEnv points to the metrics domain env var.
+	DomainEnv = "METRICS_DOMAIN"
+
 	// The following keys are used to configure metrics reporting.
 	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
-	AllowStackdriverCustomMetricsKey = "metrics.allow-stackdriver-custom-metrics"
-	BackendDestinationKey            = "metrics.backend-destination"
-	ReportingPeriodKey               = "metrics.reporting-period-seconds"
+	allowStackdriverCustomMetricsKey = "metrics.allow-stackdriver-custom-metrics"
+	collectorAddressKey              = "metrics.opencensus-address"
+	collectorSecureKey               = "metrics.opencensus-require-tls"
+	reportingPeriodKey               = "metrics.reporting-period-seconds"
+
 	// Stackdriver client configuration keys
-	StackdriverProjectIDKey             = "metrics.stackdriver-project-id"
-	StackdriverGCPLocationKey           = "metrics.stackdriver-gcp-location"
-	StackdriverClusterNameKey           = "metrics.stackdriver-cluster-name"
-	StackdriverUseSecretKey             = "metrics.stackdriver-use-secret"
-	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
-
-	DomainEnv = "METRICS_DOMAIN"
-
-	// Stackdriver is used for Stackdriver backend
-	Stackdriver metricsBackend = "stackdriver"
-	// Prometheus is used for Prometheus backend
-	Prometheus metricsBackend = "prometheus"
-	// OpenCensus is used to export to the OpenCensus Agent / Collector,
-	// which can send to many other services.
-	OpenCensus metricsBackend = "opencensus"
-	// None is used to export, well, nothing.
-	None metricsBackend = "none"
+	stackdriverClusterNameKey           = "metrics.stackdriver-cluster-name"
+	stackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
+	stackdriverGCPLocationKey           = "metrics.stackdriver-gcp-location"
+	stackdriverProjectIDKey             = "metrics.stackdriver-project-id"
+	stackdriverUseSecretKey             = "metrics.stackdriver-use-secret"
 
 	defaultBackendEnvName = "DEFAULT_METRICS_BACKEND"
-
-	CollectorAddressKey = "metrics.opencensus-address"
-	CollectorSecureKey  = "metrics.opencensus-require-tls"
-
-	prometheusPortEnvName = "METRICS_PROMETHEUS_PORT"
 	defaultPrometheusPort = 9090
 	maxPrometheusPort     = 65535
 	minPrometheusPort     = 1024
+	prometheusPortEnvName = "METRICS_PROMETHEUS_PORT"
+)
+
+// Metrics backend "enum".
+const (
+	// stackdriver is used for Stackdriver backend
+	stackdriver metricsBackend = "stackdriver"
+	// prometheus is used for Prometheus backend
+	prometheus metricsBackend = "prometheus"
+	// openCensus is used to export to the OpenCensus Agent / Collector,
+	// which can send to many other services.
+	openCensus metricsBackend = "opencensus"
+	// none is used to export, well, nothing.
+	none metricsBackend = "none"
 )
 
 type metricsConfig struct {
@@ -142,10 +146,10 @@ type StackdriverClientConfig struct {
 // NewStackdriverClientConfigFromMap creates a stackdriverClientConfig from the given map
 func NewStackdriverClientConfigFromMap(config map[string]string) *StackdriverClientConfig {
 	return &StackdriverClientConfig{
-		ProjectID:   config[StackdriverProjectIDKey],
-		GCPLocation: config[StackdriverGCPLocationKey],
-		ClusterName: config[StackdriverClusterNameKey],
-		UseSecret:   strings.EqualFold(config[StackdriverUseSecretKey], "true"),
+		ProjectID:   config[stackdriverProjectIDKey],
+		GCPLocation: config[stackdriverGCPLocationKey],
+		ClusterName: config[stackdriverClusterNameKey],
+		UseSecret:   strings.EqualFold(config[stackdriverUseSecretKey], "true"),
 	}
 }
 
@@ -184,7 +188,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	backend := os.Getenv(defaultBackendEnvName)
 	if backend == "" {
 		// Use Prometheus if DEFAULT_METRICS_BACKEND does not exist or is empty
-		backend = string(Prometheus)
+		backend = string(prometheus)
 	}
 	// Override backend if it is set in the config map.
 	if backendFromConfig, ok := m[BackendDestinationKey]; ok {
@@ -192,18 +196,18 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	}
 	lb := metricsBackend(strings.ToLower(backend))
 	switch lb {
-	case Stackdriver, Prometheus, OpenCensus:
+	case stackdriver, prometheus, openCensus:
 		mc.backendDestination = lb
 	default:
 		return nil, fmt.Errorf("unsupported metrics backend value %q", backend)
 	}
 
-	if mc.backendDestination == OpenCensus {
-		mc.collectorAddress = ops.ConfigMap[CollectorAddressKey]
-		if isSecure := ops.ConfigMap[CollectorSecureKey]; isSecure != "" {
+	if mc.backendDestination == openCensus {
+		mc.collectorAddress = ops.ConfigMap[collectorAddressKey]
+		if isSecure := ops.ConfigMap[collectorSecureKey]; isSecure != "" {
 			var err error
 			if mc.requireSecure, err = strconv.ParseBool(isSecure); err != nil {
-				return nil, fmt.Errorf("invalid %s value %q", CollectorSecureKey, isSecure)
+				return nil, fmt.Errorf("invalid %s value %q", collectorSecureKey, isSecure)
 			}
 
 			if mc.requireSecure {
@@ -215,7 +219,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 		}
 	}
 
-	if mc.backendDestination == Prometheus {
+	if mc.backendDestination == prometheus {
 		pp := ops.PrometheusPort
 		if pp == 0 {
 			var err error
@@ -236,7 +240,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	// If stackdriverClientConfig is not provided for stackdriver backend destination, OpenCensus will try to
 	// use the application default credentials. If that is not available, Opencensus would fail to create the
 	// metrics exporter.
-	if mc.backendDestination == Stackdriver {
+	if mc.backendDestination == stackdriver {
 		scc := NewStackdriverClientConfigFromMap(m)
 		mc.stackdriverClientConfig = *scc
 		mc.isStackdriverBackend = true
@@ -244,15 +248,15 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 		var err error
 		mc.stackdriverMetricTypePrefix = path.Join(mc.domain, mc.component)
 
-		customMetricsSubDomain := m[StackdriverCustomMetricSubDomainKey]
+		customMetricsSubDomain := m[stackdriverCustomMetricSubDomainKey]
 		if customMetricsSubDomain == "" {
 			customMetricsSubDomain = defaultCustomMetricSubDomain
 		}
 		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, customMetricsSubDomain, mc.component)
-		if ascmStr := m[AllowStackdriverCustomMetricsKey]; ascmStr != "" {
+		if ascmStr := m[allowStackdriverCustomMetricsKey]; ascmStr != "" {
 			allowCustomMetrics, err = strconv.ParseBool(ascmStr)
 			if err != nil {
-				return nil, fmt.Errorf("invalid %s value %q", AllowStackdriverCustomMetricsKey, ascmStr)
+				return nil, fmt.Errorf("invalid %s value %q", allowStackdriverCustomMetricsKey, ascmStr)
 			}
 		}
 
@@ -297,15 +301,15 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	// For Prometheus, we will use a lower value since the exporter doesn't
 	// push anything but just responds to pull requests, and shorter durations
 	// do not really hurt the performance and we rely on the scraping configuration.
-	if repStr, ok := m[ReportingPeriodKey]; ok && repStr != "" {
+	if repStr, ok := m[reportingPeriodKey]; ok && repStr != "" {
 		repInt, err := strconv.Atoi(repStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid %s value %q", ReportingPeriodKey, repStr)
+			return nil, fmt.Errorf("invalid %s value %q", reportingPeriodKey, repStr)
 		}
 		mc.reportingPeriod = time.Duration(repInt) * time.Second
-	} else if mc.backendDestination == Stackdriver {
+	} else if mc.backendDestination == stackdriver {
 		mc.reportingPeriod = 60 * time.Second
-	} else if mc.backendDestination == Prometheus {
+	} else if mc.backendDestination == prometheus {
 		mc.reportingPeriod = 5 * time.Second
 	}
 
