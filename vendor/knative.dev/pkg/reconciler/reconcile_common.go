@@ -19,6 +19,7 @@ package reconciler
 import (
 	"context"
 
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 )
@@ -29,12 +30,20 @@ const failedGenerationBump = "NewObservedGenFailure"
 func PreProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 	newStatus := resource.GetStatus()
 
-	if newStatus.ObservedGeneration != resource.GetGeneration() {
-		condSet := resource.GetConditionSet()
-		manager := condSet.Manage(newStatus)
-		// Ensure conditions are initialized before we modify.
-		manager.InitializeConditions()
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	if d, ok := resource.(apis.Defaultable); ok {
+		d.SetDefaults(ctx)
+	}
 
+	// Ensure conditions are initialized before we modify.
+	condSet := resource.GetConditionSet()
+	manager := condSet.Manage(newStatus)
+	manager.InitializeConditions()
+
+	if newStatus.ObservedGeneration != resource.GetGeneration() {
 		// Reset Ready/Successful to unknown. The reconciler is expected to overwrite this.
 		manager.MarkUnknown(condSet.GetTopLevelConditionType(), failedGenerationBump, "unsuccessfully observed a new generation")
 	}
@@ -43,12 +52,12 @@ func PreProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 // PostProcessReconcile contains logic to apply after reconciliation of a resource.
 func PostProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 	logger := logging.FromContext(ctx)
-	newStatus := resource.GetStatus()
-	mgr := resource.GetConditionSet().Manage(newStatus)
+	status := resource.GetStatus()
+	mgr := resource.GetConditionSet().Manage(status)
 
 	// Bump observed generation to denote that we have processed this
 	// generation regardless of success or failure.
-	newStatus.ObservedGeneration = resource.GetGeneration()
+	status.ObservedGeneration = resource.GetGeneration()
 
 	if rc := mgr.GetTopLevelCondition(); rc == nil {
 		logger.Warn("A reconciliation included no top-level condition")
