@@ -50,7 +50,7 @@ const (
 	testIngressClass    = "test-ingress"
 )
 
-func TestMakeIngress_CorrectMetadata(t *testing.T) {
+func TestMakeIngressCorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "ng-ingress"
 	passdownIngressClass := "ok-ingress"
@@ -515,8 +515,8 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -561,8 +561,8 @@ func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -607,8 +607,8 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -665,8 +665,8 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -706,8 +706,8 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -766,8 +766,8 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -811,8 +811,8 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
@@ -856,12 +856,12 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(&expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(&expected, rule))
+	if !cmp.Equal(expected, rule) {
+		t.Errorf("Unexpected rule (-want, +got): %s", cmp.Diff(expected, rule))
 	}
 }
 
-func TestMakeIngress_WithTLS(t *testing.T) {
+func TestMakeIngressWithTLS(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
 	r := Route(ns, "test-route", WithRouteUID("1234-5678"), WithURL)
@@ -920,7 +920,7 @@ func TestMakeIngressTLS(t *testing.T) {
 	}
 }
 
-func TestMakeIngress_ACMEChallenges(t *testing.T) {
+func TestMakeIngressACMEChallenges(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -1022,7 +1022,7 @@ func TestMakeIngress_ACMEChallenges(t *testing.T) {
 
 }
 
-func TestMakeIngress_FailToGenerateDomain(t *testing.T) {
+func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -1055,7 +1055,7 @@ func TestMakeIngress_FailToGenerateDomain(t *testing.T) {
 	}
 }
 
-func TestMakeIngress_FailToGenerateTagHost(t *testing.T) {
+func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{

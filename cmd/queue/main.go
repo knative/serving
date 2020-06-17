@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -36,7 +35,6 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
@@ -59,14 +57,8 @@ import (
 )
 
 const (
-	badProbeTemplate   = "unexpected probe header value: %s"
-	failingHealthcheck = "failing healthcheck"
+	badProbeTemplate = "unexpected probe header value: %s"
 
-	healthURLPrefix = "http://127.0.0.1:"
-	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
-	// started as early as possible while still wanting to give the container some breathing
-	// room to get up and running.
-	aggressivePollInterval = 25 * time.Millisecond
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
 )
@@ -74,13 +66,8 @@ const (
 var (
 	logger *zap.SugaredLogger
 
-	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 )
-
-// Scaled down config to use during exec probing.
-type probeConfig struct {
-	QueueServingPort int `split_words:"true" required:"true"`
-}
 
 type config struct {
 	ContainerConcurrency   int    `split_words:"true" required:"true"`
@@ -202,79 +189,12 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 	}
 }
 
-func probeQueueHealthPath(timeoutSeconds int, env probeConfig) error {
-	if env.QueueServingPort <= 0 {
-		return fmt.Errorf("port must be a positive value, got %d", env.QueueServingPort)
-	}
-
-	url := healthURLPrefix + strconv.Itoa(env.QueueServingPort)
-	timeoutDuration := readiness.PollTimeout
-	if timeoutSeconds != 0 {
-		timeoutDuration = time.Duration(timeoutSeconds) * time.Second
-	}
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return fmt.Errorf("probe failed: error creating request: %w", err)
-	}
-	// Add the header to indicate this is a probe request.
-	req.Header.Add(network.ProbeHeaderName, queue.Name)
-	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
-
-	httpClient := &http.Client{
-		Timeout: timeoutDuration,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
-	defer cancel()
-
-	var lastErr error
-	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
-	// invocation of conditionFunc, it exits immediately without trying for a second time.
-	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		res, lastErr := httpClient.Do(req)
-		if lastErr != nil {
-			// Return nil error for retrying
-			return false, nil
-		}
-		defer res.Body.Close()
-
-		// fail readiness immediately rather than retrying if we get a header indicating we're shutting down.
-		if health.IsHTTPProbeShuttingDown(res) {
-			return false, errors.New("failing probe deliberately for shutdown")
-		}
-
-		return health.IsHTTPProbeReady(res), nil
-	}, ctx.Done())
-
-	if lastErr != nil {
-		return fmt.Errorf("failed to probe: %w", lastErr)
-	}
-
-	// An http.StatusOK was never returned during probing
-	if timeoutErr != nil {
-		return errors.New("probe returned not ready")
-	}
-
-	return nil
-}
-
 func main() {
 	flag.Parse()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		// Parse the environment.
-		var env probeConfig
-		if err := envconfig.Process("", &env); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		if err := probeQueueHealthPath(*readinessProbeTimeout, env); err != nil {
-			// used instead of the logger to produce a concise event message
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
+		os.Exit(standaloneProbeMain(*readinessProbeTimeout))
 	}
 
 	// Parse the environment.

@@ -137,7 +137,7 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
 		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
 	if err := view.Register(&view.View{
-		Description: "The number of requests that are routed to queue-proxy",
+		Description: "The number of requests that are routed to user-container",
 		Measure:     appRequestCountM,
 		Aggregation: view.Count(),
 		TagKeys:     keys,

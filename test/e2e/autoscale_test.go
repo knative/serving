@@ -43,7 +43,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
@@ -95,7 +94,6 @@ func TestTargetBurstCapacity(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {
@@ -162,7 +160,6 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	_, err := autoscalerCM(ctx.clients)
 	if err != nil {
@@ -191,7 +188,6 @@ func TestFastScaleToZero(t *testing.T) {
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
 		}))
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	cfg, err := autoscalerCM(ctx.clients)
 	if err != nil {

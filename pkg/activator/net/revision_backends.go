@@ -85,7 +85,6 @@ func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 const (
 	probeTimeout          time.Duration = 300 * time.Millisecond
 	defaultProbeFrequency time.Duration = 200 * time.Millisecond
-	probePath                           = "/healthz"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -158,7 +157,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
-		Path:   probePath,
+		Path:   network.ProbePath,
 	}
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
 	return prober.Do(ctx, rw.transport, httpDest.String(),

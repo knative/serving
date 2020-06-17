@@ -43,6 +43,7 @@ func WithConfigImage(img string) ConfigOption {
 	}
 }
 
+// WithConfigDeletionTimestamp sets the DeletionTimestamp on the Config.
 func WithConfigDeletionTimestamp(r *v1.Configuration) {
 	t := metav1.NewTime(time.Unix(1e9, 0))
 	r.ObjectMeta.SetDeletionTimestamp(&t)

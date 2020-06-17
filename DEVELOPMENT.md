@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in (1.13 or later)
+   built in (1.14 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
@@ -229,7 +229,7 @@ webhook-6b6c77567f-flr59              1/1     Running   0          105s
 You can access the Knative Serving Controller's logs with:
 
 ```shell
-kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name)
+kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name) -c controller
 ```
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to

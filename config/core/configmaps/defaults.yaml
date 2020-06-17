@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: c3699c6c
+    knative.dev/example-checksum: a63d266d
 data:
   _example: |
     ################################
@@ -108,6 +108,3 @@ data:
     # allow-container-concurrency-zero controls whether users can
     # specify 0 (i.e. unbounded) for containerConcurrency.
     allow-container-concurrency-zero: "true"
-
-    # feature flag indicates whether to enable multi container support or not
-    enable-multi-container: "false"

@@ -185,8 +185,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		select {
 		case names := <-cleanupCh:
 			t.Logf("Added %v to cleanup routine.", names)
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 
 		case err := <-doneCh:
 			if err != nil {
