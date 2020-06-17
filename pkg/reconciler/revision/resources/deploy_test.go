@@ -948,11 +948,12 @@ func TestMissingProbeError(t *testing.T) {
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1.Revision
-		want *appsv1.Deployment
-		dc   deployment.Config
-		ac   *autoscalerconfig.Config
+		name    string
+		rev     *v1.Revision
+		want    *appsv1.Deployment
+		dc      deployment.Config
+		ac      *autoscalerconfig.Config
+		wantErr bool
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -1107,6 +1108,20 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
 			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
 		}),
+	}, {
+		name: "invalid revision initial scale",
+		rev: revision("bar", "foo",
+			withoutLabels,
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			func(revision *v1.Revision) {
+				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "invalid"}
+			},
+		),
+		wantErr: true,
 	}}
 
 	for _, test := range tests {
@@ -1123,11 +1138,16 @@ func TestMakeDeployment(t *testing.T) {
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
-			test.want.Spec.Template.Spec = *podSpec
+			if test.want != nil {
+				test.want.Spec.Template.Spec = *podSpec
+			}
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
 				&network.Config{}, &obsConfig, &test.dc, test.ac)
-			if err != nil {
+			if err != nil && !test.wantErr {
 				t.Fatal("got unexpected error:", err)
+			}
+			if err == nil && test.wantErr {
+				t.Fatal("expected error but got none")
 			}
 			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
 				t.Error("MakeDeployment (-want, +got) =", diff)
