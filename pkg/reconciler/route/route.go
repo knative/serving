@@ -104,6 +104,14 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
+
+	// We may be reading a version of the object that was stored at an older version
+	// and may not have had all of the assumed defaults specified.  This won't result
+	// in this getting written back to the API Server, but lets downstream logic make
+	// assumptions about defaulting.
+	r.SetDefaults(ctx)
+	r.Status.InitializeConditions()
+
 	logger.Debugf("Reconciling route: %#v", r)
 
 	// Configure traffic based on the RouteSpec.
