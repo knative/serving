@@ -18,10 +18,8 @@ package resources
 
 import (
 	"context"
-	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -85,13 +83,9 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 // TODO(taragu): This function is exported and will be reused in other packages.
 func GetInitialScale(asConfig *autoscalerconfig.Config, pa *v1alpha1.PodAutoscaler) int32 {
 	initialScale := asConfig.InitialScale
-	revisionInitialScale, ok := pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
-	if !ok {
+	revisionInitialScale, ok := pa.InitialScale()
+	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
 		return initialScale
 	}
-	revInitialScaleInt, err := strconv.Atoi(revisionInitialScale)
-	if err != nil || (revInitialScaleInt == 0 && !asConfig.AllowZeroInitialScale) {
-		return initialScale
-	}
-	return int32(revInitialScaleInt)
+	return revisionInitialScale
 }

@@ -1143,3 +1143,37 @@ func TestScaleToZeroPodRetention(t *testing.T) {
 		})
 	}
 }
+
+func TestInitialScale(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   int
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.InitialScaleAnnotationKey: "2",
+		}),
+		want:   2,
+		wantOK: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.InitialScale()
+			if got != int32(tc.want) {
+				t.Errorf("ScaleToZeroPodRetention = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
