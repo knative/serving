@@ -25,6 +25,7 @@ import (
 	"github.com/markbates/inflect"
 	"go.uber.org/zap"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
@@ -135,6 +136,12 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 			continue
 		}
 		webhook.Webhooks[i].Rules = rules
+		webhook.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "webhooks.knative.dev/exclude",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			}},
+		}
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
