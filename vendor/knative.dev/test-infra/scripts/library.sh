@@ -389,25 +389,8 @@ function mktemp_with_extension() {
 #             $2 - check name as an identifier (e.g., GoBuild)
 #             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
-  local xml="$(mktemp_with_extension ${ARTIFACTS}/junit_XXXXXXXX xml)"
-  local failure=""
-  if [[ "$3" != "" ]]; then
-    # Transform newlines into HTML code.
-    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48,
-    # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
-    # which should be obsolete once Test-infra 2.0 is in place
-    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | sed 's/&/\\u0026/' | tr -d '\n')"
-    failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
-  fi
-  cat << EOF > "${xml}"
-<testsuites>
-	<testsuite tests="1" failures="1" time="0.000" name="$1">
-		<testcase classname="" name="$2" time="0.0">
-			${failure}
-		</testcase>
-	</testsuite>
-</testsuites>
-EOF
+  local xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  run_kntest junit --suite="$1" --name="$2" --err-msg="$3" --dest="${xml}" || return 1
 }
 
 # Runs a go test and generate a junit summary.
@@ -540,6 +523,15 @@ function run_go_tool() {
   (( install_failed )) && return ${install_failed}
   shift 2
   ${tool} "$@"
+}
+
+# Run kntest tool, error out and ask users to install it if it's not currently installed.
+# Parameters: $1..$n - parameters passed to the tool.
+function run_kntest() {
+  if [[ -z "$(which kntest)" ]]; then
+    echo "--- FAIL: kntest not installed, please clone test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
+  fi
+  kntest "$@"
 }
 
 # Run go-licenses to update licenses.
