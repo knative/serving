@@ -26,8 +26,10 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -217,7 +219,9 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1.Revision,
-	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
+	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
+	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
+	autoscalerConfig *autoscalerconfig.Config) (*appsv1.Deployment, error) {
 
 	podTemplateAnnotations := kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
@@ -226,6 +230,18 @@ func MakeDeployment(rev *v1.Revision,
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
+	}
+
+	replicaCount := autoscalerConfig.InitialScale
+	ann, found := rev.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	if found {
+		initialScale, err := strconv.Atoi(ann)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process initialScale annotation: %w", err)
+		}
+		if initialScale != 0 || autoscalerConfig.AllowZeroInitialScale {
+			replicaCount = int32(initialScale)
+		}
 	}
 
 	return &appsv1.Deployment{
@@ -240,7 +256,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(1),
+			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
