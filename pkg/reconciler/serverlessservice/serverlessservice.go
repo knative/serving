@@ -69,8 +69,6 @@ func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.Serverl
 		return nil
 	}
 
-	sks.SetDefaults(ctx)
-
 	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
 		r.reconcilePrivateService, // First make sure our data source is setup.
 		r.reconcilePublicService,

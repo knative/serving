@@ -54,12 +54,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	config.SetDefaults(ctx)
-
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {

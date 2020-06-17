@@ -35,8 +35,6 @@ type reconciler struct {
 var _ metricreconciler.Interface = (*reconciler)(nil)
 
 func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
-	metric.SetDefaults(ctx)
-
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch err {
 		case metrics.ErrFailedGetEndpoints:
