@@ -27,11 +27,8 @@ func TestConfigurationGetStatus(t *testing.T) {
 		},
 	}
 
-	actualStatus := configuration.GetStatus()
-	expectedStatus := status
-
-	if !cmp.Equal(actualStatus, expectedStatus) {
+	if !cmp.Equal(configuration.GetStatus(), status) {
 		t.Errorf("configuration.GetStatus() did not return expected status. Actual:%v Expected:%v",
-			actualStatus, expectedStatus)
+			configuration.GetStatus(), status)
 	}
 }

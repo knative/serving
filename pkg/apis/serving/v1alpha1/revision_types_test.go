@@ -27,11 +27,8 @@ func TestRevisionGetStatus(t *testing.T) {
 		},
 	}
 
-	actualStatus := revision.GetStatus()
-	expectedStatus := status
-
-	if !cmp.Equal(actualStatus, expectedStatus) {
+	if !cmp.Equal(revision.GetStatus(), status) {
 		t.Errorf("revision.GetStatus() did not return expected status. Actual:%v Expected:%v",
-			actualStatus, expectedStatus)
+			revision.GetStatus(), status)
 	}
 }

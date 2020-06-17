@@ -27,11 +27,8 @@ func TestServiceGetStatus(t *testing.T) {
 		},
 	}
 
-	actualStatus := service.GetStatus()
-	expectedStatus := status
-
-	if !cmp.Equal(actualStatus, expectedStatus) {
+	if !cmp.Equal(service.GetStatus(), status) {
 		t.Errorf("service.GetStatus() did not return expected status. Actual:%v Expected:%v",
-			actualStatus, expectedStatus)
+			service.GetStatus(), status)
 	}
 }

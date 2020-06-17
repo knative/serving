@@ -27,11 +27,8 @@ func TestRouteGetStatus(t *testing.T) {
 		},
 	}
 
-	actualStatus := route.GetStatus()
-	expectedStatus := status
-
-	if !cmp.Equal(actualStatus, expectedStatus) {
+	if !cmp.Equal(route.GetStatus(), status) {
 		t.Errorf("route.GetStatus() did not return expected status. Actual:%v Expected:%v",
-			actualStatus, expectedStatus)
+			route.GetStatus(), status)
 	}
 }
