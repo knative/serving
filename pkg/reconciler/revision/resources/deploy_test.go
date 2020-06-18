@@ -1063,50 +1063,6 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 		}),
-	}, {
-		name: "cluster initial scale does not allow initial scale zero",
-		acMutator: func(ac *asconfig.Config) {
-			ac.InitialScale = 2
-			ac.AllowZeroInitialScale = false
-		},
-		rev: revision("bar", "foo",
-			withoutLabels,
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "ubuntu",
-				ReadinessProbe: withTCPReadinessProbe(12345),
-			}}),
-			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-			},
-		),
-		want: appsv1deployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Replicas = ptr.Int32(int32(2))
-			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-		}),
-	}, {
-		name: "cluster initial scale allows initial scale zero",
-		acMutator: func(ac *asconfig.Config) {
-			ac.InitialScale = 2
-			ac.AllowZeroInitialScale = true
-		},
-		rev: revision("bar", "foo",
-			withoutLabels,
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "ubuntu",
-				ReadinessProbe: withTCPReadinessProbe(12345),
-			}}),
-			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-			},
-		),
-		want: appsv1deployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Replicas = ptr.Int32(int32(0))
-			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
-		}),
 	}}
 
 	for _, test := range tests {

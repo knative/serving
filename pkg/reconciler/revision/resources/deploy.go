@@ -232,16 +232,11 @@ func MakeDeployment(rev *v1.Revision,
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
-	replicaCount := autoscalerConfig.InitialScale
+	replicaCount := int(autoscalerConfig.InitialScale)
 	ann, found := rev.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
-		initialScale, err := strconv.Atoi(ann)
-		if err != nil {
-			return nil, fmt.Errorf("failed to process initialScale annotation: %w", err)
-		}
-		if initialScale != 0 || autoscalerConfig.AllowZeroInitialScale {
-			replicaCount = int32(initialScale)
-		}
+		// Ignore errors and no error checking because already validated in webhook.
+		replicaCount, _ = strconv.Atoi(ann)
 	}
 
 	return &appsv1.Deployment{
@@ -256,7 +251,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(replicaCount),
+			Replicas:                ptr.Int32(int32(replicaCount)),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
