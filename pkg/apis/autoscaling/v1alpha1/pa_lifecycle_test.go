@@ -667,12 +667,6 @@ func TestScaleBounds(t *testing.T) {
 		max:     "sandwich",
 		wantMin: 0,
 		wantMax: 0,
-	}, {
-		name:    "too small",
-		min:     "-1",
-		max:     "-1",
-		wantMin: 0,
-		wantMax: 0,
 	}}
 
 	for _, tc := range cases {
@@ -1148,7 +1142,7 @@ func TestInitialScale(t *testing.T) {
 	cases := []struct {
 		name   string
 		pa     *PodAutoscaler
-		want   int
+		want   int32
 		wantOK bool
 	}{{
 		name: "nil",
@@ -1168,8 +1162,8 @@ func TestInitialScale(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, gotOK := tc.pa.InitialScale()
-			if got != int32(tc.want) {
-				t.Errorf("ScaleToZeroPodRetention = %v, want: %v", got, tc.want)
+			if got != tc.want {
+				t.Errorf("InitialScale = %v, want: %v", got, tc.want)
 			}
 			if gotOK != tc.wantOK {
 				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
