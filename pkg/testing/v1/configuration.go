@@ -56,15 +56,15 @@ func WithConfigContainerConcurrency(cc int64) ConfigOption {
 	}
 }
 
-// WithGeneration sets the generation of the Configuration.
-func WithGeneration(gen int64) ConfigOption {
+// WithConfigGeneration sets the generation of the Configuration.
+func WithConfigGeneration(gen int64) ConfigOption {
 	return func(cfg *v1.Configuration) {
 		cfg.Generation = gen
 	}
 }
 
-// WithObservedGen sets the observed generation of the Configuration.
-func WithObservedGen(cfg *v1.Configuration) {
+// WithConfigObservedGen sets the observed generation of the Configuration.
+func WithConfigObservedGen(cfg *v1.Configuration) {
 	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
