@@ -37,7 +37,8 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/minScale: "100"
+        autoscaling.knative.dev/maxScale: "150"
         # Always hook the activator in.
         autoscaling.knative.dev/targetBurstCapacity: "-1"
     spec:
@@ -77,7 +78,8 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/minScale: "100"
+        autoscaling.knative.dev/maxScale: "150"
         # Only hook the activator in when scaled to zero.
         autoscaling.knative.dev/targetBurstCapacity: "0"
     spec:
