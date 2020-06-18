@@ -74,6 +74,8 @@ type DeciderSpec struct {
 	// revision initial scale and cluster initial scale into account. Revision initial
 	// scale overrides cluster initial scale.
 	InitialScale int32
+	// Reachable describes whether the revision is referenced by any route.
+	Reachable bool
 }
 
 // DeciderStatus is the current scale recommendation.

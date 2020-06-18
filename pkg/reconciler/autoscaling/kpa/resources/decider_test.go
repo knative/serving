@@ -44,6 +44,20 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
+		name: "unreachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityUnreachable
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), func(d *scaling.Decider) {
+			d.Spec.Reachable = false
+		}),
+	}, {
+		name: "explicit reachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityReachable
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
+	}, {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
 		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
@@ -263,6 +277,7 @@ func decider(options ...deciderOption) *scaling.Decider {
 			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
 			InitialScale:        1,
+			Reachable:           true,
 		},
 	}
 	for _, fn := range options {
