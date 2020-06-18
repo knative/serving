@@ -72,6 +72,14 @@ func WithInitSvcConditions(s *v1.Service) {
 	s.Status.InitializeConditions()
 }
 
+// WithServiceObservedGenFailure marks the top level condition as unknown when the reconciler
+// does not set any condition during reconciliation of a new generation.
+func WithServiceObservedGenFailure(s *v1.Service) {
+	condSet := s.GetConditionSet()
+	condSet.Manage(&s.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
+		"NewObservedGenFailure", "unsuccessfully observed a new generation")
+}
+
 // WithConfigSpec confgures the Service to use the given config spec
 func WithConfigSpec(config v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1.Service) {
