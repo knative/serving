@@ -660,7 +660,7 @@ func TestScaleBounds(t *testing.T) {
 		max:          "100",
 		reachability: ReachabilityUnreachable,
 		wantMin:      0,
-		wantMax:      100,
+		wantMax:      1,
 	}, {
 		name:    "malformed",
 		min:     "ham",

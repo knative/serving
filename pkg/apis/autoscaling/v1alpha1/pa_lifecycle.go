@@ -87,9 +87,11 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	if pa.Spec.Reachability != ReachabilityUnreachable {
 		min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+		max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
+	} else {
+		// Unreachable, so let's immediately scale the revision to 1.
+		max = 1
 	}
-	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
-
 	return
 }
 
