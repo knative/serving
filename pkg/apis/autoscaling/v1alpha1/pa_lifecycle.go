@@ -60,16 +60,12 @@ func (pa *PodAutoscaler) Metric() string {
 	return defaultMetric(pa.Class())
 }
 
-func (pa *PodAutoscaler) annotationInt32(key string) int32 {
+func (pa *PodAutoscaler) annotationInt32(key string) (int32, bool) {
 	if s, ok := pa.Annotations[key]; ok {
-		// no error check: relying on validation
-		i, _ := strconv.ParseInt(s, 10, 32)
-		if i < 0 {
-			return 0
-		}
-		return int32(i)
+		i, err := strconv.ParseInt(s, 10, 32)
+		return int32(i), err == nil
 	}
-	return 0
+	return 0, false
 }
 
 func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
@@ -86,9 +82,9 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // Note: min will be ignored if the PA is not reachable
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
 	if pa.Spec.Reachability != ReachabilityUnreachable {
-		min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+		min, _ = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
 	}
-	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
+	max, _ = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
 
 	return
 }
@@ -144,6 +140,12 @@ func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
+}
+
+// InitialScale returns the initial scale on the revision if present, or false if not present.
+func (pa *PodAutoscaler) InitialScale() (int32, bool) {
+	// The value is validated in the webhook.
+	return pa.annotationInt32(autoscaling.InitialScaleAnnotationKey)
 }
 
 // IsReady returns true if the Status condition PodAutoscalerConditionReady

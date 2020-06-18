@@ -73,6 +73,19 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,
+			InitialScale:        GetInitialScale(config, pa),
 		},
 	}
+}
+
+// GetInitialScale returns the calculated initial scale based on the autoscaler
+// ConfigMap and PA initial scale annotation value.
+// TODO(taragu): This function is exported and will be reused in other packages.
+func GetInitialScale(asConfig *autoscalerconfig.Config, pa *v1alpha1.PodAutoscaler) int32 {
+	initialScale := asConfig.InitialScale
+	revisionInitialScale, ok := pa.InitialScale()
+	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
+		return initialScale
+	}
+	return revisionInitialScale
 }
