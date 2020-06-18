@@ -38,7 +38,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
@@ -948,12 +948,11 @@ func TestMissingProbeError(t *testing.T) {
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name    string
-		rev     *v1.Revision
-		want    *appsv1.Deployment
-		dc      deployment.Config
-		ac      *autoscalerconfig.Config
-		wantErr bool
+		name      string
+		rev       *v1.Revision
+		want      *appsv1.Deployment
+		dc        deployment.Config
+		acMutator func(*asconfig.Config)
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -1029,8 +1028,8 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale",
-		ac: &autoscalerconfig.Config{
-			InitialScale: 10,
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
 			withoutLabels,
@@ -1045,8 +1044,8 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale override by revision initial scale",
-		ac: &autoscalerconfig.Config{
-			InitialScale: 10,
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
 			withoutLabels,
@@ -1066,9 +1065,9 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale does not allow initial scale zero",
-		ac: &autoscalerconfig.Config{
-			InitialScale:          2,
-			AllowZeroInitialScale: false,
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 2
+			ac.AllowZeroInitialScale = false
 		},
 		rev: revision("bar", "foo",
 			withoutLabels,
@@ -1088,9 +1087,9 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale allows initial scale zero",
-		ac: &autoscalerconfig.Config{
-			InitialScale:          2,
-			AllowZeroInitialScale: true,
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 2
+			ac.AllowZeroInitialScale = true
 		},
 		rev: revision("bar", "foo",
 			withoutLabels,
@@ -1108,29 +1107,16 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
 			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "0"}
 		}),
-	}, {
-		name: "invalid revision initial scale",
-		rev: revision("bar", "foo",
-			withoutLabels,
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "ubuntu",
-				ReadinessProbe: withTCPReadinessProbe(12345),
-			}}),
-			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "invalid"}
-			},
-		),
-		wantErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if test.ac == nil {
-				test.ac = &autoscalerconfig.Config{
-					InitialScale:          1,
-					AllowZeroInitialScale: false,
-				}
+			ac := &asconfig.Config{
+				InitialScale:          1,
+				AllowZeroInitialScale: false,
+			}
+			if test.acMutator != nil {
+				test.acMutator(ac)
 			}
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
@@ -1142,12 +1128,9 @@ func TestMakeDeployment(t *testing.T) {
 				test.want.Spec.Template.Spec = *podSpec
 			}
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &test.dc, test.ac)
-			if err != nil && !test.wantErr {
+				&network.Config{}, &obsConfig, &test.dc, ac)
+			if err != nil {
 				t.Fatal("got unexpected error:", err)
-			}
-			if err == nil && test.wantErr {
-				t.Fatal("expected error but got none")
 			}
 			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
 				t.Error("MakeDeployment (-want, +got) =", diff)

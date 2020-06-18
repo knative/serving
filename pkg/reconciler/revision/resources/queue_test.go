@@ -42,7 +42,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 )
@@ -67,7 +67,7 @@ var (
 	traceConfig      tracingconfig.Config
 	obsConfig        metrics.ObservabilityConfig
 	deploymentConfig deployment.Config
-	asConfig         = autoscalerconfig.Config{
+	asConfig         = asconfig.Config{
 		InitialScale:          1,
 		AllowZeroInitialScale: false,
 	}

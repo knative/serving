@@ -41,7 +41,7 @@ type Config struct {
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
 	Tracing       *pkgtracing.Config
-	Autoscaling   *autoscalerconfig.Config
+	Autoscaler    *autoscalerconfig.Config
 }
 
 // FromContext loads the configuration from the context.
@@ -94,6 +94,6 @@ func (s *Store) Load() *Config {
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
 		Observability: s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
 		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
-		Autoscaling:   s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
 	}
 }
