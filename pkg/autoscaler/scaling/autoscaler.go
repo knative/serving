@@ -39,8 +39,8 @@ import (
 // MinActivators is the minimum number of activators a revision will get.
 const MinActivators = 2
 
-// Autoscaler stores current state of an instance of an autoscaler.
-type Autoscaler struct {
+// autoscaler stores current state of an instance of an autoscaler.
+type autoscaler struct {
 	namespace    string
 	revision     string
 	metricClient metrics.MetricClient
@@ -64,7 +64,7 @@ func New(
 	metricClient metrics.MetricClient,
 	lister corev1listers.EndpointsLister,
 	deciderSpec *DeciderSpec,
-	reporterCtx context.Context) (*Autoscaler, error) {
+	reporterCtx context.Context) (UniScaler, error) {
 	if lister == nil {
 		return nil, errors.New("'lister' must not be nil")
 	}
@@ -95,7 +95,7 @@ func New(
 		pkgmetrics.Record(reporterCtx, panicM.M(0))
 	}
 
-	return &Autoscaler{
+	return &autoscaler{
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
@@ -111,7 +111,7 @@ func New(
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
+func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
@@ -129,7 +129,7 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // validScale signifies whether the desiredPodCount should be applied or not.
 // Scale is not thread safe in regards to panic state, but it's thread safe in
 // regards to acquiring the decider spec.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
+func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
 	spec, podCounter := a.currentSpecAndPC()
@@ -279,7 +279,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	}
 }
 
-func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
+func (a *autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter
