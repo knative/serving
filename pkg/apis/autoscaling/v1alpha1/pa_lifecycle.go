@@ -62,9 +62,8 @@ func (pa *PodAutoscaler) Metric() string {
 
 func (pa *PodAutoscaler) annotationInt32(key string) (int32, bool) {
 	if s, ok := pa.Annotations[key]; ok {
-		// no error check or negative check: relying on validation
-		i, _ := strconv.ParseInt(s, 10, 32)
-		return int32(i), true
+		i, err := strconv.ParseInt(s, 10, 32)
+		return int32(i), err == nil
 	}
 	return 0, false
 }
