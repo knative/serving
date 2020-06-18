@@ -1171,3 +1171,14 @@ func TestInitialScale(t *testing.T) {
 		})
 	}
 }
+
+func TestHasBeenActive(t *testing.T) {
+	p := PodAutoscaler{}
+	if got, want := p.Status.HasBeenActive(), false; got != want {
+		t.Errorf("before marking initially active: got: %v, want: %v", got, want)
+	}
+	p.Status.MarkHasBeenActive()
+	if got, want := p.Status.HasBeenActive(), true; got != want {
+		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
+	}
+}
