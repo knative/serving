@@ -196,6 +196,7 @@ func markInactive(pa *asv1a1.PodAutoscaler) {
 func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	rev := newTestRevision(ns, n)
 	kpa := revisionresources.MakePA(rev)
+	WithReachabilityReachable(kpa)
 	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
 	kpa.Annotations["autoscaling.knative.dev/metric"] = "concurrency"
 	for _, opt := range opts {
@@ -533,7 +534,14 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), WithPAMetricsService(privateSvc),
-				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnreachable),
+				withScales(1, 1), WithPAStatusService(testRevision), WithReachabilityUnreachable),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: testNamespace,
+			},
+			Name:  deployName,
+			Patch: []byte(`[{"op":"replace","path":"/spec/replicas","value":1}]`),
 		}},
 	}, {
 		Name: "kpa becomes ready with minScale endpoints when reachable",
