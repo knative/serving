@@ -573,11 +573,7 @@ func TestStartInPanicMode(t *testing.T) {
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	for i := 0; i < 2; i++ {
 		fake.Endpoints(i, fake.TestService)
-		us, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
-		if err != nil {
-			t.Fatal("Error creating test autoscaler:", err)
-		}
-		a := us.(*autoscaler)
+		a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
@@ -588,11 +584,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	fake.Endpoints(2, fake.TestService)
-	us, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
-	if err != nil {
-		t.Fatal("Error creating test autoscaler:", err)
-	}
-	a := us.(*autoscaler)
+	a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
@@ -616,11 +608,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
-	us, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
-	if err != nil {
-		t.Errorf("No endpoints should succeed, err = %v", err)
-	}
-	a := us.(*autoscaler)
+	a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}

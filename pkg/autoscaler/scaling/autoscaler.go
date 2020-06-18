@@ -57,7 +57,7 @@ type autoscaler struct {
 	podCounter  resources.EndpointsCounter
 }
 
-// New creates a new instance of autoscaler
+// New creates a new instance of default autoscaler implementation.
 func New(
 	namespace string,
 	revision string,
@@ -71,6 +71,17 @@ func New(
 	if reporterCtx == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
+	return newAutoscaler(namespace, revision, metricClient,
+		lister, deciderSpec, reporterCtx), nil
+}
+
+func newAutoscaler(
+	namespace string,
+	revision string,
+	metricClient metrics.MetricClient,
+	lister corev1listers.EndpointsLister,
+	deciderSpec *DeciderSpec,
+	reporterCtx context.Context) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
@@ -107,7 +118,7 @@ func New(
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
-	}, nil
+	}
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
