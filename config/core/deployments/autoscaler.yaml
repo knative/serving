@@ -13,14 +13,15 @@
 # limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: autoscaler
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
+  replicas: 3
+  serviceName: autoscaler
   selector:
     matchLabels:
       app: autoscaler
@@ -52,6 +53,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
@@ -111,3 +116,5 @@ spec:
     targetPort: 8443
   selector:
     app: autoscaler
+  clusterIP: None
+  

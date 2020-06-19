@@ -30,6 +30,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/ordinal"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/metrics"
@@ -41,6 +42,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -70,6 +72,11 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
+
+	if !ordinal.IsLeader {
+		logger.Infof("Skipping kpa %q, not the leader.", types.NamespacedName{Namespace: pa.Namespace, Name: pa.Name})
+		return nil
+	}
 
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.

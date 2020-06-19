@@ -18,5 +18,5 @@ metadata:
   name: knative-serving
   labels:
     # TODO(mattmoor): We should not require any istio annotations.
-    istio-injection: enabled
+    istio-injection: disabled
     serving.knative.dev/release: devel

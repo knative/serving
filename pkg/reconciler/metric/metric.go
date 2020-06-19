@@ -19,9 +19,12 @@ package metric
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/ordinal"
 
+	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 )
@@ -35,6 +38,13 @@ type reconciler struct {
 var _ metricreconciler.Interface = (*reconciler)(nil)
 
 func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric) pkgreconciler.Event {
+	logger := logging.FromContext(ctx)
+
+	if !ordinal.IsLeader {
+		logger.Infof("Skipping metric %q, not the leader.", types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name})
+		return nil
+	}
+
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch err {
 		case metrics.ErrFailedGetEndpoints:

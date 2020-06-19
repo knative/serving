@@ -39,20 +39,22 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/sharedmain"
-
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
+	"knative.dev/pkg/websocket"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/ordinal"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	smetrics "knative.dev/serving/pkg/metrics"
@@ -171,10 +173,18 @@ func main() {
 
 	go controller.StartAll(ctx, controllers...)
 
+	autoscalerEndpoint := fmt.Sprintf("ws://autoscaler-%d.autoscaler.%s.svc.%s:8080", ordinal.Leader, system.Namespace(), pkgnet.GetClusterDomainName())
+	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			if ordinal.IsLeader {
+				collector.Record(sm.Key, sm.Stat)
+				multiScaler.Poke(sm.Key, sm.Stat)
+			} else {
+				statSink.Send(sm)
+			}
 		}
 	}()
 

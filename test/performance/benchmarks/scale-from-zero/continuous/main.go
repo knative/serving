@@ -149,9 +149,9 @@ func waitForScaleToZero(ctx context.Context, objs []*v1test.ResourceObjects) err
 func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1test.ResourceObjects, q *quickstore.Quickstore) {
 	count := len(objs)
 	// Get the key for saving latency and error metrics in the benchmark.
-	lk := "l" + strconv.Itoa(count)
-	dlk := "dl" + strconv.Itoa(count)
-	ek := "e" + strconv.Itoa(count)
+	lk := "pl" + strconv.Itoa(count)
+	dlk := "pdl" + strconv.Itoa(count)
+	ek := "pe" + strconv.Itoa(count)
 	var wg sync.WaitGroup
 	wg.Add(count)
 	for i := 0; i < count; i++ {
