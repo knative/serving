@@ -45,7 +45,7 @@ type RevisionTarget struct {
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
-	Timeout     *time.Duration
+	Timeout     time.Duration
 }
 
 // RevisionTargets is a collection of revision targets.
@@ -237,11 +237,11 @@ func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	return err
 }
 
-func timeoutFromRevSpec(rev *v1.Revision) *time.Duration {
+func timeoutFromRevSpec(rev *v1.Revision) time.Duration {
 	if rev.Spec.TimeoutSeconds != nil {
-		return ptr.Duration(time.Duration(*rev.Spec.TimeoutSeconds) * time.Second)
+		return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
 	}
-	return nil
+	return time.Duration(0)
 }
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName

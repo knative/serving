@@ -1128,7 +1128,7 @@ func TestBuildTrafficConfiguration_OldDeadline(t *testing.T) {
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
-				Timeout:  &oldTimeoutDuration,
+				Timeout:  oldTimeoutDuration,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: revOldDeadlineConfig.Name,
@@ -1149,7 +1149,7 @@ func TestBuildTrafficConfiguration_OldDeadline(t *testing.T) {
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
-			Timeout:  &oldTimeoutDuration,
+			Timeout:  oldTimeoutDuration,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: revOldDeadlineConfig.Name,
@@ -1203,7 +1203,7 @@ func TestBuildTrafficConfiguration_NewDeadline(t *testing.T) {
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
-				Timeout:  &newTimeoutDuration,
+				Timeout:  newTimeoutDuration,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -1224,7 +1224,7 @@ func TestBuildTrafficConfiguration_NewDeadline(t *testing.T) {
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
-			Timeout:  &newTimeoutDuration,
+			Timeout:  newTimeoutDuration,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			revNewDeadlineConfig.Name: revNewDeadlineConfig,
@@ -1261,7 +1261,7 @@ func TestBuildTrafficConfiguration_BothDeadline(t *testing.T) {
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
-				Timeout:  &oldTimeoutDuration,
+				Timeout:  oldTimeoutDuration,
 			}, {
 				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: revBothDeadlineConfig.Name,
@@ -1271,7 +1271,7 @@ func TestBuildTrafficConfiguration_BothDeadline(t *testing.T) {
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
-				Timeout:  &newTimeoutDuration,
+				Timeout:  newTimeoutDuration,
 			}},
 		},
 		revisionTargets: []RevisionTarget{{
@@ -1283,7 +1283,7 @@ func TestBuildTrafficConfiguration_BothDeadline(t *testing.T) {
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
-			Timeout:  &oldTimeoutDuration,
+			Timeout:  oldTimeoutDuration,
 		}, {
 			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: revBothDeadlineConfig.Name,
@@ -1293,7 +1293,7 @@ func TestBuildTrafficConfiguration_BothDeadline(t *testing.T) {
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
-			Timeout:  &newTimeoutDuration,
+			Timeout:  newTimeoutDuration,
 		}},
 		Configurations: map[string]*v1.Configuration{
 			revBothDeadlineConfig.Name: revBothDeadlineConfig,

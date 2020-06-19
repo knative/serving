@@ -123,7 +123,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 			},
 			ServiceName: "jobim",
 			Active:      true,
-			Timeout:     &longDuration,
+			Timeout:     longDuration,
 		}},
 	}
 
