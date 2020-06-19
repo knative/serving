@@ -21,7 +21,7 @@ package customresourcedefinition
 import (
 	context "context"
 
-	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	factory "knative.dev/pkg/client/injection/apiextensions/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -37,16 +37,16 @@ type Key struct{}
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := factory.Get(ctx)
-	inf := f.Apiextensions().V1beta1().CustomResourceDefinitions()
+	inf := f.Apiextensions().V1().CustomResourceDefinitions()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
 // Get extracts the typed informer from the context.
-func Get(ctx context.Context) v1beta1.CustomResourceDefinitionInformer {
+func Get(ctx context.Context) v1.CustomResourceDefinitionInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1.CustomResourceDefinitionInformer from context.")
+			"Unable to fetch k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1.CustomResourceDefinitionInformer from context.")
 	}
-	return untyped.(v1beta1.CustomResourceDefinitionInformer)
+	return untyped.(v1.CustomResourceDefinitionInformer)
 }

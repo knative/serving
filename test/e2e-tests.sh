@@ -83,8 +83,46 @@ if (( HTTPS )); then
 fi
 
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}'
+kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
 add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
+
+kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
+  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,webhook", "buckets": "10"}}' || failed=1
+add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
+
+# Save activator HPA original values for later use.
+min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
+max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
+hpa_template='{"spec": {"maxReplicas": %s, "minReplicas": %s}}'
+
+kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
+  --type "merge" \
+  --patch "$(printf "$hpa_template" "2" "2")" || failed=1
+add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
+  --type 'merge' \
+  --patch $(printf "$hpa_template" "$max_replicas" "$min_replicas")" SIGKILL SIGTERM SIGQUIT
+
+for deployment in controller autoscaler-hpa webhook; do
+  # Make sure all pods run in leader-elected mode.
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
+  # Give it time to kill the pods.
+  sleep 5
+  # Scale up components for HA tests
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2 || failed=1
+done
+add_trap "for deployment in controller autoscaler-hpa webhook; do \
+  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
+  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
+
+# Wait for a new leader Controller to prevent race conditions during service reconciliation
+wait_for_leader_controller || failed=1
+
+# Dump the leases post-setup.
+header "Leaders"
+kubectl get lease -n "${SYSTEM_NAMESPACE}"
+
+# Give the controller time to sync with the rest of the system components.
+sleep 30
 
 # Run conformance and e2e tests.
 
@@ -104,7 +142,6 @@ if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
-
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
@@ -130,38 +167,6 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
-kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler"}}'
-add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-
-# Save activator HPA original values for later use.
-min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
-max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
-hpa_template='{"spec": {"maxReplicas": %s, "minReplicas": %s}}'
-
-kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type "merge" \
-  --patch "$(printf "$hpa_template" "2" "2")"
-add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
-  --type 'merge' \
-  --patch $(printf "$hpa_template" "$max_replicas" "$min_replicas")" SIGKILL SIGTERM SIGQUIT
-
-for deployment in controller autoscaler-hpa; do
-  # Make sure all pods run in leader-elected mode.
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
-  # Scale up components for HA tests
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2
-done
-add_trap "for deployment in controller autoscaler-hpa; do \
-  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
-  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
-
-# Wait for a new leader Controller to prevent race conditions during service reconciliation
-wait_for_leader_controller || failed=1
-
-# Give the controller time to sync with the rest of the system components.
-sleep 30
-
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 
