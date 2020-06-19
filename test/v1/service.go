@@ -129,6 +129,8 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
+
+	LogResourceObject(t, *resources)
 	return resources, err
 }
 
