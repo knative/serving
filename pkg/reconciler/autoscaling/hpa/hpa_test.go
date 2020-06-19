@@ -42,6 +42,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 
 	"knative.dev/networking/pkg/apis/networking"
@@ -50,6 +51,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -105,6 +107,11 @@ func TestControllerCanReconcile(t *testing.T) {
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
 
 	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
