@@ -71,7 +71,7 @@ func TestGCReconcile(t *testing.T) {
 			cfg("keep-two", "foo", 5556,
 				WithLatestCreated("5556"),
 				WithLatestReady("5556"),
-				WithObservedGen),
+				WithConfigObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -104,7 +104,7 @@ func TestGCReconcile(t *testing.T) {
 			cfg("keep-no-last-pinned", "foo", 5556,
 				WithLatestCreated("5556"),
 				WithLatestReady("5556"),
-				WithObservedGen),
+				WithConfigObservedGen),
 			// No lastPinned so we will keep this.
 			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
@@ -125,7 +125,7 @@ func TestGCReconcile(t *testing.T) {
 			cfg("keep-recent-last-pinned", "foo", 5556,
 				WithLatestCreated("5556"),
 				WithLatestReady("5556"),
-				WithObservedGen),
+				WithConfigObservedGen),
 			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -151,7 +151,7 @@ func TestGCReconcile(t *testing.T) {
 				// This comes after 'WithLatestReady' so the
 				// Configuration's 'Ready' Status is 'Unknown'
 				WithLatestCreated("5556"),
-				WithObservedGen),
+				WithConfigObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -173,7 +173,7 @@ func TestGCReconcile(t *testing.T) {
 				// Don't set the latest ready revision here
 				// since those by default are always retained
 				WithLatestCreated("keep-all"),
-				WithObservedGen),
+				WithConfigObservedGen),
 			rev("keep-all", "foo", 5554,
 				WithRevName("keep-all"),
 				WithCreationTimestamp(oldest),

@@ -187,6 +187,24 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
 }
 
+// WithObservedGeneration returns a PodAutoScalerOption which sets
+// the Status.ObservedGeneration field to the given generation.
+func WithObservedGeneration(gen int64) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.ObservedGeneration = gen
+	}
+}
+
+// WithObservedGenerationFailure marks the top level condition as unknown when the reconciler
+// does not set any condition during reconciliation of a new generation.
+func WithObservedGenerationFailure() PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		condSet := pa.GetConditionSet()
+		condSet.Manage(&pa.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
+			"NewObservedGenFailure", "unsuccessfully observed a new generation")
+	}
+}
+
 // WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.
 func WithMetricOwnersRemoved(m *asv1a1.Metric) {
 	m.OwnerReferences = nil

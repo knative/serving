@@ -23,7 +23,11 @@ import (
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/test/mako"
@@ -37,9 +41,7 @@ var (
 	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
 )
 
-const (
-	namespace = "default"
-)
+const namespace = "default"
 
 func main() {
 	flag.Parse()
@@ -106,7 +108,9 @@ func main() {
 	log.Printf("Selector: %v", selector)
 	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
 	// Start the attack!
-	results := attacker.Attack(targeter, rate, *duration, "load-test")
+	results := attacker.Attack(targeter, rate, *duration, "rollout-test")
+	// After a minute, update the Ksvc.
+	updateSvc := time.After(time.Minute)
 LOOP:
 	for {
 		select {
@@ -115,6 +119,20 @@ LOOP:
 			// clean thing up.
 			break LOOP
 
+		case <-updateSvc:
+			log.Println("Updating the service: ", *target)
+			sc := servingclient.Get(ctx)
+			svc, err := sc.ServingV1().Services(namespace).Get(*target, metav1.GetOptions{})
+			if err != nil {
+				log.Fatalf("Error getting ksvc %s: %v", *target, err)
+			}
+			// Make sure we start with a single instance.
+			svc.Spec.Template.Annotations["autoscaling.knative.dev/minScale"] = "1"
+			_, err = sc.ServingV1().Services(namespace).Update(svc)
+			if err != nil {
+				log.Fatalf("Error updating ksvc %s: %v", *target, err)
+			}
+			log.Println("Successfully updated the service.")
 		case res, ok := <-results:
 			if !ok {
 				// Once we have read all of the request results, break out of
