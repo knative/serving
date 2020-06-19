@@ -372,13 +372,23 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 3,
 		wantEBC:   expectedEBC(1, 1982, 3.1, 2),
 	}, {
-		label:     "AutoscalerStableModeIncreaseWithSmallScaleDownRate",
+		label:     "AutoscalerStableModeDecreaseWithSmallScaleDownRate",
 		as:        newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
 		},
 		wantScale: 90,
+		wantEBC:   expectedEBC(10, 1982, 1, 100),
+	}, {
+		label:     "AutoscalerStableModeDecreseNonReachable",
+		as:        newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
+		baseScale: 100,
+		prepFunc: func(a *autoscaler) {
+			a.deciderSpec.MaxScaleDownRate = 1.1
+			a.deciderSpec.Reachable = false
+		},
+		wantScale: 1,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
 		label:     "AutoscalerPanicModeDoublePodCount",
@@ -435,6 +445,20 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{100, expectedEBC(10, 61, 1001, 10), na, true})
 }
 
+func TestAutoscalerScaleDownNoLimitWhenNonReachable(t *testing.T) {
+	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}
+	a := newTestAutoscaler(t, 10, 61, metrics)
+
+	// Need 1 pods but can only scale down ten times, to 10.
+	fake.Endpoints(100, fake.TestService)
+	na := expectedNA(a, 100)
+	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 61, 1, 100), na, true})
+
+	na = expectedNA(a, 10)
+	fake.Endpoints(10, fake.TestService)
+	// Scale ÷10 again.
+	expectScale(t, a, time.Now(), ScaleResult{1, expectedEBC(10, 61, 1, 10), na, true})
+}
 func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}
 	a := newTestAutoscaler(t, 10, 61, metrics)
@@ -511,6 +535,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		ActivatorCapacity:   activatorCapacity,
 		StableWindow:        stableWindow,
 		ServiceName:         fake.TestService,
+		Reachable:           true,
 	}
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
