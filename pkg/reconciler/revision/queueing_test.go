@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/configmap"
@@ -32,6 +33,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -210,6 +212,11 @@ func newTestController(t *testing.T, opts ...reconcilerOption) (
 	}
 	for _, configMap := range configs {
 		configMapWatcher.OnChange(configMap)
+	}
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := controller.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
 	return ctx, cancel, informers, controller, configMapWatcher
