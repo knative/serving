@@ -29,6 +29,7 @@ import (
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
@@ -103,6 +104,7 @@ func MakeIngressSpec(
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
 	networkConfig := config.FromContext(ctx).Network
+	defaults := apisconfig.FromContextOrDefaults(ctx).Defaults
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -115,7 +117,8 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+
+			rule := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name], *defaults)
 			if networkConfig.TagHeaderBasedRouting {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -131,7 +134,7 @@ func MakeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names, *defaults), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -205,24 +208,29 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 }
 
 func makeIngressRule(domains []string, ns string,
-	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
+	visibility netv1alpha1.IngressVisibility,
+	targets traffic.RevisionTargets,
+	defaults apisconfig.Defaults) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets),
+				*makeBaseIngressPath(ns, targets, defaults),
 			},
 		},
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(ns string,
+	targets map[string]traffic.RevisionTargets,
+	names []string,
+	defaults apisconfig.Defaults) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ns, targets[name])
+			path := makeBaseIngressPath(ns, targets[name], defaults)
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -231,19 +239,29 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(ns string,
+	targets traffic.RevisionTargets,
+	defaults apisconfig.Defaults) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 
-	var timeout time.Duration
+	timeout := time.Duration(0)
 
 	for _, t := range targets {
 		if t.Percent == nil || *t.Percent == 0 {
 			continue
 		}
 
-		if t.Timeout != time.Duration(0) && (timeout == time.Duration(0) || timeout < t.Timeout) {
-			timeout = t.Timeout
+		var thisTimeout time.Duration
+
+		if t.Timeout == time.Duration(0) {
+			thisTimeout = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
+		} else {
+			thisTimeout = t.Timeout
+		}
+
+		if timeout == time.Duration(0) || timeout < thisTimeout {
+			timeout = thisTimeout
 		}
 
 		splits = append(splits, netv1alpha1.IngressBackendSplit{
