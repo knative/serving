@@ -70,6 +70,56 @@ func pendingTerminatingCount(pods []*corev1.Pod) (int, int, error) {
 	return pending, terminating, nil
 }
 
+// ReadyCount implements EndpointsCounter.
+func (pc PodAccessor) ReadyCount() (int, error) {
+	pods, err := pc.podsLister.List(pc.selector)
+	if err != nil {
+		return 0, err
+	}
+	ret := 0
+	for _, p := range pods {
+		// Cheap to check that the pod is running.
+		if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
+			for _, cond := range p.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					ret++
+					break
+				}
+			}
+		}
+	}
+	return ret, nil
+}
+
+// NotReadyCount implements EndpointsCounter.
+func (pc PodAccessor) NotReadyCount() (int, error) {
+	pods, err := pc.podsLister.List(pc.selector)
+	if err != nil {
+		return 0, err
+	}
+	ret := 0
+	for _, p := range pods {
+		// Cheap to check that the pod is not running.
+		if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
+			ret++
+			continue
+		}
+		ready := false
+		// Otherwise check the status. Defensively consider pods without ready status
+		// at all as not ready.
+		for _, cond := range p.Status.Conditions {
+			if cond.Type == corev1.PodReady {
+				ready = (cond.Status == corev1.ConditionTrue)
+				break
+			}
+		}
+		if !ready {
+			ret++
+		}
+	}
+	return ret, nil
+}
+
 // PodIPsByAge returns the list of running pod (terminating
 // and non-running are excluded) IP addresses, sorted descending by pod age.
 func (pc PodAccessor) PodIPsByAge() ([]string, error) {
