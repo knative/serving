@@ -77,6 +77,20 @@ func AsInt64(key string, target *int64) ParseFunc {
 	}
 }
 
+// AsUint32 parses the value at key as an uint32 into the target, if it exists.
+func AsUint32(key string, target *uint32) ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			val, err := strconv.ParseUint(raw, 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse %q: %w", key, err)
+			}
+			*target = uint32(val)
+		}
+		return nil
+	}
+}
+
 // AsFloat64 parses the value at key as a float64 into the target, if it exists.
 func AsFloat64(key string, target *float64) ParseFunc {
 	return func(data map[string]string) error {

@@ -33,6 +33,7 @@ import (
 func okConfig() *kle.Config {
 	return &kle.Config{
 		ResourceLock:      "leases",
+		Buckets:           1,
 		LeaseDuration:     15 * time.Second,
 		RenewDeadline:     10 * time.Second,
 		RetryPeriod:       2 * time.Second,
@@ -104,6 +105,7 @@ func TestServingConfig(t *testing.T) {
 		name: "Default config",
 		want: &kle.Config{
 			ResourceLock:  "leases",
+			Buckets:       1,
 			LeaseDuration: 15 * time.Second,
 			RenewDeadline: 10 * time.Second,
 			RetryPeriod:   2 * time.Second,
@@ -113,6 +115,7 @@ func TestServingConfig(t *testing.T) {
 		name: "Example config",
 		want: &kle.Config{
 			ResourceLock:      "leases",
+			Buckets:           1,
 			LeaseDuration:     15 * time.Second,
 			RenewDeadline:     10 * time.Second,
 			RetryPeriod:       2 * time.Second,
