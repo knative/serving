@@ -36,6 +36,8 @@ import (
 const (
 	// DefaultTarget is the unnamed default target for the traffic.
 	DefaultTarget = ""
+	// DefaultTimeout indicates to use RevisionTimeoutSeconds instead
+	DefaultTimeout = time.Duration(0)
 )
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
@@ -241,7 +243,8 @@ func timeoutFromRevSpec(rev *v1.Revision) time.Duration {
 	if rev.Spec.TimeoutSeconds != nil {
 		return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
 	}
-	return time.Duration(0)
+
+	return DefaultTimeout
 }
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
