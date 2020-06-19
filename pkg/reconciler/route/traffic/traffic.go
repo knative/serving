@@ -239,8 +239,7 @@ func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 
 func timeoutFromRevSpec(rev *v1.Revision) *time.Duration {
 	if rev.Spec.TimeoutSeconds != nil {
-		temp := time.Duration(*rev.Spec.TimeoutSeconds * int64(time.Second))
-		return &temp
+		return ptr.Duration(time.Duration(*rev.Spec.TimeoutSeconds) * time.Second)
 	}
 	return nil
 }
