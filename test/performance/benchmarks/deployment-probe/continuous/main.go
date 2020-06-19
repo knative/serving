@@ -27,12 +27,14 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/mako/go/quickstore"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/apis"
+
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -42,7 +44,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/test/mako"
 	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 )
 
@@ -52,13 +54,13 @@ var (
 	frequency = flag.Duration("frequency", 5*time.Second, "The frequency at which to create services.")
 )
 
-func readTemplate() (*v1beta1.Service, error) {
+func readTemplate() (*v1.Service, error) {
 	path := filepath.Join(os.Getenv("KO_DATA_PATH"), *template+"-template.yaml")
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	svc := &v1beta1.Service{}
+	svc := &v1.Service{}
 	if err := yaml.Unmarshal(b, svc); err != nil {
 		return nil, err
 	}
@@ -133,7 +135,7 @@ func main() {
 
 	sc := servingclient.Get(ctx)
 	cleanup := func() error {
-		return sc.ServingV1beta1().Services(tmpl.Namespace).DeleteCollection(
+		return sc.ServingV1().Services(tmpl.Namespace).DeleteCollection(
 			&metav1.DeleteOptions{}, metav1.ListOptions{})
 	}
 	defer cleanup()
@@ -161,28 +163,28 @@ func main() {
 
 	// TODO(mattmoor): We could maybe use a duckv1.KResource to eliminate this boilerplate.
 
-	serviceWI, err := sc.ServingV1beta1().Services(tmpl.Namespace).Watch(lo)
+	serviceWI, err := sc.ServingV1().Services(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch services: %v", err)
 	}
 	defer serviceWI.Stop()
 	serviceSeen := sets.String{}
 
-	configurationWI, err := sc.ServingV1beta1().Configurations(tmpl.Namespace).Watch(lo)
+	configurationWI, err := sc.ServingV1().Configurations(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch configurations: %v", err)
 	}
 	defer configurationWI.Stop()
 	configurationSeen := sets.String{}
 
-	routeWI, err := sc.ServingV1beta1().Routes(tmpl.Namespace).Watch(lo)
+	routeWI, err := sc.ServingV1().Routes(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch routes: %v", err)
 	}
 	defer routeWI.Stop()
 	routeSeen := sets.String{}
 
-	revisionWI, err := sc.ServingV1beta1().Revisions(tmpl.Namespace).Watch(lo)
+	revisionWI, err := sc.ServingV1().Revisions(tmpl.Namespace).Watch(lo)
 	if err != nil {
 		fatalf("Unable to watch revisions: %v", err)
 	}
@@ -221,7 +223,7 @@ func main() {
 				return
 
 			case ts := <-tick.C:
-				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
+				svc, err := sc.ServingV1().Services(tmpl.Namespace).Create(tmpl)
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
 					log.Println("Error creating service:", err)
@@ -234,7 +236,7 @@ func main() {
 					// Skip events other than modifications
 					break
 				}
-				svc := event.Object.(*v1beta1.Service)
+				svc := event.Object.(*v1.Service)
 				handle(q, svc, svc.Status.Status, serviceSeen, "dl")
 
 			case event := <-configurationWI.ResultChan():
@@ -242,7 +244,7 @@ func main() {
 					// Skip events other than modifications
 					break
 				}
-				cfg := event.Object.(*v1beta1.Configuration)
+				cfg := event.Object.(*v1.Configuration)
 				handle(q, cfg, cfg.Status.Status, configurationSeen, "cl")
 
 			case event := <-routeWI.ResultChan():
@@ -250,7 +252,7 @@ func main() {
 					// Skip events other than modifications
 					break
 				}
-				rt := event.Object.(*v1beta1.Route)
+				rt := event.Object.(*v1.Route)
 				handle(q, rt, rt.Status.Status, routeSeen, "rl")
 
 			case event := <-revisionWI.ResultChan():
@@ -258,7 +260,7 @@ func main() {
 					// Skip events other than modifications
 					break
 				}
-				rev := event.Object.(*v1beta1.Revision)
+				rev := event.Object.(*v1.Revision)
 				handle(q, rev, rev.Status.Status, revisionSeen, "rvl")
 
 			case event := <-ingressWI.ResultChan():
