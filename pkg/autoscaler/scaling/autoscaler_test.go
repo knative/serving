@@ -445,20 +445,6 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{100, expectedEBC(10, 61, 1001, 10), na, true})
 }
 
-func TestAutoscalerScaleDownNoLimitWhenNonReachable(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}
-	a := newTestAutoscaler(t, 10, 61, metrics)
-
-	// Need 1 pods but can only scale down ten times, to 10.
-	fake.Endpoints(100, fake.TestService)
-	na := expectedNA(a, 100)
-	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 61, 1, 100), na, true})
-
-	na = expectedNA(a, 10)
-	fake.Endpoints(10, fake.TestService)
-	// Scale ÷10 again.
-	expectScale(t, a, time.Now(), ScaleResult{1, expectedEBC(10, 61, 1, 10), na, true})
-}
 func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}
 	a := newTestAutoscaler(t, 10, 61, metrics)
