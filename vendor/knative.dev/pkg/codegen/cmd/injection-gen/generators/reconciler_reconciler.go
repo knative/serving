@@ -320,7 +320,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
 
 		{{if .isKRShaped}}
-		reconciler.PostProcessReconcile(ctx, resource)
+		reconciler.PostProcessReconcile(ctx, resource, original)
 		{{end}}
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.
