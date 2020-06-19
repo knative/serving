@@ -62,24 +62,24 @@ func New(
 	namespace string,
 	revision string,
 	metricClient metrics.MetricClient,
-	lister corev1listers.EndpointsLister,
+	podCounter resources.EndpointsCounter,
 	deciderSpec *DeciderSpec,
 	reporterCtx context.Context) (UniScaler, error) {
-	if lister == nil {
-		return nil, errors.New("'lister' must not be nil")
+	if podCounter == nil {
+		return nil, errors.New("'podCounter' must not be nil")
 	}
 	if reporterCtx == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
 	return newAutoscaler(namespace, revision, metricClient,
-		lister, deciderSpec, reporterCtx), nil
+		podCounter, deciderSpec, reporterCtx), nil
 }
 
 func newAutoscaler(
 	namespace string,
 	revision string,
 	metricClient metrics.MetricClient,
-	lister corev1listers.EndpointsLister,
+	podCounter resources.EndpointsCounter,
 	deciderSpec *DeciderSpec,
 	reporterCtx context.Context) *autoscaler {
 
@@ -89,8 +89,6 @@ func newAutoscaler(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	podCounter := resources.NewScopedEndpointsCounter(lister,
-		namespace, deciderSpec.ServiceName)
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
@@ -110,7 +108,6 @@ func newAutoscaler(
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
-		lister:       lister,
 		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
@@ -126,11 +123,6 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
-	// Update the podCounter if service name changes.
-	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
-		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
-			deciderSpec.ServiceName)
-	}
 	a.deciderSpec = deciderSpec
 	return nil
 }
@@ -147,7 +139,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	originalReadyPodsCount, err := podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
 		return invalidSR
 	}
 	// Use 1 if there are zero current pods.
