@@ -1,7 +1,6 @@
 package ordinal
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +16,6 @@ var (
 func init() {
 	Ordinal = extraOrdinalFromPodName()
 	IsLeader = Ordinal == Leader // autoscaler-1 is the one in charging of reconciling
-	log.Printf("### ordinal = %d, isleader = %v\n", Ordinal, IsLeader)
 }
 
 func extraOrdinalFromPodName() int {
