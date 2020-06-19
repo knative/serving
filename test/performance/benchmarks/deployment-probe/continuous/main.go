@@ -44,7 +44,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/test/mako"
 	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 )
 
