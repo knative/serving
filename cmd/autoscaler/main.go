@@ -219,7 +219,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 		}
 
 		pc := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(),
-			decider.Namespace, decider.Name)
+			decider.Namespace, decider.Spec.ServiceName)
 		return scaling.New(decider.Namespace, decider.Name, metricClient,
 			pc, &decider.Spec, ctx)
 	}
