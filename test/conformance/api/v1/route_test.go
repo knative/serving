@@ -107,8 +107,7 @@ func TestRouteCreation(t *testing.T) {
 		Image:         test.PizzaPlanet1,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Route and Configuration")
 	config, err := v1test.CreateConfiguration(t, clients, names)

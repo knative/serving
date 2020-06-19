@@ -66,6 +66,14 @@ func TestServiceGeneration(t *testing.T) {
 	}
 }
 
+func TestServiceGetConditionSet(t *testing.T) {
+	s := &Service{}
+
+	if got, want := s.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", got, want)
+	}
+}
+
 func TestServiceIsReady(t *testing.T) {
 	cases := []struct {
 		name    string

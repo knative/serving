@@ -17,6 +17,7 @@ limitations under the License.
 package scaling
 
 import (
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
@@ -70,7 +71,7 @@ func register() {
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	if err := view.Register(
+	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     desiredPodCountM,

@@ -50,11 +50,7 @@ func TestRequestLogs(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	cleanup := func() {
-		test.TearDown(clients, names)
-	}
-	test.CleanupOnInterrupt(cleanup)
-	t.Cleanup(cleanup)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Service")
 

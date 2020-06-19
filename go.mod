@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/spf13/pflag v1.0.5
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
-	go.opencensus.io v0.22.3
+	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
@@ -42,9 +42,9 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
-	knative.dev/networking v0.0.0-20200611155523-bd13675bcf70
-	knative.dev/pkg v0.0.0-20200615224524-dbd32a77f41c
-	knative.dev/test-infra v0.0.0-20200612191923-a4dd434e085b
+	knative.dev/networking v0.0.0-20200619041525-1faac2ec5d38
+	knative.dev/pkg v0.0.0-20200619020725-7df8fc5d7743
+	knative.dev/test-infra v0.0.0-20200618184825-a7b2980a8884
 )
 
 // pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180

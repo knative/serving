@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/config"
 
 	// Inject the fakes for informers this controller relies on.
@@ -47,6 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
@@ -178,6 +180,12 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 	for _, configMap := range cms {
 		configMapWatcher.OnChange(configMap)
 	}
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := controller.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	return ctx, informers, controller, configMapWatcher
 }
 

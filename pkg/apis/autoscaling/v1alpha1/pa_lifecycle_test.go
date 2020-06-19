@@ -667,12 +667,6 @@ func TestScaleBounds(t *testing.T) {
 		max:     "sandwich",
 		wantMin: 0,
 		wantMax: 0,
-	}, {
-		name:    "too small",
-		min:     "-1",
-		max:     "-1",
-		wantMin: 0,
-		wantMax: 0,
 	}}
 
 	for _, tc := range cases {
@@ -1141,5 +1135,50 @@ func TestScaleToZeroPodRetention(t *testing.T) {
 				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
+	}
+}
+
+func TestInitialScale(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   int32
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.InitialScaleAnnotationKey: "2",
+		}),
+		want:   2,
+		wantOK: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.InitialScale()
+			if got != tc.want {
+				t.Errorf("InitialScale = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestHasBeenActive(t *testing.T) {
+	p := PodAutoscaler{}
+	if got, want := p.Status.HasBeenActive(), false; got != want {
+		t.Errorf("before marking initially active: got: %v, want: %v", got, want)
+	}
+	p.Status.MarkHasBeenActive()
+	if got, want := p.Status.HasBeenActive(), true; got != want {
+		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
 	}
 }

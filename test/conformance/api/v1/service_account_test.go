@@ -40,8 +40,7 @@ func TestServiceAccountValidation(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	t.Logf("Creating a new Service %s", names.Service)
 	service := v1test.Service(names, WithServiceAccountName(invalidServiceAccountName))

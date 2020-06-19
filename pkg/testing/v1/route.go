@@ -50,8 +50,8 @@ func WithRouteUID(uid types.UID) RouteOption {
 
 // WithRouteGeneration sets the route's generation
 func WithRouteGeneration(generation int64) RouteOption {
-	return func(svc *v1.Route) {
-		svc.Status.ObservedGeneration = generation
+	return func(r *v1.Route) {
+		r.Status.ObservedGeneration = generation
 	}
 }
 

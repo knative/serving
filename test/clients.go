@@ -200,8 +200,8 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 	}, nil
 }
 
-// Delete will delete all Routes and Configs with the names routes and configs, if clients
-// has been successfully initialized.
+// Delete will delete all Routes and Configs with the named routes and configs, if clients
+// have been successfully initialized.
 func (clients *ServingClients) Delete(routes []string, configs []string, services []string) []error {
 	deletions := []struct {
 		client interface {

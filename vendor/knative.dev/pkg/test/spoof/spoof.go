@@ -223,7 +223,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, error
 			for _, checker := range errorRetryCheckers {
 				retry, newErr := checker(err)
 				if retry {
-					sc.Logf("Retrying %s: %v", req.URL, newErr)
+					sc.Logf("Retrying %s: %v", req.URL.String(), newErr)
 					return false, nil
 				}
 			}
