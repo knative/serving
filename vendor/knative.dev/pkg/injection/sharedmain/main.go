@@ -52,6 +52,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
@@ -399,6 +400,11 @@ func SecretFetcher(ctx context.Context) metrics.SecretFetcher {
 func ControllersAndWebhooksFromCtors(ctx context.Context,
 	cmw *configmap.InformedWatcher,
 	ctors ...injection.ControllerConstructor) ([]*controller.Impl, []interface{}) {
+
+	// Check whether the context has been infused with a leader elector builder.
+	// If it has, then every reconciler we plan to start MUST implement LeaderAware.
+	leEnabled := kle.HasLeaderElection(ctx)
+
 	controllers := make([]*controller.Impl, 0, len(ctors))
 	webhooks := make([]interface{}, 0)
 	for _, cf := range ctors {
@@ -409,6 +415,12 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 		switch c := ctrl.Reconciler.(type) {
 		case webhook.AdmissionController, webhook.ConversionController:
 			webhooks = append(webhooks, c)
+		}
+
+		if leEnabled {
+			if _, ok := ctrl.Reconciler.(reconciler.LeaderAware); !ok {
+				log.Fatalf("%T is not leader-aware, all reconcilers must be leader-aware to enable fine-grained leader election.", ctrl.Reconciler)
+			}
 		}
 	}
 

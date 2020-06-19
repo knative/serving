@@ -36,8 +36,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"knative.dev/pkg/kmeta"
+	kle "knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/reconciler"
 )
 
 const (
@@ -176,6 +178,10 @@ func FilterWithNameAndNamespace(namespace, name string) func(obj interface{}) bo
 // Impl is our core controller implementation.  It handles queuing and feeding work
 // from the queue to an implementation of Reconciler.
 type Impl struct {
+	// Name is the unique name for this controller workqueue within this process.
+	// This is used for surfacing metrics, and per-controller leader election.
+	Name string
+
 	// Reconciler is the workhorse of this controller, it is fed the keys
 	// from the workqueue to process.  Public for testing.
 	Reconciler Reconciler
@@ -205,7 +211,9 @@ func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Imp
 }
 
 func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
+	logger = logger.Named(workQueueName)
 	return &Impl{
+		Name:       workQueueName,
 		Reconciler: r,
 		WorkQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
@@ -341,6 +349,14 @@ func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.logger.Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.WorkQueue.Len())
 }
 
+// MaybeEnqueueBucketKey takes a Bucket and namespace/name string and puts it onto the work queue.
+func (c *Impl) MaybeEnqueueBucketKey(bkt reconciler.Bucket, key types.NamespacedName) {
+	if bkt.Has(key) {
+		c.WorkQueue.Add(key)
+		c.logger.Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.WorkQueue.Len())
+	}
+}
+
 // EnqueueKeyAfter takes a namespace/name string and schedules its execution in
 // the work queue after given delay.
 func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
@@ -349,10 +365,12 @@ func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 }
 
 // RunContext starts the controller's worker threads, the number of which is threadiness.
+// If the context has been decorated for LeaderElection, then an elector is built and run.
 // It then blocks until the context is cancelled, at which point it shuts down its
 // internal work queue and waits for workers to finish processing their current
 // work items.
 func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
+	logger := c.logger
 	defer runtime.HandleCrash()
 	sg := sync.WaitGroup{}
 	defer sg.Wait()
@@ -363,8 +381,20 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 		}
 	}()
 
+	if la, ok := c.Reconciler.(reconciler.LeaderAware); ok {
+		// Build and execute an elector.
+		le, err := kle.BuildElector(ctx, la, c.Name, c.MaybeEnqueueBucketKey)
+		if err != nil {
+			return err
+		}
+		sg.Add(1)
+		go func() {
+			defer sg.Done()
+			le.Run(ctx)
+		}()
+	}
+
 	// Launch workers to process resources that get enqueued to our workqueue.
-	logger := c.logger
 	logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
 		sg.Add(1)
