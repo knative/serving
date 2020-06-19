@@ -177,6 +177,7 @@ func main() {
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 
+	// DO NOT SUBMIT
 	go func() {
 		for sm := range statsCh {
 			if ordinal.IsLeader {
