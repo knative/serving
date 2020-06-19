@@ -249,6 +249,8 @@ func makeBaseIngressPath(ns string,
 	// uninitialized timeout value in the (timeout < thisTimeout) check below.
 	timeout := time.Duration(0)
 
+	sawExplicitTimeout := false
+
 	for _, t := range targets {
 		if t.Percent == nil || *t.Percent == 0 {
 			continue
@@ -260,6 +262,7 @@ func makeBaseIngressPath(ns string,
 			thisTimeout = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
 		} else {
 			thisTimeout = t.Timeout
+			sawExplicitTimeout = true
 		}
 
 		// If timeout hasn't been set yet, other than the initializer, then it is less
@@ -286,7 +289,7 @@ func makeBaseIngressPath(ns string,
 
 	var timeoutDuration *metav1.Duration
 
-	if timeout > time.Duration(0) {
+	if sawExplicitTimeout && timeout > time.Duration(0) {
 		timeoutDuration = &metav1.Duration{Duration: timeout}
 	}
 	return &netv1alpha1.HTTPIngressPath{
