@@ -180,7 +180,10 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	// 3 pods. See the unit test for this scenario in action.
 	maxScaleUp := math.Ceil(spec.MaxScaleUpRate * readyPodsCount)
 	// Same logic, opposite math applies here.
-	maxScaleDown := math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	maxScaleDown := 0.
+	if spec.Reachable {
+		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	}
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
