@@ -39,8 +39,8 @@ import (
 // MinActivators is the minimum number of activators a revision will get.
 const MinActivators = 2
 
-// Autoscaler stores current state of an instance of an autoscaler.
-type Autoscaler struct {
+// autoscaler stores current state of an instance of an autoscaler.
+type autoscaler struct {
 	namespace    string
 	revision     string
 	metricClient metrics.MetricClient
@@ -57,20 +57,31 @@ type Autoscaler struct {
 	podCounter  resources.EndpointsCounter
 }
 
-// New creates a new instance of autoscaler
+// New creates a new instance of default autoscaler implementation.
 func New(
 	namespace string,
 	revision string,
 	metricClient metrics.MetricClient,
-	lister corev1listers.EndpointsLister,
+	podCounter resources.EndpointsCounter,
 	deciderSpec *DeciderSpec,
-	reporterCtx context.Context) (*Autoscaler, error) {
-	if lister == nil {
-		return nil, errors.New("'lister' must not be nil")
+	reporterCtx context.Context) (UniScaler, error) {
+	if podCounter == nil {
+		return nil, errors.New("'podCounter' must not be nil")
 	}
 	if reporterCtx == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
+	return newAutoscaler(namespace, revision, metricClient,
+		podCounter, deciderSpec, reporterCtx), nil
+}
+
+func newAutoscaler(
+	namespace string,
+	revision string,
+	metricClient metrics.MetricClient,
+	podCounter resources.EndpointsCounter,
+	deciderSpec *DeciderSpec,
+	reporterCtx context.Context) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
@@ -78,8 +89,6 @@ func New(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	podCounter := resources.NewScopedEndpointsCounter(lister,
-		namespace, deciderSpec.ServiceName)
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
@@ -95,11 +104,10 @@ func New(
 		pkgmetrics.Record(reporterCtx, panicM.M(0))
 	}
 
-	return &Autoscaler{
+	return &autoscaler{
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
-		lister:       lister,
 		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
@@ -107,19 +115,14 @@ func New(
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
-	}, nil
+	}
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
+func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
-	// Update the podCounter if service name changes.
-	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
-		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
-			deciderSpec.ServiceName)
-	}
 	a.deciderSpec = deciderSpec
 	return nil
 }
@@ -129,14 +132,14 @@ func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 // validScale signifies whether the desiredPodCount should be applied or not.
 // Scale is not thread safe in regards to panic state, but it's thread safe in
 // regards to acquiring the decider spec.
-func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
+func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
 	spec, podCounter := a.currentSpecAndPC()
 	originalReadyPodsCount, err := podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
 		return invalidSR
 	}
 	// Use 1 if there are zero current pods.
@@ -177,7 +180,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	// 3 pods. See the unit test for this scenario in action.
 	maxScaleUp := math.Ceil(spec.MaxScaleUpRate * readyPodsCount)
 	// Same logic, opposite math applies here.
-	maxScaleDown := math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	maxScaleDown := 0.
+	if spec.Reachable {
+		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	}
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
@@ -254,9 +260,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		excessBCF = 0
 		// numAct stays 1, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
-		totCap := float64(originalReadyPodsCount) * a.deciderSpec.TotalValue
-		excessBCF = math.Floor(totCap - observedPanicValue -
-			a.deciderSpec.TargetBurstCapacity)
+		// Extra float64 cast disables fused multiply-subtract to force identical behavior on
+		// all platforms. See floating point section in https://golang.org/ref/spec#Operators.
+		totCap := float64(float64(originalReadyPodsCount) * a.deciderSpec.TotalValue)
+		excessBCF = math.Floor(totCap - a.deciderSpec.TargetBurstCapacity - observedPanicValue)
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil((totCap+a.deciderSpec.TargetBurstCapacity)/a.deciderSpec.ActivatorCapacity)))
 	case a.deciderSpec.TargetBurstCapacity == -1:
@@ -278,7 +285,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	}
 }
 
-func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
+func (a *autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter

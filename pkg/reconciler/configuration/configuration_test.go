@@ -94,12 +94,12 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("no-revisions-yet", "foo", 1234,
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithObservedGen),
+				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
 		}, {
 			Object: cfg("no-revisions-yet", "foo", 1234,
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithObservedGen),
+				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-00001"),
@@ -124,7 +124,7 @@ func TestReconcile(t *testing.T) {
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("byo-name-create-foo"), WithObservedGen),
+				WithLatestCreated("byo-name-create-foo"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "byo-name-create-foo"),
@@ -138,7 +138,7 @@ func TestReconcile(t *testing.T) {
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
-				WithLatestCreated("byo-name-exists-foo"), WithObservedGen),
+				WithLatestCreated("byo-name-exists-foo"), WithConfigObservedGen),
 			rev("byo-name-exists", "foo", 1234, WithCreationTimestamp(now), func(rev *v1.Revision) {
 				rev.Name = "byo-name-exists-foo"
 				rev.GenerateName = ""
@@ -160,7 +160,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
-			}, WithLatestCreated("byo-name-git-revert-foo"), WithObservedGen),
+			}, WithLatestCreated("byo-name-git-revert-foo"), WithConfigObservedGen),
 		}},
 		Key: "foo/byo-name-git-revert",
 	}, {
@@ -181,7 +181,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
-			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`), WithObservedGen),
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`), WithConfigObservedGen),
 		}},
 		Key: "foo/byo-name-wrong-gen-wrong-spec",
 	}, {
@@ -199,7 +199,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
-			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`), WithObservedGen),
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`), WithConfigObservedGen),
 		}},
 		Key: "foo/byo-rev-not-owned",
 	}, {
@@ -215,7 +215,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1),
 				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency"), WithObservedGen),
+				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: expected 0 <= -1 <= 1000: spec.containerConcurrency"),
@@ -235,18 +235,18 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("matching-revision-not-done", "foo", 5432,
 				// If the Revision already exists, we still update these fields.
 				// This could happen if the prior status update failed for some reason.
-				WithLatestCreated("matching-revision-not-done-00001"), WithObservedGen),
+				WithLatestCreated("matching-revision-not-done-00001"), WithConfigObservedGen),
 		}},
 		Key: "foo/matching-revision-not-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true)",
 		Objects: []runtime.Object{
-			cfg("matching-revision-done", "foo", 5555, WithLatestCreated("matching-revision-done-00001"), WithObservedGen),
+			cfg("matching-revision-done", "foo", 5555, WithLatestCreated("matching-revision-done-00001"), WithConfigObservedGen),
 			rev("matching-revision-done", "foo", 5555,
 				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision-done-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("matching-revision-done", "foo", 5555, WithObservedGen,
+			Object: cfg("matching-revision-done", "foo", 5555, WithConfigObservedGen,
 				// When we see the LatestCreatedRevision become Ready, then we
 				// update the latest ready revision.
 				WithLatestCreated("matching-revision-done-00001"),
@@ -262,7 +262,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,
-				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
+				WithConfigObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
 			rev("matching-revision-done-idempotent", "foo", 5566,
 				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
 		},
@@ -270,13 +270,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
 		Objects: []runtime.Object{
-			cfg("matching-revision-failed", "foo", 5555, WithLatestCreated("matching-revision"), WithObservedGen),
+			cfg("matching-revision-failed", "foo", 5555, WithLatestCreated("matching-revision"), WithConfigObservedGen),
 			rev("matching-revision-failed", "foo", 5555,
 				WithCreationTimestamp(now), MarkContainerMissing, WithRevName("matching-revision")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("matching-revision-failed", "foo", 5555,
-				WithLatestCreated("matching-revision"), WithObservedGen,
+				WithLatestCreated("matching-revision"), WithConfigObservedGen,
 				// When the LatestCreatedRevision reports back a failure,
 				// then we surface that failure.
 				MarkLatestCreatedFailed("It's the end of the world as we know it")),
@@ -289,7 +289,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile revision matching generation (ready: bad)",
 		Objects: []runtime.Object{
-			cfg("bad-condition", "foo", 5555, WithLatestCreated("bad-condition"), WithObservedGen),
+			cfg("bad-condition", "foo", 5555, WithLatestCreated("bad-condition"), WithConfigObservedGen),
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
 				WithRevStatus(v1.RevisionStatus{
@@ -324,7 +324,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("create-revision-failure", "foo", 99998,
 				// When we fail to create a Revision is should be surfaced in
 				// the Configuration status.
-				MarkRevisionCreationFailed("inducing failure for create revisions"), WithObservedGen),
+				MarkRevisionCreationFailed("inducing failure for create revisions"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: inducing failure for create revisions"),
@@ -349,7 +349,7 @@ func TestReconcile(t *testing.T) {
 				// These would be the status updates after a first
 				// reconcile, which we use to trigger the update
 				// where we've induced a failure.
-				WithLatestCreated("update-config-failure-00001"), WithObservedGen),
+				WithLatestCreated("update-config-failure-00001"), WithConfigObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-00001"),
@@ -362,7 +362,7 @@ func TestReconcile(t *testing.T) {
 			cfg("revision-recovers", "foo", 1337,
 				WithLatestCreated("revision-recovers-00001"),
 				WithLatestReady("revision-recovers-00001"),
-				WithObservedGen,
+				WithConfigObservedGen,
 				MarkLatestCreatedFailed("Weebles wobble, but they don't fall down")),
 			rev("revision-recovers", "foo", 1337,
 				WithCreationTimestamp(now),
@@ -374,7 +374,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("revision-recovers", "foo", 1337,
 				WithLatestCreated("revision-recovers-00001"),
 				WithLatestReady("revision-recovers-00001"),
-				WithObservedGen,
+				WithConfigObservedGen,
 				// When a LatestReadyRevision recovers from failure,
 				// then we should go back to Ready.
 			),
@@ -390,10 +390,10 @@ func TestReconcile(t *testing.T) {
 			// when no fix is present
 			cfg("double-trouble", "foo", 1,
 				WithLatestCreated("double-trouble-00001"),
-				WithLatestReady("double-trouble-00001"), WithObservedGen),
+				WithLatestReady("double-trouble-00001"), WithConfigObservedGen),
 			cfg("first-trouble", "foo", 1,
 				WithLatestCreated("first-trouble-00001"),
-				WithLatestReady("first-trouble-00001"), WithObservedGen),
+				WithLatestReady("first-trouble-00001"), WithConfigObservedGen),
 
 			rev("first-trouble", "foo", 1,
 				WithRevName("first-trouble-00001"),
@@ -408,7 +408,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00002"),
-				WithLatestReady("threerevs-00001"), WithObservedGen, func(cfg *v1.Configuration) {
+				WithLatestReady("threerevs-00001"), WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "threerevs-00003"
 				},
 			),
@@ -426,7 +426,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00003"),
 				WithLatestReady("threerevs-00002"),
-				WithObservedGen, func(cfg *v1.Configuration) {
+				WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "threerevs-00003"
 				},
 			),
@@ -440,7 +440,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("revnotready", "foo", 3,
 				WithLatestCreated("revnotready-00002"),
-				WithLatestReady("revnotready-00001"), WithObservedGen, func(cfg *v1.Configuration) {
+				WithLatestReady("revnotready-00001"), WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "revnotready-00003"
 				},
 			),
@@ -459,7 +459,7 @@ func TestReconcile(t *testing.T) {
 				// The config should NOT be ready, because LCR != LRR
 				WithLatestCreated("revnotready-00003"),
 				WithLatestReady("revnotready-00002"),
-				WithObservedGen, func(cfg *v1.Configuration) {
+				WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "revnotready-00003"
 				},
 			),
@@ -473,7 +473,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
-				WithLatestReady("lrrnotexist-00001"), WithObservedGen, func(cfg *v1.Configuration) {
+				WithLatestReady("lrrnotexist-00001"), WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
 				},
 			),
@@ -488,7 +488,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
 				WithLatestReady("lrrnotexist-00002"),
-				WithObservedGen, func(cfg *v1.Configuration) {
+				WithConfigObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
 				},
 			),

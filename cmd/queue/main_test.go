@@ -121,7 +121,6 @@ func TestProbeHandler(t *testing.T) {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
-		wantBody:      "queue not ready",
 		requestHeader: queue.Name,
 	}}
 

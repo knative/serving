@@ -173,9 +173,4 @@ const (
 	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
 	// which services/endpoints should trigger reconciles.
 	KPALabelKey = GroupName + "/kpa"
-
-	// PreferForScaleDownLabelKey is the label key set on a pod which is selected
-	// by the autoscaler as a candidate for removal. Once the label is set to "true", it
-	// signals the QueueProxy to fail readiness on the pod
-	PreferForScaleDownLabelKey = GroupName + "/prefer-for-scale-down"
 )

@@ -31,7 +31,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
@@ -81,18 +80,6 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 		return nil, err
 	}
 	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
-}
-
-// rawCM returns the raw knative config map for the given name
-func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
-		name,
-		metav1.GetOptions{})
-}
-
-// patchCM updates the existing config map with the supplied value.
-func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	return clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(cm)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.

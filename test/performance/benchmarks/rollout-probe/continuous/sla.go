@@ -73,10 +73,10 @@ var (
 			estat:     "qe",
 			analyzers: []*tpb.ThresholdAnalyzerInput{newQueue95PercentileLatency("q")},
 		},
-		"queue-with-cc-50": {
+		"queue-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc-50.default.svc.cluster.local?sleep=100",
+				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "qc",
 			estat: "qce",
@@ -92,10 +92,10 @@ var (
 			estat:     "ae",
 			analyzers: []*tpb.ThresholdAnalyzerInput{newActivator95PercentileLatency("a")},
 		},
-		"activator-with-cc-50": {
+		"activator-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
-				URL:    "http://activator-with-cc-50.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "ac",
 			estat: "ace",

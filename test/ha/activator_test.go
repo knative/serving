@@ -74,8 +74,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	// Create second service that will be scaled to zero and after stopping the activator we'll
 	// ensure it can be scaled back from zero.
@@ -85,8 +84,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 			autoscaling.TargetBurstCapacityKey: "-1",                           // Make sure all requests go through the activator.
 		}),
 	)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, namesScaleToZero) })
-	defer test.TearDown(clients, namesScaleToZero)
+	test.EnsureTearDown(t, clients, namesScaleToZero)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
 		t.Fatal("Failed to scale to zero:", err)

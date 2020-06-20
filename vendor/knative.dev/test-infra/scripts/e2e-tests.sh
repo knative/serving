@@ -108,6 +108,8 @@ function dump_cluster_state() {
       echo ">>> Details" >> ${output}
       if [[ "${crd}" == "secrets" ]]; then
         echo "Secrets are ignored for security reasons" >> ${output}
+      elif [[ "${crd}" == "events" ]]; then
+        echo "events are ignored as making a lot of noise" >> ${output}
       else
         kubectl get ${crd} --all-namespaces -o yaml >> ${output}
       fi

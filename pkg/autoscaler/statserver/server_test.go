@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -61,7 +62,7 @@ func TestProbe(t *testing.T) {
 
 	defer server.Shutdown(0)
 	go server.listenAndServe()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.listenAddr()), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", server.listenAddr(), network.ProbePath), nil)
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}

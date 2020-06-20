@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -47,7 +47,7 @@ type Deciders interface {
 // MakeDecider constructs a Decider resource from a PodAutoscaler taking
 // into account the PA's ContainerConcurrency and the relevant
 // autoscaling annotation.
-func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config, svc string) *scaling.Decider {
+func MakeDecider(ctx context.Context, pa *asv1a1.PodAutoscaler, config *autoscalerconfig.Config, svc string) *scaling.Decider {
 	panicThresholdPercentage := config.PanicThresholdPercentage
 	if x, ok := pa.PanicThresholdPercentage(); ok {
 		panicThresholdPercentage = x
@@ -73,6 +73,20 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),
 			ServiceName:         svc,
+			InitialScale:        GetInitialScale(config, pa),
+			Reachable:           pa.Spec.Reachability != asv1a1.ReachabilityUnreachable,
 		},
 	}
+}
+
+// GetInitialScale returns the calculated initial scale based on the autoscaler
+// ConfigMap and PA initial scale annotation value.
+// TODO(taragu): This function is exported and will be reused in other packages.
+func GetInitialScale(asConfig *autoscalerconfig.Config, pa *asv1a1.PodAutoscaler) int32 {
+	initialScale := asConfig.InitialScale
+	revisionInitialScale, ok := pa.InitialScale()
+	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
+		return initialScale
+	}
+	return revisionInitialScale
 }

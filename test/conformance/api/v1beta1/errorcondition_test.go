@@ -54,13 +54,12 @@ func TestContainerErrorMsg(t *testing.T) {
 		Image:   test.InvalidHelloWorld,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	t.Logf("Creating a new Service %s", names.Service)
-	svc, err := createService(t, clients, names, 2)
+	svc, err := v1b1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
@@ -165,8 +164,7 @@ func TestContainerExitingMsg(t *testing.T) {
 				Image:  test.Failing,
 			}
 
-			defer test.TearDown(clients, names)
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			test.EnsureTearDown(t, clients, names)
 
 			t.Logf("Creating a new Configuration %s", names.Config)
 

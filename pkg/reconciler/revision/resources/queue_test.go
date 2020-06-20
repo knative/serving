@@ -475,7 +475,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
 				},
 			},
 			PeriodSeconds:  1,
@@ -548,7 +548,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		c.ReadinessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+					Command: []string{"/ko-app/queue", "-probe-period", "10s"},
 				}},
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
@@ -646,7 +646,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "1"},
+						Command: []string{"/ko-app/queue", "-probe-period", "1s"},
 					},
 				},
 				PeriodSeconds:  1,
@@ -695,7 +695,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			c.ReadinessProbe = &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "15"},
+						Command: []string{"/ko-app/queue", "-probe-period", "15s"},
 					},
 				},
 				PeriodSeconds:       2,

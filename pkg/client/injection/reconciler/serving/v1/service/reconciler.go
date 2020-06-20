@@ -170,7 +170,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
 
-		reconciler.PostProcessReconcile(ctx, resource)
+		reconciler.PostProcessReconcile(ctx, resource, original)
 
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
 		// Append the target method to the logger.

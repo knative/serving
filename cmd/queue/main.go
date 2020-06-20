@@ -66,7 +66,7 @@ const (
 var (
 	logger *zap.SugaredLogger
 
-	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 )
 
 type config struct {
