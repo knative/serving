@@ -32,5 +32,5 @@ type ResourceObjects struct {
 
 // LogResourceObject logs the resource object with the resource name and value
 func LogResourceObject(t pkgTest.T, value ResourceObjects) {
-	t.Log("", "resource", spew.Sprint(value))
+	t.Log("", "resource", spew.Sprint("%#v", value))
 }
