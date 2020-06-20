@@ -247,7 +247,9 @@ func makeBaseIngressPath(ns string,
 
 	// Because 0 is less than any valid value, we don't need to check for an
 	// uninitialized timeout value in the (timeout < thisTimeout) check below.
-	timeout := time.Duration(0)
+	const maxInvalidTimeout = time.Duration(0)
+
+	timeout := maxInvalidTimeout
 
 	sawExplicitTimeout := false
 
@@ -256,19 +258,19 @@ func makeBaseIngressPath(ns string,
 			continue
 		}
 
-		var thisTimeout time.Duration
+		var aTimeout time.Duration
 
 		if t.Timeout == traffic.DefaultTimeout {
-			thisTimeout = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
+			aTimeout = time.Duration(defaults.RevisionTimeoutSeconds) * time.Second
 		} else {
-			thisTimeout = t.Timeout
+			aTimeout = t.Timeout
 			sawExplicitTimeout = true
 		}
 
 		// If timeout hasn't been set yet, other than the initializer, then it is less
 		// than any valid value.
-		if timeout < thisTimeout {
-			timeout = thisTimeout
+		if timeout < aTimeout {
+			timeout = aTimeout
 		}
 
 		splits = append(splits, netv1alpha1.IngressBackendSplit{
@@ -289,7 +291,7 @@ func makeBaseIngressPath(ns string,
 
 	var timeoutDuration *metav1.Duration
 
-	if sawExplicitTimeout && timeout > time.Duration(0) {
+	if sawExplicitTimeout && timeout > maxInvalidTimeout {
 		timeoutDuration = &metav1.Duration{Duration: timeout}
 	}
 	return &netv1alpha1.HTTPIngressPath{
