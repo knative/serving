@@ -55,7 +55,7 @@ func TestTagHeaders(t *testing.T) {
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Headers: map[string]v1alpha1.HeaderMatch{
-						network.TagHeaderName: v1alpha1.HeaderMatch{
+						network.TagHeaderName: {
 							Exact: tagName,
 						},
 					},
