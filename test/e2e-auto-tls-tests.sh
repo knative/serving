@@ -189,11 +189,9 @@ go_test_e2e -timeout=10m ./test/e2e/autotls/ || failed=1
 kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 delete_dns_record
 
+(( failed )) && fail_test
+
 subheader "Cleanup auto tls"
 cleanup_auto_tls_common
-
-# Dump cluster state in case of failure
-(( failed )) && dump_cluster_state
-(( failed )) && fail_test
 
 success
