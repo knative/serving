@@ -49,16 +49,27 @@ Take `dataplane-probe` benchmark for example:
    kubectl create secret generic mako-secrets --from-file=./robot.json
    ```
 
-1. Patch istio:
+1. Patch Istio:
 
    ```shell
+   # This command will fail if no HPA for istio-ingressgateway exists.
+   # The failure can be ingored if the following command is executed.
+   kubectl patch hpa -n istio-system istio-ingressgateway \
+     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+
    kubectl patch deploy -n istio-system istio-ingressgateway \
      --patch '{"spec": {"replicas": 10}}'
+
+   # This command will fail if no HPA for cluster-local-gateway exists.
+   # The failure can be ingored if the following command is executed.
+   kubectl patch hpa -n istio-system cluster-local-gateway \
+     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+
    kubectl patch deploy -n istio-system cluster-local-gateway \
      --patch '{"spec": {"replicas": 10}}'
    ```
 
-1. Patch knative:
+1. Patch Knative:
 
    ```shell
    kubectl patch hpa -n knative-serving activator --patch '{"spec": {"minReplicas": 10}}'
