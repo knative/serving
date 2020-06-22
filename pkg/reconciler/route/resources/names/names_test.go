@@ -17,6 +17,8 @@ limitations under the License.
 package names
 
 import (
+	"hash/adler32"
+	"strconv"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +53,7 @@ func TestNamer(t *testing.T) {
 		name:  "Certificate",
 		route: getRoute("bar", "default", "1234-5678-910"),
 		f:     Certificate,
-		want:  "route-1234-5678-910",
+		want:  "route-" + strconv.Itoa(int(adler32.Checksum([]byte("1234-5678-910")))),
 	}}
 
 	for _, test := range tests {
