@@ -30,9 +30,16 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
 
-# Compute _example checksum for all configmaps.
 echo "Generating checksums for configmap _example keys"
 go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
+
+echo "Generating protocol buffer code"
+protoc "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.proto" \
+  -I="${REPO_ROOT_DIR}" -I="${REPO_ROOT_DIR}/vendor" -I="${GOPATH}/src/github.com/gogo/protobuf/protobuf" \
+  --gogofaster_out=.
+
+# Add license header to generated protobuf files.
+echo -e "$(cat "${boilerplate}")\n$(cat "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go")" > "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go"
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 

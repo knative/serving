@@ -46,28 +46,6 @@ var (
 // StatsScraperFactory creates a StatsScraper for a given Metric.
 type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
-// Stat defines a single measurement at a point in time
-type Stat struct {
-	// The unique identity of this pod.  Used to count how many pods
-	// are contributing to the metrics.
-	PodName string
-
-	// Average number of requests currently being handled by this pod.
-	AverageConcurrentRequests float64
-
-	// Part of AverageConcurrentRequests, for requests going through a proxy.
-	AverageProxiedConcurrentRequests float64
-
-	// Number of requests received since last Stat (approximately requests per second).
-	RequestCount float64
-
-	// Part of RequestCount, for requests going through a proxy.
-	ProxiedRequestCount float64
-
-	// Process uptime in seconds.
-	ProcessUptime float64
-}
-
 var emptyStat = Stat{}
 
 // StatMessage wraps a Stat with identifying information so it can be routed
