@@ -79,7 +79,7 @@ func TestValidateConfig(t *testing.T) {
 			data["enabledComponents"] = "controller,frobulator"
 			return data
 		}(),
-		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller"]`),
+		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller" "webhook"]`),
 	}}
 
 	for _, tc := range cases {

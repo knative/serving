@@ -30,7 +30,9 @@ var (
 		"hpaautoscaler",
 		"certcontroller",
 		"istiocontroller",
-		"nscontroller")
+		"nscontroller",
+		"webhook",
+	)
 )
 
 // ValidateConfig enriches the leader election config validation

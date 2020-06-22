@@ -3,7 +3,6 @@ module knative.dev/serving
 go 1.14
 
 require (
-	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -16,12 +15,10 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20190918110929-3d9be26a50eb
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
-	github.com/spf13/pflag v1.0.5
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
@@ -40,30 +37,15 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	k8s.io/metrics v0.17.6
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
-	knative.dev/networking v0.0.0-20200619041525-1faac2ec5d38
-	knative.dev/pkg v0.0.0-20200619020725-7df8fc5d7743
-	knative.dev/test-infra v0.0.0-20200618184825-a7b2980a8884
-)
-
-// pin the older grpc - see: https://github.com/grpc/grpc-go/issues/3180
-// etcd go lib hasn't upgraded yet (etcd lib comes from custom metrics server)
-//
-// a side effect is we need to pin other deps to when they used the older grpc version
-replace (
-	cloud.google.com/go => cloud.google.com/go v0.52.0
-	google.golang.org/api => google.golang.org/api v0.15.1
-	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20200115191322-ca5a22157cba
-	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+	knative.dev/networking v0.0.0-20200622163826-421cd312c651
+	knative.dev/pkg v0.0.0-20200622193027-602857dcc5f4
+	knative.dev/test-infra v0.0.0-20200622185426-9cd9379661ea
 )
 
 replace (
 	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v38.2.0+incompatible
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.4.0+incompatible
-	github.com/coreos/etcd => github.com/coreos/etcd v3.3.13+incompatible
-
-	github.com/kubernetes-incubator/custom-metrics-apiserver => github.com/kubernetes-incubator/custom-metrics-apiserver v0.0.0-20200323093244-5046ce1afe6b
 
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 
@@ -76,7 +58,4 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.6
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	k8s.io/metrics => k8s.io/metrics v0.17.6
-
-	knative.dev/serving/vendor/k8s.io/code-generator/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
 )

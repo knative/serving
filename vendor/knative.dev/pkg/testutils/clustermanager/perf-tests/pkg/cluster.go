@@ -103,6 +103,19 @@ func (gc *gkeClient) ReconcileClusters(gcpProject, repo, benchmarkRoot string) e
 	return gc.processClusters(gcpProject, repo, benchmarkRoot, handleExistingCluster, handleNewClusterConfig)
 }
 
+// DeleteClusters will delete all existing clusters.
+func (gc *gkeClient) DeleteClusters(gcpProject, repo, benchmarkRoot string) error {
+	handleExistingCluster := func(cluster container.Cluster, configExists bool, config ClusterConfig) error {
+		// retain the cluster, if the cluster config is unchanged
+		return gc.deleteClusterWithRetries(gcpProject, cluster)
+	}
+	handleNewClusterConfig := func(clusterName string, clusterConfig ClusterConfig) error {
+		// do nothing
+		return nil
+	}
+	return gc.processClusters(gcpProject, repo, benchmarkRoot, handleExistingCluster, handleNewClusterConfig)
+}
+
 // processClusters will process existing clusters and configs for new clusters,
 // with the corresponding functions provided by callers.
 func (gc *gkeClient) processClusters(

@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: ecc94014
+    knative.dev/example-checksum: 2a1bda27
 data:
   _example: |
     ################################
@@ -63,4 +63,4 @@ data:
     # - certcontroller
     # - istiocontroller
     # - nscontroller
-    enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"
+    enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller,webhook"

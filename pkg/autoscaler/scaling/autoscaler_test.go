@@ -372,13 +372,23 @@ func TestAutoscalerScale(t *testing.T) {
 		wantScale: 3,
 		wantEBC:   expectedEBC(1, 1982, 3.1, 2),
 	}, {
-		label:     "AutoscalerStableModeIncreaseWithSmallScaleDownRate",
+		label:     "AutoscalerStableModeDecreaseWithSmallScaleDownRate",
 		as:        newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
 		},
 		wantScale: 90,
+		wantEBC:   expectedEBC(10, 1982, 1, 100),
+	}, {
+		label:     "AutoscalerStableModeDecreseNonReachable",
+		as:        newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
+		baseScale: 100,
+		prepFunc: func(a *autoscaler) {
+			a.deciderSpec.MaxScaleDownRate = 1.1
+			a.deciderSpec.Reachable = false
+		},
+		wantScale: 1,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
 		label:     "AutoscalerPanicModeDoublePodCount",
@@ -511,6 +521,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		ActivatorCapacity:   activatorCapacity,
 		StableWindow:        stableWindow,
 		ServiceName:         fake.TestService,
+		Reachable:           true,
 	}
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()

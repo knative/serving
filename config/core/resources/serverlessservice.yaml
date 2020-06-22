@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: serverlessservices.networking.internal.knative.dev
@@ -25,6 +25,35 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+    subresources:
+      status: {}
+    schema:
+      openAPIV3Schema:
+        type: object
+        # this is a work around so we don't need to flush out the
+        # schema for each version at this time
+        #
+        # see issue: https://github.com/knative/serving/issues/912
+        x-kubernetes-preserve-unknown-fields: true
+    additionalPrinterColumns:
+    - name: Mode
+      type: string
+      jsonPath: ".spec.mode"
+    - name: Activators
+      type: integer
+      jsonPath: ".spec.numActivators"
+    - name: ServiceName
+      type: string
+      jsonPath: ".status.serviceName"
+    - name: PrivateServiceName
+      type: string
+      jsonPath: ".status.privateServiceName"
+    - name: Ready
+      type: string
+      jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+    - name: Reason
+      type: string
+      jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: ServerlessService
     plural: serverlessservices
@@ -35,24 +64,3 @@ spec:
     shortNames:
     - sks
   scope: Namespaced
-  subresources:
-    status: {}
-  additionalPrinterColumns:
-  - name: Mode
-    type: string
-    JSONPath: ".spec.mode"
-  - name: Activators
-    type: integer
-    JSONPath: ".spec.numActivators"
-  - name: ServiceName
-    type: string
-    JSONPath: ".status.serviceName"
-  - name: PrivateServiceName
-    type: string
-    JSONPath: ".status.privateServiceName"
-  - name: Ready
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].status"
-  - name: Reason
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].reason"
