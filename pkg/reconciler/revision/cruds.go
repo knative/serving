@@ -43,6 +43,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Deployment,
+		cfgs.Autoscaler,
 	)
 
 	if err != nil {
@@ -63,6 +64,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		cfgs.Network,
 		cfgs.Observability,
 		cfgs.Deployment,
+		cfgs.Autoscaler,
 	)
 
 	if err != nil {

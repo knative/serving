@@ -35,8 +35,10 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
@@ -939,17 +941,18 @@ func TestMakePodSpec(t *testing.T) {
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
-		&network.Config{}, &obsConfig, &deploymentConfig); err == nil {
+		&network.Config{}, &obsConfig, &deploymentConfig, &asConfig); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
 
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1.Revision
-		want *appsv1.Deployment
-		dc   deployment.Config
+		name      string
+		rev       *v1.Revision
+		want      *appsv1.Deployment
+		dc        deployment.Config
+		acMutator func(*asconfig.Config)
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -1023,19 +1026,65 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 		}),
+	}, {
+		name: "cluster initial scale",
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 10
+		},
+		rev: revision("bar", "foo",
+			withoutLabels,
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+		),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.Int32(int32(10))
+		}),
+	}, {
+		name: "cluster initial scale override by revision initial scale",
+		acMutator: func(ac *asconfig.Config) {
+			ac.InitialScale = 10
+		},
+		rev: revision("bar", "foo",
+			withoutLabels,
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+			}}),
+			func(revision *v1.Revision) {
+				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			},
+		),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.Int32(int32(20))
+			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+		}),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ac := &asconfig.Config{
+				InitialScale:          1,
+				AllowZeroInitialScale: false,
+			}
+			if test.acMutator != nil {
+				test.acMutator(ac)
+			}
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, &logConfig, &traceConfig,
 				&obsConfig, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
 			}
-			test.want.Spec.Template.Spec = *podSpec
+			if test.want != nil {
+				test.want.Spec.Template.Spec = *podSpec
+			}
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
-				&network.Config{}, &obsConfig, &test.dc)
+				&network.Config{}, &obsConfig, &test.dc, ac)
 			if err != nil {
 				t.Fatal("got unexpected error:", err)
 			}
