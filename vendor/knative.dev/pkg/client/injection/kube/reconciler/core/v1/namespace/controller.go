@@ -25,6 +25,8 @@ import (
 	strings "strings"
 
 	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -33,6 +35,7 @@ import (
 	namespace "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
+	reconciler "knative.dev/pkg/reconciler"
 )
 
 const (
@@ -54,9 +57,27 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 
 	namespaceInformer := namespace.Get(ctx)
 
+	lister := namespaceInformer.Lister()
+
 	rec := &reconcilerImpl{
+		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
+			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				all, err := lister.List(labels.Everything())
+				if err != nil {
+					return err
+				}
+				for _, elt := range all {
+					// TODO: Consider letting users specify a filter in options.
+					enq(bkt, types.NamespacedName{
+						Namespace: elt.GetNamespace(),
+						Name:      elt.GetName(),
+					})
+				}
+				return nil
+			},
+		},
 		Client:        client.Get(ctx),
-		Lister:        namespaceInformer.Lister(),
+		Lister:        lister,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 	}
