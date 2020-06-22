@@ -54,7 +54,7 @@ Take `dataplane-probe` benchmark for example:
 
    ```shell
    # This command will fail if no HPA for istio-ingressgateway exists.
-   # The failure can be ingored if the following command is executed.
+   # If that is the case, the error can be ignored.
    kubectl patch hpa -n istio-system istio-ingressgateway \
      --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
 
