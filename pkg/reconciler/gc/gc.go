@@ -29,7 +29,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -101,7 +100,7 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 		} else {
 			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
 			// It usually happens when ksvc was deployed with wrong configuration.
-			rc := rev.Status.GetCondition(v1beta1.RevisionConditionReady)
+			rc := rev.Status.GetCondition(v1.RevisionConditionReady)
 			if rc == nil || rc.Status != corev1.ConditionTrue {
 				return true
 			}
