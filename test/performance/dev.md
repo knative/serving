@@ -13,8 +13,9 @@ GKE.
 
 Take `dataplane-probe` benchmark for example:
 
-1. Apply
-   [mako config](https://github.com/knative/serving/blob/master/test/performance/config/config-mako.yaml)
+1. Edit [mako config](https://github.com/knative/serving/blob/master/test/performance/config/config-mako.yaml)
+   to attach your desired tags. see the `_example` stanza for how.
+   Then apply it:
 
    ```shell
    kubectl apply -f test/performance/config/config-mako.yaml
@@ -51,8 +52,8 @@ Take `dataplane-probe` benchmark for example:
 1. Patch istio:
 
    ```shell
-   kubectl patch hpa -n istio-system istio-ingressgateway \
-     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+   kubectl patch deploy -n istio-system istio-ingressgateway \
+     --patch '{"spec": {"replicas": 10}}'
    kubectl patch deploy -n istio-system cluster-local-gateway \
      --patch '{"spec": {"replicas": 10}}'
    ```
@@ -63,7 +64,7 @@ Take `dataplane-probe` benchmark for example:
    kubectl patch hpa -n knative-serving activator --patch '{"spec": {"minReplicas": 10}}'
    ```
 
-1. Apply `setup` for benchmark:
+1. Apply `setup` for benchmark if there's any. Take `dataplane-probe` benchmark for example:
 
    ```shell
    ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
@@ -71,14 +72,7 @@ Take `dataplane-probe` benchmark for example:
 
 1. Wait for above to stabilize
 
-1. Attach your desired tags to the runs by editing the config map, see the
-   `_example` stanza for how.
-
-   ```shell
-   kubectl edit cm config-mako
-   ```
-
-1. Apply the benchmark cron:
+1. Apply the benchmark cron. Take `dataplane-probe` benchmark for example:
 
    ```gcloud
    ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml
