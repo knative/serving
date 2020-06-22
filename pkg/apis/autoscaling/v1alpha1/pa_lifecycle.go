@@ -185,6 +185,12 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
+// ScaleTargetInitializedFor returns the time PA spent in state
+// PodAutoscalerConditionScaleTargetInitialized.
+func (pas *PodAutoscalerStatus) ScaleTargetInitializedFor(now time.Time) time.Duration {
+	return pas.inStatusScaleTargetInitializedFor(corev1.ConditionTrue, now, 0)
+}
+
 // GetCondition gets the condition `t`.
 func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return podCondSet.Manage(pas).GetCondition(t)
@@ -251,6 +257,18 @@ func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time
 // including when the status is undetermined (Active condition is not found.)
 func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
+	if cond == nil || cond.Status != status {
+		return -1
+	}
+	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
+}
+
+// inStatusScaleTargetInitializedFor returns positive duration if the PodAutoscalerStatus's
+// PodAutoscalerConditionScaleTargetInitialized condition has stayed in the specified status
+// for at least the specified duration. Otherwise it returns negative duration, including when
+// the status is undetermined (PodAutoscalerConditionScaleTargetInitialized condition is not found.)
+func (pas *PodAutoscalerStatus) inStatusScaleTargetInitializedFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
+	cond := pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized)
 	if cond == nil || cond.Status != status {
 		return -1
 	}

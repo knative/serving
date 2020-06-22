@@ -57,7 +57,6 @@ func TestInitScaleZero(t *testing.T) {
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()

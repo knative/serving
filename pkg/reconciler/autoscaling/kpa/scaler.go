@@ -35,6 +35,7 @@ import (
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/resources"
 
@@ -307,6 +308,17 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 	}
 
 	min, max := pa.ScaleBounds()
+	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
+	sw := config.FromContext(ctx).Autoscaler.StableWindow
+	hasBeenActiveFor := pa.Status.ScaleTargetInitializedFor(time.Now())
+	if initialScale > 1 && hasBeenActiveFor < sw {
+		// Ignore initial scale if minScale >= initialScale
+		if min < initialScale {
+			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
+			ks.enqueueCB(pa, sw-hasBeenActiveFor)
+		}
+		min = intMax(initialScale, min)
+	}
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
