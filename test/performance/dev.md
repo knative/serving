@@ -62,7 +62,7 @@ Take `dataplane-probe` benchmark for example:
      --patch '{"spec": {"replicas": 10}}'
 
    # This command will fail if no HPA for cluster-local-gateway exists.
-   # The failure can be ingored if the following command is executed.
+   # If that is the case, the error can be ignored.
    kubectl patch hpa -n istio-system cluster-local-gateway \
      --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
 
