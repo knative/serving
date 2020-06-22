@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -86,11 +85,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Only create metrics service and metric entity if we actually need to gather metrics.
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
-	if pa.Status.MetricsServiceName != "" && pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
-		if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
-			return fmt.Errorf("error reconciling metric: %w", err)
-		}
-	}
 
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
