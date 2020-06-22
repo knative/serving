@@ -21,7 +21,7 @@ package validatingwebhookconfiguration
 import (
 	context "context"
 
-	v1beta1 "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	v1 "k8s.io/client-go/informers/admissionregistration/v1"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -37,16 +37,16 @@ type Key struct{}
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := factory.Get(ctx)
-	inf := f.Admissionregistration().V1beta1().ValidatingWebhookConfigurations()
+	inf := f.Admissionregistration().V1().ValidatingWebhookConfigurations()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
 // Get extracts the typed informer from the context.
-func Get(ctx context.Context) v1beta1.ValidatingWebhookConfigurationInformer {
+func Get(ctx context.Context) v1.ValidatingWebhookConfigurationInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch k8s.io/client-go/informers/admissionregistration/v1beta1.ValidatingWebhookConfigurationInformer from context.")
+			"Unable to fetch k8s.io/client-go/informers/admissionregistration/v1.ValidatingWebhookConfigurationInformer from context.")
 	}
-	return untyped.(v1beta1.ValidatingWebhookConfigurationInformer)
+	return untyped.(v1.ValidatingWebhookConfigurationInformer)
 }
