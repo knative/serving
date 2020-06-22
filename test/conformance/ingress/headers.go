@@ -119,6 +119,7 @@ func TestTagHeaders(t *testing.T) {
 
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com", ros...)
 			if ri == nil {
+				t.Errorf("Couldn't make request")
 				return
 			}
 
