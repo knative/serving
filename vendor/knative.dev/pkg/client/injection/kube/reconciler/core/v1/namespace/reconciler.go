@@ -21,6 +21,7 @@ package namespace
 import (
 	context "context"
 	json "encoding/json"
+	fmt "fmt"
 	reflect "reflect"
 
 	zap "go.uber.org/zap"
@@ -160,7 +161,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// Set and update the finalizer on resource if r.reconciler
 		// implements Finalizer.
 		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
-			logger.Warnw("Failed to set finalizers", zap.Error(err))
+			return fmt.Errorf("failed to set finalizers: %w", err)
 		}
 
 		// Reconcile this copy of the resource and then write back any status
@@ -175,7 +176,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
 		reconcileEvent = fin.FinalizeKind(ctx, resource)
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
-			logger.Warnw("Failed to clear finalizers", zap.Error(err))
+			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
 	}
 

@@ -147,6 +147,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "context",
 			Name:    "Context",
 		}),
+		"fmtErrorf":           c.Universe.Package("fmt").Function("Errorf"),
 		"reflectDeepEqual":    c.Universe.Package("reflect").Function("DeepEqual"),
 		"equalitySemantic":    c.Universe.Package("k8s.io/apimachinery/pkg/api/equality").Variable("Semantic"),
 		"jsonMarshal":         c.Universe.Package("encoding/json").Function("Marshal"),
@@ -308,7 +309,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// Set and update the finalizer on resource if r.reconciler
 		// implements Finalizer.
 		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
-			logger.Warnw("Failed to set finalizers", zap.Error(err))
+			return {{.fmtErrorf|raw}}("failed to set finalizers: %w", err)
 		}
 
 		{{if .isKRShaped}}
@@ -330,7 +331,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
 		reconcileEvent = fin.FinalizeKind(ctx, resource)
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
-			logger.Warnw("Failed to clear finalizers", zap.Error(err))
+			return {{.fmtErrorf|raw}}("failed to clear finalizers: %w", err)
 		}
 	}
 
