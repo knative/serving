@@ -64,7 +64,8 @@ Take `dataplane-probe` benchmark for example:
    kubectl patch hpa -n knative-serving activator --patch '{"spec": {"minReplicas": 10}}'
    ```
 
-1. Apply `setup` for benchmark if there's any. Take `dataplane-probe` benchmark for example:
+1. Apply `setup` for benchmark if there's any. Take `dataplane-probe` benchmark
+   for example:
 
    ```shell
    ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
