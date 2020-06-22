@@ -13,9 +13,10 @@ GKE.
 
 Take `dataplane-probe` benchmark for example:
 
-1. Edit [mako config](https://github.com/knative/serving/blob/master/test/performance/config/config-mako.yaml)
-   to attach your desired tags, see the `_example` stanza for how.
-   Then apply it:
+1. Edit
+   [mako config](https://github.com/knative/serving/blob/master/test/performance/config/config-mako.yaml)
+   to attach your desired tags, see the `_example` stanza for how. Then apply
+   it:
 
    ```shell
    kubectl apply -f test/performance/config/config-mako.yaml
@@ -75,7 +76,8 @@ Take `dataplane-probe` benchmark for example:
    kubectl patch hpa -n knative-serving activator --patch '{"spec": {"minReplicas": 10}}'
    ```
 
-1. Apply `setup` for benchmark if there's any. Take `dataplane-probe` benchmark for example:
+1. Apply `setup` for benchmark if there's any. Take `dataplane-probe` benchmark
+   for example:
 
    ```shell
    ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
