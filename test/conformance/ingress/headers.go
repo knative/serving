@@ -41,12 +41,12 @@ func TestTagHeaders(t *testing.T) {
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
-	const tagName = "the-tag"
-
-	const backendHeader = "Which-Backend"
-
-	const backendWithTag = "tag"
-	const backendWithoutTag = "no-tag"
+const(
+	tagName = "the-tag"
+	backendHeader = "Which-Backend"
+	backendWithTag = "tag"
+	backendWithoutTag = "no-tag"
+)
 
 	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
