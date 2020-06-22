@@ -114,7 +114,9 @@ func TestTagHeaders(t *testing.T) {
 			ros := []RequestOption{}
 
 			if tt.TagHeader != nil {
-				ros = append(ros, tagHeaderOption(*tt.TagHeader))
+				ros = append(ros, func(r *http.Request) {
+					r.Header.Set(network.TagHeaderName, *tt.TagHeader)
+				})
 			}
 
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com", ros...)
@@ -129,12 +131,6 @@ func TestTagHeaders(t *testing.T) {
 		})
 	}
 
-}
-
-func tagHeaderOption(tag string) RequestOption {
-	return func(r *http.Request) {
-		r.Header.Set(network.TagHeaderName, tag)
-	}
 }
 
 // TestPreSplitSetHeaders verifies that an Ingress that specified AppendHeaders pre-split has the appropriate header(s) set.
