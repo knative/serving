@@ -595,7 +595,7 @@ istio.io/client-go/pkg/apis/networking/v1alpha3
 istio.io/gogo-genproto/googleapis/google/api
 # k8s.io/api v0.18.1 => k8s.io/api v0.17.6
 ## explicit
-k8s.io/api/admission/v1beta1
+k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
