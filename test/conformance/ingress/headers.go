@@ -121,7 +121,7 @@ const(
 
 			ri := RuntimeRequest(t, client, "http://"+name+".example.com", ros...)
 			if ri == nil {
-				t.Errorf("Couldn't make request")
+				t.Error("Couldn't make request")
 				return
 			}
 
