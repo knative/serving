@@ -189,16 +189,11 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	}
 	fake.Endpoints(3, fake.TestService)
 	makePods(3)
-	now := time.Now()
 
-	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
-	if err != nil {
+	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
-	}
 	if !scraper.podsAddressable {
 		t.Error("PodAddressable switched to false")
 	}
@@ -216,16 +211,12 @@ func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	}
 	fake.Endpoints(5, fake.TestService)
 	makePods(5)
-	now := time.Now()
 
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
-	}
 	// Checking one of the metrics is enough here.
 	if got.AverageConcurrentRequests != 20.0 {
 		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
@@ -256,16 +247,12 @@ func TestPodDirectScrapeNoneSucceed(t *testing.T) {
 	}
 	fake.Endpoints(4, fake.TestService)
 	makePods(4)
-	now := time.Now()
 
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
-	}
 	// Checking one of the metrics is enough here.
 	if got.AverageConcurrentRequests != 20.0 {
 		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
@@ -309,16 +296,11 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	// Make an Endpoints with 3 pods.
 	fake.Endpoints(3, fake.TestService)
 
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want greater than %v", got.Time, now)
-	}
 	checkBaseStat(t, got)
 }
 
@@ -341,16 +323,11 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 
 	fake.Endpoints(numP, fake.TestService)
 
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -374,16 +351,11 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 
 	fake.Endpoints(numP, fake.TestService)
 
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
@@ -408,16 +380,11 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 
 	fake.Endpoints(numP, fake.TestService)
 
-	// Scrape will set a timestamp bigger than this.
-	now := time.Now()
 	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
 
-	if got.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
-	}
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}

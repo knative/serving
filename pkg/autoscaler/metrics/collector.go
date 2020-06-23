@@ -48,9 +48,6 @@ type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScrap
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
-	// The time the data point was received by autoscaler.
-	Time time.Time
-
 	// The unique identity of this pod.  Used to count how many pods
 	// are contributing to the metrics.
 	PodName string
@@ -86,7 +83,7 @@ type Collector interface {
 	// it already exist.
 	CreateOrUpdate(*av1alpha1.Metric) error
 	// Record allows stats to be captured that came from outside the Collector.
-	Record(key types.NamespacedName, stat Stat)
+	Record(key types.NamespacedName, now time.Time, stat Stat)
 	// Delete deletes a Metric and halts collection.
 	Delete(string, string) error
 	// Watch registers a singleton function to call when a specific collector's status changes.
@@ -169,12 +166,12 @@ func (c *MetricCollector) Delete(namespace, name string) error {
 }
 
 // Record records a stat that's been generated outside of the metric collector.
-func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
+func (c *MetricCollector) Record(key types.NamespacedName, now time.Time, stat Stat) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
 	if collection, exists := c.collections[key]; exists {
-		collection.record(stat)
+		collection.record(now, stat)
 	}
 }
 
@@ -319,7 +316,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 					callback(key)
 				}
 				if stat != emptyStat {
-					c.record(stat)
+					c.record(time.Now(), stat)
 				}
 			}
 		}
@@ -375,15 +372,15 @@ func (c *collection) lastError() error {
 }
 
 // record adds a stat to the current collection.
-func (c *collection) record(stat Stat) {
+func (c *collection) record(now time.Time, stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
 	concurr := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
-	c.concurrencyBuckets.Record(stat.Time, concurr)
-	c.concurrencyPanicBuckets.Record(stat.Time, concurr)
+	c.concurrencyBuckets.Record(now, concurr)
+	c.concurrencyPanicBuckets.Record(now, concurr)
 	rps := stat.RequestCount - stat.ProxiedRequestCount
-	c.rpsBuckets.Record(stat.Time, rps)
-	c.rpsPanicBuckets.Record(stat.Time, rps)
+	c.rpsBuckets.Record(now, rps)
+	c.rpsPanicBuckets.Record(now, rps)
 }
 
 // add adds the stats from `src` to `dst`.

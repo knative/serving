@@ -297,7 +297,6 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 
 func computeAverages(results <-chan Stat, sample, total float64) Stat {
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 
@@ -379,7 +378,6 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	close(youngStatCh)
 
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 

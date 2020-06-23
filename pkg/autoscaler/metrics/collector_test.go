@@ -133,7 +133,6 @@ func TestMetricCollectorScraper(t *testing.T) {
 		wantPRPS          = 3 * 20
 	)
 	stat := Stat{
-		Time:                      now,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: reportConcurrency,
 		RequestCount:              reportRPS,
@@ -221,7 +220,6 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const wantStat = 0.
 	stat := Stat{
-		Time:                      now,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: wantStat,
 		RequestCount:              wantStat,
@@ -268,7 +266,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	stat.RequestCount = wantRC
 	stat.AverageConcurrentRequests = wantAverageRC
 
-	coll.Record(metricKey, stat)
+	coll.Record(metricKey, now, stat)
 
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
@@ -290,7 +288,6 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const wantStat = 0.
 	stat := Stat{
-		Time:                      now,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: wantStat,
 		RequestCount:              wantStat,
@@ -323,13 +320,11 @@ func TestMetricCollectorRecord(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const want = 10.0
 	outdatedStat := Stat{
-		Time:                      oldTime,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: 100,
 		RequestCount:              100,
 	}
 	stat := Stat{
-		Time:                             now,
 		PodName:                          "testPod",
 		AverageConcurrentRequests:        want + 10,
 		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
@@ -360,8 +355,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 
 	// Add two stats. The second record operation will remove the first outdated one.
 	// After this the concurrencies are calculated correctly.
-	coll.Record(metricKey, outdatedStat)
-	coll.Record(metricKey, stat)
+	coll.Record(metricKey, oldTime, outdatedStat)
+	coll.Record(metricKey, now, stat)
 	stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		t.Fatal("StableAndPanicConcurrency:", err)
@@ -508,12 +503,11 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	now := time.Now()
 	for i := time.Duration(0); i < 10; i++ {
 		stat := Stat{
-			Time:                      now.Add(i * time.Second),
 			PodName:                   "testPod",
 			AverageConcurrentRequests: float64(i + 5),
 			RequestCount:              float64(i + 5),
 		}
-		c.record(stat)
+		c.record(now.Add(i*time.Second), stat)
 	}
 
 	now = now.Add(9 * time.Second)
