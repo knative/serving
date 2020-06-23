@@ -354,7 +354,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 
 	testStat := metrics.Stat{
-		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,

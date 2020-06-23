@@ -165,7 +165,7 @@ func main() {
 
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, sm.Stat)
+			collector.Record(sm.Key, time.Now(), sm.Stat)
 			multiScaler.Poke(sm.Key, sm.Stat)
 		}
 	}()

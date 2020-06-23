@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -220,12 +219,8 @@ func assertReceivedOK(t *testing.T, sm metrics.StatMessage, statSink *websocket.
 	if !ok {
 		t.Fatal("Statistic not received")
 	}
-	if recv.Stat.Time == (time.Time{}) {
-		t.Fatal("Stat time is nil")
-	}
-	ignoreTimeField := cmpopts.IgnoreFields(metrics.StatMessage{}, "Stat.Time")
-	if !cmp.Equal(sm, recv, ignoreTimeField) {
-		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm, ignoreTimeField))
+	if !cmp.Equal(sm, recv) {
+		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm))
 	}
 	return true
 }
