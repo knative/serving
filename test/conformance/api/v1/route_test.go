@@ -95,7 +95,7 @@ func getRouteURL(clients *test.Clients, names test.ResourceNames) (*url.URL, err
 }
 
 func TestRouteCreation(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	var objects v1test.ResourceObjects

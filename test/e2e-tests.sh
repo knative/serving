@@ -152,6 +152,10 @@ go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
   -run="TestIngressConformance/^[^u]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
+(( failed )) && fail_test
+
+success
+
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls

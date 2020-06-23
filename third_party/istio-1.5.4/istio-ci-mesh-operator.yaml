@@ -38,7 +38,7 @@ spec:
         targetAverageUtilization: 60
     gateways:
       istio-ingressgateway:
-        autoscaleMin: 2
+        autoscaleMin: 5
         autoscaleMax: 5
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true

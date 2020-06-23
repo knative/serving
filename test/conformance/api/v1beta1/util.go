@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
+	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -115,7 +116,7 @@ func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, n
 		return err
 	}
 
-	t.Logf("Performing %d concurrent requests to %s", num, url)
+	t.Logf("Performing %d requests to %s", num, url)
 	actualResponses, err := sendRequests(client, url, num)
 	if err != nil {
 		return err
@@ -125,7 +126,7 @@ func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, n
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expectedResponses []string, actualResponses <-chan string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -137,7 +138,7 @@ func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expected
 	//   WHERE body IN $expectedResponses
 	//   GROUP BY body
 	// )
-	for _, ar := range actualResponses {
+	for ar := range actualResponses {
 		expected := false
 		for _, er := range expectedResponses {
 			if strings.Contains(ar, er) {
@@ -174,30 +175,32 @@ func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expected
 }
 
 // sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, error) {
-	responses := make([]string, num)
+func sendRequests(client spoof.Interface, url *url.URL, totalReq int) (<-chan string, error) {
+	resultCh := make(chan string, totalReq)
+	wg := pool.New(8)
 
-	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < num; i++ {
+	// Launch "num" requests, recording the responses we get in "resultCh".
+	for i := 0; i < totalReq; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
-		result := &responses[i]
-		g.Go(func() error {
+		wg.Go(func() error {
 			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
 				return err
 			}
-
 			resp, err := client.Do(req)
 			if err != nil {
 				return err
 			}
-
-			*result = string(resp.Body)
+			resultCh <- string(resp.Body)
 			return nil
 		})
 	}
-	return responses, g.Wait()
+	if err := wg.Wait(); err != nil {
+		return resultCh, fmt.Errorf("Error while sending requests: %v", err)
+	}
+	close(resultCh)
+
+	return resultCh, nil
 }
 
 // Validates service health and vended content match for a runLatest Service.

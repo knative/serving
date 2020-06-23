@@ -41,7 +41,7 @@ import (
 //    a. Update Labels
 //    b. Update Annotations
 func TestService(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -180,7 +180,7 @@ func waitForDesiredTrafficShape(t *testing.T, sName string, want map[string]v1.T
 }
 
 func TestServiceBYOName(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -243,8 +243,7 @@ func TestServiceBYOName(t *testing.T) {
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
 // 5. Two Revisions Specified, 50% rollout, candidate != latest, candidate is configurationName.
 func TestServiceWithTrafficSplit(t *testing.T) {
-	t.Skip()
-	t.Parallel()
+	// t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
 	releaseImagePath2 := pkgTest.ImagePath(test.PizzaPlanet2)
