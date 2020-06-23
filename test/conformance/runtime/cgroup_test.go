@@ -32,7 +32,7 @@ import (
 
 const (
 	cpuLimit    = 1     // CPU
-	memoryLimit = 128   // MB
+	memoryLimit = 128   // MiB
 	cpuRequest  = 0.125 // CPU
 )
 
@@ -49,7 +49,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(toMilliValue(cpuLimit)),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "M"),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "Mi"),
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: resource.MustParse(toMilliValue(cpuRequest)),
@@ -58,9 +58,13 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	// Cgroup settings are based on the CPU and Memory Limits as well as CPU Reuqests
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+	//
+	// It's important to make sure that the memory limit is divisible by common page
+	// size (4k, 8k, 16k, 64k) as some environments apply rounding to the closest page
+	// size multiple, see https://github.com/kubernetes/kubernetes/issues/82230.
 	expectedCgroups := map[string]int{
-		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1000000, // 128 MB
-		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
+		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1024 * 1024, // 128 MiB
+		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}         // CPURequests * 1024
 
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
 	if err != nil {
@@ -69,7 +73,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	cgroups := ri.Host.Cgroups
 
-	// These are used to check the ratio of 'period' to 'quora'. It needs to
+	// These are used to check the ratio of 'period' to 'quota'. It needs to
 	// be equal to the 'cpuLimit (limit = period / quota)
 	var period, quota *int
 
