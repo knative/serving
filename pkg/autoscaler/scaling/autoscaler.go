@@ -39,6 +39,10 @@ import (
 // MinActivators is the minimum number of activators a revision will get.
 const MinActivators = 2
 
+type podCounter interface {
+	ReadyCount() (int, error)
+}
+
 // autoscaler stores current state of an instance of an autoscaler.
 type autoscaler struct {
 	namespace    string
@@ -54,7 +58,7 @@ type autoscaler struct {
 	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-	podCounter  resources.EndpointsCounter
+	podCounter  podCounter
 }
 
 // New creates a new instance of default autoscaler implementation.
@@ -79,7 +83,7 @@ func newAutoscaler(
 	namespace string,
 	revision string,
 	metricClient metrics.MetricClient,
-	podCounter resources.EndpointsCounter,
+	podCounter podCounter,
 	deciderSpec *DeciderSpec,
 	reporterCtx context.Context) *autoscaler {
 
@@ -135,8 +139,8 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) error {
 func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	logger := logging.FromContext(ctx)
 
-	spec, podCounter := a.currentSpecAndPC()
-	originalReadyPodsCount, err := podCounter.ReadyCount()
+	spec := a.currentSpec()
+	originalReadyPodsCount, err := a.podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
@@ -285,8 +289,8 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	}
 }
 
-func (a *autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
+func (a *autoscaler) currentSpec() *DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
-	return a.deciderSpec, a.podCounter
+	return a.deciderSpec
 }
