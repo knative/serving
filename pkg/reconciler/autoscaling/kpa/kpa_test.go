@@ -1017,7 +1017,7 @@ func TestReconcile(t *testing.T) {
 		// Make new decider if it's not in the context
 		if d := ctx.Value(deciderKey); d == nil {
 			decider := resources.MakeDecider(
-				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
+				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 			decider.Status.DesiredScale = defaultScale
 			decider.Status.NumActivators = scaling.MinActivators
 			decider.Generation = 2112
@@ -1271,7 +1271,7 @@ func TestUpdate(t *testing.T) {
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
-	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, sks.Status.PrivateServiceName)
+	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
 
 	// The Reconciler won't do any work until it becomes the leader.
 	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
