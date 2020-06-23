@@ -1,0 +1,40 @@
+From 682f06406c73726775c973f9abc72a0b80a97bad Mon Sep 17 00:00:00 2001
+From: Jon Donovan <jondonovan@google.com>
+Date: Thu, 18 Jun 2020 23:12:55 -0700
+Subject: [PATCH] Patch to fix generate-groups.sh
+
+---
+ vendor/k8s.io/code-generator/generate-groups.sh          | 2 +-
+ vendor/k8s.io/code-generator/generate-internal-groups.sh | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/vendor/k8s.io/code-generator/generate-groups.sh b/vendor/k8s.io/code-generator/generate-groups.sh
+index d82002d..e2b694a 100755
+--- a/vendor/k8s.io/code-generator/generate-groups.sh
++++ b/vendor/k8s.io/code-generator/generate-groups.sh
+@@ -50,7 +50,7 @@ shift 4
+   # To support running this script from anywhere, we have to first cd into this directory
+   # so we can install the tools.
+   cd "$(dirname "${0}")"
+-  go install ./cmd/{defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen}
++  go install "$(pwd -P)"/cmd/{defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen}
+ )
+
+ function codegen::join() { local IFS="$1"; shift; echo "$*"; }
+diff --git a/vendor/k8s.io/code-generator/generate-internal-groups.sh b/vendor/k8s.io/code-generator/generate-internal-groups.sh
+index 8c31d93..ef6bd5b 100755
+--- a/vendor/k8s.io/code-generator/generate-internal-groups.sh
++++ b/vendor/k8s.io/code-generator/generate-internal-groups.sh
+@@ -47,7 +47,8 @@ EXT_APIS_PKG="$4"
+ GROUPS_WITH_VERSIONS="$5"
+ shift 5
+
+-go install ./"$(dirname "${0}")"/cmd/{defaulter-gen,conversion-gen,client-gen,lister-gen,informer-gen,deepcopy-gen,openapi-gen}
++cd "$(dirname "${0}")"
++go install "$(pwd -P)"/cmd/{defaulter-gen,conversion-gen,client-gen,lister-gen,informer-gen,deepcopy-gen,openapi-gen}
+
+ function codegen::join() { local IFS="$1"; shift; echo "$*"; }
+
+
+2.27.0.278.ge193c7cf3a9-goog
+
