@@ -1032,7 +1032,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
-# knative.dev/pkg v0.0.0-20200622193027-602857dcc5f4
+# knative.dev/pkg v0.0.0-20200623024526-fb0320d9287e
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1149,7 +1149,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200622185426-9cd9379661ea
+# knative.dev/test-infra v0.0.0-20200623005026-1f7e5f05c52b
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/yaml v1.2.0
