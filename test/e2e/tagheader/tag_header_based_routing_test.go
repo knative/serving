@@ -75,10 +75,6 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, test.PizzaPlanet2, err)
 	}
 
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
-	}
-
 	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          "rev1",
@@ -90,6 +86,10 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 		}},
 	}); err != nil {
 		t.Fatal("Failed to update Service:", err)
+	}
+
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
 	testCases := []struct {
@@ -115,7 +115,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 				clients.KubeClient,
 				t.Logf,
 				objects.Service.Status.URL.URL(),
-				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(tt.wantResponse))),
+				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(tt.wantResponse))),
 				"WaitForSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
 				test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
