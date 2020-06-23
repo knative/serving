@@ -51,12 +51,12 @@ function wait_for_leader_controller() {
 
 function enable_tag_header_based_routing() {
   echo -n "Enabling Tag Header Based Routing"
-  kubectl patch cm config-network -n knative-serving -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
 }
 
 function disable_tag_header_based_routing() {
   echo -n "Disabling Tag Header Based Routing"
-  kubectl patch cm config-network -n knative-serving -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
 }
 
 # Script entry point.
