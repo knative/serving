@@ -5288,27 +5288,6 @@ spec:
 
 # Resources for IngressGateways component
 
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    release: istio
-  name: istio-ingressgateway
-  namespace: istio-system
-spec:
-  maxReplicas: 2
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingressgateway
 
 ---
 
@@ -5382,11 +5361,11 @@ spec:
             timeoutSeconds: 1
           resources:
             limits:
-              cpu: 2000m
-              memory: 1024Mi
+              cpu: 4000m
+              memory: 2048Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 500m
+              memory: 256Mi
           env:
           - name: JWT_POLICY
             value: first-party-jwt
@@ -5621,29 +5600,7 @@ metadata:
 ---
 
 ---
-# Resources for IngressGateways component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
-    release: istio
-  name: cluster-local-gateway
-  namespace: istio-system
-spec:
-  maxReplicas: 2
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: cluster-local-gateway
+# Resources
 
 ---
 
@@ -5948,28 +5905,6 @@ metadata:
 # IstiodRemote component is disabled.
 
 # Resources for Pilot component
-
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: istiod
-    istio.io/rev: default
-    release: istio
-  name: istiod
-  namespace: istio-system
-spec:
-  maxReplicas: 1
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
 
 ---
 
