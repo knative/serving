@@ -39,8 +39,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
 	knative.dev/networking v0.0.0-20200622163826-421cd312c651
-	knative.dev/pkg v0.0.0-20200623024526-fb0320d9287e
-	knative.dev/test-infra v0.0.0-20200623005026-1f7e5f05c52b
+	knative.dev/pkg v0.0.0-20200623173527-5658d93fb07e
+	knative.dev/test-infra v0.0.0-20200623145727-e9ff5263be06
 )
 
 replace (
