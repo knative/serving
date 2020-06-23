@@ -33,7 +33,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // MinActivators is the minimum number of activators a revision will get.
@@ -48,17 +47,16 @@ type autoscaler struct {
 	namespace    string
 	revision     string
 	metricClient metrics.MetricClient
-	lister       corev1listers.EndpointsLister
+	podCounter   podCounter
 	reporterCtx  context.Context
 
 	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
 
-	// specMux guards the current DeciderSpec and the PodCounter.
+	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-	podCounter  podCounter
 }
 
 // New creates a new instance of default autoscaler implementation.
