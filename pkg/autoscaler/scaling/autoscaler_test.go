@@ -25,7 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	. "knative.dev/pkg/logging/testing"
@@ -467,12 +466,6 @@ func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 	pc.readyCount = 10
 	// Scale ÷10 again.
 	expectScale(t, a, time.Now(), ScaleResult{1, expectedEBC(10, 61, 1, 10), na, true})
-}
-
-func eraseEndpoints() {
-	ep, _ := fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Get(fake.TestService, metav1.GetOptions{})
-	fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Delete(fake.TestService, nil)
-	fake.KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
 }
 
 func TestCantCountPods(t *testing.T) {
