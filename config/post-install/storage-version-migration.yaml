@@ -25,6 +25,8 @@ spec:
   backoffLimit: 10
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: "storage-version-migration"
     spec:
