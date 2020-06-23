@@ -70,8 +70,6 @@ spec:
           containerPort: 8008
         - name: websocket
           containerPort: 8080
-        - name: custom-metrics
-          containerPort: 8443
 
         readinessProbe: &probe
           httpGet:
@@ -80,10 +78,6 @@ spec:
             - name: k-kubelet-probe
               value: "autoscaler"
         livenessProbe: *probe
-
-        args:
-        - "--secure-port=8443"
-        - "--cert-dir=/tmp"
 
 ---
 apiVersion: v1
@@ -106,8 +100,5 @@ spec:
   - name: http
     port: 8080
     targetPort: 8080
-  - name: https-custom-metrics
-    port: 443
-    targetPort: 8443
   selector:
     app: autoscaler

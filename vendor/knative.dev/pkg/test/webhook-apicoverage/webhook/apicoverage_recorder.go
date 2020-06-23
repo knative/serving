@@ -25,8 +25,8 @@ import (
 	"reflect"
 
 	"go.uber.org/zap"
-	"k8s.io/api/admission/v1beta1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -104,7 +104,7 @@ func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *h
 		err  error
 	)
 
-	review := &v1beta1.AdmissionReview{}
+	review := &v1.AdmissionReview{}
 	if body, err = ioutil.ReadAll(r.Body); err != nil {
 		a.Logger.Errorf("Failed reading request body: %v", err)
 		a.appendAndWriteAdmissionResponse(review, false, "Admission Denied", w)
@@ -136,10 +136,10 @@ func (a *APICoverageRecorder) RecordResourceCoverage(w http.ResponseWriter, r *h
 	a.appendAndWriteAdmissionResponse(review, true, "Welcome Aboard", w)
 }
 
-func (a *APICoverageRecorder) appendAndWriteAdmissionResponse(review *v1beta1.AdmissionReview, allowed bool, message string, w http.ResponseWriter) {
-	review.Response = &v1beta1.AdmissionResponse{
+func (a *APICoverageRecorder) appendAndWriteAdmissionResponse(review *v1.AdmissionReview, allowed bool, message string, w http.ResponseWriter) {
+	review.Response = &v1.AdmissionResponse{
 		Allowed: allowed,
-		Result: &v1.Status{
+		Result: &metav1.Status{
 			Message: message,
 		},
 	}

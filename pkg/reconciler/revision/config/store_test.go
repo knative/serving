@@ -127,6 +127,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Error("Unexpected defaults config (-want, +got):", diff)
 		}
 	})
+
+	t.Run("autoscaler", func(t *testing.T) {
+		expected, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
+		if diff := cmp.Diff(expected, config.Autoscaler); diff != "" {
+			t.Error("Unexpected autoscaler config (-want, +got):", diff)
+		}
+	})
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
@@ -146,6 +153,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config.Logging.LoggingConfig = "mutated"
 	ccMutated := int64(4)
 	config.Defaults.ContainerConcurrency = ccMutated
+	scaleupMutated := float64(4)
+	config.Autoscaler.MaxScaleUpRate = scaleupMutated
 
 	newConfig := store.Load()
 
@@ -157,5 +166,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	}
 	if newConfig.Defaults.ContainerConcurrency == ccMutated {
 		t.Error("Defaults config is not immutable")
+	}
+	if newConfig.Autoscaler.MaxScaleUpRate == scaleupMutated {
+		t.Error("Autoscaler config is not immutable")
 	}
 }

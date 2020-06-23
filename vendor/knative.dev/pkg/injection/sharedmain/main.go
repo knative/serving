@@ -232,6 +232,18 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 
 	CheckK8sClientMinimumVersionOrDie(ctx, logger)
 	cmw := SetupConfigMapWatchOrDie(ctx, logger)
+
+	// Set up leader election config
+	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
+	if err != nil {
+		logger.Fatalf("Error loading leader election configuration: %v", err)
+	}
+	leConfig := leaderElectionConfig.GetComponentConfig(component)
+	if leConfig.LeaderElect {
+		// Signal that we are executing in a context with leader election.
+		ctx = kle.WithStandardLeaderElectorBuilder(ctx, kubeclient.Get(ctx), leConfig)
+	}
+
 	controllers, webhooks := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
 	WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
 	WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
@@ -242,7 +254,6 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	// If we have one or more admission controllers, then start the webhook
 	// and pass them in.
 	var wh *webhook.Webhook
-	var err error
 	if len(webhooks) > 0 {
 		// Register webhook metrics
 		webhook.RegisterMetrics()

@@ -25,8 +25,6 @@ import (
 	"net/http"
 	"time"
 
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	"github.com/spf13/pflag"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -74,11 +72,6 @@ var (
 )
 
 func main() {
-	// Initialize early to get access to flags and merge them with the autoscaler flags.
-	customMetricsAdapter := &basecmd.AdapterBase{}
-	customMetricsAdapter.Flags().AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
 
@@ -145,7 +138,6 @@ func main() {
 
 	collector := asmetrics.NewMetricCollector(
 		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
-	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -181,9 +173,6 @@ func main() {
 	profilingServer := profiling.NewServer(profilingHandler)
 
 	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return customMetricsAdapter.Run(ctx.Done())
-	})
 	eg.Go(statsServer.ListenAndServe)
 	eg.Go(profilingServer.ListenAndServe)
 
