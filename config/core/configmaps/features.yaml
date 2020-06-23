@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: b899db91
+    knative.dev/example-checksum: 11fc2bce
 data:
   _example: |
     ################################
@@ -43,7 +43,7 @@ data:
 
 
     # Indicates whether Kubernetes FieldRef support is enabled
-    kubernetes/field-ref: "disabled"
+    kubernetes/podspec-fieldref: "disabled"
 
 
     # This feature validates PodSpecs from the validating webhook

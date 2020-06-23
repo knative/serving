@@ -43,7 +43,7 @@ func withMultiContainer() configOption {
 
 func withFieldRef() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.FieldRef = config.Enabled
+		cfg.Features.PodSpecFieldRef = config.Enabled
 		return cfg
 	}
 }

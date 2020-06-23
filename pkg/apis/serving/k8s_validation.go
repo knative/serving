@@ -186,7 +186,7 @@ func validateEnvValueFrom(ctx context.Context, source *corev1.EnvVarSource) *api
 		return nil
 	}
 	features := config.FromContextOrDefaults(ctx).Features
-	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.FieldRef != config.Disabled))
+	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.PodSpecFieldRef != config.Disabled))
 }
 
 func validateEnvVar(ctx context.Context, env corev1.EnvVar) *apis.FieldError {
