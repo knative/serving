@@ -137,7 +137,7 @@ func main() {
 	podInformer := podinformer.Get(ctx)
 
 	collector := asmetrics.NewMetricCollector(
-		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
+		statsScraperFactoryFunc(podInformer.Lister()), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -214,8 +214,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
-	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil
@@ -226,9 +225,8 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
 			return nil, fmt.Errorf("label %q not found or empty in Metric %s", serving.RevisionLabelKey, metric.Name)
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
+		return asmetrics.NewStatsScraper(metric, podAccessor, logger)
 	}
 }
 
