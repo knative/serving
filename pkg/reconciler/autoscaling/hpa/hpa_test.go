@@ -52,7 +52,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
-	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -514,4 +513,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)

@@ -26,7 +26,6 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -73,7 +72,7 @@ func TestActivatorOverload(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgtest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
