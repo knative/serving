@@ -98,7 +98,6 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 }
 
 func TestUniScalerFactoryFunc(t *testing.T) {
-	autoscalerfake.Endpoints(1, "magic-services-offered")
 	uniScalerFactory := testUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
 		decider := &scaling.Decider{
