@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	apix "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apix "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,7 +54,7 @@ func NewMigrator(d dynamic.Interface, a apixclient.Interface) *Migrator {
 // Finally the migrator will update the CRD's status and drop older storage
 // versions
 func (m *Migrator) Migrate(ctx context.Context, gr schema.GroupResource) error {
-	crdClient := m.apixClient.ApiextensionsV1beta1().CustomResourceDefinitions()
+	crdClient := m.apixClient.ApiextensionsV1().CustomResourceDefinitions()
 
 	crd, err := crdClient.Get(gr.String(), metav1.GetOptions{})
 	if err != nil {
@@ -62,6 +62,10 @@ func (m *Migrator) Migrate(ctx context.Context, gr schema.GroupResource) error {
 	}
 
 	version := storageVersion(crd)
+
+	if version == "" {
+		return fmt.Errorf("unable to determine storage version for %s", gr)
+	}
 
 	if err := m.migrateResources(ctx, gr.WithVersion(version)); err != nil {
 		return err
@@ -110,10 +114,6 @@ func storageVersion(crd *apix.CustomResourceDefinition) string {
 			version = v.Name
 			break
 		}
-	}
-
-	if version == "" {
-		version = crd.Spec.Version
 	}
 
 	return version

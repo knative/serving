@@ -25,9 +25,7 @@ import (
 )
 
 // For the proc file format details,
-// See:
-// * Linux 2.6.23 https://elixir.bootlin.com/linux/v2.6.23/source/net/core/dev.c#L2343
-// * Linux 4.17 https://elixir.bootlin.com/linux/v4.17/source/net/core/net-procfs.c#L162
+// see https://elixir.bootlin.com/linux/v4.17/source/net/core/net-procfs.c#L162
 // and https://elixir.bootlin.com/linux/v4.17/source/include/linux/netdevice.h#L2810.
 
 // SoftnetStat contains a single row of data from /proc/net/softnet_stat
@@ -40,11 +38,9 @@ type SoftnetStat struct {
 	TimeSqueezed uint32
 }
 
-var softNetProcFile = "net/softnet_stat"
-
 // NetSoftnetStat reads data from /proc/net/softnet_stat.
 func (fs FS) NetSoftnetStat() ([]SoftnetStat, error) {
-	b, err := util.ReadFileNoStat(fs.proc.Path(softNetProcFile))
+	b, err := util.ReadFileNoStat(fs.proc.Path("net/softnet_stat"))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +54,7 @@ func (fs FS) NetSoftnetStat() ([]SoftnetStat, error) {
 }
 
 func parseSoftnet(r io.Reader) ([]SoftnetStat, error) {
-	const minColumns = 9
+	const expectedColumns = 11
 
 	s := bufio.NewScanner(r)
 
@@ -67,8 +63,8 @@ func parseSoftnet(r io.Reader) ([]SoftnetStat, error) {
 		columns := strings.Fields(s.Text())
 		width := len(columns)
 
-		if width < minColumns {
-			return nil, fmt.Errorf("%d columns were detected, but at least %d were expected", width, minColumns)
+		if width != 11 {
+			return nil, fmt.Errorf("%d columns were detected, but %d were expected", width, expectedColumns)
 		}
 
 		// We only parse the first three columns at the moment.
