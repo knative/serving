@@ -40,7 +40,7 @@ cp -a "${REPO_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
 
 # TODO(mattmoor): We should be able to rm -rf pkg/client/ and vendor/
 
-"${REPO_ROOT_DIR}/hack/update-codegen.sh"
+"${REPO_ROOT_DIR}/hack/update-codegen.sh" --generate-protobufs
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1

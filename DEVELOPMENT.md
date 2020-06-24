@@ -31,6 +31,9 @@ You must install these tools:
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+
+If you're working on and changing `proto` files:
+
 1. [`protoc`](https://github.com/protocolbuffers/protobuf): For compiling
    protocol buffers.
 1. [`protoc-gen-gogofaster`](https://github.com/gogo/protobuf/#more-speed-and-more-generated-code):
