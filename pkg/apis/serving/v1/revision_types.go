@@ -83,8 +83,9 @@ type RevisionSpec struct {
 	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
 
 	// TimeoutSeconds holds the max duration the instance is allowed for
-	// responding to a request.  If unspecified, a system default will
-	// be provided.
+	// responding to a request with the first byte of the response.  If
+	// the response is streamed, this does not limit the maximum stream
+	// duration.  If unspecified, a system default will be provided.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 }
