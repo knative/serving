@@ -28,6 +28,8 @@ fi
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
+boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
+
 # Parse flags to determine if we should generate protobufs.
 generate_protobufs=0
 while [[ $# -ne 0 ]]; do
@@ -39,8 +41,6 @@ while [[ $# -ne 0 ]]; do
   shift
 done
 readonly generate_protobufs
-
-boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
 
 if (( generate_protobufs )); then
   echo "Generating protocol buffer code"
