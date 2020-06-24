@@ -32,8 +32,16 @@ func (c *FakeNetworkingV1alpha1) Certificates(namespace string) v1alpha1.Certifi
 	return &FakeCertificates{c, namespace}
 }
 
+func (c *FakeNetworkingV1alpha1) Domains() v1alpha1.DomainInterface {
+	return &FakeDomains{c}
+}
+
 func (c *FakeNetworkingV1alpha1) Ingresses(namespace string) v1alpha1.IngressInterface {
 	return &FakeIngresses{c, namespace}
+}
+
+func (c *FakeNetworkingV1alpha1) Realms() v1alpha1.RealmInterface {
+	return &FakeRealms{c}
 }
 
 func (c *FakeNetworkingV1alpha1) ServerlessServices(namespace string) v1alpha1.ServerlessServiceInterface {
