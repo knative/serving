@@ -30,12 +30,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
@@ -133,15 +131,15 @@ func main() {
 		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
-	endpointsInformer := endpointsinformer.Get(ctx)
-	podInformer := podinformer.Get(ctx)
+	podLister := podinformer.Get(ctx).Lister()
 
 	collector := asmetrics.NewMetricCollector(
-		statsScraperFactoryFunc(podInformer.Lister()), logger)
+		statsScraperFactoryFunc(podLister), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := scaling.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
+	multiScaler := scaling.NewMultiScaler(ctx.Done(),
+		uniScalerFactoryFunc(podLister, collector), logger)
 
 	controllers := []*controller.Impl{
 		kpa.NewController(ctx, cmw, multiScaler),
@@ -188,29 +186,28 @@ func main() {
 	}
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
+func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 	metricClient asmetrics.MetricClient) scaling.UniScalerFactory {
 	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
-		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
+		configName := decider.Labels[serving.ConfigurationLabelKey]
+		if configName == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
 		}
-		if decider.Spec.ServiceName == "" {
-			return nil, fmt.Errorf("%s decider has empty ServiceName", decider.Name)
+		revisionName := decider.Labels[serving.RevisionLabelKey]
+		if revisionName == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
 		}
-
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
-		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, decider.Name)
+		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
 		if err != nil {
 			return nil, err
 		}
 
-		pc := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(),
-			decider.Namespace, decider.Spec.ServiceName)
+		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
 		return scaling.New(decider.Namespace, decider.Name, metricClient,
-			pc, &decider.Spec, ctx)
+			podAccessor, &decider.Spec, ctx)
 	}
 }
 
