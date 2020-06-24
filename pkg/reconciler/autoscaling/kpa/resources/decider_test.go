@@ -36,7 +36,6 @@ func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
-		svc    string
 		want   *scaling.Decider
 		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
@@ -133,14 +132,6 @@ func TestMakeDecider(t *testing.T) {
 			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
-		name: "with service name",
-		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
-		svc:  "rock-solid",
-		want: decider(
-			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(4.0), withTotal(10.0),
-			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
-	}, {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
@@ -163,7 +154,7 @@ func TestMakeDecider(t *testing.T) {
 				cfg = tc.cfgOpt(*config)
 			}
 
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg, tc.svc)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
@@ -320,12 +311,6 @@ func withTotal(total float64) deciderOption {
 func withTarget(target float64) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Spec.TargetValue = target
-	}
-}
-
-func withService(s string) deciderOption {
-	return func(d *scaling.Decider) {
-		d.Spec.ServiceName = s
 	}
 }
 
