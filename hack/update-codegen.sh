@@ -34,9 +34,7 @@ echo "Generating checksums for configmap _example keys"
 go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
 
 echo "Generating protocol buffer code"
-protoc "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.proto" \
-  -I="${REPO_ROOT_DIR}" -I="${REPO_ROOT_DIR}/vendor" -I="${GOPATH}/src/github.com/gogo/protobuf/protobuf" \
-  --gogofaster_out=.
+protoc "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=.
 
 # Add license header to generated protobuf files.
 echo -e "$(cat "${boilerplate}")\n$(cat "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go")" > "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go"
