@@ -166,13 +166,11 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
 func BuildPodSpec(rev *v1.Revision, containers []corev1.Container) *corev1.PodSpec {
-	return &corev1.PodSpec{
-		Containers:                    containers,
-		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
-		ServiceAccountName:            rev.Spec.ServiceAccountName,
-		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
-		ImagePullSecrets:              rev.Spec.ImagePullSecrets,
-	}
+	pod := rev.Spec.PodSpec.DeepCopy()
+	pod.Containers = containers
+	pod.Volumes = append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...)
+	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
+	return pod
 }
 
 func getUserPort(rev *v1.Revision) int32 {

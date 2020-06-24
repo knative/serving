@@ -921,6 +921,36 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
 			}),
+	}, {
+		name: "propertes allowed by the webhook are passed through",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8080,
+				}},
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			func(r *v1.Revision) {
+				// TODO - do this generically for all allowed properties
+				r.Spec.EnableServiceLinks = ptr.Bool(false)
+			}),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					withEnvVar("PORT", "8080"),
+					withEnvVar("K_REVISION", "bar"),
+				),
+				queueContainer(
+					withEnvVar("USER_PORT", "8080"),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+				),
+			},
+			func(p *corev1.PodSpec) {
+				p.EnableServiceLinks = ptr.Bool(false)
+			},
+		),
 	}}
 
 	for _, test := range tests {
