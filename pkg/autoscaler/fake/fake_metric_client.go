@@ -17,11 +17,8 @@ limitations under the License.
 package fake
 
 import (
-	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
@@ -90,25 +87,4 @@ func (mc *MetricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 		err = mc.ErrF(key, now)
 	}
 	return mc.StableRPS, mc.PanicRPS, err
-}
-
-// Endpoints is used to create endpoints.
-func Endpoints(count int, svc string) {
-	epAddresses := make([]corev1.EndpointAddress, count)
-	for i := 1; i <= count; i++ {
-		ip := fmt.Sprint("127.0.0.", i)
-		epAddresses[i-1] = corev1.EndpointAddress{IP: ip}
-	}
-
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: TestNamespace,
-			Name:      svc,
-		},
-		Subsets: []corev1.EndpointSubset{{
-			Addresses: epAddresses,
-		}},
-	}
-	KubeClient.CoreV1().Endpoints(TestNamespace).Create(ep)
-	KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }
