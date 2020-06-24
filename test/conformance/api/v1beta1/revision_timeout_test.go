@@ -135,18 +135,6 @@ func TestRevisionTimeout(t *testing.T) {
 				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
-			} else {
-				t.Log("Probing to force at least one pod", serviceURL)
-				if _, err := pkgTest.WaitForEndpointState(
-					clients.KubeClient,
-					t.Logf,
-					serviceURL,
-					v1b1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
-					"WaitForSuccessfulResponse",
-					test.ServingFlags.ResolvableDomain,
-					test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
-					t.Fatalf("Error probing %s: %v", serviceURL, err)
-				}
 			}
 
 			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {

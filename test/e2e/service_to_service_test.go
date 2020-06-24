@@ -124,19 +124,6 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-
-	url := resources.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		url,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse))),
-		"HTTPProxy",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-	); err != nil {
-		t.Fatal("Failed to start endpoint of httpproxy:", err)
-	}
 	t.Log("httpproxy is ready.")
 
 	// As a final check (since we know they are both up), check that if we can

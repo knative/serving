@@ -26,7 +26,6 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -66,19 +65,6 @@ func TestActivatorOverload(t *testing.T) {
 		})
 	if err != nil {
 		t.Fatal("Unable to create resources:", err)
-	}
-
-	// Make sure the service responds correctly before scaling to 0.
-	if _, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgtest.IsStatusOK),
-		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-	); err != nil {
-		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
 
 	deploymentName := rnames.Deployment(resources.Revision)

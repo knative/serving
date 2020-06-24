@@ -89,7 +89,7 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // passed in through 'names'.  Names is updated with the Route and Configuration created by the Service
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateServiceReady(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
@@ -125,6 +125,20 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
+
+	endpoint := resources.Route.Status.URL.URL()
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		endpoint,
+		RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		"RouteServesAfterServiceReady",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	if err != nil {
+		return nil, fmt.Errorf("failed to probe %s: %w", endpoint, err)
+	}
+
 	return resources, err
 }
 

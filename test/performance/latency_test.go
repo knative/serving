@@ -68,18 +68,6 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	}
 
 	routeURL := objs.Route.Status.URL.URL()
-	if _, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		routeURL,
-		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		"WaitForSuccessfulResponse",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-	); err != nil {
-		t.Fatalf("Error probing %s: %v", routeURL, err)
-	}
-
 	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {

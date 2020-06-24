@@ -59,18 +59,6 @@ func fetchRuntimeInfo(
 		return nil, nil, err
 	}
 
-	resp, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		objects.Service.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		"RuntimeInfo",
-		test.ServingFlags.ResolvableDomain,
-		append(reqOpts, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))...)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	var ri types.RuntimeInfo
 	err = json.Unmarshal(resp.Body, &ri)
 	return names, &ri, err

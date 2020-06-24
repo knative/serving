@@ -164,17 +164,6 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	baseURL := objs.Route.Status.URL.URL()
 
-	// See https://github.com/knative/serving/issues/5573 for why we need this
-	if _, err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		baseURL,
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		"ObservedConcurrency",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing %s: %v", baseURL, err)
-	}
-
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)

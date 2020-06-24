@@ -128,48 +128,20 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
-	return resources, err
-}
 
-// CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
-// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
-// Returns error if the service does not come up correctly.
-func CreateRunLatestServiceLegacyReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
-	if names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
-	}
-
-	t.Log("Creating a new Service.", "service", names.Service)
-	svc, err := CreateLatestServiceLegacy(t, clients, *names, fopt...)
+	endpoint := resources.Route.Status.URL.URL()
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		endpoint,
+		RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
+		"RouteServesAfterServiceReady",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to probe %s: %w", endpoint, err)
 	}
 
-	// Populate Route and Configuration Objects with name
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	// If the Service name was not specified, populate it
-	if names.Service == "" {
-		names.Service = svc.Name
-	}
-
-	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
-	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
-		return nil, err
-	}
-
-	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
-	err = validateCreatedServiceStatus(clients, names)
-	if err != nil {
-		return nil, err
-	}
-
-	t.Log("Getting latest objects Created by Service", names.Service)
-	resources, err := GetResourceObjects(clients, *names)
-	if err == nil {
-		t.Log("Successfully created Service", names.Service)
-	}
 	return resources, err
 }
 

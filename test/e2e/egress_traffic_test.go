@@ -22,11 +22,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1 "knative.dev/serving/test/v1"
-	v1test "knative.dev/serving/test/v1"
 )
 
 const (
@@ -58,16 +56,5 @@ func TestEgressTraffic(t *testing.T) {
 	}
 	t.Log("Service URL: " + service.Route.Status.URL.String())
 
-	url := service.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		url,
-		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
-		"HTTPProxy",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-	); err != nil {
-		t.Errorf("Failed to send request to httpproxy: %v", err)
-	}
+	// Should be a usual request asserting the correct body.
 }

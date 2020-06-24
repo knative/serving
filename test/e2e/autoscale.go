@@ -157,21 +157,6 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
-type validationFunc func(*testing.T, *test.Clients, test.ResourceNames) error
-
-func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
-	_, err := pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		names.URL,
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
-		"CheckingEndpointAfterUpdating",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
-	)
-	return err
-}
-
 func toPercentageString(f float64) string {
 	return strconv.FormatFloat(f*100, 'f', -1, 64)
 }
@@ -181,7 +166,7 @@ func toPercentageString(f float64) string {
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -213,12 +198,6 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 	if err != nil {
 		test.TearDown(clients, names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
-	}
-
-	if validate != nil {
-		if err := validate(t, clients, names); err != nil {
-			t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
-		}
 	}
 
 	return &testContext{
@@ -377,7 +356,7 @@ func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = 10
 	}
 
-	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
