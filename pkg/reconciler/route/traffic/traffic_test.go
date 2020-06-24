@@ -17,6 +17,8 @@ package traffic
 
 import (
 	"context"
+	"errors"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -24,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	net "knative.dev/networking/pkg/apis/networking"
@@ -80,6 +83,9 @@ var (
 	configLister listers.ConfigurationLister
 	revLister    listers.RevisionLister
 
+	// fake lister to return API error.
+	revErrorLister listers.RevisionLister
+
 	cmpOpts = []cmp.Option{cmp.AllowUnexported(Config{})}
 )
 
@@ -98,6 +104,8 @@ func setUp() {
 	configLister = configInformer.Lister()
 	revInformer := servingInformer.Serving().V1().Revisions()
 	revLister = revInformer.Lister()
+
+	revErrorLister = revFakeErrorLister{}
 
 	// Add these test objects to the informers.
 	objs := []runtime.Object{
@@ -894,6 +902,36 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		t.Errorf("Expected %s, saw %s", expectedErr.Error(), err.Error())
 	} else if got, want := tc, expected; !cmp.Equal(want, got, cmpOpts...) {
 		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(want, got, cmpOpts...))
+	}
+}
+
+var apiErr = errors.New("failed to connect API")
+
+type revFakeErrorLister struct {
+	listerErr error
+}
+
+func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
+	return nil, apiErr
+}
+
+func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
+	log.Panic("not implemented")
+	return nil, nil
+}
+
+func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespaceLister {
+	return l
+}
+
+func TestBuildTrafficConfiguration_FailedGetRevision(t *testing.T) {
+	_, err := BuildTrafficConfiguration(configLister, revErrorLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		RevisionName: goodNewRev.Name,
+		Percent:      ptr.Int64(50)})))
+	if err != nil && err.Error() != apiErr.Error() {
+		t.Errorf("Expected %s, saw %s", apiErr.Error(), err.Error())
+	} else if err == nil {
+		t.Errorf("Expected %s, saw no error", apiErr.Error())
 	}
 }
 
