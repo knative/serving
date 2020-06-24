@@ -94,10 +94,11 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
 func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
-	if names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+	if len(names.Containers) == 0 {
+		if names.Image == "" {
+			return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+		}
 	}
-
 	t.Log("Creating a new Service", "service", names.Service)
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
@@ -201,9 +202,16 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // Service returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
-	a := append([]rtesting.ServiceOption{
-		rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
-	}, fopt...)
+	var a []rtesting.ServiceOption
+	if len(names.Containers) != 0 {
+		a = append([]rtesting.ServiceOption{
+			rtesting.WithConfigSpec(*ConfigurationSpecForMultiContainer(names.Containers)),
+		}, fopt...)
+	} else {
+		a = append([]rtesting.ServiceOption{
+			rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
+		}, fopt...)
+	}
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
 }
 
