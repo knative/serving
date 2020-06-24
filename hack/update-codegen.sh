@@ -34,10 +34,17 @@ echo "Generating checksums for configmap _example keys"
 go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
 
 echo "Generating protocol buffer code"
-protoc "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=.
+protos=$(find . -name '*.proto' | grep -v vendor | grep -v third_party)
+for proto in $protos
+do
+  protoc "${REPO_ROOT_DIR}/$proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=plugins=grpc:.
 
-# Add license header to generated protobuf files.
-echo -e "$(cat "${boilerplate}")\n$(cat "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go")" > "${REPO_ROOT_DIR}/pkg/autoscaler/metrics/stat.pb.go"
+  # Add license headers to the generated files too.
+  dir=$(dirname "$proto")
+  base=$(basename "$proto" .proto)
+  generated="${REPO_ROOT_DIR}/${dir}/${base}.pb.go"
+  echo -e "$(cat "${boilerplate}")\n\n$(cat "${generated}")" > "${generated}"
+done
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
