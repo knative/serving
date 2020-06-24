@@ -43,9 +43,7 @@ func TestServerLifecycle(t *testing.T) {
 	server := newTestServer(statsCh)
 
 	eg := errgroup.Group{}
-	eg.Go(func() error {
-		return server.listenAndServe()
-	})
+	eg.Go(server.listenAndServe)
 
 	server.listenAddr()
 	server.Shutdown(time.Second)

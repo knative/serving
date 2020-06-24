@@ -659,8 +659,7 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 
 	found := false
 	for _, action := range dynamicClient.Actions() {
-		switch action.GetVerb() {
-		case "patch":
+		if action.GetVerb() == "patch" {
 			patch := action.(clientgotesting.PatchAction)
 			if patch.GetName() != deployment.Name {
 				continue

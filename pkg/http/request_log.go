@@ -108,7 +108,7 @@ func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 		// Make sure that the template ends with a newline. Otherwise,
 		// logging backends will not be able to parse entries separately.
 		if !strings.HasSuffix(templateStr, "\n") {
-			templateStr = templateStr + "\n"
+			templateStr += "\n"
 		}
 		var err error
 		t, err = template.New("requestLog").Parse(templateStr)
