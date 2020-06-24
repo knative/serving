@@ -49,6 +49,16 @@ function wait_for_leader_controller() {
   return 1
 }
 
+function enable_tag_header_based_routing() {
+  echo -n "Enabling Tag Header Based Routing"
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
+}
+
+function disable_tag_header_based_routing() {
+  echo -n "Disabling Tag Header Based Routing"
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -140,6 +150,11 @@ if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   turn_off_auto_tls
 fi
+
+enable_tag_header_based_routing
+add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+disable_tag_header_based_routing
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
