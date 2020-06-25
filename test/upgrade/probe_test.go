@@ -30,11 +30,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-var (
-	successFraction float
-)
-
-vae(
+var(
   successFraction =  flag.Float64(&successFraction, "probe`.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 )
 
