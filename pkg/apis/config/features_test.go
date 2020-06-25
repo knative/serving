@@ -74,7 +74,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"multi-container":           "Enabled",
-			"kubernetes/podspec-dryrun": "Enabled",
+			"kubernetes.podspec-dryrun": "Enabled",
 		},
 	}, {
 		name:    "multi-container Disabled",
@@ -86,31 +86,31 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"multi-container": "Disabled",
 		},
 	}, {
-		name:    "kubernetes/podspec-fieldref Allowed",
+		name:    "kubernetes.podspec-fieldref Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			PodSpecFieldRef: Allowed,
 		}),
 		data: map[string]string{
-			"kubernetes/podspec-fieldref": "Allowed",
+			"kubernetes.podspec-fieldref": "Allowed",
 		},
 	}, {
-		name:    "kubernetes/podspec-fieldref Enabled",
+		name:    "kubernetes.podspec-fieldref Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			PodSpecFieldRef: Enabled,
 		}),
 		data: map[string]string{
-			"kubernetes/podspec-fieldref": "Enabled",
+			"kubernetes.podspec-fieldref": "Enabled",
 		},
 	}, {
-		name:    "kubernetes/podspec-fieldref Disabled",
+		name:    "kubernetes.podspec-fieldref Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			PodSpecFieldRef: Disabled,
 		}),
 		data: map[string]string{
-			"kubernetes/podspec-fieldref": "Disabled",
+			"kubernetes.podspec-fieldref": "Disabled",
 		},
 	}}
 
