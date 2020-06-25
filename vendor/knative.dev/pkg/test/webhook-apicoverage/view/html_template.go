@@ -16,11 +16,7 @@ limitations under the License.
 
 package view
 
-import (
-	"fmt"
-)
-
-var TypeCoverageTempl = fmt.Sprint(`<!DOCTYPE html>
+var TypeCoverageTempl = `<!DOCTYPE html>
 <html>
 <style type="text/css">
   <!--
@@ -81,9 +77,9 @@ var TypeCoverageTempl = fmt.Sprint(`<!DOCTYPE html>
 </table>
 </body>
 </html>
-`)
+`
 
-var AggregateCoverageTmpl = fmt.Sprint(`<!DOCTYPE html>
+var AggregateCoverageTmpl = `<!DOCTYPE html>
 <html>
 <style type="text/css">
   <!--
@@ -108,4 +104,4 @@ var AggregateCoverageTmpl = fmt.Sprint(`<!DOCTYPE html>
 </table>
 </body>
 </html>
-`)
+`

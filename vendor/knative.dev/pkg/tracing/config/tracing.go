@@ -86,16 +86,14 @@ func NewTracingConfigFromMap(cfgMap map[string]string) (*Config, error) {
 		default:
 			return nil, fmt.Errorf("unsupported tracing backend value %q", backend)
 		}
-	} else {
+	} else if enable, ok := cfgMap[enableKey]; ok {
 		// For backwards compatibility, parse the enabled flag as Zipkin.
-		if enable, ok := cfgMap[enableKey]; ok {
-			enableBool, err := strconv.ParseBool(enable)
-			if err != nil {
-				return nil, fmt.Errorf("failed parsing tracing config %q: %w", enableKey, err)
-			}
-			if enableBool {
-				tc.Backend = Zipkin
-			}
+		enableBool, err := strconv.ParseBool(enable)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing tracing config %q: %w", enableKey, err)
+		}
+		if enableBool {
+			tc.Backend = Zipkin
 		}
 	}
 
