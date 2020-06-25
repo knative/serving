@@ -67,7 +67,7 @@ func TestProbe(t *testing.T) {
 	// Use log.Printf instead of t.Logf because we want to see failures
 	// inline with other logs instead of buffered until the end.
 	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
-	defer test.CheckSLO(successFraction, t.name(), prober)
+	defer test.CheckSLO(successFraction, t.Name(), prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
