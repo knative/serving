@@ -27,21 +27,33 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
-	_ "knative.dev/pkg/metrics/testing"
-	"knative.dev/serving/pkg/autoscaler/fake"
+
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/resources"
+
+	. "knative.dev/pkg/logging/testing"
+	_ "knative.dev/pkg/metrics/testing"
 )
 
 const (
 	stableWindow      = 60 * time.Second
 	targetUtilization = 0.75
 	activatorCapacity = 150
+
+	testRevision  = "a-revision-to-scale"
+	testNamespace = "in-this-namespace"
 )
+
+// Standard set of tags for the tests.
+var wantTags = map[string]string{
+	metricskey.LabelConfigurationName: "testConfig",
+	metricskey.LabelNamespaceName:     testNamespace,
+	metricskey.LabelRevisionName:      testRevision,
+	metricskey.LabelServiceName:       "testSvc",
+}
 
 type fakePodCounter struct {
 	resources.EndpointsCounter
@@ -54,14 +66,15 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 }
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, nil, &DeciderSpec{TargetValue: 10}, context.Background()); err == nil {
+	if _, err := New(testNamespace, testRevision, &metricClient{}, nil,
+		&DeciderSpec{TargetValue: 10}, context.Background()); err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 	pc := &fakePodCounter{}
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, pc,
+	if _, err := New(testNamespace, testRevision, &metricClient{}, pc,
 		&DeciderSpec{TargetValue: 10}, nil); err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -96,23 +109,11 @@ func TestAutoscalerStartMetrics(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	newTestAutoscalerWithScalingMetric(t, 10, 100, metrics,
 		"concurrency", true /*startInPanic*/)
-	wantTags := map[string]string{
-		metricskey.LabelConfigurationName: fake.TestConfig,
-		metricskey.LabelNamespaceName:     fake.TestNamespace,
-		metricskey.LabelRevisionName:      fake.TestRevision,
-		metricskey.LabelServiceName:       fake.TestService,
-	}
 	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 1)
 }
 
 func TestAutoscalerMetrics(t *testing.T) {
 	defer reset()
-	wantTags := map[string]string{
-		metricskey.LabelConfigurationName: fake.TestConfig,
-		metricskey.LabelNamespaceName:     fake.TestNamespace,
-		metricskey.LabelRevisionName:      fake.TestRevision,
-		metricskey.LabelServiceName:       fake.TestService,
-	}
 
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	a := newTestAutoscalerNoPC(t, 10, 100, metrics)
@@ -139,12 +140,6 @@ func TestAutoscalerMetricsWithRPS(t *testing.T) {
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{10, ebc, na, true})
 	spec := a.currentSpec()
-	wantTags := map[string]string{
-		metricskey.LabelConfigurationName: fake.TestConfig,
-		metricskey.LabelNamespaceName:     fake.TestNamespace,
-		metricskey.LabelRevisionName:      fake.TestRevision,
-		metricskey.LabelServiceName:       fake.TestService,
-	}
 
 	expectScale(t, a, time.Now().Add(61*time.Second), ScaleResult{10, ebc, na, true})
 	metricstest.CheckLastValueData(t, stableRPSM.Name(), wantTags, 100)
@@ -541,11 +536,11 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	if startInPanic {
 		pc.readyCount = 2
 	}
-	ctx, err := smetrics.RevisionContext(fake.TestNamespace, fake.TestService, fake.TestConfig, fake.TestRevision)
+	ctx, err := smetrics.RevisionContext(testNamespace, "testSvc", "testConfig", testRevision)
 	if err != nil {
 		t.Fatal("Error creating context:", err)
 	}
-	return newAutoscaler(fake.TestNamespace, fake.TestRevision,
+	return newAutoscaler(testNamespace, testRevision,
 		metrics, pc, deciderSpec, ctx), pc
 }
 
@@ -572,7 +567,7 @@ func TestStartInPanicMode(t *testing.T) {
 	pc := &fakePodCounter{}
 	for i := 0; i < 2; i++ {
 		pc.readyCount = i
-		a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, pc, deciderSpec, context.Background())
+		a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
 		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
@@ -583,7 +578,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	pc.readyCount = 2
-	a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, pc, deciderSpec, context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
 	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
@@ -605,7 +600,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	pc := fakePodCounter{err: errors.New("starlight")}
-	a := newAutoscaler(fake.TestNamespace, fake.TestRevision, metrics, pc, deciderSpec, context.Background())
+	a := newAutoscaler(testNamespace, testRevision, metrics, pc, deciderSpec, context.Background())
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}

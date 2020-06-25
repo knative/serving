@@ -36,7 +36,6 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -62,6 +61,11 @@ var (
 		RequestCount:                     5,
 		ProxiedRequestCount:              4,
 	}}
+)
+
+const (
+	testRevision  = "just-a-test-revision"
+	testNamespace = "putting-fun-into-namespaces"
 )
 
 // testStatsWithTime will generate n Stats, each stat having
@@ -91,13 +95,13 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	t.Cleanup(cancel)
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
-		fake.TestNamespace, fake.TestRevision)
+		testNamespace, testRevision)
 	sc, err := NewStatsScraper(metric, accessor, logtesting.TestLogger(t))
 	if err != nil {
 		t.Fatal("NewServiceScraper =", err)
 	}
-	if svcS := sc.(*serviceScraper); svcS.url != testURL {
-		t.Errorf("scraper.url = %s, want: %s", svcS.url, testURL)
+	if svcS, want := sc.(*serviceScraper), urlFromTarget(testRevision+"-zhudex", testNamespace); svcS.url != want {
+		t.Errorf("scraper.url = %s, want: %s", svcS.url, want)
 	}
 }
 
@@ -133,7 +137,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	t.Cleanup(cancel)
 	podAccessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
-		fake.TestNamespace, fake.TestRevision)
+		testNamespace, testRevision)
 	logger := logtesting.TestLogger(t)
 
 	testCases := []struct {
@@ -153,7 +157,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 		metric:      invalidMetric,
 		client:      client,
 		accessor:    podAccessor,
-		expectedErr: "no Revision label found for Metric test-revision",
+		expectedErr: "no Revision label found for Metric " + testRevision,
 	}}
 
 	for _, test := range testCases {
@@ -528,7 +532,7 @@ func serviceScraperForTest(ctx context.Context, t *testing.T, directClient, mesh
 	metric := testMetric()
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
-		fake.TestNamespace, fake.TestRevision)
+		testNamespace, testRevision)
 	logger := logtesting.TestLogger(t)
 	ss, err := newServiceScraperWithClient(metric, accessor, directClient, meshClient, logger)
 	if ss != nil {
@@ -540,15 +544,15 @@ func serviceScraperForTest(ctx context.Context, t *testing.T, directClient, mesh
 func testMetric() *av1alpha1.Metric {
 	return &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: fake.TestNamespace,
-			Name:      fake.TestRevision,
+			Namespace: testNamespace,
+			Name:      testRevision,
 			Labels: map[string]string{
-				serving.RevisionLabelKey: fake.TestRevision,
+				serving.RevisionLabelKey: testRevision,
 			},
 		},
 		Spec: av1alpha1.MetricSpec{
 			StableWindow: time.Minute,
-			ScrapeTarget: fake.TestRevision + "-zhudex",
+			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
 }
@@ -588,8 +592,8 @@ func makePods(ctx context.Context, n int) {
 		p := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod-" + strconv.Itoa(i),
-				Namespace: fake.TestNamespace,
-				Labels:    map[string]string{serving.RevisionLabelKey: fake.TestRevision},
+				Namespace: testNamespace,
+				Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
 			},
 			Status: corev1.PodStatus{
 				Phase: corev1.PodRunning,
@@ -601,7 +605,7 @@ func makePods(ctx context.Context, n int) {
 			},
 		}
 
-		fakekubeclient.Get(ctx).CoreV1().Pods(fake.TestNamespace).Create(p)
+		fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(p)
 		fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(p)
 	}
 }
