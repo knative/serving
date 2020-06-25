@@ -183,8 +183,6 @@ fi
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 
-# Dump cluster state in case of failure
-(( failed )) && dump_cluster_state
 (( failed )) && fail_test
 
 success
