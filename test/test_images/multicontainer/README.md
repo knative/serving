@@ -2,17 +2,16 @@
 
 This directory contains the images used in the multicontainer e2e test.
 
-There are three images servingcontainer, sidecarcontainerone and
-sidecarcontainertwo.
+There are two images servingcontainer and sidecarcontainer.
 
-All three image contains a simple Go webserver those are listening on port
-`8881`, `8882`, `8883` respectively.
+Both image contains a simple Go webserver and listens on port `8881`, `8882`
+respectively.
 
-Out of three one will be the serving(serves the request) container which expose
-a service at `/` and other two are sidecar containers
+Out of which one will be the serving(serves the request)container which expose a
+service at `/` and other will be the sidecar container
 
 When called, the serving container emits a "Yay!! multi-container works" message
-by talking to remaining sidecar containers
+by talking to sidecar container.
 
 ## Trying out
 

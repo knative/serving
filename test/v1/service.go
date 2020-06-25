@@ -94,7 +94,11 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
 func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
-	if len(names.Containers) == 0 {
+	s := &v1.Service{}
+	for _, opt := range fopt {
+		opt(s)
+	}
+	if len(s.Spec.Template.Spec.Containers) == 0 {
 		if names.Image == "" {
 			return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 		}
@@ -203,9 +207,13 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // that uses the image specified by names.Image.
 func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
 	var a []rtesting.ServiceOption
-	if len(names.Containers) != 0 {
+	s := &v1.Service{}
+	for _, opt := range fopt {
+		opt(s)
+	}
+	if len(s.Spec.Template.Spec.Containers) != 0 {
 		a = append([]rtesting.ServiceOption{
-			rtesting.WithConfigSpec(*ConfigurationSpecForMultiContainer(names.Containers)),
+			rtesting.WithConfigSpec(*ConfigurationSpecForMultiContainer(s.Spec.Template.Spec.Containers)),
 		}, fopt...)
 	} else {
 		a = append([]rtesting.ServiceOption{

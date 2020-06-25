@@ -40,8 +40,7 @@ const (
 	Timeout             = "timeout"
 	WorkingDir          = "workingdir"
 	ServingContainer    = "servingcontainer"
-	SidecarContainerOne = "sidecarcontainerone"
-	SidecarContainerTwo = "sidecarcontainertwo"
+	SidecarContainer    = "sidecarcontainer"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

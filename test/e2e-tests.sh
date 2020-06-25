@@ -59,6 +59,16 @@ function disable_tag_header_based_routing() {
   kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
 }
 
+function enable_multi_container_feature() {
+  echo -n "Enabling Multi Container Feature Flag"
+  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Enabled"}}'
+}
+
+function disable_multi_container_feature() {
+  echo -n "Disabling Multi Container Feature Flag"
+  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Disabled"}}'
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -155,6 +165,11 @@ enable_tag_header_based_routing
 add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
 disable_tag_header_based_routing
+
+enable_multi_container_feature
+add_trap "disable_multi_container_feature" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
+disable_multi_container_feature
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.

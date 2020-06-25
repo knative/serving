@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package multicontainer
 
 import (
 	"testing"
@@ -24,8 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/config"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -34,18 +35,7 @@ func TestMultiContainer(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := Setup(t)
-
-	featureConfigMap, err := rawCM(clients, config.FeaturesConfigName)
-	if err != nil {
-		t.Errorf("Error retrieving config-feature configmap: %v", err)
-	}
-
-	patchedFeatureConfigMap := featureConfigMap.DeepCopy()
-	patchedFeatureConfigMap.Data["multi-container"] = "enabled"
-	_, err = patchCM(clients, patchedFeatureConfigMap)
-	defer patchCM(clients, featureConfigMap)
-	test.CleanupOnInterrupt(func() { patchCM(clients, featureConfigMap) })
+	clients := e2e.Setup(t)
 
 	containers := []corev1.Container{{
 		Image: test.ServingContainer,
@@ -53,14 +43,11 @@ func TestMultiContainer(t *testing.T) {
 			ContainerPort: 8881,
 		}},
 	}, {
-		Image: test.SidecarContainerOne,
-	}, {
-		Image: test.SidecarContainerTwo,
+		Image: test.SidecarContainer,
 	}}
 
 	names := test.ResourceNames{
-		Service:    test.ObjectNameForTest(t),
-		Containers: containers,
+		Service: test.ObjectNameForTest(t),
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -68,7 +55,9 @@ func TestMultiContainer(t *testing.T) {
 
 	t.Log("Creating a new Service")
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names)
+	resources, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
+		svc.Spec.Template.Spec.Containers = containers
+	})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -84,21 +73,5 @@ func TestMultiContainer(t *testing.T) {
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.MultiContainerResponse, err)
-	}
-
-	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
-		if val != names.Config {
-			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
-		}
-	} else {
-		t.Fatalf("Failed to get configuration name from Revision label")
-	}
-	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
-		if val != names.Service {
-			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
-		}
-	} else {
-		t.Fatalf("Failed to get Service name from Revision label")
 	}
 }

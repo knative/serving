@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/helpers"
 )
@@ -36,8 +35,6 @@ type ResourceNames struct {
 	TrafficTarget string
 	URL           *url.URL
 	Image         string
-	// To support multi container related testcases
-	Containers []corev1.Container
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful

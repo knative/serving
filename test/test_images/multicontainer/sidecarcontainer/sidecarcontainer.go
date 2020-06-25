@@ -26,12 +26,12 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Println("second sidecar container received a request.")
+	log.Println("sidecar container received a request.")
 	fmt.Fprintln(w, "Yay!! multi-container works !!")
 }
 
 func main() {
 	flag.Parse()
-	log.Print("second sidecar container started")
-	test.ListenAndServeGracefully(":8883", handler)
+	log.Print("sidecar container started")
+	test.ListenAndServeGracefully(":8882", handler)
 }
