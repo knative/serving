@@ -15,26 +15,27 @@ limitations under the License.
 */
 
 syntax = "proto3";
+
 package metrics;
 
 // Stat defines a single measurement at a point in time
 message Stat {
-    // The unique identity of this pod.  Used to count how many pods
-	// are contributing to the metrics.
-	string podName = 1;
+  // The unique identity of this pod.  Used to count how many pods
+  // are contributing to the metrics.
+  string pod_name = 1;
 
-	// Average number of requests currently being handled by this pod.
-	double averageConcurrentRequests = 2;
+  // Average number of requests currently being handled by this pod.
+  double average_concurrent_requests = 2;
 
-	// Part of AverageConcurrentRequests, for requests going through a proxy.
-	double averageProxiedConcurrentRequests = 3;
+  // Part of AverageConcurrentRequests, for requests going through a proxy.
+  double average_proxied_concurrent_requests = 3;
 
-	// Number of requests received since last Stat (approximately requests per second).
-	double requestCount = 4;
+  // Number of requests received since last Stat (approximately requests per second).
+  double request_count = 4;
 
-	// Part of RequestCount, for requests going through a proxy.
-	double proxiedRequestCount = 5;
+  // Part of RequestCount, for requests going through a proxy.
+  double proxied_request_count = 5;
 
-	// Process uptime in seconds.
-	double processUptime = 6;
+  // Process uptime in seconds.
+  double process_uptime = 6;
 }
