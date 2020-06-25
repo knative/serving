@@ -34,9 +34,9 @@ var (
 	successFraction float
 )
 
-func init() {
-    flag.Float64Var(&successFraction, "probe`.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
-}
+vae(
+  successFraction =  flag.Float64(&successFraction, "probe`.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
+)
 
 const pipe = "/tmp/prober-signal"
 
