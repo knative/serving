@@ -32,7 +32,7 @@ cleanup
 
 # Save working tree state
 mkdir -p "${TMP_DIFFROOT}/pkg"
-cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/test" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
 
 # We symlink a few testdata files from config, so copy it as well.
 mkdir -p "${TMP_DIFFROOT}/config"
