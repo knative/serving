@@ -32,7 +32,7 @@ You must install these tools:
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
-If you're working on and changing `proto` files:
+If you're working on and changing `.proto` files:
 
 1. [`protoc`](https://github.com/protocolbuffers/protobuf): For compiling
    protocol buffers.
@@ -270,6 +270,8 @@ of:
   - Type definitions annotated with `// +k8s:deepcopy-gen=true`.
   - The `_example` value of config maps (to keep the
     `knative.dev/example-checksum` label in sync).
+  - `.proto` files. Run `./hack/update-codegen.sh` with the
+    `--generate-protobufs` flag to enable protocol buffer generation.
 
 - **If you change a package's deps** (including adding an external dependency),
   then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).
