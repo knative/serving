@@ -44,15 +44,15 @@ readonly generate_protobufs
 
 if (( generate_protobufs )); then
   echo "Generating protocol buffer code"
-  protos=$(find . -name '*.proto' | grep -v vendor | grep -v third_party)
+  protos=$(find "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/test" -name '*.proto')
   for proto in $protos
   do
-    protoc "${REPO_ROOT_DIR}/$proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=plugins=grpc:.
+    protoc "$proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=plugins=grpc:.
 
     # Add license headers to the generated files too.
     dir=$(dirname "$proto")
     base=$(basename "$proto" .proto)
-    generated="${REPO_ROOT_DIR}/${dir}/${base}.pb.go"
+    generated="${dir}/${base}.pb.go"
     echo -e "$(cat "${boilerplate}")\n\n$(cat "${generated}")" > "${generated}"
   done
 fi
