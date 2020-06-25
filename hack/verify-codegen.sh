@@ -44,6 +44,7 @@ cp -a "${REPO_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1
+diff -Nupr --no-dereference "${REPO_ROOT_DIR}/test" "${TMP_DIFFROOT}/test" || ret=1
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" || ret=1
 
 # Restore working tree state
