@@ -52,8 +52,8 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 
 	if err := cm.Parse(data,
 		asFlag("multi-container", &nc.MultiContainer),
-		asFlag("kubernetes/podspec-fieldref", &nc.PodSpecFieldRef),
-		asFlag("kubernetes/podspec-dryrun", &nc.PodSpecDryRun)); err != nil {
+		asFlag("kubernetes.podspec-fieldref", &nc.PodSpecFieldRef),
+		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun)); err != nil {
 		return nil, err
 	}
 	return nc, nil
