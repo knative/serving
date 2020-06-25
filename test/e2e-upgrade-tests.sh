@@ -29,6 +29,7 @@
 # (e.g. --version v0.7.0). If this argument is not specified, the script will
 # run against the latest tagged version on the current branch.
 
+set -x
 source $(dirname $0)/e2e-common.sh
 
 # Latest serving release. If user does not supply this as a flag, the latest
