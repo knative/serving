@@ -44,6 +44,7 @@ const (
 )
 
 type fakePodCounter struct {
+	resources.EndpointsCounter
 	readyCount int
 	err        error
 }
@@ -53,15 +54,14 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 }
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &fake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, context.Background()); err == nil {
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, context.Background()); err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
-	pc := resources.NewScopedEndpointsCounter(fake.KubeInformer.Core().V1().Endpoints().Lister(),
-		fake.TestNamespace, fake.TestService)
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &fake.MetricClient{}, pc,
+	pc := &fakePodCounter{}
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, pc,
 		&DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, nil); err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -69,8 +69,8 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 
 func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 	defer reset()
-	metrics := &fake.MetricClient{
-		ErrF: func(key types.NamespacedName, now time.Time) error {
+	metrics := &metricClient{
+		ErrF: func(types.NamespacedName, time.Time) error {
 			return errors.New("no metrics")
 		},
 	}
@@ -93,8 +93,8 @@ func expectedNA(a *autoscaler, numP float64) int32 {
 
 func TestAutoscalerStartMetrics(t *testing.T) {
 	defer reset()
-	metricClient := &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
-	newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient,
+	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
+	newTestAutoscalerWithScalingMetric(t, 10, 100, metrics,
 		"concurrency", true /*startInPanic*/)
 	wantTags := map[string]string{
 		metricskey.LabelConfigurationName: fake.TestConfig,
@@ -114,8 +114,8 @@ func TestAutoscalerMetrics(t *testing.T) {
 		metricskey.LabelServiceName:       fake.TestService,
 	}
 
-	metricClient := &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
-	a := newTestAutoscalerNoPC(t, 10, 100, metricClient)
+	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
+	a := newTestAutoscalerNoPC(t, 10, 100, metrics)
 	// Non-panic created autoscaler.
 	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 0)
 	ebc := expectedEBC(10, 100, 50, 1)
@@ -133,8 +133,8 @@ func TestAutoscalerMetrics(t *testing.T) {
 
 func TestAutoscalerMetricsWithRPS(t *testing.T) {
 	defer reset()
-	metricClient := &fake.MetricClient{PanicRPS: 99.0, StableRPS: 100}
-	a, _ := newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient, "rps", false /*startInPanic*/)
+	metrics := &metricClient{PanicRPS: 99.0, StableRPS: 100}
+	a, _ := newTestAutoscalerWithScalingMetric(t, 10, 100, metrics, "rps", false /*startInPanic*/)
 	ebc := expectedEBC(10, 100, 99, 1)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{10, ebc, na, true})
@@ -156,7 +156,7 @@ func TestAutoscalerMetricsWithRPS(t *testing.T) {
 }
 
 func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
+	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
 	a := newTestAutoscalerNoPC(t, 10, 101, metrics)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{5, expectedEBC(10, 101, 10, 1), na, true})
@@ -166,7 +166,7 @@ func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
 }
 
 func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
-	metrics := &fake.MetricClient{StableRPS: 50.0, PanicRPS: 50}
+	metrics := &metricClient{StableRPS: 50.0, PanicRPS: 50}
 	a, _ := newTestAutoscalerWithScalingMetric(t, 10, 101, metrics, "rps", false /*startInPanic*/)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{5, expectedEBC(10, 101, 50, 1), na, true})
@@ -178,7 +178,7 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 
 func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 	// Do initial jump from 10 to 25 pods.
-	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
+	metrics := &metricClient{StableConcurrency: 11, PanicConcurrency: 25}
 	a, pc := newTestAutoscaler(t, 1, 98, metrics)
 	pc.readyCount = 10
 
@@ -216,7 +216,7 @@ func TestAutoscalerUnpanicAfterSlowIncrease(t *testing.T) {
 
 func TestAutoscalerExtendPanicWindow(t *testing.T) {
 	// Do initial jump from 10 to 25 pods.
-	metrics := &fake.MetricClient{StableConcurrency: 11, PanicConcurrency: 25}
+	metrics := &metricClient{StableConcurrency: 11, PanicConcurrency: 25}
 	a, pc := newTestAutoscaler(t, 1, 98, metrics)
 	pc.readyCount = 10
 
@@ -241,7 +241,7 @@ func TestAutoscalerExtendPanicWindow(t *testing.T) {
 }
 
 func TestAutoscalerStableModeDecrease(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 100.0, PanicConcurrency: 100}
+	metrics := &metricClient{StableConcurrency: 100.0, PanicConcurrency: 100}
 	a, pc := newTestAutoscaler(t, 10, 98, metrics)
 	pc.readyCount = 8
 	na := expectedNA(a, 8)
@@ -252,7 +252,7 @@ func TestAutoscalerStableModeDecrease(t *testing.T) {
 }
 
 func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 0}
+	metrics := &metricClient{StableConcurrency: 1, PanicConcurrency: 0}
 	a := newTestAutoscalerNoPC(t, 10, 75, metrics)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{1, expectedEBC(10, 75, 0, 1), na, true})
@@ -265,7 +265,7 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stabilizes.
 func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 6, PanicConcurrency: 6}
+	metrics := &metricClient{StableConcurrency: 6, PanicConcurrency: 6}
 	a, pc := newTestAutoscaler(t, 1, 101, metrics)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{6, expectedEBC(1, 101, 6, 1), na, true})
@@ -313,37 +313,37 @@ func TestAutoscalerScale(t *testing.T) {
 		wantInvalid bool
 	}{{
 		label:     "AutoscalerNoDataAtZeroNoAutoscale",
-		as:        newTestAutoscalerNoPC(t, 10, 100, &fake.MetricClient{}),
+		as:        newTestAutoscalerNoPC(t, 10, 100, &metricClient{}),
 		baseScale: 1,
 		wantScale: 0,
 		wantEBC:   expectedEBC(10, 100, 0, 1),
 	}, {
 		label:     "AutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs",
-		as:        newTestAutoscalerNoPC(t, 10, 100, &fake.MetricClient{}),
+		as:        newTestAutoscalerNoPC(t, 10, 100, &metricClient{}),
 		baseScale: 1,
 		wantScale: 0,
 		wantEBC:   expectedEBC(10, 100, 0, 1),
 	}, {
 		label:     "AutoscalerStableModeUnlimitedTBC",
-		as:        newTestAutoscalerNoPC(t, 181, -1, &fake.MetricClient{StableConcurrency: 21.0, PanicConcurrency: 26}),
+		as:        newTestAutoscalerNoPC(t, 181, -1, &metricClient{StableConcurrency: 21.0, PanicConcurrency: 26}),
 		baseScale: 1,
 		wantScale: 1,
 		wantEBC:   -1,
 	}, {
 		label:     "Autoscaler0TBC",
-		as:        newTestAutoscalerNoPC(t, 10, 0, &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 49}),
+		as:        newTestAutoscalerNoPC(t, 10, 0, &metricClient{StableConcurrency: 50.0, PanicConcurrency: 49}),
 		baseScale: 1,
 		wantScale: 5,
 		wantEBC:   0,
 	}, {
 		label:     "AutoscalerStableModeNoChange",
-		as:        newTestAutoscalerNoPC(t, 10, 100, &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
+		as:        newTestAutoscalerNoPC(t, 10, 100, &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
 		baseScale: 1,
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 1),
 	}, {
 		label: "AutoscalerPanicStableLargerThanPanic",
-		as:    newTestAutoscalerNoPC(t, 1, 100, &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 30}),
+		as:    newTestAutoscalerNoPC(t, 1, 100, &metricClient{StableConcurrency: 50, PanicConcurrency: 30}),
 		prepFunc: func(a *autoscaler) {
 			a.panicTime = time.Now().Add(-5 * time.Second)
 			a.maxPanicPods = 5
@@ -353,7 +353,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantEBC:   expectedEBC(1, 100, 30, 5),
 	}, {
 		label: "AutoscalerPanicStableLessThanPanic",
-		as:    newTestAutoscalerNoPC(t, 1, 100, &fake.MetricClient{StableConcurrency: 20, PanicConcurrency: 30}),
+		as:    newTestAutoscalerNoPC(t, 1, 100, &metricClient{StableConcurrency: 20, PanicConcurrency: 30}),
 		prepFunc: func(a *autoscaler) {
 			a.panicTime = time.Now().Add(-5 * time.Second)
 			a.maxPanicPods = 5
@@ -363,13 +363,13 @@ func TestAutoscalerScale(t *testing.T) {
 		wantEBC:   expectedEBC(1, 100, 30, 5),
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
-		as:        newTestAutoscalerNoPC(t, 10, 100, &fake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
+		as:        newTestAutoscalerNoPC(t, 10, 100, &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50}),
 		baseScale: 5,
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
 		label: "AutoscalerStableModeIncreaseWithSmallScaleUpRate",
-		as: newTestAutoscalerNoPC(t, 1 /* target */, 1982 /* TBC */, &fake.MetricClient{
+		as: newTestAutoscalerNoPC(t, 1 /* target */, 1982 /* TBC */, &metricClient{
 			StableConcurrency: 3,
 			PanicConcurrency:  3.1,
 		}),
@@ -381,7 +381,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantEBC:   expectedEBC(1, 1982, 3.1, 2),
 	}, {
 		label:     "AutoscalerStableModeDecreaseWithSmallScaleDownRate",
-		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
+		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &metricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
@@ -390,7 +390,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
 		label:     "AutoscalerStableModeDecreseNonReachable",
-		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}),
+		as:        newTestAutoscalerNoPC(t, 10 /* target */, 1982 /* TBC */, &metricClient{StableConcurrency: 1, PanicConcurrency: 1}),
 		baseScale: 100,
 		prepFunc: func(a *autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
@@ -400,7 +400,7 @@ func TestAutoscalerScale(t *testing.T) {
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
 	}, {
 		label:     "AutoscalerPanicModeDoublePodCount",
-		as:        newTestAutoscalerNoPC(t, 10, 84, &fake.MetricClient{StableConcurrency: 50, PanicConcurrency: 100}),
+		as:        newTestAutoscalerNoPC(t, 10, 84, &metricClient{StableConcurrency: 50, PanicConcurrency: 100}),
 		baseScale: 1,
 		// PanicConcurrency takes precedence.
 		wantScale: 10,
@@ -420,7 +420,7 @@ func TestAutoscalerScale(t *testing.T) {
 }
 
 func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 100, PanicConcurrency: 100}
+	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 100}
 	a, pc := newTestAutoscaler(t, 10, 93, metrics)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 93, 100, 1), na, true})
@@ -440,7 +440,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 }
 
 func TestAutoscalerRateLimitScaleUp(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1000, PanicConcurrency: 1001}
+	metrics := &metricClient{StableConcurrency: 1000, PanicConcurrency: 1001}
 	a, pc := newTestAutoscaler(t, 10, 61, metrics)
 	na := expectedNA(a, 1)
 
@@ -454,7 +454,7 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 }
 
 func TestAutoscalerRateLimitScaleDown(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1, PanicConcurrency: 1}
+	metrics := &metricClient{StableConcurrency: 1, PanicConcurrency: 1}
 	a, pc := newTestAutoscaler(t, 10, 61, metrics)
 
 	// Need 1 pods but can only scale down ten times, to 10.
@@ -469,7 +469,7 @@ func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 }
 
 func TestCantCountPods(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1000, PanicConcurrency: 888}
+	metrics := &metricClient{StableConcurrency: 1000, PanicConcurrency: 888}
 	a, pc := newTestAutoscaler(t, 10, 81, metrics)
 	pc.err = errors.New("peaches-in-regalia")
 	if got, want := a.Scale(context.Background(), time.Now()), invalidSR; !cmp.Equal(got, want) {
@@ -478,7 +478,7 @@ func TestCantCountPods(t *testing.T) {
 }
 
 func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 1000, PanicConcurrency: 888}
+	metrics := &metricClient{StableConcurrency: 1000, PanicConcurrency: 888}
 	a, pc := newTestAutoscaler(t, 10, 81, metrics)
 
 	pc.readyCount = 0
@@ -488,7 +488,7 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 }
 
 func TestAutoscalerUpdateTarget(t *testing.T) {
-	metrics := &fake.MetricClient{StableConcurrency: 100, PanicConcurrency: 101}
+	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 101}
 	a, pc := newTestAutoscaler(t, 10, 77, metrics)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 77, 101, 1), na, true})
@@ -626,9 +626,43 @@ func reset() {
 }
 
 // staticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
-var staticMetricClient = fake.MetricClient{
+var staticMetricClient = metricClient{
 	StableConcurrency: 10.0,
 	PanicConcurrency:  10.0,
 	StableRPS:         10.0,
 	PanicRPS:          10.0,
+}
+
+// metricClient is a fake implementation of autoscaler.metricClient for testing.
+type metricClient struct {
+	StableConcurrency float64
+	PanicConcurrency  float64
+	StableRPS         float64
+	PanicRPS          float64
+	ErrF              func(key types.NamespacedName, now time.Time) error
+}
+
+// SetStableAndPanicConcurrency sets the stable and panic concurrencies.
+func (mc *metricClient) SetStableAndPanicConcurrency(s, p float64) {
+	mc.StableConcurrency, mc.PanicConcurrency = s, p
+}
+
+// StableAndPanicConcurrency returns stable/panic concurrency stored in the object
+// and the result of Errf as the error.
+func (mc *metricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	var err error
+	if mc.ErrF != nil {
+		err = mc.ErrF(key, now)
+	}
+	return mc.StableConcurrency, mc.PanicConcurrency, err
+}
+
+// StableAndPanicRPS returns stable/panic RPS stored in the object
+// and the result of Errf as the error.
+func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	var err error
+	if mc.ErrF != nil {
+		err = mc.ErrF(key, now)
+	}
+	return mc.StableRPS, mc.PanicRPS, err
 }

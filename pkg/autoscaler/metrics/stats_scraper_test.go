@@ -28,9 +28,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 
 	"knative.dev/pkg/controller"
@@ -87,8 +87,10 @@ func testStatsWithTime(n int, youngestSecs float64) []Stat {
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	metric := testMetric()
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel)
 	accessor := resources.NewPodAccessor(
-		fake.KubeInformer.Core().V1().Pods().Lister(),
+		fakepodsinformer.Get(ctx).Lister(),
 		fake.TestNamespace, fake.TestRevision)
 	sc, err := NewStatsScraper(metric, accessor, logtesting.TestLogger(t))
 	if err != nil {
@@ -127,8 +129,11 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
-	podLister := fake.KubeInformer.Core().V1().Pods().Lister()
-	podAccessor := resources.NewPodAccessor(podLister, fake.TestNamespace, fake.TestRevision)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel)
+	podAccessor := resources.NewPodAccessor(
+		fakepodsinformer.Get(ctx).Lister(),
+		fake.TestNamespace, fake.TestRevision)
 	logger := logtesting.TestLogger(t)
 
 	testCases := []struct {
