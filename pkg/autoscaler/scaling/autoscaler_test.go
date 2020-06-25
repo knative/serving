@@ -54,7 +54,7 @@ func (fpc fakePodCounter) ReadyCount() (int, error) {
 }
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, context.Background()); err == nil {
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, nil, &DeciderSpec{TargetValue: 10}, context.Background()); err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
@@ -62,7 +62,7 @@ func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
 func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 	pc := &fakePodCounter{}
 	if _, err := New(fake.TestNamespace, fake.TestRevision, &metricClient{}, pc,
-		&DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, nil); err == nil {
+		&DeciderSpec{TargetValue: 10}, nil); err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
@@ -503,7 +503,6 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 		MaxScaleDownRate:    10,
 		MaxScaleUpRate:      10,
 		StableWindow:        stableWindow,
-		ServiceName:         fake.TestService,
 	})
 	na = expectedNA(a, 10)
 	expectScale(t, a, time.Now(), ScaleResult{100, expectedEBC(1, 71, 101, 10), na, true})
@@ -534,7 +533,6 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		MaxScaleDownRate:    10,
 		ActivatorCapacity:   activatorCapacity,
 		StableWindow:        stableWindow,
-		ServiceName:         fake.TestService,
 		Reachable:           true,
 	}
 
@@ -569,7 +567,6 @@ func TestStartInPanicMode(t *testing.T) {
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
-		ServiceName:         fake.TestService,
 	}
 
 	pc := &fakePodCounter{}
@@ -605,7 +602,6 @@ func TestNewFail(t *testing.T) {
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
-		ServiceName:         fake.TestService,
 	}
 
 	pc := fakePodCounter{err: errors.New("starlight")}

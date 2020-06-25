@@ -77,9 +77,7 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 			Namespace: autoscalerfake.TestNamespace,
 			Name:      autoscalerfake.TestRevision,
 		},
-		Spec: scaling.DeciderSpec{
-			ServiceName: "wholesome-service",
-		},
+		Spec: scaling.DeciderSpec{},
 	}
 
 	for _, test := range tests {
@@ -110,9 +108,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 					serving.ConfigurationLabelKey: "test-config",
 				},
 			},
-			Spec: scaling.DeciderSpec{
-				ServiceName: "magic-services-offered",
-			},
+			Spec: scaling.DeciderSpec{},
 		}
 
 		if _, err := uniScalerFactory(decider); err != nil {
