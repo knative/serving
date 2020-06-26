@@ -38,6 +38,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -180,7 +181,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile", WithLogURL, AllUnknownConditions,
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
-			pa("foo", "stable-reconcile", WithReachability(asv1a1.ReachabilityUnknown)),
+			pa("foo", "stable-reconcile", WithReachabilityUnknown),
 
 			deploy(t, "foo", "stable-reconcile"),
 			image("foo", "stable-reconcile"),
@@ -194,7 +195,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-containers",
 				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses(), withObservedGeneration(1)),
-			pa("foo", "fix-containers", WithReachability(asv1a1.ReachabilityUnknown)),
+			pa("foo", "fix-containers", WithReachabilityUnknown),
 			changeContainers(deploy(t, "foo", "fix-containers")),
 			image("foo", "fix-containers"),
 		},
@@ -236,7 +237,7 @@ func TestReconcile(t *testing.T) {
 				MarkInactive("NoTraffic", "This thing is inactive."),
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 			pa("foo", "stable-deactivation",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+				WithNoTraffic("NoTraffic", "This thing is inactive."), WithReachabilityUnreachable),
 			deploy(t, "foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
@@ -246,7 +247,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachability(asv1a1.ReachabilityUnknown)),
+			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
 		},
@@ -270,7 +271,8 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic("Something", "This is something longer")),
+				WithBufferedTraffic("Something", "This is something longer"),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
 		},
@@ -293,7 +295,8 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("something-in-the-way"), WithLogURL,
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+				WithNoTraffic("NoTraffic", "This thing is inactive."),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
@@ -315,7 +318,8 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("pa-inactive-svc")),
+				WithPAStatusService("pa-inactive-svc"),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
@@ -336,7 +340,8 @@ func TestReconcile(t *testing.T) {
 		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-pa",
-				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
+				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
+				WithRevisionLabel(serving.RouteLabelKey, "foo")),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
 				WithTraffic, WithPAStatusService("fix-mutated-pa")),
 			deploy(t, "foo", "fix-mutated-pa"),
@@ -347,12 +352,13 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				withK8sServiceName("fix-mutated-pa"), WithLogURL, MarkRevisionReady,
+				withK8sServiceName("fix-mutated-pa"),
+				WithRevisionLabel(serving.RouteLabelKey, "foo"), WithLogURL, MarkRevisionReady,
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa("foo", "fix-mutated-pa", WithTraffic,
-				WithPAStatusService("fix-mutated-pa")),
+				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
@@ -365,7 +371,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "fix-mutated-pa-fail",
 				withK8sServiceName("some-old-stuff"),
 				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses(), withObservedGeneration(1)),
-			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachability(asv1a1.ReachabilityUnknown)),
+			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachabilityUnknown),
 			deploy(t, "foo", "fix-mutated-pa-fail"),
 			image("foo", "fix-mutated-pa-fail"),
 		},
@@ -374,7 +380,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa-fail", WithReachability(asv1a1.ReachabilityUnknown)),
+			Object: pa("foo", "fix-mutated-pa-fail", WithReachabilityUnknown),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update PA "fix-mutated-pa-fail": inducing failure for update podautoscalers`),
@@ -402,6 +408,9 @@ func TestReconcile(t *testing.T) {
 				MarkProgressDeadlineExceeded("I timed out!"), withDefaultContainerStatuses(),
 				withObservedGeneration(1)),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "deploy-timeout", WithReachabilityUnreachable),
+		}},
 		Key: "foo/deploy-timeout",
 	}, {
 		Name: "surface replica failure",
@@ -424,6 +433,9 @@ func TestReconcile(t *testing.T) {
 				MarkResourcesUnavailable("FailedCreate", "I replica failed!"),
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "deploy-replica-failure", WithReachabilityUnreachable),
+		}},
 		Key: "foo/deploy-replica-failure",
 	}, {
 		Name: "surface ImagePullBackoff",
@@ -431,7 +443,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnknown)), // pa can't be ready since deployment times out.
+			pa("foo", "pull-backoff"), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
 			image("foo", "pull-backoff"),
@@ -442,7 +454,7 @@ func TestReconcile(t *testing.T) {
 				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnreachable)),
+			Object: pa("foo", "pull-backoff", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pull-backoff",
 	}, {
@@ -465,7 +477,7 @@ func TestReconcile(t *testing.T) {
 					v1.RevisionContainerExitingMessage("I failed man!")), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pod-error", WithReachability(asv1a1.ReachabilityUnreachable)),
+			Object: pa("foo", "pod-error", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pod-error",
 	}, {

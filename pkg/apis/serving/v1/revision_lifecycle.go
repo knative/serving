@@ -94,11 +94,7 @@ func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 
 // InitializeConditions sets the initial values to the conditions.
 func (rs *RevisionStatus) InitializeConditions() {
-	mgr := revisionCondSet.Manage(rs)
-	mgr.InitializeConditions()
-	// The active condition does not determine readiness.
-	// It is excluded from the condition set, but should still be initialized.
-	mgr.MarkUnknown(RevisionConditionActive, "", "")
+	revisionCondSet.Manage(rs).InitializeConditions()
 }
 
 // MarkActiveTrue marks Active status on revision as True
