@@ -464,6 +464,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkContainerExiting(5,
 					v1.RevisionContainerExitingMessage("I failed man!")), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pod-error", WithReachability(asv1a1.ReachabilityUnreachable)),
+		}},
 		Key: "foo/pod-error",
 	}, {
 		Name: "surface pod schedule errors",

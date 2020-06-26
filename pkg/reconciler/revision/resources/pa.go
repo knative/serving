@@ -50,7 +50,7 @@ func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 			ProtocolType: rev.GetProtocol(),
 			Reachability: func() av1alpha1.ReachabilityType {
 				// If the Revision has failed to become Ready, then mark the PodAutoscaler as unreachable.
-				if cond := rev.Status.GetCondition(v1.RevisionConditionReady); cond != nil && cond.Status == corev1.ConditionFalse {
+				if rev.IsFailed() {
 					// As a sanity check, also make sure that we don't do this when a
 					// newly failing revision is marked reachable by outside forces.
 					if !rev.IsReachable() {
@@ -60,7 +60,7 @@ func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 
 				// We don't know the reachability if the revision has just been created
 				// or it is activating.
-				if cond := rev.Status.GetCondition(v1.RevisionConditionActive); cond.IsUnknown() {
+				if rev.Status.GetCondition(v1.RevisionConditionActive).IsUnknown() {
 					return av1alpha1.ReachabilityUnknown
 				}
 
