@@ -24,15 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
+
 	"knative.dev/serving/pkg/apis/serving"
-	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 )
 
-var (
-	kubeClient   = fakek8s.NewSimpleClientset()
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-)
+var kubeInformer = kubeinformers.NewSharedInformerFactory(fakek8s.NewSimpleClientset(), 0)
 
 func TestUniscalerFactoryFailures(t *testing.T) {
 	tests := []struct {
@@ -74,8 +71,8 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	uniScalerFactory := testUniScalerFactory()
 	decider := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: autoscalerfake.TestNamespace,
-			Name:      autoscalerfake.TestRevision,
+			Namespace: "a-cool-namespace",
+			Name:      "very-nice-revision-name",
 		},
 		Spec: scaling.DeciderSpec{},
 	}
@@ -100,10 +97,10 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	for _, srv := range []string{"some", ""} {
 		decider := &scaling.Decider{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: autoscalerfake.TestNamespace,
-				Name:      autoscalerfake.TestRevision,
+				Namespace: "ome-more-namespace",
+				Name:      "astounding-revision",
 				Labels: map[string]string{
-					serving.RevisionLabelKey:      autoscalerfake.TestRevision,
+					serving.RevisionLabelKey:      "astrounding-revision",
 					serving.ServiceLabelKey:       srv,
 					serving.ConfigurationLabelKey: "test-config",
 				},

@@ -451,8 +451,8 @@ func (u *fakeUniScaler) Update(*DeciderSpec) error {
 func newDecider() *Decider {
 	return &Decider{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: fake.TestNamespace,
-			Name:      fake.TestRevision,
+			Namespace: "a-ns",
+			Name:      "a-rev",
 		},
 		Spec: DeciderSpec{
 			TargetValue: 1,
