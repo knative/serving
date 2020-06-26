@@ -87,6 +87,39 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	return &corev1.Container{}
 }
 
+// RoutingState represents states of a revision with regards to serving a route.
+type RoutingState string
+
+const (
+	// RoutingStatePending is a state after a revision is created, but before
+	// its routing state has been determined. It is treated like active for the purposes
+	// of revision garbage collection.
+	RoutingStatePending RoutingState = "pending"
+
+	// RoutingStateActive is a state for a revision which are actively referenced by a Route.
+	RoutingStateActive RoutingState = "active"
+
+	// RoutingStateReserve is a state for a revision which is no longer referenced by a Route,
+	// and is scaled down, but may be rapidly pinned to a route to be made active again.
+	RoutingStateReserve RoutingState = "reserve"
+)
+
+// SetRoutingState sets the routingState label on this Revision and updates the
+// routingStateModified annotation.
+func (r *Revision) SetRoutingState(state RoutingState) {
+	labels := r.Labels
+	if labels == nil {
+		labels = make(map[string]string, 1)
+	}
+	labels[serving.RoutingStateLabelKey] = string(state)
+
+	annotations := r.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string, 1)
+	}
+	annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprintf("%d", time.Now().Unix())
+}
+
 // IsReachable returns whether or not the revision can be reached by a route.
 func (r *Revision) IsReachable() bool {
 	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
