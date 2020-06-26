@@ -23,7 +23,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
@@ -565,74 +564,4 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionContainerHealthy, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
-}
-
-func TestGetContainer(t *testing.T) {
-	cases := []struct {
-		name   string
-		status RevisionSpec
-		want   *corev1.Container
-	}{{
-		name:   "empty revisionSpec should return default value",
-		status: RevisionSpec{},
-		want:   &corev1.Container{},
-	}, {
-		name: "get deprecatedContainer info",
-		status: RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name:  "deprecatedContainer",
-					Image: "foo",
-				}},
-			},
-		},
-		want: &corev1.Container{
-			Name:  "deprecatedContainer",
-			Image: "foo",
-		},
-	}, {
-		name: "get serving container info even if there are multiple containers",
-		status: RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name:  "firstContainer",
-					Image: "firstImage",
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: 8888,
-					}},
-				}, {
-					Name:  "secondContainer",
-					Image: "secondImage",
-				}},
-			},
-		},
-		want: &corev1.Container{
-			Name:  "firstContainer",
-			Image: "firstImage",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8888,
-			}},
-		},
-	}, {
-		name: "get empty container when passed multiple containers without the container port",
-		status: RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name:  "firstContainer",
-					Image: "firstImage",
-				}, {
-					Name:  "secondContainer",
-					Image: "secondImage",
-				}},
-			},
-		},
-		want: &corev1.Container{},
-	}}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if want, got := tc.want, tc.status.GetContainer(); !equality.Semantic.DeepEqual(want, got) {
-				t.Errorf("GetContainer: %v want: %v", got, want)
-			}
-		})
-	}
 }
