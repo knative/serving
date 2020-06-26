@@ -98,11 +98,9 @@ func main() {
 	if coverage, err := tools.GetResourcePercentages(serviceIP); err != nil {
 		log.Fatal("Failed retrieving resource coverage percentages: ",
 			err)
-	} else {
-		if err = tools.WriteResourcePercentages(path.Join(
-			artifactsDir, "junit_bazel.xml"), coverage); err != nil {
-			log.Fatal("Failed writing resource coverage percentages: ",
-				err)
-		}
+	} else if err = tools.WriteResourcePercentages(path.Join(
+		artifactsDir, "junit_bazel.xml"), coverage); err != nil {
+		log.Fatal("Failed writing resource coverage percentages: ",
+			err)
 	}
 }

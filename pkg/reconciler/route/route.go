@@ -28,18 +28,19 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
+	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/network"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
@@ -57,6 +58,7 @@ import (
 type Reconciler struct {
 	kubeclient kubernetes.Interface
 	client     clientset.Interface
+	netclient  netclientset.Interface
 
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister
@@ -102,24 +104,12 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	r.SetDefaults(ctx)
-	r.Status.InitializeConditions()
-
 	logger.Debugf("Reconciling route: %#v", r)
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
-		// Need to update ObservedGeneration, otherwise Route's Ready state won't
-		// be propagated to Service and the Service's RoutesReady will stay in
-		// 'Unknown'.
-		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -166,7 +156,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }
@@ -190,7 +179,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
-		r.Status.MarkAutoTLSNotEnabled()
+		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
@@ -200,6 +189,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 
 	for domain := range domainToTagMap {
 		if domains.IsClusterLocal(domain) {
+			r.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
 			delete(domainToTagMap, domain)
 		}
 	}
@@ -244,7 +234,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		// TODO: we should only mark https for the public visible targets when
 		// we are able to configure visibility per target.
 		setTargetsScheme(&r.Status, dnsNames.List(), "https")
-		if cert.Status.IsReady() {
+		if cert.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
@@ -367,9 +357,9 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 	return nil
 }
 
-// GetServingClient returns the client to access Knative serving resources.
-func (c *Reconciler) GetServingClient() clientset.Interface {
-	return c.client
+// GetNetworkingClient returns the client to access networking resources.
+func (c *Reconciler) GetNetworkingClient() netclientset.Interface {
+	return c.netclient
 }
 
 // GetCertificateLister returns the lister for Knative Certificate.

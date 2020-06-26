@@ -7,7 +7,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,7 +26,6 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -54,8 +53,7 @@ func TestActivatorOverload(t *testing.T) {
 		Image:   "timeout",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.
@@ -74,7 +72,7 @@ func TestActivatorOverload(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgtest.IsStatusOK),
+		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),

@@ -53,6 +53,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SidecarList{},
 		&VirtualService{},
 		&VirtualServiceList{},
+		&WorkloadEntry{},
+		&WorkloadEntryList{},
 	)
 	v1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

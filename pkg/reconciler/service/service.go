@@ -63,13 +63,6 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	service.SetDefaults(ctx)
-	service.Status.InitializeConditions()
-
 	config, err := c.config(ctx, logger, service)
 	if err != nil {
 		return err
@@ -117,8 +110,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
-	service.Status.ObservedGeneration = service.Generation
-
 	return nil
 }
 

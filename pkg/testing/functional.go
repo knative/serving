@@ -23,11 +23,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
@@ -185,6 +185,24 @@ func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption 
 // WithMetricAnnotation adds a metric annotation to the PA.
 func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
+}
+
+// WithObservedGeneration returns a PodAutoScalerOption which sets
+// the Status.ObservedGeneration field to the given generation.
+func WithObservedGeneration(gen int64) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.ObservedGeneration = gen
+	}
+}
+
+// WithObservedGenerationFailure marks the top level condition as unknown when the reconciler
+// does not set any condition during reconciliation of a new generation.
+func WithObservedGenerationFailure() PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		condSet := pa.GetConditionSet()
+		condSet.Manage(&pa.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
+			"NewObservedGenFailure", "unsuccessfully observed a new generation")
+	}
 }
 
 // WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.

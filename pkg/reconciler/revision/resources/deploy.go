@@ -20,16 +20,16 @@ import (
 	"fmt"
 	"strconv"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -39,13 +39,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-)
-
-const (
-	podInfoVolumeName  = "podinfo"
-	podInfoVolumePath  = "/etc/podinfo"
-	metadataLabelsRef  = "metadata.labels"
-	metadataLabelsPath = "labels"
 )
 
 var (
@@ -60,27 +53,6 @@ var (
 		Name:        varLogVolume.Name,
 		MountPath:   "/var/log",
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
-	}
-
-	labelVolume = corev1.Volume{
-		Name: podInfoVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			DownwardAPI: &corev1.DownwardAPIVolumeSource{
-				Items: []corev1.DownwardAPIVolumeFile{
-					{
-						Path: metadataLabelsPath,
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	labelVolumeMount = corev1.VolumeMount{
-		Name:      podInfoVolumeName,
-		MountPath: podInfoVolumePath,
 	}
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
@@ -119,66 +91,77 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
+func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	userContainer := BuildUserContainer(rev)
-	podSpec := BuildPodSpec(rev, []corev1.Container{*userContainer, *queueContainer})
-
-	if autoscalerConfig.EnableGracefulScaledown {
-		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
-	}
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer))
 
 	return podSpec, nil
 }
 
-// BuildUserContainer makes a container from the Revision template.
-func BuildUserContainer(rev *v1.Revision) *corev1.Container {
-	userContainer := rev.Spec.GetContainer().DeepCopy()
+// BuildUserContainers makes an array of containers from the Revision template.
+func BuildUserContainers(rev *v1.Revision) []corev1.Container {
+	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
+	for i := range rev.Spec.PodSpec.Containers {
+		var container corev1.Container
+		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
+			container = makeServingContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+		} else {
+			container = makeContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+		}
+		// The below logic is safe because the image digests in Status.ContainerStatus will have been resolved
+		// before this method is called. We check for an empty array here because the method can also be
+		// called during DryRun, where ContainerStatuses will not yet have been resolved.
+		if len(rev.Status.ContainerStatuses) != 0 {
+			if rev.Status.ContainerStatuses[i].ImageDigest != "" {
+				container.Image = rev.Status.ContainerStatuses[i].ImageDigest
+			}
+		}
+		containers = append(containers, container)
+	}
+	return containers
+}
+
+func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 	varLogMount := varLogVolumeMount.DeepCopy()
-	varLogMount.SubPathExpr += userContainer.Name
+	varLogMount.SubPathExpr += container.Name
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, *varLogMount)
-	userContainer.Lifecycle = userLifecycle
-	userPort := getUserPort(rev)
-	userPortInt := int(userPort)
-	userPortStr := strconv.Itoa(userPortInt)
-	// Replacement is safe as only up to a single port is allowed on the Revision
-	userContainer.Ports = buildContainerPorts(userPort)
-	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
-	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
-	userContainer.Env = append(userContainer.Env, buildVarLogSubpathEnvs()...)
-
+	container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
+	container.Lifecycle = userLifecycle
+	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
+	container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
 	// Explicitly disable stdin and tty allocation
-	userContainer.Stdin = false
-	userContainer.TTY = false
-
-	// Prefer imageDigest from revision if available
-	if rev.Status.DeprecatedImageDigest != "" {
-		userContainer.Image = rev.Status.DeprecatedImageDigest
+	container.Stdin = false
+	container.TTY = false
+	if container.TerminationMessagePolicy == "" {
+		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
+	return container
+}
 
-	if userContainer.TerminationMessagePolicy == "" {
-		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
-	}
-
-	if userContainer.ReadinessProbe != nil {
-		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) corev1.Container {
+	userPort := getUserPort(rev)
+	userPortStr := strconv.Itoa(int(userPort))
+	// Replacement is safe as only up to a single port is allowed on the Revision
+	servingContainer.Ports = buildContainerPorts(userPort)
+	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
+	container := makeContainer(servingContainer, rev)
+	if container.ReadinessProbe != nil {
+		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {
 			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
 			// user-container instead of via kubelet.
-			userContainer.ReadinessProbe = nil
+			container.ReadinessProbe = nil
 		}
 	}
-
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
-	return userContainer
+	rewriteUserProbe(container.LivenessProbe, int(userPort))
+	return container
 }
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
@@ -236,16 +219,24 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1.Revision,
-	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
+	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
+	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
+	autoscalerConfig *asconfig.Config) (*appsv1.Deployment, error) {
 
 	podTemplateAnnotations := kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
+	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
+	}
+
+	replicaCount := int(autoscalerConfig.InitialScale)
+	ann, found := rev.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	if found {
+		// Ignore errors and no error checking because already validated in webhook.
+		replicaCount, _ = strconv.Atoi(ann)
 	}
 
 	return &appsv1.Deployment{
@@ -260,7 +251,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(1),
+			Replicas:                ptr.Int32(int32(replicaCount)),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{

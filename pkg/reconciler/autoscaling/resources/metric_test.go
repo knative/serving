@@ -180,6 +180,5 @@ var config = &autoscalerconfig.Config{
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
-	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 }

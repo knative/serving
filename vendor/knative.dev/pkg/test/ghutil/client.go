@@ -61,6 +61,7 @@ type GithubOperations interface {
 	ListCommits(org, repo string, ID int) ([]*github.RepositoryCommit, error)
 	ListFiles(org, repo string, ID int) ([]*github.CommitFile, error)
 	CreatePullRequest(org, repo, head, base, title, body string) (*github.PullRequest, error)
+	ListBranches(org, repo string) ([]*github.Branch, error)
 }
 
 // GithubClient provides methods to perform github operations

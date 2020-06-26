@@ -22,8 +22,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
 )
 
@@ -54,5 +54,5 @@ func WaitForIngressState(client *test.NetworkingClients, name string, inState fu
 // IsIngressReady will check the status conditions of the ingress and return true if the ingress is
 // ready.
 func IsIngressReady(r *v1alpha1.Ingress) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+	return r.IsReady(), nil
 }

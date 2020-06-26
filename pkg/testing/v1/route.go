@@ -22,11 +22,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 )
@@ -50,12 +50,12 @@ func WithRouteUID(uid types.UID) RouteOption {
 
 // WithRouteGeneration sets the route's generation
 func WithRouteGeneration(generation int64) RouteOption {
-	return func(svc *v1.Route) {
-		svc.Status.ObservedGeneration = generation
+	return func(r *v1.Route) {
+		r.Status.ObservedGeneration = generation
 	}
 }
 
-// WithRouteObservedGeneneration sets the route's observed generation to it's generation
+// WithRouteObservedGeneration sets the route's observed generation to it's generation
 func WithRouteObservedGeneration(r *v1.Route) {
 	r.Status.ObservedGeneration = r.Generation
 }
@@ -121,6 +121,7 @@ func WithURL(r *v1.Route) {
 	}
 }
 
+// WithHTTPSDomain sets the .Status.URL field to a https-domain based on the name and namespace.
 func WithHTTPSDomain(r *v1.Route) {
 	r.Status.URL = &apis.URL{
 		Scheme: "https",
@@ -159,10 +160,19 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
-// WithRouteConditionsAutoTLSDisabled calls MarkAutoTLSNotEnabled after initialized the Service's conditions.
+// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled with AutoTLSNotEnabledMessage
+// after initialized the Service's conditions.
 func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
 	rt.Status.InitializeConditions()
-	rt.Status.MarkAutoTLSNotEnabled()
+	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+}
+
+// WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls
+// MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage after initialized
+// the Service's conditions.
+func WithRouteConditionsTLSNotEnabledForClusterLocalMessage(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
 }
 
 // WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.

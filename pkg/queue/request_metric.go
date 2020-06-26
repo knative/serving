@@ -76,7 +76,7 @@ func NewRequestMetricsHandler(next http.Handler,
 	ns, service, config, rev, pod string) (http.Handler, error) {
 	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
 		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
-	if err := view.Register(
+	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
 			Measure:     requestCountM,
@@ -136,8 +136,8 @@ func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
 	ns, service, config, rev, pod string) (http.Handler, error) {
 	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
 		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
-	if err := view.Register(&view.View{
-		Description: "The number of requests that are routed to queue-proxy",
+	if err := pkgmetrics.RegisterResourceView(&view.View{
+		Description: "The number of requests that are routed to user-container",
 		Measure:     appRequestCountM,
 		Aggregation: view.Count(),
 		TagKeys:     keys,

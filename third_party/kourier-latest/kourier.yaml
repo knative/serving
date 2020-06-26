@@ -115,7 +115,7 @@ spec:
         - /tmp/config/envoy-bootstrap.yaml
         command:
         - /usr/local/bin/envoy
-        image: docker.io/maistra/proxyv2-ubi8:1.0.8
+        image: docker.io/maistra/proxyv2-ubi8:1.1.1
         imagePullPolicy: Always
         name: kourier-gateway
         ports:
@@ -128,16 +128,20 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /tmp/config
+        lifecycle:
+          preStop:
+            exec:
+              command: ["curl", "-X", "POST", "--unix", "/tmp/envoy.admin", "http://localhost/healthcheck/fail"]
         readinessProbe:
           httpGet:
             httpHeaders:
             - name: Host
               value: internalkourier
-            path: /__internalkouriersnapshot
+            path: /ready
             port: 8081
             scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 2
+          initialDelaySeconds: 10
+          periodSeconds: 5
       volumes:
       - name: config-volume
         configMap:
@@ -162,7 +166,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:725bc36f71568b0a9be3bd98816ed4b76ca48548c5ef48decc8a5199914d119f
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:c78e37b311a18bfb9d7772d5850878d6df45eb58e2e3f9a46c16daae8a44fe01
         imagePullPolicy: Always
         name: kourier-control
         env:

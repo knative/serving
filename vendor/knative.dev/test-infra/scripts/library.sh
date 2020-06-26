@@ -389,25 +389,8 @@ function mktemp_with_extension() {
 #             $2 - check name as an identifier (e.g., GoBuild)
 #             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
-  local xml="$(mktemp_with_extension ${ARTIFACTS}/junit_XXXXXXXX xml)"
-  local failure=""
-  if [[ "$3" != "" ]]; then
-    # Transform newlines into HTML code.
-    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48,
-    # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
-    # which should be obsolete once Test-infra 2.0 is in place
-    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | sed 's/&/\\u0026/' | tr -d '\n')"
-    failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
-  fi
-  cat << EOF > "${xml}"
-<testsuites>
-	<testsuite tests="1" failures="1" time="0.000" name="$1">
-		<testcase classname="" name="$2" time="0.0">
-			${failure}
-		</testcase>
-	</testsuite>
-</testsuites>
-EOF
+  local xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  run_kntest junit --suite="$1" --name="$2" --err-msg="$3" --dest="${xml}" || return 1
 }
 
 # Runs a go test and generate a junit summary.
@@ -449,14 +432,18 @@ function report_go_test() {
 }
 
 # Install Knative Serving in the current cluster.
-# Parameters: $1 - Knative Serving manifest.
+# Parameters: $1 - Knative Serving crds manifest.
+#             $2 - Knative Serving core manifest.
+#             $3 - Knative net-istio manifest.
 function start_knative_serving() {
   header "Starting Knative Serving"
   subheader "Installing Knative Serving"
   echo "Installing Serving CRDs from $1"
-  kubectl apply --selector knative.dev/crd-install=true -f "$1"
-  echo "Installing the rest of serving components from $1"
   kubectl apply -f "$1"
+  echo "Installing Serving core components from $2"
+  kubectl apply -f "$2"
+  echo "Installing net-istio components from $3"
+  kubectl apply -f "$3"
   wait_until_pods_running knative-serving || return 1
 }
 
@@ -478,12 +465,14 @@ function start_knative_monitoring() {
 # Install the stable release Knative/serving in the current cluster.
 # Parameters: $1 - Knative Serving version number, e.g. 0.6.0.
 function start_release_knative_serving() {
-  start_knative_serving "https://storage.googleapis.com/knative-releases/serving/previous/v$1/serving.yaml"
+  start_knative_serving "https://storage.googleapis.com/knative-releases/serving/previous/v$1/serving-crds.yaml" \
+    "https://storage.googleapis.com/knative-releases/serving/previous/v$1/serving-core.yaml" \
+    "https://storage.googleapis.com/knative-releases/net-istio/previous/v$1/net-istio.yaml"
 }
 
 # Install the latest stable Knative Serving in the current cluster.
 function start_latest_knative_serving() {
-  start_knative_serving "${KNATIVE_SERVING_RELEASE}"
+  start_knative_serving "${KNATIVE_SERVING_RELEASE_CRDS}" "${KNATIVE_SERVING_RELEASE_CORE}" "${KNATIVE_NET_ISTIO_RELEASE}"
 }
 
 # Install Knative Eventing in the current cluster.
@@ -534,6 +523,15 @@ function run_go_tool() {
   (( install_failed )) && return ${install_failed}
   shift 2
   ${tool} "$@"
+}
+
+# Run kntest tool, error out and ask users to install it if it's not currently installed.
+# Parameters: $1..$n - parameters passed to the tool.
+function run_kntest() {
+  if [[ -z "$(which kntest)" ]]; then
+    echo "--- FAIL: kntest not installed, please clone test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
+  fi
+  kntest "$@"
 }
 
 # Run go-licenses to update licenses.
@@ -742,6 +740,8 @@ readonly _TEST_INFRA_SCRIPTS_DIR="$(dirname $(get_canonical_path ${BASH_SOURCE[0
 readonly REPO_NAME_FORMATTED="Knative $(capitalize ${REPO_NAME//-/ })"
 
 # Public latest nightly or release yaml files.
-readonly KNATIVE_SERVING_RELEASE="$(get_latest_knative_yaml_source "serving" "serving")"
+readonly KNATIVE_SERVING_RELEASE_CRDS="$(get_latest_knative_yaml_source "serving" "serving-crds")"
+readonly KNATIVE_SERVING_RELEASE_CORE="$(get_latest_knative_yaml_source "serving" "serving-core")"
+readonly KNATIVE_NET_ISTIO_RELEASE="$(get_latest_knative_yaml_source "net-istio" "net-istio")"
 readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing")"
 readonly KNATIVE_MONITORING_RELEASE="$(get_latest_knative_yaml_source "serving" "monitoring")"

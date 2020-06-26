@@ -108,7 +108,7 @@ func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 		// Make sure that the template ends with a newline. Otherwise,
 		// logging backends will not be able to parse entries separately.
 		if !strings.HasSuffix(templateStr, "\n") {
-			templateStr = templateStr + "\n"
+			templateStr += "\n"
 		}
 		var err error
 		t, err = template.New("requestLog").Parse(templateStr)
@@ -137,7 +137,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		// Filter probe requests for request logs if disabled.
-		if network.IsProbe(r) && !h.enableProbeRequestLog {
+		if !h.enableProbeRequestLog && network.IsProbe(r) {
 			return
 		}
 
@@ -167,8 +167,8 @@ func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateIn
 	// Use a local buffer to store the whole template expansion first. If h.writer
 	// is used directly, parallel template executions may result in interleaved
 	// output.
-	w := &bytes.Buffer{}
-	if err := t.Execute(w, in); err != nil {
+	w := bytes.Buffer{}
+	if err := t.Execute(&w, in); err != nil {
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
 			in.Request.Method, in.Response.Code, in.Response.Latency, in.Request.URL)

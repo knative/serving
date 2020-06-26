@@ -49,19 +49,17 @@ const (
 func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	t.Helper()
 	tName := t.Name()
-	perfClients, err := Setup(t)
+	clients, err := setup()
 	if err != nil {
-		t.Fatal("Cannot initialize performance client:", err)
+		t.Fatal("Cannot initialize performance clients:", err)
 	}
 
-	clients := perfClients.E2EClients
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   img,
 	}
 
-	defer TearDown(perfClients, names, t.Logf)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Service")
 	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)

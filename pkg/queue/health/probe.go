@@ -19,6 +19,8 @@ package health
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -85,7 +87,13 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+
+	defer func() {
+		// Ensure body is both read _and_ closed so it can be reused for keep-alive.
+		// No point handling errors, connection just won't be reused.
+		io.Copy(ioutil.Discard, res.Body)
+		res.Body.Close()
+	}()
 
 	if !IsHTTPProbeReady(res) {
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
@@ -96,10 +104,12 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 
 // IsHTTPProbeReady checks whether we received a successful Response
 func IsHTTPProbeReady(res *http.Response) bool {
-	if res == nil {
-		return false
-	}
-
 	// response status code between 200-399 indicates success
 	return res.StatusCode >= 200 && res.StatusCode < 400
+}
+
+// IsHTTPProbeShuttingDown checks whether the Response indicates the prober is shutting down.
+func IsHTTPProbeShuttingDown(res *http.Response) bool {
+	// status 410 (Gone) indicates the probe returned a shutdown scenario.
+	return res.StatusCode == http.StatusGone
 }

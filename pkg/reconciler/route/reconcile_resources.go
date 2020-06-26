@@ -29,10 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -43,7 +43,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 	recorder := controller.GetEventRecorder(ctx)
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = c.client.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
+		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
@@ -53,23 +53,22 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
-	} else {
+	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
 		// Also, compare annotation in case ingress.Class is updated.
-		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
-			// Don't modify the informers copy
-			origin := ingress.DeepCopy()
-			origin.Spec = desired.Spec
-			origin.Annotations = desired.Annotations
-			updated, err := c.client.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
-			if err != nil {
-				return nil, fmt.Errorf("failed to update Ingress: %w", err)
-			}
-			return updated, nil
+
+		// Don't modify the informers copy
+		origin := ingress.DeepCopy()
+		origin.Spec = desired.Spec
+		origin.Annotations = desired.Annotations
+		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update Ingress: %w", err)
 		}
+		return updated, nil
 	}
 
 	return ingress, err
@@ -235,7 +234,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
-		cert, err = c.client.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		cert, err = c.netclient.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
 			return nil, fmt.Errorf("failed to create Certificate: %w", err)
@@ -249,21 +248,19 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 		// Surface an error in the route's status, and return an error.
 		r.Status.MarkCertificateNotOwned(cert.Name)
 		return nil, fmt.Errorf("route: %s does not own certificate: %s", r.Name, cert.Name)
-	} else {
-		if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
-			// Don't modify the informers copy
-			existing := cert.DeepCopy()
-			existing.Spec = desiredCert.Spec
-			cert, err := c.client.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
-			if err != nil {
-				recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
-					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-				return nil, err
-			}
-			recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
-				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
-			return cert, nil
+	} else if !equality.Semantic.DeepEqual(cert.Spec, desiredCert.Spec) {
+		// Don't modify the informers copy
+		existing := cert.DeepCopy()
+		existing.Spec = desiredCert.Spec
+		cert, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+		if err != nil {
+			recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
+			return nil, err
 		}
+		recorder.Eventf(existing, corev1.EventTypeNormal, "Updated",
+			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
+		return cert, nil
 	}
 	return cert, nil
 }

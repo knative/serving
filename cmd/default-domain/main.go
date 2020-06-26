@@ -35,11 +35,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/client/clientset/versioned"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/network"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
@@ -127,7 +127,7 @@ func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clie
 		if err != nil {
 			return true, err
 		}
-		return ing.Status.IsReady(), nil
+		return ing.IsReady(), nil
 	}); err != nil {
 		return nil, err
 	}

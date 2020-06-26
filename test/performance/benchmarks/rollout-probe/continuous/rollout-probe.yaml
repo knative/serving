@@ -1,0 +1,195 @@
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prober
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prober
+subjects:
+  - kind: ServiceAccount
+    name: prober
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rollout-probe-queue
+spec:
+  schedule: "0 0,6,12,18 * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: rollout-probe
+            image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
+            args: ["-target=queue", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-tests/test-infra/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rollout-probe-activator
+spec:
+  schedule: "0 1,7,13,19 * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: rollout-probe
+            image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
+            args: ["-target=activator", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-tests/test-infra/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rollout-probe-activator-with-cc
+spec:
+  schedule: "0 2,8,14,20 * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: rollout-probe
+            image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
+            args: ["-target=activator-with-cc", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-tests/test-infra/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rollout-probe-queue-with-cc
+spec:
+  schedule: "0 3,9,15,21 * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: rollout-probe
+            image: ko://knative.dev/serving/test/performance/benchmarks/rollout-probe/continuous
+            args: ["-target=queue-with-cc", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-tests/test-infra/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0

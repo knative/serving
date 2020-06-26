@@ -20,11 +20,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	apistest "knative.dev/pkg/apis/testing"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {
@@ -46,6 +47,14 @@ func TestRouteDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Route, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestRouteGetConditionSet(t *testing.T) {
+	r := &Route{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", got, want)
 	}
 }
 
@@ -160,7 +169,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
@@ -274,7 +283,7 @@ func TestIngressFailureRecovery(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
@@ -381,7 +390,7 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 func TestRouteAutoTLSNotEnabled(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }

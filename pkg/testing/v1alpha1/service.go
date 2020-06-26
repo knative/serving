@@ -178,7 +178,7 @@ func WithServiceGeneration(generation int64) ServiceOption {
 	}
 }
 
-// WithServiceGeneration sets the service's observed generation to it's generation
+// WithServiceObservedGeneration sets the service's observed generation to it's generation
 func WithServiceObservedGeneration(svc *v1alpha1.Service) {
 	svc.Status.ObservedGeneration = svc.Generation
 }
@@ -273,6 +273,7 @@ func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) Servic
 	}
 }
 
+// WithServiceAnnotations adds the supplied annotations to the Service
 func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		service.Annotations = kmeta.UnionMaps(service.Annotations, annotations)
@@ -331,7 +332,7 @@ func MarkRouteNotOwned(service *v1alpha1.Service) {
 	service.Status.MarkRouteNotOwned(servicenames.Route(service))
 }
 
-// MarkRevisionNameTake calls the function of the same name on the Service's status
+// MarkRevisionNameTaken calls the function of the same name on the Service's status
 func MarkRevisionNameTaken(service *v1alpha1.Service) {
 	service.Status.MarkRevisionNameTaken(service.Spec.GetTemplate().GetName())
 }

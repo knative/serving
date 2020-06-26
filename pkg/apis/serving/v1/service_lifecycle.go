@@ -45,9 +45,19 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Service")
 }
 
-// IsReady returns if the service is ready to serve the requested configuration.
-func (ss *ServiceStatus) IsReady() bool {
-	return serviceCondSet.Manage(ss).IsHappy()
+// IsReady returns if the service is ready to serve and the latest spec has been observed.
+func (s *Service) IsReady() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		ss.GetCondition(ServiceConditionReady).IsTrue()
+}
+
+// IsFailed returns true if the resource has observed
+// the latest generation and ready is false.
+func (s *Service) IsFailed() bool {
+	ss := s.Status
+	return ss.ObservedGeneration == s.Generation &&
+		ss.GetCondition(ServiceConditionReady).IsFalse()
 }
 
 // InitializeConditions sets the initial values to the conditions.

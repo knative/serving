@@ -24,10 +24,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
-	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -65,19 +65,32 @@ var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionContainerHealthy,
 )
 
+// GetConditionSet retrieves the ConditionSet of the Revision. Implements the KRShaped interface.
+func (*Revision) GetConditionSet() apis.ConditionSet {
+	return revCondSet
+}
+
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
 
 // GetContainer returns a pointer to the relevant corev1.Container field.
-// It is never nil and should be exactly the specified container as guaranteed
-// by validation.
+// It is never nil and should be exactly the specified container if len(containers) == 1 or
+// if there are multiple containers it returns the container which has Ports
+// as guaranteed by validation.
 func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	if rs.DeprecatedContainer != nil {
 		return rs.DeprecatedContainer
 	}
-	if len(rs.Containers) > 0 {
+	switch {
+	case len(rs.Containers) == 1:
 		return &rs.Containers[0]
+	case len(rs.Containers) > 1:
+		for i := range rs.Containers {
+			if len(rs.Containers[i].Ports) != 0 {
+				return &rs.Containers[i]
+			}
+		}
 	}
 	// Should be unreachable post-validation, but is here to ease testing.
 	return &corev1.Container{}

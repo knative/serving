@@ -58,10 +58,10 @@ func hasPort(u string) bool {
 
 func dial(host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
-		host = host + ":80"
+		host += ":80"
 	}
 	if !hasPort(domain) {
-		domain = domain + ":80"
+		domain += ":80"
 	}
 
 	if host != domain {
@@ -337,8 +337,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	fopts = append(fopts, rtesting.WithNamedPort("h2c"))
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names, fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)

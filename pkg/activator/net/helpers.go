@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking"
 )
 
 // healthyAddresses takes an endpoints object and a port name and return the set

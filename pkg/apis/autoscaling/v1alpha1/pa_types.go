@@ -19,10 +19,10 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
-	net "knative.dev/serving/pkg/apis/networking"
 )
 
 // +genclient
@@ -143,11 +143,6 @@ type PodAutoscalerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PodAutoscaler `json:"items"`
-}
-
-// GetTypeMeta retrieves the ObjectMeta of the PodAutoscaler. Implements the KRShaped interface.
-func (t *PodAutoscaler) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
 }
 
 // GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.

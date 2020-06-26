@@ -19,7 +19,8 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
-
+  annotations:
+    knative.dev/example-checksum: c7f290c9
 data:
   _example: |
     ################################
@@ -108,3 +109,7 @@ data:
     # http connections, asking the clients to use HTTPS
     httpProtocol: "Enabled"
 
+    # Controls whether tag header based routing feature are enabled or not.
+    # 1. Enabled: enabling tag header based routing
+    # 2. Disabled: disabling tag header based routing
+    tagHeaderBasedRouting: "Disabled"

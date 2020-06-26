@@ -62,8 +62,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   test.PizzaPlanet1,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
-	defer test.TearDown(defaultClients, defaultResources)
+	test.EnsureTearDown(t, defaultClients, defaultResources)
 	if _, err := v1test.CreateServiceReady(t, defaultClients, &defaultResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
@@ -72,8 +71,7 @@ func TestMultipleNamespace(t *testing.T) {
 		Service: serviceName,
 		Image:   test.PizzaPlanet2,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
-	defer test.TearDown(altClients, altResources)
+	test.EnsureTearDown(t, altClients, altResources)
 	if _, err := v1test.CreateServiceReady(t, altClients, &altResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
@@ -116,16 +114,13 @@ func TestConflictingRouteService(t *testing.T) {
 
 	altClients := SetupAlternativeNamespace(t)
 	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
-	cleanup := func() {
+	test.EnsureCleanup(t, func() {
 		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	}
-	test.CleanupOnInterrupt(cleanup)
-	defer cleanup()
+	})
 
 	clients := Setup(t)
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}

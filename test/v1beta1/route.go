@@ -107,13 +107,13 @@ func CheckRouteState(client *test.ServingBetaClients, name string, inState func(
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
 func IsRouteReady(r *v1beta1.Route) (bool, error) {
-	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+	return r.IsReady(), nil
 }
 
-// IsRouteNotReady will check the status conditions of the route and return true if the route is
+// IsRouteFailed will check the status conditions of the route and return true if the route is
 // not ready.
-func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
-	return !r.Status.IsReady(), nil
+func IsRouteFailed(r *v1beta1.Route) (bool, error) {
+	return r.IsFailed(), nil
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route

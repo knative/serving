@@ -27,6 +27,7 @@ import (
 var (
 	isRecreate          bool
 	isReconcile         bool
+	isDelete            bool
 	gcpProjectName      string
 	repoName            string
 	benchmarkRootFolder string
@@ -40,10 +41,11 @@ func main() {
 	flag.StringVar(&benchmarkRootFolder, "benchmark-root", "", "root folder of the benchmarks")
 	flag.BoolVar(&isRecreate, "recreate", false, "is recreate operation or not")
 	flag.BoolVar(&isReconcile, "reconcile", false, "is reconcile operation or not")
+	flag.BoolVar(&isDelete, "delete", false, "is delete operation or not")
 	flag.Parse()
 
-	if isRecreate && isReconcile {
-		log.Fatal("Only one operation can be specified, either recreate or reconcile")
+	if (isRecreate && isReconcile) || (isRecreate && isDelete) || (isReconcile && isDelete) {
+		log.Fatal("--recreate, --reconcile and --delete are mutually exclusive")
 	}
 
 	client, err := testPkg.NewClient(gkeEnvironment)
@@ -61,7 +63,12 @@ func main() {
 			log.Fatalf("Failed reconciling clusters for repo %q: %v", repoName, err)
 		}
 		log.Printf("Done with reconciling clusters for repo %q", repoName)
+	case isDelete:
+		if err := client.DeleteClusters(gcpProjectName, repoName, benchmarkRootFolder); err != nil {
+			log.Fatalf("Failed deleting clusters for repo %q: %v", repoName, err)
+		}
+		log.Printf("Done with deleting clusters for repo %q", repoName)
 	default:
-		log.Fatal("One operation must be specified, either recreate or reconcile")
+		log.Fatal("One operation must be specified, either recreate, reconcile or delete")
 	}
 }

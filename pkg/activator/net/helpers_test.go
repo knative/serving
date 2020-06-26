@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking"
 )
 
 func TestEndpointsToDests(t *testing.T) {

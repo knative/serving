@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -32,11 +33,13 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
@@ -68,8 +71,8 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
 		ctx, istioClient := fakeistioclient.With(ctx, ls.GetIstioObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
-		ctx, dynamicClient := fakedynamicclient.With(ctx,
-			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
+		ctx, netclient := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
+		ctx, dynamicClient := fakedynamicclient.With(ctx, ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
@@ -102,10 +105,16 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		// Update the context with the stuff we decorated it with.
 		r.Ctx = ctx
 
+		// The Reconciler won't do any work until it becomes the leader.
+		if la, ok := c.(reconciler.LeaderAware); ok {
+			la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+		}
+
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
 			istioClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
+			netclient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 		}
@@ -120,7 +129,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, kubeClient, cachingClient}
+		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, client, netclient, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList

@@ -82,11 +82,6 @@ type MetricList struct {
 	Items []Metric `json:"items"`
 }
 
-// GetTypeMeta retrieves the ObjectMeta of the Metric. Implements the KRShaped interface.
-func (t *Metric) GetTypeMeta() *metav1.TypeMeta {
-	return &t.TypeMeta
-}
-
 // GetStatus retrieves the status of the Metric. Implements the KRShaped interface.
 func (t *Metric) GetStatus() *duckv1.Status {
 	return &t.Status.Status

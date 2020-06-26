@@ -25,6 +25,7 @@ import (
 
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	pkgHa "knative.dev/pkg/test/ha"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -43,11 +44,11 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	if err := waitForDeploymentScale(clients, autoscalerHPADeploymentName, haReplicas); err != nil {
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
 	}
 
-	leaderController, err := getLeader(t, clients, autoscalerHPALease)
+	leaderController, err := pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), "" /*use arbitrary name as there was no previous leader*/)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -58,17 +59,20 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 			autoscaling.MetricAnnotationKey: autoscaling.CPU,
 			autoscaling.TargetAnnotationKey: "70",
 		}))
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
 
-	clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController, &metav1.DeleteOptions{})
+	test.EnsureTearDown(t, clients, names)
 
-	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
+		&metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("Failed to delete pod %s: %v", leaderController, err)
+	}
+
+	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leaderController, system.Namespace()); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
 	}
 
 	// Make sure a new leader has been elected
-	if _, err = getLeader(t, clients, autoscalerHPALease); err != nil {
+	if _, err = pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), leaderController); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 

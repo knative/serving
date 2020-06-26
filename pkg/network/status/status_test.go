@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network/ingress"
 
 	"go.uber.org/zap/zaptest"

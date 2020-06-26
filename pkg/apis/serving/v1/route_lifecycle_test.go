@@ -20,11 +20,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {
@@ -169,6 +169,71 @@ func TestRouteIsReady(t *testing.T) {
 	}
 }
 
+func TestRouteIsFailed(t *testing.T) {
+	cases := []struct {
+		name     string
+		status   RouteStatus
+		isFailed bool
+	}{{
+		name:     "empty status should not be failed",
+		status:   RouteStatus{},
+		isFailed: false,
+	}, {
+		name: "False condition status should be failed",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isFailed: true,
+	}, {
+		name: "Unknown condition status should not be failed",
+		status: RouteStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "Missing condition status should not be failed",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RouteConditionReady,
+				}},
+			},
+		},
+		isFailed: false,
+	}, {
+		name: "True condition status should not be failed",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isFailed: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Route{Status: tc.status}
+			if e, a := tc.isFailed, r.IsFailed(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
 func TestTypicalRouteFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
@@ -177,7 +242,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
@@ -291,7 +356,7 @@ func TestIngressFailureRecovery(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
@@ -386,7 +451,7 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 func TestRouteAutoTLSNotEnabled(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkAutoTLSNotEnabled()
+	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
 
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }

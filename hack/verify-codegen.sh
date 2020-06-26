@@ -32,7 +32,7 @@ cleanup
 
 # Save working tree state
 mkdir -p "${TMP_DIFFROOT}/pkg"
-cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/test" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
 
 # We symlink a few testdata files from config, so copy it as well.
 mkdir -p "${TMP_DIFFROOT}/config"
@@ -40,10 +40,11 @@ cp -a "${REPO_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
 
 # TODO(mattmoor): We should be able to rm -rf pkg/client/ and vendor/
 
-"${REPO_ROOT_DIR}/hack/update-codegen.sh"
+"${REPO_ROOT_DIR}/hack/update-codegen.sh" --generate-protobufs
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1
+diff -Nupr --no-dereference "${REPO_ROOT_DIR}/test" "${TMP_DIFFROOT}/test" || ret=1
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" || ret=1
 
 # Restore working tree state

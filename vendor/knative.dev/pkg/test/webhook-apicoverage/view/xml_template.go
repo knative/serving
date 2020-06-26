@@ -16,11 +16,7 @@ limitations under the License.
 
 package view
 
-import (
-	"fmt"
-)
-
-var JunitResultTmpl = fmt.Sprint(`<testsuites>
+var JunitResultTmpl = `<testsuites>
   <testsuite name="" time="0" {{ if .IsFailedBuild }} failures="1" {{ else }} failures = "0" {{ end }} tests="0">
       <testcase name="Overall" time="0" classname="go_coverage">
 				{{ if .IsFailedBuild }}
@@ -38,4 +34,4 @@ var JunitResultTmpl = fmt.Sprint(`<testsuites>
       </testcase>
     {{end}}
   </testsuite>
-</testsuites>`)
+</testsuites>`

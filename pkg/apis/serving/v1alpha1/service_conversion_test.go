@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -136,7 +137,7 @@ func TestServiceConversion(t *testing.T) {
 					t.Errorf("ConvertFrom() = %v", err)
 				}
 				t.Logf("ConvertFrom() = %#v", got)
-				if diff := cmp.Diff(test.in, got); diff != "" {
+				if diff := cmp.Diff(test.in, got, cmpopts.EquateEmpty()); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
 				}
 			})
@@ -697,7 +698,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					t.Errorf("ConvertFrom() = %v", err)
 				}
 				t.Logf("ConvertFrom() = %#v", got)
-				if diff := cmp.Diff(test.want, got); diff != "" {
+				if diff := cmp.Diff(test.want, got, cmpopts.EquateEmpty()); diff != "" {
 					t.Errorf("roundtrip (-want, +got) = %v", diff)
 				}
 			})

@@ -54,13 +54,12 @@ func TestContainerErrorMsg(t *testing.T) {
 		Image:   test.InvalidHelloWorld,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	t.Logf("Creating a new Service %s", names.Service)
-	svc, err := createService(t, clients, names, 2)
+	svc, err := v1b1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
@@ -72,7 +71,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
-	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceFailed, "ServiceIsNotReady"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
 
@@ -117,7 +116,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("Checking to ensure Route is in desired state")
-	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteNotReady)
+	err = v1b1test.CheckRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteFailed)
 	if err != nil {
 		t.Fatalf("the Route %s was not desired state: %v", names.Route, err)
 	}
@@ -165,8 +164,7 @@ func TestContainerExitingMsg(t *testing.T) {
 				Image:  test.Failing,
 			}
 
-			defer test.TearDown(clients, names)
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			test.EnsureTearDown(t, clients, names)
 
 			t.Logf("Creating a new Configuration %s", names.Config)
 

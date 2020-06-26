@@ -383,7 +383,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &apis.FieldError{Message: "enable-multi-container is off, but found 2 containers"},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{
@@ -410,6 +410,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -518,6 +519,7 @@ func TestImmutableFields(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -540,7 +542,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("50m"),
+								corev1.ResourceCPU: resource.MustParse("50m"),
 							},
 						},
 					}},
@@ -556,7 +558,7 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("100m"),
+								corev1.ResourceCPU: resource.MustParse("100m"),
 							},
 						},
 					}},

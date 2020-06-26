@@ -424,7 +424,7 @@ func TestIsActivating(t *testing.T) {
 	}{{
 		name:         "empty status",
 		status:       PodAutoscalerStatus{},
-		isActivating: false,
+		isActivating: true,
 	}, {
 		name: "active=unknown",
 		status: PodAutoscalerStatus{
@@ -564,7 +564,8 @@ func TestIsReady(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.status.IsReady(), tc.isReady; got != want {
+			pa := PodAutoscaler{Status: tc.status}
+			if got, want := pa.IsReady(), tc.isReady; got != want {
 				t.Errorf("IsReady = %v, want: %v", got, want)
 			}
 		})
@@ -664,12 +665,6 @@ func TestScaleBounds(t *testing.T) {
 		name:    "malformed",
 		min:     "ham",
 		max:     "sandwich",
-		wantMin: 0,
-		wantMax: 0,
-	}, {
-		name:    "too small",
-		min:     "-1",
-		max:     "-1",
 		wantMin: 0,
 		wantMax: 0,
 	}}
@@ -1010,7 +1005,9 @@ func TestTypicalFlow(t *testing.T) {
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	if !r.IsActive() {
+		t.Error("Active was not set.")
+	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 }
 
@@ -1138,5 +1135,50 @@ func TestScaleToZeroPodRetention(t *testing.T) {
 				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
 			}
 		})
+	}
+}
+
+func TestInitialScale(t *testing.T) {
+	cases := []struct {
+		name   string
+		pa     *PodAutoscaler
+		want   int32
+		wantOK bool
+	}{{
+		name: "nil",
+		pa:   pa(nil),
+	}, {
+		name: "not present",
+		pa:   pa(map[string]string{}),
+	}, {
+		name: "present",
+		pa: pa(map[string]string{
+			autoscaling.InitialScaleAnnotationKey: "2",
+		}),
+		want:   2,
+		wantOK: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotOK := tc.pa.InitialScale()
+			if got != tc.want {
+				t.Errorf("InitialScale = %v, want: %v", got, tc.want)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("OK = %v, want: %v", gotOK, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestHasBeenActive(t *testing.T) {
+	p := PodAutoscaler{}
+	if got, want := p.Status.HasBeenActive(), false; got != want {
+		t.Errorf("before marking initially active: got: %v, want: %v", got, want)
+	}
+	p.Status.MarkHasBeenActive()
+	if got, want := p.Status.HasBeenActive(), true; got != want {
+		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
 	}
 }

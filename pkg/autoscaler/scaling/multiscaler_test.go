@@ -26,7 +26,6 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,10 +34,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
-const (
-	tickInterval = 5 * time.Millisecond
-	tickTimeout  = 100 * time.Millisecond
-)
+const tickTimeout = 100 * time.Millisecond
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
 func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key types.NamespacedName) {
@@ -287,53 +283,6 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 }
 
-func TestMultiScalerTickUpdate(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-
-	decider := newDecider()
-	decider.Spec.TickInterval = 10 * time.Second
-	uniScaler.setScaleResult(1, 1, 2, true)
-
-	// Before it exists, we should get a NotFound.
-	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
-	if !apierrors.IsNotFound(err) {
-		t.Errorf("Get() = (%v, %v), want not found error", m, err)
-	}
-
-	_, err = ms.Create(ctx, decider)
-	if err != nil {
-		t.Fatal("Create() =", err)
-	}
-	time.Sleep(50 * time.Millisecond)
-
-	// Expected count to be 0 as the tick interval is 10s and no autoscaling calculation should be triggered
-	if count := uniScaler.getScaleCount(); count != 0 {
-		t.Fatalf("Expected count to be 0 but got %d", count)
-	}
-
-	decider.Spec.TickInterval = tickInterval
-
-	if _, err = ms.Update(ctx, decider); err != nil {
-		t.Errorf("Update() = %v", err)
-	}
-
-	if err := wait.PollImmediate(tickInterval, tickTimeout, func() (bool, error) {
-		// Expected count to be greater than 1 as the tick interval is updated to be 5ms
-		if uniScaler.getScaleCount() >= 1 {
-			return true, nil
-		}
-		return false, nil
-	}); err != nil {
-		t.Fatalf("Expected at least 1 tick but got %d", uniScaler.getScaleCount())
-	}
-
-	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
-		t.Errorf("Delete() = %v", err)
-	}
-}
-
 func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -388,7 +337,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
-	decider.Spec.TickInterval = 60 * time.Second
 	uniScaler.setScaleResult(1, 1, 2, true)
 
 	errCh := make(chan error)
@@ -406,7 +354,6 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 
 	testStat := metrics.Stat{
-		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,
@@ -487,12 +434,6 @@ func (u *fakeUniScaler) Scale(context.Context, time.Time) ScaleResult {
 	return ScaleResult{u.replicas, u.surplus, u.numActivators, u.scaled}
 }
 
-func (u *fakeUniScaler) getScaleCount() int {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
-	return u.scaleCount
-}
-
 func (u *fakeUniScaler) setScaleResult(replicas, surplus, na int32, scaled bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -514,8 +455,7 @@ func newDecider() *Decider {
 			Name:      fake.TestRevision,
 		},
 		Spec: DeciderSpec{
-			TickInterval: tickInterval,
-			TargetValue:  1,
+			TargetValue: 1,
 		},
 		Status: DeciderStatus{},
 	}

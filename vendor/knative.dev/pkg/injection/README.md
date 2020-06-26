@@ -471,7 +471,7 @@ reconciler.PreProcessReconcile(ctx, resource)
 
 reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
 
-reconciler.PostProcessReconcile(ctx, resource)
+reconciler.PostProcessReconcile(ctx, resource, oldResource)
 ```
 
 #### Stubs

@@ -25,7 +25,6 @@ import (
 )
 
 // +genclient
-// +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Configuration represents the "floating HEAD" of a linear history of Revisions,
@@ -59,6 +58,9 @@ var (
 
 	// Check that we can create OwnerReferences to a Configuration.
 	_ kmeta.OwnerRefable = (*Configuration)(nil)
+
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*Configuration)(nil)
 )
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
@@ -129,4 +131,9 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
+}
+
+// GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
+func (c *Configuration) GetStatus() *duckv1.Status {
+	return &c.Status.Status
 }

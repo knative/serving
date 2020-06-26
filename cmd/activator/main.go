@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,6 +33,8 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	gorillawebsocket "github.com/gorilla/websocket"
+
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
@@ -39,6 +42,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -56,9 +60,11 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/activator/util"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 )
@@ -86,7 +92,11 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 		case sm := <-statChan:
 			go func() {
 				for _, msg := range sm {
-					if err := statSink.Send(msg); err != nil {
+					b, err := json.Marshal(msg)
+					if err != nil {
+						logger.Errorw("Error while marshaling stat", zap.Error(err))
+					}
+					if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
 						logger.Errorw("Error while sending stat", zap.Error(err))
 					}
 				}
@@ -203,6 +213,12 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
+	ah = handler.NewTimeToFirstByteTimeoutHandler(ah, "activator request timeout", func(r *http.Request) time.Duration {
+		if rev := util.RevisionFrom(r.Context()); rev != nil {
+			return time.Duration(*rev.Spec.TimeoutSeconds) * time.Second
+		}
+		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second
+	})
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)

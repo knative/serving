@@ -25,6 +25,8 @@ import (
 	strings "strings"
 
 	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -32,6 +34,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
+	reconciler "knative.dev/pkg/reconciler"
 	versionedscheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	client "knative.dev/serving/pkg/client/injection/client"
 	podautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -59,9 +62,27 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 
 	podautoscalerInformer := podautoscaler.Get(ctx)
 
+	lister := podautoscalerInformer.Lister()
+
 	rec := &reconcilerImpl{
+		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
+			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				all, err := lister.List(labels.Everything())
+				if err != nil {
+					return err
+				}
+				for _, elt := range all {
+					// TODO: Consider letting users specify a filter in options.
+					enq(bkt, types.NamespacedName{
+						Namespace: elt.GetNamespace(),
+						Name:      elt.GetName(),
+					})
+				}
+				return nil
+			},
+		},
 		Client:        client.Get(ctx),
-		Lister:        podautoscalerInformer.Lister(),
+		Lister:        lister,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
 		classValue:    classValue,

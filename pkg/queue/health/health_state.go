@@ -20,12 +20,8 @@ import (
 	"io"
 	"net/http"
 	"sync"
-)
 
-const (
-	// Return `queue` as body for 200 responses to indicate the response is from queue-proxy.
-	aliveBody    = "queue"
-	notAliveBody = "queue not ready"
+	"knative.dev/serving/pkg/queue"
 )
 
 // State holds state about the current healthiness of the component.
@@ -89,23 +85,26 @@ func (h *State) drainFinished() {
 
 // HandleHealthProbe handles the probe according to the current state of the
 // health server. If isAggressive is false and prober has succeeded previously,
-// the function return success without probing user-container again (until
+// the function returns success without probing user-container again (until
 // shutdown).
 func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter) {
 	sendAlive := func() {
-		io.WriteString(w, aliveBody)
+		io.WriteString(w, queue.Name)
 	}
 
 	sendNotAlive := func() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		io.WriteString(w, notAliveBody)
+	}
+
+	sendShuttingDown := func() {
+		w.WriteHeader(http.StatusGone)
 	}
 
 	switch {
 	case !isAggressive && h.IsAlive():
 		sendAlive()
 	case h.IsShuttingDown():
-		sendNotAlive()
+		sendShuttingDown()
 	case prober != nil && !prober():
 		sendNotAlive()
 	default:

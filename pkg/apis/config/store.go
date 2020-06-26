@@ -29,6 +29,7 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 type Config struct {
 	Defaults   *Defaults
+	Features   *Features
 	Autoscaler *autoscalerconfig.Config
 }
 
@@ -48,9 +49,11 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 		return cfg
 	}
 	defaults, _ := NewDefaultsConfigFromMap(map[string]string{})
+	features, _ := NewFeaturesConfigFromMap(map[string]string{})
 	autoscaler, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
 	return &Config{
 		Defaults:   defaults,
+		Features:   features,
 		Autoscaler: autoscaler,
 	}
 }
@@ -71,10 +74,11 @@ type Store struct {
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
-			"defaults",
+			"apis",
 			logger,
 			configmap.Constructors{
 				DefaultsConfigName:          NewDefaultsConfigFromConfigMap,
+				FeaturesConfigName:          NewFeaturesConfigFromConfigMap,
 				autoscalerconfig.ConfigName: autoscalerconfig.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
@@ -93,6 +97,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		Defaults:   s.UntypedLoad(DefaultsConfigName).(*Defaults).DeepCopy(),
+		Features:   s.UntypedLoad(FeaturesConfigName).(*Features).DeepCopy(),
 		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
 	}
 }

@@ -33,6 +33,7 @@ import (
 func okConfig() *kle.Config {
 	return &kle.Config{
 		ResourceLock:      "leases",
+		Buckets:           1,
 		LeaseDuration:     15 * time.Second,
 		RenewDeadline:     10 * time.Second,
 		RetryPeriod:       2 * time.Second,
@@ -78,7 +79,7 @@ func TestValidateConfig(t *testing.T) {
 			data["enabledComponents"] = "controller,frobulator"
 			return data
 		}(),
-		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller"]`),
+		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller" "webhook"]`),
 	}}
 
 	for _, tc := range cases {
@@ -104,6 +105,7 @@ func TestServingConfig(t *testing.T) {
 		name: "Default config",
 		want: &kle.Config{
 			ResourceLock:  "leases",
+			Buckets:       1,
 			LeaseDuration: 15 * time.Second,
 			RenewDeadline: 10 * time.Second,
 			RetryPeriod:   2 * time.Second,
@@ -113,6 +115,7 @@ func TestServingConfig(t *testing.T) {
 		name: "Example config",
 		want: &kle.Config{
 			ResourceLock:      "leases",
+			Buckets:           1,
 			LeaseDuration:     15 * time.Second,
 			RenewDeadline:     10 * time.Second,
 			RetryPeriod:       2 * time.Second,
