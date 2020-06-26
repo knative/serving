@@ -498,6 +498,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy",
 					"Unschedulable"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pod-schedule-error", WithReachabilityUnreachable),
+		}},
 		Key: "foo/pod-schedule-error",
 	}, {
 		Name: "ready steady state",
