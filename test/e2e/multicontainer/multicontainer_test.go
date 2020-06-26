@@ -38,12 +38,12 @@ func TestMultiContainer(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	containers := []corev1.Container{{
-		Image: test.ServingContainer,
+		Image: pkgTest.ImagePath(test.ServingContainer),
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: 8881,
 		}},
 	}, {
-		Image: test.SidecarContainer,
+		Image: pkgTest.ImagePath(test.SidecarContainer),
 	}}
 
 	names := test.ResourceNames{
