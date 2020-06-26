@@ -73,13 +73,19 @@ var (
 	)
 )
 
-func ValidateVolumes(vs []corev1.Volume) (sets.String, *apis.FieldError) {
+func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
 	volumes := sets.NewString()
 	var errs *apis.FieldError
 	for i, volume := range vs {
 		if volumes.Has(volume.Name) {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
+				Paths:   []string{"name"},
+			}).ViaIndex(i))
+		}
+		if !mountedVolumes.Has(volume.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("volume with name %q not mounted", volume.Name),
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
@@ -259,7 +265,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
 
-	volumes, err := ValidateVolumes(ps.Volumes)
+	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
 	}
@@ -300,6 +306,16 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		}
 	}
 	return errs
+}
+
+func AllMountedVolumes(containers []corev1.Container) sets.String {
+	volumeNames := sets.NewString()
+	for _, c := range containers {
+		for _, vm := range c.VolumeMounts {
+			volumeNames.Insert(vm.Name)
+		}
+	}
+	return volumeNames
 }
 
 // validateContainersPorts validates port when specified multiple containers
@@ -461,13 +477,6 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 			errs = errs.Also(apis.ErrMissingField("readOnly").ViaIndex(i))
 		}
 
-	}
-
-	if missing := volumes.Difference(seenName); missing.Len() > 0 {
-		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
-			Paths:   []string{apis.CurrentField},
-		})
 	}
 	return errs
 }
