@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"os"
