@@ -86,10 +86,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	// LatestCreatedRevision based on its readiness.
 	rc := lcr.Status.GetCondition(v1.RevisionConditionReady)
 	switch {
-	case rc == nil || rc.Status == corev1.ConditionUnknown:
+	case rc.IsUnknown():
 		logger.Infof("Revision %q of configuration is not ready", revName)
 
-	case rc.Status == corev1.ConditionTrue:
+	case rc.IsTrue():
 		logger.Infof("Revision %q of configuration is ready", revName)
 		if config.Status.LatestReadyRevisionName == "" {
 			// Surface an event for the first revision becoming ready.
@@ -97,7 +97,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 				"Configuration becomes ready")
 		}
 
-	case rc.Status == corev1.ConditionFalse:
+	case rc.IsFalse():
 		logger.Infof("Revision %q of configuration has failed", revName)
 		beforeReady := config.Status.GetCondition(v1.ConfigurationConditionReady)
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)

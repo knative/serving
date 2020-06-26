@@ -126,6 +126,14 @@ type ComponentConfig struct {
 	RetryPeriod   time.Duration
 }
 
+// StatefulSetConfig represents the required information for a StatefulSet service.
+type StatefulSetConfig struct {
+	StatefulSetName string
+	ServiceName     string
+	Port            string
+	Protocol        string
+}
+
 func defaultComponentConfig(name string) ComponentConfig {
 	return ComponentConfig{
 		Component:   name,

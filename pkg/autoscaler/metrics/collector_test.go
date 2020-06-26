@@ -395,14 +395,14 @@ func TestDoubleWatch(t *testing.T) {
 func TestMetricCollectorError(t *testing.T) {
 	testMetric := &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: fake.TestNamespace,
-			Name:      fake.TestRevision,
+			Namespace: testNamespace,
+			Name:      testRevision,
 			Labels: map[string]string{
-				serving.RevisionLabelKey: fake.TestRevision,
+				serving.RevisionLabelKey: testRevision,
 			},
 		},
 		Spec: av1alpha1.MetricSpec{
-			ScrapeTarget: fake.TestRevision + "-zhudex",
+			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
 
