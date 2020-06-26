@@ -52,7 +52,24 @@ const (
 	LabelParserErrorTypeInvalid     = "Invalid"
 )
 
+const (
+	// RoutingStatePending is a state after a revision is created, but before
+	// its routing state has been determined. It is treated like active for the purposes
+	// of revision garbage collection.
+	RoutingStatePending RoutingState = "pending"
+
+	// RoutingStateActive is a state for a revision which are actively referenced by a Route.
+	RoutingStateActive RoutingState = "active"
+
+	// RoutingStateReserve is a state for a revision which is no longer referenced by a Route,
+	// and is scaled down, but may be rapidly pinned to a route to be made active again.
+	RoutingStateReserve RoutingState = "reserve"
+)
+
 type (
+	// RoutingState represents states of a revision with regards to serving a route.
+	RoutingState string
+
 	// +k8s:deepcopy-gen=false
 	AnnotationParseError struct {
 		Type  string
@@ -86,23 +103,6 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}
 }
-
-// RoutingState represents states of a revision with regards to serving a route.
-type RoutingState string
-
-const (
-	// RoutingStatePending is a state after a revision is created, but before
-	// its routing state has been determined. It is treated like active for the purposes
-	// of revision garbage collection.
-	RoutingStatePending RoutingState = "pending"
-
-	// RoutingStateActive is a state for a revision which are actively referenced by a Route.
-	RoutingStateActive RoutingState = "active"
-
-	// RoutingStateReserve is a state for a revision which is no longer referenced by a Route,
-	// and is scaled down, but may be rapidly pinned to a route to be made active again.
-	RoutingStateReserve RoutingState = "reserve"
-)
 
 // SetRoutingState sets the routingState label on this Revision and updates the
 // routingStateModified annotation.
