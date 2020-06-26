@@ -60,7 +60,7 @@ func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 
 				// We don't know the reachability if the revision has just been created
 				// or it is activating.
-				if cond := rev.Status.GetCondition(v1.RevisionConditionActive); cond != nil && cond.Status == corev1.ConditionUnknown {
+				if cond := rev.Status.GetCondition(v1.RevisionConditionActive); cond.IsUnknown() {
 					return av1alpha1.ReachabilityUnknown
 				}
 
