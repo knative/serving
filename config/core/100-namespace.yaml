@@ -17,6 +17,4 @@ kind: Namespace
 metadata:
   name: knative-serving
   labels:
-    # TODO(mattmoor): We should not require any istio annotations.
-    istio-injection: enabled
     serving.knative.dev/release: devel
