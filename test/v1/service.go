@@ -89,26 +89,36 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 	}, nil
 }
 
+// CreateServiceReadyForMultiContainer creates a new Service for multi container in 'Ready' state . This function expects Service
+// name passed in through 'names'. Names is updated with the Route and Configuration created by the Service
+// and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateServiceReadyForMultiContainer(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+	t.Log("Creating a new Service", "service", names.Service)
+	svc, err := CreateServiceForMultiContainer(t, clients, *names, fopt...)
+	if err != nil {
+		return nil, err
+	}
+	return getResourceObjects(t, clients, names, svc)
+}
+
 // CreateServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name
 // passed in through 'names'.  Names is updated with the Route and Configuration created by the Service
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
 func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
-	s := &v1.Service{}
-	for _, opt := range fopt {
-		opt(s)
-	}
-	if len(s.Spec.Template.Spec.Containers) == 0 {
-		if names.Image == "" {
-			return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
-		}
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 	t.Log("Creating a new Service", "service", names.Service)
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
+	return getResourceObjects(t, clients, names, svc)
+}
 
+func getResourceObjects(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, svc *v1.Service) (*ResourceObjects, error) {
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -124,7 +134,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	}
 
 	t.Log("Checking to ensure Service Status is populated for Ready service")
-	err = validateCreatedServiceStatus(clients, names)
+	err := validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +149,17 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	service := Service(names, fopt...)
+	svc := Service(names, fopt...)
+	return createService(t, clients, svc)
+}
+
+// CreateServiceForMultiContainer creates a service in namespace with the name names.Service
+func CreateServiceForMultiContainer(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
+	svc := ServiceForMultiContainer(names, fopt...)
+	return createService(t, clients, svc)
+}
+
+func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (*v1.Service, error) {
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
@@ -206,21 +226,15 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // Service returns a Service object in namespace with the name names.Service
 // that uses the image specified by names.Image.
 func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
-	var a []rtesting.ServiceOption
-	s := &v1.Service{}
-	for _, opt := range fopt {
-		opt(s)
-	}
-	if len(s.Spec.Template.Spec.Containers) != 0 {
-		a = append([]rtesting.ServiceOption{
-			rtesting.WithConfigSpec(*ConfigurationSpecForMultiContainer(s.Spec.Template.Spec.Containers)),
-		}, fopt...)
-	} else {
-		a = append([]rtesting.ServiceOption{
-			rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
-		}, fopt...)
-	}
+	a := append([]rtesting.ServiceOption{
+		rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
+	}, fopt...)
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
+}
+
+// ServiceForMultiContainer returns a Service object in namespace with the name names.Service
+func ServiceForMultiContainer(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
+	return rtesting.ServiceWithoutNamespace(names.Service, fopt...)
 }
 
 // WaitForServiceState polls the status of the Service called name

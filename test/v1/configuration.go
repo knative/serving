@@ -112,20 +112,6 @@ func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
 	}
 }
 
-// ConfigurationSpecForMultiContainer returns the spec of a configuration to be used throughout different
-// CRD helpers.
-func ConfigurationSpecForMultiContainer(containers []corev1.Container) *v1.ConfigurationSpec {
-	return &v1.ConfigurationSpec{
-		Template: v1.RevisionTemplateSpec{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: containers,
-				},
-			},
-		},
-	}
-}
-
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
 func Configuration(names test.ResourceNames, fopt ...rtesting.ConfigOption) *v1.Configuration {

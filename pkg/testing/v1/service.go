@@ -191,7 +191,6 @@ func WithContainerConcurrency(cc int64) ServiceOption {
 func WithVolume(name, mountPath string, volumeSource corev1.VolumeSource) ServiceOption {
 	return func(svc *v1.Service) {
 		rt := &svc.Spec.ConfigurationSpec.Template.Spec
-
 		rt.Containers[0].VolumeMounts = append(rt.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      name,

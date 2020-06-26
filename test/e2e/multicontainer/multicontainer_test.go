@@ -55,7 +55,7 @@ func TestMultiContainer(t *testing.T) {
 
 	t.Log("Creating a new Service")
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
+	resources, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers = containers
 	})
 	if err != nil {
