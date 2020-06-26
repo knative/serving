@@ -117,7 +117,7 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
 	}
-	annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprintf("%d", time.Now().Unix())
+	annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprint(time.Now().Unix())
 }
 
 // IsReachable returns whether or not the revision can be reached by a route.
