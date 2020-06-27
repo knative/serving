@@ -334,30 +334,36 @@ func TestGetContainer(t *testing.T) {
 }
 
 func TestSetRoutingState(t *testing.T) {
+	// Test retrieving routing state and modified
 	rev := &Revision{}
 	rev.SetRoutingState(RoutingStateActive)
-
 	if state := rev.GetRoutingState(); state != RoutingStateActive {
 		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
 	}
-
 	modified := rev.GetRoutingStateModified()
 	empty := time.Time{}
 	if modified == empty {
 		t.Errorf("expected a timestamp. got %v", modified)
 	}
 
-	rev.SetRoutingState(RoutingStateActive) // should be no-op
-
+	// Test that no-op modifications don't bump timestamps.
+	rev.SetRoutingState(RoutingStateActive)
 	if rev.GetRoutingStateModified() != modified {
 		t.Errorf("modified was bumped, but no change expected.")
 	}
 
+	// Test the actual modifications do bump timestamps.
 	rev.SetRoutingState(RoutingStateReserve)
 	if state := rev.GetRoutingState(); state != RoutingStateReserve {
 		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
 	}
 	if rev.GetRoutingStateModified() != modified {
 		t.Errorf("expected modified to be bumped.")
+	}
+
+	// Test invalid timestamps.
+	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = "invalid"
+	if rev.GetRoutingStateModified() != empty {
+		t.Errorf("expected default value for unparsable time.")
 	}
 }
