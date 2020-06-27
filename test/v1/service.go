@@ -95,7 +95,8 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // Returns error if the service does not come up correctly.
 func CreateServiceReadyForMultiContainer(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	t.Log("Creating a new Service", "service", names.Service)
-	svc, err := CreateServiceForMultiContainer(t, clients, *names, fopt...)
+	svc := rtesting.ServiceWithoutNamespace(names.Service, fopt...)
+	svc, err := createService(t, clients, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -150,12 +151,6 @@ func getResourceObjects(t pkgTest.T, clients *test.Clients, names *test.Resource
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
 	svc := Service(names, fopt...)
-	return createService(t, clients, svc)
-}
-
-// CreateServiceForMultiContainer creates a service in namespace with the name names.Service
-func CreateServiceForMultiContainer(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	svc := ServiceForMultiContainer(names, fopt...)
 	return createService(t, clients, svc)
 }
 
@@ -230,11 +225,6 @@ func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Servi
 		rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
 	}, fopt...)
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
-}
-
-// ServiceForMultiContainer returns a Service object in namespace with the name names.Service
-func ServiceForMultiContainer(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
-	return rtesting.ServiceWithoutNamespace(names.Service, fopt...)
 }
 
 // WaitForServiceState polls the status of the Service called name
