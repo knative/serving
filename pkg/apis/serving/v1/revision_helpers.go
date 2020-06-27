@@ -107,17 +107,38 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 // SetRoutingState sets the routingState label on this Revision and updates the
 // routingStateModified annotation.
 func (r *Revision) SetRoutingState(state RoutingState) {
-	labels := r.Labels
-	if labels == nil {
-		labels = make(map[string]string, 1)
+	stateStr := string(state)
+	if r.Labels[serving.RoutingStateLabelKey] == stateStr {
+		return // Don't update timestamp if no change
 	}
-	labels[serving.RoutingStateLabelKey] = string(state)
 
-	annotations := r.Annotations
-	if annotations == nil {
-		annotations = make(map[string]string, 1)
+	if r.Labels == nil {
+		r.Labels = make(map[string]string, 1)
 	}
-	annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprint(time.Now().Unix())
+	r.Labels[serving.RoutingStateLabelKey] = stateStr
+
+	if r.Annotations == nil {
+		r.Annotations = make(map[string]string, 1)
+	}
+	r.Annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprint(time.Now().Format(time.RFC3339))
+}
+
+// GetRoutingState retrieves the RoutingState label
+func (r *Revision) GetRoutingState() RoutingState {
+	return RoutingState(r.ObjectMeta.Labels[serving.RoutingStateLabelKey])
+}
+
+// GetRoutingStateModified retrieves the RoutingStateModified annotation
+func (r *Revision) GetRoutingStateModified() time.Time {
+	val := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
+	if val == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.RFC3339, val)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
 }
 
 // IsReachable returns whether or not the revision can be reached by a route.

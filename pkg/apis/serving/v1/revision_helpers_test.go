@@ -332,3 +332,32 @@ func TestGetContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestSetRoutingState(t *testing.T) {
+	rev := &Revision{}
+	rev.SetRoutingState(RoutingStateActive)
+
+	if state := rev.GetRoutingState(); state != RoutingStateActive {
+		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
+	}
+
+	modified := rev.GetRoutingStateModified()
+	empty := time.Time{}
+	if modified == empty {
+		t.Errorf("expected a timestamp. got %v", modified)
+	}
+
+	rev.SetRoutingState(RoutingStateActive) // should be no-op
+
+	if rev.GetRoutingStateModified() != modified {
+		t.Errorf("modified was bumped, but no change expected.")
+	}
+
+	rev.SetRoutingState(RoutingStateReserve)
+	if state := rev.GetRoutingState(); state != RoutingStateReserve {
+		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
+	}
+	if rev.GetRoutingStateModified() != modified {
+		t.Errorf("expected modified to be bumped.")
+	}
+}
