@@ -131,9 +131,6 @@ func (r *Revision) GetRoutingState() RoutingState {
 // GetRoutingStateModified retrieves the RoutingStateModified annotation
 func (r *Revision) GetRoutingStateModified() time.Time {
 	val := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
-	if val == "" {
-		return time.Time{}
-	}
 	parsed, err := time.Parse(time.RFC3339, val)
 	if err != nil {
 		return time.Time{}

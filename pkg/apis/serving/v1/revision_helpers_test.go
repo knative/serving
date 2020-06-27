@@ -362,6 +362,10 @@ func TestSetRoutingState(t *testing.T) {
 	}
 
 	// Test invalid timestamps.
+	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = ""
+	if rev.GetRoutingStateModified() != empty {
+		t.Errorf("expected default value for unparsable time.")
+	}
 	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = "invalid"
 	if rev.GetRoutingStateModified() != empty {
 		t.Errorf("expected default value for unparsable time.")
