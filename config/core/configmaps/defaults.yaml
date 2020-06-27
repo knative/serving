@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 41ee9e08
+    knative.dev/example-checksum: 90c41192
 data:
   _example: |
     ################################
@@ -109,14 +109,15 @@ data:
     # specify 0 (i.e. unbounded) for containerConcurrency.
     allow-container-concurrency-zero: "true"
 
-    # Whether to disable service links on knative services.
-    # If set to `true` the service links will be disabled for all
-    # knative services.
-    # If set to `false` kubernetes default (true) or explicitly
-    # specified value will be propagated.
+    # Service link pod spec setting defaulting for knative services.
+    # If set to `true` or `false` the service links flag will be explicitly
+    # set to this value on the pod spec, overriding user provided value
+    # in the revision template.
+    # If set to `default` the flag will be unset or revision provided value
+    # will be propagated to the pod spec.
     # See: https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service
     #
-    # In environments with large number of services it is suggeted
-    # to be set to `false`.
+    # In environments with large number of services it is suggested
+    # to set this value to `false`.
     # See https://github.com/knative/serving/issues/8498.
-    disable-service-links: "false"
+    service-links: "default"

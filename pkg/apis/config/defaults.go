@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"strings"
 	"text/template"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -31,6 +32,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	cm "knative.dev/pkg/configmap"
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -83,6 +85,20 @@ func defaultDefaultsConfig() *Defaults {
 	}
 }
 
+func asTriState(key string, target **bool) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			switch {
+			case strings.EqualFold(raw, "true"):
+				*target = ptr.Bool(true)
+			case strings.EqualFold(raw, "false"):
+				*target = ptr.Bool(false)
+			}
+		}
+		return nil
+	}
+}
+
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultDefaultsConfig()
@@ -91,7 +107,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
-		cm.AsBool("disable-service-links", &nc.DisableServiceLinks),
+		asTriState("service-links", &nc.ServiceLinks),
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
@@ -157,10 +173,9 @@ type Defaults struct {
 	// a containerConcurrency of 0 (i.e. unbounded).
 	AllowContainerConcurrencyZero bool
 
-	// If true the `enableServiceLinks` on the pod template will
-	// be forced to false.
-	// See: https://github.com/knative/serving/issues/8498.
-	DisableServiceLinks bool
+	// Permits defaulting of `enableServiceLinks` pod spec field.
+	// See: https://github.com/knative/serving/issues/8498 for details.
+	ServiceLinks *bool
 
 	RevisionCPURequest              *resource.Quantity
 	RevisionCPULimit                *resource.Quantity
