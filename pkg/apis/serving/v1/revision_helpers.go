@@ -53,6 +53,9 @@ const (
 )
 
 const (
+	// RoutingStateUnset is the empty value for routing state, this state is unexpected.
+	RoutingStateUnset RoutingState = ""
+
 	// RoutingStatePending is a state after a revision is created, but before
 	// its routing state has been determined. It is treated like active for the purposes
 	// of revision garbage collection.
