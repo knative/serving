@@ -91,6 +91,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
+		cm.AsBool("disable-service-links", &nc.DisableServiceLinks),
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
@@ -155,6 +156,11 @@ type Defaults struct {
 	// AllowContainerConcurrencyZero determines whether users are permitted to specify
 	// a containerConcurrency of 0 (i.e. unbounded).
 	AllowContainerConcurrencyZero bool
+
+	// If true the `enableServiceLinks` on the pod template will
+	// be forced to false.
+	// See: https://github.com/knative/serving/issues/8498.
+	DisableServiceLinks bool
 
 	RevisionCPURequest              *resource.Quantity
 	RevisionCPULimit                *resource.Quantity

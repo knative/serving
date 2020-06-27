@@ -77,6 +77,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
 			UserContainerNameTemplate:    "{{.Name}}",
+			DisableServiceLinks:          true,
 		},
 		data: map[string]string{
 			"revision-timeout-seconds":         "123",
@@ -85,6 +86,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"container-concurrency-max-limit":  "1984",
 			"container-name-template":          "{{.Name}}",
 			"allow-container-concurrency-zero": "false",
+			"disable-service-links":            "true",
 		},
 	}, {
 		name:    "invalid allow container concurrency zero flag value",

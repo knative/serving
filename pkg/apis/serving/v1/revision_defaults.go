@@ -105,6 +105,9 @@ func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Co
 	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
 		rs.applyProbes(container)
 	}
+	if cfg.Defaults.DisableServiceLinks {
+		rs.PodSpec.EnableServiceLinks = ptr.Bool(false)
+	}
 
 	vms := container.VolumeMounts
 	for i := range vms {
