@@ -106,7 +106,7 @@ func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Co
 		rs.applyProbes(container)
 	}
 
-	if rs.PodSpec.EnableServiceLinks == nil && cfg.Defaults.EnableServiceLinks != nil {
+	if rs.PodSpec.EnableServiceLinks == nil {
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
 	}
 
