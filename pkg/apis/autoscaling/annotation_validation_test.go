@@ -18,10 +18,12 @@ package autoscaling
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/apis"
 )
 
 func TestValidateScaleBoundAnnotations(t *testing.T) {
@@ -122,11 +124,11 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "target negative",
 		annotations: map[string]string{TargetAnnotationKey: "-11"},
-		expectErr:   "invalid value: -11: " + TargetAnnotationKey,
+		expectErr:   apis.ErrOutOfBoundsValue(-11, TargetMin, math.MaxFloat64, TargetAnnotationKey).Error(),
 	}, {
 		name:        "target 0",
 		annotations: map[string]string{TargetAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: " + TargetAnnotationKey,
+		expectErr:   apis.ErrOutOfBoundsValue(0, TargetMin, math.MaxFloat64, TargetAnnotationKey).Error(),
 	}, {
 		name:        "target okay",
 		annotations: map[string]string{TargetAnnotationKey: "11"},
