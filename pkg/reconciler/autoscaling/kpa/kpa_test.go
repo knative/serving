@@ -49,7 +49,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1160,7 +1159,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}
 }
 
-func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
+func TestControllerReconcilesDecierderCreatesAndDeletes(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	fakeDeciders := newTestDeciders()
@@ -1192,15 +1191,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-
-	sksl := fakesksinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		l, err := sksl.List(labels.Everything())
-		// We only create a single SKS object.
-		return len(l) > 0, err
-	}); err != nil {
-		t.Fatal("Failed to see SKS propagation:", err)
-	}
+	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 
