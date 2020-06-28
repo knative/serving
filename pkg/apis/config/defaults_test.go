@@ -78,7 +78,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
 			UserContainerNameTemplate:    "{{.Name}}",
-			EnableServiceLinks:                 ptr.Bool(true),
+			EnableServiceLinks:           ptr.Bool(true),
 		},
 		data: map[string]string{
 			"revision-timeout-seconds":         "123",
@@ -98,7 +98,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
-			EnableServiceLinks:                  ptr.Bool(false),
+			EnableServiceLinks:            ptr.Bool(false),
 		},
 		data: map[string]string{
 			"enable-service-links": "false",
