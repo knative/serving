@@ -1159,7 +1159,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}
 }
 
-func TestControllerReconcilesDecierderCreatesAndDeletes(t *testing.T) {
+func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	fakeDeciders := newTestDeciders()
