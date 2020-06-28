@@ -106,6 +106,10 @@ func (rs *RevisionSpec) applyDefault(container *corev1.Container, cfg *config.Co
 		rs.applyProbes(container)
 	}
 
+	if rs.PodSpec.EnableServiceLinks == nil {
+		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
+	}
+
 	vms := container.VolumeMounts
 	for i := range vms {
 		vms[i].ReadOnly = true
