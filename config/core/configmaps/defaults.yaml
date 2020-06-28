@@ -109,15 +109,11 @@ data:
     # specify 0 (i.e. unbounded) for containerConcurrency.
     allow-container-concurrency-zero: "true"
 
-    # Service link pod spec setting defaulting for knative services.
-    # If set to `true` or `false` the service links flag will be explicitly
-    # set to this value on the pod spec, overriding user provided value
-    # in the revision template.
-    # If set to `default` the flag will be unset or revision provided value
-    # will be propagated to the pod spec.
+		# enable-service-links specifies the default value used for the
+    # enableServiceLinks field of the PodSpec, when it is omitted by the user.
     # See: https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service
     #
     # In environments with large number of services it is suggested
     # to set this value to `false`.
     # See https://github.com/knative/serving/issues/8498.
-    service-links: "default"
+    enable-service-links: "default"

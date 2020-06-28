@@ -107,7 +107,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsString("container-name-template", &nc.UserContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
-		asTriState("service-links", &nc.ServiceLinks),
+		asTriState("enable-service-links", &nc.EnableServiceLinks),
 
 		cm.AsInt64("revision-timeout-seconds", &nc.RevisionTimeoutSeconds),
 		cm.AsInt64("max-revision-timeout-seconds", &nc.MaxRevisionTimeoutSeconds),
@@ -175,7 +175,7 @@ type Defaults struct {
 
 	// Permits defaulting of `enableServiceLinks` pod spec field.
 	// See: https://github.com/knative/serving/issues/8498 for details.
-	ServiceLinks *bool
+	EnableServiceLinks *bool
 
 	RevisionCPURequest              *resource.Quantity
 	RevisionCPULimit                *resource.Quantity

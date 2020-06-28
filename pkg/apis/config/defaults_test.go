@@ -78,7 +78,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit: 1984,
 			RevisionCPURequest:           &oneTwoThree,
 			UserContainerNameTemplate:    "{{.Name}}",
-			ServiceLinks:                 ptr.Bool(true),
+			EnableServiceLinks:                 ptr.Bool(true),
 		},
 		data: map[string]string{
 			"revision-timeout-seconds":         "123",
@@ -87,7 +87,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"container-concurrency-max-limit":  "1984",
 			"container-name-template":          "{{.Name}}",
 			"allow-container-concurrency-zero": "false",
-			"service-links":                    "true",
+			"enable-service-links":             "true",
 		},
 	}, {
 		name:    "service links false",
@@ -98,10 +98,10 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:     DefaultUserContainerName,
 			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero: true,
-			ServiceLinks:                  ptr.Bool(false),
+			EnableServiceLinks:                  ptr.Bool(false),
 		},
 		data: map[string]string{
-			"service-links": "false",
+			"enable-service-links": "false",
 		},
 	}, {
 		name:    "invalid allow container concurrency zero flag value",
