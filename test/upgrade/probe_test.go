@@ -31,8 +31,8 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-var(
-  successFraction =  flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
+var (
+	successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 )
 
 const pipe = "/tmp/prober-signal"
