@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 
 // syncLabels makes sure that the revisions and configurations referenced from
 // a Route are labeled with route labels.
-func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
+func (c *Reconciler) syncNewLabels(ctx context.Context, r *v1.Route) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -90,7 +90,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 }
 
 // clearLabels removes any labels for a named route from configurations and revisions.
-func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
+func (c *Reconciler) clearNewLabels(ctx context.Context, ns, name string) error {
 	racc := &revision{r: c}
 	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString()); err != nil {
 		return err
@@ -101,7 +101,7 @@ func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
+func setNewLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
@@ -127,7 +127,7 @@ func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names
 // deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String) error {
+func deleteNewLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String) error {
 	oldList, err := acc.list(ns, name)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor,
 // setRouteLabel toggles the route label on the specified element through the provided accessor.
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
+func setNewRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
 			"labels": map[string]interface{}{
