@@ -32,7 +32,7 @@ import (
 )
 
 var(
-  successFraction =  flag.Float64(&successFraction, "probe`.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
+  successFraction =  flag.Float64("probe`.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 )
 
 const pipe = "/tmp/prober-signal"
