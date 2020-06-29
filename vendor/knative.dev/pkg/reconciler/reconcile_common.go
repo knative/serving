@@ -76,7 +76,7 @@ func PostProcessReconcile(ctx context.Context, resource, oldResource duckv1.KRSh
 // where the condition has changed during reconciliation. This also ensures that all advanced
 // conditions share the same timestamp.
 func groomConditionsTransitionTime(resource, oldResource duckv1.KRShaped) {
-	now := apis.VolatileTime{Inner: metav1.NewTime(time.Now())}
+	now := metav1.NewTime(time.Now())
 	sts := resource.GetStatus()
 	for i := range sts.Conditions {
 		cond := &sts.Conditions[i]

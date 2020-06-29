@@ -18,6 +18,7 @@ package apis
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Conditions is the schema for the conditions portion of the payload
@@ -70,10 +71,8 @@ type Condition struct {
 	Severity ConditionSeverity `json:"severity,omitempty" description:"how to interpret failures of this condition, one of Error, Warning, Info"`
 
 	// LastTransitionTime is the last time the condition transitioned from one status to another.
-	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
-	// differences (all other things held constant).
 	// +optional
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// The reason for the condition's last transition.
 	// +optional
