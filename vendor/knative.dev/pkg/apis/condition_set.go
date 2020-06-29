@@ -17,7 +17,6 @@ limitations under the License.
 package apis
 
 import (
-	"reflect"
 	"sort"
 	"time"
 
@@ -193,12 +192,6 @@ func (r conditionsImpl) SetCondition(cond Condition) {
 	for _, c := range r.accessor.GetConditions() {
 		if c.Type != t {
 			conditions = append(conditions, c)
-		} else {
-			// If we'd only update the LastTransitionTime, then return.
-			cond.LastTransitionTime = c.LastTransitionTime
-			if reflect.DeepEqual(cond, c) {
-				return
-			}
 		}
 	}
 	cond.LastTransitionTime = VolatileTime{Inner: metav1.NewTime(time.Now())}
