@@ -93,6 +93,7 @@ func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmet
 				b, err := json.Marshal(msg)
 				if err != nil {
 					logger.Errorw("Error while marshaling stat", zap.Error(err))
+					continue
 				}
 				if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
 					logger.Errorw("Error while sending stat", zap.Error(err))
