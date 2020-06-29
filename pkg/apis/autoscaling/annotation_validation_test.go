@@ -122,11 +122,11 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "target negative",
 		annotations: map[string]string{TargetAnnotationKey: "-11"},
-		expectErr:   "invalid value: -11: " + TargetAnnotationKey,
+		expectErr:   "target -11 should be at least 0.01: " + TargetAnnotationKey,
 	}, {
 		name:        "target 0",
 		annotations: map[string]string{TargetAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: " + TargetAnnotationKey,
+		expectErr:   "target 0 should be at least 0.01: " + TargetAnnotationKey,
 	}, {
 		name:        "target okay",
 		annotations: map[string]string{TargetAnnotationKey: "11"},
