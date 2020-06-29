@@ -32,7 +32,6 @@ import (
 	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
 	_ "knative.dev/pkg/system/testing"
@@ -637,21 +636,21 @@ func paMarkActive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkActive()
 
 	// This works because the conditions are sorted alphabetically
-	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+	pa.Status.Conditions[0].LastTransitionTime = metav1.NewTime(ltt)
 }
 
 func paMarkInactive(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkInactive("", "")
 
 	// This works because the conditions are sorted alphabetically
-	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+	pa.Status.Conditions[0].LastTransitionTime = metav1.NewTime(ltt)
 }
 
 func paMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.MarkActivating("", "")
 
 	// This works because the conditions are sorted alphabetically
-	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
+	pa.Status.Conditions[0].LastTransitionTime = metav1.NewTime(ltt)
 }
 
 func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *appsv1.Deployment, expectedScale int32) {
@@ -748,5 +747,5 @@ func (c *countingProber) Offer(ctx context.Context, target string, arg interface
 func markSKSInProxyFor(sks *nv1a1.ServerlessService, d time.Duration) {
 	sks.Status.MarkActivatorEndpointsPopulated()
 	// This works because the conditions are sorted alphabetically
-	sks.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-d))}
+	sks.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-d))
 }

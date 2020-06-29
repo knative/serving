@@ -113,11 +113,9 @@ func TestCanScaleToZero(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Second)),
 					// LTT = 30 seconds ago.
 				}},
 			},
@@ -129,11 +127,9 @@ func TestCanScaleToZero(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
 					// LTT = 10 seconds ago.
 				}},
 			},
@@ -145,11 +141,10 @@ func TestCanScaleToZero(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
+
 					// LTT = 10 seconds ago.
 				}},
 			},
@@ -216,11 +211,9 @@ func TestInactiveFor(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Second)),
 					// LTT = 30 seconds ago.
 				}},
 			},
@@ -231,11 +224,9 @@ func TestInactiveFor(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionFalse,
+					LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
 					// LTT = 10 seconds ago.
 				}},
 			},
@@ -300,11 +291,9 @@ func TestActiveFor(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionTrue,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Second)),
 					// LTT = 30 seconds ago.
 				}},
 			},
@@ -315,11 +304,9 @@ func TestActiveFor(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionTrue,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
 					// LTT = 10 seconds ago.
 				}},
 			},
@@ -378,11 +365,9 @@ func TestCanFailActivation(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionUnknown,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionUnknown,
+					LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Second)),
 					// LTT = 30 seconds ago.
 				}},
 			},
@@ -394,11 +379,9 @@ func TestCanFailActivation(t *testing.T) {
 		status: PodAutoscalerStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionUnknown,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
+					Type:               PodAutoscalerConditionActive,
+					Status:             corev1.ConditionUnknown,
+					LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
 					// LTT = 10 seconds ago.
 				}},
 			},

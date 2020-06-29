@@ -173,7 +173,7 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 }
 
 func markOld(pa *asv1a1.PodAutoscaler) {
-	pa.Status.Conditions[0].LastTransitionTime.Inner.Time = time.Now().Add(-1 * time.Hour)
+	pa.Status.Conditions[0].LastTransitionTime.Time = time.Now().Add(-1 * time.Hour)
 }
 
 func markActivating(pa *asv1a1.PodAutoscaler) {
