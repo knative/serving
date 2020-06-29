@@ -295,6 +295,7 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Knative CRD"
   SERVING_RELEASE_YAML=""
+  SERVING_POST_INSTALL_JOBS_YAML
   if [[ "$1" == "HEAD" ]]; then
     # If we need to build from source, then kick that off first.
     build_knative_from_source
@@ -307,6 +308,8 @@ function install_knative_serving_standard() {
     local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
 
     local SERVING_RELEASE_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}.yaml"
+    local SERVING_POST_INSTALL_JOBS_YAML=${TMP_DIR}/"serving-${LATEST_SERVING_RELEASE_VERSION}-post-install-jobs.yaml"
+
     wget "${url}/serving-crds.yaml" -O "${SERVING_RELEASE_YAML}" \
       || fail_test "Unable to download latest knative/serving CRD file."
     wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
