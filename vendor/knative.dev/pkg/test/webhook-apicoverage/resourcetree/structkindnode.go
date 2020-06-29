@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	v1TimeType       = "v1.Time"
-	volatileTimeType = "apis.VolatileTime"
+	v1TimeType = "v1.Time"
 )
 
 // StructKindNode represents nodes in the resource tree of type reflect.Kind.Struct
@@ -64,9 +63,9 @@ func (s *StructKindNode) buildChildNodes(t reflect.Type) {
 
 func (s *StructKindNode) isTimeNode(t reflect.Type) bool {
 	if t.Kind() == reflect.Struct {
-		return t.String() == v1TimeType || t.String() == volatileTimeType
+		return t.String() == v1TimeType
 	} else if t.Kind() == reflect.Ptr {
-		return t.Elem().String() == v1TimeType || t.String() == volatileTimeType
+		return t.Elem().String() == v1TimeType
 	} else {
 		return false
 	}
