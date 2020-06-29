@@ -17,9 +17,6 @@ limitations under the License.
 package names
 
 import (
-	"hash/adler32"
-	"strconv"
-
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 )
@@ -41,5 +38,5 @@ func Ingress(route kmeta.Accessor) string {
 // Certificate returns the name for the Certificate
 // child resource for the given Route.
 func Certificate(route kmeta.Accessor) string {
-	return "route-" + strconv.Itoa(int(adler32.Checksum([]byte(route.GetUID()))))
+	return "route-" + string(route.GetUID())
 }

@@ -16,19 +16,16 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
-	"hash/adler32"
-	"strconv"
 	"testing"
 
 	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
+
+	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 
 	. "knative.dev/serving/pkg/testing/v1"
@@ -39,19 +36,14 @@ var (
 		"v1.default.example.com":         "",
 		"v1-current.default.example.com": "current",
 	}
-
-	fakeUID         = types.UID("12-34")
-	fakeCertName    = "route-" + strconv.Itoa(int(adler32.Checksum([]byte(fakeUID))))
-	fakeTagChecksum = "200999684"
-
-	route = Route("default", "route", WithRouteUID(fakeUID))
+	route = Route("default", "route", WithRouteUID("12345"))
 )
 
 func TestMakeCertificates(t *testing.T) {
 	want := []*netv1alpha1.Certificate{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            fmt.Sprintf("%s-%s", fakeCertName, fakeTagChecksum),
+				Name:            "route-12345-200999684",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: map[string]string{
@@ -63,12 +55,12 @@ func TestMakeCertificates(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
-				SecretName: fmt.Sprintf("%s-%s", fakeCertName, fakeTagChecksum),
+				SecretName: "route-12345-200999684",
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            fakeCertName,
+				Name:            "route-12345",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: map[string]string{
@@ -80,7 +72,7 @@ func TestMakeCertificates(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1.default.example.com"},
-				SecretName: fakeCertName,
+				SecretName: "route-12345",
 			},
 		},
 	}
@@ -91,12 +83,12 @@ func TestMakeCertificates(t *testing.T) {
 }
 
 func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
-	var orgRoute = Route("default", "route", WithRouteUID(fakeUID), WithRouteLabel(map[string]string{"label-from-route": "foo", serving.RouteLabelKey: "foo"}),
+	var orgRoute = Route("default", "route", WithRouteUID("12345"), WithRouteLabel(map[string]string{"label-from-route": "foo", serving.RouteLabelKey: "foo"}),
 		WithRouteAnnotation(map[string]string{corev1.LastAppliedConfigAnnotation: "something-last-applied", networking.CertificateClassAnnotationKey: "passdown-cert"}))
 	want := []*netv1alpha1.Certificate{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            fmt.Sprintf("%s-%s", fakeCertName, fakeTagChecksum),
+				Name:            "route-12345-200999684",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(orgRoute)},
 				Annotations: map[string]string{
@@ -108,12 +100,12 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
-				SecretName: fmt.Sprintf("%s-%s", fakeCertName, fakeTagChecksum),
+				SecretName: "route-12345-200999684",
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            fakeCertName,
+				Name:            "route-12345",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(orgRoute)},
 				Annotations: map[string]string{
@@ -125,7 +117,7 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1.default.example.com"},
-				SecretName: fakeCertName,
+				SecretName: "route-12345",
 			},
 		},
 	}

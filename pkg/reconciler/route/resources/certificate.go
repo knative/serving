@@ -47,6 +47,8 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 	for _, dnsName := range order {
 		tag := domainTagMap[dnsName]
 
+		// k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
+		// where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
 		// We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.
 		// We represent the digest in unsigned integer format with maximum value of 4,294,967,295 which are 10 digits.
 		// The "-[tag digest]" is computed only if there's a tag
