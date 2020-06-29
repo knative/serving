@@ -18,12 +18,10 @@ package apis
 
 import (
 	"sort"
-	"time"
 
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Conditions is the interface for a Resource that implements the getter and
@@ -194,7 +192,6 @@ func (r conditionsImpl) SetCondition(cond Condition) {
 			conditions = append(conditions, c)
 		}
 	}
-	cond.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, cond)
 	// Sorted for convenience of the consumer, i.e. kubectl.
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
