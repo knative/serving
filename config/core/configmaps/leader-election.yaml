@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 2a1bda27
+    knative.dev/example-checksum: 83d5c126
 data:
   _example: |
     ################################
@@ -57,10 +57,4 @@ data:
     retryPeriod: "2s"
     # enabledComponents is a comma-delimited list of component names for which
     # leader election is enabled. Valid values are:
-    #
-    # - controller
-    # - hpaautoscaler
-    # - certcontroller
-    # - istiocontroller
-    # - nscontroller
-    enabledComponents: "controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller,webhook"
+    enabledComponents: "controller,contour-ingress-controller,hpaautoscaler,certcontroller,istiocontroller,net-http01,nscontroller,webhook"
