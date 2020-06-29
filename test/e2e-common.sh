@@ -312,7 +312,7 @@ function install_knative_serving_standard() {
     wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
       || fail_test "Unable to download latest knative/serving core file."
     # TODO - switch to upgrade yaml (SERVING_POST_INSTALL_JOBS_YAML) after 0.16 is released
-    wget "${url}/serving-post-install-jobs.yaml" -O "${SERVING_POST_INSTALL_JOBS_YAML}" \
+    wget "${url}/serving-storage-version-migration.yaml" -O "${SERVING_POST_INSTALL_JOBS_YAML}" \
       || fail_test "Unable to download latest knative/serving post install file."
 
     # Replace the default system namespace with the test's system namespace.
