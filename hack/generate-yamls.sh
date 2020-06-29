@@ -56,7 +56,6 @@ readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 readonly SERVING_UPGRADE_YAML=${YAML_OUTPUT_DIR}/serving-upgrade.yaml
 
-readonly MONITORING_FILES=${YAML_OUTPUT_DIR}/monitoring.lst
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
@@ -68,7 +67,7 @@ readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-el
 
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
-  ["${MONITORING_FILES}"]="${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
+  ["${MONITORING_YAML}"]="${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
   ["${SERVING_UPGRADE_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
@@ -140,11 +139,6 @@ done
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
 
-# Use ko to concatenate them all together.
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    $(sed "s/^/-f /" < "${MONITORING_FILES}") \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
-
 # Traces via Jaeger when ElasticSearch is installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
 
@@ -163,7 +157,6 @@ ${SERVING_UPGRADE_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_NSCERT_YAML}
-${MONITORING_FILES}
 ${MONITORING_YAML}
 ${MONITORING_CORE_YAML}
 ${MONITORING_METRIC_PROMETHEUS_YAML}
