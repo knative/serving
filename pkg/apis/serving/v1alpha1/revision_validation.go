@@ -110,7 +110,7 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	case len(rs.PodSpec.Containers) > 0:
 		errs = errs.Also(rs.RevisionSpec.Validate(ctx))
 	case rs.DeprecatedContainer != nil:
-		volumes, err := serving.ValidateVolumes(rs.Volumes)
+		volumes, err := serving.ValidateVolumes(rs.Volumes, serving.AllMountedVolumes(append(rs.PodSpec.Containers, *rs.DeprecatedContainer)))
 		if err != nil {
 			errs = errs.Also(err.ViaField("volumes"))
 		}
