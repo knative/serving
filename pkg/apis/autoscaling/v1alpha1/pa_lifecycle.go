@@ -259,7 +259,7 @@ func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now t
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
+	return now.Sub(cond.LastTransitionTime.Add(dur))
 }
 
 // GetDesiredScale returns the desired scale if ever set, or -1.

@@ -91,7 +91,7 @@ type ImageCondition struct {
 	// +optional
 	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
 	// differences (all other things held constant).
-	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -155,7 +155,7 @@ func (rs *ImageStatus) SetCondition(new *ImageCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	// Deterministically order the conditions
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })

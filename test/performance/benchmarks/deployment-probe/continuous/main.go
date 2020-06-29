@@ -88,7 +88,7 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
 	}
 	seen.Insert(svc.GetName())
 	created := svc.GetCreationTimestamp().Time
-	ready := cc.LastTransitionTime.Inner.Time
+	ready := cc.LastTransitionTime.Time
 	elapsed := ready.Sub(created)
 
 	if cc.Status == corev1.ConditionTrue {

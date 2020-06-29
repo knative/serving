@@ -105,5 +105,5 @@ func (sss *ServerlessServiceStatus) ProxyFor() time.Duration {
 	if cond == nil || cond.Status != corev1.ConditionTrue {
 		return 0
 	}
-	return time.Since(cond.LastTransitionTime.Inner.Time)
+	return time.Since(cond.LastTransitionTime.Time)
 }
