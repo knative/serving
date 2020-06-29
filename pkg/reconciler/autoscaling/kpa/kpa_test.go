@@ -49,7 +49,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -69,7 +68,6 @@ import (
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
-	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -1017,7 +1015,7 @@ func TestReconcile(t *testing.T) {
 		// Make new decider if it's not in the context
 		if d := ctx.Value(deciderKey); d == nil {
 			decider := resources.MakeDecider(
-				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
+				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 			decider.Status.DesiredScale = defaultScale
 			decider.Status.NumActivators = scaling.MinActivators
 			decider.Generation = 2112
@@ -1161,7 +1159,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	}
 }
 
-func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
+func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	fakeDeciders := newTestDeciders()
@@ -1193,15 +1191,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-
-	sksl := fakesksinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		l, err := sksl.List(labels.Everything())
-		// We only create a single SKS object.
-		return len(l) > 0, err
-	}); err != nil {
-		t.Fatal("Failed to see SKS propagation:", err)
-	}
+	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 
@@ -1271,7 +1261,7 @@ func TestUpdate(t *testing.T) {
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
-	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, sks.Status.PrivateServiceName)
+	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler)
 
 	// The Reconciler won't do any work until it becomes the leader.
 	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
@@ -1659,7 +1649,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)

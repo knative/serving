@@ -362,6 +362,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	}
 
 	// Invalid domain template for wildcard certs
+	oldDomain := want
 	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      network.ConfigName,
@@ -373,12 +374,18 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 	}
 	watcher.OnChange(netCfg)
-
 	// With an invalid domain template nothing change
-	select {
-	case <-certEvents:
-		t.Error("Unexpected event")
-	case <-time.After(100 * time.Millisecond):
+	done := time.After(100 * time.Millisecond)
+	for {
+		select {
+		case cert := <-certEvents:
+			// We don't expect the domain of cert to be changed.
+			if diff := cmp.Diff(oldDomain, cert.Spec.DNSNames); diff != "" {
+				t.Fatalf("DNSNames should not be changed: (-want, +got) = %s", diff)
+			}
+		case <-done:
+			return
+		}
 	}
 }
 

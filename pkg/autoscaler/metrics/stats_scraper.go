@@ -128,7 +128,6 @@ type serviceScraper struct {
 	directClient scrapeClient
 	meshClient   scrapeClient
 
-	counter  resources.EndpointsCounter
 	url      string
 	statsCtx context.Context
 	logger   *zap.SugaredLogger
@@ -139,8 +138,8 @@ type serviceScraper struct {
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter,
-	podAccessor resources.PodAccessor, logger *zap.SugaredLogger) (StatsScraper, error) {
+func NewStatsScraper(metric *av1alpha1.Metric, podAccessor resources.PodAccessor,
+	logger *zap.SugaredLogger) (StatsScraper, error) {
 	directClient, err := newHTTPScrapeClient(client)
 	if err != nil {
 		return nil, err
@@ -149,20 +148,16 @@ func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounte
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, podAccessor, directClient, meshClient, logger)
+	return newServiceScraperWithClient(metric, podAccessor, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
-	counter resources.EndpointsCounter,
 	podAccessor resources.PodAccessor,
 	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) (*serviceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
-	}
-	if counter == nil {
-		return nil, errors.New("counter must not be nil")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
@@ -179,7 +174,6 @@ func newServiceScraperWithClient(
 	return &serviceScraper{
 		directClient:    directClient,
 		meshClient:      meshClient,
-		counter:         counter,
 		url:             urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		podAccessor:     podAccessor,
 		podsAddressable: true,
@@ -197,7 +191,7 @@ func urlFromTarget(t, ns string) string {
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
-	readyPodsCount, err := s.counter.ReadyCount()
+	readyPodsCount, err := s.podAccessor.ReadyCount()
 	if err != nil {
 		return emptyStat, ErrFailedGetEndpoints
 	}
@@ -297,7 +291,6 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 
 func computeAverages(results <-chan Stat, sample, total float64) Stat {
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 
@@ -379,7 +372,6 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	close(youngStatCh)
 
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 

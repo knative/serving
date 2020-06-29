@@ -97,7 +97,7 @@ func (r *Revision) GetProtocol() (p net.ProtocolType) {
 	p = net.ProtocolHTTP1
 
 	ports := r.Spec.GetContainer().Ports
-	if len(ports) <= 0 {
+	if len(ports) == 0 {
 		return
 	}
 

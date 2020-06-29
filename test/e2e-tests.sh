@@ -49,6 +49,16 @@ function wait_for_leader_controller() {
   return 1
 }
 
+function enable_tag_header_based_routing() {
+  echo -n "Enabling Tag Header Based Routing"
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
+}
+
+function disable_tag_header_based_routing() {
+  echo -n "Disabling Tag Header Based Routing"
+  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -91,16 +101,14 @@ kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=m
 add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 
 # Save activator HPA original values for later use.
-min_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.minReplicas}')
-max_replicas=$(kubectl get hpa activator -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.maxReplicas}')
-hpa_template='{"spec": {"maxReplicas": %s, "minReplicas": %s}}'
+hpa_spec=$(echo '{"spec": {'$(kubectl get hpa activator -n "knative-serving" -ojsonpath='"minReplicas": {.spec.minReplicas}, "maxReplicas": {.spec.maxReplicas}')'}}')
 
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
-  --patch "$(printf "$hpa_template" "2" "2")" || failed=1
+  --patch '{"spec": {"minReplicas": 2, "maxReplicas": 2}}' || failed=1
 add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
   --type 'merge' \
-  --patch $(printf "$hpa_template" "$max_replicas" "$min_replicas")" SIGKILL SIGTERM SIGQUIT
+  --patch $hpa_spec" SIGKILL SIGTERM SIGQUIT
 
 for deployment in controller autoscaler-hpa webhook; do
   # Make sure all pods run in leader-elected mode.
@@ -143,6 +151,11 @@ if (( HTTPS )); then
   turn_off_auto_tls
 fi
 
+enable_tag_header_based_routing
+add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+disable_tag_header_based_routing
+
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
 kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
@@ -170,17 +183,6 @@ fi
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
 
-kubectl get cm config-leader-election -n "${SYSTEM_NAMESPACE}" -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -
-for deployment in controller autoscaler-hpa; do
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=1
-done
-kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
-  --type "merge" \
-  --patch "$(printf "$hpa_template" "2" "2")"
-
-# Dump cluster state in case of failure
-(( failed )) && dump_cluster_state
 (( failed )) && fail_test
 
 success

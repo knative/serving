@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/activator/util"
@@ -54,10 +55,13 @@ type activationHandler struct {
 func New(ctx context.Context, t Throttler) http.Handler {
 	defaultTransport := pkgnet.AutoTransport
 	return &activationHandler{
-		transport:        defaultTransport,
-		tracingTransport: &ochttp.Transport{Base: defaultTransport},
-		throttler:        t,
-		bufferPool:       network.NewBufferPool(),
+		transport: defaultTransport,
+		tracingTransport: &ochttp.Transport{
+			Base:        defaultTransport,
+			Propagation: tracecontextb3.B3Egress,
+		},
+		throttler:  t,
+		bufferPool: network.NewBufferPool(),
 	}
 }
 

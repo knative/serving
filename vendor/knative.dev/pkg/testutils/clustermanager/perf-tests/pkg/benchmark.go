@@ -62,13 +62,15 @@ type ClusterConfig struct {
 // here we returns all subfolder names of the root folder.
 func benchmarkNames(benchmarkRoot string) ([]string, error) {
 	names := make([]string, 0)
-	dirs, err := ioutil.ReadDir(benchmarkRoot)
+	files, err := ioutil.ReadDir(benchmarkRoot)
 	if err != nil {
 		return names, fmt.Errorf("failed to list all benchmarks under %q: %w", benchmarkRoot, err)
 	}
 
-	for _, dir := range dirs {
-		names = append(names, dir.Name())
+	for _, f := range files {
+		if f.Mode().IsDir() {
+			names = append(names, f.Name())
+		}
 	}
 	return names, nil
 }

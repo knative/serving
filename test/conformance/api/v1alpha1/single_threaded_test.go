@@ -91,7 +91,7 @@ func TestSingleConcurrency(t *testing.T) {
 					return nil
 				default:
 					res, err := client.Do(req)
-					requestIdx = requestIdx + 1
+					requestIdx++
 					if err != nil {
 						return fmt.Errorf("error making request, thread index: %d, request index: %d: %w", threadIdx, requestIdx, err)
 					}

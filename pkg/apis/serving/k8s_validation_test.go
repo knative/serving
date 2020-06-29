@@ -43,7 +43,7 @@ func withMultiContainer() configOption {
 
 func withFieldRef() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.FieldRef = config.Enabled
+		cfg.Features.PodSpecFieldRef = config.Enabled
 		return cfg
 	}
 }
@@ -336,6 +336,48 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Paths:   []string{"containers[0].ports"},
 			Details: "Only a single port is allowed",
 		}),
+	}, {
+		name: "flag enabled: multiple containers with illegal env variable defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}, {
+					Name:  "K_SERVICE",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want: &apis.FieldError{
+			Message: `"K_SERVICE" is a reserved environment variable`,
+			Paths:   []string{"containers[1].env[1].name"},
+		},
+	}, {
+		name: "flag enabled: multiple containers with PORT defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    nil,
 	}}
 
 	for _, test := range tests {
@@ -1026,12 +1068,15 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("env[0].name"),
 	}, {
-		name: "reserved env var name",
+		name: "reserved env var name for serving container",
 		c: corev1.Container{
 			Image: "foo",
 			Env: []corev1.EnvVar{{
 				Name:  "PORT",
 				Value: "Foo",
+			}},
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
 			}},
 		},
 		want: &apis.FieldError{

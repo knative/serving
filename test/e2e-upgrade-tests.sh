@@ -31,9 +31,16 @@
 
 source $(dirname $0)/e2e-common.sh
 
+latest_version() {
+  local semver=$(git describe --match "v[0-9]*" --abbrev=0)
+  local major_minor=$(echo "$semver" | cut -d. -f1-2)
+
+  # Get the latest patch release for the major minor
+  git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+}
 # Latest serving release. If user does not supply this as a flag, the latest
 # tagged release on the current branch will be used.
-LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
+LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
 LATEST_NET_ISTIO_RELEASE_VERSION=$(

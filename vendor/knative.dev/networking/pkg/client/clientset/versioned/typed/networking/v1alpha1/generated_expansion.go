@@ -20,6 +20,10 @@ package v1alpha1
 
 type CertificateExpansion interface{}
 
+type DomainExpansion interface{}
+
 type IngressExpansion interface{}
+
+type RealmExpansion interface{}
 
 type ServerlessServiceExpansion interface{}

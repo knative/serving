@@ -1267,7 +1267,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 			[]corev1.ServicePort{{Name: "http", Port: 1234}},
 		)
 		// Modify the name so both can be created.
-		svc.Name = svc.Name + num
+		svc.Name += num
 		fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
 		si := fakeserviceinformer.Get(ctx)
 		si.Informer().GetIndexer().Add(svc)

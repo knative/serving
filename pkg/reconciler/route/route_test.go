@@ -1389,6 +1389,12 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("Failed to see route initial reconcile propagation:", err)
 			}
 
+			// Ensure we're operating on a copy, to make sure the update below
+			// generates an actual diff. Otherwise the value in the
+			// fake cache is going to be changed. Now, this update sometimes races with
+			// the CM update and since the update below is a noop (the same object
+			// is applied), noting happens and the test fails.
+			route = route.DeepCopy()
 			tc.apply(route, watcher)
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			if _, err := routeClient.Update(route); err != nil {

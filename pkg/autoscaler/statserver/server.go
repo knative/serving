@@ -175,8 +175,6 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		sm.Stat.Time = time.Now()
-
 		s.logger.Debugf("Received stat message: %+v", sm)
 		s.statsCh <- sm
 	}

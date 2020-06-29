@@ -25,8 +25,113 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/test"
 )
+
+// TestTagHeaders verifies that an Ingress properly dispaches to backends based on the tag header
+//
+// See proposal doc for reference:
+// https://docs.google.com/document/d/12t_3NE4EqvW_l0hfVlQcAGKkwkAM56tTn2wN_JtHbSQ/edit?usp=sharing
+func TestTagHeaders(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	t.Cleanup(cancel)
+
+	const (
+		tagName           = "the-tag"
+		backendHeader     = "Which-Backend"
+		backendWithTag    = "tag"
+		backendWithoutTag = "no-tag"
+	)
+
+	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{name + ".example.com"},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Headers: map[string]v1alpha1.HeaderMatch{
+						network.TagHeaderName: {
+							Exact: tagName,
+						},
+					},
+					AppendHeaders: map[string]string{
+						backendHeader: backendWithTag,
+					},
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      name,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(port),
+						},
+					}},
+				}, {
+					AppendHeaders: map[string]string{
+						backendHeader: backendWithoutTag,
+					},
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      name,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(port),
+						},
+					}},
+				}},
+			},
+		}},
+	})
+	t.Cleanup(cancel)
+
+	tests := []struct {
+		Name        string
+		TagHeader   *string
+		WantBackend string
+	}{{
+		Name:        "matching tag header",
+		TagHeader:   ptr.String(tagName),
+		WantBackend: backendWithTag,
+	}, {
+		Name:        "no tag header",
+		WantBackend: backendWithoutTag,
+	}, {
+		// Note: Behavior may change in Phase 2 (see Proposal doc)
+		Name:        "empty tag header",
+		TagHeader:   ptr.String(""),
+		WantBackend: backendWithoutTag,
+	}, {
+		// Note: Behavior may change in Phase 2 (see Proposal doc)
+		Name:        "non-matching tag header",
+		TagHeader:   ptr.String("not-" + tagName),
+		WantBackend: backendWithoutTag,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			ros := []RequestOption{}
+
+			if tt.TagHeader != nil {
+				ros = append(ros, func(r *http.Request) {
+					r.Header.Set(network.TagHeaderName, *tt.TagHeader)
+				})
+			}
+
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com", ros...)
+			if ri == nil {
+				t.Error("Couldn't make request")
+				return
+			}
+
+			if got, want := ri.Request.Headers.Get(backendHeader), tt.WantBackend; got != want {
+				t.Errorf("Header[%q] = %q, wanted %q", backendHeader, got, want)
+			}
+		})
+	}
+
+}
 
 // TestPreSplitSetHeaders verifies that an Ingress that specified AppendHeaders pre-split has the appropriate header(s) set.
 func TestPreSplitSetHeaders(t *testing.T) {

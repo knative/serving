@@ -44,8 +44,12 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&Domain{},
+		&DomainList{},
 		&Ingress{},
 		&IngressList{},
+		&Realm{},
+		&RealmList{},
 		&ServerlessService{},
 		&ServerlessServiceList{},
 		&Certificate{},

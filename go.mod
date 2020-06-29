@@ -6,6 +6,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.5
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-containerregistry v0.0.0-20200331213917-3d03ed9b1ca2
@@ -38,9 +39,9 @@ require (
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
-	knative.dev/networking v0.0.0-20200622163826-421cd312c651
-	knative.dev/pkg v0.0.0-20200622193027-602857dcc5f4
-	knative.dev/test-infra v0.0.0-20200622185426-9cd9379661ea
+	knative.dev/networking v0.0.0-20200625171028-5efff1e07309
+	knative.dev/pkg v0.0.0-20200626022628-f1ee372577e1
+	knative.dev/test-infra v0.0.0-20200625195728-62651036b559
 )
 
 replace (

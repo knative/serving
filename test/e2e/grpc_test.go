@@ -58,10 +58,10 @@ func hasPort(u string) bool {
 
 func dial(host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
-		host = host + ":80"
+		host += ":80"
 	}
 	if !hasPort(domain) {
-		domain = domain + ":80"
+		domain += ":80"
 	}
 
 	if host != domain {

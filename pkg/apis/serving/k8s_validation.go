@@ -60,6 +60,8 @@ var (
 		"K_REVISION",
 	)
 
+	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.NewString("PORT"))
+
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
@@ -186,7 +188,15 @@ func validateEnvValueFrom(ctx context.Context, source *corev1.EnvVarSource) *api
 		return nil
 	}
 	features := config.FromContextOrDefaults(ctx).Features
-	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.FieldRef != config.Disabled))
+	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.PodSpecFieldRef != config.Disabled))
+}
+
+func getReservedEnvVarsPerContainerType(ctx context.Context) sets.String {
+	if IsInSidecarContainer(ctx) {
+		return reservedSidecarEnvVars
+	} else {
+		return reservedEnvVars
+	}
 }
 
 func validateEnvVar(ctx context.Context, env corev1.EnvVar) *apis.FieldError {
@@ -194,7 +204,7 @@ func validateEnvVar(ctx context.Context, env corev1.EnvVar) *apis.FieldError {
 
 	if env.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
-	} else if reservedEnvVars.Has(env.Name) {
+	} else if getReservedEnvVarsPerContainerType(ctx).Has(env.Name) {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%q is a reserved environment variable", env.Name),
 			Paths:   []string{"name"},
@@ -283,9 +293,9 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 			// Probes are not allowed on other than serving container,
 			// ref: http://bit.ly/probes-condition
 			if len(containers[i].Ports) == 0 {
-				errs = errs.Also(validateSidecarContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 			} else {
-				errs = errs.Also(ValidateContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 			}
 		}
 	}
@@ -608,4 +618,29 @@ func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldErr
 		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
+}
+
+// This is attached to contexts as they are passed down through a user container
+// being validated.
+type userContainer struct{}
+
+// WithUserContainer notes on the context that further validation or defaulting
+// is within the context of a user container in the revision.
+func WithinUserContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, userContainer{}, struct{}{})
+}
+
+// This is attached to contexts as they are passed down through a sidecar container
+// being validated.
+type sidecarContainer struct{}
+
+// WithinSidecatrContainer notes on the context that further validation or defaulting
+// is within the context of a sidecar container in the revision.
+func WithinSidecarContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sidecarContainer{}, struct{}{})
+}
+
+// Check if we are in the context of a sidecar container in the revision.
+func IsInSidecarContainer(ctx context.Context) bool {
+	return ctx.Value(sidecarContainer{}) != nil
 }
