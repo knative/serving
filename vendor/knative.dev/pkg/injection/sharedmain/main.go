@@ -241,7 +241,7 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	leConfig := leaderElectionConfig.GetComponentConfig(component)
 	if leConfig.LeaderElect {
 		// Signal that we are executing in a context with leader election.
-		ctx = kle.WithStandardLeaderElectorBuilder(ctx, kubeclient.Get(ctx), leConfig)
+		ctx = kle.WithDynamicLeaderElectorBuilder(ctx, kubeclient.Get(ctx), leConfig)
 	}
 
 	controllers, webhooks := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
