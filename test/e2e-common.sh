@@ -311,9 +311,13 @@ function install_knative_serving_standard() {
       || fail_test "Unable to download latest knative/serving CRD file."
     wget "${url}/serving-core.yaml" -O ->> "${SERVING_RELEASE_YAML}" \
       || fail_test "Unable to download latest knative/serving core file."
+    # TODO - switch to upgrade yaml (SERVING_POST_INSTALL_JOBS_YAML) after 0.16 is released
+    wget "${url}/serving-post-install-jobs.yaml" -O "${SERVING_POST_INSTALL_JOBS_YAML}" \
+      || fail_test "Unable to download latest knative/serving post install file."
 
     # Replace the default system namespace with the test's system namespace.
     sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_RELEASE_YAML}
+    sed -i "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML}
 
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     ko apply -f "${SERVING_RELEASE_YAML}" --selector=knative.dev/crd-install=true || return 1
@@ -362,22 +366,27 @@ function install_knative_serving_standard() {
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
     local HPA_YAML_NAME=${TMP_DIR}/${SERVING_HPA_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_HPA_YAML} > ${HPA_YAML_NAME}
+    local POST_INSTALL_JOBS_YAML_NAME=${TMP_DIR}/${SERVING_POST_INSTALL_JOBS_YAML##*/}
+    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_POST_INSTALL_JOBS_YAML} > ${POST_INSTALL_JOBS_YAML_NAME}
+
     echo "Knative YAML: ${CORE_YAML_NAME} and ${HPA_YAML_NAME}"
     kubectl apply \
 	    -f "${CORE_YAML_NAME}" \
 	    -f "${HPA_YAML_NAME}" || return 1
     UNINSTALL_LIST+=( "${CORE_YAML_NAME}" "${HPA_YAML_NAME}" )
+    kubectl create -f ${POST_INSTALL_JOBS_YAML_NAME}
 
     if (( INSTALL_MONITORING )); then
-	echo ">> Installing Monitoring"
-	echo "Knative Monitoring YAML: ${MONITORING_YAML}"
-	kubectl apply -f "${MONITORING_YAML}" || return 1
-	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
+      echo ">> Installing Monitoring"
+      echo "Knative Monitoring YAML: ${MONITORING_YAML}"
+      kubectl apply -f "${MONITORING_YAML}" || return 1
+      UNINSTALL_LIST+=( "${MONITORING_YAML}" )
     fi
   else
     echo "Knative YAML: ${SERVING_RELEASE_YAML}"
     # We use ko because it has better filtering support for CRDs.
     ko apply -f "${SERVING_RELEASE_YAML}" || return 1
+    ko create -f "${SERVING_POST_INSTALL_JOBS_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_RELEASE_YAML}" )
 
     if (( INSTALL_MONITORING )); then
