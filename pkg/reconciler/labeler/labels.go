@@ -63,7 +63,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		}
 
 		if configName != "" {
-			if err := c.tracker.TrackReference(ref(r.Namespace, revName, "Configuration"), r); err != nil {
+			if err := c.tracker.TrackReference(ref(r.Namespace, configName, "Configuration"), r); err != nil {
 				return err
 			}
 
