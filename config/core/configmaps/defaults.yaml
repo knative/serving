@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: a63d266d
+    knative.dev/example-checksum: 2defca8d
 data:
   _example: |
     ################################
@@ -108,3 +108,12 @@ data:
     # allow-container-concurrency-zero controls whether users can
     # specify 0 (i.e. unbounded) for containerConcurrency.
     allow-container-concurrency-zero: "true"
+
+    # enable-service-links specifies the default value used for the
+    # enableServiceLinks field of the PodSpec, when it is omitted by the user.
+    # See: https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service
+    #
+    # In environments with large number of services it is suggested
+    # to set this value to `false`.
+    # See https://github.com/knative/serving/issues/8498.
+    enable-service-links: "default"

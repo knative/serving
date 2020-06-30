@@ -85,7 +85,7 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 
 	if v, ok := annotations[TargetAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetAnnotationKey))
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), TargetAnnotationKey))
 		}
 	}
 

@@ -60,6 +60,8 @@ var (
 		"K_REVISION",
 	)
 
+	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.NewString("PORT"))
+
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
@@ -71,13 +73,19 @@ var (
 	)
 )
 
-func ValidateVolumes(vs []corev1.Volume) (sets.String, *apis.FieldError) {
+func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
 	volumes := sets.NewString()
 	var errs *apis.FieldError
 	for i, volume := range vs {
 		if volumes.Has(volume.Name) {
 			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate volume name %q", volume.Name),
+				Paths:   []string{"name"},
+			}).ViaIndex(i))
+		}
+		if !mountedVolumes.Has(volume.Name) {
+			errs = errs.Also((&apis.FieldError{
+				Message: fmt.Sprintf("volume with name %q not mounted", volume.Name),
 				Paths:   []string{"name"},
 			}).ViaIndex(i))
 		}
@@ -189,12 +197,20 @@ func validateEnvValueFrom(ctx context.Context, source *corev1.EnvVarSource) *api
 	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.PodSpecFieldRef != config.Disabled))
 }
 
+func getReservedEnvVarsPerContainerType(ctx context.Context) sets.String {
+	if IsInSidecarContainer(ctx) {
+		return reservedSidecarEnvVars
+	} else {
+		return reservedEnvVars
+	}
+}
+
 func validateEnvVar(ctx context.Context, env corev1.EnvVar) *apis.FieldError {
 	errs := apis.CheckDisallowedFields(env, *EnvVarMask(&env))
 
 	if env.Name == "" {
 		errs = errs.Also(apis.ErrMissingField("name"))
-	} else if reservedEnvVars.Has(env.Name) {
+	} else if getReservedEnvVarsPerContainerType(ctx).Has(env.Name) {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("%q is a reserved environment variable", env.Name),
 			Paths:   []string{"name"},
@@ -249,7 +265,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
 
-	volumes, err := ValidateVolumes(ps.Volumes)
+	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
 	}
@@ -283,13 +299,23 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 			// Probes are not allowed on other than serving container,
 			// ref: http://bit.ly/probes-condition
 			if len(containers[i].Ports) == 0 {
-				errs = errs.Also(validateSidecarContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 			} else {
-				errs = errs.Also(ValidateContainer(ctx, containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 			}
 		}
 	}
 	return errs
+}
+
+func AllMountedVolumes(containers []corev1.Container) sets.String {
+	volumeNames := sets.NewString()
+	for _, c := range containers {
+		for _, vm := range c.VolumeMounts {
+			volumeNames.Insert(vm.Name)
+		}
+	}
+	return volumeNames
 }
 
 // validateContainersPorts validates port when specified multiple containers
@@ -452,13 +478,6 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 		}
 
 	}
-
-	if missing := volumes.Difference(seenName); missing.Len() > 0 {
-		errs = errs.Also(&apis.FieldError{
-			Message: fmt.Sprintf("volumes not mounted: %v", missing.List()),
-			Paths:   []string{apis.CurrentField},
-		})
-	}
 	return errs
 }
 
@@ -608,4 +627,29 @@ func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldErr
 		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
 	return errs
+}
+
+// This is attached to contexts as they are passed down through a user container
+// being validated.
+type userContainer struct{}
+
+// WithUserContainer notes on the context that further validation or defaulting
+// is within the context of a user container in the revision.
+func WithinUserContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, userContainer{}, struct{}{})
+}
+
+// This is attached to contexts as they are passed down through a sidecar container
+// being validated.
+type sidecarContainer struct{}
+
+// WithinSidecatrContainer notes on the context that further validation or defaulting
+// is within the context of a sidecar container in the revision.
+func WithinSidecarContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sidecarContainer{}, struct{}{})
+}
+
+// Check if we are in the context of a sidecar container in the revision.
+func IsInSidecarContainer(ctx context.Context) bool {
+	return ctx.Value(sidecarContainer{}) != nil
 }

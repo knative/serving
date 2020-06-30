@@ -336,7 +336,164 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Paths:   []string{"containers[0].ports"},
 			Details: "Only a single port is allowed",
 		}),
-	}}
+	}, {
+		name: "flag enabled: multiple containers with illegal env variable defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}, {
+					Name:  "K_SERVICE",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want: &apis.FieldError{
+			Message: `"K_SERVICE" is a reserved environment variable`,
+			Paths:   []string{"containers[1].env[1].name"},
+		},
+	}, {
+		name: "flag enabled: multiple containers with PORT defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    nil,
+	}, {
+		name: "Volume mounts ok with single container",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo",
+						},
+					}},
+			},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+	}, {
+		name: "Volume not mounted when having a single container",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo",
+						},
+					}},
+			},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+		want: &apis.FieldError{
+			Message: "volume with name \"the-name\" not mounted",
+			Paths:   []string{"volumes[0].name"}},
+	}, {
+		name: "Volume mounts ok when having multiple containers",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name1",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo1",
+						},
+					},
+				},
+				{Name: "the-name2",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo2",
+						},
+					}},
+			},
+			Containers: []corev1.Container{
+				{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name1",
+						ReadOnly:  true,
+					}},
+				},
+				{
+					Image: "busybox",
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name2",
+						ReadOnly:  true,
+					}},
+				},
+			},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+	}, {
+		name: "Volume not mounted when having multiple containers",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name1",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo1",
+						},
+					},
+				},
+				{Name: "the-name2",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo2",
+						},
+					}},
+			},
+			Containers: []corev1.Container{
+				{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name1",
+						ReadOnly:  true,
+					}},
+				},
+				{Image: "busybox"},
+			},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want: &apis.FieldError{
+			Message: "volume with name \"the-name2\" not mounted",
+			Paths:   []string{"volumes[1].name"},
+		}},
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -702,16 +859,6 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
 	}, {
-		name: "missing known volumeMounts",
-		c: corev1.Container{
-			Image: "foo",
-		},
-		volumes: sets.NewString("the-name"),
-		want: &apis.FieldError{
-			Message: "volumes not mounted: [the-name]",
-			Paths:   []string{"volumeMounts"},
-		},
-	}, {
 		name: "has known volumeMounts",
 		c: corev1.Container{
 			Image: "foo",
@@ -1026,12 +1173,15 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("env[0].name"),
 	}, {
-		name: "reserved env var name",
+		name: "reserved env var name for serving container",
 		c: corev1.Container{
 			Image: "foo",
 			Env: []corev1.EnvVar{{
 				Name:  "PORT",
 				Value: "Foo",
+			}},
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
 			}},
 		},
 		want: &apis.FieldError{

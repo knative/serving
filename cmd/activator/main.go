@@ -85,27 +85,21 @@ var (
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
-func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
-	statChan <-chan []asmetrics.StatMessage, logger *zap.SugaredLogger) {
-	for {
-		select {
-		case sm := <-statChan:
-			go func() {
-				for _, msg := range sm {
-					b, err := json.Marshal(msg)
-					if err != nil {
-						logger.Errorw("Error while marshaling stat", zap.Error(err))
-					}
-					if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
-						logger.Errorw("Error while sending stat", zap.Error(err))
-					}
+func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
+	logger *zap.SugaredLogger) {
+	for sm := range statChan {
+		go func(msgs []asmetrics.StatMessage) {
+			for _, msg := range msgs {
+				b, err := json.Marshal(msg)
+				if err != nil {
+					logger.Errorw("Error while marshaling stat", zap.Error(err))
+					continue
 				}
-			}()
-		case <-stopCh:
-			// It's a sending connection, so no drainage required.
-			statSink.Shutdown()
-			return
-		}
+				if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
+					logger.Errorw("Error while sending stat", zap.Error(err))
+				}
+			}
+		}(sm)
 	}
 }
 
@@ -204,7 +198,8 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), pkgnet.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(statSink, ctx.Done(), statCh, logger)
+	defer statSink.Shutdown()
+	go statReporter(statSink, statCh, logger)
 
 	// Create and run our concurrency reporter
 	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)

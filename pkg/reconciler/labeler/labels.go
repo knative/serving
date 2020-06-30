@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
@@ -30,14 +29,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
-
-// accessor defines an abstraction for manipulating labeled entity
-// (Configuration, Revision) with shared logic.
-type accessor interface {
-	get(ns, name string) (kmeta.Accessor, error)
-	list(ns, name string) ([]kmeta.Accessor, error)
-	patch(ns, name string, pt types.PatchType, p []byte) error
-}
 
 // syncLabels makes sure that the revisions and configurations referenced from
 // a Route are labeled with route labels.
@@ -175,74 +166,4 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	}
 
 	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
-}
-
-// revision is an implementation of accessor for Revisions
-type revision struct {
-	r *Reconciler
-}
-
-// revision implements accessor
-var _ accessor = (*revision)(nil)
-
-// get implements accessor
-func (r *revision) get(ns, name string) (kmeta.Accessor, error) {
-	return r.r.revisionLister.Revisions(ns).Get(name)
-}
-
-// list implements accessor
-func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := r.r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
-	}
-	return kl, err
-}
-
-// patch implements accessor
-func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
-	return err
-}
-
-// configuration is an implementation of accessor for Configurations
-type configuration struct {
-	r *Reconciler
-}
-
-// configuration implements accessor
-var _ accessor = (*configuration)(nil)
-
-// get implements accessor
-func (c *configuration) get(ns, name string) (kmeta.Accessor, error) {
-	return c.r.configurationLister.Configurations(ns).Get(name)
-}
-
-// list implements accessor
-func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.r.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
-	}
-	return kl, err
-}
-
-// patch implements accessor
-func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.r.client.ServingV1().Configurations(ns).Patch(name, pt, p)
-	return err
 }

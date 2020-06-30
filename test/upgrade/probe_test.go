@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"os"
@@ -28,6 +29,10 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
+)
+
+var (
+	successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 )
 
 const pipe = "/tmp/prober-signal"
@@ -63,7 +68,7 @@ func TestProbe(t *testing.T) {
 	// Use log.Printf instead of t.Logf because we want to see failures
 	// inline with other logs instead of buffered until the end.
 	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
-	defer test.AssertProberDefault(t, prober)
+	defer test.CheckSLO(*successFraction, t.Name(), prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
