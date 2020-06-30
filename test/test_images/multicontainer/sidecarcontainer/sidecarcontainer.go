@@ -27,7 +27,7 @@ import (
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Println("sidecar container received a request.")
-	fmt.Fprintln(w, "Yay!! multi-container works !!")
+	fmt.Fprintln(w, "Yay!! multi-container works")
 }
 
 func main() {
