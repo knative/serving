@@ -79,7 +79,7 @@ func TestValidateConfig(t *testing.T) {
 			data["enabledComponents"] = "controller,frobulator"
 			return data
 		}(),
-		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "controller" "hpaautoscaler" "istiocontroller" "nscontroller" "webhook"]`),
+		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "contour-ingress-controller" "controller" "hpaautoscaler" "istiocontroller" "net-http01" "nscontroller" "webhook"]`),
 	}}
 
 	for _, tc := range cases {
@@ -95,6 +95,7 @@ func TestValidateConfig(t *testing.T) {
 		})
 	}
 }
+
 func TestServingConfig(t *testing.T) {
 	actual, example := ConfigMapsFromTestFile(t, "config-leader-election")
 	for _, test := range []struct {
