@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,19 +75,20 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 
 	// Use a revision accessor to manipulate the revisions.
 	racc := &revision{r: c}
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
+	now := time.Now()
+	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions, now); err != nil {
 		return err
 	}
-	if err := setLabelForListed(ctx, r, racc, revisions); err != nil {
+	if err := setLabelForListed(ctx, r, racc, revisions, now); err != nil {
 		return err
 	}
 
 	// Use a config access to manipulate the configs.
 	cacc := &configuration{r: c}
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs, now); err != nil {
 		return err
 	}
-	return setLabelForListed(ctx, r, cacc, configs)
+	return setLabelForListed(ctx, r, cacc, configs, now)
 }
 
 // clearLabels removes any labels for a named route from configurations and revisions.
@@ -101,7 +103,7 @@ func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
+func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String, now time.Time) error {
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
@@ -114,7 +116,7 @@ func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names
 					elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
 			}
 		} else {
-			if err := setRouteLabel(acc, elt, &route.Name); err != nil {
+			if err := setRouteLabel(acc, elt, &route.Name, now); err != nil {
 				return fmt.Errorf("failed to add route label to %s %q: %w",
 					elt.GroupVersionKind(), elt.GetName(), err)
 			}
@@ -127,7 +129,7 @@ func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names
 // deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String) error {
+func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String, now time.Time) error {
 	oldList, err := acc.list(ns, name)
 	if err != nil {
 		return err
@@ -139,7 +141,7 @@ func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor,
 			continue
 		}
 
-		if err := setRouteLabel(acc, elt, nil); err != nil {
+		if err := setRouteLabel(acc, elt, nil, now); err != nil {
 			return fmt.Errorf("failed to remove route label to %s %q: %w",
 				elt.GroupVersionKind(), elt.GetName(), err)
 		}
@@ -151,16 +153,28 @@ func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor,
 // setRouteLabel toggles the route label on the specified element through the provided accessor.
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
-	mergePatch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"labels": map[string]interface{}{
-				serving.RouteLabelKey: routeName,
-			},
-		},
+func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string, now time.Time) error {
+	labels := map[string]interface{}{
+		serving.RouteLabelKey: routeName,
+	}
+	metadata := map[string]interface{}{
+		"labels": labels,
 	}
 
-	patch, err := json.Marshal(mergePatch)
+	// Append state and modified time for revisions
+	if elt.GetObjectKind().GroupVersionKind().Kind == "Revision" {
+		if routeName == nil {
+			labels[serving.RoutingStateLabelKey] = v1.RoutingStateReserve
+		} else {
+			labels[serving.RoutingStateLabelKey] = v1.RoutingStateActive
+		}
+
+		metadata["annotations"] = map[string]interface{}{
+			serving.RoutingStateModifiedAnnotationKey: now.Format(time.RFC3339),
+		}
+	}
+
+	patch, err := json.Marshal(map[string]interface{}{"metadata": metadata})
 	if err != nil {
 		return err
 	}
