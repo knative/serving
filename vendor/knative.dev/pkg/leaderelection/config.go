@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	cm "knative.dev/pkg/configmap"
 )
@@ -37,7 +38,7 @@ const configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
 // This is a variable so that it may be customized in the binary entrypoint.
 var MaxBuckets uint32 = 10
 
-var validResourceLocks = sets.NewString("leases", "configmaps", "endpoints")
+var validResourceLocks = sets.NewString(resourcelock.LeasesResourceLock)
 
 // NewConfigFromMap returns a Config for the given map, or an error.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
@@ -64,7 +65,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("buckets: value must be between %d <= %d <= %d", 1, config.Buckets, MaxBuckets)
 	}
 	if !validResourceLocks.Has(config.ResourceLock) {
-		return nil, fmt.Errorf(`resourceLock: invalid value %q: valid values are "leases","configmaps","endpoints"`, config.ResourceLock)
+		return nil, fmt.Errorf(`resourceLock: invalid value %q: valid values are "leases"`, config.ResourceLock)
 	}
 
 	return config, nil
