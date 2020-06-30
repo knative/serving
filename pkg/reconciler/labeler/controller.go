@@ -43,6 +43,14 @@ const controllerAgentName = "labeler-controller"
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
+) *controller.Impl {
+	return NewControllerWithClock(ctx, cmw, system.RealClock{})
+}
+
+// NewControllerWithClock includes an override for the clock.
+func NewControllerWithClock(
+	ctx context.Context,
+	cmw configmap.Watcher,
 	clock system.Clock,
 ) *controller.Impl {
 

@@ -461,7 +461,7 @@ func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchAct
 func TestNew(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewController(ctx, configmap.NewStaticWatcher(), FakeClock{Time: fakeCurTime})
+	c := NewController(ctx, configmap.NewStaticWatcher())
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
