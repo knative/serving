@@ -55,7 +55,12 @@ func NewController(
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := routereconciler.NewImpl(ctx, c)
+	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
+		return controller.Options{
+			// The labeler shouldn't mutate the route's status.
+			SkipStatusUpdates: true,
+		}
+	})
 
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

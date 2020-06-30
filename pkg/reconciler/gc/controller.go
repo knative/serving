@@ -79,6 +79,8 @@ func NewController(
 		return controller.Options{
 			ConfigStore: configStore,
 			AgentName:   controllerAgentName,
+			// The GC reconciler shouldn't mutate the revision's status.
+			SkipStatusUpdates: true,
 		}
 	})
 }

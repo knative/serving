@@ -106,6 +106,9 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		if opts.AgentName != "" {
 			agentName = opts.AgentName
 		}
+		if opts.SkipStatusUpdates {
+			rec.skipStatusUpdates = true
+		}
 	}
 
 	rec.Recorder = createRecorder(ctx, agentName)
