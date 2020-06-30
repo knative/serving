@@ -48,8 +48,8 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	// TODO: this could lead to test flake - we should fake/inject the clock.
 	now := metav1.Now()
+	nowFunc = func() time.Time { return now.Time }
 
 	table := TableTest{{
 		Name: "bad workqueue key",
