@@ -23,8 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -103,16 +104,6 @@ func TestReconcileSecretCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 
-	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
-		got := obj.(*corev1.Secret)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Log("Unexpected Secret (-want, +got):", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
-
 	accessor, waitInformers := setup(ctx, []*corev1.Secret{}, kubeClient, t)
 	defer func() {
 		cancel()
@@ -121,8 +112,18 @@ func TestReconcileSecretCreate(t *testing.T) {
 
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Secret: %v", err)
+	secretInformer := fakesecretinformer.Get(ctx)
+	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+		secret, err := secretInformer.Lister().Secrets(desired.Namespace).Get(desired.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return cmp.Equal(secret, desired), nil
+	}); err != nil {
+		t.Fatal("Failed to see secret propagation:", err)
 	}
 }
 
@@ -136,19 +137,19 @@ func TestReconcileSecretUpdate(t *testing.T) {
 		waitInformers()
 	}()
 
-	h := NewHooks()
-	h.OnUpdate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
-		got := obj.(*corev1.Secret)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Log("Unexpected Secret (-want, +got):", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
-
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Secret: %v", err)
+	secretInformer := fakesecretinformer.Get(ctx)
+	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+		secret, err := secretInformer.Lister().Secrets(desired.Namespace).Get(desired.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return cmp.Equal(secret, desired), nil
+	}); err != nil {
+		t.Fatal("Failed to see secret propagation:", err)
 	}
 }
 

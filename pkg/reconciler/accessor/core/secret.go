@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
