@@ -93,12 +93,13 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 
 // clearLabels removes any labels for a named route from configurations and revisions.
 func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
+	now := time.Now()
 	racc := &revision{r: c}
-	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString()); err != nil {
+	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString(), now); err != nil {
 		return err
 	}
 	cacc := &configuration{r: c}
-	return deleteLabelForNotListed(ctx, ns, name, cacc, sets.NewString())
+	return deleteLabelForNotListed(ctx, ns, name, cacc, sets.NewString(), now)
 }
 
 // setLabelForListed uses the accessor to attach the label for this route to every element

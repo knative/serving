@@ -370,6 +370,9 @@ func simpleConfig(namespace, name string, opts ...ConfigOption) *v1.Configuratio
 func rev(namespace, name string, opts ...RevisionOption) *v1.Revision {
 	cfg := simpleConfig(namespace, name)
 	rev := &v1.Revision{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Revision",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
 			Name:            cfg.Status.LatestReadyRevisionName,
