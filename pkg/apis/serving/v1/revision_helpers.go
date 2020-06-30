@@ -111,8 +111,8 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 // routingStateModified annotation.
 func (r *Revision) SetRoutingState(state RoutingState) {
 	stateStr := string(state)
-	t := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
-	if t != "" && r.Labels[serving.RoutingStateLabelKey] == stateStr {
+	if t := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]; t != "" &&
+		r.Labels[serving.RoutingStateLabelKey] == stateStr {
 		return // Don't update timestamp if no change.
 	}
 
@@ -124,7 +124,7 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 	if r.Annotations == nil {
 		r.Annotations = make(map[string]string, 1)
 	}
-	r.Annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprint(time.Now().Format(time.RFC3339))
+	r.Annotations[serving.RoutingStateModifiedAnnotationKey] = time.Now().Format(time.RFC3339)
 }
 
 // GetRoutingState retrieves the RoutingState label.
