@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
@@ -167,33 +166,4 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	}
 
 	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
-}
-
-// revision is an implementation of accessor for Revisions
-type revision struct {
-	r *Reconciler
-}
-
-// revision implements accessor
-var _ accessor = (*revision)(nil)
-
-// get implements accessor
-func (r *revision) get(ns, name string) (kmeta.Accessor, error) {
-	return r.r.revisionLister.Revisions(ns).Get(name)
-}
-
-// list implements accessor
-func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := r.r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
-	}
-	return kl, err
 }
