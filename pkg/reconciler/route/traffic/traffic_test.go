@@ -929,9 +929,9 @@ func TestBuildTrafficConfiguration_FailedGetRevision(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      ptr.Int64(50)})))
 	if err != nil && err.Error() != apiErr.Error() {
-		t.Errorf("Expected %s, saw %s", apiErr.Error(), err.Error())
+		t.Errorf("err: %s, want: %s", err.Error(), apiErr.Error())
 	} else if err == nil {
-		t.Errorf("Expected %s, saw no error", apiErr.Error())
+		t.Errorf("err: %s, want: no error", apiErr.Error())
 	}
 }
 
