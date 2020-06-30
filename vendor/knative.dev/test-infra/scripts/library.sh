@@ -528,10 +528,19 @@ function run_go_tool() {
 # Run kntest tool, error out and ask users to install it if it's not currently installed.
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {
-  if [[ -z "$(which kntest)" ]]; then
-    echo "--- FAIL: kntest not installed, please clone test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
+  # If the current repo is test-infra, run kntest from source.
+  if [[ "${REPO_NAME}" == "test-infra" ]]; then
+    # Each parameter can possibly be in the format of "--xxx yyy", using $@ can automatically split them into multiple positional arguments for the command.
+    # shellcheck disable=SC2068
+    go run "${REPO_ROOT_DIR}"/kntest/cmd/kntest $@
+  # Otherwise kntest must be installed.
+  else
+    if [[ ! -x "$(command -v kntest)" ]]; then
+      echo "--- FAIL: kntest not installed, please clone test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
+    fi
+    # shellcheck disable=SC2068
+    kntest $@
   fi
-  kntest "$@"
 }
 
 # Run go-licenses to update licenses.
