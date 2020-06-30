@@ -113,7 +113,7 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 	stateStr := string(state)
 	t := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
 	if t != "" && r.Labels[serving.RoutingStateLabelKey] == stateStr {
-		return // Don't update timestamp if no change
+		return // Don't update timestamp if no change.
 	}
 
 	if r.Labels == nil {
@@ -127,12 +127,12 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 	r.Annotations[serving.RoutingStateModifiedAnnotationKey] = fmt.Sprint(time.Now().Format(time.RFC3339))
 }
 
-// GetRoutingState retrieves the RoutingState label
+// GetRoutingState retrieves the RoutingState label.
 func (r *Revision) GetRoutingState() RoutingState {
 	return RoutingState(r.ObjectMeta.Labels[serving.RoutingStateLabelKey])
 }
 
-// GetRoutingStateModified retrieves the RoutingStateModified annotation
+// GetRoutingStateModified retrieves the RoutingStateModified annotation.
 func (r *Revision) GetRoutingStateModified() time.Time {
 	val := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
 	parsed, err := time.Parse(time.RFC3339, val)
@@ -164,7 +164,7 @@ func (r *Revision) GetProtocol() (p net.ProtocolType) {
 }
 
 // SetLastPinned sets the revision's last pinned annotations
-// to be the specified time
+// to be the specified time.
 func (r *Revision) SetLastPinned(t time.Time) {
 	if r.ObjectMeta.Annotations == nil {
 		r.ObjectMeta.Annotations = make(map[string]string, 1)
@@ -173,7 +173,7 @@ func (r *Revision) SetLastPinned(t time.Time) {
 	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
 }
 
-// GetLastPinned returns the time the revision was last pinned
+// GetLastPinned returns the time the revision was last pinned.
 func (r *Revision) GetLastPinned() (time.Time, error) {
 	if r.Annotations == nil {
 		return time.Time{}, LastPinnedParseError{
@@ -183,7 +183,7 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 
 	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
 	if !ok {
-		// If a revision is past the create delay without an annotation it is stale
+		// If a revision is past the create delay without an annotation it is stale.
 		return time.Time{}, LastPinnedParseError{
 			Type: AnnotationParseErrorTypeMissing,
 		}
@@ -209,7 +209,7 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 	return false
 }
 
-// RevisionLastPinnedString returns a string representation of the specified time
+// RevisionLastPinnedString returns a string representation of the specified time.
 func RevisionLastPinnedString(t time.Time) string {
 	return fmt.Sprintf("%d", t.Unix())
 }

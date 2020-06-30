@@ -35,7 +35,7 @@ const (
 
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
-	// the key is also attached to Revision resources to indicate they are directly
+	// The key is also attached to Revision resources to indicate they are directly
 	// referenced by a Route, or are a child of a Configuration which is referenced by a Route.
 	// The key can also be attached to Ingress resources to indicate
 	// which Route triggered their creation.
