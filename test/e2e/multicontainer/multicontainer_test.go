@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -50,9 +51,7 @@ func TestMultiContainer(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
+	test.EnsureTearDown(t, clients, names)
 	t.Log("Creating a new Service")
 
 	resources, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {
@@ -68,7 +67,7 @@ func TestMultiContainer(t *testing.T) {
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.MultiContainerResponse))),
-		"HelloWorldServesText",
+		"MulticontainerServesExpectedText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
