@@ -295,7 +295,7 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Knative CRD"
   SERVING_RELEASE_YAML=""
-  SERVING_POST_INSTALL_JOBS_YAML
+  SERVING_POST_INSTALL_JOBS_YAML=""
   if [[ "$1" == "HEAD" ]]; then
     # If we need to build from source, then kick that off first.
     build_knative_from_source
