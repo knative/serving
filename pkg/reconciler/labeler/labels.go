@@ -24,7 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/tracker"
 
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -45,9 +47,16 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		if revName != "" {
 			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
-				return err
+				// The revision might not exist (yet). The informers will notify if it gets created.
+				if err := c.tracker.TrackReference(missingRef(r.Namespace, revName, "Revision"), r); err != nil {
+					return err
+				}
+				continue
 			}
 
+			if err := c.tracker.TrackReference(ref(rev), r); err != nil {
+				return err
+			}
 			revisions.Insert(revName)
 
 			// If the owner reference is a configuration, treat it like a configuration target
@@ -59,9 +68,16 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		if configName != "" {
 			config, err := c.configurationLister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
-				return err
+				// The config might not exist (yet). The informers will notify if it gets created.
+				if err := c.tracker.TrackReference(missingRef(r.Namespace, revName, "Configuration"), r); err != nil {
+					return err
+				}
+				continue
 			}
 
+			if err := c.tracker.TrackReference(ref(config), r); err != nil {
+				return err
+			}
 			configs.Insert(configName)
 
 			// If the target is for the latest revision, add the latest created revision to the list
@@ -166,4 +182,24 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	}
 
 	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+}
+
+func ref(obj duckv1.KRShaped) tracker.Reference {
+	apiVersion, kind := obj.GroupVersionKind().ToAPIVersionAndKind()
+	return tracker.Reference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       obj.GetName(),
+		Namespace:  obj.GetNamespace(),
+	}
+}
+
+func missingRef(namespace, name, kind string) tracker.Reference {
+	apiVersion, kind := v1.SchemeGroupVersion.WithKind(kind).ToAPIVersionAndKind()
+	return tracker.Reference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespace,
+	}
 }
