@@ -46,10 +46,11 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
+var fakeCurTime = time.Unix(1e9, 0)
+
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	now := metav1.Now()
-	nowFunc = func() time.Time { return now.Time }
+	now := metav1.Time{Time: fakeCurTime}
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -307,6 +308,7 @@ func TestReconcile(t *testing.T) {
 			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			clock:               FakeClock{Time: fakeCurTime},
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
@@ -459,7 +461,7 @@ func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchAct
 func TestNew(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewController(ctx, configmap.NewStaticWatcher())
+	c := NewController(ctx, configmap.NewStaticWatcher(), FakeClock{Time: fakeCurTime})
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")

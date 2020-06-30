@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 )
 
 const controllerAgentName = "labeler-controller"
@@ -42,6 +43,7 @@ const controllerAgentName = "labeler-controller"
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
+	clock system.Clock,
 ) *controller.Impl {
 
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
@@ -54,6 +56,7 @@ func NewController(
 		client:              servingclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
+		clock:               clock,
 	}
 	impl := routereconciler.NewImpl(ctx, c)
 

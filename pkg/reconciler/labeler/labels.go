@@ -26,16 +26,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var nowFunc = time.Now
-
 // syncLabels makes sure that the revisions and configurations referenced from
 // a Route are labeled with route labels.
-func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
+func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route, clock system.Clock) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -77,7 +76,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 
 	// Use a revision accessor to manipulate the revisions.
 	racc := &revision{r: c}
-	now := nowFunc()
+	now := clock.Now()
 	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions, now); err != nil {
 		return err
 	}
@@ -94,8 +93,8 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 }
 
 // clearLabels removes any labels for a named route from configurations and revisions.
-func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
-	now := nowFunc()
+func (c *Reconciler) clearLabels(ctx context.Context, ns, name string, clock system.Clock) error {
+	now := clock.Now()
 	racc := &revision{r: c}
 	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString(), now); err != nil {
 		return err

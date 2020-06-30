@@ -20,6 +20,7 @@ import (
 	"context"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -33,6 +34,8 @@ type Reconciler struct {
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+
+	clock system.Clock
 }
 
 // Check that our Reconciler implements routereconciler.Interface
@@ -40,9 +43,9 @@ var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	return c.clearLabels(ctx, r.Namespace, r.Name)
+	return c.clearLabels(ctx, r.Namespace, r.Name, c.clock)
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	return c.syncLabels(ctx, r)
+	return c.syncLabels(ctx, r, c.clock)
 }
