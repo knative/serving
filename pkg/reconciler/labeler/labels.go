@@ -156,30 +156,46 @@ func deleteLabelForNotListed(ns, name string, acc accessor, names sets.String, n
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
 func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string, now time.Time) error {
-	labels := map[string]interface{}{
-		serving.RouteLabelKey: routeName,
-	}
-	metadata := map[string]interface{}{
-		"labels": labels,
+	labels := map[string]interface{}{}
+	annotations := map[string]interface{}{}
+
+	if oldLabels := elt.GetLabels(); oldLabels == nil && routeName != nil {
+		labels[serving.RouteLabelKey] = routeName
+	} else if oldLabel := oldLabels[serving.RouteLabelKey]; routeName == nil && oldLabel != "" ||
+		routeName != nil && oldLabel != *routeName {
+		labels[serving.RouteLabelKey] = routeName
 	}
 
 	// Append state and modified time for revisions
 	if elt.GetObjectKind().GroupVersionKind().Kind == "Revision" {
+		var newStateLabel string
 		if routeName == nil {
-			labels[serving.RoutingStateLabelKey] = v1.RoutingStateReserve
+			newStateLabel = string(v1.RoutingStateReserve)
 		} else {
-			labels[serving.RoutingStateLabelKey] = v1.RoutingStateActive
+			newStateLabel = string(v1.RoutingStateActive)
 		}
 
-		metadata["annotations"] = map[string]interface{}{
-			serving.RoutingStateModifiedAnnotationKey: now.Format(time.RFC3339),
+		if oldLabels := elt.GetLabels(); oldLabels == nil || oldLabels[serving.RoutingStateLabelKey] != newStateLabel {
+			labels[serving.RoutingStateLabelKey] = newStateLabel
+			annotations[serving.RoutingStateModifiedAnnotationKey] = now.Format(time.RFC3339)
 		}
 	}
 
-	patch, err := json.Marshal(map[string]interface{}{"metadata": metadata})
-	if err != nil {
-		return err
+	metadata := map[string]interface{}{}
+	if len(labels) > 0 {
+		metadata["labels"] = labels
+	}
+	if len(annotations) > 0 {
+		metadata["annotations"] = annotations
 	}
 
-	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+	if len(metadata) > 0 {
+		patch, err := json.Marshal(map[string]interface{}{"metadata": metadata})
+		if err != nil {
+			return err
+		}
+
+		return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+	}
+	return nil
 }
