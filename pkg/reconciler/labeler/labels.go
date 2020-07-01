@@ -77,7 +77,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
 		return err
 	}
-	if err := setLabelForListed(ctx, r, racc, revisions); err != nil {
+	if err := setLabelForListed(r, racc, revisions); err != nil {
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
 		return err
 	}
-	return setLabelForListed(ctx, r, cacc, configs)
+	return setLabelForListed(r, cacc, configs)
 }
 
 // clearLabels removes any labels for a named route from configurations and revisions.
@@ -101,7 +101,7 @@ func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
+func setLabelForListed(route *v1.Route, acc accessor, names sets.String) error {
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
