@@ -18,28 +18,36 @@ package webhook
 import (
 	"context"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	rest "k8s.io/client-go/rest"
 )
+
+var newCreateWithOptions func(client rest.Interface, namespace string) PodInterface = newPods
 
 type pods struct {
 	client rest.Interface
 	ns     string
 }
 
+type PodInterface interface {
+	CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error)
+}
+
 // newPods returns a Pods
-func newPods(client rest.Interface, namespace string) *pods {
-	return &pods{
+func newPods(client rest.Interface, namespace string) PodInterface {
+	p := &pods{
 		client: client,
 		ns:     namespace,
 	}
+	return PodInterface(p)
 }
 
-// Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
-func (c *pods) CreateWithOptions(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (result *v1.Pod, err error) {
-	result = &v1.Pod{}
+// CreateWithOptions takes the representation of a pod and creates it.
+//Returns the server's representation of the pod, and an error, if there is any.
+func (c *pods) CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
+	result = &corev1.Pod{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("pods").
@@ -48,4 +56,15 @@ func (c *pods) CreateWithOptions(ctx context.Context, pod *v1.Pod, opts metav1.C
 		Do().
 		Into(result)
 	return
+}
+
+type tp struct{}
+
+func newTestPods(client rest.Interface, namespace string) PodInterface {
+	return PodInterface(&tp{})
+}
+
+func (*tp) CreateWithOptions(ctx context.Context,
+	pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
+	return &corev1.Pod{}, nil
 }

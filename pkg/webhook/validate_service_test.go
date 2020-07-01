@@ -45,6 +45,8 @@ var (
 )
 
 func TestServiceValidation(t *testing.T) {
+	newCreateWithOptions = newTestPods
+
 	tests := []struct {
 		name string
 		data map[string]interface{}

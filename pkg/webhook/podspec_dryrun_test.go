@@ -36,6 +36,8 @@ import (
 )
 
 func TestExtraServiceValidation(t *testing.T) {
+	newCreateWithOptions = newTestPods
+
 	goodConfigSpec := v1.ConfigurationSpec{
 		Template: v1.RevisionTemplateSpec{
 			Spec: v1.RevisionSpec{

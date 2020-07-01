@@ -73,7 +73,7 @@ func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) *apis.
 	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 
-	pods := newPods(client.CoreV1().RESTClient(), pod.GetNamespace())
+	pods := newCreateWithOptions(client.CoreV1().RESTClient(), pod.GetNamespace())
 
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
