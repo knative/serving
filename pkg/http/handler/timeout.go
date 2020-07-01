@@ -31,6 +31,13 @@ import (
 // TimeoutFunc returns the timeout duration to be used by the timeout handler.
 type TimeoutFunc func(req *http.Request) time.Duration
 
+// StaticTimeoutFunc returns a TimeoutFunc that always returns the same duration.
+func StaticTimeoutFunc(timeout time.Duration) func(req *http.Request) time.Duration {
+	return func(req *http.Request) time.Duration {
+		return timeout
+	}
+}
+
 type timeToFirstByteTimeoutHandler struct {
 	handler     http.Handler
 	timeoutFunc TimeoutFunc
