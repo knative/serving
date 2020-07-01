@@ -21,6 +21,7 @@ package ha
 import (
 	"log"
 	"testing"
+	"time"
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -75,13 +76,12 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	activator2 := pods.Items[1]
 
 	// Create first service that we will continually probe during activator restart.
-	names, resources := createPizzaPlanetService(t,
+	_, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
 			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
-	test.EnsureTearDown(t, clients, names)
 
 	// Create second service that will be scaled to zero and after stopping the activator we'll
 	// ensure it can be scaled back from zero.
@@ -91,7 +91,6 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 			autoscaling.TargetBurstCapacityKey: "-1",                           // Make sure all requests go through the activator.
 		}),
 	)
-	test.EnsureTearDown(t, clients, namesScaleToZero)
 
 	t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
@@ -112,6 +111,10 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, endpointsDoNotContain(activator1.Status.PodIP)); err != nil {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
+	if gracePeriod != nil && *gracePeriod == 0 {
+		t.Log("Allow the network to notice the missing endpoint")
+		time.Sleep(5 * time.Second)
+	}
 
 	t.Log("Test if service still works")
 	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
@@ -123,6 +126,10 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, haReplicas); err != nil {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
+	if gracePeriod != nil && *gracePeriod == 0 {
+		t.Log("Allow the network to notice the new endpoint")
+		time.Sleep(5 * time.Second)
+	}
 
 	t.Logf("Deleting activator2 (%s)", activator2.Name)
 	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activator2.Name, podDeleteOptions); err != nil {
@@ -132,6 +139,10 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	// Wait for the killed activator to disappear from the knative service's endpoints.
 	if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, endpointsDoNotContain(activator2.Status.PodIP)); err != nil {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
+	}
+	if gracePeriod != nil && *gracePeriod == 0 {
+		t.Log("Allow the network to notice the missing endpoint")
+		time.Sleep(5 * time.Second)
 	}
 
 	t.Log("Test if service still works")

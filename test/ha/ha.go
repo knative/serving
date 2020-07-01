@@ -47,6 +47,7 @@ func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (tes
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
+	test.EnsureTearDown(t, clients, names)
 
 	assertServiceEventuallyWorks(t, clients, names, resources.Service.Status.URL.URL(), test.PizzaPlanetText1)
 	return names, resources
