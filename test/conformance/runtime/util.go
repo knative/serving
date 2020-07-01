@@ -92,3 +92,4 @@ func splitOpts(opts ...interface{}) ([]v1testing.ServiceOption, []interface{}, e
 	}
 	return serviceOpts, reqOpts, nil
 }
+}
