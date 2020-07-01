@@ -2,7 +2,8 @@
 
 ## Supported Versions
 
-We (the community) support the most recent 4 minor versions of Knative. For more details on what this means, see our
+We (the community) support the most recent 4 minor versions of Knative. For more
+details on what this means, see our
 [release principles](https://knative.dev/community/contributing/mechanics/release-versioning-principles/).
 
 The most release releases are listed [here](https://github.com/knative/serving/releases).
