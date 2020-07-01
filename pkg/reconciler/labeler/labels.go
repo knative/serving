@@ -77,35 +77,35 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route, clock system.C
 	// Use a revision accessor to manipulate the revisions.
 	racc := &revision{r: c}
 	now := clock.Now()
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions, now); err != nil {
+	if err := deleteLabelForNotListed(r.Namespace, r.Name, racc, revisions, now); err != nil {
 		return err
 	}
-	if err := setLabelForListed(ctx, r, racc, revisions, now); err != nil {
+	if err := setLabelForListed(r, racc, revisions, now); err != nil {
 		return err
 	}
 
 	// Use a config access to manipulate the configs.
 	cacc := &configuration{r: c}
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs, now); err != nil {
+	if err := deleteLabelForNotListed(r.Namespace, r.Name, cacc, configs, now); err != nil {
 		return err
 	}
-	return setLabelForListed(ctx, r, cacc, configs, now)
+	return setLabelForListed(r, cacc, configs, now)
 }
 
 // clearLabels removes any labels for a named route from configurations and revisions.
 func (c *Reconciler) clearLabels(ctx context.Context, ns, name string, clock system.Clock) error {
 	now := clock.Now()
 	racc := &revision{r: c}
-	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString(), now); err != nil {
+	if err := deleteLabelForNotListed(ns, name, racc, sets.NewString(), now); err != nil {
 		return err
 	}
 	cacc := &configuration{r: c}
-	return deleteLabelForNotListed(ctx, ns, name, cacc, sets.NewString(), now)
+	return deleteLabelForNotListed(ns, name, cacc, sets.NewString(), now)
 }
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String, now time.Time) error {
+func setLabelForListed(route *v1.Route, acc accessor, names sets.String, now time.Time) error {
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
@@ -131,7 +131,7 @@ func setLabelForListed(ctx context.Context, route *v1.Route, acc accessor, names
 // deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String, now time.Time) error {
+func deleteLabelForNotListed(ns, name string, acc accessor, names sets.String, now time.Time) error {
 	oldList, err := acc.list(ns, name)
 	if err != nil {
 		return err

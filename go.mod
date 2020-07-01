@@ -3,6 +3,7 @@ module knative.dev/serving
 go 1.14
 
 require (
+	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -38,10 +39,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200606210318-787aec80f71c
-	knative.dev/networking v0.0.0-20200629165129-a2394baae7d4
-	knative.dev/pkg v0.0.0-20200629195729-e16ecb840d88
-	knative.dev/test-infra v0.0.0-20200630000129-4b3a8597df67
+	knative.dev/caching v0.0.0-20200630172829-a78409990d76
+	knative.dev/networking v0.0.0-20200630191330-5080f859c17d
+	knative.dev/pkg v0.0.0-20200630170034-2c1a029eb97f
+	knative.dev/test-infra v0.0.0-20200630141629-15f40fe97047
 )
 
 replace (

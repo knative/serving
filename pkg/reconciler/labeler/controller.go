@@ -66,7 +66,12 @@ func NewControllerWithClock(
 		revisionLister:      revisionInformer.Lister(),
 		clock:               clock,
 	}
-	impl := routereconciler.NewImpl(ctx, c)
+	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
+		return controller.Options{
+			// The labeler shouldn't mutate the route's status.
+			SkipStatusUpdates: true,
+		}
+	})
 
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
