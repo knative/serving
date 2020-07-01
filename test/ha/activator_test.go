@@ -76,12 +76,13 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	activator2 := pods.Items[1]
 
 	// Create first service that we will continually probe during activator restart.
-	_, resources := createPizzaPlanetService(t,
+	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
 			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
+	test.EnsureTearDown(t, clients, names)
 
 	// Create second service that will be scaled to zero and after stopping the activator we'll
 	// ensure it can be scaled back from zero.
@@ -91,6 +92,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 			autoscaling.TargetBurstCapacityKey: "-1",                           // Make sure all requests go through the activator.
 		}),
 	)
+	test.EnsureTearDown(t, clients, namesScaleToZero)
 
 	t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
