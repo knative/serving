@@ -18,7 +18,8 @@ back to you within 3 business days. Accepted reports that are kept confidential
 will be fixed within 90 days via a minor or patch release for supported minor
 versions.
 
-Some vulnerabilities may be eligible for rewards through [Google's
-VRP](https://www.google.com/about/appsecurity/reward-program/index.html) or similar programs from other vendors.
-Reporters should comply with program rules to receive these rewards; the Knative community will not submit reports
+Some vulnerabilities may be eligible for rewards through
+[Google's VRP](https://www.google.com/about/appsecurity/reward-program/index.html)
+or similar programs from other vendors. Reporters should comply with program
+rules to receive these rewards; the Knative community will not submit reports
 for rewards on the reporter's behalf.
