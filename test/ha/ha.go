@@ -82,7 +82,7 @@ func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace str
 	})
 }
 
-func endpointsDoNotContain(ip string) func(*corev1.Endpoints) (bool, error) {
+func readyEndpointsDoNotContain(ip string) func(*corev1.Endpoints) (bool, error) {
 	return func(eps *corev1.Endpoints) (bool, error) {
 		for _, subset := range eps.Subsets {
 			for _, ready := range subset.Addresses {

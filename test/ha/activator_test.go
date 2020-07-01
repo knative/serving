@@ -110,7 +110,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		}
 
 		// Wait for the killed activator to disappear from the knative service's endpoints.
-		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, endpointsDoNotContain(activator.Status.PodIP)); err != nil {
+		if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, readyEndpointsDoNotContain(activator.Status.PodIP)); err != nil {
 			t.Fatal("Failed to wait for the service to update its endpoints:", err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
