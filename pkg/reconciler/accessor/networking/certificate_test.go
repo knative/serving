@@ -94,7 +94,7 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 }
 
 func TestReconcileCertificateCreate(t *testing.T) {
-	ctx, accessor, done := setup([]*v1alpha1.Certificate{origin}, t)
+	ctx, accessor, done := setup([]*v1alpha1.Certificate{}, t)
 	defer done()
 
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
