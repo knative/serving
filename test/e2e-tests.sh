@@ -144,59 +144,59 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
-  ./test/e2e \
-  ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=30m \
+#  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+#  ./test/e2e \
+#  ${parallelism} \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
-go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
-  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
-  -run="TestIngressConformance/^[^u]" \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+#  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
+#  -run="TestIngressConformance/^[^u]" \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
-if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  turn_off_auto_tls
-fi
+#if (( HTTPS )); then
+#  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+#  turn_off_auto_tls
+#fi
 
-enable_tag_header_based_routing
-add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-disable_tag_header_based_routing
+#enable_tag_header_based_routing
+#add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+#disable_tag_header_based_routing
 
-enable_multi_container_feature
-add_trap "disable_multi_container_feature" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-disable_multi_container_feature
+#enable_multi_container_feature
+#add_trap "disable_multi_container_feature" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
+#disable_multi_container_feature
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
-kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
-kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+#kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+#add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=10m ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
+#kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
-kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+#kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+#add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
+#kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
 # Run scale tests.
-go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
+#go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-  kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
-fi
+#if [[ -n "${ISTIO_VERSION}" ]]; then
+#  kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
+#  add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#  go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+#  kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
+#fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=40m --count=10 -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
