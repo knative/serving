@@ -18,10 +18,13 @@ package webhook
 import (
 	"context"
 	"errors"
+	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 )
 
 type tp struct{}
@@ -44,4 +47,11 @@ func newFailTestPods(client rest.Interface, namespace string) PodInterface {
 func (*tp2) CreateWithOptions(ctx context.Context,
 	pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
 	return nil, errors.New("fail-reason")
+}
+
+func TestCreateWithOptions(t *testing.T) {
+	ctx, _ := fakekubeclient.With(context.Background())
+	client := kubeclient.Get(ctx)
+
+	newPods(client.CoreV1().RESTClient(), "namespace")
 }
