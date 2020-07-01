@@ -19,7 +19,6 @@ package ha
 import (
 	"net/url"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +72,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
 	endpointsService := client.Kube.CoreV1().Endpoints(svcNamespace)
 
-	return wait.PollImmediate(1*time.Second, 8*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		endpoint, err := endpointsService.Get(svcName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
