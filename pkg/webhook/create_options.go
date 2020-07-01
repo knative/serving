@@ -19,6 +19,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	rest "k8s.io/client-go/rest"
@@ -47,5 +48,7 @@ func newPods(client rest.Interface, namespace string) PodInterface {
 // CreateWithOptions takes the representation of a pod and creates it.
 //Returns the server's representation of the pod, and an error, if there is any.
 func (c *pods) CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
-	return &corev1.Pod{}, c.client.Post().Namespace(c.ns).Resource("pods").VersionedParams(&opts, scheme.ParameterCodec).Body(pod).Do().Into(result)
+	result = &v1.Pod{}
+	err = c.client.Post().Namespace(c.ns).Resource("pods").VersionedParams(&opts, scheme.ParameterCodec).Body(pod).Do().Into(result)
+	return
 }
