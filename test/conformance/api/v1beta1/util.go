@@ -344,6 +344,7 @@ func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 
 	return ref.Context().String() == digest.Context().String(), nil
 }
+<<<<<<< HEAD
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the ScaleToZeroGracePeriod (1 minute) before failing.
@@ -363,3 +364,5 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 		ScaleToZeroGracePeriod*6,
 	)
 }
+=======
+>>>>>>> 304060f9bd501d6e19c5217479fe7415042818d6
