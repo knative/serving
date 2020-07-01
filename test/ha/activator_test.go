@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgnet "knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -114,7 +115,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
 			t.Log("Allow the network to notice the missing endpoint")
-			time.Sleep(5 * time.Second)
+			time.Sleep(pkgnet.DefaultDrainTimeout)
 		}
 
 		t.Log("Test if service still works")
@@ -129,7 +130,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
 			t.Log("Allow the network to notice the new endpoint")
-			time.Sleep(5 * time.Second)
+			time.Sleep(pkgnet.DefaultDrainTimeout)
 		}
 	}
 }
