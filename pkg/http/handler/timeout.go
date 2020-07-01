@@ -32,7 +32,7 @@ import (
 type TimeoutFunc func(req *http.Request) time.Duration
 
 // StaticTimeoutFunc returns a TimeoutFunc that always returns the same duration.
-func StaticTimeoutFunc(timeout time.Duration) func(req *http.Request) time.Duration {
+func StaticTimeoutFunc(timeout time.Duration) TimeoutFunc {
 	return func(req *http.Request) time.Duration {
 		return timeout
 	}
