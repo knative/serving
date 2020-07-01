@@ -24,8 +24,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
@@ -93,62 +94,48 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 }
 
 func TestReconcileCertificateCreate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-
-	client := fakenetworkingclient.Get(ctx)
-
-	h := NewHooks()
-	h.OnCreate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
-		got := obj.(*v1alpha1.Certificate)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Log("Unexpected Certificate (-want, +got):", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
-
-	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{}, client, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
+	ctx, accessor, done := setup([]*v1alpha1.Certificate{origin}, t)
+	defer done()
 
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Certificate: %v", err)
+	certInformer := fakecertinformer.Get(ctx)
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		cert, err := certInformer.Lister().Certificates(desired.Namespace).Get(desired.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return cmp.Equal(cert, desired), nil
+	}); err != nil {
+		t.Error("Failed seeing creation of cert:", err)
 	}
 }
 
 func TestReconcileCertificateUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-
-	client := fakenetworkingclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
-	h := NewHooks()
-	h.OnUpdate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
-		got := obj.(*v1alpha1.Certificate)
-		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Log("Unexpected Certificate (-want, +got):", diff)
-			return HookIncomplete
-		}
-		return HookComplete
-	})
+	ctx, accessor, done := setup([]*v1alpha1.Certificate{origin}, t)
+	defer done()
 
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Errorf("Failed to Reconcile Certificate: %v", err)
+	certInformer := fakecertinformer.Get(ctx)
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		cert, err := certInformer.Lister().Certificates(desired.Namespace).Get(desired.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return cmp.Equal(cert, desired), nil
+	}); err != nil {
+		t.Error("Failed seeing creation of cert:", err)
 	}
 }
 
-func setup(ctx context.Context, certs []*v1alpha1.Certificate,
-	client netclientset.Interface, t *testing.T) (*FakeAccessor, func()) {
-
+func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeAccessor, func()) {
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	fake := fakenetworkingclient.Get(ctx)
 	certInformer := fakecertinformer.Get(ctx)
 
@@ -162,8 +149,11 @@ func setup(ctx context.Context, certs []*v1alpha1.Certificate,
 		t.Fatal("failed to start Certificate informer:", err)
 	}
 
-	return &FakeAccessor{
-		netclient:  client,
-		certLister: certInformer.Lister(),
-	}, waitInformers
+	return ctx, &FakeAccessor{
+			netclient:  fake,
+			certLister: certInformer.Lister(),
+		}, func() {
+			cancel()
+			waitInformers()
+		}
 }
