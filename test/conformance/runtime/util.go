@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
@@ -91,4 +93,23 @@ func splitOpts(opts ...interface{}) ([]v1testing.ServiceOption, []interface{}, e
 
 	}
 	return serviceOpts, reqOpts, nil
+}
+
+// WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
+// Will wait up to 6 times the ScaleToZeroGracePeriod (1 minute) before failing.
+func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
+	t.Helper()
+	t.Logf("Waiting for %q to scale to zero", deploymentName)
+	ScaleToZeroGracePeriod := 30 * time.Second
+
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingNamespace,
+		ScaleToZeroGracePeriod*6,
+	)
 }

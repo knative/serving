@@ -26,7 +26,6 @@ import (
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/conformance/api/v1"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -85,7 +84,7 @@ func TestProbeRuntime(t *testing.T) {
 				t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 			}
 			// Check if scaling down works even if access from liveness probe exists.
-			if err := v1.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+			if err := WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
 				t.Fatal("Could not scale to zero:", err)
 			}
 		})

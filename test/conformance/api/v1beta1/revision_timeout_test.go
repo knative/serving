@@ -28,7 +28,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
+	"knative.dev/serving/test/conformance/runtime"
 	v1b1test "knative.dev/serving/test/v1beta1"
 
 	. "knative.dev/serving/pkg/testing/v1beta1"
@@ -132,7 +132,7 @@ func TestRevisionTimeout(t *testing.T) {
 
 			if tc.shouldScaleTo0 {
 				t.Log("Waiting to scale down to 0")
-				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
+				if err := runtime.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
