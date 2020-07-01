@@ -57,14 +57,3 @@ func (c *pods) CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts meta
 		Into(result)
 	return
 }
-
-type tp struct{}
-
-func newTestPods(client rest.Interface, namespace string) PodInterface {
-	return PodInterface(&tp{})
-}
-
-func (*tp) CreateWithOptions(ctx context.Context,
-	pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
-	return &corev1.Pod{}, nil
-}

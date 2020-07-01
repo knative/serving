@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	rest "k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/apis"
@@ -36,8 +37,6 @@ import (
 )
 
 func TestExtraServiceValidation(t *testing.T) {
-	newCreateWithOptions = newTestPods
-
 	goodConfigSpec := v1.ConfigurationSpec{
 		Template: v1.RevisionTemplateSpec{
 			Spec: v1.RevisionSpec{
@@ -63,8 +62,10 @@ func TestExtraServiceValidation(t *testing.T) {
 		s             *v1.Service
 		want          string
 		modifyContext func(context.Context)
+		podInterface  func(client rest.Interface, namespace string) PodInterface
 	}{{
-		name: "valid run latest",
+		name:         "valid run latest",
+		podInterface: newTestPods,
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -79,7 +80,8 @@ func TestExtraServiceValidation(t *testing.T) {
 		},
 		modifyContext: nil,
 	}, {
-		name: "dryrun fail",
+		name:         "dryrun fail",
+		podInterface: newFailTestPods,
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -92,47 +94,11 @@ func TestExtraServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want:          "dry run failed with kubeclient error: spec.template",
+		want:          "dry run failed with fail-reason: spec.template",
 		modifyContext: failKubeCalls,
 	}, {
-		name: "dryrun not supported succeeds",
-		s: &v1.Service{
-			ObjectMeta: om,
-			Spec: v1.ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: v1.RouteSpec{
-					Traffic: []v1.TrafficTarget{{
-						LatestRevision: ptr.Bool(true),
-						Percent:        ptr.Int64(100),
-					}},
-				},
-			},
-		},
-		modifyContext: dryRunNotSupported,
-	}, {
-		name: "dryrun strict mode",
-		s: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "valid",
-				Namespace: "foo",
-				Annotations: map[string]string{
-					"features.knative.dev/podspec-dryrun": "strict",
-				},
-			},
-			Spec: v1.ServiceSpec{
-				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: v1.RouteSpec{
-					Traffic: []v1.TrafficTarget{{
-						LatestRevision: ptr.Bool(true),
-						Percent:        ptr.Int64(100),
-					}},
-				},
-			},
-		},
-		modifyContext: dryRunNotSupported,
-		want:          "dry run failed with fakekube does not support dry run: spec.template",
-	}, {
-		name: "no template found",
+		name:         "no template found",
+		podInterface: newTestPods,
 		s: &v1.Service{
 			ObjectMeta: om,
 			Spec: v1.ServiceSpec{
@@ -150,6 +116,7 @@ func TestExtraServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			newCreateWithOptions = test.podInterface
 			ctx, _ := fakekubeclient.With(context.Background())
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)

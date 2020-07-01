@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	rest "k8s.io/client-go/rest"
 
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
@@ -48,11 +49,13 @@ func TestServiceValidation(t *testing.T) {
 	newCreateWithOptions = newTestPods
 
 	tests := []struct {
-		name string
-		data map[string]interface{}
-		want string
+		name         string
+		data         map[string]interface{}
+		want         string
+		podInterface func(client rest.Interface, namespace string) PodInterface
 	}{{
-		name: "valid run latest",
+		name:         "valid run latest",
+		podInterface: newTestPods,
 		data: map[string]interface{}{
 			"metadata": validMetadata,
 			"spec": map[string]interface{}{
@@ -160,6 +163,7 @@ func TestDryRunFeatureFlag(t *testing.T) {
 }
 
 func TestSkipUpdate(t *testing.T) {
+	newCreateWithOptions = newFailTestPods
 	validService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -198,7 +202,7 @@ func TestSkipUpdate(t *testing.T) {
 				},
 			},
 		},
-		want: "dry run failed with kubeclient error: spec.template",
+		want: "dry run failed with fail-reason: spec.template",
 	}, {
 		name: "skip_identical_old",
 		new:  validServiceUns,
