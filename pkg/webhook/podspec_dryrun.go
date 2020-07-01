@@ -72,7 +72,8 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) *apis.FieldError {
 	logger := logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
-	pods := client.CoreV1().Pods(pod.GetNamespace())
+
+	pods := newPods(client.CoreV1().RESTClient(), pod.GetNamespace())
 
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	if _, err := pods.CreateWithOptions(ctx, pod, options); err != nil {
