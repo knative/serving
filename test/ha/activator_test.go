@@ -20,7 +20,6 @@ package ha
 
 import (
 	"log"
-	"sort"
 	"testing"
 
 	"knative.dev/pkg/ptr"
@@ -66,6 +65,14 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, activatorDeploymentName, system.Namespace(), haReplicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
 	}
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
+		LabelSelector: activatorLabel,
+	})
+	if err != nil {
+		t.Fatal("Failed to get activator pods:", err)
+	}
+	activator1 := pods.Items[0]
+	activator2 := pods.Items[1]
 
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
@@ -86,72 +93,48 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	)
 	test.EnsureTearDown(t, clients, namesScaleToZero)
 
+	t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
 		t.Fatal("Failed to scale to zero:", err)
 	}
 
+	t.Log("Starting prober")
 	prober := test.NewProberManager(log.Printf, clients, minProbes)
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, slo)
 
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
-		LabelSelector: activatorLabel,
-	})
-	if err != nil {
-		t.Fatal("Failed to get activator pods:", err)
-	}
-	activatorPod := pods.Items[0].Name
-
-	origEndpoints, err := pkgTest.GetEndpointAddresses(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace)
-	if err != nil {
-		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
-	}
-
-	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, podDeleteOptions); err != nil {
-		t.Fatalf("Failed to delete pod %s: %v", activatorPod, err)
+	t.Logf("Deleting activator1 (%s)", activator1.Name)
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activator1.Name, podDeleteOptions); err != nil {
+		t.Fatalf("Failed to delete pod %s: %v", activator1.Name, err)
 	}
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := pkgTest.WaitForChangedEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, origEndpoints); err != nil {
+	if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, endpointsDoNotContain(activator1.Status.PodIP)); err != nil {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
+	t.Log("Test if service still works")
 	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 
-	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, activatorPod, system.Namespace()); err != nil {
-		t.Fatalf("Did not observe %s to actually be deleted: %v", activatorPod, err)
+	t.Logf("Wait for activator1 (%s) to vanish", activator1.Name)
+	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, activator1.Name, system.Namespace()); err != nil {
+		t.Fatalf("Did not observe %s to actually be deleted: %v", activator1.Name, err)
 	}
-	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, activatorDeploymentName, system.Namespace(), haReplicas); err != nil {
+	if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, haReplicas); err != nil {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	pods, err = clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
-		LabelSelector: activatorLabel,
-	})
-	if err != nil {
-		t.Fatal("Failed to get activator pods:", err)
-	}
-
-	// Sort the pods according to creation timestamp so that we can kill the oldest one. We want to
-	// gradually kill both activator pods that were started at the beginning.
-	sort.Slice(pods.Items, func(i, j int) bool { return pods.Items[i].CreationTimestamp.Before(&pods.Items[j].CreationTimestamp) })
-
-	activatorPod = pods.Items[0].Name // Stop the oldest activator pod remaining.
-
-	origEndpoints, err = pkgTest.GetEndpointAddresses(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace)
-	if err != nil {
-		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
-	}
-
-	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activatorPod, podDeleteOptions); err != nil {
-		t.Fatalf("Failed to delete pod %s: %v", activatorPod, err)
+	t.Logf("Deleting activator2 (%s)", activator2.Name)
+	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(activator2.Name, podDeleteOptions); err != nil {
+		t.Fatalf("Failed to delete pod %s: %v", activator2.Name, err)
 	}
 
 	// Wait for the killed activator to disappear from the knative service's endpoints.
-	if err := pkgTest.WaitForChangedEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, origEndpoints); err != nil {
+	if err := waitForEndpointsState(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, endpointsDoNotContain(activator2.Status.PodIP)); err != nil {
 		t.Fatal("Failed to wait for the service to update its endpoints:", err)
 	}
 
+	t.Log("Test if service still works")
 	assertServiceEventuallyWorks(t, clients, namesScaleToZero, resourcesScaleToZero.Service.Status.URL.URL(), test.PizzaPlanetText1)
 }
 
