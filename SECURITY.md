@@ -12,8 +12,8 @@ The most release releases are listed
 ## Reporting a Vulnerability
 
 Please email the
-[Knative Steering Committee](mailto:knative-steering@googlegroups.com) with
-confidential security reports. Someone on the committee, or a delegate, will get
+[Knative Steering Committee](mailto:knative-security@googlegroups.com) with
+confidential security reports. Someone will get
 back to you within 3 business days. Accepted reports that are kept confidential
 will be fixed within 90 days via a minor or patch release for supported minor
 versions.
