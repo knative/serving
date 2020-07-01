@@ -196,7 +196,16 @@ sleep 30
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=40m --count=10 -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=10m -parallel=1 ./test/ha -run "^(TestActivatorHAGraceful|TestActivatorHANonGraceful)$" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
