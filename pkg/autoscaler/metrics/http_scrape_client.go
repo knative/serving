@@ -20,10 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"knative.dev/serving/pkg/network"
 )
 
 type httpScrapeClient struct {
@@ -45,6 +47,9 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if err != nil {
 		return emptyStat, err
 	}
+	// Ask for protobuf by default. Note that during migration this will not trigger the proto format supported
+	// by Prometheus reporter as the latter uses `application/vnd.google.protobuf`.
+	req.Header.Add("Accept", network.ProtoAcceptContent)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return emptyStat, err
@@ -53,11 +58,27 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
+	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
+		return statFromProto(resp.Body)
+	}
 
-	return extractData(resp.Body)
+	return statFromPrometheus(resp.Body)
 }
 
-func extractData(body io.Reader) (Stat, error) {
+func statFromProto(body io.Reader) (Stat, error) {
+	var stat Stat
+	bodyBytes, err := ioutil.ReadAll(body)
+	if err != nil {
+		return emptyStat, fmt.Errorf("reading body failed: %w", err)
+	}
+	err = stat.Unmarshal(bodyBytes)
+	if err != nil {
+		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
+	}
+	return stat, nil
+}
+
+func statFromPrometheus(body io.Reader) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {

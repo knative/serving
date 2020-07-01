@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -232,6 +233,11 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
+	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
+	if err != nil {
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
+	}
+
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
@@ -239,6 +245,7 @@ func main() {
 	go func() {
 		for now := range reportTicker.C {
 			promStatReporter.Report(stats.Report(now))
+			protoStatReporter.Report(stats.Report(now))
 		}
 	}()
 
@@ -248,7 +255,7 @@ func main() {
 
 	server := buildServer(env, healthState, probe, stats, logger)
 	adminServer := buildAdminServer(healthState, logger)
-	metricsServer := buildMetricsServer(promStatReporter)
+	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
 
 	servers := map[string]*http.Server{
 		"main":    server,
@@ -420,13 +427,23 @@ func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *htt
 	}
 }
 
-func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter) *http.Server {
+func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", promStatReporter.Handler())
+	metricsMux.Handle("/metrics", metricsHttpHandler(promStatReporter, protobufStatReporter))
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
 	}
+}
+
+func metricsHttpHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
+	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
+		if strings.Contains(req.Header.Get("Accept"), network.ProtoAcceptContent) {
+			protobufStatReporter.Handler().ServeHTTP(rsp, req)
+		} else {
+			promStatReporter.Handler().ServeHTTP(rsp, req)
+		}
+	})
 }
 
 func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
