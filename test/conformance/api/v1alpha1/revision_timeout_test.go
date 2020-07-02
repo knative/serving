@@ -81,22 +81,6 @@ func TestRevisionTimeout(t *testing.T) {
 		sleep          time.Duration
 		expectedStatus int
 	}{{
-		name:           "when scaling up from 0 and does not exceed timeout seconds",
-		shouldScaleTo0: true,
-		timeoutSeconds: 40,
-		expectedStatus: http.StatusOK,
-	}, {
-		name:           "when scaling up from 0 and it writes first byte before timeout",
-		shouldScaleTo0: true,
-		timeoutSeconds: 40,
-		sleep:          45 * time.Second,
-		expectedStatus: http.StatusOK,
-	}, {
-		name:           "when scaling up from 0 and it does exceed timeout seconds",
-		shouldScaleTo0: true,
-		timeoutSeconds: 1, // If the pods come up faster than 1s, this test might fail.
-		expectedStatus: http.StatusGatewayTimeout,
-	}, {
 		name:           "when pods already exist, and it does not exceed timeout seconds",
 		timeoutSeconds: 10,
 		initialSleep:   2 * time.Second,
