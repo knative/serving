@@ -141,11 +141,11 @@ func setRouteLabel(acc accessor, ns, name string, routeName *string) error {
 	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
 		return err
 	} else if mergePatch != nil {
-		if patch, err := json.Marshal(mergePatch); err != nil {
+		patch, err := json.Marshal(mergePatch)
+		if err != nil {
 			return err
-		} else {
-			return acc.patch(ns, name, types.MergePatchType, patch)
 		}
+		return acc.patch(ns, name, types.MergePatchType, patch)
 	}
 	return nil
 }
