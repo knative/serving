@@ -67,7 +67,7 @@ readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-el
 
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
-  ["${MONITORING_YAML}"]="config/monitoring/100-namespace.yaml ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
+  ["${MONITORING_YAML}"]="${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
   ["${SERVING_UPGRADE_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
@@ -121,6 +121,10 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YA
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
 
 echo "Building Monitoring & Logging"
+
+# Add the namespace into monitoring yaml
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
 
 # By putting the list of files used to create monitoring.yaml and serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
