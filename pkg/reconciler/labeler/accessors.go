@@ -34,6 +34,7 @@ type accessor interface {
 	makeMetadataPatch(ns, name string, routeName *string) (map[string]interface{}, error)
 }
 
+// makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(acc kmeta.Accessor, routeName *string) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 
@@ -52,6 +53,7 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName *string) (map[string]interf
 	return nil, nil
 }
 
+// addRouteLabel appends the route label to the list of labels if needed.
 func addRouteLabel(acc kmeta.Accessor, labels map[string]interface{}, routeName *string) error {
 	if oldLabels := acc.GetLabels(); oldLabels == nil && routeName != nil {
 		labels[serving.RouteLabelKey] = routeName
