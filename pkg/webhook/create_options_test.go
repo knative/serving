@@ -29,22 +29,22 @@ import (
 
 type tp struct{}
 
-func newTestPods(client rest.Interface, namespace string) PodInterface {
-	return PodInterface(&tp{})
+func newTestPods(client rest.Interface, namespace string) podInterface {
+	return podInterface(&tp{})
 }
 
-func (*tp) CreateWithOptions(ctx context.Context,
+func (*tp) createWithOptions(ctx context.Context,
 	pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
 	return &corev1.Pod{}, nil
 }
 
 type tp2 struct{}
 
-func newFailTestPods(client rest.Interface, namespace string) PodInterface {
-	return PodInterface(&tp2{})
+func newFailTestPods(client rest.Interface, namespace string) podInterface {
+	return podInterface(&tp2{})
 }
 
-func (*tp2) CreateWithOptions(ctx context.Context,
+func (*tp2) createWithOptions(ctx context.Context,
 	pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
 	return nil, errors.New("fail-reason")
 }

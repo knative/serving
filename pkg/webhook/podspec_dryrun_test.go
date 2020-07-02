@@ -62,7 +62,7 @@ func TestExtraServiceValidation(t *testing.T) {
 		s             *v1.Service
 		want          string
 		modifyContext func(context.Context)
-		podInterface  func(client rest.Interface, namespace string) PodInterface
+		podInterface  func(client rest.Interface, namespace string) podInterface
 	}{{
 		name:         "valid run latest",
 		podInterface: newTestPods,

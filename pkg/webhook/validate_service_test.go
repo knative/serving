@@ -52,7 +52,7 @@ func TestServiceValidation(t *testing.T) {
 		name         string
 		data         map[string]interface{}
 		want         string
-		podInterface func(client rest.Interface, namespace string) PodInterface
+		podInterface func(client rest.Interface, namespace string) podInterface
 	}{{
 		name:         "valid run latest",
 		podInterface: newTestPods,
