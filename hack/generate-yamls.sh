@@ -122,6 +122,10 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${L
 
 echo "Building Monitoring & Logging"
 
+# Add the namespace into monitoring yaml
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
+
 # By putting the list of files used to create monitoring.yaml and serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
 # with the complete list if things change in the future
