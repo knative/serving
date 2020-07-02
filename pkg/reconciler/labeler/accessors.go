@@ -60,7 +60,7 @@ func addRouteLabel(acc kmeta.Accessor, labels map[string]interface{}, routeName 
 	} else if oldLabel := oldLabels[serving.RouteLabelKey]; routeName == nil && oldLabel != "" {
 		labels[serving.RouteLabelKey] = routeName
 	} else if routeName != nil && oldLabel != *routeName {
-		return fmt.Errorf("already in use %q, and cannot be used by %q", oldLabel, *routeName)
+		return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, *routeName)
 	}
 
 	return nil

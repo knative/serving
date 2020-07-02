@@ -195,7 +195,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				`failed to add route label to Namespace=default "the-config-dbnfd": `+
-					`already in use "another-route", and cannot be used by "the-route"`),
+					`resource already has route label "another-route", and cannot be referenced by "the-route"`),
 		},
 		Key: "default/the-route",
 	}, {
