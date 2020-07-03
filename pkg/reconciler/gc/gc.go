@@ -62,9 +62,11 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 		return nil
 	}
 
-	// Sort by creation timestamp descending
+	// Sort by lastPinnned, creationTimestamp descending
 	sort.Slice(revs, func(i, j int) bool {
-		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+		a := getRevisionLastActiveTime(revs[j])
+		b := getRevisionLastActiveTime(revs[i])
+		return a.Before(b)
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
@@ -113,4 +115,13 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
 	}
 	return ret
+}
+
+// getRevisionLastActiveTime gets the lastPinnedTime if it is present or the created time.
+// This is used for sort-ordering by most recently active.
+func getRevisionLastActiveTime(rev *v1.Revision) time.Time {
+	if time, err := rev.GetLastPinned(); err != nil {
+		return time
+	}
+	return rev.ObjectMeta.GetCreationTimestamp().Time
 }
