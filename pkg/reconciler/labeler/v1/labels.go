@@ -14,10 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package labeler
+package v1
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -30,9 +29,9 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// syncLabels makes sure that the revisions and configurations referenced from
+// SyncLabels makes sure that the revisions and configurations referenced from
 // a Route are labeled with route labels.
-func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
+func SyncLabels(cacc *configuration, racc *revision, r *v1.Route) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -43,7 +42,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		configName := tt.ConfigurationName
 
 		if revName != "" {
-			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
+			rev, err := racc.get(r.Namespace, revName)
 			if err != nil {
 				return err
 			}
@@ -57,7 +56,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		}
 
 		if configName != "" {
-			config, err := c.configurationLister.Configurations(r.Namespace).Get(configName)
+			config, err := cacc.configurationLister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
 				return err
 			}
@@ -73,8 +72,7 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	}
 
 	// Use a revision accessor to manipulate the revisions.
-	racc := &revision{r: c}
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
+	if err := deleteLabelForNotListed(r.Namespace, r.Name, racc, revisions); err != nil {
 		return err
 	}
 	if err := setLabelForListed(r, racc, revisions); err != nil {
@@ -82,21 +80,18 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 	}
 
 	// Use a config access to manipulate the configs.
-	cacc := &configuration{r: c}
-	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := deleteLabelForNotListed(r.Namespace, r.Name, cacc, configs); err != nil {
 		return err
 	}
 	return setLabelForListed(r, cacc, configs)
 }
 
-// clearLabels removes any labels for a named route from configurations and revisions.
-func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
-	racc := &revision{r: c}
-	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString()); err != nil {
+// ClearLabels removes any labels for a named route from configurations and revisions.
+func ClearLabels(cacc *configuration, racc *revision, ns, name string) error {
+	if err := deleteLabelForNotListed(ns, name, racc, sets.NewString()); err != nil {
 		return err
 	}
-	cacc := &configuration{r: c}
-	return deleteLabelForNotListed(ctx, ns, name, cacc, sets.NewString())
+	return deleteLabelForNotListed(ns, name, cacc, sets.NewString())
 }
 
 // setLabelForListed uses the accessor to attach the label for this route to every element
@@ -127,7 +122,7 @@ func setLabelForListed(route *v1.Route, acc accessor, names sets.String) error {
 // deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String) error {
+func deleteLabelForNotListed(ns, name string, acc accessor, names sets.String) error {
 	oldList, err := acc.list(ns, name)
 	if err != nil {
 		return err

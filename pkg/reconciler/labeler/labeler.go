@@ -24,6 +24,7 @@ import (
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -40,9 +41,13 @@ var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	return c.clearLabels(ctx, r.Namespace, r.Name)
+	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
+	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
+	return labelerv1.ClearLabels(cacc, racc, r.Namespace, r.Name)
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	return c.syncLabels(ctx, r)
+	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
+	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
+	return labelerv1.SyncLabels(cacc, racc, r)
 }

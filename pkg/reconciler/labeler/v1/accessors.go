@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package labeler
+package v1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
@@ -22,9 +22,11 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/serving/pkg/apis/serving"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
-// accessor defines an abstraction for manipulating labeled entity
+// Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type accessor interface {
 	get(ns, name string) (kmeta.Accessor, error)
@@ -34,20 +36,28 @@ type accessor interface {
 
 // revision is an implementation of accessor for Revisions
 type revision struct {
-	r *Reconciler
+	client         clientset.Interface
+	revisionLister listers.RevisionLister
 }
 
 // revision implements accessor
 var _ accessor = (*revision)(nil)
 
+func MakeRevisionAccessor(client clientset.Interface, lister listers.RevisionLister) *revision {
+	return &revision{
+		client:         client,
+		revisionLister: lister,
+	}
+}
+
 // get implements accessor
 func (r *revision) get(ns, name string) (kmeta.Accessor, error) {
-	return r.r.revisionLister.Revisions(ns).Get(name)
+	return r.revisionLister.Revisions(ns).Get(name)
 }
 
 // list implements accessor
 func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := r.r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
+	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
 	if err != nil {
@@ -63,26 +73,34 @@ func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
+	_, err := r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
 	return err
 }
 
 // configuration is an implementation of accessor for Configurations
 type configuration struct {
-	r *Reconciler
+	client              clientset.Interface
+	configurationLister listers.ConfigurationLister
 }
 
 // configuration implements accessor
 var _ accessor = (*configuration)(nil)
 
+func MakeConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *configuration {
+	return &configuration{
+		client:              client,
+		configurationLister: lister,
+	}
+}
+
 // get implements accessor
 func (c *configuration) get(ns, name string) (kmeta.Accessor, error) {
-	return c.r.configurationLister.Configurations(ns).Get(name)
+	return c.configurationLister.Configurations(ns).Get(name)
 }
 
 // list implements accessor
 func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.r.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
+	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
 	if err != nil {
@@ -98,6 +116,6 @@ func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.r.client.ServingV1().Configurations(ns).Patch(name, pt, p)
+	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
 }
