@@ -26,7 +26,7 @@ import (
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
-// Accessor defines an abstraction for manipulating labeled entity
+// accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type accessor interface {
 	get(ns, name string) (kmeta.Accessor, error)
