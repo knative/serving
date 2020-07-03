@@ -41,13 +41,13 @@ var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
-	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
+	cacc := labelerv1.NewConfigurationAccessor(c.client, c.configurationLister)
+	racc := labelerv1.NewRevisionAccessor(c.client, c.revisionLister)
 	return labelerv1.ClearLabels(cacc, racc, r.Namespace, r.Name)
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
-	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
+	cacc := labelerv1.NewConfigurationAccessor(c.client, c.configurationLister)
+	racc := labelerv1.NewRevisionAccessor(c.client, c.revisionLister)
 	return labelerv1.SyncLabels(cacc, racc, r)
 }
