@@ -25,6 +25,7 @@ import (
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -40,13 +41,29 @@ type Reconciler struct {
 var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
+// TODO(whaught): replace this with a feature flag
+var newVersion = false
+
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
+	if newVersion {
+		cacc := labelerv2.MakeConfigurationAccessor(c.client, c.configurationLister)
+		racc := labelerv2.MakeRevisionAccessor(c.client, c.revisionLister)
+		return labelerv2.ClearLabels(cacc, racc, r.Namespace, r.Name)
+	}
+
 	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
 	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
 	return labelerv1.ClearLabels(cacc, racc, r.Namespace, r.Name)
+
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
+	if newVersion {
+		cacc := labelerv2.MakeConfigurationAccessor(c.client, c.configurationLister)
+		racc := labelerv2.MakeRevisionAccessor(c.client, c.revisionLister)
+		return labelerv2.SyncLabels(cacc, racc, r)
+	}
+
 	cacc := labelerv1.MakeConfigurationAccessor(c.client, c.configurationLister)
 	racc := labelerv1.MakeRevisionAccessor(c.client, c.revisionLister)
 	return labelerv1.SyncLabels(cacc, racc, r)
