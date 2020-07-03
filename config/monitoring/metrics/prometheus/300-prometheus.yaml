@@ -285,7 +285,7 @@ spec:
           timeoutSeconds: 3
         resources:
           limits:
-            memory: 1300Mi
+            memory: 2000Mi
           requests:
             memory: 400Mi
         terminationMessagePath: /dev/termination-log
