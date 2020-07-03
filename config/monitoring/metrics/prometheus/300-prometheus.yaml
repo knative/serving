@@ -261,7 +261,7 @@ spec:
         - --storage.tsdb.no-lockfile
         - --web.enable-lifecycle
         - --web.route-prefix=/
-        image: prom/prometheus:v2.2.1
+        image: prom/prometheus:v2.3.0
         imagePullPolicy: IfNotPresent
         name: prometheus
         ports:
