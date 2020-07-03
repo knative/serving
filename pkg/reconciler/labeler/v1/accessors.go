@@ -43,6 +43,7 @@ type revision struct {
 // revision implements accessor
 var _ accessor = (*revision)(nil)
 
+// MakeRevisionAccessor is a factory function to make a new revision accessor
 func MakeRevisionAccessor(client clientset.Interface, lister listers.RevisionLister) *revision {
 	return &revision{
 		client:         client,
@@ -86,6 +87,7 @@ type configuration struct {
 // configuration implements accessor
 var _ accessor = (*configuration)(nil)
 
+// MakeConfigurationAccessor is a factory function to make a new configuration accessor
 func MakeConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *configuration {
 	return &configuration{
 		client:              client,
