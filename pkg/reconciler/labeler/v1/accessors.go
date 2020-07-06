@@ -40,7 +40,7 @@ type Revision struct {
 	revisionLister listers.RevisionLister
 }
 
-// revision implements accessor
+// revision implements Accessor
 var _ Accessor = (*Revision)(nil)
 
 // NewRevisionAccessor is a factory function to make a new revision accessor.
@@ -51,12 +51,12 @@ func NewRevisionAccessor(client clientset.Interface, lister listers.RevisionList
 	}
 }
 
-// get implements accessor
+// get implements Accessor
 func (r *Revision) get(ns, name string) (kmeta.Accessor, error) {
 	return r.revisionLister.Revisions(ns).Get(name)
 }
 
-// list implements accessor
+// list implements Accessor
 func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
@@ -95,12 +95,12 @@ func NewConfigurationAccessor(client clientset.Interface, lister listers.Configu
 	}
 }
 
-// get implements accessor
+// get implements Accessor
 func (c *Configuration) get(ns, name string) (kmeta.Accessor, error) {
 	return c.configurationLister.Configurations(ns).Get(name)
 }
 
-// list implements accessor
+// list implements Accessor
 func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
@@ -116,7 +116,7 @@ func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 	return kl, err
 }
 
-// patch implements accessor
+// patch implements Accessor
 func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
 	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
