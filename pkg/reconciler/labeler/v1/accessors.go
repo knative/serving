@@ -40,7 +40,7 @@ type Revision struct {
 	revisionLister listers.RevisionLister
 }
 
-// revision implements Accessor
+// Revision implements Accessor
 var _ Accessor = (*Revision)(nil)
 
 // NewRevisionAccessor is a factory function to make a new revision accessor.
@@ -84,7 +84,7 @@ type Configuration struct {
 	configurationLister listers.ConfigurationLister
 }
 
-// configuration implements Accessor
+// Configuration implements Accessor
 var _ Accessor = (*Configuration)(nil)
 
 // NewConfigurationAccessor is a factory function to make a new configuration Accessor.
