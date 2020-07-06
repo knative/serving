@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 42a8ba12
+    knative.dev/example-checksum: 340af555
 data:
   _example: |
     ################################
@@ -38,9 +38,6 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # Indicates whether new more aggressive garbage collection has been enabled.
-    aggressive-revision-gc: "disabled"
-
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
 
@@ -54,3 +51,6 @@ data:
     # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
     # When "enabled"  the server will always run the extra validation.
     kubernetes.podspec-dryrun: "allowed"
+
+    # Indicates whether new more responsive garbage collection has been enabled.
+    responsive-revision-gc: "disabled"

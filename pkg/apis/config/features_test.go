@@ -56,27 +56,26 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantFeatures: defaultFeaturesConfig(),
 		data:         map[string]string{},
 	}, {
-		name:    "multi-container Allowed",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			MultiContainer:       Allowed,
-			PodSpecDryRun:        Allowed,
-			AggressiveRevisionGC: Disabled,
-		}),
-		data: map[string]string{
-			"multi-container": "Allowed",
-		},
-	}, {
 		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer:       Enabled,
 			PodSpecDryRun:        Enabled,
-			AggressiveRevisionGC: Disabled,
+			ResponsiveRevisionGC: Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":           "Enabled",
 			"kubernetes.podspec-dryrun": "Enabled",
+			"responsive-revision-gc":    "Enabled",
+		},
+	}, {
+		name:    "multi-container Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			MultiContainer: Allowed,
+		}),
+		data: map[string]string{
+			"multi-container": "Allowed",
 		},
 	}, {
 		name:    "multi-container Disabled",
@@ -115,22 +114,22 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-fieldref": "Disabled",
 		},
 	}, {
-		name:    "aggressive-revision-gc Allowed",
+		name:    "responsive-revision-gc Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			AggressiveRevisionGC: Allowed,
+			ResponsiveRevisionGC: Allowed,
 		}),
 		data: map[string]string{
-			"aggressive-revision-gc": "Allowed",
+			"responsive-revision-gc": "Allowed",
 		},
 	}, {
-		name:    "aggressive-revision-gc Enabled",
+		name:    "responsive-revision-gc Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			AggressiveRevisionGC: Enabled,
+			ResponsiveRevisionGC: Enabled,
 		}),
 		data: map[string]string{
-			"aggressive-revision-gc": "Enabled",
+			"responsive-revision-gc": "Enabled",
 		},
 	}}
 
