@@ -60,7 +60,7 @@ func CleanupOnInterrupt(cleanup func()) {
 }
 
 // TearDown will delete created names using clients.
-func TearDown(clients *Clients, names ResourceNames) {
+func TearDown(clients *Clients, names *ResourceNames) {
 	if clients != nil && clients.ServingClient != nil {
 		clients.ServingClient.Delete(
 			[]string{names.Route},
@@ -79,6 +79,6 @@ func EnsureCleanup(t *testing.T, cleanup func()) {
 
 // EnsureTearDown will delete created names when the test ends, either via
 // t.Cleanup, or on interrupt via CleanupOnInterrupt.
-func EnsureTearDown(t *testing.T, clients *Clients, names ResourceNames) {
+func EnsureTearDown(t *testing.T, clients *Clients, names *ResourceNames) {
 	EnsureCleanup(t, func() { TearDown(clients, names) })
 }

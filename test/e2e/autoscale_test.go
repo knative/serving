@@ -74,7 +74,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
+	defer test.TearDown(ctx.clients, &ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }

@@ -44,7 +44,7 @@ func TestTranslation(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service.  This should perform conversion during the webhook
@@ -87,7 +87,7 @@ func TestV1beta1Rejection(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 	// Create a legacy RunLatest service, but give it the TypeMeta of v1.
