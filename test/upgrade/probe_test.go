@@ -54,7 +54,7 @@ func TestProbe(t *testing.T) {
 		Service: "upgrade-probe",
 		Image:   test.PizzaPlanet1,
 	}
-	defer test.TearDown(clients, names)
+	defer test.TearDown(clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
