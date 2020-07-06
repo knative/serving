@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 84c3c6c3
+    knative.dev/example-checksum: a51cd546
 data:
   _example: |
     ################################
@@ -40,3 +40,6 @@ data:
 
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
+
+    # Indicates whether new more aggressive garbage collection has been enabled.
+    aggressive-revision-gc: "disabled"

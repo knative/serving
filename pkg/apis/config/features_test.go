@@ -58,7 +58,8 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "multi-container Allowed",
 		wantErr: false,
 		wantFeatures: &Features{
-			MultiContainer: Allowed,
+			MultiContainer:       Allowed,
+			AggressiveRevisionGC: Disabled,
 		},
 		data: map[string]string{
 			"multi-container": "Allowed",
@@ -67,10 +68,31 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "multi-container Enabled",
 		wantErr: false,
 		wantFeatures: &Features{
-			MultiContainer: Enabled,
+			MultiContainer:       Enabled,
+			AggressiveRevisionGC: Disabled,
 		},
 		data: map[string]string{
 			"multi-container": "Enabled",
+		},
+	}, {
+		name:    "aggressive-revision-gc Allowed",
+		wantErr: false,
+		wantFeatures: &Features{
+			MultiContainer:       Disabled,
+			AggressiveRevisionGC: Allowed,
+		},
+		data: map[string]string{
+			"aggressive-revision-gc": "Allowed",
+		},
+	}, {
+		name:    "aggressive-revision-gc Enabled",
+		wantErr: false,
+		wantFeatures: &Features{
+			MultiContainer:       Disabled,
+			AggressiveRevisionGC: Enabled,
+		},
+		data: map[string]string{
+			"aggressive-revision-gc": "Enabled",
 		},
 	}}
 
