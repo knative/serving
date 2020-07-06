@@ -23,6 +23,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
@@ -339,4 +342,23 @@ func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 	}
 
 	return ref.Context().String() == digest.Context().String(), nil
+}
+
+// WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
+// Will wait up to 6 times the ScaleToZeroGracePeriod (1 minute) before failing.
+func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.Clients) error {
+	t.Helper()
+	t.Logf("Waiting for %q to scale to zero", deploymentName)
+	ScaleToZeroGracePeriod := 30 * time.Second
+
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingNamespace,
+		ScaleToZeroGracePeriod*6,
+	)
 }
