@@ -44,6 +44,8 @@ spec:
         env:
           - name: ELASTICSEARCH_URL
             value: http://elasticsearch-logging:9200
+            # If you want to access Kibana through NodePort or LoadBalancer outside the cluster,
+            # you should remove the SERVER_BASEPATH env
           - name: SERVER_BASEPATH
             value: /api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy
           - name: XPACK_MONITORING_ENABLED

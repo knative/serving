@@ -101,15 +101,8 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 }
 
 func TestReconcileSecretCreate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	kubeClient := fakekubeclient.Get(ctx)
-
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
+	ctx, accessor, done := setup([]*corev1.Secret{}, t)
+	defer done()
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 
 	secretInformer := fakesecretinformer.Get(ctx)
@@ -128,14 +121,8 @@ func TestReconcileSecretCreate(t *testing.T) {
 }
 
 func TestReconcileSecretUpdate(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
+	ctx, accessor, done := setup([]*corev1.Secret{origin}, t)
+	defer done()
 
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 	secretInformer := fakesecretinformer.Get(ctx)
@@ -154,14 +141,8 @@ func TestReconcileSecretUpdate(t *testing.T) {
 }
 
 func TestNotOwnedFailure(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
+	ctx, accessor, done := setup([]*corev1.Secret{notOwnedSecret}, t)
+	defer done()
 
 	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err == nil {
@@ -172,9 +153,8 @@ func TestNotOwnedFailure(t *testing.T) {
 	}
 }
 
-func setup(ctx context.Context, secrets []*corev1.Secret,
-	kubeClient kubernetes.Interface, t *testing.T) (*FakeAccessor, func()) {
-
+func setup(secrets []*corev1.Secret, t *testing.T) (context.Context, *FakeAccessor, func()) {
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	secretInformer := fakesecretinformer.Get(ctx)
 
 	fake := fakekubeclient.Get(ctx)
@@ -185,11 +165,14 @@ func setup(ctx context.Context, secrets []*corev1.Secret,
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), secretInformer.Informer())
 	if err != nil {
-		t.Fatal("failed to start secret informer:", err)
+		t.Fatal("Failed to start secret informer:", err)
 	}
 
-	return &FakeAccessor{
-		client:       kubeClient,
-		secretLister: secretInformer.Lister(),
-	}, waitInformers
+	return ctx, &FakeAccessor{
+			client:       fake,
+			secretLister: secretInformer.Lister(),
+		}, func() {
+			cancel()
+			waitInformers()
+		}
 }

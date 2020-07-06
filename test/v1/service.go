@@ -279,6 +279,30 @@ func IsServiceFailed(s *v1.Service) (bool, error) {
 	return s.IsFailed(), nil
 }
 
+// IsServiceAndChildrenFailed will check the readiness, route and config conditions of the service
+// and return true if they are all failed.
+func IsServiceAndChildrenFailed(s *v1.Service) (bool, error) {
+	if s.Generation != s.Status.ObservedGeneration {
+		return false, nil
+	}
+
+	if failed := s.IsFailed(); !failed {
+		return false, nil
+	}
+
+	routeCond := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	if routeCond == nil || routeCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	configCond := s.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
+	if configCond == nil || configCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.
 func IsServiceRoutesNotReady(s *v1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1.ServiceConditionRoutesReady)

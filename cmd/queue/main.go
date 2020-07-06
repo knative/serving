@@ -340,9 +340,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	}
 	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", func(*http.Request) time.Duration {
-		return timeout
-	})
+	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", handler.StaticTimeoutFunc(timeout))
 
 	if metricsSupported {
 		composedHandler = requestMetricsHandler(composedHandler, env)
