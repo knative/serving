@@ -26,38 +26,38 @@ import (
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
-// accessor defines an abstraction for manipulating labeled entity
+// Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
-type accessor interface {
+type Accessor interface {
 	get(ns, name string) (kmeta.Accessor, error)
 	list(ns, name string) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
 }
 
-// revision is an implementation of accessor for Revisions
-type revision struct {
+// Revision is an implementation of accessor for Revisions.
+type Revision struct {
 	client         clientset.Interface
 	revisionLister listers.RevisionLister
 }
 
 // revision implements accessor
-var _ accessor = (*revision)(nil)
+var _ Accessor = (*Revision)(nil)
 
-// MakeRevisionAccessor is a factory function to make a new revision accessor
-func NewRevisionAccessor(client clientset.Interface, lister listers.RevisionLister) *revision {
-	return &revision{
+// NewRevisionAccessor is a factory function to make a new revision accessor.
+func NewRevisionAccessor(client clientset.Interface, lister listers.RevisionLister) *Revision {
+	return &Revision{
 		client:         client,
 		revisionLister: lister,
 	}
 }
 
 // get implements accessor
-func (r *revision) get(ns, name string) (kmeta.Accessor, error) {
+func (r *Revision) get(ns, name string) (kmeta.Accessor, error) {
 	return r.revisionLister.Revisions(ns).Get(name)
 }
 
 // list implements accessor
-func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
+func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
@@ -73,35 +73,35 @@ func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
 }
 
 // patch implements accessor
-func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
+func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	_, err := r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
 	return err
 }
 
-// configuration is an implementation of accessor for Configurations
-type configuration struct {
+// Configuration is an implementation of accessor for Configurations.
+type Configuration struct {
 	client              clientset.Interface
 	configurationLister listers.ConfigurationLister
 }
 
 // configuration implements accessor
-var _ accessor = (*configuration)(nil)
+var _ Accessor = (*Configuration)(nil)
 
-// MakeConfigurationAccessor is a factory function to make a new configuration accessor
-func NewConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *configuration {
-	return &configuration{
+// NewConfigurationAccessor is a factory function to make a new configuration accessor.
+func NewConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *Configuration {
+	return &Configuration{
 		client:              client,
 		configurationLister: lister,
 	}
 }
 
 // get implements accessor
-func (c *configuration) get(ns, name string) (kmeta.Accessor, error) {
+func (c *Configuration) get(ns, name string) (kmeta.Accessor, error) {
 	return c.configurationLister.Configurations(ns).Get(name)
 }
 
 // list implements accessor
-func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
+func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
@@ -117,7 +117,7 @@ func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 }
 
 // patch implements accessor
-func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
+func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
 	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
 }
