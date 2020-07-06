@@ -89,7 +89,7 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 // ClearLabels removes any labels for a named route from configurations and revisions.
 func ClearLabels(ns, name string, accs ...Accessor) error {
 	for _, acc := range accs {
-		if err := deleteLabelForNotListed(ns, name, acc, sets.NewString()); err != nil {
+		if err := deleteLabelForNotListed(ns, name, acc, nil /*none listed*/); err != nil {
 			return err
 		}
 	}
@@ -132,7 +132,7 @@ func deleteLabelForNotListed(ns, name string, acc Accessor, names sets.String) e
 
 	// Delete label for newly removed traffic targets.
 	for _, elt := range oldList {
-		if names.Has(elt.GetName()) {
+		if names != nil && names.Has(elt.GetName()) {
 			continue
 		}
 
