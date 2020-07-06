@@ -132,7 +132,7 @@ func deleteLabelForNotListed(ns, name string, acc Accessor, names sets.String) e
 
 	// Delete label for newly removed traffic targets.
 	for _, elt := range oldList {
-		if names != nil && names.Has(elt.GetName()) {
+		if names.Has(elt.GetName()) {
 			continue
 		}
 
