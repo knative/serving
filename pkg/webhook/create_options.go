@@ -25,6 +25,9 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
+TODO(https://github.com/knative/serving/issues/7143) We will remove this entire file once we pull in
+// k8s version 1.18 client libraries where CreateOptions is included officially.
+// This file is mostly pieces backported from the current version of the client.
 var newCreateWithOptions func(client rest.Interface, namespace string) podInterface = newPods
 
 type pods struct {
