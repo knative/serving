@@ -59,10 +59,6 @@ fi
 go mod tidy
 go mod vendor
 
-# Apply Patches
-echo "Applying patches"
-git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
-
 echo "Removing unwanted vendor files"
 
 # Remove unwanted vendor files
