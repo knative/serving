@@ -31,9 +31,16 @@
 
 source $(dirname $0)/e2e-common.sh
 
+latest_version() {
+  local semver=$(git describe --match "v[0-9]*" --abbrev=0)
+  local major_minor=$(echo "$semver" | cut -d. -f1-2)
+
+  # Get the latest patch release for the major minor
+  git tag -l "${major_minor}*" | sort -r --version-sort | head -n1
+}
 # Latest serving release. If user does not supply this as a flag, the latest
 # tagged release on the current branch will be used.
-LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
+LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
 LATEST_NET_ISTIO_RELEASE_VERSION=$(
@@ -46,22 +53,16 @@ function install_latest_release() {
   install_knative_serving latest-release \
       || fail_test "Knative latest release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
+  wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
+  # TODO - delete this once 0.16 lands and we use generateName
+  kubectl delete jobs -n ${SYSTEM_NAMESPACE} -l app=storage-version-migration
 }
 
 function install_head() {
   header "Installing Knative head release"
   install_knative_serving || fail_test "Knative head release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
-
-  echo "Running storage migration job"
-  local MIGRATION_YAML=${TMP_DIR}/${SERVING_STORAGE_VERSION_MIGRATE_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_STORAGE_VERSION_MIGRATE_YAML} > ${MIGRATION_YAML}
-
-  kubectl delete -f ${MIGRATION_YAML} --ignore-not-found
-  kubectl apply -f ${MIGRATION_YAML}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
-  echo "Finished running storage migration job"
-  kubectl get jobs -A
 }
 
 function knative_setup() {

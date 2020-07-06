@@ -21,7 +21,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	net "knative.dev/serving/pkg/apis/networking"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -97,7 +97,7 @@ func (r *Revision) GetProtocol() (p net.ProtocolType) {
 	p = net.ProtocolHTTP1
 
 	ports := r.Spec.GetContainer().Ports
-	if len(ports) <= 0 {
+	if len(ports) == 0 {
 		return
 	}
 

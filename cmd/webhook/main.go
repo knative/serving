@@ -36,12 +36,12 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
 	// resource validation types
+	net "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/leaderelection"
 	extravalidation "knative.dev/serving/pkg/webhook"
 
@@ -56,18 +56,18 @@ import (
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
-	v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
-	v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
-	v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
-	v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
-	v1beta1.SchemeGroupVersion.WithKind("Revision"):       &v1beta1.Revision{},
-	v1beta1.SchemeGroupVersion.WithKind("Configuration"):  &v1beta1.Configuration{},
-	v1beta1.SchemeGroupVersion.WithKind("Route"):          &v1beta1.Route{},
-	v1beta1.SchemeGroupVersion.WithKind("Service"):        &v1beta1.Service{},
-	v1.SchemeGroupVersion.WithKind("Revision"):            &v1.Revision{},
-	v1.SchemeGroupVersion.WithKind("Configuration"):       &v1.Configuration{},
-	v1.SchemeGroupVersion.WithKind("Route"):               &v1.Route{},
-	v1.SchemeGroupVersion.WithKind("Service"):             &v1.Service{},
+	servingv1alpha1.SchemeGroupVersion.WithKind("Revision"):      &servingv1alpha1.Revision{},
+	servingv1alpha1.SchemeGroupVersion.WithKind("Configuration"): &servingv1alpha1.Configuration{},
+	servingv1alpha1.SchemeGroupVersion.WithKind("Route"):         &servingv1alpha1.Route{},
+	servingv1alpha1.SchemeGroupVersion.WithKind("Service"):       &servingv1alpha1.Service{},
+	servingv1beta1.SchemeGroupVersion.WithKind("Revision"):       &servingv1beta1.Revision{},
+	servingv1beta1.SchemeGroupVersion.WithKind("Configuration"):  &servingv1beta1.Configuration{},
+	servingv1beta1.SchemeGroupVersion.WithKind("Route"):          &servingv1beta1.Route{},
+	servingv1beta1.SchemeGroupVersion.WithKind("Service"):        &servingv1beta1.Service{},
+	servingv1.SchemeGroupVersion.WithKind("Revision"):            &servingv1.Revision{},
+	servingv1.SchemeGroupVersion.WithKind("Configuration"):       &servingv1.Configuration{},
+	servingv1.SchemeGroupVersion.WithKind("Route"):               &servingv1.Route{},
+	servingv1.SchemeGroupVersion.WithKind("Service"):             &servingv1.Service{},
 
 	autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
 	autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
@@ -81,9 +81,9 @@ var serviceValidation = validation.NewCallback(
 	extravalidation.ValidateRevisionTemplate, webhook.Create, webhook.Update)
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
-	v1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
-	v1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
-	v1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
+	servingv1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
+	servingv1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
+	servingv1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
 }
 
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
@@ -104,7 +104,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		func(ctx context.Context) context.Context {
-			return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+			return servingv1.WithUpgradeViaDefaulting(store.ToContext(ctx))
 		},
 
 		// Whether to disallow unknown fields.
@@ -130,7 +130,7 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		func(ctx context.Context) context.Context {
-			return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+			return servingv1.WithUpgradeViaDefaulting(store.ToContext(ctx))
 		},
 
 		// Whether to disallow unknown fields.
@@ -168,9 +168,9 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 func newConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	var (
-		v1alpha1_ = v1alpha1.SchemeGroupVersion.Version
-		v1beta1_  = v1beta1.SchemeGroupVersion.Version
-		v1_       = v1.SchemeGroupVersion.Version
+		v1alpha1 = servingv1alpha1.SchemeGroupVersion.Version
+		v1beta1  = servingv1beta1.SchemeGroupVersion.Version
+		v1       = servingv1.SchemeGroupVersion.Version
 	)
 
 	return conversion.NewConversionController(ctx,
@@ -179,40 +179,40 @@ func newConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 
 		// Specify the types of custom resource definitions that should be converted
 		map[schema.GroupKind]conversion.GroupKindConversion{
-			v1.Kind("Service"): {
+			servingv1.Kind("Service"): {
 				DefinitionName: serving.ServicesResource.String(),
-				HubVersion:     v1alpha1_,
+				HubVersion:     v1alpha1,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					v1alpha1_: &v1alpha1.Service{},
-					v1beta1_:  &v1beta1.Service{},
-					v1_:       &v1.Service{},
+					v1alpha1: &servingv1alpha1.Service{},
+					v1beta1:  &servingv1beta1.Service{},
+					v1:       &servingv1.Service{},
 				},
 			},
-			v1.Kind("Configuration"): {
+			servingv1.Kind("Configuration"): {
 				DefinitionName: serving.ConfigurationsResource.String(),
-				HubVersion:     v1alpha1_,
+				HubVersion:     v1alpha1,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					v1alpha1_: &v1alpha1.Configuration{},
-					v1beta1_:  &v1beta1.Configuration{},
-					v1_:       &v1.Configuration{},
+					v1alpha1: &servingv1alpha1.Configuration{},
+					v1beta1:  &servingv1beta1.Configuration{},
+					v1:       &servingv1.Configuration{},
 				},
 			},
-			v1.Kind("Revision"): {
+			servingv1.Kind("Revision"): {
 				DefinitionName: serving.RevisionsResource.String(),
-				HubVersion:     v1alpha1_,
+				HubVersion:     v1alpha1,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					v1alpha1_: &v1alpha1.Revision{},
-					v1beta1_:  &v1beta1.Revision{},
-					v1_:       &v1.Revision{},
+					v1alpha1: &servingv1alpha1.Revision{},
+					v1beta1:  &servingv1beta1.Revision{},
+					v1:       &servingv1.Revision{},
 				},
 			},
-			v1.Kind("Route"): {
+			servingv1.Kind("Route"): {
 				DefinitionName: serving.RoutesResource.String(),
-				HubVersion:     v1alpha1_,
+				HubVersion:     v1alpha1,
 				Zygotes: map[string]conversion.ConvertibleObject{
-					v1alpha1_: &v1alpha1.Route{},
-					v1beta1_:  &v1beta1.Route{},
-					v1_:       &v1.Route{},
+					v1alpha1: &servingv1alpha1.Route{},
+					v1beta1:  &servingv1beta1.Route{},
+					v1:       &servingv1.Route{},
 				},
 			},
 		},

@@ -39,11 +39,15 @@ const (
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
 	WorkingDir          = "workingdir"
+	ServingContainer    = "servingcontainer"
+	SidecarContainer    = "sidecarcontainer"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
+
+	MultiContainerResponse = "Yay!! multi-container works"
 
 	ConcurrentRequests = 200
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.

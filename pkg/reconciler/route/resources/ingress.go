@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/apis/networking"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
@@ -114,7 +114,7 @@ func MakeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			rule := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
 			if networkConfig.TagHeaderBasedRouting {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -203,8 +203,9 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *netv1alpha1.IngressRule {
-	return &netv1alpha1.IngressRule{
+func makeIngressRule(domains []string, ns string,
+	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
+	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{

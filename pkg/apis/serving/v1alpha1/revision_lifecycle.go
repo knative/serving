@@ -24,10 +24,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
-	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -64,6 +64,11 @@ var revCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
 )
+
+// GetConditionSet retrieves the ConditionSet of the Revision. Implements the KRShaped interface.
+func (*Revision) GetConditionSet() apis.ConditionSet {
+	return revCondSet
+}
 
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")

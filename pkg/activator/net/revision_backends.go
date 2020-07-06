@@ -38,6 +38,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -45,7 +46,6 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -85,7 +85,6 @@ func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 const (
 	probeTimeout          time.Duration = 300 * time.Millisecond
 	defaultProbeFrequency time.Duration = 200 * time.Millisecond
-	probePath                           = "/healthz"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -158,7 +157,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
-		Path:   probePath,
+		Path:   network.ProbePath,
 	}
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
 	return prober.Do(ctx, rw.transport, httpDest.String(),

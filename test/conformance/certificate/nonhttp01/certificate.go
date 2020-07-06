@@ -28,8 +28,7 @@ func TestSecret(t *testing.T) {
 	clients := test.Setup(t)
 	certName := test.ObjectNameForTest(t) + ".example.com"
 
-	cert, cancel := utils.CreateCertificate(t, clients, []string{certName})
-	defer cancel()
+	cert := utils.CreateCertificate(t, clients, []string{certName})
 
 	t.Logf("Waiting for Certificate %q to transition to Ready", cert.Name)
 	if err := utils.WaitForCertificateState(clients.NetworkingClient, cert.Name, utils.IsCertificateReady, "CertificateIsReady"); err != nil {

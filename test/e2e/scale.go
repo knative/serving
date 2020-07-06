@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/pkg/pool"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -89,6 +90,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			defer latencies.Add("time-to-done", start)
 
 			svc, err := v1test.CreateService(t, clients, names,
+				func(svc *v1.Service) {
+					svc.Spec.Template.Spec.EnableServiceLinks = ptr.Bool(false)
+				},
 				rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("50m"),
@@ -185,8 +189,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		select {
 		case names := <-cleanupCh:
 			t.Logf("Added %v to cleanup routine.", names)
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 
 		case err := <-doneCh:
 			if err != nil {

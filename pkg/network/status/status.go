@@ -36,8 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network/prober"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
 )
@@ -47,7 +47,6 @@ const (
 	probeConcurrency = 15
 	// probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
-	probePath    = "/healthz"
 	// initialDelay defines the delay before enqueuing a probing request the first time.
 	// It gives times for the change to propagate and prevents unnecessary retries.
 	initialDelay = 200 * time.Millisecond
@@ -368,7 +367,7 @@ func (m *Prober) processWorkItem() bool {
 	}
 
 	probeURL := deepCopy(item.url)
-	probeURL.Path = path.Join(probeURL.Path, probePath)
+	probeURL.Path = path.Join(probeURL.Path, network.ProbePath)
 
 	ctx, cancel := context.WithTimeout(item.context, probeTimeout)
 	defer cancel()

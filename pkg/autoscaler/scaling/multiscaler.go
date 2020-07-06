@@ -68,8 +68,12 @@ type DeciderSpec struct {
 	PanicThreshold float64
 	// StableWindow is needed to determine when to exit panic mode.
 	StableWindow time.Duration
-	// The name of the k8s service for pod information.
-	ServiceName string
+	// InitialScale is the calculated initial scale of the revision, taking both
+	// revision initial scale and cluster initial scale into account. Revision initial
+	// scale overrides cluster initial scale.
+	InitialScale int32
+	// Reachable describes whether the revision is referenced by any route.
+	Reachable bool
 }
 
 // DeciderStatus is the current scale recommendation.

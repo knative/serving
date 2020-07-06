@@ -32,6 +32,99 @@ import (
 
 const testRevision = "test-revision"
 
+func TestPodReadyUnreadyCount(t *testing.T) {
+	tests := []struct {
+		name string
+		pods []*corev1.Pod
+		want int
+	}{{
+		name: "no pods",
+	}, {
+		name: "one pod",
+		pods: []*corev1.Pod{
+			pod("ramble-on", makeReady),
+		},
+		want: 1,
+	}, {
+		name: "one pod no status",
+		pods: []*corev1.Pod{
+			pod("whole-lotta-love"),
+		},
+	}, {
+		name: "one pod terminating",
+		pods: []*corev1.Pod{
+			pod("stairway-to-heaven", func(p *corev1.Pod) {
+				n := metav1.Now()
+				p.DeletionTimestamp = &n // Pod terminating[
+			}),
+		},
+	}, {
+		name: "two pods not ready in various ways",
+		pods: []*corev1.Pod{
+			pod("when-the-levee-breaks", func(p *corev1.Pod) {
+				p.Status.Conditions = []corev1.PodCondition{{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionFalse,
+				}}
+			}),
+			pod("black-dog", func(p *corev1.Pod) {
+				p.Status.Conditions = []corev1.PodCondition{{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionUnknown,
+				}}
+			}),
+		},
+	}, {
+		name: "two pods ready",
+		pods: []*corev1.Pod{
+			pod("dazed-and-confused", makeReady),
+			pod("good-times-bad-times", makeReady),
+		},
+		want: 2,
+	}, {
+		name: "mix and match",
+		pods: []*corev1.Pod{
+			pod("immigrant-song", makeReady),
+			pod("since-ive-been-lovin-you", func(p *corev1.Pod) {
+				p.Status.Conditions = []corev1.PodCondition{{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionFalse,
+				}}
+			}),
+		},
+		want: 1,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+			kubeClient := fakek8s.NewSimpleClientset()
+			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
+			for _, p := range tc.pods {
+				kubeClient.CoreV1().Pods(testNamespace).Create(p)
+				podsClient.Informer().GetIndexer().Add(p)
+			}
+			podCounter := NewPodAccessor(podsClient.Lister(), testNamespace, testRevision)
+
+			got, err := podCounter.ReadyCount()
+			if err != nil {
+				t.Fatal("ReadyCount failed:", err)
+			}
+			if got != tc.want {
+				t.Errorf("ReadyCount = %d, want: %d", got, tc.want)
+			}
+			got, err = podCounter.NotReadyCount()
+			if err != nil {
+				t.Fatal("NotReadyCount failed:", err)
+			}
+			// All that are not ready must be not-ready.
+			if want := len(tc.pods) - tc.want; got != want {
+				t.Errorf("NotReadyCount = %d, want: %d", got, want)
+			}
+		})
+	}
+}
+
 func TestPodsSortedByAge(t *testing.T) {
 	aTime := time.Now()
 
@@ -209,6 +302,13 @@ func withPhase(ph corev1.PodPhase) podOption {
 	return func(p *corev1.Pod) {
 		p.Status.Phase = ph
 	}
+}
+
+func makeReady(p *corev1.Pod) {
+	p.Status.Conditions = []corev1.PodCondition{{
+		Type:   corev1.PodReady,
+		Status: corev1.ConditionTrue,
+	}}
 }
 
 func withStartTime(t time.Time) podOption {

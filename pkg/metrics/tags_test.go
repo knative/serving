@@ -36,7 +36,7 @@ var testM = stats.Int64(
 	stats.UnitDimensionless)
 
 func register(t *testing.T) func() {
-	if err := view.Register(
+	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     testM,

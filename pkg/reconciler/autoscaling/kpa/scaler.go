@@ -26,12 +26,12 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	"knative.dev/networking/pkg/apis/networking"
+	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/networking"
-	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -117,7 +117,7 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
 
-	return fmt.Sprintf("http://%s:%d/healthz", svc, port)
+	return fmt.Sprintf("http://%s:%d/%s", svc, port, network.ProbePath)
 }
 
 // activatorProbe returns true if via probe it determines that the

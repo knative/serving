@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/apis"
@@ -49,9 +50,18 @@ func ValidateAnnotations(allowInitScaleZero bool, anns map[string]string) *apis.
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).
+	return validateClass(anns).Also(validateMinMaxScale(anns)).Also(validateFloats(anns)).
 		Also(validateWindow(anns).Also(validateLastPodRetention(anns)).
 			Also(validateMetric(anns).Also(validateInitialScale(allowInitScaleZero, anns))))
+}
+
+func validateClass(annotations map[string]string) *apis.FieldError {
+	if c, ok := annotations[ClassAnnotationKey]; ok {
+		if strings.HasSuffix(c, domain) && c != KPA && c != HPA {
+			return apis.ErrInvalidValue(c, ClassAnnotationKey)
+		}
+	}
+	return nil
 }
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
@@ -75,7 +85,7 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 
 	if v, ok := annotations[TargetAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
-			errs = errs.Also(apis.ErrInvalidValue(v, TargetAnnotationKey))
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), TargetAnnotationKey))
 		}
 	}
 
@@ -152,7 +162,7 @@ func validateMetric(annotations map[string]string) *apis.FieldError {
 			}
 		case HPA:
 			switch metric {
-			case CPU, Concurrency, RPS:
+			case CPU:
 				return nil
 			}
 		default:

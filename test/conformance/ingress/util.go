@@ -47,10 +47,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -893,29 +893,27 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 
 	defer resp.Body.Close()
 
-	if resp != nil {
-		for _, e := range responseExpectations {
-			if err := e(resp); err != nil {
-				t.Errorf("Error meeting response expectations: %v", err)
-				DumpResponse(t, resp)
-				return nil
-			}
+	for _, e := range responseExpectations {
+		if err := e(resp); err != nil {
+			t.Errorf("Error meeting response expectations: %v", err)
+			DumpResponse(t, resp)
+			return nil
 		}
+	}
 
-		if resp.StatusCode == http.StatusOK {
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				t.Errorf("Unable to read response body: %v", err)
-				DumpResponse(t, resp)
-				return nil
-			}
-			ri := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, ri); err != nil {
-				t.Errorf("Unable to parse runtime image's response payload: %v", err)
-				return nil
-			}
-			return ri
+	if resp.StatusCode == http.StatusOK {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Errorf("Unable to read response body: %v", err)
+			DumpResponse(t, resp)
+			return nil
 		}
+		ri := &types.RuntimeInfo{}
+		if err := json.Unmarshal(b, ri); err != nil {
+			t.Errorf("Unable to parse runtime image's response payload: %v", err)
+			return nil
+		}
+		return ri
 	}
 	return nil
 }

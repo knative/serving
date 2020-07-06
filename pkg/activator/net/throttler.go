@@ -32,6 +32,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
@@ -40,7 +41,6 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -70,6 +70,16 @@ var (
 type podTracker struct {
 	dest string
 	b    breaker
+	// weight is used for LB policy implementations.
+	weight int32
+}
+
+func (p *podTracker) addWeight(w int32) {
+	atomic.AddInt32(&p.weight, w)
+}
+
+func (p *podTracker) getWeight() int32 {
+	return atomic.LoadInt32(&p.weight)
 }
 
 func (p *podTracker) String() string {
@@ -153,12 +163,18 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker breaker
 		lbp        lbPolicy
 	)
-	if containerConcurrency == 0 {
+	switch {
+	case containerConcurrency == 0:
 		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomLBPolicy
-	} else {
+		lbp = randomChoice2Policy
+	case containerConcurrency <= 3:
+		// For very low CC values use first available pod.
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = firstAvailableLBPolicy
+	default:
+		// Otherwise RR.
+		revBreaker = queue.NewBreaker(breakerParams)
+		lbp = newRoundRobinPolicy()
 	}
 	return &revisionThrottler{
 		revID:                revID,

@@ -25,9 +25,7 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -35,14 +33,6 @@ import (
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
-
-// createLatestService creates a service in namespace with the name names.Service
-// that uses the image specified by names.Image
-func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1alpha1.Service, error) {
-	service := v1a1test.LatestService(names, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
-	v1a1test.LogResourceObject(t, v1a1test.ResourceObjects{Service: service})
-	return clients.ServingAlphaClient.Services.Create(service)
-}
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
@@ -91,22 +81,6 @@ func TestRevisionTimeout(t *testing.T) {
 		sleep          time.Duration
 		expectedStatus int
 	}{{
-		name:           "when scaling up from 0 and does not exceed timeout seconds",
-		shouldScaleTo0: true,
-		timeoutSeconds: 20,
-		expectedStatus: http.StatusOK,
-	}, {
-		name:           "when scaling up from 0 and it writes first byte before timeout",
-		shouldScaleTo0: true,
-		timeoutSeconds: 20,
-		sleep:          25 * time.Second,
-		expectedStatus: http.StatusOK,
-	}, {
-		name:           "when scaling up from 0 and it does exceed timeout seconds",
-		shouldScaleTo0: true,
-		timeoutSeconds: 1, // If the pods come up faster than 1s, this test might fail.
-		expectedStatus: http.StatusGatewayTimeout,
-	}, {
 		name:           "when pods already exist, and it does not exceed timeout seconds",
 		timeoutSeconds: 10,
 		initialSleep:   2 * time.Second,
@@ -130,46 +104,19 @@ func TestRevisionTimeout(t *testing.T) {
 				Image:   test.Timeout,
 			}
 
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, names)
 
 			t.Log("Creating a new Service ")
-			_, err := createLatestService(t, clients, names, tc.timeoutSeconds)
+			resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, WithRevisionTimeoutSeconds(tc.timeoutSeconds))
 			if err != nil {
 				t.Fatal("Failed to create Service:", err)
 			}
 
-			t.Log("The Service will be updated with the name of the Revision once it is created")
-			revisionName, err := v1a1test.WaitForServiceLatestRevision(clients, names)
-			if err != nil {
-				t.Fatalf("Service %s was not updated with the new revision: %v", names.Service, err)
-			}
-			names.Revision = revisionName
-
-			t.Log("When the Service reports as Ready, everything should be ready")
-			if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
-				t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
-			}
-
-			service, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("Error fetching Service %s: %v", names.Service, err)
-			}
-
-			if service.Status.URL == nil {
-				t.Fatalf("Unable to fetch URLs from service: %#v", service.Status)
-			}
-
-			serviceURL := service.Status.URL.URL()
+			serviceURL := resources.Service.Status.URL.URL()
 
 			if tc.shouldScaleTo0 {
 				t.Log("Waiting to scale down to 0")
-				revision, err := clients.ServingBetaClient.Revisions.Get(names.Revision, metav1.GetOptions{})
-				if err != nil {
-					t.Fatalf("Error fetching Service %s: %v", names.Service, err)
-				}
-
-				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(revision), clients); err != nil {
+				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {

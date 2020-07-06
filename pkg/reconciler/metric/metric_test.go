@@ -276,7 +276,7 @@ func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Record(key types.NamespacedName, stat metrics.Stat) {
+func (c *testCollector) Record(key types.NamespacedName, now time.Time, stat metrics.Stat) {
 	if c.recordCalls != nil {
 		c.recordCalls <- struct{}{}
 	}

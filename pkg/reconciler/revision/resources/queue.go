@@ -20,21 +20,21 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -78,9 +78,35 @@ var (
 	}
 )
 
-func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
-	resourceRequests := corev1.ResourceList{corev1.ResourceCPU: queueContainerCPU}
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
+
+	for _, r := range []struct {
+		Name    corev1.ResourceName
+		Request *resource.Quantity
+		Limit   *resource.Quantity
+	}{{
+		Name:    corev1.ResourceCPU,
+		Request: cfg.QueueSidecarCPURequest,
+		Limit:   cfg.QueueSidecarCPULimit,
+	}, {
+		Name:    corev1.ResourceMemory,
+		Request: cfg.QueueSidecarMemoryRequest,
+		Limit:   cfg.QueueSidecarMemoryLimit,
+	}, {
+		Name:    corev1.ResourceEphemeralStorage,
+		Request: cfg.QueueSidecarEphemeralStorageRequest,
+		Limit:   cfg.QueueSidecarEphemeralStorageLimit,
+	}} {
+		if r.Request != nil {
+			resourceRequests[r.Name] = *r.Request
+		}
+		if r.Limit != nil {
+			resourceLimits[r.Name] = *r.Limit
+		}
+	}
+
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
 	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSideCarResourcePercentageAnnotation); ok {
@@ -173,20 +199,19 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 		return out
 	}
 
-	timeout := 1
-
+	timeout := time.Second
 	if in.TimeoutSeconds > 1 {
-		timeout = int(in.TimeoutSeconds)
+		timeout = time.Duration(in.TimeoutSeconds) * time.Second
 	}
 
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
+				Command: []string{"/ko-app/queue", "-probe-period", timeout.String()},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
-		TimeoutSeconds:      int32(timeout),
+		TimeoutSeconds:      int32(timeout.Seconds()),
 		SuccessThreshold:    in.SuccessThreshold,
 		FailureThreshold:    in.FailureThreshold,
 		InitialDelaySeconds: in.InitialDelaySeconds,
@@ -194,8 +219,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscalerconfig.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
+func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -226,11 +250,6 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 	ports = append(ports, servingPort)
 
-	var volumeMounts []corev1.VolumeMount
-	if autoscalerConfig.EnableGracefulScaledown {
-		volumeMounts = append(volumeMounts, labelVolumeMount)
-	}
-
 	container := rev.Spec.GetContainer()
 	rp := container.ReadinessProbe.DeepCopy()
 
@@ -244,10 +263,9 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(rev.GetAnnotations(), container),
+		Resources:       createQueueResources(deploymentConfig, rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
-		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -320,9 +338,6 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 		}, {
 			Name:  metrics.DomainEnv,
 			Value: metrics.Domain(),
-		}, {
-			Name:  "DOWNWARD_API_LABELS_PATH",
-			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,

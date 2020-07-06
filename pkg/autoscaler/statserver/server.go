@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"net"
 	"net/http"
 	"sync"
@@ -154,18 +155,25 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			close(handlerCh)
 			return
 		}
-		if messageType != websocket.BinaryMessage {
-			s.logger.Error("Dropping non-binary message.")
+
+		// we accept either GOB-encoded or JSON-encoded messages depending on the
+		// message type to ensure safe upgrades.
+		var dec decoder
+		switch messageType {
+		case websocket.BinaryMessage:
+			dec = gob.NewDecoder(bytes.NewBuffer(msg))
+		case websocket.TextMessage:
+			dec = json.NewDecoder(bytes.NewBuffer(msg))
+		default:
+			s.logger.Error("Dropping unknown message type.")
 			continue
 		}
-		dec := gob.NewDecoder(bytes.NewBuffer(msg))
+
 		var sm metrics.StatMessage
-		err = dec.Decode(&sm)
-		if err != nil {
+		if err = dec.Decode(&sm); err != nil {
 			s.logger.Error(err)
 			continue
 		}
-		sm.Stat.Time = time.Now()
 
 		s.logger.Debugf("Received stat message: %+v", sm)
 		s.statsCh <- sm
@@ -202,4 +210,9 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	case <-ctx.Done():
 		s.logger.Warn("Shutdown timed out")
 	}
+}
+
+// decoder is the interface implemented by json.Decoder and gob.Decoder
+type decoder interface {
+	Decode(interface{}) error
 }

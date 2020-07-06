@@ -44,8 +44,7 @@ func TestRollbackBYOName(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	withTrafficSpecOld := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{

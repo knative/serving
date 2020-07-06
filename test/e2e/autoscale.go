@@ -30,13 +30,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -52,8 +50,7 @@ const (
 	successRateSLO       = 0.999
 	autoscaleSleep       = 500
 
-	wsHostnameTestImageName = "wsserver-hostname"
-	autoscaleTestImageName  = "autoscale"
+	autoscaleTestImageName = "autoscale"
 )
 
 type testContext struct {
@@ -182,8 +179,8 @@ func toPercentageString(f float64) string {
 // setup creates a new service, with given service options.
 // It returns a testContext that has resources, K8s clients and other needed
 // data points.
-// It sets up CleanupOnInterrupt as well that will destroy the resources
-// when the test terminates.
+// It sets up EnsureTearDown to ensure that resources are cleaned up when the
+// test terminates.
 func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
@@ -193,7 +190,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		Service: test.ObjectNameForTest(t),
 		Image:   image,
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
@@ -265,17 +262,6 @@ func assertScaleDown(ctx *testContext) {
 	}
 
 	ctx.t.Log("Scaled down.")
-}
-
-func allPods(ctx *testContext) ([]corev1.Pod, error) {
-	pods, err := ctx.clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(
-		metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{serving.RevisionLabelKey: ctx.resources.Revision.Name}).String()})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods for revision %s: %w", ctx.resources.Revision.Name, err)
-	}
-
-	return pods.Items, nil
 }
 
 func numberOfReadyPods(ctx *testContext) (float64, error) {
@@ -392,7 +378,6 @@ func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	}
 
 	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy

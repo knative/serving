@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: a51cd546
+    knative.dev/example-checksum: 42a8ba12
 data:
   _example: |
     ################################
@@ -38,8 +38,19 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
+    # Indicates whether new more aggressive garbage collection has been enabled.
+    aggressive-revision-gc: "disabled"
+
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
 
-    # Indicates whether new more aggressive garbage collection has been enabled.
-    aggressive-revision-gc: "disabled"
+    # Indicates whether Kubernetes FieldRef support is enabled
+    kubernetes.podspec-fieldref: "disabled"
+
+    # This feature validates PodSpecs from the validating webhook
+    # against the K8s API Server.
+    #
+    # When "allowed", the client may enable the behavior with the
+    # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
+    # When "enabled"  the server will always run the extra validation.
+    kubernetes.podspec-dryrun: "allowed"

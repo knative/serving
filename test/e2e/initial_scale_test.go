@@ -47,8 +47,8 @@ func TestInitScaleZero(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 0)
@@ -67,8 +67,7 @@ func TestInitScalePositive(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 3)
@@ -97,7 +96,7 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		}
 		gotPods := len(podList.Items)
 		if gotPods == wantPods {
-			return s.Generation == s.Status.ObservedGeneration && s.Status.IsReady(), nil
+			return s.IsReady(), nil
 		}
 		if gotPods > wantPods {
 			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)

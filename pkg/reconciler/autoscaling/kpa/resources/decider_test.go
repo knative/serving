@@ -36,12 +36,25 @@ func TestMakeDecider(t *testing.T) {
 	cases := []struct {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
-		svc    string
 		want   *scaling.Decider
 		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
+	}, {
+		name: "unreachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityUnreachable
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), func(d *scaling.Decider) {
+			d.Spec.Reachable = false
+		}),
+	}, {
+		name: "explicit reachable",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.Spec.Reachability = v1alpha1.ReachabilityReachable
+		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
 	}, {
 		name: "tu < 1", // See #4449 why Target=100
@@ -119,17 +132,19 @@ func TestMakeDecider(t *testing.T) {
 			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
-		name: "with service name",
-		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
-		svc:  "rock-solid",
-		want: decider(
-			withService("rock-solid"),
-			withTarget(10.0), withPanicThreshold(4.0), withTotal(10.0),
-			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
-	}, {
 		name: "with metric annotation",
 		pa:   pa(WithMetricAnnotation("rps")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
+	}, {
+		name: "with initial scale",
+		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
+			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
+			func(d *scaling.Decider) {
+				d.Spec.InitialScale = 2
+				d.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			}),
 	}}
 
 	for _, tc := range cases {
@@ -139,8 +154,60 @@ func TestMakeDecider(t *testing.T) {
 				cfg = tc.cfgOpt(*config)
 			}
 
-			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg, tc.svc)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeDecider(context.Background(), tc.pa, cfg)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
+			}
+		})
+	}
+}
+
+func TestGetInitialScale(t *testing.T) {
+	tests := []struct {
+		name          string
+		paMutation    func(*v1alpha1.PodAutoscaler)
+		configMutator func(*autoscalerconfig.Config)
+		want          int
+	}{{
+		name: "revision initial scale not set",
+		want: 1,
+	}, {
+		name: "revision initial scale overrides cluster initial scale",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+		want: 2,
+	}, {
+		name: "cluster allows initial scale zero",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+		},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.AllowZeroInitialScale = true
+		},
+		want: 0,
+	}, {
+		name: "cluster does not allows initial scale zero",
+		paMutation: func(pa *v1alpha1.PodAutoscaler) {
+			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+		},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.AllowZeroInitialScale = false
+		},
+		want: 1,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
+			if test.configMutator != nil {
+				test.configMutator(autoscalerConfig)
+			}
+			pa := pa()
+			if test.paMutation != nil {
+				test.paMutation(pa)
+			}
+			got := int(GetInitialScale(autoscalerConfig, pa))
+			if want := test.want; got != want {
+				t.Errorf("got = %v, want: %v", got, want)
 			}
 		})
 	}
@@ -200,6 +267,8 @@ func decider(options ...deciderOption) *scaling.Decider {
 			PanicThreshold:      200,
 			ActivatorCapacity:   811,
 			StableWindow:        config.StableWindow,
+			InitialScale:        1,
+			Reachable:           true,
 		},
 	}
 	for _, fn := range options {
@@ -245,12 +314,6 @@ func withTarget(target float64) deciderOption {
 	}
 }
 
-func withService(s string) deciderOption {
-	return func(d *scaling.Decider) {
-		d.Spec.ServiceName = s
-	}
-}
-
 func withPanicThreshold(threshold float64) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Spec.PanicThreshold = threshold
@@ -288,4 +351,6 @@ var config = &autoscalerconfig.Config{
 	PanicThresholdPercentage:           200,
 	PanicWindowPercentage:              10,
 	ScaleToZeroGracePeriod:             30 * time.Second,
+	InitialScale:                       1,
+	AllowZeroInitialScale:              false,
 }

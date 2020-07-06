@@ -25,12 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
+	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -50,14 +49,6 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	pa.SetDefaults(ctx)
-
-	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
 	// HPA-class PAs don't yet support scale-to-zero
@@ -94,11 +85,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Only create metrics service and metric entity if we actually need to gather metrics.
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
-	if pa.Status.MetricsServiceName != "" && pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
-		if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
-			return fmt.Errorf("error reconciling metric: %w", err)
-		}
-	}
 
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName

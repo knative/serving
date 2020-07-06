@@ -37,6 +37,13 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		name:        "empty annotations",
 		annotations: map[string]string{},
 	}, {
+		name:        "invalid class",
+		annotations: map[string]string{ClassAnnotationKey: "unsupported.knative.dev"},
+		expectErr:   "invalid value: unsupported.knative.dev: " + ClassAnnotationKey,
+	}, {
+		name:        "non-knative.dev domain class",
+		annotations: map[string]string{ClassAnnotationKey: "some.other.domain"},
+	}, {
 		name:        "minScale is 0",
 		annotations: map[string]string{MinScaleAnnotationKey: "0"},
 	}, {
@@ -115,11 +122,11 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "target negative",
 		annotations: map[string]string{TargetAnnotationKey: "-11"},
-		expectErr:   "invalid value: -11: " + TargetAnnotationKey,
+		expectErr:   "target -11 should be at least 0.01: " + TargetAnnotationKey,
 	}, {
 		name:        "target 0",
 		annotations: map[string]string{TargetAnnotationKey: "0"},
-		expectErr:   "invalid value: 0: " + TargetAnnotationKey,
+		expectErr:   "target 0 should be at least 0.01: " + TargetAnnotationKey,
 	}, {
 		name:        "target okay",
 		annotations: map[string]string{TargetAnnotationKey: "11"},
@@ -171,14 +178,6 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "annotation /window is valid for class KPA",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
-		expectErr:   "",
-	}, {
-		name:        "annotation /window is valid for class HPA and metric RPS",
-		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
-		expectErr:   "",
-	}, {
-		name:        "annotation /window is valid for class HPA and metric Concurrency",
-		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: Concurrency},
 		expectErr:   "",
 	}, {
 		name:        "annotation /window is valid for other than HPA and KPA class",
@@ -247,14 +246,8 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		name:        "valid class KPA with metric Concurrency",
 		annotations: map[string]string{MetricAnnotationKey: Concurrency},
 	}, {
-		name:        "valid class HPA with metric Concurrency",
-		annotations: map[string]string{ClassAnnotationKey: HPA, MetricAnnotationKey: Concurrency},
-	}, {
 		name:        "valid class HPA with metric CPU",
 		annotations: map[string]string{ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
-	}, {
-		name:        "valid class HPA with metric RPS",
-		annotations: map[string]string{ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
 	}, {
 		name:        "other than HPA and KPA class",
 		annotations: map[string]string{ClassAnnotationKey: "other", MetricAnnotationKey: RPS},

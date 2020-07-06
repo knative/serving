@@ -18,10 +18,7 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/apis"
 )
-
-var configCondSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (*Configuration) GetGroupVersionKind() schema.GroupVersionKind {

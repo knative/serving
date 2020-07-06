@@ -23,12 +23,12 @@ import (
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
+	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
@@ -71,14 +71,6 @@ var _ pareconciler.Interface = (*Reconciler)(nil)
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
-	// We may be reading a version of the object that was stored at an older version
-	// and may not have had all of the assumed defaults specified.  This won't result
-	// in this getting written back to the API Server, but lets downstream logic make
-	// assumptions about defaulting.
-	pa.SetDefaults(ctx)
-
-	pa.Status.InitializeConditions()
-
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
 	sksName := anames.SKS(pa.Name)
@@ -98,7 +90,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
-	decider, err := c.reconcileDecider(ctx, pa, pa.Status.MetricsServiceName)
+	decider, err := c.reconcileDecider(ctx, pa)
 	if err != nil {
 		return fmt.Errorf("error reconciling Decider: %w", err)
 	}
@@ -177,8 +169,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	return computeStatus(pa, pc, logger)
 }
 
-func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
-	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler, k8sSvc)
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*scaling.Decider, error) {
+	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler)
 	decider, err := c.deciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
 		decider, err = c.deciders.Create(ctx, desiredDecider)
@@ -267,6 +259,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 
 	case pc.ready >= minReady:
 		if pc.want > 0 || !pa.Status.IsInactive() {
+			pa.Status.MarkHasBeenActive()
 			// SKS should already be active.
 			pa.Status.MarkActive()
 		}

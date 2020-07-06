@@ -26,13 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -53,6 +53,14 @@ func TestRevisionDuckTypes(t *testing.T) {
 				t.Errorf("VerifyType(Revision, %T) = %v", test.t, err)
 			}
 		})
+	}
+}
+
+func TestRevisionGetConditionSet(t *testing.T) {
+	r := &Revision{}
+
+	if got, want := r.GetConditionSet().GetTopLevelConditionType(), apis.ConditionReady; got != want {
+		t.Errorf("GetTopLevelCondition- Actual:%v, expected:%v", got, want)
 	}
 }
 

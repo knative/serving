@@ -27,13 +27,14 @@ cd ${ROOT_DIR}
 export GO111MODULE=on
 
 # This controls the release branch we track.
-VERSION="master"
+VERSION="release-0.16"
 
 # The list of dependencies that we track at HEAD and periodically
 # float forward in this repository.
 FLOATING_DEPS=(
   "knative.dev/test-infra@${VERSION}"
   "knative.dev/pkg@${VERSION}"
+  "knative.dev/networking@${VERSION}"
   "knative.dev/caching@${VERSION}"
 )
 
@@ -62,11 +63,15 @@ go mod vendor
 echo "Applying patches"
 git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
 
+echo "Removing unwanted vendor files"
+
 # Remove unwanted vendor files
 find vendor/ \( -name "OWNERS" -o -name "*_test.go" \) -print0 | xargs -0 rm -f
 
 export GOFLAGS=-mod=vendor
 
+echo "Updating licenses"
 update_licenses third_party/VENDOR-LICENSE "./..."
 
+echo "Removing broken symlinks"
 remove_broken_symlinks ./vendor

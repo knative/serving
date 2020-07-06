@@ -28,6 +28,7 @@ import (
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
+	"knative.dev/networking/pkg/apis/networking"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -37,9 +38,9 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -86,7 +87,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		Key: "foo/first-reconcile",
 	}, {
@@ -110,7 +111,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "update-status-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
@@ -138,7 +139,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-pa-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withDefaultContainerStatuses()),
+				MarkDeploying("Deploying"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create PA "create-pa-failure": inducing failure for create podautoscalers`),
@@ -164,7 +165,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "create-user-deploy-failure",
 				// Despite failure, the following status properties are set.
 				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withDefaultContainerStatuses()),
+				MarkDeploying("Deploying"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -179,8 +180,8 @@ func TestReconcile(t *testing.T) {
 		// are necessary.
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile", WithLogURL, AllUnknownConditions,
-				withDefaultContainerStatuses()),
-			pa("foo", "stable-reconcile", WithReachability(asv1a1.ReachabilityUnknown)),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
+			pa("foo", "stable-reconcile", WithReachabilityUnknown),
 
 			deploy(t, "foo", "stable-reconcile"),
 			image("foo", "stable-reconcile"),
@@ -193,8 +194,8 @@ func TestReconcile(t *testing.T) {
 		// with our desired spec.
 		Objects: []runtime.Object{
 			rev("foo", "fix-containers",
-				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses()),
-			pa("foo", "fix-containers", WithReachability(asv1a1.ReachabilityUnknown)),
+				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses(), withObservedGeneration(1)),
+			pa("foo", "fix-containers", WithReachabilityUnknown),
 			changeContainers(deploy(t, "foo", "fix-containers")),
 			image("foo", "fix-containers"),
 		},
@@ -212,7 +213,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "failure-update-deploy",
 				withK8sServiceName("whateves"), WithLogURL, AllUnknownConditions,
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 			pa("foo", "failure-update-deploy"),
 			changeContainers(deploy(t, "foo", "failure-update-deploy")),
 			image("foo", "failure-update-deploy"),
@@ -234,9 +235,9 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "stable-deactivation",
 				WithLogURL, MarkRevisionReady,
 				MarkInactive("NoTraffic", "This thing is inactive."),
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 			pa("foo", "stable-deactivation",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+				WithNoTraffic("NoTraffic", "This thing is inactive."), WithReachabilityUnreachable),
 			deploy(t, "foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
@@ -246,7 +247,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachability(asv1a1.ReachabilityUnknown)),
+			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
 		},
@@ -255,7 +256,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL,
 				// When the endpoint and pa are ready, then we will see the
 				// Revision become ready.
-				MarkRevisionReady, withDefaultContainerStatuses()),
+				MarkRevisionReady, withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
@@ -267,10 +268,11 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-not-ready",
 				withK8sServiceName("somebody-told-me"), WithLogURL,
-				MarkRevisionReady),
+				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic("Something", "This is something longer")),
+				WithBufferedTraffic("Something", "This is something longer"),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
 		},
@@ -281,6 +283,7 @@ func TestReconcile(t *testing.T) {
 				// When we reconcile a ready state and our pa is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Something", "This is something longer"),
+				withObservedGeneration(1),
 			),
 		}},
 		Key: "foo/pa-not-ready",
@@ -289,9 +292,11 @@ func TestReconcile(t *testing.T) {
 		// Test propagating the inactivity signal from the pa to the Revision.
 		Objects: []runtime.Object{
 			rev("foo", "pa-inactive",
-				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady),
+				withK8sServiceName("something-in-the-way"), WithLogURL,
+				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+				WithNoTraffic("NoTraffic", "This thing is inactive."),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
@@ -300,7 +305,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive.")),
+				MarkInactive("NoTraffic", "This thing is inactive."), withObservedGeneration(1)),
 		}},
 		Key: "foo/pa-inactive",
 	}, {
@@ -309,10 +314,12 @@ func TestReconcile(t *testing.T) {
 		// But propagate the service name.
 		Objects: []runtime.Object{
 			rev("foo", "pa-inactive",
-				withK8sServiceName("here-comes-the-sun"), WithLogURL, MarkRevisionReady),
+				withK8sServiceName("here-comes-the-sun"), WithLogURL,
+				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("pa-inactive-svc")),
+				WithPAStatusService("pa-inactive-svc"),
+				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
@@ -323,7 +330,7 @@ func TestReconcile(t *testing.T) {
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive."),
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		Key: "foo/pa-inactive",
 	}, {
@@ -333,7 +340,8 @@ func TestReconcile(t *testing.T) {
 		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-pa",
-				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady),
+				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
+				WithRevisionLabel(serving.RouteLabelKey, "foo")),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
 				WithTraffic, WithPAStatusService("fix-mutated-pa")),
 			deploy(t, "foo", "fix-mutated-pa"),
@@ -344,13 +352,17 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
-				withK8sServiceName("fix-mutated-pa"), WithLogURL, MarkRevisionReady,
-				withDefaultContainerStatuses()),
+				withK8sServiceName("fix-mutated-pa"),
+				WithRevisionLabel(serving.RouteLabelKey, "foo"), WithLogURL, MarkRevisionReady,
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa("foo", "fix-mutated-pa", WithTraffic,
-				WithPAStatusService("fix-mutated-pa")),
+				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+		},
 		Key: "foo/fix-mutated-pa",
 	}, {
 		Name: "mutated pa gets error during the fix",
@@ -358,8 +370,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-mutated-pa-fail",
 				withK8sServiceName("some-old-stuff"),
-				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses()),
-			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachability(asv1a1.ReachabilityUnknown)),
+				WithLogURL, AllUnknownConditions, withDefaultContainerStatuses(), withObservedGeneration(1)),
+			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachabilityUnknown),
 			deploy(t, "foo", "fix-mutated-pa-fail"),
 			image("foo", "fix-mutated-pa-fail"),
 		},
@@ -368,7 +380,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa-fail", WithReachability(asv1a1.ReachabilityUnknown)),
+			Object: pa("foo", "fix-mutated-pa-fail", WithReachabilityUnknown),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update PA "fix-mutated-pa-fail": inducing failure for update podautoscalers`),
@@ -393,7 +405,11 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
-				MarkProgressDeadlineExceeded("I timed out!"), withDefaultContainerStatuses()),
+				MarkProgressDeadlineExceeded("I timed out!"), withDefaultContainerStatuses(),
+				withObservedGeneration(1)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "deploy-timeout", WithReachabilityUnreachable),
 		}},
 		Key: "foo/deploy-timeout",
 	}, {
@@ -415,7 +431,10 @@ func TestReconcile(t *testing.T) {
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the FailedCreate state.
 				MarkResourcesUnavailable("FailedCreate", "I replica failed!"),
-				withDefaultContainerStatuses()),
+				withDefaultContainerStatuses(), withObservedGeneration(1)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "deploy-replica-failure", WithReachabilityUnreachable),
 		}},
 		Key: "foo/deploy-replica-failure",
 	}, {
@@ -424,7 +443,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnknown)), // pa can't be ready since deployment times out.
+			pa("foo", "pull-backoff"), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
 			image("foo", "pull-backoff"),
@@ -432,10 +451,10 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pull-backoff",
 				WithLogURL, AllUnknownConditions,
-				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses()),
+				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnreachable)),
+			Object: pa("foo", "pull-backoff", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pull-backoff",
 	}, {
@@ -455,7 +474,10 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
 				WithLogURL, AllUnknownConditions, MarkContainerExiting(5,
-					v1.RevisionContainerExitingMessage("I failed man!")), withDefaultContainerStatuses()),
+					v1.RevisionContainerExitingMessage("I failed man!")), withDefaultContainerStatuses(), withObservedGeneration(1)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pod-error", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pod-error",
 	}, {
@@ -474,7 +496,10 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-schedule-error",
 				WithLogURL, AllUnknownConditions, MarkResourcesUnavailable("Insufficient energy",
-					"Unschedulable"), withDefaultContainerStatuses()),
+					"Unschedulable"), withDefaultContainerStatuses(), withObservedGeneration(1)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pod-schedule-error", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pod-schedule-error",
 	}, {
@@ -494,7 +519,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "steady-ready", withK8sServiceName("steadier-even"), WithLogURL,
 				// All resources are ready to go, we should see the revision being
 				// marked ready
-				MarkRevisionReady, withDefaultContainerStatuses()),
+				MarkRevisionReady, withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
@@ -514,7 +539,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", withK8sServiceName("lesser-revision"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for PodAutoscaler we see this update.
-				MarkResourceNotOwned("PodAutoscaler", "missing-owners"), withDefaultContainerStatuses()),
+				MarkResourceNotOwned("PodAutoscaler", "missing-owners"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
@@ -534,7 +559,7 @@ func TestReconcile(t *testing.T) {
 			Object: rev("foo", "missing-owners", withK8sServiceName("youre-gonna-lose"), WithLogURL,
 				MarkRevisionReady,
 				// When we're missing the OwnerRef for Deployment we see this update.
-				MarkResourceNotOwned("Deployment", "missing-owners-deployment"), withDefaultContainerStatuses()),
+				MarkResourceNotOwned("Deployment", "missing-owners-deployment"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
@@ -554,7 +579,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "image-pull-secrets",
 				WithImagePullSecrets("foo-secret"),
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses()),
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		Key: "foo/image-pull-secrets",
 	}}
@@ -636,9 +661,10 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 func rev(namespace, name string, ro ...RevisionOption) *v1.Revision {
 	r := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			UID:       "test-uid",
+			Name:       name,
+			Namespace:  namespace,
+			UID:        "test-uid",
+			Generation: 1,
 		},
 		Spec: v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
@@ -660,6 +686,12 @@ func rev(namespace, name string, ro ...RevisionOption) *v1.Revision {
 func withK8sServiceName(sn string) RevisionOption {
 	return func(r *v1.Revision) {
 		r.Status.ServiceName = sn
+	}
+}
+
+func withObservedGeneration(gen int64) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.ObservedGeneration = gen
 	}
 }
 
@@ -703,8 +735,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
-	)
+		cfg.Observability, cfg.Deployment, cfg.Autoscaler)
 	if err != nil {
 		t.Fatal("failed to create deployment")
 	}
@@ -764,9 +795,12 @@ func ReconcilerTestConfig() *config.Config {
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging:    &logging.Config{},
-		Tracing:    &tracingconfig.Config{},
-		Autoscaler: &autoscalerconfig.Config{},
-		Defaults:   &defaultconfig.Defaults{},
+		Logging:  &logging.Config{},
+		Tracing:  &tracingconfig.Config{},
+		Defaults: &defaultconfig.Defaults{},
+		Autoscaler: &asconfig.Config{
+			InitialScale:          1,
+			AllowZeroInitialScale: false,
+		},
 	}
 }

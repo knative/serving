@@ -52,8 +52,7 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, names)
 
 	t.Log("Creating route")
 	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
