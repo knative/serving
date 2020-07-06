@@ -34,7 +34,7 @@ type Accessor interface {
 	patch(ns, name string, pt types.PatchType, p []byte) error
 }
 
-// Revision is an implementation of accessor for Revisions.
+// Revision is an implementation of Accessor for Revisions.
 type Revision struct {
 	client         clientset.Interface
 	revisionLister listers.RevisionLister
@@ -72,22 +72,22 @@ func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 	return kl, err
 }
 
-// patch implements accessor
+// patch implements Accessor
 func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	_, err := r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
 	return err
 }
 
-// Configuration is an implementation of accessor for Configurations.
+// Configuration is an implementation of Accessor for Configurations.
 type Configuration struct {
 	client              clientset.Interface
 	configurationLister listers.ConfigurationLister
 }
 
-// configuration implements accessor
+// configuration implements Accessor
 var _ Accessor = (*Configuration)(nil)
 
-// NewConfigurationAccessor is a factory function to make a new configuration accessor.
+// NewConfigurationAccessor is a factory function to make a new configuration Accessor.
 func NewConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *Configuration {
 	return &Configuration{
 		client:              client,
