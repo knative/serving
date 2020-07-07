@@ -28,8 +28,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
-const hasBeenActiveAnnotation = "HasBeenActive"
-
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 	PodAutoscalerConditionHasBeenActive,
