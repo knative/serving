@@ -234,9 +234,6 @@ func main() {
 	}
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
-	if err != nil {
-		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
-	}
 
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
@@ -437,11 +434,11 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 }
 
 func metricsHttpHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
-	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		if strings.Contains(req.Header.Get("Accept"), network.ProtoAcceptContent) {
-			protobufStatReporter.Handler().ServeHTTP(rsp, req)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
+			protobufStatReporter.Handler().ServeHTTP(w, r)
 		} else {
-			promStatReporter.Handler().ServeHTTP(rsp, req)
+			promStatReporter.Handler().ServeHTTP(w, r)
 		}
 	})
 }
