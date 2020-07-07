@@ -131,7 +131,7 @@ func TestRevisionTimeout(t *testing.T) {
 
 			if tc.shouldScaleTo0 {
 				t.Log("Waiting to scale down to 0")
-				if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
+				if err := waitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
