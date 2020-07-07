@@ -190,7 +190,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		Service: test.ObjectNameForTest(t),
 		Image:   image,
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
@@ -211,7 +211,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 			}),
 		}, fopts...)...)
 	if err != nil {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 

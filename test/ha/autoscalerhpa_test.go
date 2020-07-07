@@ -60,7 +60,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 			autoscaling.TargetAnnotationKey: "70",
 		}))
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
 		&metav1.DeleteOptions{}); err != nil {

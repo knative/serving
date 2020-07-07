@@ -31,9 +31,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-var (
-	successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
-)
+var successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 
 const pipe = "/tmp/prober-signal"
 
@@ -54,7 +52,7 @@ func TestProbe(t *testing.T) {
 		Service: "upgrade-probe",
 		Image:   test.PizzaPlanet1,
 	}
-	defer test.TearDown(clients, names)
+	defer test.TearDown(clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {

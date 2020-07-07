@@ -62,7 +62,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
@@ -130,7 +130,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
@@ -200,7 +200,7 @@ func TestSecretVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
@@ -264,7 +264,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
@@ -349,7 +349,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
-		test.TearDown(clients, names)
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}

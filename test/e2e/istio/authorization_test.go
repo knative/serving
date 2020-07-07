@@ -52,7 +52,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
@@ -90,7 +90,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 		Image:   "httpproxy",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err = v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),

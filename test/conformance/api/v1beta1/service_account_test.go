@@ -40,7 +40,7 @@ func TestServiceAccountValidation(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Logf("Creating a new Service %s", names.Service)
 	service := v1b1test.Service(names, WithServiceAccountName(invalidServiceAccountName))

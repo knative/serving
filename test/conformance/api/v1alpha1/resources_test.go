@@ -52,7 +52,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		Image:   test.Autoscale,
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		v1a1opts.WithResourceRequirements(resources))
