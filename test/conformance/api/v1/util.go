@@ -37,6 +37,10 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+const (
+	scaleToZeroGracePeriod = 30 * time.Second
+)
+
 func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponse string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
@@ -345,11 +349,10 @@ func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
-// Will wait up to 6 times the ScaleToZeroGracePeriod (1 minute) before failing.
+// Will wait up to 6 times the scaleToZeroGracePeriod (30 seconds) before failing.
 func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.Clients) error {
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
-	ScaleToZeroGracePeriod := 30 * time.Second
 
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
@@ -359,6 +362,6 @@ func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.
 		},
 		"DeploymentIsScaledDown",
 		test.ServingNamespace,
-		ScaleToZeroGracePeriod*6,
+		scaleToZeroGracePeriod*6,
 	)
 }
