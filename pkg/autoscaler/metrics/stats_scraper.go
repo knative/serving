@@ -33,6 +33,7 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	pkgmetrics "knative.dev/pkg/metrics"
+	pkgnet "knative.dev/pkg/network"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
@@ -117,7 +118,8 @@ var noKeepaliveClient = &http.Client{
 // to take advantage of HTTP Keep-Alive to avoid connection creation overhead
 // between scrapes of the same pod.
 var client = &http.Client{
-	Timeout: httpClientTimeout,
+	Timeout:   httpClientTimeout,
+	Transport: pkgnet.NewAutoTransport(),
 }
 
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
