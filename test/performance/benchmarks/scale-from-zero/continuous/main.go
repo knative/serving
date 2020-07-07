@@ -84,7 +84,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 
 	cleanupNames := func() {
 		for i := 0; i < count; i++ {
-			test.TearDown(clients, *testNames[i])
+			test.TearDown(clients, testNames[i])
 		}
 	}
 

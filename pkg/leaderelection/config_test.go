@@ -43,7 +43,6 @@ func okConfig() *kle.Config {
 
 func okData() map[string]string {
 	return map[string]string{
-		"resourceLock": "leases",
 		// values in this data come from the defaults suggested in the
 		// code:
 		// https://github.com/kubernetes/client-go/blob/kubernetes-1.16.0/tools/leaderelection/leaderelection.go

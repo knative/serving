@@ -48,7 +48,7 @@ func TestControllerHA(t *testing.T) {
 	}
 
 	service1Names, resources := createPizzaPlanetService(t)
-	test.EnsureTearDown(t, clients, service1Names)
+	test.EnsureTearDown(t, clients, &service1Names)
 
 	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
 		&metav1.DeleteOptions{}); err != nil {
@@ -68,5 +68,5 @@ func TestControllerHA(t *testing.T) {
 
 	// Verify that after changing the leader we can still create a new kservice
 	service2Names, _ := createPizzaPlanetService(t)
-	test.EnsureTearDown(t, clients, service2Names)
+	test.EnsureTearDown(t, clients, &service2Names)
 }

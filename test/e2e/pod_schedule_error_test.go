@@ -49,7 +49,7 @@ func TestPodScheduleError(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Logf("Creating a new Service %s", names.Image)
 	resources := corev1.ResourceRequirements{

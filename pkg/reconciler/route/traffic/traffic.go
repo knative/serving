@@ -82,7 +82,10 @@ type Config struct {
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	r *v1.Route) (*Config, error) {
 	builder := newBuilder(configLister, revLister, r.Namespace, len(r.Spec.Traffic))
-	builder.applySpecTraffic(r.Spec.Traffic)
+	err := builder.applySpecTraffic(r.Spec.Traffic)
+	if err != nil {
+		return nil, err
+	}
 	return builder.build()
 }
 

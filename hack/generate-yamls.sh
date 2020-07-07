@@ -54,7 +54,7 @@ readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
-readonly SERVING_UPGRADE_YAML=${YAML_OUTPUT_DIR}/serving-upgrade.yaml
+readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
 
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
@@ -67,8 +67,8 @@ readonly MONITORING_LOG_ELASTICSEARCH_YAML=${YAML_OUTPUT_DIR}/monitoring-logs-el
 
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
-  ["${MONITORING_YAML}"]="${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
-  ["${SERVING_UPGRADE_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+  ["${MONITORING_YAML}"]="${MONITORING_CORE_YAML} ${MONITORING_LOG_ELASTICSEARCH_YAML} ${MONITORING_METRIC_PROMETHEUS_YAML} ${MONITORING_TRACE_ZIPKIN_YAML}"
+  ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
 
@@ -104,6 +104,10 @@ ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
+# Generate the core monitoring file - basically just the namespace
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
+
 # Metrics via Prometheus & Grafana
 ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/metrics/prometheus \
@@ -122,10 +126,6 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${L
 
 echo "Building Monitoring & Logging"
 
-# Add the namespace into monitoring yaml
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
-
 # By putting the list of files used to create monitoring.yaml and serving-upgrade.yaml
 # people can choose to exclude certain ones via 'grep' but still keep in-sync
 # with the complete list if things change in the future
@@ -138,10 +138,6 @@ for artifact in "${!CONSOLIDATED_ARTIFACTS[@]}"; do
     cat ${component} >> ${artifact}
   done
 done
-
-# Generate the core monitoring file - basically just the namespace
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
 
 # Traces via Jaeger when ElasticSearch is installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
@@ -157,7 +153,7 @@ cat << EOF > ${YAML_LIST_FILE}
 ${SERVING_CORE_YAML}
 ${SERVING_DEFAULT_DOMAIN_YAML}
 ${SERVING_STORAGE_VERSION_MIGRATE_YAML}
-${SERVING_UPGRADE_YAML}
+${SERVING_POST_INSTALL_JOBS_YAML}
 ${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_NSCERT_YAML}

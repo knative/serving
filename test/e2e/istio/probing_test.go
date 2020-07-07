@@ -86,8 +86,7 @@ func TestIstioProbing(t *testing.T) {
 			Service: test.ObjectNameForTest(t),
 			Image:   "helloworld",
 		}
-		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-		defer test.TearDown(clients, names)
+		test.EnsureTearDown(t, clients, &names)
 		objects, err := v1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
@@ -261,7 +260,7 @@ func TestIstioProbing(t *testing.T) {
 			setupGateway(t, clients, names, domain, namespace, c.servers)
 
 			// Create the service and wait for it to be ready
-			test.EnsureTearDown(t, clients, names)
+			test.EnsureTearDown(t, clients, &names)
 			_, err = v1test.CreateServiceReady(t, clients, &names)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)

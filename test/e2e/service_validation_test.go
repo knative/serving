@@ -45,7 +45,7 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	}
 
 	// Clean up on test failure or interrupt
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Service
 	t.Logf("Creating a new Service %s", names.Service)

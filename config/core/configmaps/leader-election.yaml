@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 83d5c126
+    knative.dev/example-checksum: b705abde
 data:
   _example: |
     ################################
@@ -38,23 +38,18 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # resourceLock controls which API resource is used as the basis for the
-    # leader election lock. Valid values are:
-    #
-    # - leases -> use the coordination API
-    # - configmaps -> use configmaps
-    # - endpoints -> use endpoints
-    resourceLock: "leases"
-
     # leaseDuration is how long non-leaders will wait to try to acquire the
     # lock; 15 seconds is the value used by core kubernetes controllers.
     leaseDuration: "15s"
+
     # renewDeadline is how long a leader will try to renew the lease before
     # giving up; 10 seconds is the value used by core kubernetes controllers.
     renewDeadline: "10s"
+
     # retryPeriod is how long the leader election client waits between tries of
     # actions; 2 seconds is the value used by core kubernetes controllers.
     retryPeriod: "2s"
+
     # enabledComponents is a comma-delimited list of component names for which
     # leader election is enabled. Valid values are:
     enabledComponents: "controller,contour-ingress-controller,hpaautoscaler,certcontroller,istiocontroller,net-http01,nscontroller,webhook"

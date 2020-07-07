@@ -893,29 +893,27 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 
 	defer resp.Body.Close()
 
-	if resp != nil {
-		for _, e := range responseExpectations {
-			if err := e(resp); err != nil {
-				t.Errorf("Error meeting response expectations: %v", err)
-				DumpResponse(t, resp)
-				return nil
-			}
+	for _, e := range responseExpectations {
+		if err := e(resp); err != nil {
+			t.Errorf("Error meeting response expectations: %v", err)
+			DumpResponse(t, resp)
+			return nil
 		}
+	}
 
-		if resp.StatusCode == http.StatusOK {
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				t.Errorf("Unable to read response body: %v", err)
-				DumpResponse(t, resp)
-				return nil
-			}
-			ri := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, ri); err != nil {
-				t.Errorf("Unable to parse runtime image's response payload: %v", err)
-				return nil
-			}
-			return ri
+	if resp.StatusCode == http.StatusOK {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Errorf("Unable to read response body: %v", err)
+			DumpResponse(t, resp)
+			return nil
 		}
+		ri := &types.RuntimeInfo{}
+		if err := json.Unmarshal(b, ri); err != nil {
+			t.Errorf("Unable to parse runtime image's response payload: %v", err)
+			return nil
+		}
+		return ri
 	}
 	return nil
 }

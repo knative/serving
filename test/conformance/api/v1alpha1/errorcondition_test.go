@@ -53,7 +53,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		Image:   test.InvalidHelloWorld,
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
@@ -162,8 +162,7 @@ func TestContainerExitingMsg(t *testing.T) {
 				Image:  test.Failing,
 			}
 
-			test.EnsureTearDown(t, clients, names)
-
+			test.EnsureTearDown(t, clients, &names)
 			t.Logf("Creating a new Configuration %s", names.Config)
 
 			if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {
