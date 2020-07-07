@@ -20,6 +20,7 @@ import (
 	"context"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/tracker"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -29,6 +30,9 @@ import (
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
 	client clientset.Interface
+
+	// tracker to track revisions and configurations
+	tracker tracker.Interface
 
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister

@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/tracker"
 
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -43,9 +44,14 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		configName := tt.ConfigurationName
 
 		if revName != "" {
+			if err := c.tracker.TrackReference(ref(r.Namespace, revName, "Revision"), r); err != nil {
+				return err
+			}
+
 			rev, err := c.revisionLister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
-				return err
+				// The revision might not exist (yet). The informers will notify if it gets created.
+				continue
 			}
 
 			revisions.Insert(revName)
@@ -57,9 +63,14 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 		}
 
 		if configName != "" {
+			if err := c.tracker.TrackReference(ref(r.Namespace, configName, "Configuration"), r); err != nil {
+				return err
+			}
+
 			config, err := c.configurationLister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
-				return err
+				// The config might not exist (yet). The informers will notify if it gets created.
+				continue
 			}
 
 			configs.Insert(configName)
@@ -166,4 +177,14 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	}
 
 	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+}
+
+func ref(namespace, name, kind string) tracker.Reference {
+	apiVersion, kind := v1.SchemeGroupVersion.WithKind(kind).ToAPIVersionAndKind()
+	return tracker.Reference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespace,
+	}
 }
