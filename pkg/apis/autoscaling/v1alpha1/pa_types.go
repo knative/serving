@@ -112,6 +112,9 @@ const (
 	// PodAutoscalerConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	PodAutoscalerConditionReady = apis.ConditionReady
+	// PodAutoscalerConditionHasBeenActive is set when the PodAutoscaler's ScaleTargetRef was ready to
+	// serve traffic once.
+	PodAutoscalerConditionHasBeenActive apis.ConditionType = "HasBeenActive"
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
 )

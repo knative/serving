@@ -32,6 +32,7 @@ const hasBeenActiveAnnotation = "HasBeenActive"
 
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
+	PodAutoscalerConditionHasBeenActive,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -176,18 +177,12 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 
 // HasBeenActive returns true if the pod autoscaler has reached its initial scale.
 func (pas *PodAutoscalerStatus) HasBeenActive() bool {
-	if val, ok := pas.Annotations[hasBeenActiveAnnotation]; !ok || val != "true" {
-		return false
-	}
-	return true
+	return pas.GetCondition(PodAutoscalerConditionHasBeenActive).IsTrue()
 }
 
 // MarkHasBeenActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
 func (pas *PodAutoscalerStatus) MarkHasBeenActive() {
-	if pas.Annotations == nil {
-		pas.Annotations = map[string]string{}
-	}
-	pas.Annotations[hasBeenActiveAnnotation] = "true"
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionHasBeenActive)
 }
 
 // GetCondition gets the condition `t`.

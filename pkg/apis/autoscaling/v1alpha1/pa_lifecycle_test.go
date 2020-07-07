@@ -980,6 +980,7 @@ func TestTypicalFlow(t *testing.T) {
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
+	r.MarkHasBeenActive()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 

@@ -202,6 +202,7 @@ func kpa(ns, n string, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	kpa.Generation = 1
 	kpa.Annotations["autoscaling.knative.dev/class"] = "kpa.autoscaling.knative.dev"
 	kpa.Annotations["autoscaling.knative.dev/metric"] = "concurrency"
+	kpa.Status.InitializeConditions()
 	for _, opt := range opts {
 		opt(kpa)
 	}

@@ -442,6 +442,7 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutos
 			ProtocolType: networking.ProtocolHTTP1,
 		},
 	}
+	pa.Status.InitializeConditions()
 	for _, opt := range options {
 		opt(pa)
 	}
