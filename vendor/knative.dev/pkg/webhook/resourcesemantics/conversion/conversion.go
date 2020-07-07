@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
-	apixv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apixv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,14 +37,14 @@ import (
 // Convert implements webhook.ConversionController
 func (r *reconciler) Convert(
 	ctx context.Context,
-	req *apixv1beta1.ConversionRequest,
-) *apixv1beta1.ConversionResponse {
+	req *apixv1.ConversionRequest,
+) *apixv1.ConversionResponse {
 
 	if r.withContext != nil {
 		ctx = r.withContext(ctx)
 	}
 
-	res := &apixv1beta1.ConversionResponse{
+	res := &apixv1.ConversionResponse{
 		UID: req.UID,
 		Result: metav1.Status{
 			Status: metav1.StatusSuccess,

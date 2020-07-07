@@ -89,6 +89,20 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 	}, nil
 }
 
+// CreateServiceReadyForMultiContainer creates a new Service for multi container in 'Ready' state . This function expects Service
+// name passed in through 'names'. Names is updated with the Route and Configuration created by the Service
+// and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateServiceReadyForMultiContainer(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+	t.Log("Creating a new Service", "service", names.Service)
+	svc := rtesting.ServiceWithoutNamespace(names.Service, fopt...)
+	svc, err := createService(t, clients, svc)
+	if err != nil {
+		return nil, err
+	}
+	return getResourceObjects(t, clients, names, svc)
+}
+
 // CreateServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name
 // passed in through 'names'.  Names is updated with the Route and Configuration created by the Service
 // and ResourceObjects is returned with the Service, Route, and Configuration objects.
@@ -97,13 +111,15 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
-
 	t.Log("Creating a new Service", "service", names.Service)
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
+	return getResourceObjects(t, clients, names, svc)
+}
 
+func getResourceObjects(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, svc *v1.Service) (*ResourceObjects, error) {
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -119,7 +135,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	}
 
 	t.Log("Checking to ensure Service Status is populated for Ready service")
-	err = validateCreatedServiceStatus(clients, names)
+	err := validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +150,11 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 
 // CreateService creates a service in namespace with the name names.Service and names.Image
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	service := Service(names, fopt...)
+	svc := Service(names, fopt...)
+	return createService(t, clients, svc)
+}
+
+func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (*v1.Service, error) {
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
@@ -257,6 +277,30 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 // not ready.
 func IsServiceFailed(s *v1.Service) (bool, error) {
 	return s.IsFailed(), nil
+}
+
+// IsServiceAndChildrenFailed will check the readiness, route and config conditions of the service
+// and return true if they are all failed.
+func IsServiceAndChildrenFailed(s *v1.Service) (bool, error) {
+	if s.Generation != s.Status.ObservedGeneration {
+		return false, nil
+	}
+
+	if failed := s.IsFailed(); !failed {
+		return false, nil
+	}
+
+	routeCond := s.Status.GetCondition(v1.ServiceConditionRoutesReady)
+	if routeCond == nil || routeCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	configCond := s.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
+	if configCond == nil || configCond.Status != corev1.ConditionFalse {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // IsServiceRoutesNotReady checks the RoutesReady status of the service and returns true only if RoutesReady is set to False.

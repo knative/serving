@@ -25,18 +25,19 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	tracetesting "knative.dev/pkg/tracing/testing"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -213,6 +214,11 @@ func newTestController(t *testing.T, opts ...reconcilerOption) (
 		configMapWatcher.OnChange(configMap)
 	}
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := controller.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	return ctx, cancel, informers, controller, configMapWatcher
 }
 
@@ -237,15 +243,6 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	rev := testRevision(getPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
-	h := NewHooks()
-
-	// Check for a service created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "podautoscalers", func(obj runtime.Object) HookResult {
-		pa := obj.(*autoscalingv1alpha1.PodAutoscaler)
-		t.Logf("PA created: %s", pa.Name)
-		return HookComplete
-	})
-
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Error starting informers:", err)
@@ -266,7 +263,12 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		t.Fatal("Error creating revision:", err)
 	}
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	// Poll to see PA object to be created.
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		pa, _ := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(
+			rev.Name, metav1.GetOptions{})
+		return pa != nil, nil
+	}); err != nil {
+		t.Error("Failed to see PA creation")
 	}
 }

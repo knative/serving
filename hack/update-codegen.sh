@@ -28,11 +28,37 @@ fi
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
-# Compute _example checksum for all configmaps.
-for file in "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
-do
-  go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "$file"
+boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
+
+# Parse flags to determine if we should generate protobufs.
+generate_protobufs=0
+while [[ $# -ne 0 ]]; do
+  parameter=$1
+  case ${parameter} in
+    --generate-protobufs) generate_protobufs=1 ;;
+    *) abort "unknown option ${parameter}" ;;
+  esac
+  shift
 done
+readonly generate_protobufs
+
+if (( generate_protobufs )); then
+  echo "Generating protocol buffer code"
+  protos=$(find "${REPO_ROOT_DIR}/pkg" "${REPO_ROOT_DIR}/test" -name '*.proto')
+  for proto in $protos
+  do
+    protoc "$proto" -I="${REPO_ROOT_DIR}" --gogofaster_out=plugins=grpc:.
+
+    # Add license headers to the generated files too.
+    dir=$(dirname "$proto")
+    base=$(basename "$proto" .proto)
+    generated="${dir}/${base}.pb.go"
+    echo -e "$(cat "${boilerplate}")\n\n$(cat "${generated}")" > "${generated}"
+  done
+fi
+
+echo "Generating checksums for configmap _example keys"
+go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
@@ -48,30 +74,30 @@ chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
   "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file "${boilerplate}"
 
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
   "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file "${boilerplate}"
 
 # Generate our own client for istio (otherwise injection won't work)
 ${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
   knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
   "networking:v1alpha3" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file "${boilerplate}"
 
 # Knative Injection (for istio)
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
   "networking:v1alpha3" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file "${boilerplate}"
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen \
   -O zz_generated.deepcopy \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  --go-header-file "${boilerplate}" \
   -i knative.dev/serving/pkg/apis/config \
   -i knative.dev/serving/pkg/reconciler/gc/config \
   -i knative.dev/serving/pkg/reconciler/revision/config \

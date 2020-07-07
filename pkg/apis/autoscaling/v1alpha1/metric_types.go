@@ -28,7 +28,7 @@ import (
 // Metric represents a resource to configure the metric collector with.
 //
 // +genclient
-// +genreconciler:krshapedlogic=true
+// +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Metric struct {
 	metav1.TypeMeta `json:",inline"`

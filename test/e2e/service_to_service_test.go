@@ -114,8 +114,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		Image:   "httpproxy",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),
@@ -180,8 +179,7 @@ func TestServiceToServiceCall(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
@@ -228,8 +226,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
-	defer test.TearDown(clients, testNames)
+	test.EnsureTearDown(t, clients, &testNames)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &testNames,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -283,8 +280,7 @@ func TestCallToPublicService(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {

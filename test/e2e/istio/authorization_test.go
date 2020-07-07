@@ -52,8 +52,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	withInternalVisibility := rtesting.WithServiceLabel(
 		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
@@ -91,8 +90,7 @@ func TestClusterLocalAuthorization(t *testing.T) {
 		Image:   "httpproxy",
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err = v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(envVars...),

@@ -28,4 +28,9 @@ spec:
             metadata:
               annotations:
                 sidecar.istio.io/inject: "true"
+              labels:
+                # Istio adds the Challenge name for the value of this label.
+                # And the challenge name is sometimes more than 63 characters.
+                # So we override this label with empty value.
+                service.istio.io/canonical-name: ""
         selector: {}

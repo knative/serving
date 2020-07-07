@@ -34,9 +34,9 @@ import (
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
+	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/trace"
 )
 
@@ -135,7 +135,7 @@ func New(
 	// Enable Zipkin tracing
 	roundTripper := &ochttp.Transport{
 		Base:        transport,
-		Propagation: &b3.HTTPFormat{},
+		Propagation: tracecontextb3.TraceContextEgress,
 	}
 
 	sc := SpoofingClient{
@@ -223,7 +223,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, error
 			for _, checker := range errorRetryCheckers {
 				retry, newErr := checker(err)
 				if retry {
-					sc.Logf("Retrying %s: %v", req.URL, newErr)
+					sc.Logf("Retrying %s: %v", req.URL.String(), newErr)
 					return false, nil
 				}
 			}

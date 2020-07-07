@@ -25,7 +25,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	v1 "knative.dev/serving/test/v1"
 	v1test "knative.dev/serving/test/v1"
 )
 
@@ -42,10 +41,9 @@ func TestEgressTraffic(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "httpproxy",
 	}
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
-	service, err := v1.CreateServiceReady(t, clients, &names,
+	service, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  targetHostEnvName,
 			Value: targetHostDomain,

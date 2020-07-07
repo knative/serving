@@ -87,10 +87,12 @@ func (k *kubelogs) init(t test.TLegacy) {
 				}
 				defer stream.Close()
 				// Read this container's stream.
-				for scanner := bufio.NewScanner(stream); scanner.Scan(); {
-					k.handleLine(scanner.Text())
+				scanner := bufio.NewScanner(stream)
+				for scanner.Scan() {
+					k.handleLine(scanner.Bytes())
 				}
-				return fmt.Errorf("logstream completed prematurely for: %s/%s", pod.Name, container.Name)
+				return fmt.Errorf("logstream completed prematurely for %s/%s: %w",
+					pod.Name, container.Name, scanner.Err())
 			})
 		}
 	}
@@ -106,7 +108,7 @@ func (k *kubelogs) init(t test.TLegacy) {
 	}()
 }
 
-func (k *kubelogs) handleLine(l string) {
+func (k *kubelogs) handleLine(l []byte) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"level"`
@@ -119,7 +121,7 @@ func (k *kubelogs) handleLine(l string) {
 
 		// TODO(mattmoor): Parse out more context.
 	}
-	if err := json.Unmarshal([]byte(l), &line); err != nil {
+	if err := json.Unmarshal(l, &line); err != nil {
 		// Ignore malformed lines.
 		return
 	}

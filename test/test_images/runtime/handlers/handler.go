@@ -30,7 +30,7 @@ import (
 func InitHandlers(mux *http.ServeMux) {
 	h := network.NewProbeHandler(withHeaders(withRequestLog(runtimeHandler)))
 	mux.HandleFunc("/", h.ServeHTTP)
-	mux.HandleFunc("/healthz", withRequestLog(withKubeletProbeHeaderCheck))
+	mux.HandleFunc(network.ProbePath, withRequestLog(withKubeletProbeHeaderCheck))
 }
 
 // withRequestLog logs each request before handling it.

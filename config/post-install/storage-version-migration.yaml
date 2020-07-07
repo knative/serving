@@ -15,7 +15,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: storage-version-migration
+  generateName: storage-version-migration-
   namespace: knative-serving
   labels:
     app: "storage-version-migration"
@@ -25,6 +25,8 @@ spec:
   backoffLimit: 10
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: "storage-version-migration"
     spec:

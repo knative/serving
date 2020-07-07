@@ -42,6 +42,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ktesting "k8s.io/client-go/testing"
 
 	"knative.dev/networking/pkg/apis/networking"
@@ -50,7 +51,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
-	pkgrec "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -106,6 +107,11 @@ func TestControllerCanReconcile(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	err = ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)
 	if err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -135,23 +141,6 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testNamespace, testRevision),
 	}, {
-		Name: "metric-change",
-		Objects: []runtime.Object{
-			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
-			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), withScales(0, 0)),
-			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics2"),
-		},
-		Key:         key(testNamespace, testRevision),
-		WantCreates: []runtime.Object{},
-		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc),
-		}},
-	}, {
 		Name: "create hpa & sks, with retry",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass),
@@ -178,45 +167,6 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
-		}},
-	}, {
-		Name: "create metric when Concurrency used",
-		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass,
-				WithMetricAnnotation(autoscaling.Concurrency), withScales(0, 0)),
-			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
-		},
-		Key: key(testNamespace, testRevision),
-		WantCreates: []runtime.Object{
-			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc),
-			hpa(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
-		},
-		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"), withScales(0, 0),
-				WithPAMetricsService(privateSvc)),
-		}},
-	}, {
-		Name: "create metric when RPS used",
-		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS)),
-			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
-		},
-		Key: key(testNamespace, testRevision),
-		WantCreates: []runtime.Object{
-			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.RPS)), privateSvc),
-			hpa(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.RPS))),
-		},
-		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS),
-				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"), withScales(0, 0),
-				WithPAMetricsService(privateSvc)),
 		}},
 	}, {
 		Name: "reconcile sks is still not ready",
@@ -350,27 +300,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				`PodAutoscaler: "test-revision" does not own HPA: "test-revision"`),
-		},
-	}, {
-		Name: "metric is disowned",
-		Objects: []runtime.Object{
-			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
-			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithPAMetricsService(privateSvc), WithTraffic, WithPAStatusService(testRevision)),
-			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc, WithMetricOwnersRemoved),
-		},
-		Key:     key(testNamespace, testRevision),
-		WantErr: true,
-		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithPAMetricsService(privateSvc), WithTraffic, WithPAStatusService(testRevision),
-				MarkResourceNotOwnedByPA("Metric", testRevision)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
 		},
 	}, {
 		Name: "nop deletion reconcile",
@@ -569,16 +498,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 	return s
 }
 
-type metricOption func(*asv1a1.Metric)
-
-func metric(pa *asv1a1.PodAutoscaler, msvcName string, opts ...metricOption) *asv1a1.Metric {
-	m := aresources.MakeMetric(context.Background(), pa, msvcName, defaultConfig().Autoscaler)
-	for _, o := range opts {
-		o(m)
-	}
-	return m
-}
-
 func defaultConfig() *config.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(nil)
 	return &config.Config{
@@ -594,4 +513,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
+var _ reconciler.ConfigStore = (*testConfigStore)(nil)

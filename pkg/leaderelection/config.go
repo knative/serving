@@ -27,10 +27,14 @@ import (
 var (
 	validComponents = sets.NewString(
 		"controller",
+		"contour-ingress-controller",
 		"hpaautoscaler",
 		"certcontroller",
 		"istiocontroller",
-		"nscontroller")
+		"net-http01",
+		"nscontroller",
+		"webhook",
+	)
 )
 
 // ValidateConfig enriches the leader election config validation

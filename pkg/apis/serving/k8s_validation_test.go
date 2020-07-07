@@ -32,12 +32,20 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 )
 
-func enableMultiContainer(ctx context.Context, t *testing.T) context.Context {
-	return config.ToContext(ctx, &config.Config{
-		Features: &config.Features{
-			MultiContainer: config.Enabled,
-		},
-	})
+type configOption func(*config.Config) *config.Config
+
+func withMultiContainer() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.MultiContainer = config.Enabled
+		return cfg
+	}
+}
+
+func withFieldRef() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecFieldRef = config.Enabled
+		return cfg
+	}
 }
 
 func TestPodSpecValidation(t *testing.T) {
@@ -203,10 +211,10 @@ func TestPodSpecValidation(t *testing.T) {
 
 func TestPodSpecMultiContainerValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		ps   corev1.PodSpec
-		wc   context.Context
-		want *apis.FieldError
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "flag disabled: more than one container",
 		ps: corev1.PodSpec{
@@ -232,8 +240,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		wc:   enableMultiContainer(context.Background(), t),
-		want: nil,
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    nil,
 	}, {
 		name: "flag enabled: probes are not allowed for non serving containers",
 		ps: corev1.PodSpec{
@@ -252,7 +260,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		wc: enableMultiContainer(context.Background(), t),
+		cfgOpts: []configOption{withMultiContainer()},
 		want: &apis.FieldError{
 			Message: "must not set the field(s)",
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
@@ -266,8 +274,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		wc:   enableMultiContainer(context.Background(), t),
-		want: apis.ErrMissingField("containers.ports"),
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    apis.ErrMissingField("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
@@ -283,8 +291,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		wc:   enableMultiContainer(context.Background(), t),
-		want: apis.ErrMultipleOneOf("containers.ports"),
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    apis.ErrMultipleOneOf("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
@@ -302,7 +310,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		wc: enableMultiContainer(context.Background(), t),
+		cfgOpts: []configOption{withMultiContainer()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -322,19 +330,293 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		wc: enableMultiContainer(context.Background(), t),
+		cfgOpts: []configOption{withMultiContainer()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
 			Details: "Only a single port is allowed",
 		}),
+	}, {
+		name: "flag enabled: multiple containers with illegal env variable defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}, {
+					Name:  "K_SERVICE",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want: &apis.FieldError{
+			Message: `"K_SERVICE" is a reserved environment variable`,
+			Paths:   []string{"containers[1].env[1].name"},
+		},
+	}, {
+		name: "flag enabled: multiple containers with PORT defined for side car",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: "Foo",
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want:    nil,
+	}, {
+		name: "Volume mounts ok with single container",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo",
+						},
+					}},
+			},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					MountPath: "/mount/path",
+					Name:      "the-name",
+					ReadOnly:  true,
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+	}, {
+		name: "Volume not mounted when having a single container",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo",
+						},
+					}},
+			},
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+		want: &apis.FieldError{
+			Message: "volume with name \"the-name\" not mounted",
+			Paths:   []string{"volumes[0].name"}},
+	}, {
+		name: "Volume mounts ok when having multiple containers",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name1",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo1",
+						},
+					},
+				},
+				{Name: "the-name2",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo2",
+						},
+					}},
+			},
+			Containers: []corev1.Container{
+				{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name1",
+						ReadOnly:  true,
+					}},
+				},
+				{
+					Image: "busybox",
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name2",
+						ReadOnly:  true,
+					}},
+				},
+			},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+	}, {
+		name: "Volume not mounted when having multiple containers",
+		ps: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "the-name1",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo1",
+						},
+					},
+				},
+				{Name: "the-name2",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "foo2",
+						},
+					}},
+			},
+			Containers: []corev1.Container{
+				{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{ContainerPort: 8888}},
+					VolumeMounts: []corev1.VolumeMount{{
+						MountPath: "/mount/path",
+						Name:      "the-name1",
+						ReadOnly:  true,
+					}},
+				},
+				{Image: "busybox"},
+			},
+		},
+		cfgOpts: []configOption{withMultiContainer()},
+		want: &apis.FieldError{
+			Message: "volume with name \"the-name2\" not mounted",
+			Paths:   []string{"volumes[1].name"},
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := ValidatePodSpec(ctx, test.ps)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
+			}
+		})
+	}
+}
+
+func TestPodSpecFieldRefValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
+	}{{
+		name: "flag disabled: fieldRef not present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+	}, {
+		name: "flag disabled: fieldRef present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Env: []corev1.EnvVar{{
+					Name: "NODE_IP",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "status.IP",
+						},
+					},
+				}},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"containers[0].env[0].valueFrom.fieldRef"},
+		},
+	}, {
+		name: "flag disabled: resourceFieldRef present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Env: []corev1.EnvVar{{
+					Name: "NODE_IP",
+					ValueFrom: &corev1.EnvVarSource{
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							ContainerName: "Server",
+							Resource:      "request.cpu",
+						},
+					},
+				}},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"containers[0].env[0].valueFrom.resourceFieldRef"},
+		},
+	}, {
+		name: "flag enabled: fieldRef not present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+	}, {
+		name: "flag enabled: fieldRef present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Env: []corev1.EnvVar{{
+					Name: "NODE_IP",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "status.IP",
+						},
+					},
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
+	}, {
+		name: "flag enabled: resourceFieldRef present",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Env: []corev1.EnvVar{{
+					Name: "NODE_IP",
+					ValueFrom: &corev1.EnvVarSource{
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							ContainerName: "Server",
+							Resource:      "request.cpu",
+						},
+					},
+				}},
+			}},
+		},
+		cfgOpts: []configOption{withFieldRef()},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			if test.wc != nil {
-				ctx = test.wc
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
 			}
 			got := ValidatePodSpec(ctx, test.ps)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -576,16 +858,6 @@ func TestContainerValidation(t *testing.T) {
 			apis.ErrMissingField("readOnly").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
 			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
-	}, {
-		name: "missing known volumeMounts",
-		c: corev1.Container{
-			Image: "foo",
-		},
-		volumes: sets.NewString("the-name"),
-		want: &apis.FieldError{
-			Message: "volumes not mounted: [the-name]",
-			Paths:   []string{"volumeMounts"},
-		},
 	}, {
 		name: "has known volumeMounts",
 		c: corev1.Container{
@@ -901,12 +1173,15 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("env[0].name"),
 	}, {
-		name: "reserved env var name",
+		name: "reserved env var name for serving container",
 		c: corev1.Container{
 			Image: "foo",
 			Env: []corev1.EnvVar{{
 				Name:  "PORT",
 				Value: "Foo",
+			}},
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
 			}},
 		},
 		want: &apis.FieldError{
@@ -970,7 +1245,7 @@ func TestContainerValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidateContainer(test.c, test.volumes)
+			got := ValidateContainer(context.Background(), test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}

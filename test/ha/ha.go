@@ -20,6 +20,10 @@ import (
 	"net/url"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	pkgTest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -62,5 +66,31 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
+	}
+}
+
+func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
+	endpointsService := client.Kube.CoreV1().Endpoints(svcNamespace)
+
+	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+		endpoint, err := endpointsService.Get(svcName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return inState(endpoint)
+	})
+}
+
+func readyEndpointsDoNotContain(ip string) func(*corev1.Endpoints) (bool, error) {
+	return func(eps *corev1.Endpoints) (bool, error) {
+		for _, subset := range eps.Subsets {
+			for _, ready := range subset.Addresses {
+				if ready.IP == ip {
+					return false, nil
+				}
+			}
+		}
+		return true, nil
 	}
 }

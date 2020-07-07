@@ -59,8 +59,8 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 			autoscaling.MetricAnnotationKey: autoscaling.CPU,
 			autoscaling.TargetAnnotationKey: "70",
 		}))
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+
+	test.EnsureTearDown(t, clients, &names)
 
 	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
 		&metav1.DeleteOptions{}); err != nil {

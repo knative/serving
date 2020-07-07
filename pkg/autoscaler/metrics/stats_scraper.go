@@ -102,13 +102,21 @@ type scrapeClient interface {
 	Scrape(url string) (Stat, error)
 }
 
-// cacheDisabledClient is a http client with cache disabled. It is shared by
-// every goruntime for a revision scraper.
-var cacheDisabledClient = &http.Client{
+// noKeepaliveClient is a http client with HTTP Keep-Alive disabled.
+// This client is used in the mesh case since we want to get a new connection -
+// and therefore, hopefully, host - on every scrape of the service.
+var noKeepaliveClient = &http.Client{
 	Transport: &http.Transport{
-		// Do not use the cached connection
 		DisableKeepAlives: true,
 	},
+	Timeout: httpClientTimeout,
+}
+
+// client is a normal http client with HTTP Keep-Alive enabled.
+// This client is used in the direct pod scraping (no mesh) case where we want
+// to take advantage of HTTP Keep-Alive to avoid connection creation overhead
+// between scrapes of the same pod.
+var client = &http.Client{
 	Timeout: httpClientTimeout,
 }
 
@@ -117,8 +125,9 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type serviceScraper struct {
-	sClient  scrapeClient
-	counter  resources.EndpointsCounter
+	directClient scrapeClient
+	meshClient   scrapeClient
+
 	url      string
 	statsCtx context.Context
 	logger   *zap.SugaredLogger
@@ -129,29 +138,26 @@ type serviceScraper struct {
 
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewStatsScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter,
-	podAccessor resources.PodAccessor, logger *zap.SugaredLogger) (StatsScraper, error) {
-	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
+func NewStatsScraper(metric *av1alpha1.Metric, podAccessor resources.PodAccessor,
+	logger *zap.SugaredLogger) (StatsScraper, error) {
+	directClient, err := newHTTPScrapeClient(client)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, podAccessor, sClient, logger)
+	meshClient, err := newHTTPScrapeClient(noKeepaliveClient)
+	if err != nil {
+		return nil, err
+	}
+	return newServiceScraperWithClient(metric, podAccessor, directClient, meshClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
-	counter resources.EndpointsCounter,
 	podAccessor resources.PodAccessor,
-	sClient scrapeClient,
+	directClient, meshClient scrapeClient,
 	logger *zap.SugaredLogger) (*serviceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
-	}
-	if counter == nil {
-		return nil, errors.New("counter must not be nil")
-	}
-	if sClient == nil {
-		return nil, errors.New("scrape client must not be nil")
 	}
 	revName := metric.Labels[serving.RevisionLabelKey]
 	if revName == "" {
@@ -166,8 +172,8 @@ func newServiceScraperWithClient(
 	}
 
 	return &serviceScraper{
-		sClient:         sClient,
-		counter:         counter,
+		directClient:    directClient,
+		meshClient:      meshClient,
 		url:             urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		podAccessor:     podAccessor,
 		podsAddressable: true,
@@ -185,7 +191,7 @@ func urlFromTarget(t, ns string) string {
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
-	readyPodsCount, err := s.counter.ReadyCount()
+	readyPodsCount, err := s.podAccessor.ReadyCount()
 	if err != nil {
 		return emptyStat, ErrFailedGetEndpoints
 	}
@@ -253,7 +259,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				stat, err := s.sClient.Scrape(target)
+				stat, err := s.directClient.Scrape(target)
 				if err == nil {
 					results <- stat
 					return nil
@@ -285,7 +291,6 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 
 func computeAverages(results <-chan Stat, sample, total float64) Stat {
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 
@@ -367,7 +372,6 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 	close(youngStatCh)
 
 	ret := Stat{
-		Time:    time.Now(),
 		PodName: scraperPodName,
 	}
 
@@ -388,7 +392,7 @@ func (s *serviceScraper) scrapeService(window time.Duration, readyPods int) (Sta
 // tryScrape runs a single scrape and returns stat if this is a pod that has not been
 // seen before. An error otherwise or if scraping failed.
 func (s *serviceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
-	stat, err := s.sClient.Scrape(s.url)
+	stat, err := s.meshClient.Scrape(s.url)
 	if err != nil {
 		return emptyStat, err
 	}

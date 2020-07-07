@@ -73,28 +73,23 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 }
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
-	const longTimeout = 10 * time.Second
-
-	longTimeoutFunc := func(*http.Request) time.Duration {
-		return longTimeout
-	}
-	failingTimeoutFunc := func(*http.Request) time.Duration {
-		return 0 * time.Millisecond
-	}
+	const (
+		immediateTimeout = 0 * time.Millisecond
+		longTimeout      = 1 * time.Minute // Super long, not supposed to hit this.
+	)
 
 	tests := []struct {
-		name               string
-		timeoutFunc        TimeoutFunc
-		handler            func(mux *sync.Mutex, writeErrors chan error) http.Handler
-		timeoutMessage     string
-		wantStatus         int
-		wantBody           string
-		wantWriteError     bool
-		wantPanic          bool
-		sleepBeforeExiting time.Duration
+		name           string
+		timeoutFunc    TimeoutFunc
+		handler        func(mux *sync.Mutex, writeErrors chan error) http.Handler
+		timeoutMessage string
+		wantStatus     int
+		wantBody       string
+		wantWriteError bool
+		wantPanic      bool
 	}{{
 		name:        "all good",
-		timeoutFunc: longTimeoutFunc,
+		timeoutFunc: StaticTimeoutFunc(longTimeout),
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("hi"))
@@ -104,7 +99,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantBody:   "hi",
 	}, {
 		name:        "custom timeout message",
-		timeoutFunc: failingTimeoutFunc,
+		timeoutFunc: StaticTimeoutFunc(immediateTimeout),
 		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mux.Lock()
@@ -119,7 +114,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:        "propagate panic",
-		timeoutFunc: longTimeoutFunc,
+		timeoutFunc: StaticTimeoutFunc(longTimeout),
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				panic(http.ErrAbortHandler)
@@ -130,18 +125,17 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantPanic:  true,
 	}, {
 		name:        "timeout before panic",
-		timeoutFunc: failingTimeoutFunc,
+		timeoutFunc: StaticTimeoutFunc(immediateTimeout),
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(1 * time.Second)
 				panic(http.ErrAbortHandler)
 			})
 		},
-		timeoutMessage:     "request timeout",
-		wantStatus:         http.StatusGatewayTimeout,
-		wantBody:           "request timeout",
-		wantPanic:          false,
-		sleepBeforeExiting: longTimeout,
+		timeoutMessage: "request timeout",
+		wantStatus:     http.StatusGatewayTimeout,
+		wantBody:       "request timeout",
+		wantPanic:      false,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -180,8 +174,6 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 					t.Errorf("Expected a timeout error, got %v", err)
 				}
 			}
-
-			time.Sleep(test.sleepBeforeExiting)
 		})
 	}
 }

@@ -60,16 +60,13 @@ func TestConfigMapVolume(t *testing.T) {
 	}
 	t.Log("Successfully created configMap:", configMap)
 
-	cleanup := func() {
-		test.TearDown(clients, names)
+	// Clean up on test failure or interrupt
+	test.EnsureCleanup(t, func() {
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
-	}
-
-	// Clean up on test failure or interrupt
-	defer cleanup()
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -131,16 +128,13 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	}
 	t.Log("Successfully created configMap:", configMap)
 
-	cleanup := func() {
-		test.TearDown(clients, names)
+	// Clean up on test failure or interrupt
+	test.EnsureCleanup(t, func() {
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
-	}
-
-	// Clean up on test failure or interrupt
-	defer cleanup()
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
@@ -204,16 +198,13 @@ func TestSecretVolume(t *testing.T) {
 	}
 	t.Log("Successfully created secret:", secret)
 
-	cleanup := func() {
-		test.TearDown(clients, names)
+	// Clean up on test failure or interrupt
+	test.EnsureCleanup(t, func() {
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
-	}
-
-	// Clean up on test failure or interrupt
-	defer cleanup()
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
@@ -271,16 +262,13 @@ func TestProjectedSecretVolume(t *testing.T) {
 	}
 	t.Log("Successfully created secret:", secret)
 
-	cleanup := func() {
-		test.TearDown(clients, names)
+	// Clean up on test failure or interrupt
+	test.EnsureCleanup(t, func() {
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
-	}
-
-	// Clean up on test failure or interrupt
-	defer cleanup()
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
@@ -359,16 +347,13 @@ func TestProjectedComplex(t *testing.T) {
 	}
 	t.Log("Successfully created secret:", secret)
 
-	cleanup := func() {
-		test.TearDown(clients, names)
+	// Clean up on test failure or interrupt
+	test.EnsureCleanup(t, func() {
+		test.TearDown(clients, &names)
 		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
-	}
-
-	// Clean up on test failure or interrupt
-	defer cleanup()
-	test.CleanupOnInterrupt(cleanup)
+	})
 
 	withVolume := WithVolume("asdf", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{

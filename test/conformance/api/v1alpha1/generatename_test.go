@@ -83,7 +83,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 		route.Name,
 		func(r *v1alpha1.Route) (bool, error) {
 			url = r.Status.URL.URL()
-			return url != nil, nil
+			return url.String() != "", nil
 		},
 		"RouteDomain",
 	)
@@ -120,8 +120,7 @@ func TestServiceGenerateName(t *testing.T) {
 	}
 
 	// Cleanup on test failure.
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer func() { test.TearDown(clients, names) }()
+	test.EnsureTearDown(t, clients, &names)
 
 	// Create the service using the generate name field. If the service does not become ready this will fail.
 	t.Log("Creating new service with generateName", generateName)
@@ -157,8 +156,7 @@ func TestRouteAndConfigGenerateName(t *testing.T) {
 		Image: test.HelloWorld,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer func() { test.TearDown(clients, names) }()
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating new configuration with generateName", generateName)
 	config, err := v1a1test.CreateConfiguration(t, clients, names, setConfigurationGenerateName(generateName))

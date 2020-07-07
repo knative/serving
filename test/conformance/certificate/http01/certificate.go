@@ -36,8 +36,7 @@ func TestHTTP01Challenge(t *testing.T) {
 	}
 
 	for _, domains := range certDomains {
-		cert, cancel := utils.CreateCertificate(t, clients, domains)
-		defer cancel()
+		cert := utils.CreateCertificate(t, clients, domains)
 
 		if err := utils.WaitForCertificateState(clients.NetworkingClient, cert.Name,
 			func(c *v1alpha1.Certificate) (bool, error) {

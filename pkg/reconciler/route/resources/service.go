@@ -188,7 +188,7 @@ func GetDesiredServiceNames(ctx context.Context, route *v1.Route) (sets.String, 
 	for _, t := range traffic {
 		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)
 		if err != nil {
-			return sets.String{}, err
+			return nil, err
 		}
 		names.Insert(serviceName)
 	}

@@ -41,8 +41,7 @@ func fetchRuntimeInfo(
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
 
-	defer test.TearDown(clients, *names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, *names) })
+	test.EnsureTearDown(t, clients, names)
 
 	serviceOpts, reqOpts, err := splitOpts(opts...)
 	if err != nil {

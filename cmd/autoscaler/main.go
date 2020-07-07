@@ -25,19 +25,15 @@ import (
 	"net/http"
 	"time"
 
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	"github.com/spf13/pflag"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
@@ -74,11 +70,6 @@ var (
 )
 
 func main() {
-	// Initialize early to get access to flags and merge them with the autoscaler flags.
-	customMetricsAdapter := &basecmd.AdapterBase{}
-	customMetricsAdapter.Flags().AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
 
@@ -140,16 +131,15 @@ func main() {
 		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
-	endpointsInformer := endpointsinformer.Get(ctx)
-	podInformer := podinformer.Get(ctx)
+	podLister := podinformer.Get(ctx).Lister()
 
 	collector := asmetrics.NewMetricCollector(
-		statsScraperFactoryFunc(endpointsInformer.Lister(), podInformer.Lister()), logger)
-	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
+		statsScraperFactoryFunc(podLister), logger)
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
-	multiScaler := scaling.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
+	multiScaler := scaling.NewMultiScaler(ctx.Done(),
+		uniScalerFactoryFunc(podLister, collector), logger)
 
 	controllers := []*controller.Impl{
 		kpa.NewController(ctx, cmw, multiScaler),
@@ -173,7 +163,7 @@ func main() {
 
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, sm.Stat)
+			collector.Record(sm.Key, time.Now(), sm.Stat)
 			multiScaler.Poke(sm.Key, sm.Stat)
 		}
 	}()
@@ -181,9 +171,6 @@ func main() {
 	profilingServer := profiling.NewServer(profilingHandler)
 
 	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		return customMetricsAdapter.Run(ctx.Done())
-	})
 	eg.Go(statsServer.ListenAndServe)
 	eg.Go(profilingServer.ListenAndServe)
 
@@ -199,31 +186,32 @@ func main() {
 	}
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
+func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 	metricClient asmetrics.MetricClient) scaling.UniScalerFactory {
 	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
-		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
+		configName := decider.Labels[serving.ConfigurationLabelKey]
+		if configName == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
 		}
-		if decider.Spec.ServiceName == "" {
-			return nil, fmt.Errorf("%s decider has empty ServiceName", decider.Name)
+		revisionName := decider.Labels[serving.RevisionLabelKey]
+		if revisionName == "" {
+			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
 		}
-
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
-		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, decider.Name)
+		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
 		if err != nil {
 			return nil, err
 		}
 
-		return scaling.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), &decider.Spec, ctx)
+		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
+		return scaling.New(decider.Namespace, decider.Name, metricClient,
+			podAccessor, &decider.Spec, ctx)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
-	podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil
@@ -234,9 +222,8 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister,
 			return nil, fmt.Errorf("label %q not found or empty in Metric %s", serving.RevisionLabelKey, metric.Name)
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, podCounter, podAccessor, logger)
+		return asmetrics.NewStatsScraper(metric, podAccessor, logger)
 	}
 }
 

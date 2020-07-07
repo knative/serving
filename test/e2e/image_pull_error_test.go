@@ -41,8 +41,7 @@ func TestImagePullError(t *testing.T) {
 		Image: "ubuntu@sha256:0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Logf("Creating a new Service %s", names.Image)
 	var (

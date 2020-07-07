@@ -147,8 +147,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		Image:   "observed-concurrency",
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 	objs, err := v1test.CreateServiceReady(t, clients, &names,

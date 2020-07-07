@@ -92,13 +92,11 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	} else if !metav1.IsControlledBy(metric, pa) {
 		pa.Status.MarkResourceNotOwned("Metric", desiredMetric.Name)
 		return fmt.Errorf("PA: %s does not own Metric: %s", pa.Name, desiredMetric.Name)
-	} else {
-		if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
-			want := metric.DeepCopy()
-			want.Spec = desiredMetric.Spec
-			if _, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
-				return fmt.Errorf("error updating metric: %w", err)
-			}
+	} else if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
+		want := metric.DeepCopy()
+		want.Spec = desiredMetric.Spec
+		if _, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
+			return fmt.Errorf("error updating metric: %w", err)
 		}
 	}
 

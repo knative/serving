@@ -59,8 +59,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		Image:   img,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)

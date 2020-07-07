@@ -148,6 +148,7 @@ func PodSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
 	out.Containers = in.Containers
 	out.Volumes = in.Volumes
 	out.ImagePullSecrets = in.ImagePullSecrets
+	out.EnableServiceLinks = in.EnableServiceLinks
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
@@ -175,7 +176,6 @@ func PodSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
 	out.DNSConfig = nil
 	out.ReadinessGates = nil
 	out.RuntimeClassName = nil
-	// TODO(mattmoor): Coming in 1.13: out.EnableServiceLinks = nil
 
 	return out
 }
@@ -372,7 +372,7 @@ func EnvVarMask(in *corev1.EnvVar) *corev1.EnvVar {
 // EnvVarSourceMask performs a _shallow_ copy of the Kubernetes EnvVarSource object to a new
 // Kubernetes EnvVarSource object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func EnvVarSourceMask(in *corev1.EnvVarSource) *corev1.EnvVarSource {
+func EnvVarSourceMask(in *corev1.EnvVarSource, fieldRef bool) *corev1.EnvVarSource {
 	if in == nil {
 		return nil
 	}
@@ -383,10 +383,10 @@ func EnvVarSourceMask(in *corev1.EnvVarSource) *corev1.EnvVarSource {
 	out.ConfigMapKeyRef = in.ConfigMapKeyRef
 	out.SecretKeyRef = in.SecretKeyRef
 
-	// Disallowed
-	// This list is unnecessary, but added here for clarity
-	out.FieldRef = nil
-	out.ResourceFieldRef = nil
+	if fieldRef {
+		out.FieldRef = in.FieldRef
+		out.ResourceFieldRef = in.ResourceFieldRef
+	}
 
 	return out
 }

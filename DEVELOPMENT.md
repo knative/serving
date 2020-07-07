@@ -26,11 +26,18 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in (1.13 or later)
+   built in (1.14 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`ko`](https://github.com/google/ko): For development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+
+If you're working on and changing `.proto` files:
+
+1. [`protoc`](https://github.com/protocolbuffers/protobuf): For compiling
+   protocol buffers.
+1. [`protoc-gen-gogofaster`](https://github.com/gogo/protobuf/#more-speed-and-more-generated-code):
+   For generating efficient golang code out of protocol buffers.
 
 ### Create a cluster and a repo
 
@@ -229,7 +236,7 @@ webhook-6b6c77567f-flr59              1/1     Running   0          105s
 You can access the Knative Serving Controller's logs with:
 
 ```shell
-kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name)
+kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name) -c controller
 ```
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to
@@ -263,6 +270,8 @@ of:
   - Type definitions annotated with `// +k8s:deepcopy-gen=true`.
   - The `_example` value of config maps (to keep the
     `knative.dev/example-checksum` label in sync).
+  - `.proto` files. Run `./hack/update-codegen.sh` with the
+    `--generate-protobufs` flag to enable protocol buffer generation.
 
 - **If you change a package's deps** (including adding an external dependency),
   then you must run [`./hack/update-deps.sh`](./hack/update-deps.sh).

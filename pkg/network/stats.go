@@ -130,8 +130,8 @@ func (s *RequestStats) HandleEvent(event ReqEvent) {
 	}
 }
 
-// Report returns averageConcurrency, averageProxiedConcurrency, requestCount and proxiedCount
-// relative to the given time. The state will be reset for another reporting cycle afterwards.
+// Report returns a RequestStatsReport relative to the given time. The state
+// will be reset for another reporting cycle afterwards.
 func (s *RequestStats) Report(now time.Time) RequestStatsReport {
 	s.mux.Lock()
 	defer s.mux.Unlock()

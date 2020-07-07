@@ -53,8 +53,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		Image:   test.InvalidHelloWorld,
 	}
 
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	test.EnsureTearDown(t, clients, &names)
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
@@ -70,12 +69,12 @@ func TestContainerErrorMsg(t *testing.T) {
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
-	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceNotReady, "ServiceIsNotReady"); err != nil {
+	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceAndChildrenFailed, "ServiceIsNotReady"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err = v1a1test.CheckConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
@@ -86,7 +85,7 @@ func TestContainerErrorMsg(t *testing.T) {
 				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
-	}, "ContainerImageNotPresent")
+	})
 
 	if err != nil {
 		t.Fatal("Failed to validate configuration state:", err)
@@ -98,7 +97,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("When the imagepath is invalid, the revision should have error status.")
-	err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
+	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.Contains(cond.Message, manifestUnknown) {
@@ -108,7 +107,7 @@ func TestContainerErrorMsg(t *testing.T) {
 				revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
 		}
 		return false, nil
-	}, "ImagePathInvalid")
+	})
 
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)
@@ -163,9 +162,7 @@ func TestContainerExitingMsg(t *testing.T) {
 				Image:  test.Failing,
 			}
 
-			defer test.TearDown(clients, names)
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-
+			test.EnsureTearDown(t, clients, &names)
 			t.Logf("Creating a new Configuration %s", names.Config)
 
 			if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigReadinessProbe(tt.ReadinessProbe)); err != nil {

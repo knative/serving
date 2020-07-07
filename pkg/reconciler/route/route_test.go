@@ -42,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
@@ -52,6 +53,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -181,6 +183,12 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	}} {
 		configMapWatcher.OnChange(cfg)
 	}
+
+	// The Reconciler won't do any work until it becomes the leader.
+	if la, ok := ctrl.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	}
+
 	return
 }
 
@@ -1381,6 +1389,12 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				t.Fatal("Failed to see route initial reconcile propagation:", err)
 			}
 
+			// Ensure we're operating on a copy, to make sure the update below
+			// generates an actual diff. Otherwise the value in the
+			// fake cache is going to be changed. Now, this update sometimes races with
+			// the CM update and since the update below is a noop (the same object
+			// is applied), noting happens and the test fails.
+			route = route.DeepCopy()
 			tc.apply(route, watcher)
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			if _, err := routeClient.Update(route); err != nil {

@@ -39,9 +39,10 @@ func NotReadyAddressCount(endpoints *corev1.Endpoints) int {
 	return notReady
 }
 
-// EndpointsCounter provides a count of currently ready and notReady pods. This
-// information is used by UniScaler implementations to make scaling
-// decisions. The interface prevents the UniScaler from needing to
+// EndpointsCounter provides a count of currently ready and notReady pods.
+// This information, among other places, is used by UniScaler implementations
+// to make scaling decisions.
+// The interface prevents the UniScaler from needing to
 // know how counts are performed.
 // The int return value represents the number of pods that are ready
 // to handle incoming requests.

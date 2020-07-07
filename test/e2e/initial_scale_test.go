@@ -47,8 +47,8 @@ func TestInitScaleZero(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 0)
@@ -67,8 +67,7 @@ func TestInitScalePositive(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 3)

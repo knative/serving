@@ -25,11 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	rest "k8s.io/client-go/rest"
 
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -44,12 +46,16 @@ var (
 )
 
 func TestServiceValidation(t *testing.T) {
+	newCreateWithOptions = newTestPods
+
 	tests := []struct {
-		name string
-		data map[string]interface{}
-		want string
+		name         string
+		data         map[string]interface{}
+		want         string
+		podInterface func(client rest.Interface, namespace string) podInterface
 	}{{
-		name: "valid run latest",
+		name:         "valid run latest",
+		podInterface: newTestPods,
 		data: map[string]interface{}{
 			"metadata": validMetadata,
 			"spec": map[string]interface{}{
@@ -74,7 +80,7 @@ func TestServiceValidation(t *testing.T) {
 		name: "invalid structure",
 		data: map[string]interface{}{
 			"metadata": validMetadata,
-			"spec":     true, // Invalid, spec is expcted to be a struct
+			"spec":     true, // Invalid, spec is expected to be a struct
 		},
 		want: "could not traverse nested spec.template field",
 	}, {
@@ -110,7 +116,54 @@ func TestServiceValidation(t *testing.T) {
 	}
 }
 
+func TestDryRunFeatureFlag(t *testing.T) {
+	data := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"name":        "valid",
+			"namespace":   "foo",
+			"annotations": map[string]interface{}{}, // Skip validation because no test annotation
+		},
+		"spec": true, // Invalid, spec is expected to be a struct
+	}
+
+	tests := []struct {
+		name       string
+		dryRunFlag config.Flag
+		want       string
+	}{{
+		name:       "enabled dry-run",
+		dryRunFlag: config.Enabled,
+		want:       "could not traverse nested spec.template field",
+	}, {
+		name:       "disabled dry-run",
+		dryRunFlag: config.Disabled,
+		want:       "", // expect no error despite invalid data.
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := fakekubeclient.With(context.Background())
+			logger := logtesting.TestLogger(t)
+			ctx = logging.WithLogger(ctx, logger)
+			ctx = enableDryRun(ctx, test.dryRunFlag)
+
+			unstruct := &unstructured.Unstructured{}
+			unstruct.SetUnstructuredContent(data)
+
+			got := ValidateRevisionTemplate(ctx, unstruct)
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got=nil, want=%q", test.want)
+				}
+			} else if !strings.Contains(got.Error(), test.want) {
+				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
+			}
+		})
+	}
+}
+
 func TestSkipUpdate(t *testing.T) {
+	newCreateWithOptions = newFailTestPods
 	validService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -149,7 +202,7 @@ func TestSkipUpdate(t *testing.T) {
 				},
 			},
 		},
-		want: "dry run failed with kubeclient error: spec.template",
+		want: "dry run failed with fail-reason: spec.template",
 	}, {
 		name: "skip_identical_old",
 		new:  validServiceUns,
@@ -176,4 +229,12 @@ func TestSkipUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func enableDryRun(ctx context.Context, flag config.Flag) context.Context {
+	return config.ToContext(ctx, &config.Config{
+		Features: &config.Features{
+			PodSpecDryRun: flag,
+		},
+	})
 }

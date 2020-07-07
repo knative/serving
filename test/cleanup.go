@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"testing"
 )
 
 func init() {
@@ -59,7 +60,7 @@ func CleanupOnInterrupt(cleanup func()) {
 }
 
 // TearDown will delete created names using clients.
-func TearDown(clients *Clients, names ResourceNames) {
+func TearDown(clients *Clients, names *ResourceNames) {
 	if clients != nil && clients.ServingClient != nil {
 		clients.ServingClient.Delete(
 			[]string{names.Route},
@@ -67,4 +68,17 @@ func TearDown(clients *Clients, names ResourceNames) {
 			[]string{names.Service},
 		)
 	}
+}
+
+// EnsureCleanup will run the provided cleanup function when the test ends,
+// either via t.Cleanup or on interrupt via CleanupOnInterrupt.
+func EnsureCleanup(t *testing.T, cleanup func()) {
+	t.Cleanup(cleanup)
+	CleanupOnInterrupt(cleanup)
+}
+
+// EnsureTearDown will delete created names when the test ends, either via
+// t.Cleanup, or on interrupt via CleanupOnInterrupt.
+func EnsureTearDown(t *testing.T, clients *Clients, names *ResourceNames) {
+	EnsureCleanup(t, func() { TearDown(clients, names) })
 }

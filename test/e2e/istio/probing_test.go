@@ -60,12 +60,15 @@ func TestIstioProbing(t *testing.T) {
 
 	clients := e2e.Setup(t)
 	namespace := system.Namespace()
+
 	// Save the current Gateway to restore it after the test
 	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 	}
-	restore := func() {
+
+	// After the test ends, restore the old gateway
+	test.EnsureCleanup(t, func() {
 		curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
@@ -74,9 +77,7 @@ func TestIstioProbing(t *testing.T) {
 		if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
 			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 		}
-	}
-	test.CleanupOnInterrupt(restore)
-	defer restore()
+	})
 
 	// Create a dummy service to get the domain name
 	var domain string
@@ -85,8 +86,7 @@ func TestIstioProbing(t *testing.T) {
 			Service: test.ObjectNameForTest(t),
 			Image:   "helloworld",
 		}
-		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-		defer test.TearDown(clients, names)
+		test.EnsureTearDown(t, clients, &names)
 		objects, err := v1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
@@ -260,8 +260,7 @@ func TestIstioProbing(t *testing.T) {
 			setupGateway(t, clients, names, domain, namespace, c.servers)
 
 			// Create the service and wait for it to be ready
-			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-			defer test.TearDown(clients, names)
+			test.EnsureTearDown(t, clients, &names)
 			_, err = v1test.CreateServiceReady(t, clients, &names)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)

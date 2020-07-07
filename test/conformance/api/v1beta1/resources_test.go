@@ -53,8 +53,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		Image:   test.Autoscale,
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1b1test.CreateServiceReady(t, clients, &names, withResources)
 	if err != nil {

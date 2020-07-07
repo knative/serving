@@ -22,6 +22,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
@@ -41,8 +42,8 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 		cfgs.Tracing,
 		cfgs.Network,
 		cfgs.Observability,
-		cfgs.Autoscaler,
 		cfgs.Deployment,
+		cfgs.Autoscaler,
 	)
 
 	if err != nil {
@@ -62,8 +63,8 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		cfgs.Tracing,
 		cfgs.Network,
 		cfgs.Observability,
-		cfgs.Autoscaler,
 		cfgs.Deployment,
+		cfgs.Autoscaler,
 	)
 
 	if err != nil {
@@ -111,12 +112,10 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 
 func (c *Reconciler) createImageCache(rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
 	image := resources.MakeImageCache(rev, containerName, imageDigest)
-
 	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(image)
 }
 
 func (c *Reconciler) createPA(ctx context.Context, rev *v1.Revision) (*autoscaling.PodAutoscaler, error) {
 	pa := resources.MakePA(rev)
-
 	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
 }
