@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 340af555
+    knative.dev/example-checksum: 43bdc81c
 data:
   _example: |
     ################################
@@ -52,5 +52,10 @@ data:
     # When "enabled"  the server will always run the extra validation.
     kubernetes.podspec-dryrun: "allowed"
 
-    # Indicates whether new more responsive garbage collection has been enabled.
+    # Indicates whether new responsive garbage collection is enabled. This
+    # feature labels revisions in real-time as they become referenced and
+    # dereferenced by Routes. This allows us to reap revisions shortly after
+    # they are no longer active.
+    # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
+    # should be used for testing purposes only.
     responsive-revision-gc: "disabled"
