@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmeta"
 
+	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
@@ -37,6 +38,7 @@ type Accessor interface {
 // Revision is an implementation of Accessor for Revisions.
 type Revision struct {
 	client         clientset.Interface
+	tracker        tracker.Interface
 	revisionLister listers.RevisionLister
 }
 
@@ -44,9 +46,13 @@ type Revision struct {
 var _ Accessor = (*Revision)(nil)
 
 // NewRevisionAccessor is a factory function to make a new revision accessor.
-func NewRevisionAccessor(client clientset.Interface, lister listers.RevisionLister) *Revision {
+func NewRevisionAccessor(
+	client clientset.Interface,
+	tracker tracker.Interface,
+	lister listers.RevisionLister) *Revision {
 	return &Revision{
 		client:         client,
+		tracker:        tracker,
 		revisionLister: lister,
 	}
 }
@@ -81,6 +87,7 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 // Configuration is an implementation of Accessor for Configurations.
 type Configuration struct {
 	client              clientset.Interface
+	tracker             tracker.Interface
 	configurationLister listers.ConfigurationLister
 }
 
@@ -88,9 +95,13 @@ type Configuration struct {
 var _ Accessor = (*Configuration)(nil)
 
 // NewConfigurationAccessor is a factory function to make a new configuration Accessor.
-func NewConfigurationAccessor(client clientset.Interface, lister listers.ConfigurationLister) *Configuration {
+func NewConfigurationAccessor(
+	client clientset.Interface,
+	tracker tracker.Interface,
+	lister listers.ConfigurationLister) *Configuration {
 	return &Configuration{
 		client:              client,
+		tracker:             tracker,
 		configurationLister: lister,
 	}
 }

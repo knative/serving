@@ -43,6 +43,10 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 		configName := tt.ConfigurationName
 
 		if revName != "" {
+			if err := racc.tracker.TrackReference(ref(r.Namespace, revName, "Revision"), r); err != nil {
+				return err
+			}
+
 			rev, err := racc.get(r.Namespace, revName)
 			if err != nil {
 				// The revision might not exist (yet). The informers will notify if it gets created.
@@ -58,6 +62,10 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 		}
 
 		if configName != "" {
+			if err := cacc.tracker.TrackReference(ref(r.Namespace, configName, "Configuration"), r); err != nil {
+				return err
+			}
+
 			config, err := cacc.configurationLister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
 				// The config might not exist (yet). The informers will notify if it gets created.
