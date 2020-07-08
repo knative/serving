@@ -905,12 +905,12 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 	}
 }
 
-var errApi = errors.New("failed to connect API")
+var errAPI = errors.New("failed to connect API")
 
 type revFakeErrorLister struct{}
 
 func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
-	return nil, errApi
+	return nil, errAPI
 }
 
 func (l revFakeErrorLister) List(selector labels.Selector) ([]*v1.Revision, error) {
@@ -926,10 +926,10 @@ func TestBuildTrafficConfiguration_FailedGetRevision(t *testing.T) {
 	_, err := BuildTrafficConfiguration(configLister, revErrorLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
 		RevisionName: goodNewRev.Name,
 		Percent:      ptr.Int64(50)})))
-	if err != nil && err.Error() != errApi.Error() {
-		t.Errorf("err: %s, want: %s", err.Error(), errApi.Error())
+	if err != nil && err.Error() != errAPI.Error() {
+		t.Errorf("err: %s, want: %s", err.Error(), errAPI.Error())
 	} else if err == nil {
-		t.Errorf("err: %s, want: no error", errApi.Error())
+		t.Errorf("err: %s, want: no error", errAPI.Error())
 	}
 }
 
