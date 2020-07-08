@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2020 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gc
+package v1
 
 import (
 	"context"
@@ -30,28 +30,36 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
-// reconciler implements controller.Reconciler for Garbage Collection resources.
-type reconciler struct {
-	client clientset.Interface
-
-	// listers index properties about resources
+// GC stores the types needed for garbage collection
+type GC struct {
+	client         clientset.Interface
 	revisionLister listers.RevisionLister
+	config         *v1.Configuration
 }
 
-// Check that our reconciler implements configreconciler.Interface
-var _ configreconciler.Interface = (*reconciler)(nil)
+// MakeGC is a factory function to make a GC struct
+func MakeGC(
+	client clientset.Interface,
+	revisionLister listers.RevisionLister,
+	config *v1.Configuration) *GC {
+	return &GC{
+		client:         client,
+		revisionLister: revisionLister,
+		config:         config,
+	}
+}
 
-func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
+// Collect deletes stale revisions if they are sufficiently old
+func (c *GC) Collect(ctx context.Context) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
-	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
-	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
+	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: c.config.Name})
+	revs, err := c.revisionLister.Revisions(c.config.Namespace).List(selector)
 	if err != nil {
 		return err
 	}
@@ -68,7 +76,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
-		if isRevisionStale(ctx, rev, config) {
+		if isRevisionStale(ctx, rev, c.config) {
 			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
