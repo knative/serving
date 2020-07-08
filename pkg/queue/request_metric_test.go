@@ -100,7 +100,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 
 	// Testing for default route
 	reset()
-	handler, err = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	req.Header.Del(network.TagHeaderName)
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
@@ -108,7 +108,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	reset()
-	handler, err = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
@@ -116,7 +116,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	reset()
-	handler, err = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
 	req.Header.Set(network.TagHeaderName, "test-tag")
 	req.Header.Set(network.DefaultRouteHeaderName, "false")
 	handler.ServeHTTP(resp, req)
