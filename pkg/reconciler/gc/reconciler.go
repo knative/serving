@@ -27,7 +27,7 @@ import (
 	gcv1 "knative.dev/serving/pkg/reconciler/gc/v1"
 )
 
-// reconciler implements controller.Reconciler for Garbage Collection resources.
+// reconciler implements controller.Reconciler for garbage collected resources.
 type reconciler struct {
 	client clientset.Interface
 
