@@ -84,6 +84,12 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithScaleTargetInitialized updates the PA to reflect it having initialized its
+// ScaleTarget.
+func WithScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkScaleTargetInitialized()
+}
+
 // WithPAStatusService annotates PA Status with the provided service name.
 func WithPAStatusService(svc string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {

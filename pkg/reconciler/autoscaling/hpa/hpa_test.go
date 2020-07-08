@@ -134,8 +134,8 @@ func TestReconcile(t *testing.T) {
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision),
-				WithPAMetricsService(privateSvc), withScales(0, 0)),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithScaleTargetInitialized,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), withScales(0, 0)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
@@ -193,7 +193,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
-				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+				WithTraffic, WithScaleTargetInitialized, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 	}, {
@@ -205,7 +205,7 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(5, 3),
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithScaleTargetInitialized, withScales(5, 3),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
@@ -319,7 +319,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(19, 18),
-				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+				WithTraffic, WithScaleTargetInitialized, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key:     key(testNamespace, testRevision),
 		WantErr: true,
@@ -352,7 +352,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithScaleTargetInitialized, withScales(0, 0),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
@@ -442,6 +442,7 @@ func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutos
 			ProtocolType: networking.ProtocolHTTP1,
 		},
 	}
+	pa.Status.InitializeConditions()
 	for _, opt := range options {
 		opt(pa)
 	}
