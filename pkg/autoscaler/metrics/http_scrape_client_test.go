@@ -308,17 +308,3 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 		},
 	}
 }
-
-func BenchmarkUnmarshalling(b *testing.B) {
-	b.ReportAllocs()
-	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, Stat{}, network.ProtoAcceptContent), nil)
-	scrapeClient, err := newHTTPScrapeClient(hClient)
-	if err != nil {
-		b.Fatal(err)
-	}
-	for i := 0; i < b.N; i++ {
-		if _, err := scrapeClient.Scrape(testURL); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
