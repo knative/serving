@@ -39,6 +39,5 @@ type reconciler struct {
 var _ configreconciler.Interface = (*reconciler)(nil)
 
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
-	gc := gcv1.NewGC(c.client, c.revisionLister, config)
-	return gc.Collect(ctx)
+	return gcv1.Collect(ctx, c.client, c.revisionLister, config)
 }

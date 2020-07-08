@@ -34,32 +34,17 @@ import (
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
-// GC stores the types needed for garbage collection
-type GC struct {
-	client         clientset.Interface
-	revisionLister listers.RevisionLister
-	config         *v1.Configuration
-}
-
-// MakeGC is a factory function to make a GC struct
-func NewGC(
+// Collect deletes stale revisions if they are sufficiently old
+func Collect(
+	ctx context.Context,
 	client clientset.Interface,
 	revisionLister listers.RevisionLister,
-	config *v1.Configuration) *GC {
-	return &GC{
-		client:         client,
-		revisionLister: revisionLister,
-		config:         config,
-	}
-}
-
-// Collect deletes stale revisions if they are sufficiently old
-func (c *GC) Collect(ctx context.Context) pkgreconciler.Event {
+	config *v1.Configuration) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
-	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: c.config.Name})
-	revs, err := c.revisionLister.Revisions(c.config.Namespace).List(selector)
+	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
+	revs, err := revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
 		return err
 	}
@@ -76,8 +61,8 @@ func (c *GC) Collect(ctx context.Context) pkgreconciler.Event {
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
-		if IsRevisionStale(ctx, rev, c.config) {
-			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+		if IsRevisionStale(ctx, rev, config) {
+			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
