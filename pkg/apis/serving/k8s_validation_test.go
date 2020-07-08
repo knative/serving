@@ -535,7 +535,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 					Name: "NODE_IP",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "status.IP",
+							FieldPath: "status.hostIP",
 						},
 					},
 				}},
@@ -582,7 +582,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 					Name: "NODE_IP",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "status.IP",
+							FieldPath: "status.hostIP",
 						},
 					},
 				}},
