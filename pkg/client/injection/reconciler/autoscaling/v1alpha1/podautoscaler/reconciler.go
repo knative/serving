@@ -194,6 +194,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	roi, isROI := r.reconciler.(ReadOnlyInterface)
 	rof, isROF := r.reconciler.(ReadOnlyFinalizer)
 	if !isLeader && !isROI && !isROF {
+		logger.Infof("### not leader for key: %s", key)
 		// If we are not the leader, and we don't implement either ReadOnly
 		// interface, then take a fast-path out.
 		return nil

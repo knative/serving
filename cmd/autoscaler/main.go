@@ -34,9 +34,12 @@ import (
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	statefulsetinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
+	"knative.dev/pkg/websocket"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -60,6 +63,7 @@ import (
 const (
 	statsServerAddr = ":8080"
 	statsBufferLen  = 1000
+	statefulSetName = "autoscaler"
 	component       = "autoscaler"
 	controllerNum   = 2
 )
@@ -123,7 +127,8 @@ func main() {
 
 	profilingHandler := profiling.NewHandler(logger, false)
 
-	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
+	ns := system.Namespace()
+	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), ns)
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
@@ -132,6 +137,7 @@ func main() {
 		profilingHandler.UpdateFromConfigMap)
 
 	podLister := podinformer.Get(ctx).Lister()
+	statefulsetLister := statefulsetinformer.Get(ctx).Lister()
 
 	collector := asmetrics.NewMetricCollector(
 		statsScraperFactoryFunc(podLister), logger)
@@ -159,14 +165,64 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	go controller.StartAll(ctx, controllers...)
+	ss, err := statefulsetLister.StatefulSets(ns).Get(statefulSetName)
+	if err != nil {
+		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
+	}
 
-	go func() {
+	processStatsFunc := func() {
 		for sm := range statsCh {
 			collector.Record(sm.Key, time.Now(), sm.Stat)
 			multiScaler.Poke(sm.Key, sm.Stat)
 		}
-	}()
+	}
+
+	numB := int(*ss.Spec.Replicas)
+	if numB > 0 {
+		ctx = leaderelection.WithDynamicLeaderElectorBuilder(
+			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(numB)})
+		bt, err := leaderelection.BuildBucketSet(uint32(numB))
+		if err != nil {
+			logger.Fatalw("Failed to build bucket set", zap.Error(err))
+		}
+		ordinal, err := leaderelection.ControllerOrdinal()
+		if err != nil {
+			logger.Fatalw("Failed to get ordinal of this pod", zap.Error(err))
+		}
+
+		wss := map[int]*websocket.ManagedConnection{}
+		for i := 0; i < numB; i++ {
+			if i == ordinal {
+				continue
+			}
+			bkt := *bt.Bucket(i)
+			if bkt == nil {
+				logger.Fatalf("Failed to get bucket with ordinal %d", i)
+			}
+			logger.Info("Connecting to Autoscaler at ", bkt.Name())
+			statSink := websocket.NewDurableSendingConnection(bkt.Name(), logger)
+			defer statSink.Shutdown()
+			wss[i] = statSink
+		}
+
+		processStatsFunc = func() {
+			for sm := range statsCh {
+				logger.Infof("$$$ bucket=%d, ordinal=%d", bt.BucketOrdinal(sm.Key), ordinal)
+				if b := bt.BucketOrdinal(sm.Key); b != ordinal {
+					logger.Info("$$$ forwardubg")
+					wss[b].Send(sm)
+				} else {
+					logger.Info("$$$ recording")
+					collector.Record(sm.Key, time.Now(), sm.Stat)
+					multiScaler.Poke(sm.Key, sm.Stat)
+				}
+			}
+		}
+	}
+
+	go controller.StartAll(ctx, controllers...)
+
+	go processStatsFunc()
 
 	profilingServer := profiling.NewServer(profilingHandler)
 

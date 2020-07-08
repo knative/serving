@@ -13,14 +13,15 @@
 # limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: autoscaler
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
+  replicas: 3
+  serviceName: autoscaler
   selector:
     matchLabels:
       app: autoscaler
@@ -59,7 +60,12 @@ spec:
         # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
         - name: METRICS_DOMAIN
           value: knative.dev/serving
-
+        - name: STATEFUL_CONTROLLER_ORDINAL
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: STATEFUL_SERVICE_NAME
+          value: autoscaler
         securityContext:
           allowPrivilegeEscalation: false
 
@@ -102,3 +108,4 @@ spec:
     targetPort: 8080
   selector:
     app: autoscaler
+  clusterIP: None
