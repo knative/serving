@@ -57,7 +57,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	tag := "current"
 
@@ -102,7 +102,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"
@@ -217,7 +217,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"

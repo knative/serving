@@ -42,7 +42,7 @@ func TestSingleConcurrency(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   test.SingleThreadedImage,
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		v1a1opts.WithContainerConcurrency(1))

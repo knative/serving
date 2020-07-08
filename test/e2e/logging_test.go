@@ -50,7 +50,7 @@ func TestRequestLogs(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 

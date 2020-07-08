@@ -41,7 +41,7 @@ func TestEgressTraffic(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "httpproxy",
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	service, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithEnv(corev1.EnvVar{

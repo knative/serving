@@ -57,7 +57,7 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	revision1 := names.Revision
 

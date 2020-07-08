@@ -134,7 +134,7 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Clean up in both abnormal and normal exits.
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
 		t.Fatal("Failed to create WebSocket server:", err)
@@ -160,7 +160,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}
 
 	// Clean up in both abnormal and normal exits.
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -190,7 +190,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		Image:   wsServerTestImageName,
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")

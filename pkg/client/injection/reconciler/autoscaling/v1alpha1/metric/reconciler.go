@@ -265,17 +265,22 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		reconcileEvent = rof.ObserveFinalizeKind(ctx, resource)
 	}
 
-	if !r.skipStatusUpdates {
-		// Synchronize the status.
-		if equality.Semantic.DeepEqual(original.Status, resource.Status) {
-			// If we didn't change anything then don't call updateStatus.
-			// This is important because the copy we loaded from the injectionInformer's
-			// cache may be stale and we don't want to overwrite a prior update
-			// to status with this stale state.
-		} else if !isLeader {
-			logger.Warn("Saw status changes when we aren't the leader!")
-			// TODO: Consider logging the diff at Debug?
-		} else if err = r.updateStatus(original, resource); err != nil {
+	// Synchronize the status.
+	switch {
+	case r.skipStatusUpdates:
+		// This reconciler implementation is configured to skip resource updates.
+		// This may mean this reconciler does not observe spec, but reconciles external changes.
+	case equality.Semantic.DeepEqual(original.Status, resource.Status):
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the injectionInformer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	case !isLeader:
+		// High-availability reconcilers may have many replicas watching the resource, but only
+		// the elected leader is expected to write modifications.
+		logger.Warn("Saw status changes when we aren't the leader!")
+	default:
+		if err = r.updateStatus(original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, v1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for %q: %v", resource.Name, err)

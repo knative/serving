@@ -51,7 +51,7 @@ func TestMultiContainer(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 	t.Log("Creating a new Service")
 
 	resources, err := v1test.CreateServiceReadyForMultiContainer(t, clients, &names, func(svc *v1.Service) {

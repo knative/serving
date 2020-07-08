@@ -53,7 +53,7 @@ func TestActivatorOverload(t *testing.T) {
 		Image:   "timeout",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.

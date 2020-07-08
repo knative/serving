@@ -117,7 +117,12 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterControllerGVK(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
-			certEvents <- obj.(*v1alpha1.Certificate)
+			select {
+			case <-ctx.Done():
+				// context go cancelled, no more reads necessary.
+			case certEvents <- obj.(*v1alpha1.Certificate):
+				// written successfully.
+			}
 		}),
 	})
 
