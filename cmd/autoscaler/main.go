@@ -165,6 +165,7 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	// Needs to be called after informaers have started.
 	ss, err := statefulsetLister.StatefulSets(ns).Get(statefulSetName)
 	if err != nil {
 		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
@@ -182,8 +183,12 @@ func main() {
 
 	bucketSize := int(*ss.Spec.Replicas)
 	if bucketSize > 0 {
+		// If there are multiple pods for autoscaler, they must be run in StatefulSet
+		// ordinal assignment leader electior mode. So enable it.
 		ctx = leaderelection.WithDynamicLeaderElectorBuilder(
 			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(bucketSize)})
+
+		// Build stats forwarding network.
 		bt, err := leaderelection.BuildBucketSet(bucketSize)
 		if err != nil {
 			logger.Fatalw("Failed to build bucket set", zap.Error(err))
