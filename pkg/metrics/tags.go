@@ -135,6 +135,16 @@ func AugmentWithResponse(baseCtx context.Context, responseCode int) context.Cont
 	return ctx
 }
 
+// AugmentWithResponseAndRouteTag augments the given context with response-code and route-tag specific tags.
+func AugmentWithResponseAndRouteTag(baseCtx context.Context, responseCode int, routeTag string) context.Context {
+	ctx, _ := tag.New(
+		baseCtx,
+		tag.Upsert(ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Upsert(ResponseCodeClassKey, responseCodeClass(responseCode)),
+		tag.Upsert(RouteTagKey, routeTag))
+	return ctx
+}
+
 // responseCodeClass converts response code to a string of response code class.
 // e.g. The response code class is "5xx" for response code 503.
 func responseCodeClass(responseCode int) string {
