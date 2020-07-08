@@ -241,8 +241,9 @@ func main() {
 	stats := network.NewRequestStats(time.Now())
 	go func() {
 		for now := range reportTicker.C {
-			promStatReporter.Report(stats.Report(now))
-			protoStatReporter.Report(stats.Report(now))
+			stat := stats.Report(now)
+			promStatReporter.Report(stat)
+			protoStatReporter.Report(stat)
 		}
 	}()
 

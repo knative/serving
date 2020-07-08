@@ -24,18 +24,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/google/go-cmp/cmp"
+
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
-var testStat = metrics.Stat{
-	PodName:                          "testPod",
-	AverageConcurrentRequests:        5.0,
-	AverageProxiedConcurrentRequests: 5.0,
-	ProxiedRequestCount:              100.0,
-	RequestCount:                     100.0,
-	ProcessUptime:                    20.0,
-}
+var (
+	testStat = metrics.Stat{
+		PodName:                          "testPod",
+		AverageConcurrentRequests:        5.0,
+		AverageProxiedConcurrentRequests: 5.0,
+		ProxiedRequestCount:              100.0,
+		RequestCount:                     100.0,
+		ProcessUptime:                    20.0,
+	}
+
+	ignoreStuff = cmp.Options{
+		cmpopts.IgnoreFields(testStat, "ProcessUptime"),
+	}
+)
 
 func TestReporterReport(t *testing.T) {
 	for _, test := range testCases {
@@ -88,8 +98,7 @@ func TestProtoHandler(t *testing.T) {
 			startTime:       time.Now(),
 			stat:            metricsStat,
 			podName:         "testPod"},
-	},
-	}
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -97,53 +106,31 @@ func TestProtoHandler(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req.Header.Set("Accept-content", network.ProtoAcceptContent)
 			rr := httptest.NewRecorder()
 			handler := http.HandlerFunc(test.reporter.Handler().(http.HandlerFunc))
 			handler.ServeHTTP(rr, req)
 			if test.errorMsg != "" { // error case
 				expected := test.errorMsg + "\n"
 				if status := rr.Code; status != http.StatusInternalServerError {
-					t.Errorf("handler returned wrong status code: got %v want %v",
+					t.Errorf("StatusCode = %d want %d",
 						status, http.StatusInternalServerError)
 				}
 				if rr.Body.String() != expected {
-					t.Errorf("handler returned unexpected body: got %v want %v",
+					t.Errorf("Body = %q want %q",
 						rr.Body.String(), expected)
 				}
 			} else { // good case, data received
 				bodyBytes, err := ioutil.ReadAll(rr.Body)
 				if err != nil {
-					t.Errorf("reading body failed: %w", err)
+					t.Errorf("Reading body failed: %v", err)
 				}
 				stat := metrics.Stat{}
 				err = stat.Unmarshal(bodyBytes)
 				if err != nil {
-					t.Errorf("unmarshalling failed: %w", err)
+					t.Errorf("Unmarshalling failed: %v", err)
 				}
-				if stat.PodName != testStat.PodName {
-					t.Errorf("handler returned wrong stat data: got stat.PodName = %v want %v",
-						stat.PodName, testStat.PodName)
-				}
-				if stat.RequestCount != testStat.RequestCount {
-					t.Errorf("handler returned wrong stat data: got stat.RequestCount = %v want %v",
-						stat.RequestCount, testStat.RequestCount)
-				}
-				if stat.ProcessUptime != testStat.ProcessUptime {
-					t.Errorf("handler returned wrong stat data: got stat.ProcessUptime = %v want %v",
-						stat.ProcessUptime, testStat.ProcessUptime)
-				}
-				if stat.ProxiedRequestCount != testStat.ProxiedRequestCount {
-					t.Errorf("handler returned wrong stat data: got stat.ProxiedRequestCount = %v want %v",
-						stat.ProxiedRequestCount, testStat.ProxiedRequestCount)
-				}
-				if stat.AverageProxiedConcurrentRequests != testStat.AverageProxiedConcurrentRequests {
-					t.Errorf("handler returned wrong stat data: got AverageProxiedConcurrentRequests = %v want %v",
-						stat.AverageProxiedConcurrentRequests, testStat.AverageProxiedConcurrentRequests)
-				}
-				if stat.AverageConcurrentRequests != testStat.AverageConcurrentRequests {
-					t.Errorf("handler returned wrong stat data: got stat.AverageConcurrentRequests = %v want %v",
-						stat.AverageConcurrentRequests, testStat.AverageConcurrentRequests)
+				if diff := cmp.Diff(stat, testStat, ignoreStuff...); diff != "" {
+					t.Errorf("Handler returned wrong stat data: (-want, +got):\n%v", diff)
 				}
 			}
 		})

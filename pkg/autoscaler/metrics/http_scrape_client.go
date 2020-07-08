@@ -17,16 +17,27 @@ limitations under the License.
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"knative.dev/serving/pkg/network"
 )
+
+// It should hold the value of marshalled Stat which is
+// 8*5 (float64) + 16 (string ref) + 253 (max K8s resource name) = 309
+const bufferSize = 312
+
+var pool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, bufferSize))
+	},
+}
 
 type httpScrapeClient struct {
 	httpClient *http.Client
@@ -65,9 +76,20 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	return statFromPrometheus(resp.Body)
 }
 
+func ioCopy(r io.Reader) ([]byte, error) {
+	buffer := pool.Get().(*bytes.Buffer)
+	buffer.Reset()
+	defer pool.Put(buffer)
+	_, err := io.Copy(buffer, r)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 func statFromProto(body io.Reader) (Stat, error) {
 	var stat Stat
-	bodyBytes, err := ioutil.ReadAll(body)
+	bodyBytes, err := ioCopy(body)
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}

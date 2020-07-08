@@ -247,7 +247,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  fmt.Sprintf(`GET request for URL %q returned HTTP status 403`, testURL),
+		expectedErr:  fmt.Sprintf("GET request for URL %q returned HTTP status 403", testURL),
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
@@ -282,13 +282,13 @@ func makeResponse(statusCode int, context string) *http.Response {
 
 func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Response {
 	buffer, _ := stat.Marshal()
-	res := http.Response{
+	res := &http.Response{
 		StatusCode: statusCode,
 		Body:       ioutil.NopCloser(bytes.NewBuffer(buffer)),
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	return &res
+	return res
 }
 
 type fakeRoundTripper struct {
@@ -306,5 +306,21 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 			response:      response,
 			responseError: err,
 		},
+	}
+}
+
+func BenchmarkUnmarshalling(b *testing.B) {
+	b.ReportAllocs()
+	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, Stat{}, network.ProtoAcceptContent), nil)
+
+	scrapeClient, err := newHTTPScrapeClient(hClient)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		if _, err := scrapeClient.Scrape(testURL); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
