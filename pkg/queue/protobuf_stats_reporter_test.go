@@ -24,28 +24,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/google/go-cmp/cmp"
 
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
-var (
-	testStat = metrics.Stat{
-		PodName:                          "testPod",
-		AverageConcurrentRequests:        5.0,
-		AverageProxiedConcurrentRequests: 5.0,
-		ProxiedRequestCount:              100.0,
-		RequestCount:                     100.0,
-		ProcessUptime:                    20.0,
-	}
-
-	ignoreStuff = cmp.Options{
-		cmpopts.IgnoreFields(testStat, "ProcessUptime"),
-	}
-)
+var testStat = metrics.Stat{
+	PodName:                          "testPod",
+	AverageConcurrentRequests:        5.0,
+	AverageProxiedConcurrentRequests: 5.0,
+	ProxiedRequestCount:              100.0,
+	RequestCount:                     100.0,
+	ProcessUptime:                    20.0,
+}
 
 func TestReporterReport(t *testing.T) {
 	for _, test := range testCases {
@@ -129,7 +121,7 @@ func TestProtoHandler(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unmarshalling failed: %v", err)
 				}
-				if diff := cmp.Diff(stat, testStat, ignoreStuff...); diff != "" {
+				if diff := cmp.Diff(stat, testStat); diff != "" {
 					t.Errorf("Handler returned wrong stat data: (-want, +got):\n%v", diff)
 				}
 			}
