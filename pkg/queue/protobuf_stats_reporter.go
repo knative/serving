@@ -77,6 +77,7 @@ func (r *ProtobufStatsReporter) Handler() http.Handler {
 		buffer, err := proto.Marshal(&data)
 		if err != nil {
 			httpError(rsp, err.Error())
+			return
 		}
 		header.Set(contentTypeHeader, network.ProtoAcceptContent)
 		rsp.Write(buffer)
