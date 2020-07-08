@@ -18,12 +18,8 @@ package v1alpha1
 
 import (
 	"context"
-	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-
-	"knative.dev/networking/pkg/apis/config"
 )
 
 // SetDefaults populates default values in Ingress
@@ -68,12 +64,5 @@ func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
 	// If only one split is specified, we default to 100.
 	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
 		p.Splits[0].Percent = 100
-	}
-
-	cfg := config.FromContextOrDefaults(ctx)
-	maxTimeout := time.Duration(cfg.Defaults.MaxRevisionTimeoutSeconds) * time.Second
-
-	if p.Timeout == nil {
-		p.Timeout = &metav1.Duration{Duration: maxTimeout}
 	}
 }
