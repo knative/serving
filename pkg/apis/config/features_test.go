@@ -60,7 +60,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer: Allowed,
-			PodSpecDryRun:  Allowed,
+			PodSpecDryRun:  Enabled,
 		}),
 		data: map[string]string{
 			"multi-container": "Allowed",

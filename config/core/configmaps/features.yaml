@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: e0eb3d80
+    knative.dev/example-checksum: 302825a2
 data:
   _example: |
     ################################
@@ -52,4 +52,4 @@ data:
     # When "allowed", the client may enable the behavior with the
     # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
     # When "enabled"  the server will always run the extra validation.
-    kubernetes.podspec-dryrun: "allowed"
+    kubernetes.podspec-dryrun: "enabled"
