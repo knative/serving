@@ -154,6 +154,9 @@ const (
 	// TagHeaderBasedRoutingKey is the name of the configuration entry
 	// that specifies enabling tag header based routing or not.
 	TagHeaderBasedRoutingKey = "tagHeaderBasedRouting"
+
+	// ProtoAcceptContent is the content type to be used when autoscaler scrapes metrics from the QP
+	ProtoAcceptContent = "application/protobuf"
 )
 
 // DomainTemplateValues are the available properties people can choose from
