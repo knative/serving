@@ -41,7 +41,7 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-// processServerList updates balaner's internal state, create/remove SubConns
+// processServerList updates balancer's internal state, create/remove SubConns
 // and regenerates picker using the received serverList.
 func (lb *lbBalancer) processServerList(l *lbpb.ServerList) {
 	if grpclog.V(2) {
@@ -192,7 +192,7 @@ func (lb *lbBalancer) refreshSubConns(backendAddrs []resolver.Address, fallback 
 			lb.cc.RemoveSubConn(sc)
 			delete(lb.subConns, a)
 			// Keep the state of this sc in b.scStates until sc's state becomes Shutdown.
-			// The entry will be deleted in HandleSubConnStateChange.
+			// The entry will be deleted in UpdateSubConnState.
 		}
 	}
 
@@ -349,9 +349,6 @@ func (ccw *remoteBalancerCCWrapper) callRemoteBalancer() (backoff bool, _ error)
 	initResp := reply.GetInitialResponse()
 	if initResp == nil {
 		return true, fmt.Errorf("grpclb: reply from remote balancer did not include initial response")
-	}
-	if initResp.LoadBalancerDelegate != "" {
-		return true, fmt.Errorf("grpclb: Delegation is not supported")
 	}
 
 	ccw.wg.Add(1)
