@@ -42,7 +42,7 @@ type GC struct {
 }
 
 // MakeGC is a factory function to make a GC struct
-func MakeGC(
+func NewGC(
 	client clientset.Interface,
 	revisionLister listers.RevisionLister,
 	config *v1.Configuration) *GC {
