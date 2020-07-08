@@ -84,9 +84,9 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-// WithHasBeenActive updates the PA to reflect it having been active.
-func WithHasBeenActive(pa *asv1a1.PodAutoscaler) {
-	pa.Status.MarkHasBeenActive()
+// WithScaleTargetInitialized updates the PA to reflect it having been active.
+func WithScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkScaleTargetInitialized()
 }
 
 // WithPAStatusService annotates PA Status with the provided service name.

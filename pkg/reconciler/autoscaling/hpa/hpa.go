@@ -91,7 +91,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if !sks.IsReady() {
 		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
 	} else {
-		pa.Status.MarkHasBeenActive()
+		pa.Status.MarkScaleTargetInitialized()
 		pa.Status.MarkActive()
 	}
 

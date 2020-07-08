@@ -30,7 +30,7 @@ import (
 
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
-	PodAutoscalerConditionHasBeenActive,
+	PodAutoscalerConditionScaleTargetInitialized,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -173,14 +173,16 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsFalse()
 }
 
-// HasBeenActive returns true if the pod autoscaler has reached its initial scale.
-func (pas *PodAutoscalerStatus) HasBeenActive() bool {
-	return pas.GetCondition(PodAutoscalerConditionHasBeenActive).IsTrue()
+// IsScaleTargetInitialized returns true if the PodAutoscaler's scale target has been
+// initialized successfully.
+func (pas *PodAutoscalerStatus) IsScaleTargetInitialized() bool {
+	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue()
 }
 
-// MarkHasBeenActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
-func (pas *PodAutoscalerStatus) MarkHasBeenActive() {
-	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionHasBeenActive)
+// MarkScaleTargetInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
+// condition true.
+func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
 // GetCondition gets the condition `t`.

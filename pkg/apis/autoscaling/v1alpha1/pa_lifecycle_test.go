@@ -980,7 +980,7 @@ func TestTypicalFlow(t *testing.T) {
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
-	r.MarkHasBeenActive()
+	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
@@ -1173,13 +1173,13 @@ func TestInitialScale(t *testing.T) {
 	}
 }
 
-func TestHasBeenActive(t *testing.T) {
+func TestIsScaleTargetInitialized(t *testing.T) {
 	p := PodAutoscaler{}
-	if got, want := p.Status.HasBeenActive(), false; got != want {
+	if got, want := p.Status.IsScaleTargetInitialized(), false; got != want {
 		t.Errorf("before marking initially active: got: %v, want: %v", got, want)
 	}
-	p.Status.MarkHasBeenActive()
-	if got, want := p.Status.HasBeenActive(), true; got != want {
+	p.Status.MarkScaleTargetInitialized()
+	if got, want := p.Status.IsScaleTargetInitialized(), true; got != want {
 		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
 	}
 }
