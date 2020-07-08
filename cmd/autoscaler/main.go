@@ -170,18 +170,21 @@ func main() {
 		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
 	}
 
-	processStatsFunc := func() {
+	acceptSm := func(sm asmetrics.StatMessage) {
+		collector.Record(sm.Key, time.Now(), sm.Stat)
+		multiScaler.Poke(sm.Key, sm.Stat)
+	}
+	processSms := func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, time.Now(), sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			acceptSm(sm)
 		}
 	}
 
-	numB := int(*ss.Spec.Replicas)
-	if numB > 0 {
+	bucketSize := int(*ss.Spec.Replicas)
+	if bucketSize > 0 {
 		ctx = leaderelection.WithDynamicLeaderElectorBuilder(
-			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(numB)})
-		bt, err := leaderelection.BuildBucketSet(uint32(numB))
+			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(bucketSize)})
+		bt, err := leaderelection.BuildBucketSet(bucketSize)
 		if err != nil {
 			logger.Fatalw("Failed to build bucket set", zap.Error(err))
 		}
@@ -191,12 +194,12 @@ func main() {
 		}
 
 		wss := map[int]*websocket.ManagedConnection{}
-		for i := 0; i < numB; i++ {
+		for i := 0; i < bucketSize; i++ {
 			if i == ordinal {
 				continue
 			}
-			bkt := *bt.Bucket(i)
-			if bkt == nil {
+			bkt, err := bt.Bucket(i)
+			if err != nil {
 				logger.Fatalf("Failed to get bucket with ordinal %d", i)
 			}
 			logger.Info("Connecting to Autoscaler at ", bkt.Name())
@@ -205,16 +208,18 @@ func main() {
 			wss[i] = statSink
 		}
 
-		processStatsFunc = func() {
+		processSms = func() {
 			for sm := range statsCh {
-				logger.Infof("$$$ bucket=%d, ordinal=%d", bt.BucketOrdinal(sm.Key), ordinal)
-				if b := bt.BucketOrdinal(sm.Key); b != ordinal {
-					logger.Info("$$$ forwardubg")
+				b, err := bt.BucketOrdinal(sm.Key)
+				if err != nil {
+					logger.Warnf("failed to fetch bucket ordinal for key %v: %v", sm.Key, err)
+					continue
+				}
+
+				if b != ordinal {
 					wss[b].Send(sm)
 				} else {
-					logger.Info("$$$ recording")
-					collector.Record(sm.Key, time.Now(), sm.Stat)
-					multiScaler.Poke(sm.Key, sm.Stat)
+					acceptSm(sm)
 				}
 			}
 		}
@@ -222,7 +227,7 @@ func main() {
 
 	go controller.StartAll(ctx, controllers...)
 
-	go processStatsFunc()
+	go processSms()
 
 	profilingServer := profiling.NewServer(profilingHandler)
 

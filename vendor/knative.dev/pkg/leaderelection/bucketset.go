@@ -25,45 +25,57 @@ import (
 	"knative.dev/pkg/system"
 )
 
+// TODO: replace this implementation with
+// https://gist.github.com/vagababov/47e5f62c5865dbcc9deb1cd48655d7d2
+
+// BucketSet includes all buckets used in StatefulSet ordinal assignment mode.
 type BucketSet struct {
+	size    int
 	buckets []reconciler.Bucket
 }
 
-func (bs *BucketSet) Bucket(i int) *reconciler.Bucket {
-	if i < 0 || i > len(bs.buckets) {
-		return nil
+// Bucket returns the bucket for the given ordinal if the ordinal is
+// in valided range.
+func (bs *BucketSet) Bucket(ordinal int) (reconciler.Bucket, error) {
+	if ordinal < 0 || ordinal >= bs.size {
+		return &bucket{}, fmt.Errorf("%d is not in range [0, %d)", ordinal, bs.size)
 	}
-	return &bs.buckets[i]
+	return bs.buckets[ordinal], nil
 }
 
-func (bs *BucketSet) BucketOrdinal(nn types.NamespacedName) int {
+// BucketOrdinal returns the ordinal of the bucket which has the given key.
+// If no bucket has the given key, it returns an error.
+func (bs *BucketSet) BucketOrdinal(nn types.NamespacedName) (int, error) {
 	for i, b := range bs.buckets {
 		if b.Has(nn) {
-			return i
+			return i, nil
 		}
 	}
 
-	return -1
+	return 0, fmt.Errorf("bucket not found for the key: %v", nn)
 }
 
-func BuildBucketSet(numB uint32) (BucketSet, error) {
+// BuildBucketSet builds a BucketSet for the given bucket size.
+func BuildBucketSet(size int) (BucketSet, error) {
 	ssc, err := newStatefulSetConfig()
 	if err != nil {
 		return BucketSet{}, err
 	}
 
 	bs := BucketSet{
-		buckets: make([]reconciler.Bucket, numB),
+		size:    size,
+		buckets: make([]reconciler.Bucket, size),
 	}
 
-	for i := uint32(0); i < numB; i++ {
+	total := uint32(size)
+	for i := 0; i < size; i++ {
 		bs.buckets[i] = &bucket{
 			// The name is the full pod DNS of the owner pod of this bucket.
 			name: fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", ssc.Protocol,
 				ssc.StatefulSetID.ssName, i, ssc.ServiceName,
 				system.Namespace(), network.GetClusterDomainName(), ssc.Port),
-			index: i,
-			total: numB,
+			index: uint32(i),
+			total: total,
 		}
 	}
 

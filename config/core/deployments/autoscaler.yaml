@@ -66,6 +66,10 @@ spec:
               fieldPath: metadata.name
         - name: STATEFUL_SERVICE_NAME
           value: autoscaler
+        - name: STATEFUL_SERVICE_PORT
+          value: "8080"
+        - name: STATEFUL_SERVICE_PROTOCOL
+          value: ws
         securityContext:
           allowPrivilegeEscalation: false
 

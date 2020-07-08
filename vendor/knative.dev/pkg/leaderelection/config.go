@@ -152,8 +152,8 @@ var _ envconfig.Decoder = (*statefulSetID)(nil)
 type statefulSetConfig struct {
 	StatefulSetID statefulSetID `envconfig:"STATEFUL_CONTROLLER_ORDINAL" required:"true"`
 	ServiceName   string        `envconfig:"STATEFUL_SERVICE_NAME" required:"true"`
-	Port          string        `envconfig:"STATEFUL_SERVICE_PORT" default:"8080"`
-	Protocol      string        `envconfig:"STATEFUL_SERVICE_PROTOCOL" default:"ws"`
+	Port          string        `envconfig:"STATEFUL_SERVICE_PORT" default:"80"`
+	Protocol      string        `envconfig:"STATEFUL_SERVICE_PROTOCOL" default:"http"`
 }
 
 // newStatefulSetConfig builds a stateful set LE config.

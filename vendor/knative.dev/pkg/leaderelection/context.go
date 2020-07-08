@@ -36,7 +36,7 @@ import (
 // falling back on the standard elector.
 func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
 	logger := logging.FromContext(ctx)
-	bs, err := BuildBucketSet(cc.Buckets)
+	bs, err := BuildBucketSet(int(cc.Buckets))
 	if err == nil {
 		logger.Info("Running with StatefulSet leader election")
 		return withStatefulSetElectorBuilder(ctx, cc, bs)
@@ -181,11 +181,15 @@ func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.Lea
 	if err != nil {
 		return nil, err
 	}
+	bkt, err := b.bs.Bucket(ordinal)
+	if err != nil {
+		return nil, err
+	}
 	logger.Infof("%s will run in StatefulSet ordinal assignement mode with ordinal %d",
 		b.lec.Component, ordinal)
 
 	return &unopposedElector{
-		bkt: *b.bs.Bucket(ordinal),
+		bkt: bkt,
 		la:  la,
 		enq: enq,
 	}, nil
