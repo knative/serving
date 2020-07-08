@@ -30,6 +30,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
@@ -37,6 +38,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
@@ -132,10 +134,10 @@ func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoi
 		return eps
 	}
 
-	addrs := make([]string, 0, n)
+	addrs := sets.NewString()
 	for _, ss := range eps.Subsets {
 		for _, addr := range ss.Addresses {
-			addrs = append(addrs, addr.IP)
+			addrs.Insert(addr.IP)
 		}
 	}
 
@@ -144,7 +146,7 @@ func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoi
 		return eps
 	}
 
-	selection := chooseSubset(addrs, n, target)
+	selection := hash.ChooseSubset(addrs, n, target)
 
 	// Copy the informer's copy, so we can filter it out.
 	neps := eps.DeepCopy()
