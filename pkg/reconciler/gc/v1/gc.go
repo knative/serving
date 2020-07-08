@@ -76,7 +76,7 @@ func (c *GC) Collect(ctx context.Context) pkgreconciler.Event {
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
-		if isRevisionStale(ctx, rev, c.config) {
+		if IsRevisionStale(ctx, rev, c.config) {
 			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
@@ -87,7 +87,7 @@ func (c *GC) Collect(ctx context.Context) pkgreconciler.Event {
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
+func IsRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
