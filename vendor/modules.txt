@@ -1081,6 +1081,7 @@ knative.dev/pkg/configmap/hash-gen
 knative.dev/pkg/configmap/testing
 knative.dev/pkg/controller
 knative.dev/pkg/hack
+knative.dev/pkg/hash
 knative.dev/pkg/injection
 knative.dev/pkg/injection/clients/dynamicclient
 knative.dev/pkg/injection/clients/dynamicclient/fake
