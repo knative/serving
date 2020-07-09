@@ -108,6 +108,7 @@ func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	pa := resources.MakePA(rev)
 	pa.Status.InitializeConditions()
 	pa.Status.MarkActive()
+	pa.Status.MarkScaleTargetInitialized()
 	pa.Status.ServiceName = serviceName(rev.Name)
 	return pa
 }
