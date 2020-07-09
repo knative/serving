@@ -63,6 +63,17 @@ func TestGCReconcile(t *testing.T) {
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
 
+	controllerOpts := controller.Options{
+		ConfigStore: &testConfigStore{
+			config: &config.Config{
+				RevisionGC: &gcconfig.Config{
+					StaleRevisionCreateDelay:        5 * time.Minute,
+					StaleRevisionTimeout:            5 * time.Minute,
+					StaleRevisionMinimumGenerations: 2,
+				},
+			},
+		}}
+
 	table := TableTest{{
 		Name: "delete oldest, keep two",
 		Objects: []runtime.Object{
@@ -98,6 +109,7 @@ func TestGCReconcile(t *testing.T) {
 		Key: "foo/keep-two",
 	}}
 
+	newVersion = false
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
@@ -105,16 +117,18 @@ func TestGCReconcile(t *testing.T) {
 		}
 		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetConfigurationLister(),
-			controller.GetEventRecorder(ctx), r, controller.Options{
-				ConfigStore: &testConfigStore{
-					config: &config.Config{
-						RevisionGC: &gcconfig.Config{
-							StaleRevisionCreateDelay:        5 * time.Minute,
-							StaleRevisionTimeout:            5 * time.Minute,
-							StaleRevisionMinimumGenerations: 2,
-						},
-					},
-				}})
+			controller.GetEventRecorder(ctx), r, controllerOpts)
+	}))
+
+	newVersion = true
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		r := &reconciler{
+			client:         servingclient.Get(ctx),
+			revisionLister: listers.GetRevisionLister(),
+		}
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r, controllerOpts)
 	}))
 }
 
