@@ -88,7 +88,9 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
-			FieldSelector: "status.phase=Running",
+			// Include both running and terminating pods, because we will scale down from
+			// initial scale immediately if there's no traffic coming in.
+			FieldSelector: "status.phase!=Pending",
 		})
 		if err != nil {
 			return false, err

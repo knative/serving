@@ -409,7 +409,6 @@ func TestScaler(t *testing.T) {
 		scaleTo:       1,
 		wantReplicas:  2,
 		wantScaling:   true,
-		wantCBCount:   1,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
 			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
@@ -420,7 +419,6 @@ func TestScaler(t *testing.T) {
 		scaleTo:       1,
 		wantReplicas:  5,
 		wantScaling:   false,
-		wantCBCount:   1,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
 			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"

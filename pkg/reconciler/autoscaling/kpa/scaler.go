@@ -309,13 +309,10 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	min, max := pa.ScaleBounds()
 	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
-	sw := config.FromContext(ctx).Autoscaler.StableWindow
-	hasBeenActiveFor := pa.Status.ScaleTargetInitializedFor(time.Now())
-	if initialScale > 1 && hasBeenActiveFor < sw {
+	if initialScale > 1 {
 		// Ignore initial scale if minScale >= initialScale
 		if min < initialScale {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
-			ks.enqueueCB(pa, sw-hasBeenActiveFor)
 		}
 		min = intMax(initialScale, min)
 	}
