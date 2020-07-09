@@ -111,7 +111,7 @@ func TestGCReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		setResponsiveGCFeature(ctx, cfgmap.Disabled)
+		ctx = setResponsiveGCFeature(ctx, cfgmap.Disabled)
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
@@ -122,7 +122,7 @@ func TestGCReconcile(t *testing.T) {
 	}))
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		setResponsiveGCFeature(ctx, cfgmap.Enabled)
+		ctx = setResponsiveGCFeature(ctx, cfgmap.Enabled)
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
