@@ -173,7 +173,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 
 	if ps.IsScaleTargetInitialized() {
 		// Precondition for PA being initialized is SKS being active and
-		// that entices that |service.endpoints| > 0.
+		// that implies that |service.endpoints| > 0.
 		rs.MarkResourcesAvailableTrue()
 		rs.MarkContainerHealthyTrue()
 	}
@@ -187,7 +187,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 		rs.MarkActiveTrue()
 
 		// Precondition for PA being active is SKS being active and
-		// that entices that |service.endpoints| > 0.
+		// that implies that |service.endpoints| > 0.
 		//
 		// Note: This is needed for backwards compatibility as we're adding the new
 		// ScaleTargetInitialized condition to gate readiness.
