@@ -19,16 +19,72 @@ package ha
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 )
 
-// WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
+// GetLeaders collects all of the leader pods from the specified deployment.
+func GetLeaders(client *test.KubeClient, deploymentName, namespace string) ([]string, error) {
+	leases, err := client.Kube.CoordinationV1().Leases(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting leases for deployment %q: %w", deploymentName, err)
+	}
+	var pods []string
+	for _, lease := range leases.Items {
+		if lease.Spec.HolderIdentity == nil {
+			continue
+		}
+		pod := strings.Split(*lease.Spec.HolderIdentity, "_")[0]
+
+		// Deconstruct the pod name and look for the deployment.  This won't work for very long deployment names.
+		parts := strings.Split(pod, "-")
+		if len(parts) < 3 {
+			continue
+		}
+		if strings.Join(parts[:len(parts)-2], "-") != deploymentName {
+			continue
+		}
+		pods = append(pods, pod)
+	}
+	return pods, nil
+}
+
+// WaitForNewLeaders waits until the collection of current leaders consists of "n" leaders
+// which do not include the specified prior leaders.
+func WaitForNewLeaders(client *test.KubeClient, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
+	span := logging.GetEmitableSpan(context.Background(), "WaitForNewLeaders/"+deploymentName)
+	defer span.End()
+
+	var leaders sets.String
+	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+		currentLeaders, err := GetLeaders(client, deploymentName, namespace)
+		if err != nil {
+			return false, err
+		}
+		if len(currentLeaders) < n {
+			log.Printf("Waiting for more leaders, got: %d, want %d", len(currentLeaders), n)
+			return false, nil
+		}
+		cl := sets.NewString(currentLeaders...)
+		if previousLeaders.HasAny(currentLeaders...) {
+			// TODO(mattmoor): Log overlap?
+			log.Printf("DIFFERENCE: %v", previousLeaders.Intersection(cl))
+			return false, nil
+		}
+		leaders = cl
+		return true, nil
+	})
+	return leaders, err
+}
+
+// DEPRECATED WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
 func WaitForNewLeader(client *test.KubeClient, lease, namespace, previousLeader string) (string, error) {
 	span := logging.GetEmitableSpan(context.Background(), "WaitForNewLeader/"+lease)
 	defer span.End()

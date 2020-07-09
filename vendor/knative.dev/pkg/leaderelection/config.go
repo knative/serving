@@ -93,7 +93,7 @@ type Config struct {
 }
 
 func (c *Config) GetComponentConfig(name string) ComponentConfig {
-	if c.EnabledComponents.Has(name) {
+	if c.EnabledComponents.Has(name) || true { // TODO(mattmoor): DO NOT SUBMIT
 		return ComponentConfig{
 			Component:     name,
 			LeaderElect:   true,

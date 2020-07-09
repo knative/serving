@@ -736,6 +736,8 @@ github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHef
 github.com/matoous/godox v0.0.0-20190911065817-5d6d842e92eb/go.mod h1:1BELzlh859Sh1c6+90blK8lbYy0kwQf1bYlBhBysy1s=
 github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a h1:+J2gw7Bw77w/fbK7wnNJJDKmw1IbWft2Ul5BzrG1Qm8=
 github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a/go.mod h1:M1qoD/MqPgTZIk0EWKB38wE28ACRfVcn+cU08jyArI0=
+github.com/mattmoor/pkg v0.0.0-20200710053600-725a0ad4e943 h1:SXZ4gl0h2fmyYtqWF5AxyPnr0tzthvr1JvJQW75TdtY=
+github.com/mattmoor/pkg v0.0.0-20200710053600-725a0ad4e943/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.1/go.mod h1:FuOcm+DKB9mbwrcAfNl7/TZVBZ6rcnceauSikq3lYCQ=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
@@ -1616,10 +1618,6 @@ knative.dev/caching v0.0.0-20200707200344-95a2aaeace0f/go.mod h1:ZQa3DyEIY48qsx5
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/networking v0.0.0-20200707203944-725ec013d8a2 h1:Co9j0Q4ZJxwkzVFKUc6AsIXrdiASbaKdHBUROnfiej4=
 knative.dev/networking v0.0.0-20200707203944-725ec013d8a2/go.mod h1:e1NL29AarTcgaR240oc4GUzqHtTfTu62JNrUHN3kIG0=
-knative.dev/pkg v0.0.0-20200207155214-fef852970f43/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
-knative.dev/pkg v0.0.0-20200707190344-0a8314b44495/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
-knative.dev/pkg v0.0.0-20200708171447-5358179e7499 h1:hmwZWMiH/EZ+DYrBVC4IXEAKqQyQGJlj1oDETXvdsgA=
-knative.dev/pkg v0.0.0-20200708171447-5358179e7499/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
 knative.dev/test-infra v0.0.0-20200707183444-aed09e56ddc7/go.mod h1:RjYAhXnZqeHw9+B0zsbqSPlae0lCvjekO/nw5ZMpLCs=
 knative.dev/test-infra v0.0.0-20200708165947-2cd922769fa4 h1:FI6tYvlxya3RiA9pqV9h2mk7Rkyc7qvi9QTA4Fguv2I=
 knative.dev/test-infra v0.0.0-20200708165947-2cd922769fa4/go.mod h1:RjYAhXnZqeHw9+B0zsbqSPlae0lCvjekO/nw5ZMpLCs=
