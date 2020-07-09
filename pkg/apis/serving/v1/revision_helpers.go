@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	net "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -116,15 +117,13 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 		return // Don't update timestamp if no change.
 	}
 
-	if r.Labels == nil {
-		r.Labels = make(map[string]string, 1)
-	}
-	r.Labels[serving.RoutingStateLabelKey] = stateStr
+	r.Labels = kmeta.UnionMaps(r.Labels,
+		map[string]string{serving.RoutingStateLabelKey: stateStr})
 
-	if r.Annotations == nil {
-		r.Annotations = make(map[string]string, 1)
-	}
-	r.Annotations[serving.RoutingStateModifiedAnnotationKey] = time.Now().Format(time.RFC3339)
+	r.Annotations = kmeta.UnionMaps(r.Annotations,
+		map[string]string{
+			serving.RoutingStateModifiedAnnotationKey: time.Now().UTC().Format(time.RFC3339),
+		})
 }
 
 // GetRoutingState retrieves the RoutingState label.
@@ -135,6 +134,9 @@ func (r *Revision) GetRoutingState() RoutingState {
 // GetRoutingStateModified retrieves the RoutingStateModified annotation.
 func (r *Revision) GetRoutingStateModified() time.Time {
 	val := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
+	if val == "" {
+		return time.Time{}
+	}
 	parsed, err := time.Parse(time.RFC3339, val)
 	if err != nil {
 		return time.Time{}
