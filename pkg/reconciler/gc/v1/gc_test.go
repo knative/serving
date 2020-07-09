@@ -24,6 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgotesting "k8s.io/client-go/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
@@ -59,9 +61,10 @@ func TestCollect(t *testing.T) {
 	oldest := now.Add(-13 * time.Minute)
 
 	table := []struct {
-		name string
-		cfg  *v1.Configuration
-		revs []*v1.Revision
+		name        string
+		cfg         *v1.Configuration
+		revs        []*v1.Revision
+		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
 		name: "delete oldest, keep two",
 		cfg: cfg("keep-two", "foo", 5556,
@@ -82,7 +85,7 @@ func TestCollect(t *testing.T) {
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		/*WantDeletes: []clientgotesting.DeleteActionImpl{{
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
@@ -93,7 +96,7 @@ func TestCollect(t *testing.T) {
 				},
 			},
 			Name: "5554",
-		}},*/
+		}},
 	}, {
 		name: "keep oldest when no lastPinned",
 		cfg: cfg("keep-no-last-pinned", "foo", 5556,
@@ -193,9 +196,30 @@ func TestCollect(t *testing.T) {
 				ri.Informer().GetIndexer().Add(rev)
 			}
 
+			recorderList := ActionRecorderList{client}
+
 			Collect(ctx, client, ri.Lister(), test.cfg)
 
-			// TODO(whaught): assert deletes to client?
+			actions, err := recorderList.ActionsByVerb()
+			if err != nil {
+				t.Errorf("Error capturing actions by verb: %q", err)
+			}
+
+			for i, want := range test.wantDeletes {
+				if i >= len(actions.Deletes) {
+					t.Errorf("Missing delete: %#v", want)
+					continue
+				}
+				got := actions.Deletes[i]
+				if got.GetName() != want.GetName() {
+					t.Errorf("Unexpected delete[%d]: %#v", i, got)
+				}
+			}
+			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
+				for _, extra := range actions.Deletes[want:] {
+					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
+				}
+			}
 		})
 	}
 }
