@@ -149,12 +149,3 @@ func failKubeCalls(ctx context.Context) {
 		},
 	)
 }
-
-func dryRunNotSupported(ctx context.Context) {
-	client := fakekubeclient.Get(ctx)
-	client.PrependReactor("*", "*",
-		func(action ktesting.Action) (bool, runtime.Object, error) {
-			return true, nil, errors.New("fakekube does not support dry run")
-		},
-	)
-}

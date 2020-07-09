@@ -533,6 +533,9 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 			Conditions: duckv1.Conditions{{
 				Type:   av1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionTrue,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
@@ -545,6 +548,9 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 			Conditions: duckv1.Conditions{{
 				Type:   av1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionUnknown,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
@@ -557,6 +563,9 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 			Conditions: duckv1.Conditions{{
 				Type:   av1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
 			}},
 		},
 	})
@@ -564,4 +573,31 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionContainerHealthy, t)
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
+}
+
+func TestPropagateAutoscalerStatusRace(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// PodAutoscaler has no active condition, so we are just coming up.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{},
+	})
+	apistest.CheckConditionOngoing(r, RevisionConditionActive, t)
+
+	// The PodAutoscaler might have been ready but it's scaled down already.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
+	apistest.CheckConditionSucceeded(r, RevisionConditionReady, t)
 }

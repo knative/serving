@@ -118,6 +118,10 @@ var noKeepaliveClient = &http.Client{
 // between scrapes of the same pod.
 var client = &http.Client{
 	Timeout: httpClientTimeout,
+	Transport: &http.Transport{
+		MaxIdleConns:    1000,
+		IdleConnTimeout: 90 * time.Second,
+	},
 }
 
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which

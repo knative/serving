@@ -259,7 +259,7 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 
 	case pc.ready >= minReady:
 		if pc.want > 0 || !pa.Status.IsInactive() {
-			pa.Status.MarkHasBeenActive()
+			pa.Status.MarkScaleTargetInitialized()
 			// SKS should already be active.
 			pa.Status.MarkActive()
 		}
