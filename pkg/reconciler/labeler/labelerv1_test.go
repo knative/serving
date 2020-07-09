@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -300,6 +301,7 @@ func TestV1Reconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		setResponsiveGCFeature(ctx, cfgmap.Disabled)
 		r := &Reconciler{
 			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),

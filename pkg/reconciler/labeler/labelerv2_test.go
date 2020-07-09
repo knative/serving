@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -47,7 +48,6 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestV2Reconcile(t *testing.T) {
-	newVersion = true
 	now := metav1.Now()
 
 	table := TableTest{{
@@ -305,6 +305,7 @@ func TestV2Reconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		setResponsiveGCFeature(ctx, cfgmap.Enabled)
 		r := &Reconciler{
 			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
@@ -436,4 +437,12 @@ func TestNew(t *testing.T) {
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
 	}
+}
+
+func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
+	return cfgmap.ToContext(ctx, &cfgmap.Config{
+		Features: &cfgmap.Features{
+			ResponsiveRevisionGC: flag,
+		},
+	})
 }
