@@ -28,6 +28,8 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	gcconfig "knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
@@ -35,6 +37,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -45,6 +48,156 @@ var revisionSpec = v1.RevisionSpec{
 		}},
 	},
 	TimeoutSeconds: ptr.Int64(60),
+}
+
+func TestCollect(t *testing.T) {
+	now := time.Now()
+	tenMinutesAgo := now.Add(-10 * time.Minute)
+
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	table := []struct {
+		name string
+		cfg  *v1.Configuration
+		revs []*v1.Revision
+	}{{
+		name: "delete oldest, keep two",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(tenMinutesAgo)),
+		},
+		/*WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},*/
+	}, {
+		name: "keep oldest when no lastPinned",
+		cfg: cfg("keep-no-last-pinned", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// No lastPinned so we will keep this.
+			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest)),
+			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(tenMinutesAgo)),
+		},
+	}, {
+		name: "keep recent lastPinned",
+		cfg: cfg("keep-recent-last-pinned", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				// This is an indication that things are still routing here.
+				WithLastPinned(now)),
+			rev("keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(tenMinutesAgo)),
+		},
+	}, {
+		name: "keep LatestReadyRevision",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestReady("5554"),
+			// This comes after 'WithLatestReady' so the
+			// Configuration's 'Ready' Status is 'Unknown'
+			WithLatestCreated("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Create a revision where the LatestReady is 5554, but LatestCreated is 5556.
+			// We should keep LatestReady even if it is old.
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5555, // Not Ready
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5556, // Not Ready
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(tenMinutesAgo)),
+		},
+	}, {
+		name: "keep stale revision because of minimum generations",
+		cfg: cfg("keep-all", "foo", 5554,
+			// Don't set the latest ready revision here
+			// since those by default are always retained
+			WithLatestCreated("keep-all"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-all", "foo", 5554,
+				WithRevName("keep-all"),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+		},
+	}}
+
+	cfgMap := &config.Config{
+		RevisionGC: &gcconfig.Config{
+			StaleRevisionCreateDelay:        5 * time.Minute,
+			StaleRevisionTimeout:            5 * time.Minute,
+			StaleRevisionMinimumGenerations: 2,
+		},
+	}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := SetupFakeContext(t)
+			ctx = config.ToContext(ctx, cfgMap)
+			client := fakeservingclient.Get(ctx)
+
+			ri := fakerevisioninformer.Get(ctx)
+			for _, rev := range test.revs {
+				ri.Informer().GetIndexer().Add(rev)
+			}
+
+			Collect(ctx, client, ri.Lister(), test.cfg)
+
+			// TODO(whaught): assert deletes to client?
+		})
+	}
 }
 
 func TestIsRevisionStale(t *testing.T) {
