@@ -59,16 +59,6 @@ function disable_tag_header_based_routing() {
   kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
 }
 
-function enable_dryrun_feature() {
-  echo -n "Enabling PodSpec DryRun Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"kubernetes.podspec-dryrun":"Enabled"}}'
-}
-
-function disable_dryrun_feature() {
-  echo -n "Disabling PodSpec DryRun Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"kubernetes.podspec-dryrun":"Disabled"}}'
-}
-
 function enable_multi_container_feature() {
   echo -n "Enabling Multi Container Feature Flag"
   kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Enabled"}}'
@@ -111,10 +101,6 @@ if (( HTTPS )); then
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
-
-# enable the podspec dryrun feature
-enable_dryrun_feature
-add_trap "disable_dryrun_feature" SIGKILL SIGTERM SIGQUIT
 
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
