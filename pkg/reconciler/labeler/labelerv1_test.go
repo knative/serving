@@ -48,14 +48,17 @@ func TestV1Reconcile(t *testing.T) {
 
 	table := TableTest{{
 		Name: "bad workqueue key",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Make sure Reconcile handles bad keys.
 		Key: "too/many/parts",
 	}, {
 		Name: "key not found",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Make sure Reconcile handles good keys that don't exist.
 		Key: "foo/not-found",
 	}, {
 		Name: "label runLatest configuration",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "first-reconcile", "the-config"),
 			simpleConfig("default", "the-config"),
@@ -73,6 +76,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/first-reconcile",
 	}, {
 		Name: "label pinned revision",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			pinnedRoute("default", "pinned-revision", "the-revision"),
 			simpleConfig("default", "the-config"),
@@ -92,6 +96,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/pinned-revision",
 	}, {
 		Name: "steady state",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "steady-state", "the-config", WithRouteFinalizer),
 			simpleConfig("default", "the-config",
@@ -102,6 +107,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/steady-state",
 	}, {
 		Name: "no ready revision",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "no-ready-revision", "the-config", WithStatusTraffic()),
 			simpleConfig("default", "the-config", WithLatestReady("")),
@@ -120,6 +126,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/no-ready-revision",
 	}, {
 		Name: "transitioning route",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "transitioning-route", "old", WithRouteFinalizer,
 				WithSpecTraffic(configTraffic("new"))),
@@ -139,6 +146,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/transitioning-route",
 	}, {
 		Name: "failure adding label (revision)",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -160,6 +168,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/add-label-failure",
 	}, {
 		Name: "failure adding label (configuration)",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -181,6 +190,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/add-label-failure",
 	}, {
 		Name:    "label config with incorrect label",
+		Ctx:     setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		WantErr: true,
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "the-route", "the-config", WithRouteFinalizer),
@@ -196,6 +206,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/the-route",
 	}, {
 		Name: "change configurations",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "config-change", "new-config", WithRouteFinalizer),
 			simpleConfig("default", "old-config",
@@ -216,6 +227,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/config-change",
 	}, {
 		Name: "update configuration",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "config-update", "the-config", WithRouteFinalizer),
 			simpleConfig("default", "the-config",
@@ -233,6 +245,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/config-update",
 	}, {
 		Name: "delete route",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "delete-route", "the-config", WithRouteFinalizer, WithRouteDeletionTimestamp(&now)),
 			simpleConfig("default", "the-config",
@@ -248,6 +261,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/delete-route",
 	}, {
 		Name: "failure while removing a cfg annotation should return an error",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -273,6 +287,7 @@ func TestV1Reconcile(t *testing.T) {
 		Key: "default/delete-label-failure",
 	}, {
 		Name: "failure while removing a rev annotation should return an error",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
