@@ -152,7 +152,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	for _, service := range services {
 		service := service
 		eg.Go(func() error {
-			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service))
+			desiredService, err := resources.MakeK8sService(ctx, route, service.Name, ingress, resources.IsClusterLocalService(service), service.Spec.ClusterIP)
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
 				logger.Warn("Failed to update k8s service: ", err)
