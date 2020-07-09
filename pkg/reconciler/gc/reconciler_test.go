@@ -76,7 +76,42 @@ func TestGCReconcile(t *testing.T) {
 		}}
 
 	table := TableTest{{
-		Name: "delete oldest, keep two",
+		Name: "delete oldest, keep two V2",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
+		Objects: []runtime.Object{
+			cfg("keep-two", "foo", 5556,
+				WithLatestCreated("5556"),
+				WithLatestReady("5556"),
+				WithConfigObservedGen),
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(tenMinutesAgo)),
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(tenMinutesAgo)),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
+		Key: "foo/keep-two",
+	}, {
+		Name: "delete oldest, keep two V1",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			cfg("keep-two", "foo", 5556,
 				WithLatestCreated("5556"),
@@ -111,18 +146,6 @@ func TestGCReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		ctx = setResponsiveGCFeature(ctx, cfgmap.Disabled)
-		r := &reconciler{
-			client:         servingclient.Get(ctx),
-			revisionLister: listers.GetRevisionLister(),
-		}
-		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
-			servingclient.Get(ctx), listers.GetConfigurationLister(),
-			controller.GetEventRecorder(ctx), r, controllerOpts)
-	}))
-
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		ctx = setResponsiveGCFeature(ctx, cfgmap.Enabled)
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
@@ -175,9 +198,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
 
 func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	return cfgmap.ToContext(ctx, &cfgmap.Config{
-		Features: &cfgmap.Features{
-			ResponsiveRevisionGC: flag,
-		},
-	})
+	c := cfgmap.FromContextOrDefaults(ctx)
+	c.Features.ResponsiveRevisionGC = flag
+	return cfgmap.ToContext(ctx, c)
 }
