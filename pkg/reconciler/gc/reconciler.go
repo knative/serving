@@ -20,6 +20,7 @@ import (
 	"context"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -39,11 +40,8 @@ type reconciler struct {
 // Check that our reconciler implements configreconciler.Interface
 var _ configreconciler.Interface = (*reconciler)(nil)
 
-// TODO(whaught): replace this with a feature flag
-var newVersion = false
-
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
-	if newVersion {
+	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgmap.Enabled {
 		return gcv2.Collect(ctx, c.client, c.revisionLister, config)
 	}
 	return gcv1.Collect(ctx, c.client, c.revisionLister, config)

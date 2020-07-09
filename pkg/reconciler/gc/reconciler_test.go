@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
@@ -109,8 +110,8 @@ func TestGCReconcile(t *testing.T) {
 		Key: "foo/keep-two",
 	}}
 
-	newVersion = false
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		setResponsiveGCFeature(ctx, cfgmap.Disabled)
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
@@ -120,8 +121,8 @@ func TestGCReconcile(t *testing.T) {
 			controller.GetEventRecorder(ctx), r, controllerOpts)
 	}))
 
-	newVersion = true
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		setResponsiveGCFeature(ctx, cfgmap.Enabled)
 		r := &reconciler{
 			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
@@ -172,3 +173,11 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 }
 
 var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
+
+func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
+	return cfgmap.ToContext(ctx, &cfgmap.Config{
+		Features: &cfgmap.Features{
+			ResponsiveRevisionGC: flag,
+		},
+	})
+}
