@@ -188,7 +188,7 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 // ScaleTargetInitializedFor returns the time PA spent in state
 // PodAutoscalerConditionScaleTargetInitialized.
 func (pas *PodAutoscalerStatus) ScaleTargetInitializedFor(now time.Time) time.Duration {
-	return pas.inStatusScaleTargetInitializedFor(corev1.ConditionTrue, now, 0)
+	return pas.inStatusScaleTargetInitializedFor(corev1.ConditionTrue, now)
 }
 
 // GetCondition gets the condition `t`.
@@ -267,12 +267,12 @@ func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now t
 // PodAutoscalerConditionScaleTargetInitialized condition has stayed in the specified status
 // for at least the specified duration. Otherwise it returns negative duration, including when
 // the status is undetermined (PodAutoscalerConditionScaleTargetInitialized condition is not found.)
-func (pas *PodAutoscalerStatus) inStatusScaleTargetInitializedFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
+func (pas *PodAutoscalerStatus) inStatusScaleTargetInitializedFor(status corev1.ConditionStatus, now time.Time) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized)
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
+	return now.Sub(cond.LastTransitionTime.Inner.Add(0))
 }
 
 // GetDesiredScale returns the desired scale if ever set, or -1.
