@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -57,23 +58,13 @@ queue_average_proxied_concurrent_requests{destination_namespace="test-namespace"
 # TYPE queue_proxied_operations_per_second gauge
 queue_proxied_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} %d
 `, queueProxiedOperationsPerSecond)
-	testFullContext = testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext
-
 	testUptimeContext = fmt.Sprintf(`# HELP process_uptime The number of seconds that the process has been up
 # TYPE process_uptime gauge
 process_uptime{destination_configuration="s1",destination_namespace="default",destination_pod="s1-tdgpn-deployment-86f6459cf8-mc9mw",destination_revision="s1-tdgpn"} %f
 `, processUptime)
-	testOptionalContext = testFullContext + testUptimeContext
+	testFullContext = testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext + testUptimeContext
 
-	statFull = Stat{
-		PodName:                          podName,
-		AverageConcurrentRequests:        queueAverageConcurrentRequests,
-		AverageProxiedConcurrentRequests: queueAverageProxiedConcurrentRequests,
-		RequestCount:                     queueRequestsPerSecond,
-		ProxiedRequestCount:              queueProxiedOperationsPerSecond,
-	}
-
-	statOptional = Stat{
+	stat = Stat{
 		PodName:                          podName,
 		AverageConcurrentRequests:        queueAverageConcurrentRequests,
 		AverageProxiedConcurrentRequests: queueAverageProxiedConcurrentRequests,
@@ -83,7 +74,7 @@ process_uptime{destination_configuration="s1",destination_namespace="default",de
 	}
 )
 
-func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
+func TestNewHTTPScrapeClientErrorCases(t *testing.T) {
 	testCases := []struct {
 		name        string
 		client      *http.Client
@@ -108,70 +99,21 @@ func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestHTTPScrapeClientScrapeHappyCase(t *testing.T) {
-	for _, hClient := range []*http.Client{
-		newTestHTTPClient(makeResponse(http.StatusOK, testFullContext), nil),
-		newTestHTTPClient(makeProtoResponse(http.StatusOK, statFull, network.ProtoAcceptContent), nil),
-	} {
-		sClient, err := newHTTPScrapeClient(hClient)
-		if err != nil {
-			t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
-		}
-		stat, err := sClient.Scrape(testURL)
-		if err != nil {
-			t.Errorf("scrapeViaURL = %v, want no error", err)
-		}
-		if stat.AverageConcurrentRequests != queueAverageConcurrentRequests {
-			t.Errorf("stat.AverageConcurrentRequests = %v, want %v", stat.AverageConcurrentRequests, queueAverageConcurrentRequests)
-		}
-		if stat.RequestCount != queueRequestsPerSecond {
-			t.Errorf("stat.RequestCount = %v, want %v", stat.RequestCount, queueRequestsPerSecond)
-		}
-		if stat.AverageProxiedConcurrentRequests != queueAverageProxiedConcurrentRequests {
-			t.Errorf("stat.AverageProxiedConcurrency = %v, want %v", stat.AverageProxiedConcurrentRequests, queueAverageProxiedConcurrentRequests)
-		}
-		if stat.ProxiedRequestCount != queueProxiedOperationsPerSecond {
-			t.Errorf("stat.ProxiedCount = %v, want %v", stat.ProxiedRequestCount, queueProxiedOperationsPerSecond)
-		}
-		if stat.PodName != podName {
-			t.Errorf("stat.PodName = %s, want %s", stat.PodName, podName)
-		}
-		if stat.ProcessUptime != zeroProcessUptime {
-			t.Errorf("default/missing stat.ProcessUptime = %v, want: %v", stat.ProcessUptime, zeroProcessUptime)
-		}
-	}
-}
-
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	for _, hClient := range []*http.Client{
-		newTestHTTPClient(makeResponse(http.StatusOK, testOptionalContext), nil),
-		newTestHTTPClient(makeProtoResponse(http.StatusOK, statOptional, network.ProtoAcceptContent), nil),
+		newTestHTTPClient(makeResponse(http.StatusOK, testFullContext), nil),
+		newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, network.ProtoAcceptContent), nil),
 	} {
 		sClient, err := newHTTPScrapeClient(hClient)
 		if err != nil {
 			t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
 		}
-		stat, err := sClient.Scrape(testURL)
+		got, err := sClient.Scrape(testURL)
 		if err != nil {
-			t.Errorf("scrapeViaURL = %v, want no error", err)
+			t.Fatalf("Scrape = %v, want no error", err)
 		}
-		if stat.AverageConcurrentRequests != queueAverageConcurrentRequests {
-			t.Errorf("stat.AverageConcurrentRequests = %v, want %v", stat.AverageConcurrentRequests, queueAverageConcurrentRequests)
-		}
-		if stat.RequestCount != queueRequestsPerSecond {
-			t.Errorf("stat.RequestCount = %v, want %d", stat.RequestCount, queueRequestsPerSecond)
-		}
-		if stat.AverageProxiedConcurrentRequests != queueAverageProxiedConcurrentRequests {
-			t.Errorf("stat.AverageProxiedConcurrency = %v, want %v", stat.AverageProxiedConcurrentRequests, queueAverageProxiedConcurrentRequests)
-		}
-		if stat.ProxiedRequestCount != queueProxiedOperationsPerSecond {
-			t.Errorf("stat.ProxiedCount = %v, want %v", stat.ProxiedRequestCount, queueProxiedOperationsPerSecond)
-		}
-		if stat.PodName != podName {
-			t.Errorf("stat.PodName = %s, want %s", stat.PodName, podName)
-		}
-		if got, want := stat.ProcessUptime, processUptime; got != want {
-			t.Errorf("stat.ProcessUptime = %v, want: %v", got, want)
+		if !cmp.Equal(got, stat) {
+			t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(stat, got))
 		}
 	}
 }
