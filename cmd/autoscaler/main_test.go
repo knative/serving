@@ -37,35 +37,45 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 		labels map[string]string
 		want   string
 	}{{
-		"nil labels", nil, fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
+		name:   "nil labels",
+		labels: nil,
+		want:   fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
-		"empty labels", map[string]string{}, fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
+		name:   "empty labels",
+		labels: map[string]string{},
+		want:   fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
-		"rev missing", map[string]string{
+		name: "rev missing",
+		labels: map[string]string{
 			"some-unimportant-label":      "lo-digo",
 			serving.ServiceLabelKey:       "la",
 			serving.ConfigurationLabelKey: "bamba",
 		},
-		fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
+		want: fmt.Sprintf("label %q not found or empty in Decider", serving.RevisionLabelKey),
 	}, {
-		"config missing", map[string]string{
+		name: "config missing",
+		labels: map[string]string{
 			"some-unimportant-label": "lo-digo",
 			serving.ServiceLabelKey:  "la",
 			serving.RevisionLabelKey: "bamba",
 		},
-		fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
+		want: fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
 	}, {
-		"values not ascii", map[string]string{
+		name: "values not ascii",
+		labels: map[string]string{
 			serving.ServiceLabelKey:       "la",
 			serving.ConfigurationLabelKey: "verité",
 			serving.RevisionLabelKey:      "bamba",
-		}, "invalid value: only ASCII characters accepted",
+		},
+		want: "invalid value: only ASCII characters accepted",
 	}, {
-		"too long of a value", map[string]string{
+		name: "too long of a value",
+		labels: map[string]string{
 			serving.ServiceLabelKey:       "cat is ",
 			serving.RevisionLabelKey:      "bamba",
 			serving.ConfigurationLabelKey: "l" + strings.Repeat("o", 253) + "ng",
-		}, "max length must be 255 characters",
+		},
+		want: "max length must be 255 characters",
 	}}
 
 	uniScalerFactory := testUniScalerFactory()
