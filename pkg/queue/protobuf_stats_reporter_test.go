@@ -124,7 +124,7 @@ func TestProtoHandler(t *testing.T) {
 func cmpStatData(t *testing.T, want metrics.Stat, got metrics.Stat) {
 	t.Helper()
 	if !cmp.Equal(want, got, ignoreStatFields) {
-		t.Errorf("Scraped stat mismatch; diff(-want,+gotUptime):\n%s", cmp.Diff(want, got))
+		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(want, got))
 	}
 	if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
 		t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
