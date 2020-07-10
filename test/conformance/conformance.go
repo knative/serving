@@ -23,6 +23,8 @@ const (
 	beta
 )
 
+// OptionFunc are functions that modify the conformance
+// test options
 type OptionFunc func(*Options) error
 
 // Options contains various properties that influence
