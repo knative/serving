@@ -265,6 +265,20 @@ func TestScaler(t *testing.T) {
 			markSKSInProxyFor(s, gracePeriod)
 		},
 	}, {
+		label:         "scale to zero with TBC=-1",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Annotations[autoscaling.TargetBurstCapacityKey] = "-1"
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
+			panic("should not be called")
+		},
+		wantAsyncProbeCount: 0,
+	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
 		scaleTo:       0,

@@ -279,16 +279,20 @@ func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
 // resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
 // TBC == -1 => activator in path, don't scrape the service
 func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
-	tbc := 0.
-	if v, ok := pa.TargetBC(); ok {
-		tbc = v
-	} else {
-		tbc = config.FromContext(ctx).Autoscaler.TargetBurstCapacity
-	}
+	tbc := resolveTBC(ctx, pa)
 	if tbc == -1 {
 		return ""
 	}
+
 	return pa.Status.MetricsServiceName
+}
+
+func resolveTBC(ctx context.Context, pa *pav1alpha1.PodAutoscaler) float64 {
+	if v, ok := pa.TargetBC(); ok {
+		return v
+	}
+
+	return config.FromContext(ctx).Autoscaler.TargetBurstCapacity
 }
 
 func intMax(a, b int32) int32 {
