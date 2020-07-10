@@ -78,7 +78,8 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName *string) (map[string]interf
 	return nil, nil
 }
 
-// addRouteLabel appends the route label to the list of labels if needed.
+// addRouteLabel appends the route label to the list of labels if needed
+// or removes the label if routeName is nil.
 func addRouteLabel(acc kmeta.Accessor, diffLabels map[string]interface{}, routeName *string) error {
 	oldLabels := acc.GetLabels()
 	if routeName == nil { // remove the label
