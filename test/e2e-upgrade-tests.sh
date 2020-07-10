@@ -54,8 +54,6 @@ function install_latest_release() {
       || fail_test "Knative latest release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
-  # TODO - delete this once 0.16 lands and we use generateName
-  kubectl delete jobs -n ${SYSTEM_NAMESPACE} -l app=storage-version-migration
 }
 
 function install_head() {
