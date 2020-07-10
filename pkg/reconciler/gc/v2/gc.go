@@ -56,7 +56,7 @@ func Collect(
 
 	// Sort by last active descending
 	sort.Slice(revs, func(i, j int) bool {
-		a, b := getRevisionLastActiveTime(revs[i]), getRevisionLastActiveTime(revs[j])
+		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
 		return a.After(b)
 	})
 
@@ -86,7 +86,7 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 		return false
 	}
 
-	lastActive := getRevisionLastActiveTime(rev)
+	lastActive := revisionLastActiveTime(rev)
 
 	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
 	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
@@ -107,7 +107,7 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 // getRevisionLastActiveTime returns if present:
 // routingStateModified, then lastPinnedTime, then the created time.
 // This is used for sort-ordering by most recently active.
-func getRevisionLastActiveTime(rev *v1.Revision) time.Time {
+func revisionLastActiveTime(rev *v1.Revision) time.Time {
 	if t := rev.GetRoutingStateModified(); !t.IsZero() {
 		return t
 	}
