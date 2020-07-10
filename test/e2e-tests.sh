@@ -36,7 +36,7 @@ function knative_setup() {
 function wait_for_leader_controller() {
   echo -n "Waiting for a leader Controller"
   for i in {1..150}; do  # timeout after 5 minutes
-    local leader=$(kubectl get lease controller -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.holderIdentity}' | cut -d"_" -f1)
+    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.items[*].spec.holderIdentity}'  | cut -d"_" -f1 | grep "^controller-" | head -1)
     # Make sure the leader pod exists.
     if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
       echo -e "\nNew leader Controller has been elected"
@@ -131,6 +131,10 @@ done
 add_trap "for deployment in controller autoscaler-hpa webhook; do \
   kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
   kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
+
+# Changing the bucket count and cycling the controllers will leave around stale
+# lease resources at the old sharding factor, so clean these up.
+kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
 
 # Wait for a new leader Controller to prevent race conditions during service reconciliation
 wait_for_leader_controller || failed=1

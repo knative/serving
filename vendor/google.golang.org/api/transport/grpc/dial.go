@@ -184,12 +184,6 @@ func dial(ctx context.Context, insecure bool, o *internal.DialSettings) (*grpc.C
 		grpcOpts = append(grpcOpts, timeoutDialerOption)
 	}
 
-	// NOTE(cbro): this is used only by the nightly mtls_smoketest and should
-	// not otherwise be used. It will be removed or renamed at some point.
-	if os.Getenv("GOOGLE_API_USE_MTLS") == "always" {
-		o.Endpoint = generateDefaultMtlsEndpoint(o.Endpoint)
-	}
-
 	return grpc.DialContext(ctx, o.Endpoint, grpcOpts...)
 }
 
@@ -300,6 +294,13 @@ func processAndValidateOpts(opts []option.ClientOption) (*internal.DialSettings,
 	if err := o.Validate(); err != nil {
 		return nil, err
 	}
+
+	// NOTE(cbro): this is used only by the nightly mtls_smoketest and should
+	// not otherwise be used. It will be removed or renamed at some point.
+	if os.Getenv("GOOGLE_API_USE_MTLS") == "always" {
+		o.Endpoint = generateDefaultMtlsEndpoint(o.Endpoint)
+	}
+
 	return &o, nil
 }
 

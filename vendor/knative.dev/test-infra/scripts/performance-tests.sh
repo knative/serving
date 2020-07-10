@@ -17,7 +17,7 @@
 # This is a helper script for Knative performance test scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname ${BASH_SOURCE})/library.sh
+source $(dirname "${BASH_SOURCE[0]}")/library.sh
 
 # Configurable parameters.
 # If not provided, they will fall back to the default values.
@@ -37,9 +37,9 @@ readonly SLACK_WRITE_TOKEN="/etc/performance-test/slack-write-token"
 function setup_user() {
   echo ">> Setting up user"
   echo "Using gcloud user ${SERVICE_ACCOUNT_NAME}"
-  gcloud config set core/account ${SERVICE_ACCOUNT_NAME}
+  gcloud config set core/account "${SERVICE_ACCOUNT_NAME}"
   echo "Using gcloud project ${PROJECT_NAME}"
-  gcloud config set core/project ${PROJECT_NAME}
+  gcloud config set core/project "${PROJECT_NAME}"
 }
 
 # Update resources installed on the cluster.
@@ -48,7 +48,7 @@ function setup_user() {
 function update_cluster() {
   # --zone option can work with both region and zone, (e.g. us-central1 and
   # us-central1-a), so we don't need to add extra check here.
-  gcloud container clusters get-credentials $1 --zone=$2 --project=${PROJECT_NAME} || abort "failed to get cluster creds"
+  gcloud container clusters get-credentials "$1" --zone="$2" --project="${PROJECT_NAME}" || abort "failed to get cluster creds"
   # Set up the configmap to run benchmarks in production
   echo ">> Setting up 'prod' config-mako on cluster $1 in zone $2"
   cat <<EOF | kubectl apply -f -
@@ -76,9 +76,9 @@ EOF
     update_knative || abort "failed to update knative"
   fi
   # get benchmark name from the cluster name
-  local benchmark_name=$(get_benchmark_name $1)
+  local benchmark_name=$(get_benchmark_name "$1")
   if function_exists update_benchmark; then
-    update_benchmark ${benchmark_name} || abort "failed to update benchmark"
+    update_benchmark "${benchmark_name}" || abort "failed to update benchmark"
   fi
 }
 
@@ -86,14 +86,14 @@ EOF
 # Parameters: $1 - cluster name
 function get_benchmark_name() {
   # get benchmark_name by removing the prefix from cluster name, e.g. get "load-test" from "serving--load-test"
-  echo ${1#$REPO_NAME"--"}
+  echo "${1#$REPO_NAME"--"}"
 }
 
 # Update the clusters related to the current repo.
 function update_clusters() {
   header "Updating all clusters for ${REPO_NAME}"
   local all_clusters=$(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)")
-  echo ">> Project contains clusters:" ${all_clusters}
+  echo ">> Project contains clusters:" "${all_clusters}"
   for cluster in ${all_clusters}; do
     local name=$(echo "${cluster}" | cut -f1 -d",")
     # the cluster name is prefixed with "${REPO_NAME}--", here we should only handle clusters belonged to the current repo
@@ -101,7 +101,7 @@ function update_clusters() {
     local zone=$(echo "${cluster}" | cut -f2 -d",")
 
     # Update all resources installed on the cluster
-    update_cluster ${name} ${zone}
+    update_cluster "${name}" "${zone}"
   done
   header "Done updating all clusters"
 }
@@ -109,14 +109,14 @@ function update_clusters() {
 # Run the perf-tests tool
 # Parameters: $1..$n - parameters passed to the tool
 function run_perf_cluster_tool() {
-  go run ${REPO_ROOT_DIR}/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests $@
+  go run "${REPO_ROOT_DIR}"/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests $@
 }
 
 # Delete the old clusters belonged to the current repo, and recreate them with the same configuration.
 function recreate_clusters() {
   header "Recreating clusters for ${REPO_NAME}"
   run_perf_cluster_tool --recreate \
-    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH} \
+    --gcp-project="${PROJECT_NAME}" --repository="${REPO_NAME}" --benchmark-root="${BENCHMARK_ROOT_PATH}" \
     || abort "failed recreating clusters for ${REPO_NAME}"
   header "Done recreating clusters"
   # Update all clusters after they are recreated
@@ -128,7 +128,7 @@ function recreate_clusters() {
 function reconcile_benchmark_clusters() {
   header "Reconciling clusters for ${REPO_NAME}"
   run_perf_cluster_tool --reconcile \
-    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH} \
+    --gcp-project="${PROJECT_NAME}" --repository="${REPO_NAME}" --benchmark-root="${BENCHMARK_ROOT_PATH}" \
     || abort "failed reconciling clusters for ${REPO_NAME}"
   header "Done reconciling clusters"
   # For now, do nothing after reconciling the clusters, and the next update_clusters job will automatically 
