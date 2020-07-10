@@ -272,7 +272,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			k.Annotations[autoscaling.TargetBurstCapacityKey] = "-1"
-			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
 			panic("should not be called")

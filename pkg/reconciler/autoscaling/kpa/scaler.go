@@ -214,15 +214,17 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, sw-af)
 		return 1, true
 	default: // Active=False
-		if resolveTBC(ctx, pa) == -1 {
-			// if TBC is -1 activator is guaranteed to already be in the path, so we
-			// can immediately scale down without probing for it.
-			return desiredScale, true
+		var err error
+		r := true
+
+		// if TBC is -1 activator is guaranteed to already be in the path, so we
+		// can immediately scale down without probing for it. Otherwise, probe
+		// to make sure Activator is in path.
+		if resolveTBC(ctx, pa) != -1 {
+			r, err = ks.activatorProbe(pa, ks.transport)
+			logger.Infof("Probing activator = %v, err = %v", r, err)
 		}
 
-		// Probe synchronously, to see if Activator is already in the path.
-		r, err := ks.activatorProbe(pa, ks.transport)
-		logger.Infof("Probing activator = %v, err = %v", r, err)
 		if r {
 			// This enforces that the revision has been backed by the Activator for at least
 			// ScaleToZeroGracePeriod time.
