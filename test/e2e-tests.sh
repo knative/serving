@@ -106,9 +106,10 @@ fi
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
 add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
+# Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,webhook", "buckets": "10"}}' || failed=1
-add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
+  --patch='{"data":{"buckets": "10"}}' || failed=1
+add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*buckets.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 
 # Save activator HPA original values for later use.
 hpa_spec=$(echo '{"spec": {'$(kubectl get hpa activator -n "knative-serving" -ojsonpath='"minReplicas": {.spec.minReplicas}, "maxReplicas": {.spec.maxReplicas}')'}}')

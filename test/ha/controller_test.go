@@ -32,7 +32,10 @@ import (
 	"knative.dev/serving/test/e2e"
 )
 
-const controllerDeploymentName = "controller"
+const (
+	controllerDeploymentName = "controller"
+	numReconcilers           = 7 // Keep in sync with ./cmd/controller/main.go
+)
 
 func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
@@ -44,7 +47,7 @@ func TestControllerHA(t *testing.T) {
 	}
 
 	// TODO(mattmoor): Once we switch to the new sharded leader election, we should use more than a single bucket here, but the test is still interesting.
-	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, controllerDeploymentName, system.Namespace(), sets.NewString(), 1 /* numBuckets */)
+	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, controllerDeploymentName, system.Namespace(), sets.NewString(), numReconcilers*numBuckets)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -65,7 +68,7 @@ func TestControllerHA(t *testing.T) {
 	}
 
 	// Wait for all of the old leaders to go away, and then for the right number to be back.
-	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, controllerDeploymentName, system.Namespace(), leaders, 1 /* numBuckets */); err != nil {
+	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, controllerDeploymentName, system.Namespace(), leaders, numReconcilers*numBuckets); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 
