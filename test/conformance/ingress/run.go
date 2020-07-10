@@ -16,9 +16,19 @@ limitations under the License.
 
 package ingress
 
-import "testing"
+import (
+	"testing"
 
-func RunConformance(t *testing.T) {
+	"knative.dev/serving/test/conformance"
+)
+
+func RunConformance(t *testing.T, options ...conformance.OptionFunc) {
+	opts, err := conformance.NewOptions(options...)
+
+	if err != nil {
+		t.Fatalf("unable to parse conformance options: %v", err)
+	}
+
 	t.Run("basics", TestBasics)
 	t.Run("basics/http2", TestBasicsHTTP2)
 
@@ -47,4 +57,12 @@ func RunConformance(t *testing.T) {
 
 	t.Run("websocket", TestWebsocket)
 	t.Run("websocket/split", TestWebsocketSplit)
+
+	if opts.BetaFeaturesEnabled() {
+		// Add your conformance test for beta features
+	}
+
+	if opts.AlphaFeaturesEnabled() {
+		// Add your conformance test for alpha features
+	}
 }
