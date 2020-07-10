@@ -38,17 +38,17 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 		name    string
 		options BreakerParams
 	}{{
-		"QueueDepth = 0",
-		BreakerParams{QueueDepth: 0, MaxConcurrency: 1, InitialCapacity: 1},
+		name:    "QueueDepth = 0",
+		options: BreakerParams{QueueDepth: 0, MaxConcurrency: 1, InitialCapacity: 1},
 	}, {
-		"MaxConcurrency negative",
-		BreakerParams{QueueDepth: 1, MaxConcurrency: -1, InitialCapacity: 1},
+		name:    "MaxConcurrency negative",
+		options: BreakerParams{QueueDepth: 1, MaxConcurrency: -1, InitialCapacity: 1},
 	}, {
-		"InitialCapacity negative",
-		BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: -1},
+		name:    "InitialCapacity negative",
+		options: BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: -1},
 	}, {
-		"InitialCapacity out-of-bounds",
-		BreakerParams{QueueDepth: 1, MaxConcurrency: 5, InitialCapacity: 6},
+		name:    "InitialCapacity out-of-bounds",
+		options: BreakerParams{QueueDepth: 1, MaxConcurrency: 5, InitialCapacity: 6},
 	}}
 
 	for _, test := range tests {
