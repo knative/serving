@@ -17,7 +17,7 @@
 # This is a helper script for Knative E2E test scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname ${BASH_SOURCE})/library.sh
+source $(dirname "${BASH_SOURCE[0]}")/library.sh
 
 # Build a resource name based on $E2E_BASE_NAME, a suffix and $BUILD_NUMBER.
 # Restricts the name length to 40 chars (the limit for resource names in GCP).
@@ -82,7 +82,7 @@ function go_test_e2e() {
   local test_options=""
   local go_options=""
   [[ ! " $@" == *" -tags="* ]] && go_options="-tags=e2e"
-  report_go_test -v -race -count=1 ${go_options} $@ ${test_options}
+  report_go_test -v -race -count=1 ${go_options} $@ "${test_options}"
 }
 
 # Dump info about the test cluster. If dump_extra_cluster_info() is defined, calls it too.
@@ -93,32 +93,32 @@ function dump_cluster_state() {
   echo "***    Start of information dump    ***"
   echo "***************************************"
 
-  local output="${ARTIFACTS}/k8s.dump-$(basename ${E2E_SCRIPT}).txt"
+  local output="${ARTIFACTS}/k8s.dump-$(basename "${E2E_SCRIPT}").txt"
   echo ">>> The dump is located at ${output}"
 
   for crd in $(kubectl api-resources --verbs=list -o name | sort); do
-    local count="$(kubectl get $crd --all-namespaces --no-headers 2>/dev/null | wc -l)"
+    local count="$(kubectl get "$crd" --all-namespaces --no-headers 2>/dev/null | wc -l)"
     echo ">>> ${crd} (${count} objects)"
     if [[ "${count}" > "0" ]]; then
-      echo ">>> ${crd} (${count} objects)" >> ${output}
+      echo ">>> ${crd} (${count} objects)" >> "${output}"
 
-      echo ">>> Listing" >> ${output}
-      kubectl get ${crd} --all-namespaces >> ${output}
+      echo ">>> Listing" >> "${output}"
+      kubectl get "${crd}" --all-namespaces >> "${output}"
 
-      echo ">>> Details" >> ${output}
+      echo ">>> Details" >> "${output}"
       if [[ "${crd}" == "secrets" ]]; then
         echo "Secrets are ignored for security reasons" >> ${output}
       elif [[ "${crd}" == "events" ]]; then
         echo "events are ignored as making a lot of noise" >> ${output}
       else
-        kubectl get ${crd} --all-namespaces -o yaml >> ${output}
+        kubectl get "${crd}" --all-namespaces -o yaml >> "${output}"
       fi
     fi
   done
 
   if function_exists dump_extra_cluster_state; then
-    echo ">>> Extra dump" >> ${output}
-    dump_extra_cluster_state >> ${output}
+    echo ">>> Extra dump" >> "${output}"
+    dump_extra_cluster_state >> "${output}"
   fi
   echo "***************************************"
   echo "***         E2E TEST FAILED         ***"
@@ -135,8 +135,8 @@ function save_metadata() {
     geo_key="Zone"
     geo_value="${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
   fi
-  local cluster_version="$(gcloud container clusters list --project=${E2E_PROJECT_ID} --format='value(currentMasterVersion)')"
-  cat << EOF > ${ARTIFACTS}/metadata.json
+  local cluster_version="$(gcloud container clusters list --project="${E2E_PROJECT_ID}" --format='value(currentMasterVersion)')"
+  cat << EOF > "${ARTIFACTS}"/metadata.json
 {
   "E2E:${geo_key}": "${geo_value}",
   "E2E:Machine": "${E2E_CLUSTER_MACHINE}",
@@ -155,7 +155,7 @@ function resolve_k8s_version() {
   if [[ "${target_version}" == "default" ]]; then
     local version="$(gcloud container get-server-config \
         --format='value(defaultClusterVersion)' \
-        --zone=$2)"
+        --zone="$2")"
     [[ -z "${version}" ]] && return 1
     E2E_CLUSTER_VERSION="${version}"
     echo "Using default version, ${E2E_CLUSTER_VERSION}"
@@ -164,7 +164,7 @@ function resolve_k8s_version() {
   # Fetch valid versions
   local versions="$(gcloud container get-server-config \
       --format='value(validMasterVersions)' \
-      --zone=$2)"
+      --zone="$2")"
   [[ -z "${versions}" ]] && return 1
   local gke_versions=($(echo -n "${versions//;/ }"))
   echo "Available GKE versions in $2 are [${versions//;/, }]"
@@ -173,7 +173,7 @@ function resolve_k8s_version() {
     E2E_CLUSTER_VERSION="${gke_versions[0]}"
     echo "Using latest version, ${E2E_CLUSTER_VERSION}"
   else
-    local latest="$(echo "${gke_versions[@]}" | tr ' ' '\n' | grep -E ^${target_version} | sort -V | tail -1)"
+    local latest="$(echo "${gke_versions[@]}" | tr ' ' '\n' | grep -E "^${target_version}" | sort -V | tail -1)"
     if [[ -z "${latest}" ]]; then
       echo "ERROR: version ${target_version} is not available"
       return 1
@@ -215,9 +215,9 @@ function create_test_cluster() {
   fi
   # SSH keys are not used, but kubetest checks for their existence.
   # Touch them so if they don't exist, empty files are create to satisfy the check.
-  mkdir -p $HOME/.ssh
-  touch $HOME/.ssh/google_compute_engine.pub
-  touch $HOME/.ssh/google_compute_engine
+  mkdir -p "$HOME"/.ssh
+  touch "$HOME"/.ssh/google_compute_engine.pub
+  touch "$HOME"/.ssh/google_compute_engine
   # Assume test failed (see details in set_test_return_code()).
   set_test_return_code 1
   local gcloud_project="${GCP_PROJECT}"
@@ -246,13 +246,13 @@ function create_test_cluster() {
   # TODO(adrcunha): Remove once https://github.com/kubernetes/test-infra/issues/13029 is fixed.
   local kubedir="$(mktemp -d -t kubernetes.XXXXXXXXXX)"
   local test_wrapper="${kubedir}/e2e-test.sh"
-  mkdir ${kubedir}/cluster
-  ln -s "$(which kubectl)" ${kubedir}/cluster/kubectl.sh
-  echo "#!/usr/bin/env bash" > ${test_wrapper}
-  echo "cd $(pwd) && set -x" >> ${test_wrapper}
-  echo "${E2E_SCRIPT} ${test_cmd_args}" >> ${test_wrapper}
-  chmod +x ${test_wrapper}
-  cd ${kubedir}
+  mkdir "${kubedir}"/cluster
+  ln -s "$(which kubectl)" "${kubedir}"/cluster/kubectl.sh
+  echo "#!/usr/bin/env bash" > "${test_wrapper}"
+  echo "cd $(pwd) && set -x" >> "${test_wrapper}"
+  echo "${E2E_SCRIPT} ${test_cmd_args}" >> "${test_wrapper}"
+  chmod +x "${test_wrapper}"
+  cd "${kubedir}"
 
   # Create cluster and run the tests
   create_test_cluster_with_retries "${CLUSTER_CREATION_ARGS[@]}" \
@@ -266,7 +266,7 @@ function create_test_cluster() {
   local result=$(get_test_return_code)
   echo "Artifacts were written to ${ARTIFACTS}"
   echo "Test result code is ${result}"
-  exit ${result}
+  exit "${result}"
 }
 
 # Retry backup regions/zones if cluster creations failed due to stockout.
@@ -296,7 +296,7 @@ function create_test_cluster_with_retries() {
       [[ "${E2E_CLUSTER_ZONE}" == "${zone_not_provided}" ]] && E2E_CLUSTER_ZONE=""
       local cluster_creation_zone="${E2E_CLUSTER_REGION}"
       [[ -n "${E2E_CLUSTER_ZONE}" ]] && cluster_creation_zone="${E2E_CLUSTER_REGION}-${E2E_CLUSTER_ZONE}"
-      resolve_k8s_version ${e2e_cluster_target_version} ${cluster_creation_zone} || return 1
+      resolve_k8s_version "${e2e_cluster_target_version}" "${cluster_creation_zone}" || return 1
 
       header "Creating test cluster ${E2E_CLUSTER_VERSION} in ${cluster_creation_zone}"
       # Don't fail test for kubetest, as it might incorrectly report test failure
@@ -304,17 +304,17 @@ function create_test_cluster_with_retries() {
       set +o errexit
       export CLUSTER_API_VERSION=${E2E_CLUSTER_VERSION}
       run_go_tool k8s.io/test-infra/kubetest \
-        kubetest "$@" --gcp-region=${cluster_creation_zone} 2>&1 | tee ${cluster_creation_log}
+        kubetest "$@" --gcp-region="${cluster_creation_zone}" 2>&1 | tee "${cluster_creation_log}"
 
       # Exit if test succeeded
       [[ "$(get_test_return_code)" == "0" ]] && return 0
       # Retry if cluster creation failed because of:
       # - stockout (https://github.com/knative/test-infra/issues/592)
       # - latest GKE not available in this region/zone yet (https://github.com/knative/test-infra/issues/694)
-      [[ -z "$(grep -Fo 'does not have enough resources available to fulfill' ${cluster_creation_log})" \
-          && -z "$(grep -Fo 'ResponseError: code=400, message=No valid versions with the prefix' ${cluster_creation_log})" \
-          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' ${cluster_creation_log})"  \
-          && -z "$(grep -Po 'only \d+ nodes out of \d+ have registered; this is likely due to Nodes failing to start correctly' ${cluster_creation_log})" ]] \
+      [[ -z "$(grep -Fo 'does not have enough resources available to fulfill' "${cluster_creation_log}")" \
+          && -z "$(grep -Fo 'ResponseError: code=400, message=No valid versions with the prefix' "${cluster_creation_log}")" \
+          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' "${cluster_creation_log}")"  \
+          && -z "$(grep -Po 'only \d+ nodes out of \d+ have registered; this is likely due to Nodes failing to start correctly' "${cluster_creation_log}")" ]] \
           && return 1
     done
   done
@@ -345,23 +345,23 @@ function setup_test_cluster() {
   local k8s_user=$(gcloud config get-value core/account)
   local k8s_cluster=$(kubectl config current-context)
 
-  is_protected_cluster ${k8s_cluster} && \
+  is_protected_cluster "${k8s_cluster}" && \
     abort "kubeconfig context set to ${k8s_cluster}, which is forbidden"
 
   # If cluster admin role isn't set, this is a brand new cluster
   # Setup the admin role and also KO_DOCKER_REPO if it is a GKE cluster
   if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" && "${k8s_cluster}" =~ ^gke_.* ]]; then
-    acquire_cluster_admin_role ${k8s_user} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
+    acquire_cluster_admin_role "${k8s_user}" "${E2E_CLUSTER_NAME}" "${E2E_CLUSTER_REGION}" "${E2E_CLUSTER_ZONE}"
     # Incorporate an element of randomness to ensure that each run properly publishes images.
     export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img/${RANDOM}
   fi
 
   # Safety checks
-  is_protected_gcr ${KO_DOCKER_REPO} && \
+  is_protected_gcr "${KO_DOCKER_REPO}" && \
     abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
   # Use default namespace for all subsequent kubectl commands in this context
-  kubectl config set-context ${k8s_cluster} --namespace=default
+  kubectl config set-context "${k8s_cluster}" --namespace=default
 
   echo "- gcloud project is ${E2E_PROJECT_ID}"
   echo "- gcloud user is ${k8s_user}"
@@ -390,7 +390,7 @@ function setup_test_cluster() {
 # Gets the exit of the test script.
 # For more details, see set_test_return_code().
 function get_test_return_code() {
-  echo $(cat ${TEST_RESULT_FILE})
+  echo $(cat "${TEST_RESULT_FILE}")
 }
 
 # Set the return code that the test script will return.
@@ -401,7 +401,7 @@ function set_test_return_code() {
   # We store the real test result to return it later, ignoring any teardown
   # failure in kubetest.
   # TODO(adrcunha): Get rid of this workaround.
-  echo -n "$1"> ${TEST_RESULT_FILE}
+  echo -n "$1"> "${TEST_RESULT_FILE}"
 }
 
 # Signal (as return code and in the logs) that all E2E tests passed.
@@ -436,10 +436,10 @@ E2E_SCRIPT_CUSTOM_FLAGS=()
 
 # Parse flags and initialize the test cluster.
 function initialize() {
-  E2E_SCRIPT="$(get_canonical_path $0)"
+  E2E_SCRIPT="$(get_canonical_path "$0")"
   E2E_CLUSTER_VERSION="${SERVING_GKE_VERSION}"
 
-  cd ${REPO_ROOT_DIR}
+  cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do
     local parameter=$1
     # Try parsing flag as a custom one.
