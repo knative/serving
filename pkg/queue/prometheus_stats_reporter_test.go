@@ -21,6 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"knative.dev/serving/pkg/autoscaler/metrics"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"knative.dev/serving/pkg/network"
 
@@ -33,6 +36,8 @@ const (
 	revision  = "helloworld-go-00001"
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
+
+var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime", "PodName")
 
 var testCases = []struct {
 	name                        string
@@ -145,7 +150,7 @@ func TestNewPrometheusStatsReporterNegative(t *testing.T) {
 	}
 }
 
-func TestProtobufStatsReporterReport(t *testing.T) {
+func TestPrometheusStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, test.reportingPeriod)
@@ -160,22 +165,21 @@ func TestProtobufStatsReporterReport(t *testing.T) {
 				RequestCount:              test.reqCount,
 				ProxiedRequestCount:       test.proxiedReqCount,
 			})
-			checkData(t, requestsPerSecondGV, test.expectedReqCount)
-			checkData(t, averageConcurrentRequestsGV, test.expectedConcurrency)
-			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)
-			checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
-
-			if got := getData(t, processUptimeGV); got < 5.0 || got > 6.0 {
-				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", got)
+			want := metrics.Stat{
+				RequestCount:                     test.expectedReqCount,
+				AverageConcurrentRequests:        test.expectedConcurrency,
+				ProxiedRequestCount:              test.expectedProxiedRequestCount,
+				AverageProxiedConcurrentRequests: test.expectedProxiedConcurrency,
 			}
+			got := metrics.Stat{
+				RequestCount:                     getData(t, requestsPerSecondGV),
+				AverageConcurrentRequests:        getData(t, averageConcurrentRequestsGV),
+				ProxiedRequestCount:              getData(t, proxiedRequestsPerSecondGV),
+				AverageProxiedConcurrentRequests: getData(t, averageProxiedConcurrentRequestsGV),
+				ProcessUptime:                    getData(t, processUptimeGV),
+			}
+			cmpStatData(t, want, got)
 		})
-	}
-}
-
-func checkData(t *testing.T, gv *prometheus.GaugeVec, want float64) {
-	t.Helper()
-	if got := getData(t, gv); got != want {
-		t.Errorf("Got %v for Gauge value, wanted %v", got, want)
 	}
 }
 
@@ -190,7 +194,6 @@ func getData(t *testing.T, gv *prometheus.GaugeVec) float64 {
 	if err != nil {
 		t.Fatal("GaugeVec.GetMetricWith() error =", err)
 	}
-
 	m := dto.Metric{}
 	if err := g.Write(&m); err != nil {
 		t.Fatal("Gauge.Write() error =", err)

@@ -39,7 +39,7 @@ var testStat = metrics.Stat{
 	ProcessUptime:                    20.0,
 }
 
-func TestReporterReport(t *testing.T) {
+func TestProtobufStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			reporter := NewProtobufStatsReporter(pod, test.reportingPeriod)
@@ -51,22 +51,14 @@ func TestReporterReport(t *testing.T) {
 				RequestCount:              test.reqCount,
 				ProxiedRequestCount:       test.proxiedReqCount,
 			})
-			stat := reporter.stat.Load().(metrics.Stat)
-			if stat.RequestCount != test.expectedReqCount {
-				t.Errorf("stat.RequestCount = %v, want %v", stat.RequestCount, test.expectedReqCount)
+			want := metrics.Stat{
+				RequestCount:                     test.expectedReqCount,
+				AverageConcurrentRequests:        test.expectedConcurrency,
+				ProxiedRequestCount:              test.expectedProxiedRequestCount,
+				AverageProxiedConcurrentRequests: test.expectedProxiedConcurrency,
 			}
-			if stat.AverageConcurrentRequests != test.expectedConcurrency {
-				t.Errorf("stat.AverageConcurrentRequests = %v, want %v", stat.AverageConcurrentRequests, test.expectedConcurrency)
-			}
-			if stat.ProxiedRequestCount != test.expectedProxiedRequestCount {
-				t.Errorf("stat.ProxiedRequestCount = %v, want %v", stat.ProxiedRequestCount, test.expectedProxiedRequestCount)
-			}
-			if stat.AverageProxiedConcurrentRequests != test.expectedProxiedConcurrency {
-				t.Errorf("stat.AverageProxiedConcurrentRequests = %v, want %v", stat.AverageProxiedConcurrentRequests, test.expectedProxiedConcurrency)
-			}
-			if got := stat.ProcessUptime; got < 5.0 || got > 6.0 {
-				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", got)
-			}
+			got := reporter.stat.Load().(metrics.Stat)
+			cmpStatData(t, want, got)
 		})
 	}
 }
@@ -126,5 +118,15 @@ func TestProtoHandler(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func cmpStatData(t *testing.T, want metrics.Stat, got metrics.Stat) {
+	t.Helper()
+	if !cmp.Equal(want, got, ignoreStatFields) {
+		t.Errorf("Scraped stat mismatch; diff(-want,+gotUptime):\n%s", cmp.Diff(want, got))
+	}
+	if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+		t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
 	}
 }
