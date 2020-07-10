@@ -1003,6 +1003,57 @@ func TestReconcile(t *testing.T) {
 			Object: sks(testNamespace, testRevision, WithSKSReady,
 				WithDeployRef(deployName), WithNumActivators(2)),
 		}},
+	}, {
+		Name: "initial scale > minScale, have not reached initial scale, PA still activating",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey,
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				-42 /* ebc */, scaling.MinActivators)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withScales(defaultScale, defaultScale), WithReachabilityReachable,
+				withMinScale(defaultScale), withInitialScale(20), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady,
+				WithPubService, WithPrivateService),
+			defaultMetric, makeSKSPrivateEndpoints(defaultScale, testNamespace, testRevision), defaultDeployment,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, withScales(defaultScale, 20), WithReachabilityReachable,
+				withMinScale(defaultScale), withInitialScale(20), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				WithObservedGeneration(1),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
+			Name:       deployName,
+			Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, 20)),
+		}},
+	}, {
+		Name: "initial scale reached, mark PA as active",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey,
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				-42 /* ebc */, scaling.MinActivators)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withScales(20, defaultScale), withInitialScale(20), WithReachabilityReachable,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+			),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady,
+				WithPubService, WithPrivateService),
+			defaultMetric, makeSKSPrivateEndpoints(20, testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(defaultScale)
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(20, 20), withInitialScale(20), WithReachabilityReachable,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
+			Name:       deployName,
+			Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, 20)),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1704,5 +1755,14 @@ func TestResolveScrapeTarget(t *testing.T) {
 	pa.Annotations["autoscaling.knative.dev/targetBurstCapacity"] = "-1"
 	if got, want := resolveScrapeTarget(tc.ToContext(context.Background()), pa), ""; got != want {
 		t.Errorf("reconcileMetricSN()= %s, want %s", got, want)
+	}
+}
+
+func withInitialScale(initScale int) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Annotations = kmeta.UnionMaps(
+			pa.Annotations,
+			map[string]string{autoscaling.InitialScaleAnnotationKey: strconv.Itoa(initScale)},
+		)
 	}
 }
