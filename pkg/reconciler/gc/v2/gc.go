@@ -55,9 +55,10 @@ func Collect(
 		return nil
 	}
 
-	// Sort by creation timestamp descending
+	// Sort by last active descending
 	sort.Slice(revs, func(i, j int) bool {
-		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+		a, b := getRevisionLastActiveTime(revs[i]), getRevisionLastActiveTime(revs[j])
+		return a.After(b)
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
@@ -106,4 +107,17 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
 	}
 	return ret
+}
+
+// getRevisionLastActiveTime returns if present:
+// routingStateModified, then lastPinnedTime, then the created time.
+// This is used for sort-ordering by most recently active.
+func getRevisionLastActiveTime(rev *v1.Revision) time.Time {
+	if time := rev.GetRoutingStateModified(); time != time.Time{} {
+		return time
+	}
+	if time, err := rev.GetLastPinned(); err != nil {
+		return time
+	}
+	return rev.ObjectMeta.GetCreationTimestamp().Time
 }
