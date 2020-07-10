@@ -214,9 +214,11 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, sw-af)
 		return 1, true
 	default: // Active=False
-		var err error
+		var (
+			err error
+			r   bool = true
+		)
 
-		r := true
 		if resolveTBC(ctx, pa) != -1 {
 			// if TBC is -1 activator is guaranteed to already be in the path.
 			// Otherwise, probe to make sure Activator is in path.
