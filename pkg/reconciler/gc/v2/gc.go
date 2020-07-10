@@ -108,11 +108,11 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 // routingStateModified, then lastPinnedTime, then the created time.
 // This is used for sort-ordering by most recently active.
 func getRevisionLastActiveTime(rev *v1.Revision) time.Time {
-	if time, empty := rev.GetRoutingStateModified(), (time.Time{}); time != empty {
-		return time
+	if t := rev.GetRoutingStateModified(); !t.IsZero() {
+		return t
 	}
-	if time, err := rev.GetLastPinned(); err == nil {
-		return time
+	if t, err := rev.GetLastPinned(); err == nil {
+		return t
 	}
 	return rev.ObjectMeta.GetCreationTimestamp().Time
 }
