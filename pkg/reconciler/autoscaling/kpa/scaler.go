@@ -198,7 +198,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		af := pa.Status.ActiveFor(now)
 		if af >= sw {
 			// If SKS is in proxy mode, then there is high probability
-			// of SKS not changing its spec/statu and thus not triggering
+			// of SKS not changing its spec/status and thus not triggering
 			// a new reconciliation of PA.
 			if sks.Spec.Mode == nv1a1.SKSOperationModeProxy {
 				logger.Debug("SKS is already in proxy mode, auto-re-enqueue PA")
@@ -214,6 +214,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, sw-af)
 		return 1, true
 	default: // Active=False
+		if resolveTBC(ctx, pa) == -1 {
+			// if TBC is -1 activator is guaranteed to already be in the path, so we
+			// can immediately scale down without probing for it.
+			return desiredScale, true
+		}
+
 		// Probe synchronously, to see if Activator is already in the path.
 		r, err := ks.activatorProbe(pa, ks.transport)
 		logger.Infof("Probing activator = %v, err = %v", r, err)
