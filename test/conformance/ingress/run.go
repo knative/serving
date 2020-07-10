@@ -19,19 +19,13 @@ package ingress
 import (
 	"testing"
 
-	"knative.dev/serving/test/conformance"
+	"knative.dev/serving/test"
 )
 
 // RunConformance will run ingress conformance tests
 //
 // Depending on the options it may test alpha and beta features
-func RunConformance(t *testing.T, options ...conformance.OptionFunc) {
-	opts, err := conformance.NewOptions(options...)
-
-	if err != nil {
-		t.Fatalf("unable to parse conformance options: %v", err)
-	}
-
+func RunConformance(t *testing.T) {
 	t.Run("basics", TestBasics)
 	t.Run("basics/http2", TestBasicsHTTP2)
 
@@ -61,11 +55,11 @@ func RunConformance(t *testing.T, options ...conformance.OptionFunc) {
 	t.Run("websocket", TestWebsocket)
 	t.Run("websocket/split", TestWebsocketSplit)
 
-	if opts.BetaFeaturesEnabled() {
+	if test.ServingFlags.EnableBetaFeatures {
 		// Add your conformance test for beta features
 	}
 
-	if opts.AlphaFeaturesEnabled() {
+	if test.ServingFlags.EnableAlphaFeatures {
 		// Add your conformance test for alpha features
 	}
 }
