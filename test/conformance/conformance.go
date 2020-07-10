@@ -25,18 +25,25 @@ const (
 
 type OptionFunc func(*Options) error
 
+// Options contains various properties that influence
+// what tests should be exercised
 type Options struct {
 	testStates state
 }
 
+// BetaFeaturesEnabled returns true if the conformance
+// test should include beta features
 func (o *Options) BetaFeaturesEnabled() bool {
 	return o.testStates&beta != 0
 }
 
+// AlphaFeaturesEnabled returns true if the conformance
+// test should include alpha features
 func (o *Options) AlphaFeaturesEnabled() bool {
 	return o.testStates&alpha != 0
 }
 
+// NewOptions computes the options for a conformance test
 func NewOptions(funcs ...OptionFunc) (Options, error) {
 	var opts Options
 
@@ -49,6 +56,8 @@ func NewOptions(funcs ...OptionFunc) (Options, error) {
 	return opts, nil
 }
 
+// EnableAlphaFeatures option will cause the conformance test
+// to run execise alpha features
 func EnableAlphaFeatures() OptionFunc {
 	return func(o *Options) error {
 		o.testStates |= alpha
@@ -56,6 +65,8 @@ func EnableAlphaFeatures() OptionFunc {
 	}
 }
 
+// EnableBetaFeatures option will cause the conformance test
+// to run execise beta features
 func EnableBetaFeatures() OptionFunc {
 	return func(o *Options) error {
 		o.testStates |= beta
