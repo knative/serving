@@ -215,12 +215,11 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		return 1, true
 	default: // Active=False
 		var err error
-		r := true
 
-		// if TBC is -1 activator is guaranteed to already be in the path, so we
-		// can immediately scale down without probing for it. Otherwise, probe
-		// to make sure Activator is in path.
+		r := true
 		if resolveTBC(ctx, pa) != -1 {
+			// if TBC is -1 activator is guaranteed to already be in the path.
+			// Otherwise, probe to make sure Activator is in path.
 			r, err = ks.activatorProbe(pa, ks.transport)
 			logger.Infof("Probing activator = %v, err = %v", r, err)
 		}
