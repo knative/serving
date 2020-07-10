@@ -22,6 +22,9 @@ import (
 	"knative.dev/serving/test/conformance"
 )
 
+// RunConformance will run ingress conformance tests
+//
+// Depending on the options it may test alpha and beta features
 func RunConformance(t *testing.T, options ...conformance.OptionFunc) {
 	opts, err := conformance.NewOptions(options...)
 
