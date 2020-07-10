@@ -403,6 +403,26 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
 		},
+	}, {
+		label:         "haven't scaled to initial scale, override desired scale with initial scale",
+		startReplicas: 0,
+		scaleTo:       1,
+		wantReplicas:  2,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+	}, {
+		label:         "initial scale reached for the first time",
+		startReplicas: 5,
+		scaleTo:       1,
+		wantReplicas:  5,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+		},
 	}}
 
 	for _, test := range tests {

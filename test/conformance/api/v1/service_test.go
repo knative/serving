@@ -50,7 +50,7 @@ func TestService(t *testing.T) {
 	}
 
 	// Clean up on test failure or interrupt
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup initial Service
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
@@ -189,7 +189,7 @@ func TestServiceBYOName(t *testing.T) {
 	}
 
 	// Clean up on test failure or interrupt
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	revName := names.Service + "-byoname"
 
@@ -252,7 +252,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Expected Text for different revisions.
 	const (
@@ -490,7 +490,7 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 
 	// Clean up on test failure or interrupt
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	// Setup initial Service
 	objects, err := v1test.CreateServiceReady(t, clients, &names)

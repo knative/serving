@@ -80,7 +80,6 @@ func MakeDecider(ctx context.Context, pa *asv1a1.PodAutoscaler, config *autoscal
 
 // GetInitialScale returns the calculated initial scale based on the autoscaler
 // ConfigMap and PA initial scale annotation value.
-// TODO(taragu): This function is exported and will be reused in other packages.
 func GetInitialScale(asConfig *autoscalerconfig.Config, pa *asv1a1.PodAutoscaler) int32 {
 	initialScale := asConfig.InitialScale
 	revisionInitialScale, ok := pa.InitialScale()

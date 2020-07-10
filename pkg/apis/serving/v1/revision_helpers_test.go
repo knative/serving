@@ -1,9 +1,12 @@
 /*
 Copyright 2020 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -327,5 +330,46 @@ func TestGetContainer(t *testing.T) {
 				t.Errorf("GetContainer: %v want: %v", got, want)
 			}
 		})
+	}
+}
+
+func TestSetRoutingState(t *testing.T) {
+	rev := &Revision{}
+	empty := time.Time{}
+
+	// Test unset timestamp
+	if rev.GetRoutingStateModified() != empty {
+		t.Errorf("expected default value for unset modified annotation.")
+	}
+
+	// Test retrieving routing state and modified
+	rev.SetRoutingState(RoutingStateActive)
+	if state := rev.GetRoutingState(); state != RoutingStateActive {
+		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
+	}
+	modified := rev.GetRoutingStateModified()
+	if modified == empty {
+		t.Errorf("expected a timestamp. got %v", modified)
+	}
+
+	// Test that no-op modifications don't bump timestamps.
+	rev.SetRoutingState(RoutingStateActive)
+	if rev.GetRoutingStateModified() != modified {
+		t.Errorf("modified was bumped, but no change expected.")
+	}
+
+	// Test the actual modifications do bump timestamps.
+	rev.SetRoutingState(RoutingStateReserve)
+	if state := rev.GetRoutingState(); state != RoutingStateReserve {
+		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
+	}
+	if rev.GetRoutingStateModified() != modified {
+		t.Errorf("expected modified to be bumped.")
+	}
+
+	// Test unparsable timestamp.
+	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = "invalid"
+	if rev.GetRoutingStateModified() != empty {
+		t.Errorf("expected default value for unparsable annotation.")
 	}
 }

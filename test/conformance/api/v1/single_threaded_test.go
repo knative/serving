@@ -43,7 +43,7 @@ func TestSingleConcurrency(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   test.SingleThreadedImage,
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithContainerConcurrency(1))
 	if err != nil {

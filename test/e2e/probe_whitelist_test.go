@@ -47,7 +47,7 @@ func TestProbeWhitelist(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
 	resources, err := v1test.CreateServiceReady(t, clients, &names)

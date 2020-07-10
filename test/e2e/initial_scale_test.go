@@ -48,7 +48,7 @@ func TestInitScaleZero(t *testing.T) {
 		Image:   "helloworld",
 	}
 
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service with initial scale zero and verifying that no pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 0)
@@ -57,7 +57,6 @@ func TestInitScaleZero(t *testing.T) {
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -67,7 +66,7 @@ func TestInitScalePositive(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
-	test.EnsureTearDown(t, clients, names)
+	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 3)
@@ -89,7 +88,9 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
-			FieldSelector: "status.phase=Running",
+			// Include both running and terminating pods, because we will scale down from
+			// initial scale immediately if there's no traffic coming in.
+			FieldSelector: "status.phase!=Pending",
 		})
 		if err != nil {
 			return false, err

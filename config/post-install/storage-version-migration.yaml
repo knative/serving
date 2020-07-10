@@ -15,10 +15,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: storage-version-migration
+  generateName: storage-version-migration-serving-
   namespace: knative-serving
   labels:
-    app: "storage-version-migration"
+    app: "storage-version-migration-serving"
     serving.knative.dev/release: devel
 spec:
   ttlSecondsAfterFinished: 600
@@ -28,7 +28,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: "storage-version-migration"
+        app: "storage-version-migration-serving"
     spec:
       serviceAccountName: controller
       restartPolicy: OnFailure

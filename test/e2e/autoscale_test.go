@@ -74,7 +74,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, ctx.names)
+	defer test.TearDown(ctx.clients, &ctx.names)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
@@ -207,8 +207,8 @@ func TestFastScaleToZero(t *testing.T) {
 	epsN := epsL.Items[0].Name
 	t.Logf("Waiting for emptying of %q ", epsN)
 
-	// The first thing that happens when pods are starting to terminate,
-	// if that they stop being ready and endpoints controller removes them
+	// The first thing that happens when pods are starting to terminate
+	// is that they stop being ready and endpoints controller removes them
 	// from the ready set.
 	// While pod termination itself can last quite some time (our pod termination
 	// test allows for up to a minute). The 15s delay is based upon maximum
