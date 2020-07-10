@@ -56,7 +56,7 @@ func TestRewriteHost(t *testing.T) {
 	// Now create a RewriteHost ingress to point a custom Host at the Service
 	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
-			Hosts:      []string{"vanity.ismy.name"},
+			Hosts:      []string{"vanity.ismy.name", "vanity.isalsomy.number"},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -68,4 +68,5 @@ func TestRewriteHost(t *testing.T) {
 	defer cancel()
 
 	RuntimeRequest(t, client, "http://vanity.ismy.name")
+	RuntimeRequest(t, client, "http://vanity.isalsomy.number")
 }
