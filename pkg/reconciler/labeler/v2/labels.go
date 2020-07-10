@@ -109,7 +109,7 @@ func ClearLabels(ns, name string, accs ...Accessor) error {
 // listed within "names" in the same namespace.
 func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRouteLabel(acc, route.Namespace, name, &route.Name); err != nil {
+		if err := setRouteLabel(acc, route.Namespace, name, route.Name); err != nil {
 			return fmt.Errorf("failed to add route label to Namespace=%s %q: %w", route.Namespace, name, err)
 		}
 	}
@@ -132,7 +132,7 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 			continue
 		}
 
-		if err := setRouteLabel(acc, ns, name, nil); err != nil {
+		if err := setRouteLabel(acc, ns, name, ""); err != nil {
 			return fmt.Errorf("failed to remove route label to %s %q: %w",
 				elt.GroupVersionKind(), name, err)
 		}
@@ -144,7 +144,7 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 // setRouteLabel toggles the route label on the specified element through the provided accessor.
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc Accessor, ns, name string, routeName *string) error {
+func setRouteLabel(acc Accessor, ns, name string, routeName string) error {
 	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
 		return err
 	} else if mergePatch != nil {

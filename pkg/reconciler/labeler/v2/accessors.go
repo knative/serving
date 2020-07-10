@@ -34,7 +34,7 @@ import (
 type Accessor interface {
 	list(ns, name string) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name string, routeName *string) (map[string]interface{}, error)
+	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -60,7 +60,7 @@ func NewRevisionAccessor(
 }
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
-func makeMetadataPatch(acc kmeta.Accessor, routeName *string) (map[string]interface{}, error) {
+func makeMetadataPatch(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 
 	if err := addRouteLabel(acc, labels, routeName); err != nil {
@@ -80,11 +80,11 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName *string) (map[string]interf
 
 // addRouteLabel appends the route label to the list of labels if needed
 // or removes the label if routeName is nil.
-func addRouteLabel(acc kmeta.Accessor, diffLabels map[string]interface{}, routeName *string) error {
+func addRouteLabel(acc kmeta.Accessor, diffLabels map[string]interface{}, routeName string) error {
 	oldLabels := acc.GetLabels()
-	if routeName == nil { // remove the label
+	if routeName == "" { // remove the label
 		if len(oldLabels) != 0 && oldLabels[serving.RouteLabelKey] != "" {
-			diffLabels[serving.RouteLabelKey] = routeName
+			diffLabels[serving.RouteLabelKey] = nil
 		}
 	} else { // add the label
 		if len(oldLabels) == 0 {
@@ -92,10 +92,10 @@ func addRouteLabel(acc kmeta.Accessor, diffLabels map[string]interface{}, routeN
 		} else {
 			if oldLabel := oldLabels[serving.RouteLabelKey]; oldLabel == "" {
 				diffLabels[serving.RouteLabelKey] = routeName
-			} else if oldLabel != *routeName {
+			} else if oldLabel != routeName {
 				// TODO(whaught): this restricts us to only one route -> revision
 				// We can move this to a comma separated list annotation and use the new routingState label.
-				return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, *routeName)
+				return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
 			}
 		}
 	}
@@ -125,7 +125,7 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name string, routeName *string) (map[string]interface{}, error) {
+func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
 	rev, err := r.revisionLister.Revisions(ns).Get(name)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name string, routeName *string) (map[string]interface{}, error) {
+func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
 	config, err := c.configurationLister.Configurations(ns).Get(name)
 	if err != nil {
 		return nil, err
