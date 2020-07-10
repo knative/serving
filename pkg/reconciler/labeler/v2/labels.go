@@ -110,7 +110,7 @@ func ClearLabels(ns, name string, accs ...Accessor) error {
 func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
 		if err := setRouteLabel(acc, route.Namespace, name, route.Name); err != nil {
-			return fmt.Errorf("failed to add route label to Namespace=%s %q: %w", route.Namespace, name, err)
+			return fmt.Errorf("failed to add route label to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
 	return nil
