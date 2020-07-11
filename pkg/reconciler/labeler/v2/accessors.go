@@ -84,20 +84,16 @@ func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}
 
 	oldLabels := acc.GetLabels()
 	if routeName == "" { // remove the label
-		if len(oldLabels) != 0 && oldLabels[serving.RouteLabelKey] != "" {
+		if oldLabels[serving.RouteLabelKey] != "" {
 			diffLabels[serving.RouteLabelKey] = nil
 		}
 	} else { // add the label
-		if len(oldLabels) == 0 {
+		if oldLabel := oldLabels[serving.RouteLabelKey]; oldLabel == "" {
 			diffLabels[serving.RouteLabelKey] = routeName
-		} else {
-			if oldLabel := oldLabels[serving.RouteLabelKey]; oldLabel == "" {
-				diffLabels[serving.RouteLabelKey] = routeName
-			} else if oldLabel != routeName {
-				// TODO(whaught): this restricts us to only one route -> revision
-				// We can move this to a comma separated list annotation and use the new routingState label.
-				return nil, fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
-			}
+		} else if oldLabel != routeName {
+			// TODO(whaught): this restricts us to only one route -> revision
+			// We can move this to a comma separated list annotation and use the new routingState label.
+			return nil, fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
 		}
 	}
 
