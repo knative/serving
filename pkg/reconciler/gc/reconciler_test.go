@@ -86,15 +86,15 @@ func TestGCReconcile(t *testing.T) {
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(oldest)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(older)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(old)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{

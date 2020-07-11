@@ -66,7 +66,7 @@ func TestCollect(t *testing.T) {
 		revs        []*v1.Revision
 		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
-		name: "delete oldest, keep two",
+		name: "delete oldest, keep two lastPinned",
 		cfg: cfg("keep-two", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
@@ -75,15 +75,47 @@ func TestCollect(t *testing.T) {
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(oldest)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(older)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(old)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
+	}, {
+		name: "delete oldest, keep two routingStateModified",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				WithRoutingStateModified(oldest)),
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithRoutingStateModified(older)),
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -152,15 +184,15 @@ func TestCollect(t *testing.T) {
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(oldest)),
 			rev("keep-two", "foo", 5555, // Not Ready
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(older)),
 			rev("keep-two", "foo", 5556, // Not Ready
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(old)),
 		},
 	}, {
 		name: "keep stale revision because of minimum generations",

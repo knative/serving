@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/logging"
@@ -55,9 +54,10 @@ func Collect(
 		return nil
 	}
 
-	// Sort by creation timestamp descending
+	// Sort by last active descending
 	sort.Slice(revs, func(i, j int) bool {
-		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
+		return a.After(b)
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
@@ -76,34 +76,43 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
-
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
-
 	curTime := time.Now()
-	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
+	createTime := rev.ObjectMeta.CreationTimestamp
+
+	if createTime.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
 		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
 		return false
 	}
 
-	lastPin, err := rev.GetLastPinned()
-	if err != nil {
-		if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
-			logger.Errorw("Failed to determine revision last pinned", zap.Error(err))
-		} else {
-			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
-			// It usually happens when ksvc was deployed with wrong configuration.
-			rc := rev.Status.GetCondition(v1.RevisionConditionReady)
-			if rc == nil || rc.Status != corev1.ConditionTrue {
-				return true
-			}
-		}
-		return false
+	lastActive := revisionLastActiveTime(rev)
+
+	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
+	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
+	if lastActive.Equal(createTime.Time) {
+		// Revision was never active and it's not ready after staleRevisionCreateDelay.
+		// It usually happens when ksvc was deployed with wrong configuration.
+		return !rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	}
 
-	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	ret := lastActive.Add(cfg.StaleRevisionTimeout).Before(curTime)
 	if ret {
-		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
+		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
+			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastActive)
 	}
 	return ret
+}
+
+// revisionLastActiveTime returns if present:
+// routingStateModified, then lastPinnedTime, then the created time.
+// This is used for sort-ordering by most recently active.
+func revisionLastActiveTime(rev *v1.Revision) time.Time {
+	if t := rev.GetRoutingStateModified(); !t.IsZero() {
+		return t
+	}
+	if t, err := rev.GetLastPinned(); err == nil {
+		return t
+	}
+	return rev.ObjectMeta.GetCreationTimestamp().Time
 }
