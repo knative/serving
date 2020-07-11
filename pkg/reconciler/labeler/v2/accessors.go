@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/pkg/tracker"
@@ -43,6 +44,7 @@ type Revision struct {
 	client         clientset.Interface
 	tracker        tracker.Interface
 	revisionLister listers.RevisionLister
+	clock          clock.Clock
 }
 
 // Revision implements Accessor
@@ -52,16 +54,19 @@ var _ Accessor = (*Revision)(nil)
 func NewRevisionAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
-	lister listers.RevisionLister) *Revision {
+	lister listers.RevisionLister,
+	clock clock.Clock) *Revision {
 	return &Revision{
 		client:         client,
 		tracker:        tracker,
 		revisionLister: lister,
+		clock:          clock,
 	}
 }
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
-func makeMetadataPatch(acc kmeta.Accessor, routeName string, addRoutingState bool) (map[string]interface{}, error) {
+func makeMetadataPatch(
+	acc kmeta.Accessor, routeName string, addRoutingState bool, clock clock.Clock) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
@@ -70,7 +75,7 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName string, addRoutingState boo
 	}
 
 	if addRoutingState {
-		markRoutingState(acc, routeName != "", labels, annotations)
+		markRoutingState(acc, routeName != "", clock, labels, annotations)
 	}
 
 	meta := map[string]interface{}{}
@@ -87,7 +92,9 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName string, addRoutingState boo
 }
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
-func markRoutingState(acc kmeta.Accessor, hasRoute bool, diffLabels, diffAnn map[string]interface{}) {
+func markRoutingState(
+	acc kmeta.Accessor, hasRoute bool, clock clock.Clock,
+	diffLabels, diffAnn map[string]interface{}) {
 	var wantState string
 	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
@@ -97,7 +104,7 @@ func markRoutingState(acc kmeta.Accessor, hasRoute bool, diffLabels, diffAnn map
 
 	if acc.GetLabels()[serving.RoutingStateLabelKey] != wantState {
 		diffLabels[serving.RoutingStateLabelKey] = wantState
-		diffAnn[serving.RoutingStateModifiedAnnotationKey] = v1.RoutingStateModifiedString()
+		diffAnn[serving.RoutingStateModifiedAnnotationKey] = v1.RoutingStateModifiedString(clock)
 	}
 }
 
@@ -148,7 +155,7 @@ func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[str
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/)
+	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -156,6 +163,7 @@ type Configuration struct {
 	client              clientset.Interface
 	tracker             tracker.Interface
 	configurationLister listers.ConfigurationLister
+	clock               clock.Clock
 }
 
 // Configuration implements Accessor
@@ -165,11 +173,13 @@ var _ Accessor = (*Configuration)(nil)
 func NewConfigurationAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
-	lister listers.ConfigurationLister) *Configuration {
+	lister listers.ConfigurationLister,
+	clock clock.Clock) *Configuration {
 	return &Configuration{
 		client:              client,
 		tracker:             tracker,
 		configurationLister: lister,
+		clock:               clock,
 	}
 }
 
@@ -200,5 +210,5 @@ func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (ma
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false /*addRoutingState*/)
+	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, c.clock)
 }

@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
@@ -50,6 +51,7 @@ import (
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestV2Reconcile(t *testing.T) {
 	now := metav1.Now()
+	fakeTime := now.Time
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -336,6 +338,7 @@ func TestV2Reconcile(t *testing.T) {
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			tracker:             &NullTracker{},
+			clock:               clock.NewFakeClock(fakeTime),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
