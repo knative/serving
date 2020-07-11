@@ -1106,9 +1106,11 @@ knative.dev/pkg/injection/clients/dynamicclient/fake
 knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret
 knative.dev/pkg/injection/clients/namespacedkube/informers/factory
 knative.dev/pkg/injection/sharedmain
+knative.dev/pkg/kflag
 knative.dev/pkg/kmeta
 knative.dev/pkg/kmp
 knative.dev/pkg/leaderelection
+knative.dev/pkg/leaderelection/chaosduck
 knative.dev/pkg/logging
 knative.dev/pkg/logging/logkey
 knative.dev/pkg/logging/testing
