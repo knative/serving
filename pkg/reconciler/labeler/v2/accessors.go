@@ -17,6 +17,8 @@ limitations under the License.
 package v2
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmeta"
@@ -30,9 +32,9 @@ import (
 // Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type Accessor interface {
-	get(ns, name string) (kmeta.Accessor, error)
 	list(ns, name string) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
+	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -57,9 +59,42 @@ func NewRevisionAccessor(
 	}
 }
 
-// get implements Accessor
-func (r *Revision) get(ns, name string) (kmeta.Accessor, error) {
-	return r.revisionLister.Revisions(ns).Get(name)
+// makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
+func makeMetadataPatch(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
+	labels, err := addRouteLabel(acc, routeName)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(labels) > 0 {
+		meta := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"labels": labels,
+			},
+		}
+		return meta, nil
+	}
+	return nil, nil
+}
+
+// addRouteLabel appends the route label to the list of labels if needed
+// or removes the label if routeName is nil.
+func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
+	if routeName == "" { // remove the label
+		if acc.GetLabels()[serving.RouteLabelKey] != "" {
+			return map[string]interface{}{serving.RouteLabelKey: nil}, nil
+		}
+	} else { // add the label
+		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
+			return map[string]interface{}{serving.RouteLabelKey: routeName}, nil
+		} else if oldLabel != routeName {
+			// TODO(whaught): this restricts us to only one route -> revision
+			// We can move this to a comma separated list annotation and use the new routingState label.
+			return nil, fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
+		}
+	}
+
+	return nil, nil
 }
 
 // list implements Accessor
@@ -84,6 +119,14 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
+func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+	rev, err := r.revisionLister.Revisions(ns).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return makeMetadataPatch(rev, routeName)
+}
+
 // Configuration is an implementation of Accessor for Configurations.
 type Configuration struct {
 	client              clientset.Interface
@@ -106,11 +149,6 @@ func NewConfigurationAccessor(
 	}
 }
 
-// get implements Accessor
-func (c *Configuration) get(ns, name string) (kmeta.Accessor, error) {
-	return c.configurationLister.Configurations(ns).Get(name)
-}
-
 // list implements Accessor
 func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
@@ -131,4 +169,12 @@ func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
 	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
+}
+
+func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+	config, err := c.configurationLister.Configurations(ns).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return makeMetadataPatch(config, routeName)
 }

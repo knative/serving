@@ -167,7 +167,7 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`failed to add route label to /, Kind= "the-config-dbnfd": inducing failure for patch revisions`),
+				`failed to add route label to Namespace=default Name="the-config-dbnfd": inducing failure for patch revisions`),
 		},
 		Key: "default/add-label-failure",
 	}, {
@@ -189,7 +189,7 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`failed to add route label to /, Kind= "the-config": inducing failure for patch configurations`),
+				`failed to add route label to Namespace=default Name="the-config": inducing failure for patch configurations`),
 		},
 		Key: "default/add-label-failure",
 	}, {
@@ -205,7 +205,8 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`/, Kind= "the-config-dbnfd" is already in use by "another-route", and cannot be used by "the-route"`),
+				`failed to add route label to Namespace=default Name="the-config-dbnfd": `+
+					`resource already has route label "another-route", and cannot be referenced by "the-route"`),
 		},
 		Key: "default/the-route",
 	}, {

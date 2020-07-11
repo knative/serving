@@ -23,10 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/tracker"
 
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -47,7 +45,7 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 				return err
 			}
 
-			rev, err := racc.get(r.Namespace, revName)
+			rev, err := racc.revisionLister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
 				// The revision might not exist (yet). The informers will notify if it gets created.
 				continue
@@ -111,45 +109,32 @@ func ClearLabels(ns, name string, accs ...Accessor) error {
 // listed within "names" in the same namespace.
 func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		elt, err := acc.get(route.Namespace, name)
-		if err != nil {
-			return err
-		}
-		routeName, ok := elt.GetLabels()[serving.RouteLabelKey]
-		if ok {
-			if routeName != route.Name {
-				return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
-					elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
-			}
-		} else {
-			if err := setRouteLabel(acc, elt, &route.Name); err != nil {
-				return fmt.Errorf("failed to add route label to %s %q: %w",
-					elt.GroupVersionKind(), elt.GetName(), err)
-			}
+		if err := setRouteLabel(acc, route.Namespace, name, route.Name); err != nil {
+			return fmt.Errorf("failed to add route label to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
-
 	return nil
 }
 
 // deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ns, name string, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(ns, name)
+func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.String) error {
+	oldList, err := acc.list(ns, routeName)
 	if err != nil {
 		return err
 	}
 
 	// Delete label for newly removed traffic targets.
 	for _, elt := range oldList {
-		if names.Has(elt.GetName()) {
+		name := elt.GetName()
+		if names.Has(name) {
 			continue
 		}
 
-		if err := setRouteLabel(acc, elt, nil); err != nil {
+		if err := setRouteLabel(acc, ns, name, ""); err != nil {
 			return fmt.Errorf("failed to remove route label to %s %q: %w",
-				elt.GroupVersionKind(), elt.GetName(), err)
+				elt.GroupVersionKind(), name, err)
 		}
 	}
 
@@ -159,21 +144,18 @@ func deleteLabelForNotListed(ns, name string, acc Accessor, names sets.String) e
 // setRouteLabel toggles the route label on the specified element through the provided accessor.
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc Accessor, elt kmeta.Accessor, routeName *string) error {
-	mergePatch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"labels": map[string]interface{}{
-				serving.RouteLabelKey: routeName,
-			},
-		},
-	}
-
-	patch, err := json.Marshal(mergePatch)
-	if err != nil {
+func setRouteLabel(acc Accessor, ns, name string, routeName string) error {
+	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
 		return err
+	} else if mergePatch != nil {
+		patch, err := json.Marshal(mergePatch)
+		if err != nil {
+			return err
+		}
+		return acc.patch(ns, name, types.MergePatchType, patch)
 	}
 
-	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+	return nil
 }
 
 func ref(namespace, name, kind string) tracker.Reference {
