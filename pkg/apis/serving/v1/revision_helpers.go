@@ -60,14 +60,14 @@ const (
 	// RoutingStatePending is a state after a revision is created, but before
 	// its routing state has been determined. It is treated like active for the purposes
 	// of revision garbage collection.
-	RoutingStatePending RoutingState = "pending"
+	RoutingStatePending RoutingState = "Pending"
 
 	// RoutingStateActive is a state for a revision which are actively referenced by a Route.
-	RoutingStateActive RoutingState = "active"
+	RoutingStateActive RoutingState = "Active"
 
 	// RoutingStateReserve is a state for a revision which is no longer referenced by a Route,
 	// and is scaled down, but may be rapidly pinned to a route to be made active again.
-	RoutingStateReserve RoutingState = "reserve"
+	RoutingStateReserve RoutingState = "Reserve"
 )
 
 type (
@@ -122,8 +122,13 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 
 	r.Annotations = kmeta.UnionMaps(r.Annotations,
 		map[string]string{
-			serving.RoutingStateModifiedAnnotationKey: time.Now().UTC().Format(time.RFC3339),
+			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(),
 		})
+}
+
+// RoutingStateModifiedString gives a formatted now timestamp.
+func RoutingStateModifiedString() string {
+	return time.Now().UTC().Format(time.RFC3339)
 }
 
 // GetRoutingState retrieves the RoutingState label.

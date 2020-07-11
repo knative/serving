@@ -25,6 +25,7 @@ import (
 
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 )
@@ -60,41 +61,64 @@ func NewRevisionAccessor(
 }
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
-func makeMetadataPatch(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
-	labels, err := addRouteLabel(acc, routeName)
-	if err != nil {
+func makeMetadataPatch(acc kmeta.Accessor, routeName string, addRoutingState bool) (map[string]interface{}, error) {
+	labels := map[string]interface{}{}
+	annotations := map[string]interface{}{}
+
+	if err := addRouteLabel(acc, routeName, labels); err != nil {
 		return nil, err
 	}
 
+	if addRoutingState {
+		markRoutingState(acc, routeName != "", labels, annotations)
+	}
+
+	meta := map[string]interface{}{}
 	if len(labels) > 0 {
-		meta := map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"labels": labels,
-			},
-		}
-		return meta, nil
+		meta["labels"] = labels
+	}
+	if len(annotations) > 0 {
+		meta["annotations"] = annotations
+	}
+	if len(meta) > 0 {
+		return map[string]interface{}{"metadata": meta}, nil
 	}
 	return nil, nil
 }
 
+// markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
+func markRoutingState(acc kmeta.Accessor, hasRoute bool, diffLabels, diffAnn map[string]interface{}) {
+	var wantState string
+	if hasRoute {
+		wantState = string(v1.RoutingStateActive)
+	} else {
+		wantState = string(v1.RoutingStateReserve)
+	}
+
+	if acc.GetLabels()[serving.RoutingStateLabelKey] != wantState {
+		diffLabels[serving.RoutingStateLabelKey] = wantState
+		diffAnn[serving.RoutingStateModifiedAnnotationKey] = v1.RoutingStateModifiedString()
+	}
+}
+
 // addRouteLabel appends the route label to the list of labels if needed
 // or removes the label if routeName is nil.
-func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
+func addRouteLabel(acc kmeta.Accessor, routeName string, diffLabels map[string]interface{}) error {
 	if routeName == "" { // remove the label
 		if acc.GetLabels()[serving.RouteLabelKey] != "" {
-			return map[string]interface{}{serving.RouteLabelKey: nil}, nil
+			diffLabels[serving.RouteLabelKey] = nil
 		}
 	} else { // add the label
 		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
-			return map[string]interface{}{serving.RouteLabelKey: routeName}, nil
+			diffLabels[serving.RouteLabelKey] = routeName
 		} else if oldLabel != routeName {
 			// TODO(whaught): this restricts us to only one route -> revision
 			// We can move this to a comma separated list annotation and use the new routingState label.
-			return nil, fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
+			return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 // list implements Accessor
@@ -124,7 +148,7 @@ func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[str
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName)
+	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -176,5 +200,5 @@ func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (ma
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName)
+	return makeMetadataPatch(config, routeName, false /*addRoutingState*/)
 }
