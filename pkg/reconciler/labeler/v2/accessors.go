@@ -80,15 +80,13 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName string) (map[string]interfa
 // addRouteLabel appends the route label to the list of labels if needed
 // or removes the label if routeName is nil.
 func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
-	diffLabels := map[string]interface{}{}
-
 	if routeName == "" { // remove the label
 		if acc.GetLabels()[serving.RouteLabelKey] != "" {
-			diffLabels[serving.RouteLabelKey] = nil
+			return map[string]interface{}{serving.RouteLabelKey: nil}, nil
 		}
 	} else { // add the label
 		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
-			diffLabels[serving.RouteLabelKey] = routeName
+			return map[string]interface{}{serving.RouteLabelKey: routeName}, nil
 		} else if oldLabel != routeName {
 			// TODO(whaught): this restricts us to only one route -> revision
 			// We can move this to a comma separated list annotation and use the new routingState label.
@@ -96,7 +94,7 @@ func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}
 		}
 	}
 
-	return diffLabels, nil
+	return nil, nil
 }
 
 // list implements Accessor
