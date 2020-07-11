@@ -82,13 +82,12 @@ func makeMetadataPatch(acc kmeta.Accessor, routeName string) (map[string]interfa
 func addRouteLabel(acc kmeta.Accessor, routeName string) (map[string]interface{}, error) {
 	diffLabels := map[string]interface{}{}
 
-	oldLabels := acc.GetLabels()
 	if routeName == "" { // remove the label
-		if oldLabels[serving.RouteLabelKey] != "" {
+		if acc.GetLabels()[serving.RouteLabelKey] != "" {
 			diffLabels[serving.RouteLabelKey] = nil
 		}
 	} else { // add the label
-		if oldLabel := oldLabels[serving.RouteLabelKey]; oldLabel == "" {
+		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
 			diffLabels[serving.RouteLabelKey] = routeName
 		} else if oldLabel != routeName {
 			// TODO(whaught): this restricts us to only one route -> revision
