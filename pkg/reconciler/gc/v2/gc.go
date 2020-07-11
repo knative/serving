@@ -104,7 +104,7 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 	return ret
 }
 
-// getRevisionLastActiveTime returns if present:
+// revisionLastActiveTime returns if present:
 // routingStateModified, then lastPinnedTime, then the created time.
 // This is used for sort-ordering by most recently active.
 func revisionLastActiveTime(rev *v1.Revision) time.Time {
