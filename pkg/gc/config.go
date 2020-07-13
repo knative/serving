@@ -39,6 +39,9 @@ type Config struct {
 	StaleRevisionTimeout time.Duration
 	// Minimum number of generations of revisions to keep before considering for GC
 	StaleRevisionMinimumGenerations int64
+	// Maximum number of stale revisions to keep before considering for GC.
+	// Note that if time-bounds are set, the system may retain more than the max specified.
+	StaleRevisionMaximumGenerations int64
 	// Minimum staleness duration before updating lastPinned
 	StaleRevisionLastpinnedDebounce time.Duration
 }
@@ -49,6 +52,7 @@ func defaultConfig() *Config {
 		StaleRevisionTimeout:            15 * time.Hour,
 		StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 		StaleRevisionMinimumGenerations: 20,
+		StaleRevisionMaximumGenerations: 1000,
 	}
 }
 
@@ -63,6 +67,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
 			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
 
+			cm.AsInt64("stale-revision-maximum-generations", &c.StaleRevisionMaximumGenerations),
 			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
