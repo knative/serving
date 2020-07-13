@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/logstream"
@@ -125,7 +126,8 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		if err := pkgTest.WaitForPodDeleted(clients.KubeClient, activator.Name, system.Namespace()); err != nil {
 			t.Fatalf("Did not observe %s to actually be deleted: %v", activator.Name, err)
 		}
-		if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, test.ServingFlags.Replicas); err != nil {
+		// Check for the endpoint to appear in the activator's endpoints, since this revision may pick a subset of those endpoints.
+		if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, networking.ActivatorServiceName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
 			t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {

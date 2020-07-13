@@ -49,24 +49,19 @@ function wait_for_leader_controller() {
   return 1
 }
 
-function enable_tag_header_based_routing() {
-  echo -n "Enabling Tag Header Based Routing"
-  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
+function toggle_feature() {
+  local FEATURE="$1"
+  local STATE="$2"
+  local CONFIG="${3:-config-features}"
+  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
 }
 
-function disable_tag_header_based_routing() {
-  echo -n "Disabling Tag Header Based Routing"
-  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
-}
-
-function enable_multi_container_feature() {
-  echo -n "Enabling Multi Container Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Enabled"}}'
-}
-
-function disable_multi_container_feature() {
-  echo -n "Disabling Multi Container Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Disabled"}}'
+function toggle_network_feature() {
+  toggle_feature "$1" "$2" config-network
 }
 
 # Script entry point.
@@ -104,7 +99,7 @@ fi
 
 
 # Keep this in sync with test/ha/ha.go
-readonly REPLICAS=2
+readonly REPLICAS=3
 readonly BUCKETS=10
 
 
@@ -172,15 +167,15 @@ if (( HTTPS )); then
   turn_off_auto_tls
 fi
 
-enable_tag_header_based_routing
-add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
+toggle_network_feature tagHeaderBasedRouting Enabled
+add_trap "toggle_network_feature tagHeaderBasedRouting Disabled" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-disable_tag_header_based_routing
+toggle_network_feature tagHeaderBasedRouting Disabled
 
-enable_multi_container_feature
-add_trap "disable_multi_container_feature" SIGKILL SIGTERM SIGQUIT
+toggle_feature multi-container Enabled
+add_trap "toggle_feature multi-container Disabled" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-disable_multi_container_feature
+toggle_feature multi-container Disabled
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
