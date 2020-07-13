@@ -134,6 +134,14 @@ func TestValidateObjectMetadata(t *testing.T) {
 			},
 		},
 	}, {
+		name: "valid preserve annotation label",
+		objectMeta: &metav1.ObjectMeta{
+			GenerateName: "some-name",
+			Annotations: map[string]string{
+				RevisionLastPinnedAnnotationKey: "true",
+			},
+		},
+	}, {
 		name: "invalid knative prefix annotation",
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",

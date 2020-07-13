@@ -208,6 +208,43 @@ func TestCollect(t *testing.T) {
 				WithCreationTimestamp(oldest),
 				WithLastPinned(old)),
 		},
+	}, {
+		name: "keep oldest because of the preserve annotation",
+		cfg: cfg("keep-oldest", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-oldest", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(oldest),
+				WithRevisionPreserveAnnotation()),
+			rev("keep-oldest", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithCreationTimestamp(older),
+				WithLastPinned(older)),
+			rev("keep-oldest", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithCreationTimestamp(old),
+				WithLastPinned(old)),
+			rev("keep-oldest", "foo", 5557, MarkRevisionReady,
+				WithRevName("5557"),
+				WithCreationTimestamp(tenMinutesAgo),
+				WithLastPinned(tenMinutesAgo)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5555",
+		}},
 	}}
 
 	cfgMap := &config.Config{

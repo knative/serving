@@ -19,6 +19,7 @@ package v2
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -61,6 +62,9 @@ func Collect(
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
+		if strings.EqualFold(rev.ObjectMeta.Annotations[serving.RevisionPreservedAnnotationKey], "true") {
+			continue
+		}
 		if isRevisionStale(ctx, rev, config) {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
