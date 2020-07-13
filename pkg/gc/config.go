@@ -18,7 +18,6 @@ package gc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -79,14 +78,16 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		if f, err := config.NewFeaturesConfigFromConfigMap(configMap); err == nil && f.ResponsiveRevisionGC == config.Enabled {
+			if c.StaleRevisionMinimumGenerations == -1 && c.StaleRevisionMaximumGenerations == -1 {
+				return nil, fmt.Errorf(
+					"either stale-revision-minimum-generations or stale-revision-maximum-generations must be enabled, >= 0; was %d and %d",
+					c.StaleRevisionMinimumGenerations, c.StaleRevisionMinimumGenerations)
+			}
 			if c.StaleRevisionMinimumGenerations < -1 {
-				return nil, fmt.Errorf("stale-revision-minimum-generations must be > -2, was: %d", c.StaleRevisionMinimumGenerations)
+				return nil, fmt.Errorf("stale-revision-minimum-generations must be >= -1, was: %d", c.StaleRevisionMinimumGenerations)
 			}
 			if c.StaleRevisionMaximumGenerations < -1 {
-				return nil, fmt.Errorf("stale-revision-maximum-generations must be > -2, was: %d", c.StaleRevisionMinimumGenerations)
-			}
-			if c.StaleRevisionMinimumGenerations < -1 && c.StaleRevisionMaximumGenerations < -1 {
-				return nil, errors.New("either stale-revision-minimum-generations or stale-revision-maximum-generations must be > -1")
+				return nil, fmt.Errorf("stale-revision-maximum-generations must be >= -1, was: %d", c.StaleRevisionMinimumGenerations)
 			}
 		} else {
 			if c.StaleRevisionMinimumGenerations < 0 {
