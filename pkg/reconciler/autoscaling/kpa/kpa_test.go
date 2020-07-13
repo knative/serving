@@ -1605,7 +1605,6 @@ func newTestRevision(namespace, name string) *v1.Revision {
 }
 
 func makeReadyPods(num int, ns, n string) []runtime.Object {
-	//serving.RevisionLabelKey: revisionName,
 	r := make([]runtime.Object, num)
 	for i := 0; i < num; i++ {
 		p := &corev1.Pod{
