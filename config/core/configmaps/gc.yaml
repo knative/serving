@@ -53,7 +53,7 @@ data:
 
     # Maximum number of generations of revisions to keep before considering
     # them for GC.  If creation or staleness time-bounds are set, the system
-    # may retain more than the maximum specified.
+    # will ignore those times to achieve this cap. -1 to disable a maximum bound.
     #
     # ALPHA NOTE: Note this behavior will be applied only when the
     #             'responsive-revision-gc' feature is enabled.

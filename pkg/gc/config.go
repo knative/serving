@@ -37,10 +37,13 @@ type Config struct {
 	// Timeout since a revision lastPinned before it should be GC'd
 	// This must be longer than the controller resync period
 	StaleRevisionTimeout time.Duration
-	// Minimum number of generations of revisions to keep before considering for GC
+	// Minimum number of generations of revisions to keep before considering for GC.
+	// -1 to disable minimum and fill up to max. Either min or max must be set.
 	StaleRevisionMinimumGenerations int64
 	// Maximum number of stale revisions to keep before considering for GC.
-	// Note that if time-bounds are set, the system may retain more than the max specified.
+	//  If creation or staleness time-bounds are set, the system will ignore
+	// those times to achieve this cap. -1 to disable a maximum bound.
+	// Either min or max must be set.
 	StaleRevisionMaximumGenerations int64
 	// Minimum staleness duration before updating lastPinned
 	StaleRevisionLastpinnedDebounce time.Duration
