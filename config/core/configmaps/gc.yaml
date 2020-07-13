@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "d0d98ed7"
+    knative.dev/example-checksum: "e3d9194b"
 data:
   _example: |
     ################################
@@ -71,7 +71,7 @@ data:
     gc-retain-since-last-active-time: "15h"
 
     # Minimum number of non-active revisions to retain.
-    gc-min-stale-revisions: 0
+    gc-min-stale-revisions: 20
 
     # Maximum number of non-active revisions to retain regardless of
     # creation or staleness time-bounds.
