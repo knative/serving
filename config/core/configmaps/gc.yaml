@@ -48,8 +48,13 @@ data:
     stale-revision-timeout: "15h"
 
     # Minimum number of generations of revisions to keep before considering
-    # them for GC
+    # them for GC.
     stale-revision-minimum-generations: "20"
+
+    # Maximum number of generations of revisions to keep before considering
+    # them for GC.  If creation or staleness time-bounds are set, the system
+    # may retain more than the maximum specified.
+    stale-revision-maximum-generations: "1000"
 
     # To avoid constant updates, we allow an existing annotation to be stale by this
     # amount before we update the timestamp.
