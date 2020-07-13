@@ -51,9 +51,9 @@ data:
     # them for GC.
     stale-revision-minimum-generations: "20"
 
-    # Maximum number of generations of revisions to keep before considering
-    # them for GC.  If creation or staleness time-bounds are set, the system
-    # will ignore those times to achieve this cap. -1 to disable a maximum bound.
+    # Maximum number of generations of revisions to keep regardless of
+    # creation or staleness time-bounds
+    # Set to -1 to disable this setting.
     #
     # ALPHA NOTE: Note this behavior will be applied only when the
     #             'responsive-revision-gc' feature is enabled.
