@@ -138,7 +138,6 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	m.probes[url] = p
 
 	errGrp.Go(func() error {
-		p.logf("Starting Route prober thread for %s.", url)
 		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
 			return fmt.Errorf("failed to generate client: %w", err)
@@ -152,7 +151,6 @@ func (m *manager) Spawn(url *url.URL) Prober {
 		// We keep polling the domain and accumulate success rates
 		// to ultimately establish the SLI and compare to the SLO.
 		for {
-			p.logf("time: %v", time.Now())
 			select {
 			case <-ctx.Done():
 				return nil
