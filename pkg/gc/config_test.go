@@ -51,13 +51,20 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionTimeout:            14 * time.Hour,
 			StaleRevisionMinimumGenerations: 10,
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
+			GCRetainSinceCreateTime:         17 * time.Hour,
+			GCRetainSinceLastActiveTime:     16 * time.Hour,
+			GCMinStaleRevisions:             5,
+			GCMaxStaleRevisions:             500,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay":        "15h",
 			"stale-revision-timeout":             "14h",
 			"stale-revision-minimum-generations": "10",
-			"stale-revision-maximum-generations": "1000",
 			"stale-revision-lastpinned-debounce": "2h30m44s",
+			"gc-retain-since-create-time":        "17h",
+			"gc-retain-since-last-active-time":   "16h",
+			"gc-min-stale-revisions":             "5",
+			"gc-max-stale-revisions":             "500",
 		},
 	}, {
 		name: "Invalid duration",
@@ -95,114 +102,6 @@ func TestOurConfig(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(
-				&corev1.ConfigMap{Data: tt.data})
-			if tt.fail != (err != nil) {
-				t.Fatal("Unexpected error value:", err)
-			}
-
-			if !cmp.Equal(tt.want, got) {
-				t.Errorf("GC config (-want, +got): %s", cmp.Diff(tt.want, got))
-			}
-		})
-	}
-}
-
-func TestOurConfigWithResponsiveGC(t *testing.T) {
-	actual, example := ConfigMapsFromTestFile(t, "config-gc")
-	for _, tt := range []struct {
-		name string
-		fail bool
-		want *Config
-		data map[string]string
-	}{{
-		name: "Actual config",
-		fail: false,
-		want: defaultConfig(),
-		data: actual.Data,
-	}, {
-		name: "Example config",
-		fail: false,
-		want: defaultConfig(),
-		data: example.Data,
-	}, {
-		name: "With value overrides",
-		want: &Config{
-			StaleRevisionCreateDelay:        15 * time.Hour,
-			StaleRevisionTimeout:            14 * time.Hour,
-			StaleRevisionMinimumGenerations: 10,
-			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
-		},
-		data: map[string]string{
-			"stale-revision-create-delay":        "15h",
-			"stale-revision-timeout":             "14h",
-			"stale-revision-minimum-generations": "10",
-			"stale-revision-maximum-generations": "1000",
-			"stale-revision-lastpinned-debounce": "2h30m44s",
-		},
-	}, {
-		name: "Invalid duration",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"stale-revision-create-delay": "invalid",
-		},
-	}, {
-		name: "Invalid min/max disabled",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"stale-revision-minimum-generations": "-1",
-			"stale-revision-maximumgenerations":  "-1",
-		},
-	}, {
-		name: "Invalid minimum generation",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"stale-revision-minimum-generations": "-2",
-		},
-	}, {
-		name: "Invalid maximum generation",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"stale-revision-maximum-generations": "-2",
-		},
-	}, {
-		name: "Invalid minimum generation",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"stale-revision-minimum-generations": "invalid",
-		},
-	}, {
-		name: "Valid max disabled",
-		want: &Config{
-			StaleRevisionCreateDelay:        48 * time.Hour,
-			StaleRevisionTimeout:            15 * time.Hour,
-			StaleRevisionMinimumGenerations: 1,
-			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
-		},
-		data: map[string]string{
-			"stale-revision-minimum-generations": "1",
-			"stale-revision-maximum-generations": "-1",
-		},
-	}, {
-		name: "Valid min disabled",
-		want: &Config{
-			StaleRevisionCreateDelay:        48 * time.Hour,
-			StaleRevisionTimeout:            15 * time.Hour,
-			StaleRevisionMinimumGenerations: -1,
-			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
-		},
-		data: map[string]string{
-			"stale-revision-minimum-generations": "-1",
-			"stale-revision-maximum-generations": "1",
-		},
-	}} {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.data["responsive-revision-gc"] = "enabled"
 			got, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(
 				&corev1.ConfigMap{Data: tt.data})
 			if tt.fail != (err != nil) {

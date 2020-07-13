@@ -68,7 +68,7 @@ func defaultConfig() *Config {
 		StaleRevisionMinimumGenerations: 20,
 
 		// V2 GC Settings
-		GCRetainSinceCreateTime:     40 * time.Hour,
+		GCRetainSinceCreateTime:     48 * time.Hour,
 		GCRetainSinceLastActiveTime: 15 * time.Hour,
 		GCMinStaleRevisions:         20,
 		GCMaxStaleRevisions:         -1,
@@ -97,7 +97,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 
 		if c.GCMaxStaleRevisions != -1 && c.GCMinStaleRevisions > c.GCMaxStaleRevisions {
 			return nil, fmt.Errorf(
-				"gc-min-stale-revisions must be <= gc-max-stale-revisions was %d and %d",
+				"gc-min-stale-revisions(%d) must be <= gc-max-stale-revisions(%d)",
 				c.GCMinStaleRevisions, c.GCMaxStaleRevisions)
 		}
 		if c.GCMinStaleRevisions < 0 {
@@ -112,7 +112,8 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
-			logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
+			logger.Warnf("Got revision timeout of %v, minimum supported value is %v",
+				c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
 			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
 		}
 		return c, nil
