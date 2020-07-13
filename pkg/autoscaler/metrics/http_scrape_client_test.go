@@ -21,9 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/serving/pkg/network"
@@ -230,6 +232,33 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
+	res.ContentLength = int64(len(buffer))
+	return res
+}
+
+func randInt() int {
+	rand.Seed(time.Now().UnixNano())
+	min := 1
+	max := 254 // Kubernetes object name max is 253
+	return rand.Intn(max-min+1) + min
+}
+
+func makeProtoResponseForBenchmarking(statusCode int, stat Stat, contentType string) *http.Response {
+	stat.PodName = strings.Repeat("a", randInt())
+	stat.ProcessUptime = 12.2
+	stat.ProxiedRequestCount = 122
+	stat.AverageConcurrentRequests = 2.3
+	stat.AverageProxiedConcurrentRequests = 100.2
+	stat.ProxiedRequestCount = 100
+	buffer, _ := stat.Marshal()
+
+	res := &http.Response{
+		StatusCode: statusCode,
+		Body:       ioutil.NopCloser(bytes.NewBuffer(buffer)),
+	}
+	res.Header = http.Header{}
+	res.Header.Set("Content-Type", contentType)
+	res.ContentLength = int64(len(buffer))
 	return res
 }
 
@@ -248,5 +277,22 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 			response:      response,
 			responseError: err,
 		},
+	}
+}
+
+func BenchmarkUnmarshalling(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		hClient := newTestHTTPClient(makeProtoResponseForBenchmarking(http.StatusOK, Stat{}, network.ProtoAcceptContent), nil)
+
+		scrapeClient, err := newHTTPScrapeClient(hClient)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.StartTimer()
+		if _, err := scrapeClient.Scrape(testURL); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

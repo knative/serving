@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -30,6 +30,54 @@ import (
 
 type httpScrapeClient struct {
 	httpClient *http.Client
+}
+
+var step = 64
+
+var dataSizeClasses = []int{
+	step,
+	step * 2,
+	step * 3,
+	step * 4,
+	304, // 292 is the maximum proto buf stat record, use multiple of 16
+}
+
+var pools = [...]sync.Pool{
+	{
+		New: func() interface{} {
+			return make([]byte, dataSizeClasses[0], dataSizeClasses[0])
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, dataSizeClasses[1], dataSizeClasses[1])
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, dataSizeClasses[2], dataSizeClasses[2])
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, dataSizeClasses[3], dataSizeClasses[3])
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, dataSizeClasses[4], dataSizeClasses[4])
+		},
+	},
+}
+
+func getDataBuffer(size int64) ([]byte, int) {
+	i := 0
+	for ; i < len(dataSizeClasses)-1; i++ {
+		if size <= int64(dataSizeClasses[i]) {
+			break
+		}
+	}
+	return pools[i].Get().([]byte), i
 }
 
 func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
@@ -59,22 +107,36 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		return statFromProto(resp.Body)
+		return statFromProtoOptimized(resp.Body, resp.ContentLength)
 	}
 
 	return statFromPrometheus(resp.Body)
 }
 
-func statFromProto(body io.Reader) (Stat, error) {
+func statFromProtoOptimized(body io.Reader, l int64) (Stat, error) {
 	var stat Stat
-	bodyBytes, err := ioutil.ReadAll(body)
-	if err != nil {
-		return emptyStat, fmt.Errorf("reading body failed: %w", err)
+	if l <= 0 {
+		return emptyStat, fmt.Errorf("no data received, data size unknown")
 	}
-	err = stat.Unmarshal(bodyBytes)
+	b, i := getDataBuffer(l)
+	defer func() {
+		pools[i].Put(b)
+	}()
+	var err error
+	var n int = 0
+	for n < int(l) && err == nil {
+		var nn int
+		nn, err = body.Read(b[n:])
+		n += nn
+	}
+	if err != nil {
+		return emptyStat, fmt.Errorf("reading body failed: %w - %d", err, n)
+	}
+	err = stat.Unmarshal(b[0:l])
 	if err != nil {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}
+	// fmt.Printf("stat:%v\n", stat)
 	return stat, nil
 }
 
