@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 
 	dto "github.com/prometheus/client_model/go"
@@ -70,10 +71,10 @@ var pools = [...]sync.Pool{
 	},
 }
 
-func getDataBuffer(size int64) ([]byte, int) {
+func getDataBuffer(size int) ([]byte, int) {
 	i := 0
 	for ; i < len(dataSizeClasses)-1; i++ {
-		if size <= int64(dataSizeClasses[i]) {
+		if size <= dataSizeClasses[i] {
 			break
 		}
 	}
@@ -107,28 +108,26 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		return statFromProto(resp.Body, resp.ContentLength)
+		length, err := strconv.Atoi(resp.Header.Get("Content-Length"))
+		if err != nil {
+			return emptyStat, fmt.Errorf("Parsing Content-Length failed.")
+		}
+		return statFromProto(resp.Body, length)
 	}
 
 	return statFromPrometheus(resp.Body)
 }
 
-func statFromProto(body io.Reader, l int64) (Stat, error) {
+func statFromProto(body io.Reader, l int) (Stat, error) {
 	var stat Stat
 	if l <= 0 {
-		return emptyStat, fmt.Errorf("no data received, data size unknown")
+		return emptyStat, errors.New("no data received, data size unknown")
 	}
 	b, i := getDataBuffer(l)
-	defer func() {
-		pools[i].Put(b)
-	}()
-	var err error
-	var n int = 0
-	for n < int(l) && err == nil {
-		var nn int
-		nn, err = body.Read(b[n:])
-		n += nn
-	}
+	defer pools[i].Put(b)
+
+	_, err := io.ReadAtLeast(body, b, int(l))
+
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}

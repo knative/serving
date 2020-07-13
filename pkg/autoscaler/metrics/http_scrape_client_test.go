@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -232,7 +233,7 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.ContentLength = int64(len(buffer))
+	res.Header.Set("Content-Length", strconv.Itoa(len(buffer)))
 	return res
 }
 
@@ -258,7 +259,7 @@ func makeProtoResponseForBenchmarking(statusCode int, stat Stat, contentType str
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.ContentLength = int64(len(buffer))
+	res.Header.Set("Content-Length", strconv.Itoa(len(buffer)))
 	return res
 }
 
