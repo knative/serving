@@ -107,13 +107,13 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		return statFromProtoOptimized(resp.Body, resp.ContentLength)
+		return statFromProto(resp.Body, resp.ContentLength)
 	}
 
 	return statFromPrometheus(resp.Body)
 }
 
-func statFromProtoOptimized(body io.Reader, l int64) (Stat, error) {
+func statFromProto(body io.Reader, l int64) (Stat, error) {
 	var stat Stat
 	if l <= 0 {
 		return emptyStat, fmt.Errorf("no data received, data size unknown")
@@ -136,7 +136,6 @@ func statFromProtoOptimized(body io.Reader, l int64) (Stat, error) {
 	if err != nil {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}
-	// fmt.Printf("stat:%v\n", stat)
 	return stat, nil
 }
 
