@@ -54,6 +54,7 @@ var revisionSpec = v1.RevisionSpec{
 
 func TestCollect(t *testing.T) {
 	now := time.Now()
+	nineMinutesAgo := now.Add(-9 * time.Minute)
 	tenMinutesAgo := now.Add(-10 * time.Minute)
 
 	old := now.Add(-11 * time.Minute)
@@ -164,7 +165,7 @@ func TestCollect(t *testing.T) {
 			rev("keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(nineMinutesAgo)),
 			rev("keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
