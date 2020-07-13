@@ -81,6 +81,28 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
+		name: "Invalid negative minimum generation v2",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-min-stale-revisions": "-1",
+		},
+	}, {
+		name: "Invalid negative maximum generation",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-max-stale-revisions": "-2",
+		},
+	}, {
+		name: "Invalid max less than min",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-min-stale-revisions": "20",
+			"gc-max-stale-revisions": "10",
+		},
+	}, {
 		name: "Invalid minimum generation",
 		fail: true,
 		want: nil,
@@ -95,6 +117,10 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionTimeout:            15 * time.Hour,
 			StaleRevisionMinimumGenerations: 20,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+			GCRetainSinceCreateTime:         48 * time.Hour,
+			GCRetainSinceLastActiveTime:     15 * time.Hour,
+			GCMinStaleRevisions:             20,
+			GCMaxStaleRevisions:             -1,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay": "15h",

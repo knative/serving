@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "e3d9194b"
+    knative.dev/example-checksum: "c2432c21"
 data:
   _example: |
     ################################
@@ -75,6 +75,11 @@ data:
 
     # Maximum number of non-active revisions to retain regardless of
     # creation or staleness time-bounds.
+    #
+    # Instead of allowing revisions to become stale down to gc-min-stale-revisions,
+    # this mode will keep around revisions up to this maximum limit. A value of 0
+    # will immediately delete any non-active revisions. The expected total number
+    # of revisions is the number of active plus this value.
     #
     # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
     # as they are considered stale as long as there are more than gc-min-stale-revisions.
