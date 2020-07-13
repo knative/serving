@@ -130,7 +130,7 @@ func statFromProto(body io.Reader, l int64) (Stat, error) {
 		n += nn
 	}
 	if err != nil {
-		return emptyStat, fmt.Errorf("reading body failed: %w - %d", err, n)
+		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}
 	err = stat.Unmarshal(b[0:l])
 	if err != nil {
