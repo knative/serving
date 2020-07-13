@@ -171,13 +171,13 @@ func main() {
 		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
 	}
 
-	acceptSm := func(sm asmetrics.StatMessage) {
+	acceptStatMessage := func(sm asmetrics.StatMessage) {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	processSms := func() {
+	processStatMessages := func() {
 		for sm := range statsCh {
-			acceptSm(sm)
+			acceptStatMessage(sm)
 		}
 	}
 
@@ -189,42 +189,36 @@ func main() {
 			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(bucketSize)})
 
 		// Build stats forwarding network.
-		bt, err := leaderelection.BuildBucketSet(bucketSize)
+		bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
 		if err != nil {
 			logger.Fatalw("Failed to build bucket set", zap.Error(err))
 		}
-		ordinal, err := leaderelection.ControllerOrdinal()
-		if err != nil {
-			logger.Fatalw("Failed to get ordinal of this pod", zap.Error(err))
-		}
 
-		wss := map[int]*websocket.ManagedConnection{}
-		for i := 0; i < bucketSize; i++ {
-			if i == ordinal {
+		wss := map[string]*websocket.ManagedConnection{}
+		for _, dns := range bs.BucketList() {
+			if dns == bkt.Name() {
 				continue
 			}
-			bkt, err := bt.Bucket(i)
-			if err != nil {
-				logger.Fatalf("Failed to get bucket with ordinal %d", i)
-			}
-			logger.Info("Connecting to Autoscaler at ", bkt.Name())
-			statSink := websocket.NewDurableSendingConnection(bkt.Name(), logger)
+
+			logger.Info("Connecting to Autoscaler at ", dns)
+			statSink := websocket.NewDurableSendingConnection(dns, logger)
 			defer statSink.Shutdown()
-			wss[i] = statSink
+			wss[dns] = statSink
 		}
 
-		processSms = func() {
+		processStatMessages = func() {
 			for sm := range statsCh {
-				b, err := bt.BucketOrdinal(sm.Key)
-				if err != nil {
-					logger.Warnf("failed to fetch bucket ordinal for key %v: %v", sm.Key, err)
+				if bkt.Has(sm.Key) {
+					log.Printf("### owner")
+					acceptStatMessage(sm)
 					continue
 				}
 
-				if b != ordinal {
-					wss[b].Send(sm)
+				log.Printf("### forwarding")
+				if ws, ok := wss[bs.Owner(sm.Key.String())]; ok {
+					ws.Send(sm)
 				} else {
-					acceptSm(sm)
+					logger.Warnf("Couldn't find Pod owner for Stat with Key %d, dropping it", sm.Key)
 				}
 			}
 		}
@@ -232,7 +226,7 @@ func main() {
 
 	go controller.StartAll(ctx, controllers...)
 
-	go processSms()
+	go processStatMessages()
 
 	profilingServer := profiling.NewServer(profilingHandler)
 

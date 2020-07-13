@@ -85,9 +85,10 @@ func process(data []byte) ([]byte, error) {
 	if existingAnnotation != nil {
 		existingAnnotation.Value = checksum
 	} else {
+		sumNode := strNode(checksum)
+		sumNode.Style = yaml.DoubleQuotedStyle
 		annotations.Content = append(annotations.Content,
-			strNode(configmap.ExampleChecksumAnnotation),
-			strNode(checksum))
+			strNode(configmap.ExampleChecksumAnnotation), sumNode)
 	}
 
 	var buffer bytes.Buffer

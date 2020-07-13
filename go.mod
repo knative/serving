@@ -60,5 +60,5 @@ replace (
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 
-	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200708181809-2a0a8c59cf13
+	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200713202726-098e28d4c590
 )
