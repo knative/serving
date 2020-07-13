@@ -95,7 +95,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
-		if c.GCMaxStaleRevisions != -1 && c.GCMinStaleRevisions > c.GCMaxStaleRevisions {
+		if c.GCMaxStaleRevisions >= 0 && c.GCMinStaleRevisions > c.GCMaxStaleRevisions {
 			return nil, fmt.Errorf(
 				"gc-min-stale-revisions(%d) must be <= gc-max-stale-revisions(%d)",
 				c.GCMinStaleRevisions, c.GCMaxStaleRevisions)
