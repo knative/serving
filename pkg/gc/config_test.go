@@ -50,15 +50,21 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            14 * time.Hour,
 			StaleRevisionMinimumGenerations: 10,
-			StaleRevisionMaximumGenerations: 2500,
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
+			GCRetainSinceCreateTime:         17 * time.Hour,
+			GCRetainSinceLastActiveTime:     16 * time.Hour,
+			GCMinStaleRevisions:             5,
+			GCMaxStaleRevisions:             500,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay":        "15h",
 			"stale-revision-timeout":             "14h",
 			"stale-revision-minimum-generations": "10",
-			"stale-revision-maximum-generations": "2500",
 			"stale-revision-lastpinned-debounce": "2h30m44s",
+			"gc-retain-since-create-time":        "17h",
+			"gc-retain-since-last-active-time":   "16h",
+			"gc-min-stale-revisions":             "5",
+			"gc-max-stale-revisions":             "500",
 		},
 	}, {
 		name: "Invalid duration",
@@ -75,6 +81,28 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
+		name: "Invalid negative minimum generation v2",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-min-stale-revisions": "-1",
+		},
+	}, {
+		name: "Invalid negative maximum generation",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-max-stale-revisions": "-2",
+		},
+	}, {
+		name: "Invalid max less than min",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"gc-min-stale-revisions": "20",
+			"gc-max-stale-revisions": "10",
+		},
+	}, {
 		name: "Invalid minimum generation",
 		fail: true,
 		want: nil,
@@ -88,8 +116,11 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            15 * time.Hour,
 			StaleRevisionMinimumGenerations: 20,
-			StaleRevisionMaximumGenerations: 1000,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+			GCRetainSinceCreateTime:         48 * time.Hour,
+			GCRetainSinceLastActiveTime:     15 * time.Hour,
+			GCMinStaleRevisions:             20,
+			GCMaxStaleRevisions:             -1,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay": "15h",

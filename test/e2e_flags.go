@@ -35,6 +35,8 @@ type ServingEnvironmentFlags struct {
 	IngressClass     string // Indicates the class of Ingress provider to test.
 	CertificateClass string // Indicates the class of Certificate provider to test.
 	SystemNamespace  string // Indicates the system namespace, in which Knative Serving is installed.
+	Buckets          int    // The number of reconciler buckets configured.
+	Replicas         int    // The number of controlplane replicas being run.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -50,6 +52,12 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to the ingress class to test against.")
 	flag.StringVar(&f.CertificateClass, "certificateClass", network.CertManagerCertificateClassName,
 		"Set this flag to the certificate class to test against.")
+
+	flag.IntVar(&f.Buckets, "buckets", 1,
+		"Set this flag to the number of reconciler buckets configured.")
+
+	flag.IntVar(&f.Replicas, "replicas", 1,
+		"Set this flag to the number of controlplane replicas being run.")
 
 	return &f
 }
