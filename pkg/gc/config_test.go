@@ -50,7 +50,6 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            14 * time.Hour,
 			StaleRevisionMinimumGenerations: 10,
-			StaleRevisionMaximumGenerations: 1000,
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
 		},
 		data: map[string]string{
@@ -88,7 +87,6 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            15 * time.Hour,
 			StaleRevisionMinimumGenerations: 20,
-			StaleRevisionMaximumGenerations: -1,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 		},
 		data: map[string]string{

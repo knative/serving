@@ -51,14 +51,31 @@ data:
     # considering them for GC.
     stale-revision-minimum-generations: "20"
 
-    # Maximum number of generations of non-active revisions to keep regardless of
-    # creation or staleness time-bounds
-    # Set to -1 to disable this setting.
-    #
-    # ALPHA NOTE: Note this behavior will be applied only when the
-    #             'responsive-revision-gc' feature is enabled.
-    stale-revision-maximum-generations: "-1"
-
     # To avoid constant updates, we allow an existing annotation to be stale by this
     # amount before we update the timestamp.
     stale-revision-lastpinned-debounce: "5h"
+
+
+    # ---------------------------------------
+    # V2 Garbage Collector Settings
+    # ---------------------------------------
+    #
+    # These settings are enabled via the 'responsive-revision-gc' feature flag.
+    # ALPHA NOTE: This feature is still experimental and under active development.
+
+    # Duration since revision creation before considering it for GC.
+    gc-retain-since-create-time: "48h"
+
+    # Duration since a route has pointed at the revision
+    # before considering it for GC.
+    gc-retain-since-last-active-time: "15h"
+
+    # Minimum number of non-active revisions to retain.
+    gc-min-stale-revisions: 0
+
+    # Maximum number of non-active revisions to retain regardless of
+    # creation or staleness time-bounds.
+    #
+    # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
+    # as they are considered stale as long as there are more than gc-min-stale-revisions.
+    gc-max-stale-revisions: -1
