@@ -59,10 +59,9 @@ type podCounts struct {
 type Reconciler struct {
 	*areconciler.Base
 
-	endpointsLister corev1listers.EndpointsLister
-	podsLister      corev1listers.PodLister
-	deciders        resources.Deciders
-	scaler          *scaler
+	podsLister corev1listers.PodLister
+	deciders   resources.Deciders
+	scaler     *scaler
 }
 
 // Check that our Reconciler implements pareconciler.Interface
@@ -127,29 +126,25 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
-
-	// Compare the desired and observed resources to determine our situation.
-	// We fetch private endpoints here, since for scaling we're interested in the actual
-	// state of the deployment.
-	ready, notReady := 0, 0
-
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
+
+	// Compare the desired and observed resources to determine our situation.
+	ready, notReady := 0, 0
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	// Currently, SKS.IsReady==True when revision has >0 ready pods.
 	if sks.IsReady() {
-		podEndpointCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
-		ready, err = podEndpointCounter.ReadyCount()
+		ready, err = podCounter.ReadyCount()
 		if err != nil {
-			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
+			return fmt.Errorf("error getting ready pods %s: %w", sks.Status.PrivateServiceName, err)
 		}
 
-		notReady, err = podEndpointCounter.NotReadyCount()
+		notReady, err = podCounter.NotReadyCount()
 		if err != nil {
-			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
+			return fmt.Errorf("error getting not ready pods %s: %w", sks.Status.PrivateServiceName, err)
 		}
 	}
 
-	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	pending, terminating, err := podCounter.PendingTerminatingCount()
 	if err != nil {
 		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
