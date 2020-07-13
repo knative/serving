@@ -43,8 +43,8 @@ type Config struct {
 	// -1 to disable minimum and fill up to max. Either min or max must be set.
 	StaleRevisionMinimumGenerations int64
 	// Maximum number of stale revisions to keep before considering for GC.
-	//  If creation or staleness time-bounds are set, the system will ignore
-	// those times to achieve this cap. -1 to disable a maximum bound.
+	// regardless of creation or staleness time-bounds
+	// Set -1 to disable this setting.
 	// Either min or max must be set.
 	StaleRevisionMaximumGenerations int64
 	// Minimum staleness duration before updating lastPinned
@@ -57,7 +57,7 @@ func defaultConfig() *Config {
 		StaleRevisionTimeout:            15 * time.Hour,
 		StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 		StaleRevisionMinimumGenerations: 20,
-		StaleRevisionMaximumGenerations: 1000,
+		StaleRevisionMaximumGenerations: -1,
 	}
 }
 
@@ -72,8 +72,8 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
 			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
 
-			cm.AsInt64("stale-revision-maximum-generations", &c.StaleRevisionMaximumGenerations),
 			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
+			cm.AsInt64("stale-revision-maximum-generations", &c.StaleRevisionMaximumGenerations),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}

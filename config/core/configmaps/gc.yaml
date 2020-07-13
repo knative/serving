@@ -47,17 +47,17 @@ data:
     # resync period (10 hours).
     stale-revision-timeout: "15h"
 
-    # Minimum number of generations of revisions to keep before considering
-    # them for GC.
+    # Minimum number of generations of non-active revisions to keep before
+    # considering them for GC.
     stale-revision-minimum-generations: "20"
 
-    # Maximum number of generations of revisions to keep regardless of
+    # Maximum number of generations of non-active revisions to keep regardless of
     # creation or staleness time-bounds
     # Set to -1 to disable this setting.
     #
     # ALPHA NOTE: Note this behavior will be applied only when the
     #             'responsive-revision-gc' feature is enabled.
-    stale-revision-maximum-generations: "1000"
+    stale-revision-maximum-generations: "-1"
 
     # To avoid constant updates, we allow an existing annotation to be stale by this
     # amount before we update the timestamp.
