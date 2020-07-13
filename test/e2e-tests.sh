@@ -102,13 +102,19 @@ if (( HTTPS )); then
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
+
+# Keep this in sync with test/ha/ha.go
+readonly REPLICAS=2
+readonly BUCKETS=10
+
+
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
 add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
 # Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"buckets": "10"}}' || failed=1
+  --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || failed=1
 add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*buckets.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 
 # Save activator HPA original values for later use.
@@ -116,7 +122,7 @@ hpa_spec=$(echo '{"spec": {'$(kubectl get hpa activator -n "knative-serving" -oj
 
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
-  --patch '{"spec": {"minReplicas": 2, "maxReplicas": 2}}' || failed=1
+  --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || failed=1
 add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
   --type 'merge' \
   --patch $hpa_spec" SIGKILL SIGTERM SIGQUIT
@@ -127,7 +133,7 @@ for deployment in controller autoscaler-hpa webhook; do
   # Give it time to kill the pods.
   sleep 5
   # Scale up components for HA tests
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
 done
 add_trap "for deployment in controller autoscaler-hpa webhook; do \
   kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
@@ -201,7 +207,8 @@ fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
+	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 

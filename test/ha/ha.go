@@ -32,8 +32,7 @@ import (
 )
 
 const (
-	haReplicas = 2
-	numBuckets = 10 // Keep this in sync with test/e2e-test.sh
+	NumControllerReconcilers = 7 // Keep in sync with ./cmd/controller/main.go
 )
 
 func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {

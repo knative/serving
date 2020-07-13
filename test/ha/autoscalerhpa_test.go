@@ -42,12 +42,12 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), haReplicas); err != nil {
-		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, test.ServingFlags.Replicas, err)
 	}
 
 	// TODO(mattmoor): Once we switch to the new sharded leader election, we should use more than a single bucket here, but the test is still interesting.
-	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), sets.NewString(), numBuckets)
+	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -74,7 +74,7 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	}
 
 	// Wait for all of the old leaders to go away, and then for the right number to be back.
-	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), leaders, numBuckets); err != nil {
+	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 
