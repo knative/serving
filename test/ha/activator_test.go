@@ -64,8 +64,8 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 
 	podDeleteOptions := &metav1.DeleteOptions{GracePeriodSeconds: gracePeriod}
 
-	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, activatorDeploymentName, system.Namespace(), haReplicas); err != nil {
-		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, haReplicas, err)
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, activatorDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", activatorDeploymentName, test.ServingFlags.Replicas, err)
 	}
 	activators, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
@@ -125,7 +125,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 		if err := pkgTest.WaitForPodDeleted(clients.KubeClient, activator.Name, system.Namespace()); err != nil {
 			t.Fatalf("Did not observe %s to actually be deleted: %v", activator.Name, err)
 		}
-		if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, haReplicas); err != nil {
+		if err := pkgTest.WaitForServiceEndpoints(clients.KubeClient, resourcesScaleToZero.Revision.Name, test.ServingNamespace, test.ServingFlags.Replicas); err != nil {
 			t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 		}
 		if gracePeriod != nil && *gracePeriod == 0 {
