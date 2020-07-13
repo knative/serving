@@ -143,6 +143,15 @@ sleep 30
 go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
+  `# Run TestServiceWithTrafficSplit separately due to 503 flaking` \
+  -run="Test[^ServiceWithTrafficSplit]" \
+  ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+go_test_e2e -timeout=30m \
+  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+  ./test/e2e \
+  -run="TestServiceWithTrafficSplit" \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
