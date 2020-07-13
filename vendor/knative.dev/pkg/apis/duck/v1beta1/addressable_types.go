@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
-	v1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/apis/duck/ducktypes"
+	"knative.dev/pkg/apis/duck/v1"
 )
 
 // +genduck
@@ -41,8 +41,6 @@ type Addressable struct {
 }
 
 var (
-	// Addressable is an Implementable "duck type".
-	_ duck.Implementable = (*Addressable)(nil)
 	// Addressable is a Convertible type.
 	_ apis.Convertible = (*Addressable)(nil)
 )
@@ -67,13 +65,11 @@ type AddressStatus struct {
 }
 
 var (
-	// Verify AddressableType resources meet duck contracts.
-	_ duck.Populatable = (*AddressableType)(nil)
-	_ apis.Listable    = (*AddressableType)(nil)
+	_ apis.Listable = (*AddressableType)(nil)
 )
 
 // GetFullType implements duck.Implementable
-func (*Addressable) GetFullType() duck.Populatable {
+func (*Addressable) GetFullType() ducktypes.Populatable {
 	return &AddressableType{}
 }
 
