@@ -28,10 +28,9 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
-const hasBeenActiveAnnotation = "HasBeenActive"
-
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
+	PodAutoscalerConditionScaleTargetInitialized,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -174,20 +173,16 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsFalse()
 }
 
-// HasBeenActive returns true if the pod autoscaler has reached its initial scale.
-func (pas *PodAutoscalerStatus) HasBeenActive() bool {
-	if val, ok := pas.Annotations[hasBeenActiveAnnotation]; !ok || val != "true" {
-		return false
-	}
-	return true
+// IsScaleTargetInitialized returns true if the PodAutoscaler's scale target has been
+// initialized successfully.
+func (pas *PodAutoscalerStatus) IsScaleTargetInitialized() bool {
+	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue()
 }
 
-// MarkHasBeenActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
-func (pas *PodAutoscalerStatus) MarkHasBeenActive() {
-	if pas.Annotations == nil {
-		pas.Annotations = map[string]string{}
-	}
-	pas.Annotations[hasBeenActiveAnnotation] = "true"
+// MarkScaleTargetInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
+// condition true.
+func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
 // GetCondition gets the condition `t`.

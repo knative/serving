@@ -34,7 +34,70 @@ const (
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
-func TestNewPrometheusStatsReporter_negative(t *testing.T) {
+var testCases = []struct {
+	name                        string
+	reportingPeriod             time.Duration
+	concurrency                 float64
+	proxiedConcurrency          float64
+	reqCount                    float64
+	proxiedReqCount             float64
+	expectedReqCount            float64
+	expectedProxiedRequestCount float64
+	expectedConcurrency         float64
+	expectedProxiedConcurrency  float64
+}{{
+	name:            "no proxy requests",
+	reportingPeriod: 1 * time.Second,
+
+	reqCount:    39,
+	concurrency: 3,
+
+	expectedReqCount:            39,
+	expectedConcurrency:         3,
+	expectedProxiedRequestCount: 0,
+	expectedProxiedConcurrency:  0,
+}, {
+	name:            "reportingPeriod=10s",
+	reportingPeriod: 10 * time.Second,
+
+	reqCount:           39,
+	concurrency:        3,
+	proxiedReqCount:    15,
+	proxiedConcurrency: 2,
+
+	expectedReqCount:            3.9,
+	expectedConcurrency:         3,
+	expectedProxiedRequestCount: 1.5,
+	expectedProxiedConcurrency:  2,
+}, {
+	name:            "reportingPeriod=2s",
+	reportingPeriod: 2 * time.Second,
+
+	reqCount:           39,
+	concurrency:        3,
+	proxiedReqCount:    15,
+	proxiedConcurrency: 2,
+
+	expectedReqCount:            19.5,
+	expectedConcurrency:         3,
+	expectedProxiedRequestCount: 7.5,
+	expectedProxiedConcurrency:  2,
+}, {
+	name:            "reportingPeriod=1s",
+	reportingPeriod: 1 * time.Second,
+
+	reqCount:           39,
+	concurrency:        3,
+	proxiedReqCount:    15,
+	proxiedConcurrency: 2,
+
+	expectedReqCount:            39,
+	expectedConcurrency:         3,
+	expectedProxiedRequestCount: 15,
+	expectedProxiedConcurrency:  2,
+}}
+
+func TestNewPrometheusStatsReporterNegative(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorMsg  string
@@ -44,37 +107,33 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 		revision  string
 		pod       string
 	}{{
-		"Empty_Namespace_Value",
-		"Expected namespace empty error",
-		errors.New("namespace must not be empty"),
-		"",
-		config,
-		revision,
-		pod,
+		name:     "Empty_Namespace_Value",
+		errorMsg: "Expected namespace empty error",
+		result:   errors.New("namespace must not be empty"),
+		config:   config,
+		revision: revision,
+		pod:      pod,
 	}, {
-		"Empty_Config_Value",
-		"Expected config empty error",
-		errors.New("config must not be empty"),
-		namespace,
-		"",
-		revision,
-		pod,
+		name:      "Empty_Config_Value",
+		errorMsg:  "Expected config empty error",
+		result:    errors.New("config must not be empty"),
+		namespace: namespace,
+		revision:  revision,
+		pod:       pod,
 	}, {
-		"Empty_Revision_Value",
-		"Expected revision empty error",
-		errors.New("revision must not be empty"),
-		namespace,
-		config,
-		"",
-		pod,
+		name:      "Empty_Revision_Value",
+		errorMsg:  "Expected revision empty error",
+		result:    errors.New("revision must not be empty"),
+		namespace: namespace,
+		config:    config,
+		pod:       pod,
 	}, {
-		"Empty_Pod_Value",
-		"Expected pod empty error",
-		errors.New("pod must not be empty"),
-		namespace,
-		config,
-		revision,
-		"",
+		name:      "Empty_Pod_Value",
+		errorMsg:  "Expected pod empty error",
+		result:    errors.New("pod must not be empty"),
+		namespace: namespace,
+		config:    config,
+		revision:  revision,
 	}}
 
 	for _, test := range tests {
@@ -86,73 +145,8 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 	}
 }
 
-func TestReporterReport(t *testing.T) {
-	tests := []struct {
-		name            string
-		reportingPeriod time.Duration
-
-		concurrency        float64
-		proxiedConcurrency float64
-		reqCount           float64
-		proxiedReqCount    float64
-
-		expectedReqCount            float64
-		expectedProxiedRequestCount float64
-		expectedConcurrency         float64
-		expectedProxiedConcurrency  float64
-	}{{
-		name:            "no proxy requests",
-		reportingPeriod: 1 * time.Second,
-
-		reqCount:    39,
-		concurrency: 3,
-
-		expectedReqCount:            39,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 0,
-		expectedProxiedConcurrency:  0,
-	}, {
-		name:            "reportingPeriod=10s",
-		reportingPeriod: 10 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            3.9,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 1.5,
-		expectedProxiedConcurrency:  2,
-	}, {
-		name:            "reportingPeriod=2s",
-		reportingPeriod: 2 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            19.5,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 7.5,
-		expectedProxiedConcurrency:  2,
-	}, {
-		name:            "reportingPeriod=1s",
-		reportingPeriod: 1 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            39,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 15,
-		expectedProxiedConcurrency:  2,
-	}}
-
-	for _, test := range tests {
+func TestProtobufStatsReporterReport(t *testing.T) {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, test.reportingPeriod)
 			if err != nil {

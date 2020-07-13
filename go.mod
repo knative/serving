@@ -24,11 +24,11 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
-	google.golang.org/api v0.28.0
+	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.30.0
 	istio.io/api v0.0.0-20200512234804-e5412c253ffe
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
@@ -38,10 +38,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200630172829-a78409990d76
-	knative.dev/networking v0.0.0-20200630191330-5080f859c17d
-	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
-	knative.dev/test-infra v0.0.0-20200707183444-aed09e56ddc7
+	knative.dev/caching v0.0.0-20200707200344-95a2aaeace0f
+	knative.dev/networking v0.0.0-20200707203944-725ec013d8a2
+	knative.dev/pkg v0.0.0-20200713031612-b09a159e12c9
+	knative.dev/test-infra v0.0.0-20200713045417-850e4e37918d
 )
 
 replace (

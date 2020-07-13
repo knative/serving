@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2020 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gc
+package v2
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/logging"
@@ -30,28 +29,21 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
-// reconciler implements controller.Reconciler for Garbage Collection resources.
-type reconciler struct {
-	client clientset.Interface
-
-	// listers index properties about resources
-	revisionLister listers.RevisionLister
-}
-
-// Check that our reconciler implements configreconciler.Interface
-var _ configreconciler.Interface = (*reconciler)(nil)
-
-func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
+// Collect deletes stale revisions if they are sufficiently old
+func Collect(
+	ctx context.Context,
+	client clientset.Interface,
+	revisionLister listers.RevisionLister,
+	config *v1.Configuration) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
-	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
+	revs, err := revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
 		return err
 	}
@@ -62,14 +54,15 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 		return nil
 	}
 
-	// Sort by creation timestamp descending
+	// Sort by last active descending
 	sort.Slice(revs, func(i, j int) bool {
-		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
+		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
+		return a.After(b)
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
 		if isRevisionStale(ctx, rev, config) {
-			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
@@ -83,34 +76,43 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
-
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
-
 	curTime := time.Now()
-	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
+	createTime := rev.ObjectMeta.CreationTimestamp
+
+	if createTime.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
 		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
 		return false
 	}
 
-	lastPin, err := rev.GetLastPinned()
-	if err != nil {
-		if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
-			logger.Errorw("Failed to determine revision last pinned", zap.Error(err))
-		} else {
-			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
-			// It usually happens when ksvc was deployed with wrong configuration.
-			rc := rev.Status.GetCondition(v1.RevisionConditionReady)
-			if rc == nil || rc.Status != corev1.ConditionTrue {
-				return true
-			}
-		}
-		return false
+	lastActive := revisionLastActiveTime(rev)
+
+	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
+	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
+	if lastActive.Equal(createTime.Time) {
+		// Revision was never active and it's not ready after staleRevisionCreateDelay.
+		// It usually happens when ksvc was deployed with wrong configuration.
+		return !rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	}
 
-	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	ret := lastActive.Add(cfg.StaleRevisionTimeout).Before(curTime)
 	if ret {
-		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
+		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
+			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastActive)
 	}
 	return ret
+}
+
+// revisionLastActiveTime returns if present:
+// routingStateModified, then lastPinnedTime, then the created time.
+// This is used for sort-ordering by most recently active.
+func revisionLastActiveTime(rev *v1.Revision) time.Time {
+	if t := rev.GetRoutingStateModified(); !t.IsZero() {
+		return t
+	}
+	if t, err := rev.GetLastPinned(); err == nil {
+		return t
+	}
+	return rev.ObjectMeta.GetCreationTimestamp().Time
 }

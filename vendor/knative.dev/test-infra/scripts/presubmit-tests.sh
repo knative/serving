@@ -17,7 +17,7 @@
 # This is a helper script for Knative presubmit test scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname ${BASH_SOURCE})/library.sh
+source $(dirname "${BASH_SOURCE[0]}")/library.sh
 
 # Custom configuration of presubmit tests
 readonly DISABLE_MD_LINTING=${DISABLE_MD_LINTING:-0}
@@ -113,7 +113,7 @@ function report_build_test() {
   local report_name="$1"
   shift
   local errors=""
-  capture_output "${report}" "$@" || errors="$(cat ${report})"
+  capture_output "${report}" "$@" || errors="$(cat "${report}")"
   create_junit_xml _build_tests "${report_name}" "${errors}"
   [[ -z "${errors}" ]]
 }
@@ -130,11 +130,11 @@ function markdown_build_tests() {
   local failed=0
   if (( ! DISABLE_MD_LINTING )); then
     subheader "Linting the markdown files"
-    report_build_test Markdown_Lint lint_markdown ${mdfiles} || failed=1
+    report_build_test Markdown_Lint lint_markdown "${mdfiles}" || failed=1
   fi
   if (( ! DISABLE_MD_LINK_CHECK )); then
     subheader "Checking links in the markdown files"
-    report_build_test Markdown_Link check_links_in_markdown ${mdfiles} || failed=1
+    report_build_test Markdown_Link check_links_in_markdown "${mdfiles}" || failed=1
   fi
   return ${failed}
 }
@@ -181,7 +181,7 @@ function default_build_test_runner() {
     | sort | uniq | tr '\n' ' ')"
   for pkg in ${tagged_pkgs}; do
     # `go test -c` lets us compile the tests but do not run them.
-    if ! capture_output "${report}" go test -c -tags="${tags}" ${pkg} ; then
+    if ! capture_output "${report}" go test -c -tags="${tags}" "${pkg}" ; then
       failed=1
       # Consider an error message everything that's not a successful test result.
       errors_go2+="$(grep -v '^\(ok\|\?\)\s\+\(github\.com\|knative\.dev\)/' "${report}")"
@@ -266,6 +266,8 @@ function run_integration_tests() {
 
 # Default integration test runner that runs all `test/e2e-*tests.sh`.
 function default_integration_test_runner() {
+  # options is always empty.
+  # TODO: remove it or indeed allow passing options.
   local options=""
   local failed=0
   for e2e_test in $(find test/ -name e2e-*tests.sh); do
@@ -324,7 +326,7 @@ function main() {
     echo ">> node name"
     echo "$(curl -H "Metadata-Flavor: Google" 'http://169.254.169.254/computeMetadata/v1/instance/name' 2> /dev/null)"
     echo ">> pod name"
-    echo ${HOSTNAME}
+    echo "${HOSTNAME}"
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"
@@ -357,7 +359,7 @@ function main() {
   readonly RUN_INTEGRATION_TESTS
   readonly TESTS_TO_RUN
 
-  cd ${REPO_ROOT_DIR}
+  cd "${REPO_ROOT_DIR}" || exit
 
   # Tests to be performed, in the right order if --all-tests is passed.
 

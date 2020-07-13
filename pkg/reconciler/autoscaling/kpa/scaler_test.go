@@ -265,6 +265,20 @@ func TestScaler(t *testing.T) {
 			markSKSInProxyFor(s, gracePeriod)
 		},
 	}, {
+		label:         "scale to zero with TBC=-1",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.Annotations[autoscaling.TargetBurstCapacityKey] = "-1"
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
+			panic("should not be called")
+		},
+		wantAsyncProbeCount: 0,
+	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
 		scaleTo:       0,
@@ -402,6 +416,26 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
+		},
+	}, {
+		label:         "haven't scaled to initial scale, override desired scale with initial scale",
+		startReplicas: 0,
+		scaleTo:       1,
+		wantReplicas:  2,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+	}, {
+		label:         "initial scale reached for the first time",
+		startReplicas: 5,
+		scaleTo:       1,
+		wantReplicas:  5,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
 		},
 	}}
 

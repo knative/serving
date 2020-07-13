@@ -80,8 +80,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress, isPrivate)
+func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
 
 	var lbStatus *netv1alpha1.LoadBalancerStatus
@@ -162,7 +162,8 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 		// sure the domain name is available for access within the
 		// mesh.
 		return &corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: networking.ServicePortNameHTTP1,
 				Port: networking.ServiceHTTPPort,
