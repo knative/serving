@@ -18,6 +18,7 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	cm "knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 const (
@@ -76,13 +78,25 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
-		if c.StaleRevisionMinimumGenerations < 0 {
-			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
-		}
+		if f, err := config.NewFeaturesConfigFromConfigMap(configMap); err == nil && f.ResponsiveRevisionGC == config.Enabled {
+			if c.StaleRevisionMinimumGenerations < -1 {
+				return nil, fmt.Errorf("stale-revision-minimum-generations must be > -2, was: %d", c.StaleRevisionMinimumGenerations)
+			}
+			if c.StaleRevisionMaximumGenerations < -1 {
+				return nil, fmt.Errorf("stale-revision-maximum-generations must be > -2, was: %d", c.StaleRevisionMinimumGenerations)
+			}
+			if c.StaleRevisionMinimumGenerations < -1 && c.StaleRevisionMaximumGenerations < -1 {
+				return nil, errors.New("either stale-revision-minimum-generations or stale-revision-maximum-generations must be > -1")
+			}
+		} else {
+			if c.StaleRevisionMinimumGenerations < 0 {
+				return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
+			}
 
-		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
-			logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
-			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
+			if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
+				logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
+				c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
+			}
 		}
 		return c, nil
 	}
