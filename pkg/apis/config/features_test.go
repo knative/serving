@@ -59,10 +59,10 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			MultiContainer:                 Enabled,
-			PodSpecDryRun:                  Enabled,
-			PreventActiveRevisionDeletions: Enabled,
-			ResponsiveRevisionGC:           Enabled,
+			MultiContainer:                Enabled,
+			PodSpecDryRun:                 Enabled,
+			PreventActiveRevisionDeletion: Enabled,
+			ResponsiveRevisionGC:          Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":                  "Enabled",
@@ -137,14 +137,14 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "prevent-active-revision-deletion Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			PreventActiveRevisionDeletions: Allowed,
+			PreventActiveRevisionDeletion: Allowed,
 		}),
 		data: map[string]string{"prevent-active-revision-deletion": "Allowed"},
 	}, {
 		name:    "prevent-active-revision-deletion Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			PreventActiveRevisionDeletions: Enabled,
+			PreventActiveRevisionDeletion: Enabled,
 		}),
 		data: map[string]string{
 			"prevent-active-revision-deletion": "Enabled",
