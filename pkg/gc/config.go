@@ -43,7 +43,7 @@ type Config struct {
 	StaleRevisionLastpinnedDebounce time.Duration
 
 	// Duration from creation when a Revision should be considered active
-	//  and exempt from GC. Note that GCMaxStaleRevision may override this if set.
+	// and exempt from GC. Note that GCMaxStaleRevision may override this if set.
 	GCRetainSinceCreateTime time.Duration
 	// Duration from last active when a Revision should be considered active
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
