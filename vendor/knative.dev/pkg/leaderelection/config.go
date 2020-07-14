@@ -52,11 +52,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsDuration("retryPeriod", &config.RetryPeriod),
 
 		cm.AsUint32("buckets", &config.Buckets),
-
-		// enabledComponents are not validated here, because they are dependent on
-		// the component. Components should provide additional validation for this
-		// field.
-		cm.AsStringSet("enabledComponents", &config.EnabledComponents),
 	); err != nil {
 		return nil, err
 	}
@@ -80,42 +75,39 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // contained within a single namespace. Typically these will correspond to a
 // single source repository, viz: serving or eventing.
 type Config struct {
-	Buckets           uint32
-	LeaseDuration     time.Duration
-	RenewDeadline     time.Duration
-	RetryPeriod       time.Duration
+	Buckets       uint32
+	LeaseDuration time.Duration
+	RenewDeadline time.Duration
+	RetryPeriod   time.Duration
+
+	// This field is deprecated and will be removed once downstream
+	// repositories have removed their validation of it.
+	// TODO(https://github.com/knative/pkg/issues/1478): Remove this field.
 	EnabledComponents sets.String
 }
 
 func (c *Config) GetComponentConfig(name string) ComponentConfig {
-	if c.EnabledComponents.Has(name) {
-		return ComponentConfig{
-			Component:     name,
-			LeaderElect:   true,
-			Buckets:       c.Buckets,
-			LeaseDuration: c.LeaseDuration,
-			RenewDeadline: c.RenewDeadline,
-			RetryPeriod:   c.RetryPeriod,
-		}
+	return ComponentConfig{
+		Component:     name,
+		Buckets:       c.Buckets,
+		LeaseDuration: c.LeaseDuration,
+		RenewDeadline: c.RenewDeadline,
+		RetryPeriod:   c.RetryPeriod,
 	}
-
-	return defaultComponentConfig(name)
 }
 
 func defaultConfig() *Config {
 	return &Config{
-		Buckets:           1,
-		LeaseDuration:     15 * time.Second,
-		RenewDeadline:     10 * time.Second,
-		RetryPeriod:       2 * time.Second,
-		EnabledComponents: sets.NewString(),
+		Buckets:       1,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
 	}
 }
 
 // ComponentConfig represents the leader election config for a single component.
 type ComponentConfig struct {
 	Component     string
-	LeaderElect   bool
 	Buckets       uint32
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
@@ -155,13 +147,6 @@ func newStatefulSetConfig() (*statefulSetConfig, error) {
 		return nil, err
 	}
 	return ssc, nil
-}
-
-func defaultComponentConfig(name string) ComponentConfig {
-	return ComponentConfig{
-		Component:   name,
-		LeaderElect: false,
-	}
 }
 
 // ConfigMapName returns the name of the configmap to read for leader election
