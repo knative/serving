@@ -39,6 +39,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
+	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -343,15 +344,7 @@ func TestIsRevisionStale(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config := &v1.Configuration{
-				Status: v1.ConfigurationStatus{
-					ConfigurationStatusFields: v1.ConfigurationStatusFields{
-						LatestReadyRevisionName: test.latestRev,
-					},
-				},
-			}
-
-			got := isRevisionStale(context.Background(), cfg, test.rev, config)
+			got := isRevisionStale(cfg, test.rev, TestLogger(t))
 
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
