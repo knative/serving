@@ -187,7 +187,7 @@ func main() {
 
 		// Build the WebSocket connections for forwarding.
 		wss, withForwarding := forwardingStatsNetworking(bucketSize, acceptStat, logger)
-		acceptStat = withForwarding
+		processStat = withForwarding
 		// Close the WebSocket connections when shuting down.
 		for _, ws := range wss {
 			defer ws.Shutdown()
