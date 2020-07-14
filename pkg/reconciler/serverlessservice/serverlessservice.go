@@ -134,7 +134,7 @@ func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoi
 		return eps
 	}
 
-	addrs := sets.NewString()
+	addrs := make(sets.String, len(eps.Subsets[0].Addresses))
 	for _, ss := range eps.Subsets {
 		for _, addr := range ss.Addresses {
 			addrs.Insert(addr.IP)
