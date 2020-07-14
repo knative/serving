@@ -22,11 +22,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/serving/pkg/autoscaler/metrics"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/network"
 
 	dto "github.com/prometheus/client_model/go"
@@ -54,8 +53,8 @@ var testCases = []struct {
 		RequestCount:       39,
 	},
 	want: metrics.Stat{
-		RequestCount:              39,
 		AverageConcurrentRequests: 3,
+		RequestCount:              39,
 	},
 }, {
 	name:            "reportingPeriod=10s",
@@ -63,14 +62,14 @@ var testCases = []struct {
 	report: network.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
-		RequestCount:              39,
 		ProxiedRequestCount:       15,
+		RequestCount:              39,
 	},
 	want: metrics.Stat{
-		RequestCount:                     3.9,
 		AverageConcurrentRequests:        3,
-		ProxiedRequestCount:              1.5,
 		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              1.5,
+		RequestCount:                     3.9,
 	},
 }, {
 	name:            "reportingPeriod=2s",
@@ -79,14 +78,14 @@ var testCases = []struct {
 	report: network.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
-		RequestCount:              39,
 		ProxiedRequestCount:       15,
+		RequestCount:              39,
 	},
 	want: metrics.Stat{
-		RequestCount:                     19.5,
 		AverageConcurrentRequests:        3,
-		ProxiedRequestCount:              7.5,
 		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              7.5,
+		RequestCount:                     19.5,
 	},
 }, {
 	name:            "reportingPeriod=1s",
@@ -95,14 +94,14 @@ var testCases = []struct {
 	report: network.RequestStatsReport{
 		AverageConcurrency:        3,
 		AverageProxiedConcurrency: 2,
-		RequestCount:              39,
 		ProxiedRequestCount:       15,
+		RequestCount:              39,
 	},
 	want: metrics.Stat{
-		RequestCount:                     39,
 		AverageConcurrentRequests:        3,
-		ProxiedRequestCount:              15,
 		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              15,
+		RequestCount:                     39,
 	},
 }}
 
