@@ -66,14 +66,17 @@ func Collect(
 			continue
 		}
 
-		if isRevisionStale(ctx, cfg, rev, config) {
+		if isRevisionStale(cfg, rev, logger) {
 			numStale++
 		}
 
 		if total > maxStale || numStale > minStale {
-			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			err := client.ServingV1().Revisions(rev.Namespace).Delete(
+				rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
-				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
+				logger.With(
+					zap.Error(err)).Errorf(
+					"Failed to delete stale revision %q", rev.Name)
 				continue
 			}
 		}
@@ -88,32 +91,20 @@ func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 	return rev.GetRoutingState() != v1.RoutingStateReserve
 }
 
-func isRevisionStale(ctx context.Context, cfg *gc.Config, rev *v1.Revision, config *v1.Configuration) bool {
-	logger := logging.FromContext(ctx)
+func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger) bool {
 	curTime := time.Now()
 	createTime := rev.ObjectMeta.CreationTimestamp
-
 	if createTime.Add(cfg.GCRetainSinceCreateTime).After(curTime) {
 		// Revision was created sooner than GCRetainSinceCreateTime. Ignore it.
 		return false
 	}
 
-	lastActive := revisionLastActiveTime(rev)
-
-	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
-	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
-	if lastActive.Equal(createTime.Time) {
-		// Revision was never active and it's not ready after GCRetainSinceCreateTime.
-		// It usually happens when ksvc was deployed with wrong configuration.
-		return !rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
-	}
-
-	ret := lastActive.Add(cfg.GCRetainSinceLastActiveTime).Before(curTime)
-	if ret {
+	if a := revisionLastActiveTime(rev); a.Add(cfg.GCRetainSinceLastActiveTime).Before(curTime) {
 		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
-			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastActive)
+			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, a)
+		return true
 	}
-	return ret
+	return false
 }
 
 // revisionLastActiveTime returns if present:
