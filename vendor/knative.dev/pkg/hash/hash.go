@@ -61,7 +61,7 @@ type hashData struct {
 }
 
 func (hd *hashData) fromIndexSet(s sets.Int) sets.String {
-	ret := sets.NewString()
+	ret := make(sets.String, len(s))
 	for v := range s {
 		ret.Insert(hd.nameForHIndex(v))
 	}

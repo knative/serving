@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "c2432c21"
+    knative.dev/example-checksum: "c675b489"
 data:
   _example: |
     ################################
@@ -64,23 +64,23 @@ data:
     # ALPHA NOTE: This feature is still experimental and under active development.
 
     # Duration since revision creation before considering it for GC.
-    gc-retain-since-create-time: "48h"
+    retain-since-create-time: "48h"
 
     # Duration since a route has pointed at the revision
     # before considering it for GC.
-    gc-retain-since-last-active-time: "15h"
+    retain-since-last-active-time: "15h"
 
     # Minimum number of non-active revisions to retain.
-    gc-min-stale-revisions: 20
+    min-stale-revisions: "20"
 
     # Maximum number of non-active revisions to retain regardless of
     # creation or staleness time-bounds.
     #
-    # Instead of allowing revisions to become stale down to gc-min-stale-revisions,
+    # Instead of allowing revisions to become stale down to min-stale-revisions,
     # this mode will keep around revisions up to this maximum limit. A value of 0
     # will immediately delete any non-active revisions. The expected total number
     # of revisions is the number of active plus this value.
     #
     # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
-    # as they are considered stale as long as there are more than gc-min-stale-revisions.
-    gc-max-stale-revisions: -1
+    # as they are considered stale as long as there are more than min-stale-revisions.
+    max-stale-revisions: "-1"

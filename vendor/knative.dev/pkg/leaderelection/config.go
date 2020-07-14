@@ -32,21 +32,21 @@ import (
 	cm "knative.dev/pkg/configmap"
 )
 
-const configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
+const (
+	configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
+	// KnativeResourceLock is the only supported lock mechanism for Knative.
+	KnativeResourceLock = resourcelock.LeasesResourceLock
+)
 
 // MaxBuckets is the maximum number of buckets to allow users to define.
 // This is a variable so that it may be customized in the binary entrypoint.
 var MaxBuckets uint32 = 10
-
-var validResourceLocks = sets.NewString(resourcelock.LeasesResourceLock)
 
 // NewConfigFromMap returns a Config for the given map, or an error.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	config := defaultConfig()
 
 	if err := cm.Parse(data,
-		cm.AsString("resourceLock", &config.ResourceLock),
-
 		cm.AsDuration("leaseDuration", &config.LeaseDuration),
 		cm.AsDuration("renewDeadline", &config.RenewDeadline),
 		cm.AsDuration("retryPeriod", &config.RetryPeriod),
@@ -59,10 +59,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	if config.Buckets < 1 || config.Buckets > MaxBuckets {
 		return nil, fmt.Errorf("buckets: value must be between %d <= %d <= %d", 1, config.Buckets, MaxBuckets)
 	}
-	if !validResourceLocks.Has(config.ResourceLock) {
-		return nil, fmt.Errorf(`resourceLock: invalid value %q: valid values are "leases"`, config.ResourceLock)
-	}
-
 	return config, nil
 }
 
@@ -79,7 +75,6 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // contained within a single namespace. Typically these will correspond to a
 // single source repository, viz: serving or eventing.
 type Config struct {
-	ResourceLock  string
 	Buckets       uint32
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
@@ -95,7 +90,6 @@ func (c *Config) GetComponentConfig(name string) ComponentConfig {
 	return ComponentConfig{
 		Component:     name,
 		Buckets:       c.Buckets,
-		ResourceLock:  c.ResourceLock,
 		LeaseDuration: c.LeaseDuration,
 		RenewDeadline: c.RenewDeadline,
 		RetryPeriod:   c.RetryPeriod,
@@ -104,7 +98,6 @@ func (c *Config) GetComponentConfig(name string) ComponentConfig {
 
 func defaultConfig() *Config {
 	return &Config{
-		ResourceLock:  "leases",
 		Buckets:       1,
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
@@ -116,7 +109,6 @@ func defaultConfig() *Config {
 type ComponentConfig struct {
 	Component     string
 	Buckets       uint32
-	ResourceLock  string
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
 	RetryPeriod   time.Duration

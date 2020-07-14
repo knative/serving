@@ -34,6 +34,9 @@ import (
 // Conditions is a simple wrapper around apis.Conditions to implement duck.Implementable.
 type Conditions apis.Conditions
 
+// Conditions is an Implementable duck type.
+var _ ducktypes.Implementable = (*Conditions)(nil)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KResource is a skeleton type wrapping Conditions in the manner we expect
@@ -81,8 +84,11 @@ func (s *Status) SetConditions(c apis.Conditions) {
 	s.Conditions = Conditions(c)
 }
 
-// Ensure KResource satisfies apis.Listable
-var _ apis.Listable = (*KResource)(nil)
+// Verify KResource resources meet duck contracts.
+var (
+	_ apis.Listable         = (*KResource)(nil)
+	_ ducktypes.Populatable = (*KResource)(nil)
+)
 
 // GetFullType implements duck.Implementable
 func (*Conditions) GetFullType() ducktypes.Populatable {
