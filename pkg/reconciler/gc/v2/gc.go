@@ -49,9 +49,8 @@ func Collect(
 		return err
 	}
 
-	gcSkipOffset := cfg.GCMinStaleRevisions
-
-	if gcSkipOffset >= int64(len(revs)) {
+	minStale, maxStale := int(cfg.GCMinStaleRevisions), int(cfg.GCMaxStaleRevisions)
+	if l := len(revs); l <= minStale || l <= maxStale {
 		return nil
 	}
 
@@ -61,8 +60,17 @@ func Collect(
 		return a.After(b)
 	})
 
-	for _, rev := range revs[gcSkipOffset:] {
+	numStale := 0
+	for total, rev := range revs {
+		if isRevisionActive(rev, config) {
+			continue
+		}
+
 		if isRevisionStale(ctx, cfg, rev, config) {
+			numStale++
+		}
+
+		if total > maxStale || numStale > minStale {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
@@ -73,10 +81,14 @@ func Collect(
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, cfg *gc.Config, rev *v1.Revision, config *v1.Configuration) bool {
+func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
+	return rev.GetRoutingState() != v1.RoutingStateReserve
+}
+
+func isRevisionStale(ctx context.Context, cfg *gc.Config, rev *v1.Revision, config *v1.Configuration) bool {
 	logger := logging.FromContext(ctx)
 	curTime := time.Now()
 	createTime := rev.ObjectMeta.CreationTimestamp

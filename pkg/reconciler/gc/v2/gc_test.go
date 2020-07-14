@@ -333,19 +333,6 @@ func TestIsRevisionStale(t *testing.T) {
 			},
 		},
 		want: false,
-	}, {
-		name: "stale latest ready revision",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(staleTime),
-				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
-				},
-			},
-		},
-		latestRev: "myrev",
-		want:      false,
 	}}
 
 	cfg := &gcconfig.Config{
