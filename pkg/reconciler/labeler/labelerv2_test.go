@@ -447,6 +447,9 @@ func patchAddRouteAndServingStateLabel(namespace, name, routeName string, now ti
 	action.Namespace = namespace
 
 	state := string(v1.RoutingStateReserve)
+
+	// Note: the raw json `"key": null` removes a value, whereas an actual value
+	// called "null" would need quotes to parse as a string `"key":"null"`.
 	if routeName != "null" {
 		state = string(v1.RoutingStateActive)
 		routeName = `"` + routeName + `"`
