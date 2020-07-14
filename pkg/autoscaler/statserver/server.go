@@ -166,7 +166,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, wsm := range wsms.Messages {
-				if wsm == nil || wsm.Stat == nil {
+				if wsm.Stat == nil {
 					// To allow for future protobuf schema changes.
 					continue
 				}
