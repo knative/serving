@@ -73,7 +73,7 @@ func HostsPerVisibility(ing *v1alpha1.Ingress, visibilityToKey map[v1alpha1.Ingr
 		for host := range ExpandedHosts(sets.NewString(rule.Hosts...)) {
 			for key := range visibilityToKey[rule.Visibility] {
 				if _, ok := output[key]; !ok {
-					output[key] = make(sets.String, 1)
+					output[key] = make(sets.String, len(rule.Hosts))
 				}
 				output[key].Insert(host)
 			}
