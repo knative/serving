@@ -512,6 +512,9 @@ function test_setup() {
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
 
+  echo ">> Waiting for Serving components to be running..."
+  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
+
   local TEST_CONFIG_DIR=${TEST_DIR}/config
   echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
   ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
@@ -524,9 +527,6 @@ function test_setup() {
 
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
-
-  echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
