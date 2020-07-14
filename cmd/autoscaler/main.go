@@ -63,7 +63,6 @@ import (
 const (
 	statsServerAddr = ":8080"
 	statsBufferLen  = 1000
-	statefulSetName = "autoscaler"
 	component       = "autoscaler"
 	controllerNum   = 2
 )
@@ -165,8 +164,8 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	// Needs to be called after informaers have started.
-	ss, err := statefulsetLister.StatefulSets(ns).Get(statefulSetName)
+	// Needs to be called after informers have started.
+	ss, err := statefulsetLister.StatefulSets(ns).Get(component)
 	if err != nil {
 		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
 	}
@@ -209,12 +208,10 @@ func main() {
 		processStatMessages = func() {
 			for sm := range statsCh {
 				if bkt.Has(sm.Key) {
-					log.Printf("### owner")
 					acceptStatMessage(sm)
 					continue
 				}
 
-				log.Printf("### forwarding")
 				if ws, ok := wss[bs.Owner(sm.Key.String())]; ok {
 					ws.Send(sm)
 				} else {
