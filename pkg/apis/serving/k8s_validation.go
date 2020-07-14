@@ -74,7 +74,7 @@ var (
 )
 
 func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
-	volumes := sets.NewString()
+	volumes := make(sets.String, len(vs))
 	var errs *apis.FieldError
 	for i, volume := range vs {
 		if volumes.Has(volume.Name) {
@@ -308,6 +308,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 	return errs
 }
 
+// AllMountedVolumes returns all the mounted volumes in all the containers.
 func AllMountedVolumes(containers []corev1.Container) sets.String {
 	volumeNames := sets.NewString()
 	for _, c := range containers {
@@ -445,8 +446,8 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
-	seenName := sets.NewString()
-	seenMountPath := sets.NewString()
+	seenName := make(sets.String, len(mounts))
+	seenMountPath := make(sets.String, len(mounts))
 	for i, vm := range mounts {
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
