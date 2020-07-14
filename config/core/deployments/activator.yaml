@@ -103,7 +103,7 @@ spec:
       # should be at least as large as the upper bound on the Revision's
       # timeoutSeconds property to avoid servicing events disrupting
       # connections.
-      terminationGracePeriodSeconds: 300
+      terminationGracePeriodSeconds: 600
 
 ---
 apiVersion: v1
