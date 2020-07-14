@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
-	pkgleaderelection "knative.dev/pkg/leaderelection"
+	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
@@ -42,7 +42,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/leaderelection"
 	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
@@ -152,16 +151,16 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 		// The configmaps to validate.
 		configmap.Constructors{
-			tracingconfig.ConfigName:          tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:       autoscalerconfig.NewConfigFromConfigMap,
-			gc.ConfigName:                     gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:                network.NewConfigFromConfigMap,
-			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():           metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():           logging.NewConfigFromConfigMap,
-			pkgleaderelection.ConfigMapName(): leaderelection.ValidateConfig,
-			domainconfig.DomainConfigName:     domainconfig.NewDomainFromConfigMap,
-			defaultconfig.DefaultsConfigName:  defaultconfig.NewDefaultsConfigFromConfigMap,
+			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
+			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
+			network.ConfigName:               network.NewConfigFromConfigMap,
+			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
+			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
+			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
+			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
+			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
 		},
 	)
 }

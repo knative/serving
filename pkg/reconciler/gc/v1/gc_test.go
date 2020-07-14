@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2020 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gc
+package v1
 
 import (
 	"context"
@@ -24,18 +24,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	gcconfig "knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
@@ -44,7 +40,6 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -57,7 +52,7 @@ var revisionSpec = v1.RevisionSpec{
 	TimeoutSeconds: ptr.Int64(60),
 }
 
-func TestGCReconcile(t *testing.T) {
+func TestCollect(t *testing.T) {
 	now := time.Now()
 	tenMinutesAgo := now.Add(-10 * time.Minute)
 
@@ -65,13 +60,18 @@ func TestGCReconcile(t *testing.T) {
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
 
-	table := TableTest{{
-		Name: "delete oldest, keep two",
-		Objects: []runtime.Object{
-			cfg("keep-two", "foo", 5556,
-				WithLatestCreated("5556"),
-				WithLatestReady("5556"),
-				WithConfigObservedGen),
+	table := []struct {
+		name        string
+		cfg         *v1.Configuration
+		revs        []*v1.Revision
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "delete oldest, keep two",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -85,7 +85,7 @@ func TestGCReconcile(t *testing.T) {
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
@@ -97,14 +97,13 @@ func TestGCReconcile(t *testing.T) {
 			},
 			Name: "5554",
 		}},
-		Key: "foo/keep-two",
 	}, {
-		Name: "keep oldest when no lastPinned",
-		Objects: []runtime.Object{
-			cfg("keep-no-last-pinned", "foo", 5556,
-				WithLatestCreated("5556"),
-				WithLatestReady("5556"),
-				WithConfigObservedGen),
+		name: "keep oldest when no lastPinned",
+		cfg: cfg("keep-no-last-pinned", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
 			// No lastPinned so we will keep this.
 			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
@@ -118,14 +117,13 @@ func TestGCReconcile(t *testing.T) {
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		Key: "foo/keep-no-last-pinned",
 	}, {
-		Name: "keep recent lastPinned",
-		Objects: []runtime.Object{
-			cfg("keep-recent-last-pinned", "foo", 5556,
-				WithLatestCreated("5556"),
-				WithLatestReady("5556"),
-				WithConfigObservedGen),
+		name: "keep recent lastPinned",
+		cfg: cfg("keep-recent-last-pinned", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
 			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -140,18 +138,17 @@ func TestGCReconcile(t *testing.T) {
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		Key: "foo/keep-recent-last-pinned",
 	}, {
-		Name: "keep LatestReadyRevision",
-		Objects: []runtime.Object{
+		name: "keep LatestReadyRevision",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestReady("5554"),
+			// This comes after 'WithLatestReady' so the
+			// Configuration's 'Ready' Status is 'Unknown'
+			WithLatestCreated("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
 			// Create a revision where the LatestReady is 5554, but LatestCreated is 5556.
 			// We should keep LatestReady even if it is old.
-			cfg("keep-two", "foo", 5556,
-				WithLatestReady("5554"),
-				// This comes after 'WithLatestReady' so the
-				// Configuration's 'Ready' Status is 'Unknown'
-				WithLatestCreated("5556"),
-				WithConfigObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
@@ -165,41 +162,66 @@ func TestGCReconcile(t *testing.T) {
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		Key: "foo/keep-two",
 	}, {
-		Name: "keep stale revision because of minimum generations",
-		Objects: []runtime.Object{
-			cfg("keep-all", "foo", 5554,
-				// Don't set the latest ready revision here
-				// since those by default are always retained
-				WithLatestCreated("keep-all"),
-				WithConfigObservedGen),
+		name: "keep stale revision because of minimum generations",
+		cfg: cfg("keep-all", "foo", 5554,
+			// Don't set the latest ready revision here
+			// since those by default are always retained
+			WithLatestCreated("keep-all"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
 			rev("keep-all", "foo", 5554,
 				WithRevName("keep-all"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(tenMinutesAgo)),
 		},
-		Key: "foo/keep-all",
 	}}
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		r := &reconciler{
-			client:         servingclient.Get(ctx),
-			revisionLister: listers.GetRevisionLister(),
-		}
-		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
-			servingclient.Get(ctx), listers.GetConfigurationLister(),
-			controller.GetEventRecorder(ctx), r, controller.Options{
-				ConfigStore: &testConfigStore{
-					config: &config.Config{
-						RevisionGC: &gcconfig.Config{
-							StaleRevisionCreateDelay:        5 * time.Minute,
-							StaleRevisionTimeout:            5 * time.Minute,
-							StaleRevisionMinimumGenerations: 2,
-						},
-					},
-				}})
-	}))
+	cfgMap := &config.Config{
+		RevisionGC: &gcconfig.Config{
+			StaleRevisionCreateDelay:        5 * time.Minute,
+			StaleRevisionTimeout:            5 * time.Minute,
+			StaleRevisionMinimumGenerations: 2,
+		},
+	}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := SetupFakeContext(t)
+			ctx = config.ToContext(ctx, cfgMap)
+			client := fakeservingclient.Get(ctx)
+
+			ri := fakerevisioninformer.Get(ctx)
+			for _, rev := range test.revs {
+				ri.Informer().GetIndexer().Add(rev)
+			}
+
+			recorderList := ActionRecorderList{client}
+
+			Collect(ctx, client, ri.Lister(), test.cfg)
+
+			actions, err := recorderList.ActionsByVerb()
+			if err != nil {
+				t.Errorf("Error capturing actions by verb: %q", err)
+			}
+
+			for i, want := range test.wantDeletes {
+				if i >= len(actions.Deletes) {
+					t.Errorf("Missing delete: %#v", want)
+					continue
+				}
+				got := actions.Deletes[i]
+				if got.GetName() != want.GetName() {
+					t.Errorf("Unexpected delete[%d]: %#v", i, got)
+				}
+			}
+			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
+				for _, extra := range actions.Deletes[want:] {
+					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
+				}
+			}
+		})
+	}
 }
 
 func TestIsRevisionStale(t *testing.T) {

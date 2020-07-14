@@ -343,7 +343,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
-# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+# golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 golang.org/x/crypto/cast5
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
@@ -360,7 +360,7 @@ golang.org/x/lint/golint
 # golang.org/x/mod v0.3.0
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20200625001655-4c5254603344
+# golang.org/x/net v0.0.0-20200707034311-ab3426394381
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -395,7 +395,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20200701000337-a32c0cb1d5b2
+# golang.org/x/tools v0.0.0-20200710042808-f1c4188a97a1
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
@@ -439,7 +439,7 @@ gonum.org/v1/gonum/lapack
 gonum.org/v1/gonum/lapack/gonum
 gonum.org/v1/gonum/lapack/lapack64
 gonum.org/v1/gonum/mat
-# google.golang.org/api v0.28.0
+# google.golang.org/api v0.29.0
 ## explicit
 google.golang.org/api/container/v1beta1
 google.golang.org/api/dns/v1
@@ -470,7 +470,7 @@ google.golang.org/appengine/internal/socket
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/socket
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20200701001935-0939c5918c31
+# google.golang.org/genproto v0.0.0-20200710124503-20a17af7bd0e
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/distribution
@@ -987,7 +987,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20200707200344-95a2aaeace0f
+# knative.dev/caching v0.0.0-20200713162518-90ce4328c69e
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1008,7 +1008,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20200707203944-725ec013d8a2
+# knative.dev/networking v0.0.0-20200713162319-e2731eead7e8
 ## explicit
 knative.dev/networking/pkg/apis/networking
 knative.dev/networking/pkg/apis/networking/v1alpha1
@@ -1034,12 +1034,13 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
-# knative.dev/pkg v0.0.0-20200708171447-5358179e7499
+# knative.dev/pkg v0.0.0-20200713194318-a81727701f66
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
+knative.dev/pkg/apis/duck/ducktypes
 knative.dev/pkg/apis/duck/v1
 knative.dev/pkg/apis/duck/v1alpha1
 knative.dev/pkg/apis/duck/v1beta1
@@ -1154,7 +1155,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200708165947-2cd922769fa4
+# knative.dev/test-infra v0.0.0-20200713185018-6b52776d44a4
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/yaml v1.2.0

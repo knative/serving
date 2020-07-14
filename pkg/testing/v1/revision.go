@@ -21,6 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -87,6 +89,23 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 func WithLastPinned(t time.Time) RevisionOption {
 	return func(rev *v1.Revision) {
 		rev.SetLastPinned(t)
+	}
+}
+
+// WithRoutingStateModified updates the annotation to the provided timestamp.
+func WithRoutingStateModified(t time.Time) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations,
+			map[string]string{
+				serving.RoutingStateModifiedAnnotationKey: t.UTC().Format(time.RFC3339),
+			})
+	}
+}
+
+// WithRoutingState updates the annotation to the provided timestamp.
+func WithRoutingState(s v1.RoutingState) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.SetRoutingState(s)
 	}
 }
 

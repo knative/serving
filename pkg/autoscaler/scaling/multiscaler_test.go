@@ -50,7 +50,7 @@ func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredSc
 			return
 		}
 		if got, want := m.Status.DesiredScale, int32(desiredScale); got != want {
-			errCh <- fmt.Errorf("Get() = %v, wanted %v", got, want)
+			errCh <- fmt.Errorf("DesiredScale = %v, wanted %v", got, want)
 			return
 		}
 		errCh <- nil
@@ -114,10 +114,10 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.ExcessBurstCapacity, int32(0); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.NumActivators, int32(0); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.NumActivators = %d, want: %d", got, want)
 	}
 
 	// Verify that we see a "tick"
@@ -135,10 +135,10 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.ExcessBurstCapacity, int32(1); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.NumActivators, int32(2); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.NumActivators = %d, want: %d", got, want)
 	}
 
 	// Change number of activators, keeping the other data the same. E.g. CM
@@ -158,10 +158,10 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.ExcessBurstCapacity, int32(1); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.NumActivators, int32(3); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.NumActivators = %d, want: %d", got, want)
 	}
 
 	// Verify that subsequent "ticks" don't trigger a callback, since
@@ -188,6 +188,7 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 	ms, _ := createMultiScaler(ctx, TestLogger(t))
 
 	decider := newDecider()
+	decider.Spec.InitialScale = 2
 	decider.Spec.TargetBurstCapacity = 42
 	decider.Spec.TotalValue = 25
 
@@ -202,8 +203,8 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 	if got, want := d.Status.DesiredScale, int32(-1); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
-	if got, want := d.Status.ExcessBurstCapacity, int32(25-42); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	if got, want := d.Status.ExcessBurstCapacity, int32(50-42); got != want {
+		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
 		t.Errorf("Delete() = %v", err)
@@ -230,7 +231,7 @@ func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 	if got, want := d.Status.ExcessBurstCapacity, int32(-1); got != want {
-		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+		t.Errorf("Decider.Status.ExcessBurstCapacity = %d, want: %d", got, want)
 	}
 	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
 		t.Errorf("Delete() = %v", err)

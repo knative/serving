@@ -35,11 +35,21 @@ const (
 
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
+	// The key is also attached to Revision resources to indicate they are directly
+	// referenced by a Route, or are a child of a Configuration which is referenced by a Route.
 	// The key can also be attached to Ingress resources to indicate
 	// which Route triggered their creation.
 	// The key is also attached to k8s Service resources to indicate which Route
 	// triggered their creation.
 	RouteLabelKey = GroupName + "/route"
+
+	// RoutingStateLabelKey is the label attached to a Revision indicating
+	// its state in relation to serving a Route.
+	RoutingStateLabelKey = GroupName + "/routingState"
+
+	// RoutingStateModifiedAnnotationKey indicates the last time the RoutingStateLabel
+	// was modified. This is used for ordering when Garbage Collecting old Revisions.
+	RoutingStateModifiedAnnotationKey = GroupName + "/routingStateModified"
 
 	// RouteNamespaceLabelKey is the label key attached to a Ingress
 	// by a Route to indicate which namespace the Route was created in.

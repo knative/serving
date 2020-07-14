@@ -226,7 +226,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-			service, err := MakeK8sService(ctx, tc.route, tc.targetName, tc.ingress, false)
+			service, err := MakeK8sService(ctx, tc.route, tc.targetName, tc.ingress, false, "")
 			// Validate
 			if tc.shouldFail && err == nil {
 				t.Fatal("MakeK8sService returned success but expected error")

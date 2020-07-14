@@ -21,7 +21,9 @@ package ha
 import (
 	"testing"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
@@ -34,24 +36,23 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	autoscalerHPALease          = "hpaautoscaler"
-	autoscalerHPADeploymentName = "autoscaler-hpa"
-)
+const autoscalerHPADeploymentName = "autoscaler-hpa"
 
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), haReplicas); err != nil {
-		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, haReplicas, err)
+	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, test.ServingFlags.Replicas, err)
 	}
 
-	leaderController, err := pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), "" /*use arbitrary name as there was no previous leader*/)
+	// TODO(mattmoor): Once we switch to the new sharded leader election, we should use more than a single bucket here, but the test is still interesting.
+	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
+	t.Logf("Got initial leader set: %v", leaders)
 
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -62,17 +63,19 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leaderController,
-		&metav1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete pod %s: %v", leaderController, err)
+	for _, leader := range leaders.List() {
+		if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leader,
+			&metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+			t.Fatalf("Failed to delete pod %s: %v", leader, err)
+		}
+
+		if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leader, system.Namespace()); err != nil {
+			t.Fatalf("Did not observe %s to actually be deleted: %v", leader, err)
+		}
 	}
 
-	if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leaderController, system.Namespace()); err != nil {
-		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
-	}
-
-	// Make sure a new leader has been elected
-	if _, err = pkgHa.WaitForNewLeader(clients.KubeClient, autoscalerHPALease, system.Namespace(), leaderController); err != nil {
+	// Wait for all of the old leaders to go away, and then for the right number to be back.
+	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 

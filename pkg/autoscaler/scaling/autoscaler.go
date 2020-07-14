@@ -242,7 +242,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 
 	// Here we compute two numbers: excess burst capacity and number of activators
 	// for subsetting.
-	// - the excess burst capacity based on panic value, since we don't want to
+	// - the excess burst capacity is based on panic value, since we don't want to
 	//   be making knee-jerk decisions about Activator in the request path.
 	//   Negative EBC means that the deployment does not have enough capacity to serve
 	//   the desired burst off hand.
@@ -252,7 +252,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	//   the default number.
 	//   if tbc > 0, then revision gets number of activators to support total capacity and
 	//   tbc additional units.
-	//   if tbc==-1, then revision gets to number of activators to support total capacity.
+	//   if tbc==-1, then revision gets the number of activators needed to support total capacity.
 	//   With default target utilization of 0.7, we're overprovisioning number of needed activators
 	//   by rate of 1/0.7=1.42.
 	excessBCF := -1.
@@ -260,7 +260,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBCF = 0
-		// numAct stays 1, only needed to scale from 0.
+		// numAct stays at MinActivators, only needed to scale from 0.
 	case a.deciderSpec.TargetBurstCapacity > 0:
 		// Extra float64 cast disables fused multiply-subtract to force identical behavior on
 		// all platforms. See floating point section in https://golang.org/ref/spec#Operators.
@@ -272,7 +272,7 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 		numAct = int32(math.Max(MinActivators,
 			math.Ceil(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue/a.deciderSpec.ActivatorCapacity)))
 	}
-	logger.Debugf("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v NumActivators=%d",
+	logger.Debugf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f NumActivators=%d",
 		originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
 		observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF, numAct)
 

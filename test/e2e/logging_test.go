@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/system"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/network"
@@ -63,9 +64,16 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	_, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, resources.Route.Status.URL.URL())
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		resources.Route.Status.URL.URL(),
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
-		t.Fatal("Unexpected error when sending request to helloworld:", err)
+		t.Fatalf("The endpoint didn't serve the expected text %q: %v", test.HelloWorldText, err)
 	}
 
 	pod, err := theOnlyPod(clients, resources.Revision.Namespace, resources.Revision.Name)

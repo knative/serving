@@ -59,10 +59,9 @@ type podCounts struct {
 type Reconciler struct {
 	*areconciler.Base
 
-	endpointsLister corev1listers.EndpointsLister
-	podsLister      corev1listers.PodLister
-	deciders        resources.Deciders
-	scaler          *scaler
+	podsLister corev1listers.PodLister
+	deciders   resources.Deciders
+	scaler     *scaler
 }
 
 // Check that our Reconciler implements pareconciler.Interface
@@ -86,7 +85,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, podCounts{want: scaleUnknown}, logger)
+		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -127,29 +126,25 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
-
-	// Compare the desired and observed resources to determine our situation.
-	// We fetch private endpoints here, since for scaling we're interested in the actual
-	// state of the deployment.
-	ready, notReady := 0, 0
-
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
+
+	// Compare the desired and observed resources to determine our situation.
+	ready, notReady := 0, 0
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	// Currently, SKS.IsReady==True when revision has >0 ready pods.
 	if sks.IsReady() {
-		podEndpointCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
-		ready, err = podEndpointCounter.ReadyCount()
+		ready, err = podCounter.ReadyCount()
 		if err != nil {
-			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
+			return fmt.Errorf("error getting ready pods %s: %w", sks.Status.PrivateServiceName, err)
 		}
 
-		notReady, err = podEndpointCounter.NotReadyCount()
+		notReady, err = podCounter.NotReadyCount()
 		if err != nil {
-			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
+			return fmt.Errorf("error getting not ready pods %s: %w", sks.Status.PrivateServiceName, err)
 		}
 	}
 
-	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	pending, terminating, err := podCounter.PendingTerminatingCount()
 	if err != nil {
 		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
@@ -166,7 +161,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, pc, logger)
+	return computeStatus(ctx, pa, pc, logger)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (*scaling.Decider, error) {
@@ -192,14 +187,14 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
+func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	if err := reportMetrics(pa, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, pc)
+	computeActiveCondition(ctx, pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 
 	return nil
@@ -239,8 +234,8 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | inactive   | inactive   |
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
-	minReady := activeThreshold(pa)
+func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+	minReady := activeThreshold(ctx, pa)
 
 	switch {
 	case pc.want == 0:
@@ -267,26 +262,37 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
 	min, _ := pa.ScaleBounds()
-	if min < 1 {
-		min = 1
+	if !pa.Status.IsScaleTargetInitialized() {
+		initialScale := resources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
+		return int(intMax(min, initialScale))
 	}
-
-	return int(min)
+	return int(intMax(min, 1))
 }
 
 // resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
 // TBC == -1 => activator in path, don't scrape the service
 func resolveScrapeTarget(ctx context.Context, pa *pav1alpha1.PodAutoscaler) string {
-	tbc := 0.
-	if v, ok := pa.TargetBC(); ok {
-		tbc = v
-	} else {
-		tbc = config.FromContext(ctx).Autoscaler.TargetBurstCapacity
-	}
+	tbc := resolveTBC(ctx, pa)
 	if tbc == -1 {
 		return ""
 	}
+
 	return pa.Status.MetricsServiceName
+}
+
+func resolveTBC(ctx context.Context, pa *pav1alpha1.PodAutoscaler) float64 {
+	if v, ok := pa.TargetBC(); ok {
+		return v
+	}
+
+	return config.FromContext(ctx).Autoscaler.TargetBurstCapacity
+}
+
+func intMax(a, b int32) int32 {
+	if a < b {
+		return b
+	}
+	return a
 }
