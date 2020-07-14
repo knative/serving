@@ -52,7 +52,7 @@ data:
     # When "enabled"  the server will always run the extra validation.
     kubernetes.podspec-dryrun: "allowed"
 
-    # This feature validates removes the ability of a user to delete revisions
+    # This feature removes the ability of a user to delete revisions
     # that are actively serving or that are in-progress deployments.
     # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
     # should be used for testing purposes only.
