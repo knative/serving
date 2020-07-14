@@ -446,12 +446,10 @@ func patchAddRouteAndServingStateLabel(namespace, name, routeName string, now ti
 	action.Name = name
 	action.Namespace = namespace
 
-	var state string
-	if routeName == "null" {
-		state = "Reserve"
-	} else {
-		state = "Active"
-		routeName = fmt.Sprintf("%q", routeName)
+	state := string(v1.RoutingStateReserve)
+	if routeName != "null" {
+		state = string(v1.RoutingStateActive)
+		routeName = `"` + routeName + `"`
 	}
 
 	patch := fmt.Sprintf(

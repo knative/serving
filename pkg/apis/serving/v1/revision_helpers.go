@@ -61,14 +61,14 @@ const (
 	// RoutingStatePending is a state after a revision is created, but before
 	// its routing state has been determined. It is treated like active for the purposes
 	// of revision garbage collection.
-	RoutingStatePending RoutingState = "Pending"
+	RoutingStatePending RoutingState = "pending"
 
 	// RoutingStateActive is a state for a revision which are actively referenced by a Route.
-	RoutingStateActive RoutingState = "Active"
+	RoutingStateActive RoutingState = "active"
 
 	// RoutingStateReserve is a state for a revision which is no longer referenced by a Route,
 	// and is scaled down, but may be rapidly pinned to a route to be made active again.
-	RoutingStateReserve RoutingState = "Reserve"
+	RoutingStateReserve RoutingState = "reserve"
 )
 
 type (

@@ -95,11 +95,9 @@ func makeMetadataPatch(
 func markRoutingState(
 	acc kmeta.Accessor, hasRoute bool, clock clock.Clock,
 	diffLabels, diffAnn map[string]interface{}) {
-	var wantState string
+	wantState := string(v1.RoutingStateReserve)
 	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
-	} else {
-		wantState = string(v1.RoutingStateReserve)
 	}
 
 	if acc.GetLabels()[serving.RoutingStateLabelKey] != wantState {
