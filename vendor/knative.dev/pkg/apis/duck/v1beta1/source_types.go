@@ -24,8 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck/ducktypes"
+	"knative.dev/pkg/apis/duck"
 )
+
+// Source is an Implementable "duck type".
+var _ duck.Implementable = (*Source)(nil)
 
 // +genduck
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -95,7 +98,9 @@ func (ss *SourceStatus) IsReady() bool {
 }
 
 var (
-	_ apis.Listable = (*Source)(nil)
+	// Verify Source resources meet duck contracts.
+	_ duck.Populatable = (*Source)(nil)
+	_ apis.Listable    = (*Source)(nil)
 )
 
 const (
@@ -105,7 +110,7 @@ const (
 )
 
 // GetFullType implements duck.Implementable
-func (*Source) GetFullType() ducktypes.Populatable {
+func (*Source) GetFullType() duck.Populatable {
 	return &Source{}
 }
 

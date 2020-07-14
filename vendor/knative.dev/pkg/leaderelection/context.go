@@ -123,7 +123,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 			total: b.lec.Buckets,
 		}
 
-		rl, err := resourcelock.New(b.lec.ResourceLock,
+		rl, err := resourcelock.New(KnativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),

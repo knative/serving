@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck/ducktypes"
+	"knative.dev/pkg/apis/duck"
 )
 
 // +genduck
@@ -50,11 +50,13 @@ type WithPodSpec struct {
 // Assert that we implement the interfaces necessary to
 // use duck.VerifyType.
 var (
-	_ apis.Listable = (*WithPod)(nil)
+	_ duck.Populatable   = (*WithPod)(nil)
+	_ duck.Implementable = (*PodSpecable)(nil)
+	_ apis.Listable      = (*WithPod)(nil)
 )
 
 // GetFullType implements duck.Implementable
-func (*PodSpecable) GetFullType() ducktypes.Populatable {
+func (*PodSpecable) GetFullType() duck.Populatable {
 	return &WithPod{}
 }
 

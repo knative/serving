@@ -42,7 +42,7 @@ type BucketSet struct {
 	buckets sets.String
 }
 
-// Bucket implements reconciler.Bucket and wraps around BuketSet
+// Bucket implements reconciler.Bucket and wraps around BucketSet
 // for bucketing functions.
 type Bucket struct {
 	name    string
