@@ -170,60 +170,37 @@ func main() {
 		logger.Fatalw("Failed to get autoscaler StatefulSet", zap.Error(err))
 	}
 
-	acceptStatMessage := func(sm asmetrics.StatMessage) {
+	// acceptStat is the func to call when this pod owns the given StatMessage.
+	acceptStat := func(sm asmetrics.StatMessage) {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	processStatMessages := func() {
-		for sm := range statsCh {
-			acceptStatMessage(sm)
-		}
-	}
+	// processStat is the func to process a single StatMessage, accept or forward.
+	processStat := acceptStat
 
 	bucketSize := int(*ss.Spec.Replicas)
-	if bucketSize > 0 {
+	if bucketSize > 1 {
 		// If there are multiple pods for autoscaler, they must be run in StatefulSet
 		// ordinal assignment leader electior mode. So enable it.
 		ctx = leaderelection.WithDynamicLeaderElectorBuilder(
 			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(bucketSize)})
 
-		// Build stats forwarding network.
-		bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
-		if err != nil {
-			logger.Fatalw("Failed to build bucket set", zap.Error(err))
-		}
-
-		wss := map[string]*websocket.ManagedConnection{}
-		for _, dns := range bs.BucketList() {
-			if dns == bkt.Name() {
-				continue
-			}
-
-			logger.Info("Connecting to Autoscaler at ", dns)
-			statSink := websocket.NewDurableSendingConnection(dns, logger)
-			defer statSink.Shutdown()
-			wss[dns] = statSink
-		}
-
-		processStatMessages = func() {
-			for sm := range statsCh {
-				if bkt.Has(sm.Key) {
-					acceptStatMessage(sm)
-					continue
-				}
-
-				if ws, ok := wss[bs.Owner(sm.Key.String())]; ok {
-					ws.Send(sm)
-				} else {
-					logger.Warnf("Couldn't find Pod owner for Stat with Key %d, dropping it", sm.Key)
-				}
-			}
+		// Build the WebSocket connections for forwarding.
+		wss, withForwarding := forwardingStatsNetworking(bucketSize, acceptStat, logger)
+		acceptStat = withForwarding
+		// Close the WebSocket connections when shuting down.
+		for _, ws := range wss {
+			defer ws.Shutdown()
 		}
 	}
 
 	go controller.StartAll(ctx, controllers...)
 
-	go processStatMessages()
+	go func() {
+		for sm := range statsCh {
+			processStat(sm)
+		}
+	}()
 
 	profilingServer := profiling.NewServer(profilingHandler)
 
@@ -287,4 +264,40 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+func forwardingStatsNetworking(bucketSize int, accept func(sm asmetrics.StatMessage),
+	logger *zap.SugaredLogger) ([]*websocket.ManagedConnection, func(sm asmetrics.StatMessage)) {
+	bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
+	if err != nil {
+		logger.Fatalw("Failed to build bucket set", zap.Error(err))
+	}
+
+	wsMap := make(map[string]*websocket.ManagedConnection, bucketSize-1)
+	wsArray := make([]*websocket.ManagedConnection, 0, bucketSize-1)
+	for _, dns := range bs.BucketList() {
+		if dns == bkt.Name() {
+			continue
+		}
+
+		logger.Info("Connecting to Autoscaler at ", dns)
+		statSink := websocket.NewDurableSendingConnection(dns, logger)
+		wsMap[dns] = statSink
+		wsArray = append(wsArray, statSink)
+	}
+
+	return wsArray, func(sm asmetrics.StatMessage) {
+		// If this pod has the key, accept it.
+		if bkt.Has(sm.Key) {
+			accept(sm)
+			return
+		}
+
+		// Otherwise forward to the owner.
+		if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
+			ws.Send(sm)
+		} else {
+			logger.Warnf("Couldn't find Pod owner for Stat with Key %d, dropping it", sm.Key)
+		}
+	}
 }

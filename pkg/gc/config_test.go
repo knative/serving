@@ -51,12 +51,20 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionTimeout:            14 * time.Hour,
 			StaleRevisionMinimumGenerations: 10,
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
+			RetainSinceCreateTime:           17 * time.Hour,
+			RetainSinceLastActiveTime:       16 * time.Hour,
+			MinStaleRevisions:               5,
+			MaxStaleRevisions:               500,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay":        "15h",
 			"stale-revision-timeout":             "14h",
 			"stale-revision-minimum-generations": "10",
 			"stale-revision-lastpinned-debounce": "2h30m44s",
+			"retain-since-create-time":           "17h",
+			"retain-since-last-active-time":      "16h",
+			"min-stale-revisions":                "5",
+			"max-stale-revisions":                "500",
 		},
 	}, {
 		name: "Invalid duration",
@@ -73,6 +81,28 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
+		name: "Invalid negative minimum generation v2",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"min-stale-revisions": "-1",
+		},
+	}, {
+		name: "Invalid negative maximum generation",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"max-stale-revisions": "-2",
+		},
+	}, {
+		name: "Invalid max less than min",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"min-stale-revisions": "20",
+			"max-stale-revisions": "10",
+		},
+	}, {
 		name: "Invalid minimum generation",
 		fail: true,
 		want: nil,
@@ -85,13 +115,16 @@ func TestOurConfig(t *testing.T) {
 		want: &Config{
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            15 * time.Hour,
-			StaleRevisionMinimumGenerations: 10,
+			StaleRevisionMinimumGenerations: 20,
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
+			RetainSinceCreateTime:           48 * time.Hour,
+			RetainSinceLastActiveTime:       15 * time.Hour,
+			MinStaleRevisions:               20,
+			MaxStaleRevisions:               -1,
 		},
 		data: map[string]string{
-			"stale-revision-create-delay":        "15h",
-			"stale-revision-minimum-generations": "10",
-			"stale-revision-timeout":             "1h",
+			"stale-revision-create-delay": "15h",
+			"stale-revision-timeout":      "1h",
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -38,7 +38,7 @@ var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP
 
 // GetNames returns a set of service names.
 func GetNames(services []*corev1.Service) sets.String {
-	names := sets.NewString()
+	names := make(sets.String, len(services))
 
 	for i := range services {
 		names.Insert(services[i].Name)

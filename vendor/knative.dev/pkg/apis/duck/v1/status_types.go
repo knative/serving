@@ -29,6 +29,9 @@ import (
 // Conditions is a simple wrapper around apis.Conditions to implement duck.Implementable.
 type Conditions apis.Conditions
 
+// Conditions is an Implementable duck type.
+var _ ducktypes.Implementable = (*Conditions)(nil)
+
 // Status shows how we expect folks to embed Conditions in
 // their Status field.
 // WARNING: Adding fields to this struct will add them to all Knative resources.

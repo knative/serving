@@ -66,7 +66,7 @@ func NewBucketSet(bucketList sets.String) *BucketSet {
 	}
 }
 
-// NewBucket creates a new bucket. Caller should make sure that
+// NewBucket creates a new bucket. Caller MUST make sure that
 // the given `name` is in the given `bl.buckets`.
 func NewBucket(name string, bl *BucketSet) *Bucket {
 	return &Bucket{

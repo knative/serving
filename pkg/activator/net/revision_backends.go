@@ -99,7 +99,7 @@ type revisionWatcher struct {
 
 	// Stores the list of pods that have been successfully probed.
 	healthyPods sets.String
-	// Stores whether the service ClusterIP has been seen as healthy
+	// Stores whether the service ClusterIP has been seen as healthy.
 	clusterIPHealthy bool
 
 	transport     http.RoundTripper
@@ -124,7 +124,6 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		protocol:        protocol,
 		updateCh:        updateCh,
 		done:            make(chan struct{}),
-		healthyPods:     sets.NewString(),
 		transport:       transport,
 		destsCh:         destsCh,
 		serviceLister:   serviceLister,
@@ -256,7 +255,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	if len(curDests.ready) == 0 && len(curDests.notReady) == 0 {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
-		rw.healthyPods = sets.NewString()
+		rw.healthyPods = nil
 		rw.logger.Debug("ClusterIP is no longer healthy.")
 		// Send update that we are now inactive (both params invalid).
 		rw.sendUpdate("", nil)

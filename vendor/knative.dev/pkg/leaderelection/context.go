@@ -24,10 +24,13 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 )
@@ -122,7 +125,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 			total: b.lec.Buckets,
 		}
 
-		rl, err := resourcelock.New(b.lec.ResourceLock,
+		rl, err := resourcelock.New(KnativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),
@@ -185,6 +188,35 @@ func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.Lea
 		la:  la,
 		enq: enq,
 	}, nil
+}
+
+// NewStatefulSetBucketAndSet creates a BucketSet for StatefulSet controller with
+// the given bucket size and the information from environment variables. Then uses
+// the created BucketSet to create a Bucket for this StatefulSet Pod.
+func NewStatefulSetBucketAndSet(buckets int) (reconciler.Bucket, *hash.BucketSet, error) {
+	ssc, err := newStatefulSetConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ssc.StatefulSetID.ordinal >= buckets {
+		return nil, nil, fmt.Errorf("ordinal %d is out of range [0, %d)",
+			ssc.StatefulSetID.ordinal, buckets)
+	}
+
+	names := make(sets.String, buckets)
+	for i := 0; i < buckets; i++ {
+		names.Insert(statefulSetPodDNS(i, ssc))
+	}
+
+	bs := hash.NewBucketSet(names)
+	return hash.NewBucket(statefulSetPodDNS(ssc.StatefulSetID.ordinal, ssc), bs), bs, nil
+}
+
+func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
+	return fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", ssc.Protocol,
+		ssc.StatefulSetID.ssName, ordinal, ssc.ServiceName,
+		system.Namespace(), network.GetClusterDomainName(), ssc.Port)
 }
 
 // unopposedElector promotes when run without needing to be elected.

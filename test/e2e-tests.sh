@@ -49,24 +49,19 @@ function wait_for_leader_controller() {
   return 1
 }
 
-function enable_tag_header_based_routing() {
-  echo -n "Enabling Tag Header Based Routing"
-  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Enabled"}}'
+function toggle_feature() {
+  local FEATURE="$1"
+  local STATE="$2"
+  local CONFIG="${3:-config-features}"
+  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 10s for change to get picked up."
+  sleep 10
 }
 
-function disable_tag_header_based_routing() {
-  echo -n "Disabling Tag Header Based Routing"
-  kubectl patch cm config-network -n "${SYSTEM_NAMESPACE}" -p '{"data":{"tagHeaderBasedRouting":"Disabled"}}'
-}
-
-function enable_multi_container_feature() {
-  echo -n "Enabling Multi Container Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Enabled"}}'
-}
-
-function disable_multi_container_feature() {
-  echo -n "Disabling Multi Container Feature Flag"
-  kubectl patch cm config-features -n "${SYSTEM_NAMESPACE}" -p '{"data":{"multi-container":"Disabled"}}'
+function toggle_network_feature() {
+  toggle_feature "$1" "$2" config-network
 }
 
 # Script entry point.
@@ -102,20 +97,27 @@ if (( HTTPS )); then
   add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
 fi
 
+
+# Keep this in sync with test/ha/ha.go
+readonly REPLICAS=3
+readonly BUCKETS=10
+
+
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
 add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
+# Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
-  --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,webhook", "buckets": "10"}}' || failed=1
-add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*enabledComponents.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
+  --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || failed=1
+add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*buckets.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
 
 # Save activator HPA original values for later use.
 hpa_spec=$(echo '{"spec": {'$(kubectl get hpa activator -n "knative-serving" -ojsonpath='"minReplicas": {.spec.minReplicas}, "maxReplicas": {.spec.maxReplicas}')'}}')
 
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
-  --patch '{"spec": {"minReplicas": 2, "maxReplicas": 2}}' || failed=1
+  --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || failed=1
 add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
   --type 'merge' \
   --patch $hpa_spec" SIGKILL SIGTERM SIGQUIT
@@ -126,7 +128,7 @@ for deployment in controller autoscaler-hpa webhook; do
   # Give it time to kill the pods.
   sleep 5
   # Scale up components for HA tests
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=2 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
 done
 add_trap "for deployment in controller autoscaler-hpa webhook; do \
   kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
@@ -165,15 +167,15 @@ if (( HTTPS )); then
   turn_off_auto_tls
 fi
 
-enable_tag_header_based_routing
-add_trap "disable_tag_header_based_routing" SIGKILL SIGTERM SIGQUIT
+toggle_network_feature tagHeaderBasedRouting Enabled
+add_trap "toggle_network_feature tagHeaderBasedRouting Disabled" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-disable_tag_header_based_routing
+toggle_network_feature tagHeaderBasedRouting Disabled
 
-enable_multi_container_feature
-add_trap "disable_multi_container_feature" SIGKILL SIGTERM SIGQUIT
+toggle_feature multi-container Enabled
+add_trap "toggle_feature multi-container Disabled" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-disable_multi_container_feature
+toggle_feature multi-container Disabled
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
@@ -200,7 +202,8 @@ fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha -spoofinterval="10ms" || failed=1
+go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
+	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
