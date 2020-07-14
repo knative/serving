@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
@@ -37,69 +39,71 @@ const (
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
-var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime", "PodName")
+var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")
 
 var testCases = []struct {
-	name                        string
-	reportingPeriod             time.Duration
-	concurrency                 float64
-	proxiedConcurrency          float64
-	reqCount                    float64
-	proxiedReqCount             float64
-	expectedReqCount            float64
-	expectedProxiedRequestCount float64
-	expectedConcurrency         float64
-	expectedProxiedConcurrency  float64
+	name            string
+	reportingPeriod time.Duration
+	report          network.RequestStatsReport
+	want            metrics.Stat
 }{{
 	name:            "no proxy requests",
 	reportingPeriod: 1 * time.Second,
-
-	reqCount:    39,
-	concurrency: 3,
-
-	expectedReqCount:            39,
-	expectedConcurrency:         3,
-	expectedProxiedRequestCount: 0,
-	expectedProxiedConcurrency:  0,
+	report: network.RequestStatsReport{
+		AverageConcurrency: 3,
+		RequestCount:       39,
+	},
+	want: metrics.Stat{
+		RequestCount:              39,
+		AverageConcurrentRequests: 3,
+	},
 }, {
 	name:            "reportingPeriod=10s",
 	reportingPeriod: 10 * time.Second,
-
-	reqCount:           39,
-	concurrency:        3,
-	proxiedReqCount:    15,
-	proxiedConcurrency: 2,
-
-	expectedReqCount:            3.9,
-	expectedConcurrency:         3,
-	expectedProxiedRequestCount: 1.5,
-	expectedProxiedConcurrency:  2,
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		RequestCount:              39,
+		ProxiedRequestCount:       15,
+	},
+	want: metrics.Stat{
+		RequestCount:                     3.9,
+		AverageConcurrentRequests:        3,
+		ProxiedRequestCount:              1.5,
+		AverageProxiedConcurrentRequests: 2,
+	},
 }, {
 	name:            "reportingPeriod=2s",
 	reportingPeriod: 2 * time.Second,
 
-	reqCount:           39,
-	concurrency:        3,
-	proxiedReqCount:    15,
-	proxiedConcurrency: 2,
-
-	expectedReqCount:            19.5,
-	expectedConcurrency:         3,
-	expectedProxiedRequestCount: 7.5,
-	expectedProxiedConcurrency:  2,
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		RequestCount:              39,
+		ProxiedRequestCount:       15,
+	},
+	want: metrics.Stat{
+		RequestCount:                     19.5,
+		AverageConcurrentRequests:        3,
+		ProxiedRequestCount:              7.5,
+		AverageProxiedConcurrentRequests: 2,
+	},
 }, {
 	name:            "reportingPeriod=1s",
 	reportingPeriod: 1 * time.Second,
 
-	reqCount:           39,
-	concurrency:        3,
-	proxiedReqCount:    15,
-	proxiedConcurrency: 2,
-
-	expectedReqCount:            39,
-	expectedConcurrency:         3,
-	expectedProxiedRequestCount: 15,
-	expectedProxiedConcurrency:  2,
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		RequestCount:              39,
+		ProxiedRequestCount:       15,
+	},
+	want: metrics.Stat{
+		RequestCount:                     39,
+		AverageConcurrentRequests:        3,
+		ProxiedRequestCount:              15,
+		AverageProxiedConcurrentRequests: 2,
+	},
 }}
 
 func TestNewPrometheusStatsReporterNegative(t *testing.T) {
@@ -159,18 +163,7 @@ func TestPrometheusStatsReporterReport(t *testing.T) {
 			}
 			// Make the value slightly more interesting, rather than microseconds.
 			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(network.RequestStatsReport{
-				AverageConcurrency:        test.concurrency,
-				AverageProxiedConcurrency: test.proxiedConcurrency,
-				RequestCount:              test.reqCount,
-				ProxiedRequestCount:       test.proxiedReqCount,
-			})
-			want := metrics.Stat{
-				RequestCount:                     test.expectedReqCount,
-				AverageConcurrentRequests:        test.expectedConcurrency,
-				ProxiedRequestCount:              test.expectedProxiedRequestCount,
-				AverageProxiedConcurrentRequests: test.expectedProxiedConcurrency,
-			}
+			reporter.Report(test.report)
 			got := metrics.Stat{
 				RequestCount:                     getData(t, requestsPerSecondGV),
 				AverageConcurrentRequests:        getData(t, averageConcurrentRequestsGV),
@@ -178,7 +171,12 @@ func TestPrometheusStatsReporterReport(t *testing.T) {
 				AverageProxiedConcurrentRequests: getData(t, averageProxiedConcurrentRequestsGV),
 				ProcessUptime:                    getData(t, processUptimeGV),
 			}
-			cmpStatData(t, want, got)
+			if !cmp.Equal(test.want, got, ignoreStatFields) {
+				t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got))
+			}
+			if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
+			}
 		})
 	}
 }

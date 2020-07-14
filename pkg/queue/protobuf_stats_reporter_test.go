@@ -27,11 +27,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/network"
 )
 
 var testStat = metrics.Stat{
-	PodName:                          "testPod",
+	PodName:                          pod,
 	AverageConcurrentRequests:        5.0,
 	AverageProxiedConcurrentRequests: 5.0,
 	ProxiedRequestCount:              100.0,
@@ -45,20 +44,15 @@ func TestProtobufStatsReporterReport(t *testing.T) {
 			reporter := NewProtobufStatsReporter(pod, test.reportingPeriod)
 			// Make the value slightly more interesting, rather than microseconds.
 			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(network.RequestStatsReport{
-				AverageConcurrency:        test.concurrency,
-				AverageProxiedConcurrency: test.proxiedConcurrency,
-				RequestCount:              test.reqCount,
-				ProxiedRequestCount:       test.proxiedReqCount,
-			})
-			want := metrics.Stat{
-				RequestCount:                     test.expectedReqCount,
-				AverageConcurrentRequests:        test.expectedConcurrency,
-				ProxiedRequestCount:              test.expectedProxiedRequestCount,
-				AverageProxiedConcurrentRequests: test.expectedProxiedConcurrency,
-			}
+			reporter.Report(test.report)
 			got := reporter.stat.Load().(metrics.Stat)
-			cmpStatData(t, want, got)
+			test.want.PodName = pod
+			if !cmp.Equal(test.want, got, ignoreStatFields) {
+				t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got))
+			}
+			if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
+			}
 		})
 	}
 }
@@ -118,15 +112,5 @@ func TestProtoHandler(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func cmpStatData(t *testing.T, want metrics.Stat, got metrics.Stat) {
-	t.Helper()
-	if !cmp.Equal(want, got, ignoreStatFields) {
-		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(want, got))
-	}
-	if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
-		t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
 	}
 }
