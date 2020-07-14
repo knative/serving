@@ -43,6 +43,9 @@ type Addressable struct {
 var (
 	// Addressable is a Convertible type.
 	_ apis.Convertible = (*Addressable)(nil)
+
+	// Addressable is an Implementable "duck type".
+	_ ducktypes.Implementable = (*Addressable)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -64,8 +67,10 @@ type AddressStatus struct {
 	Address *Addressable `json:"address,omitempty"`
 }
 
+// Verify AddressableType resources meet duck contracts.
 var (
-	_ apis.Listable = (*AddressableType)(nil)
+	_ apis.Listable         = (*AddressableType)(nil)
+	_ ducktypes.Populatable = (*AddressableType)(nil)
 )
 
 // GetFullType implements duck.Implementable
