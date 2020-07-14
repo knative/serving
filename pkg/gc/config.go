@@ -87,24 +87,24 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
 			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
 
-			cm.AsDuration("gc-retain-since-create-time", &c.GCRetainSinceCreateTime),
-			cm.AsDuration("gc-retain-since-last-active-time", &c.GCRetainSinceLastActiveTime),
-			cm.AsInt64("gc-min-stale-revisions", &c.GCMinStaleRevisions),
-			cm.AsInt64("gc-max-stale-revisions", &c.GCMaxStaleRevisions),
+			cm.AsDuration("retain-since-create-time", &c.GCRetainSinceCreateTime),
+			cm.AsDuration("retain-since-last-active-time", &c.GCRetainSinceLastActiveTime),
+			cm.AsInt64("min-stale-revisions", &c.GCMinStaleRevisions),
+			cm.AsInt64("max-stale-revisions", &c.GCMaxStaleRevisions),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
 		if c.GCMaxStaleRevisions >= 0 && c.GCMinStaleRevisions > c.GCMaxStaleRevisions {
 			return nil, fmt.Errorf(
-				"gc-min-stale-revisions(%d) must be <= gc-max-stale-revisions(%d)",
+				"min-stale-revisions(%d) must be <= max-stale-revisions(%d)",
 				c.GCMinStaleRevisions, c.GCMaxStaleRevisions)
 		}
 		if c.GCMinStaleRevisions < 0 {
-			return nil, fmt.Errorf("gc-min-stale-revisions must be non-negative, was: %d", c.GCMinStaleRevisions)
+			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.GCMinStaleRevisions)
 		}
 		if c.GCMaxStaleRevisions < -1 {
-			return nil, fmt.Errorf("gc-max-stale-revisions must be >= -1, was: %d", c.GCMaxStaleRevisions)
+			return nil, fmt.Errorf("max-stale-revisions must be >= -1, was: %d", c.GCMaxStaleRevisions)
 		}
 
 		if c.StaleRevisionMinimumGenerations < 0 {
