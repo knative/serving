@@ -39,7 +39,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Stat defines a single measurement at a point in time
+// Stat defines a single measurement at a point in time.
 type Stat struct {
 	// The unique identity of this pod.  Used to count how many pods
 	// are contributing to the metrics.
