@@ -14,10 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package leaderelection
+package main
 
 import (
-	kle "knative.dev/pkg/leaderelection"
+	"testing"
+
+	"knative.dev/serving/test/ha"
 )
 
-var ValidateConfig = kle.NewConfigFromConfigMap
+func TestNumController(t *testing.T) {
+	if got, want := len(ctors), ha.NumControllerReconcilers; got != want {
+		t.Errorf("Unexpected number of controller = %d, wanted %d.  This likely means the constant should be updated.", got, want)
+	}
+}

@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	haReplicas = 2
+	NumControllerReconcilers = 7 // Keep in sync with ./cmd/controller/main.go
 )
 
 func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
