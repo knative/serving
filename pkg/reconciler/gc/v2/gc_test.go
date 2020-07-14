@@ -212,9 +212,9 @@ func TestCollect(t *testing.T) {
 
 	cfgMap := &config.Config{
 		RevisionGC: &gcconfig.Config{
-			StaleRevisionCreateDelay:        5 * time.Minute,
-			StaleRevisionTimeout:            5 * time.Minute,
-			StaleRevisionMinimumGenerations: 2,
+			GCRetainSinceCreateTime:     5 * time.Minute,
+			GCRetainSinceLastActiveTime: 5 * time.Minute,
+			GCMinStaleRevisions:         2,
 		},
 	}
 
@@ -348,20 +348,15 @@ func TestIsRevisionStale(t *testing.T) {
 		want:      false,
 	}}
 
-	cfgStore := testConfigStore{
-		config: &config.Config{
-			RevisionGC: &gcconfig.Config{
-				StaleRevisionCreateDelay:        5 * time.Minute,
-				StaleRevisionTimeout:            5 * time.Minute,
-				StaleRevisionMinimumGenerations: 2,
-			},
-		},
+	cfg := &gcconfig.Config{
+		GCRetainSinceCreateTime:     5 * time.Minute,
+		GCRetainSinceLastActiveTime: 5 * time.Minute,
+		GCMinStaleRevisions:         2,
 	}
-	ctx := cfgStore.ToContext(context.Background())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := &v1.Configuration{
+			config := &v1.Configuration{
 				Status: v1.ConfigurationStatus{
 					ConfigurationStatusFields: v1.ConfigurationStatusFields{
 						LatestReadyRevisionName: test.latestRev,
@@ -369,7 +364,7 @@ func TestIsRevisionStale(t *testing.T) {
 				},
 			}
 
-			got := isRevisionStale(ctx, test.rev, cfg)
+			got := isRevisionStale(context.Background(), cfg, test.rev, config)
 
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)

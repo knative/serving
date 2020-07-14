@@ -30,6 +30,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/gc"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -48,7 +49,7 @@ func Collect(
 		return err
 	}
 
-	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
+	gcSkipOffset := cfg.GCMinStaleRevisions
 
 	if gcSkipOffset >= int64(len(revs)) {
 		return nil
@@ -61,7 +62,7 @@ func Collect(
 	})
 
 	for _, rev := range revs[gcSkipOffset:] {
-		if isRevisionStale(ctx, rev, config) {
+		if isRevisionStale(ctx, cfg, rev, config) {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
@@ -72,17 +73,16 @@ func Collect(
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
+func isRevisionStale(ctx context.Context, cfg *gc.Config, rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
-	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 	curTime := time.Now()
 	createTime := rev.ObjectMeta.CreationTimestamp
 
-	if createTime.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
-		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
+	if createTime.Add(cfg.GCRetainSinceCreateTime).After(curTime) {
+		// Revision was created sooner than GCRetainSinceCreateTime. Ignore it.
 		return false
 	}
 
@@ -91,12 +91,12 @@ func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configura
 	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
 	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
 	if lastActive.Equal(createTime.Time) {
-		// Revision was never active and it's not ready after staleRevisionCreateDelay.
+		// Revision was never active and it's not ready after GCRetainSinceCreateTime.
 		// It usually happens when ksvc was deployed with wrong configuration.
 		return !rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	}
 
-	ret := lastActive.Add(cfg.StaleRevisionTimeout).Before(curTime)
+	ret := lastActive.Add(cfg.GCRetainSinceLastActiveTime).Before(curTime)
 	if ret {
 		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
 			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastActive)
