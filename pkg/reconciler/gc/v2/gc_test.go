@@ -213,9 +213,9 @@ func TestCollect(t *testing.T) {
 
 	cfgMap := &config.Config{
 		RevisionGC: &gcconfig.Config{
-			GCRetainSinceCreateTime:     5 * time.Minute,
-			GCRetainSinceLastActiveTime: 5 * time.Minute,
-			GCMinStaleRevisions:         2,
+			RetainSinceCreateTime:     5 * time.Minute,
+			RetainSinceLastActiveTime: 5 * time.Minute,
+			MinStaleRevisions:         2,
 		},
 	}
 
@@ -337,9 +337,9 @@ func TestIsRevisionStale(t *testing.T) {
 	}}
 
 	cfg := &gcconfig.Config{
-		GCRetainSinceCreateTime:     5 * time.Minute,
-		GCRetainSinceLastActiveTime: 5 * time.Minute,
-		GCMinStaleRevisions:         2,
+		RetainSinceCreateTime:     5 * time.Minute,
+		RetainSinceLastActiveTime: 5 * time.Minute,
+		MinStaleRevisions:         2,
 	}
 
 	for _, test := range tests {
