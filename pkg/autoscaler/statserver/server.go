@@ -19,7 +19,6 @@ package statserver
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -156,27 +155,40 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// we accept either GOB-encoded or JSON-encoded messages depending on the
+		// we accept either protobuf-encoded or JSON-encoded messages depending on the
 		// message type to ensure safe upgrades.
-		var dec decoder
 		switch messageType {
 		case websocket.BinaryMessage:
-			dec = gob.NewDecoder(bytes.NewBuffer(msg))
+			var wsms metrics.WireStatMessages
+			if err := wsms.Unmarshal(msg); err != nil {
+				s.logger.Errorw("Failed to unmarshal message", zap.Error(err))
+				continue
+			}
+
+			for _, wsm := range wsms.Messages {
+				if wsm == nil || wsm.Stat == nil {
+					// To allow for future protobuf schema changes.
+					continue
+				}
+
+				sm := wsm.ToStatMessage()
+				s.logger.Debugf("Received stat message: %+v", sm)
+				s.statsCh <- sm
+			}
 		case websocket.TextMessage:
-			dec = json.NewDecoder(bytes.NewBuffer(msg))
+			dec := json.NewDecoder(bytes.NewBuffer(msg))
+			var sm metrics.StatMessage
+			if err = dec.Decode(&sm); err != nil {
+				s.logger.Errorw("Failed to decode json", zap.Error(err))
+				continue
+			}
+
+			s.logger.Debugf("Received stat message: %+v", sm)
+			s.statsCh <- sm
 		default:
 			s.logger.Error("Dropping unknown message type.")
 			continue
 		}
-
-		var sm metrics.StatMessage
-		if err = dec.Decode(&sm); err != nil {
-			s.logger.Error(err)
-			continue
-		}
-
-		s.logger.Debugf("Received stat message: %+v", sm)
-		s.statsCh <- sm
 	}
 }
 
@@ -210,9 +222,4 @@ func (s *Server) Shutdown(timeout time.Duration) {
 	case <-ctx.Done():
 		s.logger.Warn("Shutdown timed out")
 	}
-}
-
-// decoder is the interface implemented by json.Decoder and gob.Decoder
-type decoder interface {
-	Decode(interface{}) error
 }
