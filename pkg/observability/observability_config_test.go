@@ -19,6 +19,8 @@ package observation
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/pkg/metrics"
 
 	. "knative.dev/pkg/configmap/testing"
@@ -28,15 +30,23 @@ import (
 func TestNewConfigMap(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 
-	if cfg, err := metrics.NewObservabilityConfigFromConfigMap(cm); err != nil {
-		t.Errorf("Expected no errors. got: %v", err)
-	} else if cfg == nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v, want non-nil", cfg)
+	realCfg, err := metrics.NewObservabilityConfigFromConfigMap(cm)
+	if err != nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(actual) =", err)
+	}
+	if realCfg == nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(actual) = nil")
 	}
 
-	if cfg, err := metrics.NewObservabilityConfigFromConfigMap(example); err != nil {
-		t.Errorf("Expected no errors. got: %v", err)
-	} else if cfg == nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v, want non-nil", cfg)
+	exCfg, err := metrics.NewObservabilityConfigFromConfigMap(example)
+	if err != nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(example) =", err)
+	}
+	if exCfg == nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
+	}
+	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "RequestLogTemplate")
+	if !cmp.Equal(realCfg, exCfg, co) {
+		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg, co))
 	}
 }
