@@ -114,26 +114,15 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		// validate V2 settings
-		if err := parseForeverOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
+		if err := parseDisabledOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
 			return nil, fmt.Errorf("failed to parse min-stale-revisions: %w", err)
 		}
-		if err := parseForeverOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
+		if err := parseDisabledOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
 			return nil, fmt.Errorf("failed to parse retain-since-last-active-time: %w", err)
 		}
-
-		if max == "" {
-			// keep default value
-		} else if strings.EqualFold(max, disabled) {
-			c.MaxNonActiveRevisions = Infinity
-		} else if parsed, err := strconv.ParseInt(max, 10, 64); err != nil {
-			return nil, fmt.Errorf("failed to parse max-stale-revisions, was: %d", c.MaxNonActiveRevisions)
-		} else {
-			if parsed < 0 {
-				return nil, fmt.Errorf("max-stale-revisions must non-negative or %q, was: %d", disabled, parsed)
-			}
-			c.MaxNonActiveRevisions = parsed
+		if err := parseDisabledOrInt64(max, &c.MaxNonActiveRevisions); err != nil {
+			return nil, fmt.Errorf("failed to parse max-stale-revisions: %w", err)
 		}
-
 		if c.MinStaleRevisions < 0 {
 			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinStaleRevisions)
 		}
@@ -144,7 +133,22 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 	}
 }
 
-func parseForeverOrDuration(val string, toSet *time.Duration) error {
+func parseDisabledOrInt64(val string, toSet *int64) error {
+	if val == "" {
+		// keep default value
+	} else if strings.EqualFold(val, disabled) {
+		*toSet = Infinity
+	} else if parsed, err := strconv.ParseInt(val, 10, 64); err != nil {
+		return err
+	} else if parsed < 0 {
+		return fmt.Errorf("must non-negative or %q, was: %d", disabled, parsed)
+	} else {
+		*toSet = parsed
+	}
+	return nil
+}
+
+func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 	if val == "" {
 		// keep default value
 	} else if strings.EqualFold(val, disabled) {
