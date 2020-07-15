@@ -27,11 +27,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/network"
 )
 
 var testStat = metrics.Stat{
-	PodName:                          "testPod",
+	PodName:                          pod,
 	AverageConcurrentRequests:        5.0,
 	AverageProxiedConcurrentRequests: 5.0,
 	ProxiedRequestCount:              100.0,
@@ -39,33 +38,20 @@ var testStat = metrics.Stat{
 	ProcessUptime:                    20.0,
 }
 
-func TestReporterReport(t *testing.T) {
+func TestProtobufStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			reporter := NewProtobufStatsReporter(pod, test.reportingPeriod)
 			// Make the value slightly more interesting, rather than microseconds.
 			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(network.RequestStatsReport{
-				AverageConcurrency:        test.concurrency,
-				AverageProxiedConcurrency: test.proxiedConcurrency,
-				RequestCount:              test.reqCount,
-				ProxiedRequestCount:       test.proxiedReqCount,
-			})
-			stat := reporter.stat.Load().(metrics.Stat)
-			if stat.RequestCount != test.expectedReqCount {
-				t.Errorf("stat.RequestCount = %v, want %v", stat.RequestCount, test.expectedReqCount)
+			reporter.Report(test.report)
+			got := reporter.stat.Load().(metrics.Stat)
+			test.want.PodName = pod
+			if !cmp.Equal(test.want, got, ignoreStatFields) {
+				t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got))
 			}
-			if stat.AverageConcurrentRequests != test.expectedConcurrency {
-				t.Errorf("stat.AverageConcurrentRequests = %v, want %v", stat.AverageConcurrentRequests, test.expectedConcurrency)
-			}
-			if stat.ProxiedRequestCount != test.expectedProxiedRequestCount {
-				t.Errorf("stat.ProxiedRequestCount = %v, want %v", stat.ProxiedRequestCount, test.expectedProxiedRequestCount)
-			}
-			if stat.AverageProxiedConcurrentRequests != test.expectedProxiedConcurrency {
-				t.Errorf("stat.AverageProxiedConcurrentRequests = %v, want %v", stat.AverageProxiedConcurrentRequests, test.expectedProxiedConcurrency)
-			}
-			if got := stat.ProcessUptime; got < 5.0 || got > 6.0 {
-				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", got)
+			if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
 			}
 		})
 	}

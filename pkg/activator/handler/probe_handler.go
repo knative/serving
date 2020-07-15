@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"knative.dev/serving/pkg/activator"
@@ -37,7 +38,7 @@ func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
 			return
 		}
-		w.Write([]byte(activator.Name))
+		io.WriteString(w, activator.Name)
 		return
 	}
 

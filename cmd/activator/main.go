@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -84,19 +83,19 @@ var (
 
 func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
 	logger *zap.SugaredLogger) {
-	for sm := range statChan {
-		go func(msgs []asmetrics.StatMessage) {
-			for _, msg := range msgs {
-				b, err := json.Marshal(msg)
-				if err != nil {
-					logger.Errorw("Error while marshaling stat", zap.Error(err))
-					continue
-				}
-				if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
-					logger.Errorw("Error while sending stat", zap.Error(err))
-				}
+	for sms := range statChan {
+		go func(sms []asmetrics.StatMessage) {
+			wsms := asmetrics.ToWireStatMessages(sms)
+			b, err := wsms.Marshal()
+			if err != nil {
+				logger.Errorw("Error while marshaling stats", zap.Error(err))
+				return
 			}
-		}(sm)
+
+			if err := statSink.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+				logger.Errorw("Error while sending stats", zap.Error(err))
+			}
+		}(sms)
 	}
 }
 
