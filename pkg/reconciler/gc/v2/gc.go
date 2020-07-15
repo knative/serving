@@ -72,7 +72,7 @@ func Collect(
 			numStale++
 		}
 
-		if numStale > minStale || maxStale != -1 && nonactive >= maxStale {
+		if numStale > minStale || maxStale != gc.Infinity && nonactive >= maxStale {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(
 				rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
@@ -100,19 +100,26 @@ func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 }
 
 func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger) bool {
+	sinceCreate, sinceActive := cfg.RetainSinceCreateTime, cfg.RetainSinceLastActiveTime
+	if cfg.RetainSinceCreateTime == gc.Disabled && sinceActive == gc.Disabled {
+		return false
+	}
+
 	curTime := time.Now()
 	createTime := rev.ObjectMeta.CreationTimestamp
-	if createTime.Add(cfg.RetainSinceCreateTime).After(curTime) {
+	if sinceCreate != gc.Disabled && createTime.Add(sinceCreate).After(curTime) {
 		// Revision was created sooner than GCRetainSinceCreateTime. Ignore it.
 		return false
 	}
 
-	if active := revisionLastActiveTime(rev); active.Add(cfg.RetainSinceLastActiveTime).Before(curTime) {
-		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
-			rev.ObjectMeta.Name, createTime, active)
-		return true
+	active := revisionLastActiveTime(rev)
+	if sinceActive != gc.Disabled && active.Add(sinceActive).After(curTime) {
+		return false
 	}
-	return false
+
+	logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
+		rev.ObjectMeta.Name, createTime, active)
+	return true
 }
 
 // revisionLastActiveTime returns if present:

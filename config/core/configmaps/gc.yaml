@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "e7f87361"
+    knative.dev/example-checksum: "31700824"
 data:
   _example: |
     ################################
@@ -28,6 +28,7 @@ data:
     #    EXAMPLE CONFIGURATION     #
     #                              #
     ################################
+
     # This block is not actually functional configuration,
     # but serves to illustrate the available configuration
     # options and document them in a way that is accessible
@@ -66,7 +67,7 @@ data:
     #   * Revisions are considered stale if they were created after more than
     #      "retain-since-create-time" or last referenced by a route more than
     #      "retain-since-last-active-time" ago.
-    #   * Either timeout may be set to "forever" to turn off time-based GC.
+    #   * Either timeout may be set to "disabled" to turn off time-based GC.
     # Active
     #   * Revisions which are referenced by a Route are considered active and
     #     are exempted from GC.
@@ -80,10 +81,12 @@ data:
     #
     # Example config to always keep around the last ten revisions:
     #     retain-since-create-time: "disabled"
+    #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "10"
     #
     # Example disable all GC:
     #     retain-since-create-time: "disabled"
+    #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "disabled"
     #
     # Example config to keep recently deployed or active revisions,
@@ -103,6 +106,6 @@ data:
     # Minimum number of stale revisions to retain.
     min-stale-revisions: "20"
 
-    # Maximum number of non-active revisions to retain.
-    # Set to "disabled" to disable any maximum limit.
+    # Maximum number of non-active revisions to retain
+    # or "disabled" to disable any maximum limit.
     max-non-active-revisions: "1000"
