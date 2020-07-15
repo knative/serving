@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "60cee574"
+    knative.dev/example-checksum: "e7f87361"
 data:
   _example: |
     ################################
@@ -69,7 +69,8 @@ data:
     #      "retain-since-last-active-time" ago.
     #   * Either timeout may be set to "forever" to turn off time-based GC.
     # Active
-    #   * Revisions which are referenced by a Route are considered active.
+    #   * Revisions which are referenced by a Route are considered active and
+    #     are exempted from GC.
     #   * Individual revisions may be marked with the annotation
     #      "knative.dev/no-gc":"true" to be permanently considered active.
     #
