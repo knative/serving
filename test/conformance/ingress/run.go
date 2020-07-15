@@ -59,7 +59,7 @@ func RunConformance(t *testing.T) {
 	// in the long term that lets downstream
 	// implementations to better select which tests
 	// should be run -  selection across various
-	// dimentions
+	// dimensions
 	// ie. state - alpha, beta, ga
 	// ie. requirement - must, should, may
 	if test.ServingFlags.EnableBetaFeatures {
