@@ -161,7 +161,14 @@ func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ro
 		// At this point, it's unclear whether should record or not.
 		return nil
 	}
+
 	if mc.recorder == nil {
+		opt, err := optionForResource(metricskey.GetResource(ctx))
+		if err != nil {
+			return err
+		}
+		ros = append(ros, opt)
+
 		return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
 	}
 	return mc.recorder(ctx, mss, ros...)
@@ -260,29 +267,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 			}
 		}
 
-		if !allowCustomMetrics {
-			servingOrEventing := metricskey.KnativeRevisionMetrics.Union(
-				metricskey.KnativeTriggerMetrics).Union(metricskey.KnativeBrokerMetrics)
-			mc.recorder = func(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
-				// Perform array filtering in place using two indices: w(rite)Index and r(ead)Index.
-				wIdx := 0
-				for rIdx := 0; rIdx < len(mss); rIdx++ {
-					metricType := path.Join(mc.stackdriverMetricTypePrefix, mss[rIdx].Measure().Name())
-					if servingOrEventing.Has(metricType) {
-						mss[wIdx] = mss[rIdx]
-						wIdx++
-					}
-					// Otherwise, skip the measurement (because it won't be accepted).
-				}
-				// Found no matched metrics.
-				if wIdx == 0 {
-					return nil
-				}
-				// Trim the list to the number of written objects.
-				mss = mss[:wIdx]
-				return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
-			}
-		}
+		mc.recorder = sdCustomMetricsRecorder(mc, allowCustomMetrics)
 
 		if scc.UseSecret {
 			secret, err := getStackdriverSecret(ops.Secrets)

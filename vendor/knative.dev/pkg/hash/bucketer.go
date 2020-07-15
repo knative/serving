@@ -38,14 +38,14 @@ type BucketSet struct {
 	// mu guards buckets.
 	mu sync.RWMutex
 	// All the bucket names. Needed for building hash universe.
-	// `name` must be in this set.
 	buckets sets.String
 }
 
 // Bucket implements reconciler.Bucket and wraps around BuketSet
 // for bucketing functions.
 type Bucket struct {
-	name    string
+	name string
+	// `name` must be in this BucketSet.buckets.
 	buckets *BucketSet
 }
 
@@ -66,7 +66,8 @@ func NewBucketSet(bucketList sets.String) *BucketSet {
 	}
 }
 
-// NewBucket creates a new bucket.
+// NewBucket creates a new bucket. Caller MUST make sure that
+// the given `name` is in the given `bl.buckets`.
 func NewBucket(name string, bl *BucketSet) *Bucket {
 	return &Bucket{
 		name:    name,
@@ -97,6 +98,14 @@ func (b *BucketSet) Owner(key string) string {
 	ret := l.UnsortedList()[0]
 	b.cache.Add(key, ret)
 	return ret
+}
+
+// BucketList returns the bucket names of this BucketSet in random order.
+func (b *BucketSet) BucketList() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.buckets.UnsortedList()
 }
 
 // Update updates the universe of buckets.

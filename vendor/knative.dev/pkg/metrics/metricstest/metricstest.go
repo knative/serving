@@ -30,7 +30,7 @@ import (
 func CheckStatsReported(t test.T, names ...string) {
 	t.Helper()
 	for _, name := range names {
-		d, err := view.RetrieveData(name)
+		d, err := readRowsFromAllMeters(name)
 		if err != nil {
 			t.Error("For metric, Reporter.Report() error", "metric", name, "error", err)
 		}
@@ -45,7 +45,7 @@ func CheckStatsReported(t test.T, names ...string) {
 func CheckStatsNotReported(t test.T, names ...string) {
 	t.Helper()
 	for _, name := range names {
-		d, err := view.RetrieveData(name)
+		d, err := readRowsFromAllMeters(name)
 		// err == nil means a valid stat exists matching "name"
 		// len(d) > 0 means a component recorded metrics for that stat
 		if err == nil && len(d) > 0 {
@@ -121,8 +121,15 @@ func CheckDistributionCount(t test.T, name string, wantTags map[string]string, e
 // CheckLastValueData checks the view with a name matching string name to verify that the LastValueData stats
 // reported are tagged with the tags in wantTags and that wantValue matches reported last value.
 func CheckLastValueData(t test.T, name string, wantTags map[string]string, wantValue float64) {
+	CheckLastValueDataWithMeter(t, name, wantTags, wantValue, nil)
+}
+
+// CheckLastValueDataWithMeter checks the  view with a name matching the string name in the
+// specified Meter (resource-specific view) to verify that the LastValueData stats are tagged with
+// the tags in wantTags and that wantValue matches the last reported value.
+func CheckLastValueDataWithMeter(t test.T, name string, wantTags map[string]string, wantValue float64, meter view.Meter) {
 	t.Helper()
-	if row := lastRow(t, name); row != nil {
+	if row := lastRow(t, name, meter); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.LastValueData); !ok {
@@ -159,16 +166,25 @@ func CheckSumData(t test.T, name string, wantTags map[string]string, wantValue f
 //
 // In normal process shutdown, metrics do not need to be unregistered.
 func Unregister(names ...string) {
-	for _, n := range names {
-		if v := view.Find(n); v != nil {
-			view.Unregister(v)
+	for _, producer := range metricproducer.GlobalManager().GetAll() {
+		meter := producer.(view.Meter)
+		for _, n := range names {
+			if v := meter.Find(n); v != nil {
+				meter.Unregister(v)
+			}
 		}
 	}
 }
 
-func lastRow(t test.T, name string) *view.Row {
+func lastRow(t test.T, name string, meter view.Meter) *view.Row {
 	t.Helper()
-	d, err := view.RetrieveData(name)
+	var d []*view.Row
+	var err error
+	if meter != nil {
+		d, err = meter.RetrieveData(name)
+	} else {
+		d, err = readRowsFromAllMeters(name)
+	}
 	if err != nil {
 		t.Error("Reporter.Report() error", "metric", name, "error", err)
 		return nil
@@ -182,28 +198,32 @@ func lastRow(t test.T, name string) *view.Row {
 }
 
 func checkExactlyOneRow(t test.T, name string) (*view.Row, error) {
+	rows, err := readRowsFromAllMeters(name)
+	if err != nil || len(rows) == 0 {
+		return nil, fmt.Errorf("could not find row for %q", name)
+	}
+	if len(rows) > 1 {
+		return nil, fmt.Errorf("expected 1 row for metric %q got %d", name, len(rows))
+	}
+	return rows[0], nil
+}
+
+func readRowsFromAllMeters(name string) ([]*view.Row, error) {
 	// view.Meter implements (and is exposed by) metricproducer.GetAll. Since
 	// this is a test, reach around and cast these to view.Meter.
-	var retval *view.Row
+	var rows []*view.Row
 	for _, producer := range metricproducer.GlobalManager().GetAll() {
 		meter := producer.(view.Meter)
-
 		d, err := meter.RetrieveData(name)
 		if err != nil || len(d) == 0 {
 			continue
 		}
-		if len(d) > 1 {
-			return nil, fmt.Errorf("expected 1 row for metric %q got %d", name, len(d))
+		if rows != nil {
+			return nil, fmt.Errorf("got metrics for the same name from different meters: %+v, %+v", rows, d)
 		}
-		if retval != nil {
-			return nil, fmt.Errorf("got 2 rows from different meters: %+v, %+v", *retval, d[0])
-		}
-		retval = d[0]
+		rows = d
 	}
-	if retval == nil {
-		return nil, fmt.Errorf("could not find row for %q", name)
-	}
-	return retval, nil
+	return rows, nil
 }
 
 func checkRowTags(t test.T, row *view.Row, name string, wantTags map[string]string) {

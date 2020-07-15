@@ -67,7 +67,7 @@ type CloudEventOverrides struct {
 // SourceStatus shows how we expect folks to embed Addressable in
 // their Status field.
 type SourceStatus struct {
-	// inherits duck/v1beta1 Status, which currently provides:
+	// inherits Status, which currently provides:
 	// * ObservedGeneration - the 'Generation' of the Service that was last
 	//   processed by the controller.
 	// * Conditions - the latest available observations of a resource's current
