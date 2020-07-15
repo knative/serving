@@ -64,9 +64,6 @@ func TestCollectMin(t *testing.T) {
 	}
 
 	now := time.Now()
-	//nineMinutesAgo := now.Add(-9 * time.Minute)
-	//tenMinutesAgo := now.Add(-10 * time.Minute)
-
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
@@ -181,6 +178,158 @@ func TestCollectMin(t *testing.T) {
 				WithRevName("5556"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(now)),
+		},
+	}}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := SetupFakeContext(t)
+			ctx = config.ToContext(ctx, cfgMap)
+			client := fakeservingclient.Get(ctx)
+
+			ri := fakerevisioninformer.Get(ctx)
+			for _, rev := range test.revs {
+				ri.Informer().GetIndexer().Add(rev)
+			}
+
+			recorderList := ActionRecorderList{client}
+
+			Collect(ctx, client, ri.Lister(), test.cfg)
+
+			actions, err := recorderList.ActionsByVerb()
+			if err != nil {
+				t.Errorf("Error capturing actions by verb: %q", err)
+			}
+
+			for i, want := range test.wantDeletes {
+				if i >= len(actions.Deletes) {
+					t.Errorf("Missing delete: %#v", want)
+					continue
+				}
+				got := actions.Deletes[i]
+				if got.GetName() != want.GetName() {
+					t.Errorf("Unexpected delete[%d]: %#v", i, got)
+				}
+			}
+			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
+				for _, extra := range actions.Deletes[want:] {
+					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
+				}
+			}
+		})
+	}
+}
+
+func TestCollectMax(t *testing.T) {
+	cfgMap := &config.Config{
+		RevisionGC: &gcconfig.Config{
+			RetainSinceCreateTime:     1 * time.Hour,
+			RetainSinceLastActiveTime: 1 * time.Hour,
+			MinStaleRevisions:         1,
+			MaxStaleRevisions:         3,
+		},
+	}
+
+	now := time.Now()
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	table := []struct {
+		name        string
+		cfg         *v1.Configuration
+		revs        []*v1.Revision
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "at max",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Under max
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Under max
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
+		},
+	}, {
+		name: "delete oldest, keep three max",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Stale and over the max
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5553"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(oldest)),
+			// Stale but under max
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Stale but under max
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5553",
+		}},
+	}, {
+		name: "over max, all active",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Stale and over the max
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5553"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(oldest)),
+			// Stale but under max
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(older)),
+			// Stale but under max
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
 		},
 	}}
 

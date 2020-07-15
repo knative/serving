@@ -68,6 +68,10 @@ func defaultConfig() *Config {
 		StaleRevisionMinimumGenerations: 20,
 
 		// V2 GC Settings
+		// TODO(whaught): consider an infinity sentinel value for use with max mode.
+		// Document in example why you'd want that to fill to max if you want to do it by count.
+		// Max stale is really just max?
+		// TODO(whaught): validate positive
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
 		MinStaleRevisions:         20,
