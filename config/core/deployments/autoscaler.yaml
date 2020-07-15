@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Deprecated. Use StatefulSet autoscaler instead.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,7 +21,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 0
+  replicas: 0 # 0 pod as this deployment is deprecated.
   selector:
     matchLabels:
       app: autoscaler
@@ -80,6 +81,7 @@ spec:
         livenessProbe: *probe
 
 ---
+# Deprecated. Use Service autoscaler-ss instead.
 apiVersion: v1
 kind: Service
 metadata:
@@ -111,7 +113,10 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 3
+  # Replicas can be set to more than 1 (Beta feature). However changing this value dynamically
+  # is not supported yet. If there are existing pods of this StatefulSet running, make sure
+  # that scale them to 0 first before changing this value.
+  replicas: 1
   serviceName: autoscaler-ss
   selector:
     matchLabels:
@@ -203,4 +208,4 @@ spec:
     targetPort: 8080
   selector:
     app: autoscaler
-  clusterIP: None
+  clusterIP: None # Required to make StatefulSet Pod DNS work.
