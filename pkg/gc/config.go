@@ -47,15 +47,17 @@ type Config struct {
 
 	// Duration from creation when a Revision should be considered active
 	// and exempt from GC. Note that GCMaxStaleRevision may override this if set.
+	// Set Forever (-1) to disable/ignore duration and always consider active.
 	RetainSinceCreateTime time.Duration
 	// Duration from last active when a Revision should be considered active
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
+	// Set Forever (-1) to disable/ignore duration and always consider active.
 	RetainSinceLastActiveTime time.Duration
 	// Minimum number of stale revisions to keep before considering for GC.
 	MinStaleRevisions int64
 	// Maximum number of non-active revisions to keep before considering for GC.
 	// regardless of creation or staleness time-bounds
-	// Set -1 to disable this setting.
+	// Set Infinity (-1) to disable/ignore max.
 	MaxNonActiveRevisions int64
 }
 
@@ -68,8 +70,6 @@ func defaultConfig() *Config {
 		StaleRevisionMinimumGenerations: 20,
 
 		// V2 GC Settings
-		// TODO(whaught): consider 'forever' sentinel value for use with max mode.
-		// TODO(whaught): validate positive
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
 		MinStaleRevisions:         20,
