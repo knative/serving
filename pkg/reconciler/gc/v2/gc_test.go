@@ -179,6 +179,36 @@ func TestCollectMin(t *testing.T) {
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(now)),
 		},
+	}, {
+		name: "keep oldest because of the preserve annotation",
+		cfg:  cfg("keep-oldest", "foo", 5556, WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-oldest", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingStateModified(oldest),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRevisionPreserveAnnotation()),
+			rev("keep-oldest", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			rev("keep-oldest", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(old)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5555",
+		}},
 	}}
 
 	for _, test := range table {

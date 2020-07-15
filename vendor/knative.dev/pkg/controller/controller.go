@@ -452,7 +452,7 @@ func (c *Impl) processNextWorkItem() bool {
 		if err != nil {
 			status = falseString
 		}
-		c.statsReporter.ReportReconcile(time.Since(startTime), keyStr, status)
+		c.statsReporter.ReportReconcile(time.Since(startTime), status)
 	}()
 
 	// Embed the key into the logger and attach that to the context we pass

@@ -19,6 +19,7 @@ package v2
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -88,6 +89,10 @@ func Collect(
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return true // never delete latest ready, even if config is not active.
+	}
+
+	if strings.EqualFold(rev.Annotations[serving.RevisionPreservedAnnotationKey], "true") {
+		return true
 	}
 	// Anything that the labeler hasn't explicitly labelled as inactive.
 	// Revisions which do not yet have any annotation are not eligible for deletion.

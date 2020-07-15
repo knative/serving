@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metrics
-
-import (
-	"knative.dev/pkg/metrics/metricskey"
-)
-
-type Global struct{}
-
-func (g *Global) MonitoredResource() (resType string, labels map[string]string) {
-	return "global", nil
-}
-
-func valueOrUnknown(key string, tagsMap map[string]string) string {
-	if value, ok := tagsMap[key]; ok {
-		return value
-	}
-	return metricskey.ValueUnknown
-}
+// Package kflag contains a variety of non-standard command-line flag types
+package kflag
