@@ -24,9 +24,11 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
@@ -37,10 +39,10 @@ import (
 // falling back on the standard elector.
 func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
 	logger := logging.FromContext(ctx)
-	ssc, err := newStatefulSetConfig()
+	b, _, err := NewStatefulSetBucketAndSet(int(cc.Buckets))
 	if err == nil {
 		logger.Info("Running with StatefulSet leader election")
-		return withStatefulSetElectorBuilder(ctx, cc, *ssc)
+		return withStatefulSetElectorBuilder(ctx, cc, b)
 	}
 	logger.Info("Running with Standard leader election")
 	return WithStandardLeaderElectorBuilder(ctx, kc, cc)
@@ -59,10 +61,10 @@ func WithStandardLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interfa
 // withStatefulSetElectorBuilder infuses a context with the ability to build
 // Electors which are assigned leadership based on the StatefulSet ordinal from
 // the provided component configuration.
-func withStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, ssc statefulSetConfig) context.Context {
+func withStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt reconciler.Bucket) context.Context {
 	return context.WithValue(ctx, builderKey{}, &statefulSetBuilder{
 		lec: cc,
-		ssc: ssc,
+		bkt: bkt,
 	})
 }
 
@@ -173,27 +175,48 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 
 type statefulSetBuilder struct {
 	lec ComponentConfig
-	ssc statefulSetConfig
+	bkt reconciler.Bucket
 }
 
 func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
-	ordinal := uint32(b.ssc.StatefulSetID.ordinal)
-	logger.Infof("%s will run in StatefulSet ordinal assignement mode with ordinal %d",
-		b.lec.Component, ordinal)
+	logger.Infof("%s will run in StatefulSet ordinal assignement mode with bucket name %s",
+		b.lec.Component, b.bkt.Name())
 
 	return &unopposedElector{
-		bkt: &bucket{
-			// The name is the full pod DNS of the owner pod of this bucket.
-			name: fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", b.ssc.Protocol,
-				b.ssc.StatefulSetID.ssName, ordinal, b.ssc.ServiceName,
-				system.Namespace(), network.GetClusterDomainName(), b.ssc.Port),
-			index: ordinal,
-			total: b.lec.Buckets,
-		},
+		bkt: b.bkt,
 		la:  la,
 		enq: enq,
 	}, nil
+}
+
+// NewStatefulSetBucketAndSet creates a BucketSet for StatefulSet controller with
+// the given bucket size and the information from environment variables. Then uses
+// the created BucketSet to create a Bucket for this StatefulSet Pod.
+func NewStatefulSetBucketAndSet(buckets int) (reconciler.Bucket, *hash.BucketSet, error) {
+	ssc, err := newStatefulSetConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ssc.StatefulSetID.ordinal >= buckets {
+		return nil, nil, fmt.Errorf("ordinal %d is out of range [0, %d)",
+			ssc.StatefulSetID.ordinal, buckets)
+	}
+
+	names := make(sets.String, buckets)
+	for i := 0; i < buckets; i++ {
+		names.Insert(statefulSetPodDNS(i, ssc))
+	}
+
+	bs := hash.NewBucketSet(names)
+	return hash.NewBucket(statefulSetPodDNS(ssc.StatefulSetID.ordinal, ssc), bs), bs, nil
+}
+
+func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
+	return fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", ssc.Protocol,
+		ssc.StatefulSetID.ssName, ordinal, ssc.ServiceName,
+		system.Namespace(), network.GetClusterDomainName(), ssc.Port)
 }
 
 // unopposedElector promotes when run without needing to be elected.
