@@ -70,7 +70,7 @@ func Collect(
 			numStale++
 		}
 
-		if total > maxStale || numStale > minStale {
+		if numStale > minStale || maxStale != -1 && total >= maxStale {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(
 				rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
@@ -86,8 +86,10 @@ func Collect(
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
-		return false
+		return true // never delete latest ready, even if config is not active.
 	}
+	// Anything that the labeler hasn't explicitly labelled as inactive.
+	// Revisions which do not yet have any annotation are not eligible for deletion.
 	return rev.GetRoutingState() != v1.RoutingStateReserve
 }
 
@@ -99,9 +101,9 @@ func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger
 		return false
 	}
 
-	if a := revisionLastActiveTime(rev); a.Add(cfg.RetainSinceLastActiveTime).Before(curTime) {
+	if active := revisionLastActiveTime(rev); active.Add(cfg.RetainSinceLastActiveTime).Before(curTime) {
 		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
-			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, a)
+			rev.ObjectMeta.Name, createTime, active)
 		return true
 	}
 	return false
