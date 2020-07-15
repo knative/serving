@@ -28,6 +28,7 @@ data:
     #    EXAMPLE CONFIGURATION     #
     #                              #
     ################################
+
     # This block is not actually functional configuration,
     # but serves to illustrate the available configuration
     # options and document them in a way that is accessible
@@ -36,19 +37,25 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
+
     # Delay after revision creation before considering it for GC
     stale-revision-create-delay: "48h"
+
     # Duration since a route has pointed at the revision before it
     # should be GC'd.
     # This minus lastpinned-debounce must be longer than the controller
     # resync period (10 hours).
     stale-revision-timeout: "15h"
+
     # Minimum number of generations of non-active revisions to keep before
     # considering them for GC.
     stale-revision-minimum-generations: "20"
+
     # To avoid constant updates, we allow an existing annotation to be stale by this
     # amount before we update the timestamp.
     stale-revision-lastpinned-debounce: "5h"
+
+
     # ---------------------------------------
     # V2 Garbage Collector Settings
     # ---------------------------------------
@@ -86,12 +93,16 @@ data:
     #      retain-since-last-active-time: "15h"
     #      min-stale-revisions: "2"
     #      max-non-active-revisions: "1000"
+
     # Duration since creation before considering a revision for GC or "disabled".
     retain-since-create-time: "48h"
+
     # Duration since active before considering a revision for GC or "disabled".
     retain-since-last-active-time: "15h"
+
     # Minimum number of stale revisions to retain.
     min-stale-revisions: "20"
+
     # Maximum number of non-active revisions to retain.
     # Set to "disabled" to disable any maximum limit.
     max-non-active-revisions: "1000"
