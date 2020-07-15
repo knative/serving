@@ -34,7 +34,6 @@ func RunConformance(t *testing.T) {
 
 	t.Run("headers/pre-split", TestPreSplitSetHeaders)
 	t.Run("headers/post-split", TestPostSplitSetHeaders)
-	t.Run("headers/tags", TestTagHeaders)
 
 	t.Run("hosts/multiple", TestMultipleHosts)
 
@@ -68,5 +67,6 @@ func RunConformance(t *testing.T) {
 
 	if test.ServingFlags.EnableAlphaFeatures {
 		// Add your conformance test for alpha features
+		t.Run("headers/tags", TestTagHeaders)
 	}
 }
