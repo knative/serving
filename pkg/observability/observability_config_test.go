@@ -45,6 +45,7 @@ func TestNewConfigMap(t *testing.T) {
 	if exCfg == nil {
 		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
 	}
+	// TODO(#8644): remove this.
 	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "RequestLogTemplate")
 	if !cmp.Equal(realCfg, exCfg, co) {
 		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg, co))
