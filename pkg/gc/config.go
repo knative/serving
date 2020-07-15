@@ -29,6 +29,7 @@ import (
 
 const (
 	ConfigName = "config-gc"
+	Forever    = time.Duration(-1)
 )
 
 type Config struct {
@@ -65,9 +66,7 @@ func defaultConfig() *Config {
 		StaleRevisionMinimumGenerations: 20,
 
 		// V2 GC Settings
-		// TODO(whaught): consider an infinity sentinel value for use with max mode.
-		// Document in example why you'd want that to fill to max if you want to do it by count.
-		// Max stale is really max non-active? Staleness is time-defined.
+		// TODO(whaught): consider 'forever' sentinel value for use with max mode.
 		// TODO(whaught): validate positive
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
@@ -88,6 +87,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsDuration("stale-revision-lastpinned-debounce", &c.StaleRevisionLastpinnedDebounce),
 			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
 
+			// v2 settings
 			cm.AsDuration("retain-since-create-time", &c.RetainSinceCreateTime),
 			cm.AsDuration("retain-since-last-active-time", &c.RetainSinceLastActiveTime),
 			cm.AsInt64("min-stale-revisions", &c.MinStaleRevisions),
@@ -96,6 +96,24 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
+		if c.StaleRevisionMinimumGenerations < 0 {
+			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
+		}
+		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
+			logger.Warnf("Got revision timeout of %v, minimum supported value is %v",
+				c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
+			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
+		}
+
+		// validate V2 settings
+		if c.RetainSinceCreateTime < 0 {
+			return nil, fmt.Errorf(
+				"min-stale-revisions(%d) must be non-negative", c.RetainSinceCreateTime)
+		}
+		if c.RetainSinceLastActiveTime < 0 {
+			return nil, fmt.Errorf(
+				"retain-since-last-active-time(%d) must be non-negative", c.RetainSinceLastActiveTime)
+		}
 		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
 			return nil, fmt.Errorf(
 				"min-stale-revisions(%d) must be <= max-stale-revisions(%d)",
@@ -106,16 +124,6 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 		if c.MaxNonActiveRevisions < -1 {
 			return nil, fmt.Errorf("max-stale-revisions must be >= -1, was: %d", c.MaxNonActiveRevisions)
-		}
-
-		if c.StaleRevisionMinimumGenerations < 0 {
-			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
-		}
-
-		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
-			logger.Warnf("Got revision timeout of %v, minimum supported value is %v",
-				c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
-			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
 		}
 		return c, nil
 	}

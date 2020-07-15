@@ -64,23 +64,29 @@ data:
     # ALPHA NOTE: This feature is still experimental and under active development.
 
     # Duration since revision creation before considering it for GC.
+    #
+    # Accepts special value 'forever' if max-non-active-revisions is set.
     retain-since-create-time: "48h"
 
-    # Duration since a route has pointed at the revision
-    # before considering it for GC.
+    # Duration since a route has pointed at the revision before considering it for GC.
+    #
+    # Accepts special value 'forever' if max-non-active-revisions is set.
     retain-since-last-active-time: "15h"
 
-    # Minimum number of non-active revisions to retain.
+    # Minimum number of stale revisions to retain.
+    #
+    # A stale revision is one whose creation time is past retain-since-create-time
+    # or was actively referenced by a route beyond retain-since-last-active-time
     min-stale-revisions: "20"
 
     # Maximum number of non-active revisions to retain regardless of
     # creation or staleness time-bounds.
     #
-    # Instead of allowing revisions to become stale down to min-stale-revisions,
-    # this mode will keep around revisions up to this maximum limit. A value of 0
-    # will immediately delete any non-active revisions. The expected total number
-    # of revisions is the number of active plus this value.
-    #
+    # A value of 0 will immediately delete any non-active revisions.
     # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
     # as they are considered stale as long as there are more than min-stale-revisions.
-    max-non-active-revisions: "-1"
+    # To allow revisions to simply  grow up to the max and be kept, set staleness timeouts
+    # to 'forever'.
+    #
+    # Setting 'forever' retention with no maximum disables garbage collection entirely.
+    max-non-active-revisions: "1000"
