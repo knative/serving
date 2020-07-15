@@ -155,7 +155,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// we accept either protobuf-encoded or JSON-encoded messages depending on the
+		// We accept either protobuf-encoded or JSON-encoded messages depending on the
 		// message type to ensure safe upgrades.
 		switch messageType {
 		case websocket.BinaryMessage:
