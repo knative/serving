@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b8052de8"
+    knative.dev/example-checksum: "721e3176"
 data:
   _example: |
     ################################
@@ -50,7 +50,7 @@ data:
     # When "allowed", the client may enable the behavior with the
     # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
     # When "enabled"  the server will always run the extra validation.
-    kubernetes.podspec-dryrun: "allowed"
+    kubernetes.podspec-dryrun: "enabled"
 
     # This feature removes the ability of a user to delete revisions
     # that are actively serving or that are in-progress deployments.

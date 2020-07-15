@@ -116,6 +116,15 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-fieldref": "Disabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-dryrun Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDryRun: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dryrun": "Disabled",
+		},
+	}, {
 		name:    "responsive-revision-gc Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

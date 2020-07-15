@@ -134,7 +134,7 @@ func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.
 		if presources.ReadyAddressCount(svcEps) != wantAct {
 			return false, nil
 		}
-		aset := sets.NewString()
+		aset := make(sets.String, wantAct)
 		for _, ss := range svcEps.Subsets {
 			for i := 0; i < len(ss.Addresses); i++ {
 				aset.Insert(ss.Addresses[i].IP)

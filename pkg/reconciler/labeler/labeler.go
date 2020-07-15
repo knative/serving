@@ -19,6 +19,7 @@ package labeler
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	cfgmap "knative.dev/serving/pkg/apis/config"
@@ -40,6 +41,7 @@ type Reconciler struct {
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+	clock               clock.Clock
 }
 
 // Check that our Reconciler implements routereconciler.Interface
@@ -50,8 +52,8 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 
 	case cfgmap.Enabled: // v2 logic
-		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 		return labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc)
 
 	default: // v1 logic
@@ -65,8 +67,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 
 	case cfgmap.Enabled: // v2 logic
-		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 		return labelerv2.SyncLabels(r, cacc, racc)
 
 	default: // v1 logic

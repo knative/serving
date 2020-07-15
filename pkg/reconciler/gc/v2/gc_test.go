@@ -143,12 +143,12 @@ func TestCollect(t *testing.T) {
 				WithCreationTimestamp(oldest)),
 			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(tenMinutesAgo)),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(older)),
 			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
+				WithCreationTimestamp(oldest),
+				WithLastPinned(old)),
 		},
 	}, {
 		name: "keep recent lastPinned",
@@ -206,7 +206,7 @@ func TestCollect(t *testing.T) {
 			rev("keep-all", "foo", 5554,
 				WithRevName("keep-all"),
 				WithCreationTimestamp(oldest),
-				WithLastPinned(tenMinutesAgo)),
+				WithLastPinned(old)),
 		},
 	}}
 
