@@ -21,11 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/serving/pkg/network"
@@ -234,13 +232,6 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	res.Header.Set("Content-Type", contentType)
 	res.ContentLength = int64(len(buffer))
 	return res
-}
-
-func randInt() int {
-	rand.Seed(time.Now().UnixNano())
-	min := 1
-	max := 254 // Kubernetes object name max is 253
-	return rand.Intn(max-min+1) + min
 }
 
 func makeProtoResponseForBenchmarking(statusCode int, dataType benchmarkingDataType, contentType string) *http.Response {
