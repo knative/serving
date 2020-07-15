@@ -113,13 +113,13 @@ func TestOurConfig(t *testing.T) {
 		name: "negative create duration",
 		fail: true,
 		data: map[string]string{
-			"retain-since-create-time": "-1d",
+			"retain-since-create-time": "-1h",
 		},
 	}, {
 		name: "negative last-active duration",
 		fail: true,
 		data: map[string]string{
-			"retain-since-last-active-time": "-1d",
+			"retain-since-last-active-time": "-1h",
 		},
 	}, {
 		name: "create delay disabled",

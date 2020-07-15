@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "6a3fcd16"
+    knative.dev/example-checksum: "e7f87361"
 data:
   _example: |
     ################################
@@ -28,7 +28,6 @@ data:
     #    EXAMPLE CONFIGURATION     #
     #                              #
     ################################
-
     # This block is not actually functional configuration,
     # but serves to illustrate the available configuration
     # options and document them in a way that is accessible
@@ -63,19 +62,21 @@ data:
     # These settings are enabled via the "responsive-revision-gc" feature flag.
     # ALPHA NOTE: This feature is still experimental and under active development.
     #
-    # Staleness
+    # Stale
     #   * Revisions are considered stale if they were created after more than
-    #    "retain-since-create-time" or last referenced by a route more than
-    #    "retain-since-last-active-time" ago.
+    #      "retain-since-create-time" or last referenced by a route more than
+    #      "retain-since-last-active-time" ago.
     #   * Either timeout may be set to "forever" to turn off time-based GC.
+    # Active
+    #   * Revisions which are referenced by a Route are considered active and
+    #     are exempted from GC.
     #   * Individual revisions may be marked with the annotation
-    #     "knative.dev/no-gc":"true" to be permanently considered active.
+    #      "knative.dev/no-gc":"true" to be permanently considered active.
     #
     # Example config to immediately collect any inactive revision:
     #    min-stale-revisions: "0"
     #    retain-since-create-time: "0"
     #    retain-since-last-active-time: "0"
-    #
     #
     # Example config to always keep around the last ten revisions:
     #     retain-since-create-time: "disabled"
@@ -85,7 +86,6 @@ data:
     #     retain-since-create-time: "disabled"
     #     max-non-active-revisions: "disabled"
     #
-    #
     # Example config to keep recently deployed or active revisions,
     # always maintain the last two in case of rollback, and prevent
     # burst activity from exploding the count of old revisions:
@@ -93,7 +93,6 @@ data:
     #      retain-since-last-active-time: "15h"
     #      min-stale-revisions: "2"
     #      max-non-active-revisions: "1000"
-
 
     # Duration since creation before considering a revision for GC or "disabled".
     retain-since-create-time: "48h"

@@ -50,15 +50,17 @@ type Config struct {
 
 	// Duration from creation when a Revision should be considered active
 	// and exempt from GC. Note that GCMaxStaleRevision may override this if set.
+	// Set Forever (-1) to disable/ignore duration and always consider active.
 	RetainSinceCreateTime time.Duration
 	// Duration from last active when a Revision should be considered active
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
+	// Set Forever (-1) to disable/ignore duration and always consider active.
 	RetainSinceLastActiveTime time.Duration
 	// Minimum number of stale revisions to keep before considering for GC.
 	MinStaleRevisions int64
 	// Maximum number of non-active revisions to keep before considering for GC.
 	// regardless of creation or staleness time-bounds
-	// Set -1 to disable this setting.
+	// Set Infinity (-1) to disable/ignore max.
 	MaxNonActiveRevisions int64
 }
 
@@ -71,8 +73,6 @@ func defaultConfig() *Config {
 		StaleRevisionMinimumGenerations: 20,
 
 		// V2 GC Settings
-		// TODO(whaught): consider 'forever' sentinel value for use with max mode.
-		// TODO(whaught): validate positive
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
 		MinStaleRevisions:         20,
@@ -114,26 +114,15 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		// validate V2 settings
-		if err := parseForeverOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
+		if err := parseDisabledOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
 			return nil, fmt.Errorf("failed to parse min-stale-revisions: %w", err)
 		}
-		if err := parseForeverOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
+		if err := parseDisabledOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
 			return nil, fmt.Errorf("failed to parse retain-since-last-active-time: %w", err)
 		}
-
-		if max == "" {
-			// keep default value
-		} else if strings.EqualFold(max, disabled) {
-			c.MaxNonActiveRevisions = Infinity
-		} else if parsed, err := strconv.ParseInt(max, 10, 64); err != nil {
-			return nil, fmt.Errorf("failed to parse max-stale-revisions, was: %d", c.MaxNonActiveRevisions)
-		} else {
-			if parsed < 0 {
-				return nil, fmt.Errorf("max-stale-revisions must non-negative or %q, was: %d", disabled, parsed)
-			}
-			c.MaxNonActiveRevisions = parsed
+		if err := parseDisabledOrInt64(max, &c.MaxNonActiveRevisions); err != nil {
+			return nil, fmt.Errorf("failed to parse max-stale-revisions: %w", err)
 		}
-
 		if c.MinStaleRevisions < 0 {
 			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinStaleRevisions)
 		}
@@ -144,7 +133,22 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 	}
 }
 
-func parseForeverOrDuration(val string, toSet *time.Duration) error {
+func parseDisabledOrInt64(val string, toSet *int64) error {
+	if val == "" {
+		// keep default value
+	} else if strings.EqualFold(val, disabled) {
+		*toSet = Infinity
+	} else if parsed, err := strconv.ParseInt(val, 10, 64); err != nil {
+		return err
+	} else if parsed < 0 {
+		return fmt.Errorf("must non-negative or %q, was: %d", disabled, parsed)
+	} else {
+		*toSet = parsed
+	}
+	return nil
+}
+
+func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 	if val == "" {
 		// keep default value
 	} else if strings.EqualFold(val, disabled) {
