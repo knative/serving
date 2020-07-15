@@ -32,63 +32,14 @@ type httpScrapeClient struct {
 	httpClient *http.Client
 }
 
-const (
-	_              = iota
-	PoolSize64 int = 1 << 6 * iota
-	PoolSize128
-	PoolSize192
-	PoolSize256
-	PoolSize320
-)
+// Allocate a large enough buffer to handle the maximum
+// marshalled Stat size which is 292 bytes.
+const PoolSize = 320
 
-var pools = []sync.Pool{
-	{
-		New: func() interface{} {
-			return make([]byte, PoolSize64, PoolSize64)
-		},
+var pool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, PoolSize, PoolSize)
 	},
-	{
-		New: func() interface{} {
-			return make([]byte, PoolSize128, PoolSize128)
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, PoolSize192, PoolSize192)
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, PoolSize256, PoolSize256)
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, PoolSize320, PoolSize320)
-		},
-	},
-}
-
-func getDataBufferSingle(size int64) ([]byte, int) {
-	maxPoolNum := len(pools) - 1
-	return pools[maxPoolNum].Get().([]byte), maxPoolNum
-}
-
-func getDataBuffer(size int64) ([]byte, int) {
-	maxPoolNum := len(pools) - 1
-	switch {
-	case size <= int64(PoolSize64):
-		return pools[0].Get().([]byte), 0
-	case size <= int64(PoolSize128):
-		return pools[1].Get().([]byte), 1
-	case size <= int64(PoolSize192):
-		return pools[2].Get().([]byte), 2
-	case size <= int64(PoolSize256):
-		return pools[3].Get().([]byte), 3
-	case size <= int64(PoolSize320):
-		return pools[4].Get().([]byte), 4
-	}
-	return pools[maxPoolNum].Get().([]byte), maxPoolNum
 }
 
 func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
@@ -128,8 +79,8 @@ func statFromProto(body io.Reader, l int64) (Stat, error) {
 	if l <= 0 {
 		return emptyStat, errors.New("no data received, data size unknown")
 	}
-	b, i := getDataBuffer(l)
-	defer pools[i].Put(b)
+	b := pool.Get().([]byte)
+	defer pool.Put(b)
 	_, err := io.ReadAtLeast(body, b, int(l))
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
