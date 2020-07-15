@@ -102,19 +102,18 @@ func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger) bool {
 	sinceCreate, sinceActive := cfg.RetainSinceCreateTime, cfg.RetainSinceLastActiveTime
 	if cfg.RetainSinceCreateTime == gc.Disabled && sinceActive == gc.Disabled {
-		return false
+		return false // Time checks are both disabled. Not stale.
 	}
 
 	curTime := time.Now()
 	createTime := rev.ObjectMeta.CreationTimestamp
 	if sinceCreate != gc.Disabled && createTime.Add(sinceCreate).After(curTime) {
-		// Revision was created sooner than GCRetainSinceCreateTime. Ignore it.
-		return false
+		return false // Revision was created sooner than RetainSinceCreateTime. Not stale.
 	}
 
 	active := revisionLastActiveTime(rev)
 	if sinceActive != gc.Disabled && active.Add(sinceActive).After(curTime) {
-		return false
+		return false // Revision was recently active. Not stale.
 	}
 
 	logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
