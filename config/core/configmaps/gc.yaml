@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "a1cd0b95"
+    knative.dev/example-checksum: "6a3fcd16"
 data:
   _example: |
     ################################
@@ -78,8 +78,12 @@ data:
     #
     #
     # Example config to always keep around the last ten revisions:
-    #     retain-since-create-time: "forever"
+    #     retain-since-create-time: "disabled"
     #     max-non-active-revisions: "10"
+    #
+    # Example disable all GC:
+    #     retain-since-create-time: "disabled"
+    #     max-non-active-revisions: "disabled"
     #
     #
     # Example config to keep recently deployed or active revisions,
@@ -91,15 +95,15 @@ data:
     #      max-non-active-revisions: "1000"
 
 
-    # Duration since creation before considering a revision for GC or "forever".
+    # Duration since creation before considering a revision for GC or "disabled".
     retain-since-create-time: "48h"
 
-    # Duration since active before considering a revision for GC or "forever".
+    # Duration since active before considering a revision for GC or "disabled".
     retain-since-last-active-time: "15h"
 
     # Minimum number of stale revisions to retain.
     min-stale-revisions: "20"
 
     # Maximum number of non-active revisions to retain.
-    # Set to -1 to disable any maximum limit.
+    # Set to "disabled" to disable any maximum limit.
     max-non-active-revisions: "1000"

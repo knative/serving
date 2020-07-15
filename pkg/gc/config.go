@@ -19,6 +19,7 @@ package gc
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,8 +32,9 @@ import (
 const (
 	ConfigName = "config-gc"
 	Forever    = time.Duration(-1)
+	Infinity   = -1
 
-	foreverString = "forever"
+	disabled = "disabled"
 )
 
 type Config struct {
@@ -84,7 +86,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 	return func(configMap *corev1.ConfigMap) (*Config, error) {
 		c := defaultConfig()
 
-		var retainCreate, retainActive string
+		var retainCreate, retainActive, max string
 		if err := cm.Parse(configMap.Data,
 			cm.AsDuration("stale-revision-create-delay", &c.StaleRevisionCreateDelay),
 			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
@@ -95,13 +97,15 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsString("retain-since-create-time", &retainCreate),
 			cm.AsString("retain-since-last-active-time", &retainActive),
 			cm.AsInt64("min-stale-revisions", &c.MinStaleRevisions),
-			cm.AsInt64("max-non-active-revisions", &c.MaxNonActiveRevisions),
+			cm.AsString("max-non-active-revisions", &max),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
 		if c.StaleRevisionMinimumGenerations < 0 {
-			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", c.StaleRevisionMinimumGenerations)
+			return nil, fmt.Errorf(
+				"stale-revision-minimum-generations must be non-negative, was: %d",
+				c.StaleRevisionMinimumGenerations)
 		}
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
 			logger.Warnf("Got revision timeout of %v, minimum supported value is %v",
@@ -116,16 +120,25 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		if err := parseForeverOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
 			return nil, fmt.Errorf("failed to parse retain-since-last-active-time: %w", err)
 		}
-		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
-			return nil, fmt.Errorf(
-				"min-stale-revisions(%d) must be <= max-stale-revisions(%d)",
-				c.MinStaleRevisions, c.MaxNonActiveRevisions)
+
+		if max == "" {
+			// keep default value
+		} else if strings.EqualFold(max, disabled) {
+			c.MaxNonActiveRevisions = Infinity
+		} else if parsed, err := strconv.ParseInt(max, 10, 64); err != nil {
+			return nil, fmt.Errorf("failed to parse max-stale-revisions, was: %d", c.MaxNonActiveRevisions)
+		} else {
+			if parsed < 0 {
+				return nil, fmt.Errorf("max-stale-revisions must non-negative or %q, was: %d", disabled, parsed)
+			}
+			c.MaxNonActiveRevisions = parsed
 		}
+
 		if c.MinStaleRevisions < 0 {
 			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinStaleRevisions)
 		}
-		if c.MaxNonActiveRevisions < -1 {
-			return nil, fmt.Errorf("max-stale-revisions must be >= -1, was: %d", c.MaxNonActiveRevisions)
+		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
+			return nil, fmt.Errorf("min-stale-revisions(%d) must be <= max-stale-revisions(%d)", c.MinStaleRevisions, c.MaxNonActiveRevisions)
 		}
 		return c, nil
 	}
@@ -134,7 +147,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 func parseForeverOrDuration(val string, toSet *time.Duration) error {
 	if val == "" {
 		// keep default value
-	} else if strings.EqualFold(val, foreverString) {
+	} else if strings.EqualFold(val, disabled) {
 		*toSet = Forever
 	} else if parsed, err := time.ParseDuration(val); err != nil {
 		return err
