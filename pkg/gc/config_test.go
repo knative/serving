@@ -54,7 +54,7 @@ func TestOurConfig(t *testing.T) {
 			RetainSinceCreateTime:           17 * time.Hour,
 			RetainSinceLastActiveTime:       16 * time.Hour,
 			MinStaleRevisions:               5,
-			MaxStaleRevisions:               500,
+			MaxNonActiveRevisions:           500,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay":        "15h",
@@ -64,7 +64,7 @@ func TestOurConfig(t *testing.T) {
 			"retain-since-create-time":           "17h",
 			"retain-since-last-active-time":      "16h",
 			"min-stale-revisions":                "5",
-			"max-stale-revisions":                "500",
+			"max-non-active-revisions":           "500",
 		},
 	}, {
 		name: "Invalid duration",
@@ -92,15 +92,15 @@ func TestOurConfig(t *testing.T) {
 		fail: true,
 		want: nil,
 		data: map[string]string{
-			"max-stale-revisions": "-2",
+			"max-non-active-revisions": "-2",
 		},
 	}, {
 		name: "Invalid max less than min",
 		fail: true,
 		want: nil,
 		data: map[string]string{
-			"min-stale-revisions": "20",
-			"max-stale-revisions": "10",
+			"min-stale-revisions":      "20",
+			"max-non-active-revisions": "10",
 		},
 	}, {
 		name: "Invalid minimum generation",
@@ -120,7 +120,7 @@ func TestOurConfig(t *testing.T) {
 			RetainSinceCreateTime:           48 * time.Hour,
 			RetainSinceLastActiveTime:       15 * time.Hour,
 			MinStaleRevisions:               20,
-			MaxStaleRevisions:               -1,
+			MaxNonActiveRevisions:           1000,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay": "15h",

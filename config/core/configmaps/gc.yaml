@@ -83,4 +83,4 @@ data:
     #
     # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
     # as they are considered stale as long as there are more than min-stale-revisions.
-    max-stale-revisions: "-1"
+    max-non-active-revisions: "-1"

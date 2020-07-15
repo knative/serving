@@ -48,15 +48,12 @@ type Config struct {
 	// Duration from last active when a Revision should be considered active
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
 	RetainSinceLastActiveTime time.Duration
-	// Minimum number of generations of revisions to keep before considering for GC.
-	// Set -1 to disable minimum and fill up to max.
-	// Either min or max must be set.
+	// Minimum number of stale revisions to keep before considering for GC.
 	MinStaleRevisions int64
-	// Maximum number of stale revisions to keep before considering for GC.
+	// Maximum number of non-active revisions to keep before considering for GC.
 	// regardless of creation or staleness time-bounds
 	// Set -1 to disable this setting.
-	// Either min or max must be set.
-	MaxStaleRevisions int64
+	MaxNonActiveRevisions int64
 }
 
 func defaultConfig() *Config {
@@ -70,12 +67,12 @@ func defaultConfig() *Config {
 		// V2 GC Settings
 		// TODO(whaught): consider an infinity sentinel value for use with max mode.
 		// Document in example why you'd want that to fill to max if you want to do it by count.
-		// Max stale is really just max?
+		// Max stale is really max non-active? Staleness is time-defined.
 		// TODO(whaught): validate positive
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
 		MinStaleRevisions:         20,
-		MaxStaleRevisions:         -1,
+		MaxNonActiveRevisions:     1000,
 	}
 }
 
@@ -94,21 +91,21 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsDuration("retain-since-create-time", &c.RetainSinceCreateTime),
 			cm.AsDuration("retain-since-last-active-time", &c.RetainSinceLastActiveTime),
 			cm.AsInt64("min-stale-revisions", &c.MinStaleRevisions),
-			cm.AsInt64("max-stale-revisions", &c.MaxStaleRevisions),
+			cm.AsInt64("max-non-active-revisions", &c.MaxNonActiveRevisions),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
 
-		if c.MaxStaleRevisions >= 0 && c.MinStaleRevisions > c.MaxStaleRevisions {
+		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
 			return nil, fmt.Errorf(
 				"min-stale-revisions(%d) must be <= max-stale-revisions(%d)",
-				c.MinStaleRevisions, c.MaxStaleRevisions)
+				c.MinStaleRevisions, c.MaxNonActiveRevisions)
 		}
 		if c.MinStaleRevisions < 0 {
 			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinStaleRevisions)
 		}
-		if c.MaxStaleRevisions < -1 {
-			return nil, fmt.Errorf("max-stale-revisions must be >= -1, was: %d", c.MaxStaleRevisions)
+		if c.MaxNonActiveRevisions < -1 {
+			return nil, fmt.Errorf("max-stale-revisions must be >= -1, was: %d", c.MaxNonActiveRevisions)
 		}
 
 		if c.StaleRevisionMinimumGenerations < 0 {

@@ -59,7 +59,7 @@ func TestCollectMin(t *testing.T) {
 			RetainSinceCreateTime:     5 * time.Minute,
 			RetainSinceLastActiveTime: 5 * time.Minute,
 			MinStaleRevisions:         1,
-			MaxStaleRevisions:         -1, // assert no changes to min case
+			MaxNonActiveRevisions:     -1, // assert no changes to min case
 		},
 	}
 
@@ -226,7 +226,7 @@ func TestCollectMax(t *testing.T) {
 			RetainSinceCreateTime:     1 * time.Hour,
 			RetainSinceLastActiveTime: 1 * time.Hour,
 			MinStaleRevisions:         1,
-			MaxStaleRevisions:         3,
+			MaxNonActiveRevisions:     3,
 		},
 	}
 

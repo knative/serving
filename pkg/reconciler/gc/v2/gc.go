@@ -49,7 +49,7 @@ func Collect(
 		return err
 	}
 
-	minStale, maxStale := int(cfg.MinStaleRevisions), int(cfg.MaxStaleRevisions)
+	minStale, maxStale := int(cfg.MinStaleRevisions), int(cfg.MaxNonActiveRevisions)
 	if l := len(revs); l <= minStale || l <= maxStale {
 		return nil
 	}
@@ -60,17 +60,18 @@ func Collect(
 		return a.After(b)
 	})
 
-	numStale := 0
-	for total, rev := range revs {
+	numStale, nonactive := 0, 0
+	for _, rev := range revs {
 		if isRevisionActive(rev, config) {
 			continue
 		}
 
+		nonactive++
 		if isRevisionStale(cfg, rev, logger) {
 			numStale++
 		}
 
-		if numStale > minStale || maxStale != -1 && total >= maxStale {
+		if numStale > minStale || maxStale != -1 && nonactive >= maxStale {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(
 				rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
