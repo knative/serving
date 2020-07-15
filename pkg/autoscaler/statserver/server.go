@@ -161,7 +161,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		case websocket.BinaryMessage:
 			var wsms metrics.WireStatMessages
 			if err := wsms.Unmarshal(msg); err != nil {
-				s.logger.Errorw("Failed to unmarshal message", zap.Error(err))
+				s.logger.Errorw("Failed to unmarshal the object", zap.Error(err))
 				continue
 			}
 

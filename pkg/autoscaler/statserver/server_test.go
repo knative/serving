@@ -237,6 +237,8 @@ func BenchmarkStatServer(b *testing.B) {
 }
 
 func assertReceivedJSON(t *testing.T, sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
+	t.Helper()
+
 	if err := sendJSON(statSink, sm); err != nil {
 		t.Fatal("Expected send to succeed, got:", err)
 	}
@@ -248,6 +250,8 @@ func assertReceivedJSON(t *testing.T, sm metrics.StatMessage, statSink *websocke
 }
 
 func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
+	t.Helper()
+
 	if err := sendProto(statSink, sms); err != nil {
 		t.Fatal("Expected send to succeed, got:", err)
 	}
@@ -262,6 +266,8 @@ func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *webs
 }
 
 func dialOK(t *testing.T, serverURL string) *websocket.Conn {
+	t.Helper()
+
 	statSink, err := dial(serverURL)
 	if err != nil {
 		t.Fatal("Dial failed:", err)
@@ -311,6 +317,8 @@ func sendProto(statSink *websocket.Conn, sms []metrics.StatMessage) error {
 }
 
 func closeSink(t *testing.T, statSink *websocket.Conn) {
+	t.Helper()
+
 	if err := statSink.Close(); err != nil {
 		t.Fatal("Failed to close", err)
 	}
