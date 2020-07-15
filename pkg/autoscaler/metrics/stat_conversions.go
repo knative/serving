@@ -19,8 +19,8 @@ package metrics
 import "k8s.io/apimachinery/pkg/types"
 
 // ToWireStatMessage converts the StatMessage to a WireStatMessage.
-func (sm StatMessage) ToWireStatMessage() WireStatMessage {
-	return WireStatMessage{
+func (sm StatMessage) ToWireStatMessage() *WireStatMessage {
+	return &WireStatMessage{
 		Namespace: sm.Key.Namespace,
 		Name:      sm.Key.Name,
 		Stat:      &sm.Stat,
@@ -43,11 +43,10 @@ func (wsm WireStatMessage) ToStatMessage() StatMessage {
 // struct, ready to be sent off.
 func ToWireStatMessages(sms []StatMessage) WireStatMessages {
 	wsms := WireStatMessages{
-		Messages: make([]*WireStatMessage, 0, len(sms)),
+		Messages: make([]*WireStatMessage, len(sms)),
 	}
-	for _, sm := range sms {
-		wsm := sm.ToWireStatMessage()
-		wsms.Messages = append(wsms.Messages, &wsm)
+	for i, sm := range sms {
+		wsms.Messages[i] = sm.ToWireStatMessage()
 	}
 	return wsms
 }

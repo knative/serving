@@ -96,7 +96,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 	ns := route.Namespace
 
-	names := sets.NewString()
+	names := make(sets.String, len(targets))
 	for name := range targets {
 		names.Insert(name)
 	}

@@ -19,6 +19,7 @@ package labeler
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -43,7 +44,14 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	return newControllerWithClock(ctx, cmw, clock.RealClock{})
+}
 
+func newControllerWithClock(
+	ctx context.Context,
+	cmw configmap.Watcher,
+	clock clock.Clock,
+) *controller.Impl {
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
@@ -54,6 +62,7 @@ func NewController(
 		client:              servingclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
+		clock:               clock,
 	}
 	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{
