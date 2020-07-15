@@ -55,6 +55,13 @@ func RunConformance(t *testing.T) {
 	t.Run("websocket", TestWebsocket)
 	t.Run("websocket/split", TestWebsocketSplit)
 
+	// TODO(dprotaso) we'll need something more robust
+	// in the long term that lets downstream
+	// implementations to better select which tests
+	// should be run -  selection across various
+	// dimentions
+	// ie. state - alpha, beta, ga
+	// ie. requirement - must, should, may
 	if test.ServingFlags.EnableBetaFeatures {
 		// Add your conformance test for beta features
 	}
