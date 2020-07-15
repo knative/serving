@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	// Inject the fake informers that this controller needs.
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -30,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
@@ -49,6 +51,7 @@ import (
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestV2Reconcile(t *testing.T) {
 	now := metav1.Now()
+	fakeTime := now.Time
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -70,8 +73,8 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "first-reconcile"),
-			patchAddLabel("default", rev("default", "the-config").Name,
-				"serving.knative.dev/route", "first-reconcile"),
+			patchAddRouteAndServingStateLabel(
+				"default", rev("default", "the-config").Name, "first-reconcile", now.Time),
 			patchAddLabel("default", "the-config", "serving.knative.dev/route", "first-reconcile"),
 		},
 		WantEvents: []string{
@@ -89,8 +92,8 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "pinned-revision"),
-			patchAddLabel("default", "the-revision",
-				"serving.knative.dev/route", "pinned-revision"),
+			patchAddRouteAndServingStateLabel(
+				"default", "the-revision", "pinned-revision", now.Time),
 			patchAddLabel("default", "the-config",
 				"serving.knative.dev/route", "pinned-revision"),
 		},
@@ -106,7 +109,9 @@ func TestV2Reconcile(t *testing.T) {
 			simpleConfig("default", "the-config",
 				WithConfigLabel("serving.knative.dev/route", "steady-state")),
 			rev("default", "the-config",
-				WithRevisionLabel("serving.knative.dev/route", "steady-state")),
+				WithRevisionLabel("serving.knative.dev/route", "steady-state"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(now.Time)),
 		},
 		Key: "default/steady-state",
 	}, {
@@ -119,8 +124,8 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("default", "no-ready-revision"),
-			patchAddLabel("default", rev("default", "the-config").Name,
-				"serving.knative.dev/route", "no-ready-revision"),
+			patchAddRouteAndServingStateLabel(
+				"default", rev("default", "the-config").Name, "no-ready-revision", now.Time),
 			patchAddLabel("default", "the-config",
 				"serving.knative.dev/route", "no-ready-revision"),
 		},
@@ -137,13 +142,14 @@ func TestV2Reconcile(t *testing.T) {
 			simpleConfig("default", "old",
 				WithConfigLabel("serving.knative.dev/route", "transitioning-route")),
 			rev("default", "old",
-				WithRevisionLabel("serving.knative.dev/route", "transitioning-route")),
+				WithRevisionLabel("serving.knative.dev/route", "transitioning-route"),
+				WithRoutingState(v1.RoutingStateActive)),
 			simpleConfig("default", "new"),
 			rev("default", "new"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", rev("default", "new").Name,
-				"serving.knative.dev/route", "transitioning-route"),
+			patchAddRouteAndServingStateLabel(
+				"default", rev("default", "new").Name, "transitioning-route", now.Time),
 			patchAddLabel("default", "new",
 				"serving.knative.dev/route", "transitioning-route"),
 		},
@@ -162,8 +168,8 @@ func TestV2Reconcile(t *testing.T) {
 			rev("default", "the-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", rev("default", "the-config").Name,
-				"serving.knative.dev/route", "add-label-failure"),
+			patchAddRouteAndServingStateLabel(
+				"default", rev("default", "the-config").Name, "add-label-failure", now.Time),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -182,7 +188,9 @@ func TestV2Reconcile(t *testing.T) {
 			simpleRunLatest("default", "add-label-failure", "the-config", WithRouteFinalizer),
 			simpleConfig("default", "the-config"),
 			rev("default", "the-config",
-				WithRevisionLabel("serving.knative.dev/route", "add-label-failure")),
+				WithRevisionLabel("serving.knative.dev/route", "add-label-failure"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(now.Time)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", "the-config", "serving.knative.dev/route", "add-label-failure"),
@@ -217,15 +225,16 @@ func TestV2Reconcile(t *testing.T) {
 			simpleConfig("default", "old-config",
 				WithConfigLabel("serving.knative.dev/route", "config-change")),
 			rev("default", "old-config",
-				WithRevisionLabel("serving.knative.dev/route", "config-change")),
+				WithRevisionLabel("serving.knative.dev/route", "config-change"),
+				WithRoutingState(v1.RoutingStateActive)),
 			simpleConfig("default", "new-config"),
 			rev("default", "new-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", rev("default", "old-config").Name,
-				"serving.knative.dev/route"),
-			patchAddLabel("default", rev("default", "new-config").Name,
-				"serving.knative.dev/route", "config-change"),
+			patchRemoveRouteAndServingStateLabel(
+				"default", rev("default", "old-config").Name, now.Time),
+			patchAddRouteAndServingStateLabel(
+				"default", rev("default", "new-config").Name, "config-change", now.Time),
 			patchRemoveLabel("default", "old-config", "serving.knative.dev/route"),
 			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change"),
 		},
@@ -239,13 +248,14 @@ func TestV2Reconcile(t *testing.T) {
 				WithLatestCreated("the-config-ecoge"),
 				WithConfigLabel("serving.knative.dev/route", "config-update")),
 			rev("default", "the-config",
-				WithRevisionLabel("serving.knative.dev/route", "config-update")),
+				WithRevisionLabel("serving.knative.dev/route", "config-update"),
+				WithRoutingState(v1.RoutingStateActive)),
 			rev("default", "the-config",
 				WithRevName("the-config-ecoge")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "the-config-ecoge",
-				"serving.knative.dev/route", "config-update"),
+			patchAddRouteAndServingStateLabel(
+				"default", "the-config-ecoge", "config-update", now.Time),
 		},
 		Key: "default/config-update",
 	}, {
@@ -279,7 +289,9 @@ func TestV2Reconcile(t *testing.T) {
 			simpleConfig("default", "new-config",
 				WithConfigLabel("serving.knative.dev/route", "delete-label-failure")),
 			rev("default", "new-config",
-				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure")),
+				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(now.Time)),
 			rev("default", "old-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -310,8 +322,8 @@ func TestV2Reconcile(t *testing.T) {
 				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", rev("default", "old-config").Name,
-				"serving.knative.dev/route"),
+			patchRemoveRouteAndServingStateLabel(
+				"default", rev("default", "old-config").Name, now.Time),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -326,6 +338,7 @@ func TestV2Reconcile(t *testing.T) {
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			tracker:             &NullTracker{},
+			clock:               clock.NewFakeClock(fakeTime),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
@@ -413,12 +426,39 @@ func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionIm
 	return action
 }
 
+func patchRemoveRouteAndServingStateLabel(namespace, name string, now time.Time) clientgotesting.PatchActionImpl {
+	return patchAddRouteAndServingStateLabel(namespace, name, "null", now)
+}
+
 func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
 	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)
+
+	action.Patch = []byte(patch)
+	return action
+}
+
+func patchAddRouteAndServingStateLabel(namespace, name, routeName string, now time.Time) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+
+	state := string(v1.RoutingStateReserve)
+
+	// Note: the raw json `"key": null` removes a value, whereas an actual value
+	// called "null" would need quotes to parse as a string `"key":"null"`.
+	if routeName != "null" {
+		state = string(v1.RoutingStateActive)
+		routeName = `"` + routeName + `"`
+	}
+
+	patch := fmt.Sprintf(
+		`{"metadata":{"annotations":{"serving.knative.dev/routingStateModified":%q},`+
+			`"labels":{"serving.knative.dev/route":%s,`+
+			`"serving.knative.dev/routingState":%q}}}`, now.UTC().Format(time.RFC3339), routeName, state)
 
 	action.Patch = []byte(patch)
 	return action
