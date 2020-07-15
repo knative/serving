@@ -68,13 +68,13 @@ function setup_auto_tls_common() {
 
   setup_custom_domain
 
-  turn_on_auto_tls
+  toggle_feature autoTLS Enabled config-network
 }
 
 function cleanup_auto_tls_common() {
   cleanup_custom_domain
 
-  turn_off_auto_tls
+  toggle_feature autoTLS Disabled config-network
   kubectl delete kcert --all -n serving-tests
 }
 

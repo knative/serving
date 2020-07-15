@@ -33,37 +33,6 @@ function knative_setup() {
   install_knative_serving
 }
 
-function wait_for_leader_controller() {
-  echo -n "Waiting for a leader Controller"
-  for i in {1..150}; do  # timeout after 5 minutes
-    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.items[*].spec.holderIdentity}'  | cut -d"_" -f1 | grep "^controller-" | head -1)
-    # Make sure the leader pod exists.
-    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
-      echo -e "\nNew leader Controller has been elected"
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for leader controller"
-  return 1
-}
-
-function toggle_feature() {
-  local FEATURE="$1"
-  local STATE="$2"
-  local CONFIG="${3:-config-features}"
-  echo -n "Setting feature ${FEATURE} to ${STATE}"
-  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
-  # We don't have a good mechanism for positive handoff so sleep :(
-  echo "Waiting 10s for change to get picked up."
-  sleep 10
-}
-
-function toggle_network_feature() {
-  toggle_feature "$1" "$2" config-network
-}
-
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -91,10 +60,10 @@ if (( HTTPS )); then
   use_https="--https"
   # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
   parallelism="-parallel 1"
-  turn_on_auto_tls
+  toggle_feature autoTLS Enabled config-network
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-  add_trap "turn_off_auto_tls" SIGKILL SIGTERM SIGQUIT
+  add_trap "toggle_feature autoTLS Disabled config-network" SIGKILL SIGTERM SIGQUIT
 fi
 
 
@@ -164,13 +133,13 @@ go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
 
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  turn_off_auto_tls
+  toggle_feature autoTLS Disabled config-network
 fi
 
-toggle_network_feature tagHeaderBasedRouting Enabled
-add_trap "toggle_network_feature tagHeaderBasedRouting Disabled" SIGKILL SIGTERM SIGQUIT
+toggle_feature tagHeaderBasedRouting Enabled config-network
+add_trap "toggle_feature tagHeaderBasedRouting Disabled config-network" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-toggle_network_feature tagHeaderBasedRouting Disabled
+toggle_feature tagHeaderBasedRouting Disabled config-network
 
 toggle_feature multi-container Enabled
 add_trap "toggle_feature multi-container Disabled" SIGKILL SIGTERM SIGQUIT
