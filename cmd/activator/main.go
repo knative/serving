@@ -88,12 +88,12 @@ func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmet
 			wsms := asmetrics.ToWireStatMessages(sms)
 			b, err := wsms.Marshal()
 			if err != nil {
-				logger.Errorw("Error while marshaling stat", zap.Error(err))
+				logger.Errorw("Error while marshaling stats", zap.Error(err))
 				return
 			}
 
 			if err := statSink.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-				logger.Errorw("Error while sending stat", zap.Error(err))
+				logger.Errorw("Error while sending stats", zap.Error(err))
 			}
 		}(sms)
 	}
