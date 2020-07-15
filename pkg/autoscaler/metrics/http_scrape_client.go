@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"sync"
 
 	dto "github.com/prometheus/client_model/go"
@@ -33,52 +32,63 @@ type httpScrapeClient struct {
 	httpClient *http.Client
 }
 
-var step = 64
+const (
+	_              = iota
+	PoolSize64 int = 1 << 6 * iota
+	PoolSize128
+	PoolSize192
+	PoolSize256
+	PoolSize320
+)
 
-var dataSizeClasses = []int{
-	step,
-	step * 2,
-	step * 3,
-	step * 4,
-	304, // 292 is the maximum proto buf stat record, use multiple of 16
+var pools = []sync.Pool{
+	{
+		New: func() interface{} {
+			return make([]byte, PoolSize64, PoolSize64)
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, PoolSize128, PoolSize128)
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, PoolSize192, PoolSize192)
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, PoolSize256, PoolSize256)
+		},
+	},
+	{
+		New: func() interface{} {
+			return make([]byte, PoolSize320, PoolSize320)
+		},
+	},
 }
 
-var pools = [...]sync.Pool{
-	{
-		New: func() interface{} {
-			return make([]byte, dataSizeClasses[0], dataSizeClasses[0])
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, dataSizeClasses[1], dataSizeClasses[1])
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, dataSizeClasses[2], dataSizeClasses[2])
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, dataSizeClasses[3], dataSizeClasses[3])
-		},
-	},
-	{
-		New: func() interface{} {
-			return make([]byte, dataSizeClasses[4], dataSizeClasses[4])
-		},
-	},
+func getDataBufferSingle(size int64) ([]byte, int) {
+	maxPoolNum := len(pools) - 1
+	return pools[maxPoolNum].Get().([]byte), maxPoolNum
 }
 
-func getDataBuffer(size int) ([]byte, int) {
-	i := 0
-	for ; i < len(dataSizeClasses)-1; i++ {
-		if size <= dataSizeClasses[i] {
-			break
-		}
+func getDataBuffer(size int64) ([]byte, int) {
+	maxPoolNum := len(pools) - 1
+	switch {
+	case size <= int64(PoolSize64):
+		return pools[0].Get().([]byte), 0
+	case size <= int64(PoolSize128):
+		return pools[1].Get().([]byte), 1
+	case size <= int64(PoolSize192):
+		return pools[2].Get().([]byte), 2
+	case size <= int64(PoolSize256):
+		return pools[3].Get().([]byte), 3
+	case size <= int64(PoolSize320):
+		return pools[4].Get().([]byte), 4
 	}
-	return pools[i].Get().([]byte), i
+	return pools[maxPoolNum].Get().([]byte), maxPoolNum
 }
 
 func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
@@ -108,26 +118,19 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		length, err := strconv.Atoi(resp.Header.Get("Content-Length"))
-		if err != nil {
-			return emptyStat, fmt.Errorf("Parsing Content-Length failed.")
-		}
-		return statFromProto(resp.Body, length)
+		return statFromProto(resp.Body, resp.ContentLength)
 	}
-
 	return statFromPrometheus(resp.Body)
 }
 
-func statFromProto(body io.Reader, l int) (Stat, error) {
+func statFromProto(body io.Reader, l int64) (Stat, error) {
 	var stat Stat
 	if l <= 0 {
 		return emptyStat, errors.New("no data received, data size unknown")
 	}
 	b, i := getDataBuffer(l)
 	defer pools[i].Put(b)
-
 	_, err := io.ReadAtLeast(body, b, int(l))
-
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}

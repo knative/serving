@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -233,7 +232,7 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.Header.Set("Content-Length", strconv.Itoa(len(buffer)))
+	res.ContentLength = int64(len(buffer))
 	return res
 }
 
@@ -244,8 +243,17 @@ func randInt() int {
 	return rand.Intn(max-min+1) + min
 }
 
-func makeProtoResponseForBenchmarking(statusCode int, stat Stat, contentType string) *http.Response {
-	stat.PodName = strings.Repeat("a", randInt())
+func makeProtoResponseForBenchmarking(statusCode int, dataType benchmarkingDataType, contentType string) *http.Response {
+	stat := Stat{}
+	switch {
+	case dataType == NoData:
+	case dataType == SmallData:
+		stat.PodName = "a-lzrjc-deployment-85d4b7d859-gspjs"
+	case dataType == MediumData:
+		stat.PodName = "a-lzrjc-deployment-85d4b7d859-gspjs" + strings.Repeat("p", 50)
+	case dataType == LargeData:
+		stat.PodName = strings.Repeat("p", 253)
+	}
 	stat.ProcessUptime = 12.2
 	stat.ProxiedRequestCount = 122
 	stat.AverageConcurrentRequests = 2.3
@@ -259,7 +267,7 @@ func makeProtoResponseForBenchmarking(statusCode int, stat Stat, contentType str
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.Header.Set("Content-Length", strconv.Itoa(len(buffer)))
+	res.ContentLength = int64(len(buffer))
 	return res
 }
 
@@ -281,19 +289,60 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 	}
 }
 
-func BenchmarkUnmarshalling(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		hClient := newTestHTTPClient(makeProtoResponseForBenchmarking(http.StatusOK, Stat{}, network.ProtoAcceptContent), nil)
+type benchmarkingRoundTripper struct {
+	dataType benchmarkingDataType
+}
 
+func (brt benchmarkingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return makeProtoResponseForBenchmarking(http.StatusOK, brt.dataType, network.ProtoAcceptContent), nil
+}
+
+func newBenchmarkingtHTTPClient(dataType benchmarkingDataType) *http.Client {
+	return &http.Client{
+		Transport: benchmarkingRoundTripper{dataType: dataType},
+	}
+}
+
+type benchmarkingDataType int
+
+const (
+	NoData benchmarkingDataType = iota
+	SmallData
+	MediumData
+	LargeData
+)
+
+func BenchmarkUnmarshallingProtoData(b *testing.B) {
+	benchmarks := []struct {
+		name     string
+		dataType benchmarkingDataType
+	}{{
+		name:     "BenchmarkStatWithEmptyPodName",
+		dataType: NoData,
+	}, {
+		name:     "BenchmarkStatWithSmallPodName",
+		dataType: SmallData,
+	}, {
+		name:     "BenchmarkStatWithMediumPodName",
+		dataType: MediumData,
+	}, {
+		name:     "BenchmarkStatWithLargePodName",
+		dataType: LargeData,
+	}}
+
+	for _, bm := range benchmarks {
+		hClient := newBenchmarkingtHTTPClient(bm.dataType)
 		scrapeClient, err := newHTTPScrapeClient(hClient)
 		if err != nil {
 			b.Fatal(err)
 		}
-		b.StartTimer()
-		if _, err := scrapeClient.Scrape(testURL); err != nil {
-			b.Fatal(err)
-		}
+		b.Run(bm.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if _, err := scrapeClient.Scrape(testURL); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
