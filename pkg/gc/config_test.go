@@ -81,7 +81,14 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
-		name: "Invalid negative minimum generation v2",
+		name: "Invalid minimum generation",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"stale-revision-minimum-generations": "invalid",
+		},
+	}, {
+		name: "Invalid negative min stale",
 		fail: true,
 		want: nil,
 		data: map[string]string{
@@ -103,11 +110,45 @@ func TestOurConfig(t *testing.T) {
 			"max-non-active-revisions": "10",
 		},
 	}, {
-		name: "Invalid minimum generation",
+		name: "Unparsable create duration",
 		fail: true,
 		want: nil,
 		data: map[string]string{
-			"stale-revision-minimum-generations": "invalid",
+			"retain-since-create-time": "invalid",
+		},
+	}, {
+		name: "Negative create duration",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"retain-since-create-time": "-1d",
+		},
+	}, {
+		name: "Negative last-active duration",
+		fail: true,
+		want: nil,
+		data: map[string]string{
+			"retain-since-last-active-time": "-1d",
+		},
+	}, {
+		name: "create delay forever",
+		want: func() *Config {
+			d := defaultConfig()
+			d.RetainSinceCreateTime = Forever
+			return d
+		}(),
+		data: map[string]string{
+			"retain-since-create-time": "forever",
+		},
+	}, {
+		name: "last-active forever",
+		want: func() *Config {
+			d := defaultConfig()
+			d.RetainSinceLastActiveTime = Forever
+			return d
+		}(),
+		data: map[string]string{
+			"retain-since-last-active-time": "forever",
 		},
 	}, {
 		name: "Below minimum timeout",
