@@ -33,6 +33,10 @@ const (
 	// pinned a revision
 	RevisionLastPinnedAnnotationKey = GroupName + "/lastPinned"
 
+	// RevisionPreservedAnnotationKey is the annotation key used for preventing garbage collector
+	// from automatically deleting the revision.
+	RevisionPreservedAnnotationKey = GroupName + "/no-gc"
+
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
 	// The key is also attached to Revision resources to indicate they are directly

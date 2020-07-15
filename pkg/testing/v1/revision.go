@@ -92,6 +92,16 @@ func WithLastPinned(t time.Time) RevisionOption {
 	}
 }
 
+// WithRevisionPreserveAnnotation updates the annotation with preserve key.
+func WithRevisionPreserveAnnotation() RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations,
+			map[string]string{
+				serving.RevisionPreservedAnnotationKey: "true",
+			})
+	}
+}
+
 // WithRoutingStateModified updates the annotation to the provided timestamp.
 func WithRoutingStateModified(t time.Time) RevisionOption {
 	return func(rev *v1.Revision) {
