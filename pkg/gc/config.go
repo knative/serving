@@ -31,7 +31,7 @@ import (
 
 const (
 	ConfigName = "config-gc"
-	Forever    = time.Duration(-1)
+	Disabled   = time.Duration(-1)
 	Infinity   = -1
 
 	disabled = "disabled"
@@ -50,11 +50,11 @@ type Config struct {
 
 	// Duration from creation when a Revision should be considered active
 	// and exempt from GC. Note that GCMaxStaleRevision may override this if set.
-	// Set Forever (-1) to disable/ignore duration and always consider active.
+	// Set Disabled (-1) to disable/ignore duration and always consider active.
 	RetainSinceCreateTime time.Duration
 	// Duration from last active when a Revision should be considered active
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
-	// Set Forever (-1) to disable/ignore duration and always consider active.
+	// Set Disabled (-1) to disable/ignore duration and always consider active.
 	RetainSinceLastActiveTime time.Duration
 	// Minimum number of stale revisions to keep before considering for GC.
 	MinStaleRevisions int64
@@ -152,7 +152,7 @@ func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 	if val == "" {
 		// keep default value
 	} else if strings.EqualFold(val, disabled) {
-		*toSet = Forever
+		*toSet = Disabled
 	} else if parsed, err := time.ParseDuration(val); err != nil {
 		return err
 	} else if parsed < 0 {
