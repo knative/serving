@@ -19,6 +19,7 @@ package gc
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +31,8 @@ import (
 const (
 	ConfigName = "config-gc"
 	Forever    = time.Duration(-1)
+
+	foreverString = "forever"
 )
 
 type Config struct {
@@ -81,6 +84,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 	return func(configMap *corev1.ConfigMap) (*Config, error) {
 		c := defaultConfig()
 
+		var retainCreate, retainActive string
 		if err := cm.Parse(configMap.Data,
 			cm.AsDuration("stale-revision-create-delay", &c.StaleRevisionCreateDelay),
 			cm.AsDuration("stale-revision-timeout", &c.StaleRevisionTimeout),
@@ -88,8 +92,8 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			cm.AsInt64("stale-revision-minimum-generations", &c.StaleRevisionMinimumGenerations),
 
 			// v2 settings
-			cm.AsDuration("retain-since-create-time", &c.RetainSinceCreateTime),
-			cm.AsDuration("retain-since-last-active-time", &c.RetainSinceLastActiveTime),
+			cm.AsString("retain-since-create-time", &retainCreate),
+			cm.AsString("retain-since-last-active-time", &retainActive),
 			cm.AsInt64("min-stale-revisions", &c.MinStaleRevisions),
 			cm.AsInt64("max-non-active-revisions", &c.MaxNonActiveRevisions),
 		); err != nil {
@@ -106,13 +110,11 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		// validate V2 settings
-		if c.RetainSinceCreateTime < 0 {
-			return nil, fmt.Errorf(
-				"min-stale-revisions(%d) must be non-negative", c.RetainSinceCreateTime)
+		if err := parseForeverOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
+			return nil, fmt.Errorf("failed to parse min-stale-revisions: %w", err)
 		}
-		if c.RetainSinceLastActiveTime < 0 {
-			return nil, fmt.Errorf(
-				"retain-since-last-active-time(%d) must be non-negative", c.RetainSinceLastActiveTime)
+		if err := parseForeverOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
+			return nil, fmt.Errorf("failed to parse retain-since-last-active-time: %w", err)
 		}
 		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
 			return nil, fmt.Errorf(
@@ -127,4 +129,19 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 		return c, nil
 	}
+}
+
+func parseForeverOrDuration(val string, toSet *time.Duration) error {
+	if val == "" {
+		// keep default value
+	} else if strings.EqualFold(val, foreverString) {
+		*toSet = Forever
+	} else if parsed, err := time.ParseDuration(val); err != nil {
+		return err
+	} else if parsed < 0 {
+		return fmt.Errorf("must be non-negative")
+	} else {
+		*toSet = parsed
+	}
+	return nil
 }
