@@ -186,12 +186,9 @@ func main() {
 			ctx, kubeClient, leaderelection.ComponentConfig{Buckets: uint32(bucketSize)})
 
 		// Build the WebSocket connections for forwarding.
-		wss, withForwarding := forwardingStatsNetworking(bucketSize, acceptStat, logger)
+		withForwarding, cancel := statForwarder(bucketSize, acceptStat, logger)
 		processStat = withForwarding
-		// Close the WebSocket connections when shuting down.
-		for _, ws := range wss {
-			defer ws.Shutdown()
-		}
+		defer cancel()
 	}
 
 	go controller.StartAll(ctx, controllers...)
@@ -266,15 +263,19 @@ func flush(logger *zap.SugaredLogger) {
 	metrics.FlushExporter()
 }
 
-func forwardingStatsNetworking(bucketSize int, accept func(sm asmetrics.StatMessage),
-	logger *zap.SugaredLogger) ([]*websocket.ManagedConnection, func(sm asmetrics.StatMessage)) {
+type statProcessor func(sm asmetrics.StatMessage)
+
+// statForwarder returns two functions:
+// 1) a function to process a single StatMessage.
+// 2) a function to call when terminating.
+func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger) (statProcessor, func()) {
 	bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
 	if err != nil {
 		logger.Fatalw("Failed to build bucket set", zap.Error(err))
 	}
 
+	// TODO: Same to activator, use gRPC instead of websocket for sending metrics.
 	wsMap := make(map[string]*websocket.ManagedConnection, bucketSize-1)
-	wsArray := make([]*websocket.ManagedConnection, 0, bucketSize-1)
 	for _, dns := range bs.BucketList() {
 		if dns == bkt.Name() {
 			continue
@@ -283,21 +284,24 @@ func forwardingStatsNetworking(bucketSize int, accept func(sm asmetrics.StatMess
 		logger.Info("Connecting to Autoscaler at ", dns)
 		statSink := websocket.NewDurableSendingConnection(dns, logger)
 		wsMap[dns] = statSink
-		wsArray = append(wsArray, statSink)
 	}
 
-	return wsArray, func(sm asmetrics.StatMessage) {
-		// If this pod has the key, accept it.
-		if bkt.Has(sm.Key) {
-			accept(sm)
-			return
-		}
+	return func(sm asmetrics.StatMessage) {
+			// If this pod has the key, accept it.
+			if bkt.Has(sm.Key) {
+				accept(sm)
+				return
+			}
 
-		// Otherwise forward to the owner.
-		if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
-			ws.Send(sm)
-		} else {
-			logger.Warnf("Couldn't find Pod owner for Stat with Key %d, dropping it", sm.Key)
+			// Otherwise forward to the owner.
+			if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
+				ws.Send(sm)
+			} else {
+				logger.Warnf("Couldn't find Pod owner for Stat with Key %v, dropping it", sm.Key)
+			}
+		}, func() {
+			for _, ws := range wsMap {
+				ws.Shutdown()
+			}
 		}
-	}
 }
