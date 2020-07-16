@@ -109,6 +109,14 @@ func defaultConfigMapData() map[string]string {
 	}
 }
 
+func initialScaleZeroConfigMap() *autoscalerconfig.Config {
+	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+	autoscalerConfig.AllowZeroInitialScale = true
+	autoscalerConfig.InitialScale = 0
+	autoscalerConfig.EnableScaleToZero = true
+	return autoscalerConfig
+}
+
 func defaultConfig() *config.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
@@ -1053,32 +1061,30 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale zero: scale to zero",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, &autoscalerconfig.Config{InitialScale: 0, AllowZeroInitialScale: true, EnableScaleToZero: true}), deciderKey,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
 			decider(testNamespace, testRevision, -1, /* desiredScale */
-				-42 /* ebc */, scaling.MinActivators)),
+				0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(0, 0), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
-				WithPubService, WithNumActivators(0), func(sks *nv1a1.ServerlessService) {
-					sks.Status.PrivateServiceName = ""
-				}),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
+			zeroEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized,
-				withScales(0, -1), WithReachabilityReachable,
+			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
+				withScales(0, 0), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
 	}, {
 		Name: "initial scale zero: scale to greater than zero",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, &autoscalerconfig.Config{InitialScale: 0, AllowZeroInitialScale: true, EnableScaleToZero: true}), deciderKey,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
@@ -1086,7 +1092,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
-			metricWithASConfig(testNamespace, testRevision, &autoscalerconfig.Config{InitialScale: 0, AllowZeroInitialScale: true, EnableScaleToZero: true}),
+			metricWithASConfig(testNamespace, testRevision, initialScaleZeroConfigMap()),
 			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)

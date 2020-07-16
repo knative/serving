@@ -146,13 +146,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
 	}
-	// Manually set the desired scale to 0 if initial scale is 0, because otherwise
-	// in computeActiveCondition, upon initial deploy we will miss the pc.want == 0
-	// case and PA will go from inactive to activating.
-	if want == -1 && !pa.Status.IsScaleTargetInitialized() && resources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa) == 0 {
-		logger.Info("Overriding want -1 with 0 for initial scale 0")
-		want = 0
-	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
 		decider.Status.DesiredScale, decider.Status.ExcessBurstCapacity)
@@ -266,11 +259,13 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 		}
 
 	case pc.ready >= minReady:
-		// In the initialScale > 0 case, SKS should already be active. However, when initialScale
-		// is 0, pc.want can be -1 and SKS is not active yet.
-		if pc.want > 0 || (!pa.Status.IsInactive() && pc.want != -1) {
-			pa.Status.MarkActive()
-			pa.Status.MarkScaleTargetInitialized()
+		if pc.want > 0 || !pa.Status.IsInactive() {
+			// If initial scale is 0, we don't want to mark scale target initialized when
+			// want is still -1, because we will override -1 with 0 after SKS has been setup.
+			if minReady > 0 || (minReady == 0 && pc.want != -1) {
+				pa.Status.MarkScaleTargetInitialized()
+				pa.Status.MarkActive()
+			}
 		}
 	}
 }
