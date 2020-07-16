@@ -35,7 +35,6 @@ const (
 	queueAverageProxiedConcurrentRequests = 2.0
 	queueProxiedOperationsPerSecond       = 4
 	processUptime                         = 2937.12
-	zeroProcessUptime                     = 0
 	podName                               = "test-revision-1234"
 )
 
