@@ -37,6 +37,9 @@ import (
 	_ "k8s.io/kube-openapi/cmd/openapi-gen"
 	_ "knative.dev/pkg/codegen/cmd/injection-gen"
 
+	// For chaos testing the leaderelection stuff.
+	_ "knative.dev/pkg/leaderelection/chaosduck"
+
 	// caching resource
 	_ "knative.dev/caching/config"
 

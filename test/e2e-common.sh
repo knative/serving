@@ -607,10 +607,29 @@ function dump_extra_cluster_state() {
   kubectl get serverlessservices -o yaml --all-namespaces
 }
 
-function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
+function wait_for_leader_controller() {
+  echo -n "Waiting for a leader Controller"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.items[*].spec.holderIdentity}'  | cut -d"_" -f1 | grep "^controller-" | head -1)
+    # Make sure the leader pod exists.
+    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
+      echo -e "\nNew leader Controller has been elected"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for leader controller"
+  return 1
 }
 
-function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
+function toggle_feature() {
+  local FEATURE="$1"
+  local STATE="$2"
+  local CONFIG="${3:-config-features}"
+  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 20s for change to get picked up."
+  sleep 20
 }

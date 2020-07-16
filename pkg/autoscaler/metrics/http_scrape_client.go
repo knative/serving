@@ -17,11 +17,12 @@ limitations under the License.
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -30,6 +31,12 @@ import (
 
 type httpScrapeClient struct {
 	httpClient *http.Client
+}
+
+var pool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
 }
 
 func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
@@ -61,17 +68,19 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
 		return statFromProto(resp.Body)
 	}
-
 	return statFromPrometheus(resp.Body)
 }
 
 func statFromProto(body io.Reader) (Stat, error) {
 	var stat Stat
-	bodyBytes, err := ioutil.ReadAll(body)
+	b := pool.Get().(*bytes.Buffer)
+	b.Reset()
+	defer pool.Put(b)
+	_, err := b.ReadFrom(body)
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}
-	err = stat.Unmarshal(bodyBytes)
+	err = stat.Unmarshal(b.Bytes())
 	if err != nil {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}

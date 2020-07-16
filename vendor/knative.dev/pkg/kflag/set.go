@@ -14,14 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package leaderelection
+package kflag
 
-// ControllerOrdinal tries to get ordinal from the pod name of a StatefulSet,
-// which is provided from the environment variable CONTROLLER_ORDINAL.
-func ControllerOrdinal() (int, error) {
-	ssc, err := newStatefulSetConfig()
-	if err != nil {
-		return 0, err
+import (
+	"flag"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+type StringSet struct {
+	Value sets.String
+}
+
+var _ flag.Value = (*StringSet)(nil)
+
+func (i *StringSet) String() string {
+	return fmt.Sprintf("%v", i.Value)
+}
+
+func (i *StringSet) Set(value string) error {
+	if i.Value == nil {
+		i.Value = make(sets.String, 1)
 	}
-	return ssc.StatefulSetID.ordinal, nil
+	i.Value.Insert(value)
+	return nil
 }

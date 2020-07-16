@@ -169,7 +169,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 	obj = obj.DeepCopyObject().(convertibleObject)
 
 	if !apiequality.Semantic.DeepEqual(original, obj) {
-		t.Errorf("DeepCopy altered the object, diff: %v", diff(original, obj))
+		t.Errorf("DeepCopy modified the original object (DeepCopy should not have side-effects), diff: %v", diff(original, obj))
 		return
 	}
 
@@ -178,7 +178,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 	}
 
 	if !apiequality.Semantic.DeepEqual(original, obj) {
-		t.Errorf("Conversion to hub (%s) alterted the object, diff: %v", hubGVK, diff(original, obj))
+		t.Errorf("Conversion to hub (%s) modified the original object (ConvertFrom should not have side-effects), diff: %v", hubGVK, diff(original, obj))
 		return
 	}
 

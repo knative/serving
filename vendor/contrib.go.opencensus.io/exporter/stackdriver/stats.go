@@ -536,7 +536,7 @@ func newTypedValue(vd *view.View, r *view.Row) *monitoringpb.TypedValue {
 }
 
 func shouldInsertZeroBound(bounds ...float64) bool {
-	if len(bounds) > 0 && bounds[0] != 0.0 {
+	if len(bounds) > 0 && bounds[0] > 0.0 {
 		return true
 	}
 	return false

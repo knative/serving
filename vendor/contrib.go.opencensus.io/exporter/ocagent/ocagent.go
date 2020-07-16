@@ -1,4 +1,4 @@
-// Copyright 2018, OpenCensus Authors
+// Copyright 2020, OpenCensus Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -504,7 +504,7 @@ func (ae *Exporter) uploadTraces(sdl []*trace.SpanData) {
 		ae.senderMu.Lock()
 		err := ae.traceExporter.Send(&agenttracepb.ExportTraceServiceRequest{
 			Spans:    protoSpans,
-			Resource: resourceProtoFromEnv(),
+			Resource: ae.resource,
 		})
 		ae.senderMu.Unlock()
 		if err != nil {
@@ -537,7 +537,7 @@ func (ae *Exporter) uploadViewData(vdl []*view.Data) {
 	}
 	req := &agentmetricspb.ExportMetricsServiceRequest{
 		Metrics:  protoMetrics,
-		Resource: resourceProtoFromEnv(),
+		Resource: ae.resource,
 		// TODO:(@odeke-em)
 		// a) Figure out how to derive a Node from the environment
 		// or better letting users of the exporter configure it.

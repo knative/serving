@@ -184,10 +184,6 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-func markUnknown(pa *asv1a1.PodAutoscaler) {
-	pa.Status.MarkActivating("", "")
-}
-
 func markInactive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 }
