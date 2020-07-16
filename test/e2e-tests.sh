@@ -169,6 +169,10 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
   kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
 fi
 
+# Remove chaosduck before running HA tests as they expect to be in control of what gets
+# killed when.
+kubectl delete -f "${TMP_DIR}/test/config/chaosduck.yaml"
+
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
