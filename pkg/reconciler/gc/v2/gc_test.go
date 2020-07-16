@@ -61,6 +61,16 @@ func TestCollect(t *testing.T) {
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
 
+	cfgMap := &config.Config{
+		RevisionGC: &gcconfig.Config{
+			StaleRevisionCreateDelay:        5 * time.Minute,
+			StaleRevisionTimeout:            5 * time.Minute,
+			StaleRevisionMinimumGenerations: 2,
+		},
+	}
+	ctx, _ := SetupFakeContext(t)
+	ctx = config.ToContext(ctx, cfgMap)
+
 	table := []struct {
 		name        string
 		cfg         *v1.Configuration
@@ -73,15 +83,15 @@ func TestCollect(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(oldest)),
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
 				WithLastPinned(older)),
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
 				WithLastPinned(old)),
@@ -105,15 +115,15 @@ func TestCollect(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
 				WithRoutingStateModified(oldest)),
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
 				WithRoutingStateModified(older)),
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
 				WithRoutingStateModified(old)),
@@ -138,14 +148,14 @@ func TestCollect(t *testing.T) {
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// No lastPinned so we will keep this.
-			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest)),
-			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
+			rev(ctx, "keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(older)),
-			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
+			rev(ctx, "keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(old)),
@@ -157,16 +167,16 @@ func TestCollect(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
 				// This is an indication that things are still routing here.
 				WithLastPinned(now)),
-			rev("keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
+			rev(ctx, "keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
 				WithLastPinned(nineMinutesAgo)),
-			rev("keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
+			rev(ctx, "keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
 				WithLastPinned(tenMinutesAgo)),
@@ -182,15 +192,15 @@ func TestCollect(t *testing.T) {
 		revs: []*v1.Revision{
 			// Create a revision where the LatestReady is 5554, but LatestCreated is 5556.
 			// We should keep LatestReady even if it is old.
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(oldest)),
-			rev("keep-two", "foo", 5555, // Not Ready
+			rev(ctx, "keep-two", "foo", 5555, // Not Ready
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
 				WithLastPinned(older)),
-			rev("keep-two", "foo", 5556, // Not Ready
+			rev(ctx, "keep-two", "foo", 5556, // Not Ready
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
 				WithLastPinned(old)),
@@ -203,7 +213,7 @@ func TestCollect(t *testing.T) {
 			WithLatestCreated("keep-all"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-all", "foo", 5554,
+			rev(ctx, "keep-all", "foo", 5554,
 				WithRevName("keep-all"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(old)),
@@ -215,20 +225,20 @@ func TestCollect(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-oldest", "foo", 5554, MarkRevisionReady,
+			rev(ctx, "keep-oldest", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithCreationTimestamp(oldest),
 				WithLastPinned(oldest),
 				WithRevisionPreserveAnnotation()),
-			rev("keep-oldest", "foo", 5555, MarkRevisionReady,
+			rev(ctx, "keep-oldest", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithCreationTimestamp(older),
 				WithLastPinned(older)),
-			rev("keep-oldest", "foo", 5556, MarkRevisionReady,
+			rev(ctx, "keep-oldest", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithCreationTimestamp(old),
 				WithLastPinned(old)),
-			rev("keep-oldest", "foo", 5557, MarkRevisionReady,
+			rev(ctx, "keep-oldest", "foo", 5557, MarkRevisionReady,
 				WithRevName("5557"),
 				WithCreationTimestamp(tenMinutesAgo),
 				WithLastPinned(tenMinutesAgo)),
@@ -247,17 +257,9 @@ func TestCollect(t *testing.T) {
 		}},
 	}}
 
-	cfgMap := &config.Config{
-		RevisionGC: &gcconfig.Config{
-			StaleRevisionCreateDelay:        5 * time.Minute,
-			StaleRevisionTimeout:            5 * time.Minute,
-			StaleRevisionMinimumGenerations: 2,
-		},
-	}
-
 	for _, test := range table {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
+			ctx, _ = SetupFakeContext(t)
 			ctx = config.ToContext(ctx, cfgMap)
 			client := fakeservingclient.Get(ctx)
 
@@ -435,9 +437,9 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 	return c
 }
 
-func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
+func rev(ctx context.Context, name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	config := cfg(name, namespace, generation)
-	rev := resources.MakeRevision(config)
+	rev := resources.MakeRevision(ctx, config)
 	rev.SetDefaults(context.Background())
 
 	for _, opt := range ro {

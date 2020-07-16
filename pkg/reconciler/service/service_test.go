@@ -855,5 +855,5 @@ func RouteFailed(reason, message string) RouteOption {
 
 func rev(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Revision {
 	cfg := config(name, namespace, so, co...)
-	return configresources.MakeRevision(cfg)
+	return configresources.MakeRevision(context.Background(), cfg)
 }
