@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "cf278803"
+    knative.dev/example-checksum: "47c109b0"
 data:
   _example: |
     ################################
@@ -70,7 +70,7 @@ data:
     #      "knative.dev/no-gc":"true" to be permanently considered active.
     # Stale
     #   * Revisions are considered stale if they are not active and were created
-    #      after more than "retain-since-create-time" or last referenced
+    #      after more than "retain-since-create-time" and last referenced
     #      by a route more than "retain-since-last-active-time" ago.
     #   * Either timeout may be set to "disabled" to turn off time-based GC.
     #
