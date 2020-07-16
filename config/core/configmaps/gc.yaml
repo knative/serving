@@ -72,7 +72,7 @@ data:
     #   * Revisions are deleted if they are:
     #       1. not active
     #       2. were created after more than "retain-since-create-time"
-    #       3. Were last referenced by a route more than
+    #       3. were last referenced by a route more than
     #           "retain-since-last-active-time" ago
     #       4. There are more than "min-non-active-revisions".
     #     However if they exceed "max-non-active-revisions" they will be deleted
