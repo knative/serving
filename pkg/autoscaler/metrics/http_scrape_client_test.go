@@ -252,7 +252,6 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 
 func BenchmarkUnmarshallingProtoData(b *testing.B) {
 	stat := Stat{}
-	stat.PodName = podName
 	stat.ProcessUptime = 12.2
 	stat.ProxiedRequestCount = 122
 	stat.AverageConcurrentRequests = 2.3
