@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "5661e5f1"
+    knative.dev/example-checksum: "2e377cc7"
 data:
   _example: |
     ################################
@@ -76,8 +76,8 @@ data:
     #           "retain-since-last-active-time"
 
     #       4. There fewer than "min-non-active-revisions"
-    #     However, if they exceed "max-non-active-revisions" they will be deleted
-    #     regardless of age.
+    #     If none of these conditions are met, or if the count of revisions exceed
+    #      "max-non-active-revisions", they will be deleted by GC.
     #   * Timeout may be set to "disabled" to turn off time-based GC.
     #     In this mode, they will remain until they exceed "max-non-active-revisions".
     #
