@@ -19,6 +19,7 @@ limitations under the License.
 package hash
 
 import (
+	"errors"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -86,36 +87,49 @@ func (b *Bucket) Has(nn types.NamespacedName) bool {
 	return b.buckets.Owner(nn.String()) == b.name
 }
 
+// NewBucket creates a new Bucket with given name based on this bucketset.
+func (bs *BucketSet) NewBucket(name string) (*Bucket, error) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	if !bs.buckets.Has(name) {
+		return nil, errors.New(name + " is not a valid bucket in the bucketset")
+	}
+	return &Bucket{
+		name:    name,
+		buckets: bs,
+	}, nil
+}
+
 // Owner returns the owner of the key.
 // Owner will cache the results for faster lookup.
-func (b *BucketSet) Owner(key string) string {
-	if v, ok := b.cache.Get(key); ok {
+func (bs *BucketSet) Owner(key string) string {
+	if v, ok := bs.cache.Get(key); ok {
 		return v.(string)
 	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	l := ChooseSubset(b.buckets, 1 /*single query wanted*/, key)
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	l := ChooseSubset(bs.buckets, 1 /*single query wanted*/, key)
 	ret := l.UnsortedList()[0]
-	b.cache.Add(key, ret)
+	bs.cache.Add(key, ret)
 	return ret
 }
 
 // BucketList returns the bucket names of this BucketSet in random order.
-func (b *BucketSet) BucketList() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+func (bs *BucketSet) BucketList() []string {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
 
-	return b.buckets.UnsortedList()
+	return bs.buckets.UnsortedList()
 }
 
 // Update updates the universe of buckets.
-func (b *BucketSet) Update(newB sets.String) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+func (bs *BucketSet) Update(newB sets.String) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 	// In theory we can iterate over the map and
 	// purge only the keys that moved to a new shard.
 	// But this might be more expensive than re-build
 	// the cache as reconciliations happen.
-	b.cache.Purge()
-	b.buckets = newB
+	bs.cache.Purge()
+	bs.buckets = newB
 }
