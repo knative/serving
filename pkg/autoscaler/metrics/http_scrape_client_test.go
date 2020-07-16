@@ -232,25 +232,6 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	return res
 }
 
-func makeProtoResponseForBenchmarking(statusCode int, podName string, contentType string) *http.Response {
-	stat := Stat{}
-	stat.PodName = podName
-	stat.ProcessUptime = 12.2
-	stat.ProxiedRequestCount = 122
-	stat.AverageConcurrentRequests = 2.3
-	stat.AverageProxiedConcurrentRequests = 100.2
-	stat.ProxiedRequestCount = 100
-	buffer, _ := stat.Marshal()
-
-	res := &http.Response{
-		StatusCode: statusCode,
-		Body:       ioutil.NopCloser(bytes.NewBuffer(buffer)),
-	}
-	res.Header = http.Header{}
-	res.Header.Set("Content-Type", contentType)
-	return res
-}
-
 type fakeRoundTripper struct {
 	response      *http.Response
 	responseError error
@@ -270,33 +251,42 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 }
 
 func BenchmarkUnmarshallingProtoData(b *testing.B) {
+	stat := Stat{}
+	stat.PodName = podName
+	stat.ProcessUptime = 12.2
+	stat.ProxiedRequestCount = 122
+	stat.AverageConcurrentRequests = 2.3
+	stat.AverageProxiedConcurrentRequests = 100.2
+	stat.ProxiedRequestCount = 100
 	benchmarks := []struct {
-		name string
-		resp *http.Response
-	}{{
-		name: "BenchmarkStatWithEmptyPodName",
-		resp: makeProtoResponseForBenchmarking(http.StatusOK, "", network.ProtoAcceptContent),
-	}, {
-		name: "BenchmarkStatWithSmallPodName",
-		resp: makeProtoResponseForBenchmarking(http.StatusOK, "a-lzrjc-deployment-85d4b7d859-gspjs", network.ProtoAcceptContent),
-	}, {
-		name: "BenchmarkStatWithMediumPodName",
-		resp: makeProtoResponseForBenchmarking(http.StatusOK, "a-lzrjc-deployment-85d4b7d859-gspjs"+strings.Repeat("p", 50), network.ProtoAcceptContent),
-	}, {
-		name: "BenchmarkStatWithLargePodName",
-		resp: makeProtoResponseForBenchmarking(http.StatusOK, strings.Repeat("p", 253), network.ProtoAcceptContent),
-	}}
-
+		name    string
+		podName string
+	}{
+		{
+			name:    "BenchmarkStatWithEmptyPodName",
+			podName: "",
+		}, {
+			name:    "BenchmarkStatWithSmallPodName",
+			podName: "a-lzrjc-deployment-85d4b7d859-gspjs",
+		}, {
+			name:    "BenchmarkStatWithMediumPodName",
+			podName: "a-lzrjc-deployment-85d4b7d859-gspjs" + strings.Repeat("p", 50),
+		}, {
+			name:    "BenchmarkStatWithLargePodName",
+			podName: strings.Repeat("p", 253),
+		},
+	}
 	for _, bm := range benchmarks {
-		bodyBytes, err := ioutil.ReadAll(bm.resp.Body)
+		stat.PodName = bm.podName
+		bodyBytes, err := stat.Marshal()
 		if err != nil {
-			b.Error(err)
+			b.Fatal(err)
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				_, err = statFromProto(bytes.NewReader(bodyBytes))
 				if err != nil {
-					b.Error(err)
+					b.Fatal(err)
 				}
 			}
 		})
