@@ -18,7 +18,6 @@ package queue
 
 import (
 	"net/http"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -29,8 +28,7 @@ import (
 )
 
 const (
-	contentTypeHeader   = "Content-Type"
-	contentLengthHeader = "Content-Length"
+	contentTypeHeader = "Content-Type"
 )
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
@@ -82,7 +80,6 @@ func (r *ProtobufStatsReporter) Handler() http.Handler {
 			return
 		}
 		header.Set(contentTypeHeader, network.ProtoAcceptContent)
-		header.Set(contentLengthHeader, strconv.Itoa(len(buffer)))
 		rsp.Write(buffer)
 	})
 }

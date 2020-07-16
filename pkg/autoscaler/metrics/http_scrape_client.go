@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -32,13 +33,9 @@ type httpScrapeClient struct {
 	httpClient *http.Client
 }
 
-// Allocate a large enough buffer to handle the maximum
-// marshalled Stat size which is 292 bytes.
-const PoolSize = 320
-
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, PoolSize, PoolSize)
+		return new(bytes.Buffer)
 	},
 }
 
@@ -69,23 +66,21 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		return statFromProto(resp.Body, resp.ContentLength)
+		return statFromProto(resp.Body)
 	}
 	return statFromPrometheus(resp.Body)
 }
 
-func statFromProto(body io.Reader, l int64) (Stat, error) {
+func statFromProto(body io.Reader) (Stat, error) {
 	var stat Stat
-	if l <= 0 {
-		return emptyStat, errors.New("no data received, data size unknown")
-	}
-	b := pool.Get().([]byte)
+	b := pool.Get().(*bytes.Buffer)
+	b.Reset()
 	defer pool.Put(b)
-	_, err := io.ReadAtLeast(body, b, int(l))
+	_, err := b.ReadFrom(body)
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}
-	err = stat.Unmarshal(b[0:l])
+	err = stat.Unmarshal(b.Bytes())
 	if err != nil {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}

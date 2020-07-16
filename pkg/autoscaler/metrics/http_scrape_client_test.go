@@ -35,7 +35,6 @@ const (
 	queueAverageProxiedConcurrentRequests = 2.0
 	queueProxiedOperationsPerSecond       = 4
 	processUptime                         = 2937.12
-	zeroProcessUptime                     = 0
 	podName                               = "test-revision-1234"
 )
 
@@ -230,21 +229,12 @@ func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Resp
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.ContentLength = int64(len(buffer))
 	return res
 }
 
-func makeProtoResponseForBenchmarking(statusCode int, dataType benchmarkingDataType, contentType string) *http.Response {
+func makeProtoResponseForBenchmarking(statusCode int, podName string, contentType string) *http.Response {
 	stat := Stat{}
-	switch {
-	case dataType == NoData:
-	case dataType == SmallData:
-		stat.PodName = "a-lzrjc-deployment-85d4b7d859-gspjs"
-	case dataType == MediumData:
-		stat.PodName = "a-lzrjc-deployment-85d4b7d859-gspjs" + strings.Repeat("p", 50)
-	case dataType == LargeData:
-		stat.PodName = strings.Repeat("p", 253)
-	}
+	stat.PodName = podName
 	stat.ProcessUptime = 12.2
 	stat.ProxiedRequestCount = 122
 	stat.AverageConcurrentRequests = 2.3
@@ -258,7 +248,6 @@ func makeProtoResponseForBenchmarking(statusCode int, dataType benchmarkingDataT
 	}
 	res.Header = http.Header{}
 	res.Header.Set("Content-Type", contentType)
-	res.ContentLength = int64(len(buffer))
 	return res
 }
 
@@ -280,58 +269,34 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 	}
 }
 
-type benchmarkingRoundTripper struct {
-	dataType benchmarkingDataType
-}
-
-func (brt benchmarkingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return makeProtoResponseForBenchmarking(http.StatusOK, brt.dataType, network.ProtoAcceptContent), nil
-}
-
-func newBenchmarkingtHTTPClient(dataType benchmarkingDataType) *http.Client {
-	return &http.Client{
-		Transport: benchmarkingRoundTripper{dataType: dataType},
-	}
-}
-
-type benchmarkingDataType int
-
-const (
-	NoData benchmarkingDataType = iota
-	SmallData
-	MediumData
-	LargeData
-)
-
 func BenchmarkUnmarshallingProtoData(b *testing.B) {
 	benchmarks := []struct {
-		name     string
-		dataType benchmarkingDataType
+		name string
+		resp *http.Response
 	}{{
-		name:     "BenchmarkStatWithEmptyPodName",
-		dataType: NoData,
+		name: "BenchmarkStatWithEmptyPodName",
+		resp: makeProtoResponseForBenchmarking(http.StatusOK, "", network.ProtoAcceptContent),
 	}, {
-		name:     "BenchmarkStatWithSmallPodName",
-		dataType: SmallData,
+		name: "BenchmarkStatWithSmallPodName",
+		resp: makeProtoResponseForBenchmarking(http.StatusOK, "a-lzrjc-deployment-85d4b7d859-gspjs", network.ProtoAcceptContent),
 	}, {
-		name:     "BenchmarkStatWithMediumPodName",
-		dataType: MediumData,
+		name: "BenchmarkStatWithMediumPodName",
+		resp: makeProtoResponseForBenchmarking(http.StatusOK, "a-lzrjc-deployment-85d4b7d859-gspjs"+strings.Repeat("p", 50), network.ProtoAcceptContent),
 	}, {
-		name:     "BenchmarkStatWithLargePodName",
-		dataType: LargeData,
+		name: "BenchmarkStatWithLargePodName",
+		resp: makeProtoResponseForBenchmarking(http.StatusOK, strings.Repeat("p", 253), network.ProtoAcceptContent),
 	}}
 
 	for _, bm := range benchmarks {
-		hClient := newBenchmarkingtHTTPClient(bm.dataType)
-		scrapeClient, err := newHTTPScrapeClient(hClient)
+		rawBody, err := ioutil.ReadAll(bm.resp.Body)
 		if err != nil {
-			b.Fatal(err)
+			b.Error(err)
 		}
 		b.Run(bm.name, func(b *testing.B) {
-			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				if _, err := scrapeClient.Scrape(testURL); err != nil {
-					b.Fatal(err)
+				_, err = statFromProto(bytes.NewReader(rawBody))
+				if err != nil {
+					b.Error(err)
 				}
 			}
 		})
