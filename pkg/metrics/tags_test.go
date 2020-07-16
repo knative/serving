@@ -61,14 +61,8 @@ func TestContextsErrors(t *testing.T) {
 		if _, err := PodContext(v, v); err == nil {
 			t.Errorf("PodContext(%q) = nil, wanted an error", v)
 		}
-		if _, err := RevisionContext(v, v, v, v); err == nil {
-			t.Errorf("RevisionContext(%q) = nil, wanted an error", v)
-		}
 		if _, err := PodRevisionContext(v, v, v, v, v, v); err == nil {
 			t.Errorf("PodRevisionContext(%q) = nil, wanted an error", v)
-		}
-		if _, err := AugmentWithRevision(context.Background(), v, v, v, v); err == nil {
-			t.Errorf("AugmentWithRevision(%q) = nil, wanted an error", v)
 		}
 	}
 }
@@ -92,23 +86,13 @@ func TestContexts(t *testing.T) {
 		ctx: mustCtx(t, func() (context.Context, error) {
 			return RevisionContext("testns", "testsvc", "testcfg", "testrev")
 		}),
-		wantTags: map[string]string{
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       "testsvc",
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
-		},
+		wantTags: map[string]string{},
 	}, {
 		name: "revision context (empty svc)",
 		ctx: mustCtx(t, func() (context.Context, error) {
 			return RevisionContext("testns", "", "testcfg", "testrev")
 		}),
-		wantTags: map[string]string{
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       metricskey.ValueUnknown,
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
-		},
+		wantTags: map[string]string{},
 	}, {
 		name: "pod revision context",
 		ctx: mustCtx(t, func() (context.Context, error) {
@@ -117,10 +101,6 @@ func TestContexts(t *testing.T) {
 		wantTags: map[string]string{
 			metricskey.PodName:                "testpod",
 			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       "testsvc",
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
 		},
 	}, {
 		name: "pod revision context (empty svc)",
@@ -130,10 +110,6 @@ func TestContexts(t *testing.T) {
 		wantTags: map[string]string{
 			metricskey.PodName:                "testpod",
 			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       metricskey.ValueUnknown,
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
 		},
 	}, {
 		name: "pod revision context (empty svc)",
@@ -143,10 +119,6 @@ func TestContexts(t *testing.T) {
 		wantTags: map[string]string{
 			metricskey.PodName:                "testpod",
 			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       metricskey.ValueUnknown,
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
 		},
 	}, {
 		name: "pod context augmented with revision",
@@ -155,15 +127,11 @@ func TestContexts(t *testing.T) {
 			if err != nil {
 				return ctx, err
 			}
-			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev")
+			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev"), nil
 		}),
 		wantTags: map[string]string{
 			metricskey.PodName:                "testpod",
 			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       "testsvc",
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
 		},
 	}, {
 		name: "pod revision context augmented with response",
@@ -174,10 +142,6 @@ func TestContexts(t *testing.T) {
 		wantTags: map[string]string{
 			metricskey.PodName:                "testpod",
 			metricskey.ContainerName:          "testcontainer",
-			metricskey.LabelNamespaceName:     "testns",
-			metricskey.LabelServiceName:       metricskey.ValueUnknown,
-			metricskey.LabelConfigurationName: "testcfg",
-			metricskey.LabelRevisionName:      "testrev",
 			metricskey.LabelResponseCode:      "200",
 			metricskey.LabelResponseCodeClass: "2xx",
 		},

@@ -31,8 +31,8 @@ import (
 const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
-	if _, err := NewRequestMetricsHandler(nil /*next*/, "shøüld fail", "a", "b", "c", "d"); err == nil {
-		t.Error("Should get error when StatsReporter is empty")
+	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
+		t.Error("Should get error when tag value is not ascii")
 	}
 }
 
@@ -49,10 +49,6 @@ func TestRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
@@ -85,10 +81,6 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
@@ -148,10 +140,6 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
 			metricskey.PodName:                "pod",
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
@@ -211,10 +199,6 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
 			metricskey.PodName:                "pod",
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
@@ -241,10 +225,6 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",

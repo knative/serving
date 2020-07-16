@@ -63,7 +63,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
@@ -1672,12 +1671,7 @@ var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)
-	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      testRevision,
-		metricskey.LabelNamespaceName:     testNamespace,
-		metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
-		metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
-	}
+	wantTags := map[string]string{}
 	pc := podCounts{
 		want:        1982,
 		ready:       1984,

@@ -382,10 +382,6 @@ func TestMetricsReported(t *testing.T) {
 	<-s.statChan // The actual report we want to see
 
 	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      rev1.Name,
-		metricskey.LabelNamespaceName:     rev1.Namespace,
-		metricskey.LabelServiceName:       "service-" + rev1.Name,
-		metricskey.LabelConfigurationName: "config-" + rev1.Name,
 		metricskey.PodName:                "the-best-activator",
 		metricskey.ContainerName:          "activator",
 	}

@@ -31,7 +31,6 @@ import (
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestRequestMetricHandler(t *testing.T) {
@@ -97,10 +96,6 @@ func TestRequestMetricHandler(t *testing.T) {
 				wantTags := map[string]string{
 					metricskey.PodName:                testPod,
 					metricskey.ContainerName:          activator.Name,
-					metricskey.LabelNamespaceName:     rev.Namespace,
-					metricskey.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
-					metricskey.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
-					metricskey.LabelRevisionName:      rev.Name,
 					metricskey.LabelResponseCode:      strconv.Itoa(labelCode),
 					metricskey.LabelResponseCodeClass: strconv.Itoa(labelCode/100) + "xx",
 				}

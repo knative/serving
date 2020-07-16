@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -47,13 +46,8 @@ const (
 	testNamespace = "in-this-namespace"
 )
 
-// Standard set of tags for the tests.
-var wantTags = map[string]string{
-	metricskey.LabelConfigurationName: "testConfig",
-	metricskey.LabelNamespaceName:     testNamespace,
-	metricskey.LabelRevisionName:      testRevision,
-	metricskey.LabelServiceName:       "testSvc",
-}
+// The revision tags are moved into resource labels. The metric tags are empty now.
+var wantTags = map[string]string{}
 
 type fakePodCounter struct {
 	resources.EndpointsCounter
