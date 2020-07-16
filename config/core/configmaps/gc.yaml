@@ -74,7 +74,7 @@ data:
     #       1. Were created within "retain-since-create-time"
     #       3. Were last referenced by a route within
     #           "retain-since-last-active-time"
-    #       4. There fewer than "min-non-active-revisions"
+    #       4. There are fewer than "min-non-active-revisions"
     #     If none of these conditions are met, or if the count of revisions exceed
     #      "max-non-active-revisions", they will be deleted by GC.
     #     The special value "disabled" may be used to turn off these limits.
