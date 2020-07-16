@@ -139,14 +139,11 @@ func parseDisabledOrInt64(val string, toSet *int64) error {
 	case strings.EqualFold(val, disabled):
 		*toSet = Disabled
 	default:
-		parsed, err := strconv.ParseInt(val, 10, 64)
+		parsed, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		if parsed < 0 {
-			return fmt.Errorf("must non-negative or %q, was: %d", disabled, parsed)
-		}
-		*toSet = parsed
+		*toSet = int64(parsed)
 	}
 	return nil
 }
