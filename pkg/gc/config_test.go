@@ -125,7 +125,7 @@ func TestOurConfig(t *testing.T) {
 		name: "create delay disabled",
 		want: func() *Config {
 			d := defaultConfig()
-			d.RetainSinceCreateTime = Forever
+			d.RetainSinceCreateTime = time.Duration(Disabled)
 			return d
 		}(),
 		data: map[string]string{
@@ -135,7 +135,7 @@ func TestOurConfig(t *testing.T) {
 		name: "last-active disabled",
 		want: func() *Config {
 			d := defaultConfig()
-			d.RetainSinceLastActiveTime = Forever
+			d.RetainSinceLastActiveTime = time.Duration(Disabled)
 			return d
 		}(),
 		data: map[string]string{
@@ -151,7 +151,7 @@ func TestOurConfig(t *testing.T) {
 		name: "max-non-active disabled",
 		want: func() *Config {
 			d := defaultConfig()
-			d.MaxNonActiveRevisions = Infinity
+			d.MaxNonActiveRevisions = Disabled
 			return d
 		}(),
 		data: map[string]string{
