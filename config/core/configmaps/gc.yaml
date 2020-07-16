@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "3c71a685"
+    knative.dev/example-checksum: "aa5e3b93"
 data:
   _example: |
     ################################
@@ -85,7 +85,7 @@ data:
     #    retain-since-create-time: "0"
     #    retain-since-last-active-time: "0"
     #
-    # Example config to always keep around the last ten revisions:
+    # Example config to always keep around the last ten non-active revisions:
     #     retain-since-create-time: "disabled"
     #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "10"

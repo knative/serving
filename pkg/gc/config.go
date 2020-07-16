@@ -133,30 +133,38 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 }
 
 func parseDisabledOrInt64(val string, toSet *int64) error {
-	if val == "" {
+	switch {
+	case val == "":
 		// keep default value
-	} else if strings.EqualFold(val, disabled) {
+	case strings.EqualFold(val, disabled):
 		*toSet = Disabled
-	} else if parsed, err := strconv.ParseInt(val, 10, 64); err != nil {
-		return err
-	} else if parsed < 0 {
-		return fmt.Errorf("must non-negative or %q, was: %d", disabled, parsed)
-	} else {
+	default:
+		parsed, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		if parsed < 0 {
+			return fmt.Errorf("must non-negative or %q, was: %d", disabled, parsed)
+		}
 		*toSet = parsed
 	}
 	return nil
 }
 
 func parseDisabledOrDuration(val string, toSet *time.Duration) error {
-	if val == "" {
+	switch {
+	case val == "":
 		// keep default value
-	} else if strings.EqualFold(val, disabled) {
+	case strings.EqualFold(val, disabled):
 		*toSet = time.Duration(Disabled)
-	} else if parsed, err := time.ParseDuration(val); err != nil {
-		return err
-	} else if parsed < 0 {
-		return fmt.Errorf("must be non-negative")
-	} else {
+	default:
+		parsed, err := time.ParseDuration(val)
+		if err != nil {
+			return err
+		}
+		if parsed < 0 {
+			return fmt.Errorf("must be non-negative")
+		}
 		*toSet = parsed
 	}
 	return nil
