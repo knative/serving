@@ -1064,7 +1064,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
-		Objects: []runtime.Object{
+		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(0, 0), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
@@ -1073,8 +1073,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
-			zeroEndpoints,
-		},
+		}, makeReadyPods(0, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
 				withScales(0, 0), WithReachabilityReachable,
@@ -1087,17 +1086,16 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
-		Objects: []runtime.Object{
+		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, markActive, withScales(2, 2), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
 			metricWithASConfig(testNamespace, testRevision, initialScaleZeroConfigMap()),
-			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
 			}),
-		},
+		}, makeReadyPods(2, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
