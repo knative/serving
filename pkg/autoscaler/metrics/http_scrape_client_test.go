@@ -288,13 +288,13 @@ func BenchmarkUnmarshallingProtoData(b *testing.B) {
 	}}
 
 	for _, bm := range benchmarks {
-		rawBody, err := ioutil.ReadAll(bm.resp.Body)
+		bodyBytes, err := ioutil.ReadAll(bm.resp.Body)
 		if err != nil {
 			b.Error(err)
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err = statFromProto(bytes.NewReader(rawBody))
+				_, err = statFromProto(bytes.NewReader(bodyBytes))
 				if err != nil {
 					b.Error(err)
 				}
