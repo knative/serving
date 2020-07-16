@@ -31,8 +31,7 @@ import (
 
 const (
 	ConfigName = "config-gc"
-	Disabled   = time.Duration(-1)
-	Infinity   = -1
+	Disabled   = -1
 
 	disabled = "disabled"
 )
@@ -59,8 +58,8 @@ type Config struct {
 	// Minimum number of stale revisions to keep before considering for GC.
 	MinStaleRevisions int64
 	// Maximum number of non-active revisions to keep before considering for GC.
-	// regardless of creation or staleness time-bounds
-	// Set Infinity (-1) to disable/ignore max.
+	// regardless of creation or staleness time-bounds.
+	// Set Disabled (-1) to disable/ignore max.
 	MaxNonActiveRevisions int64
 }
 
@@ -137,7 +136,7 @@ func parseDisabledOrInt64(val string, toSet *int64) error {
 	if val == "" {
 		// keep default value
 	} else if strings.EqualFold(val, disabled) {
-		*toSet = Infinity
+		*toSet = Disabled
 	} else if parsed, err := strconv.ParseInt(val, 10, 64); err != nil {
 		return err
 	} else if parsed < 0 {
@@ -152,7 +151,7 @@ func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 	if val == "" {
 		// keep default value
 	} else if strings.EqualFold(val, disabled) {
-		*toSet = Disabled
+		*toSet = time.Duration(Disabled)
 	} else if parsed, err := time.ParseDuration(val); err != nil {
 		return err
 	} else if parsed < 0 {
