@@ -93,10 +93,9 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 }
 
 func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
-	// Extra float64 cast disables fused multiply-subtract to force identical behavior on
-	// all platforms. See floating point section in https://golang.org/ref/spec#Operators.
-	// nolint:unconvert
-	return int32(math.Floor(float64(totCap/targetUtilization*numPods) - targetBC - recordedConcurrency))
+	ebcF := totCap/targetUtilization*numPods - targetBC - recordedConcurrency
+	// We need to floor for negative values.
+	return int32(math.Floor(ebcF))
 }
 
 func expectedNA(a *autoscaler, numP float64) int32 {
@@ -545,10 +544,22 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		metrics, pc, deciderSpec, ctx), pc
 }
 
+// approxEquateInt32 equates int32s with given path with ±-1 tolerance.
+// This is needed due to rounding errors across various platforms.
+func approxEquateInt32(field string) cmp.Option {
+	eqOpt := cmp.Comparer(func(a, b int32) bool {
+		d := a - b
+		return d <= 1 && d >= -1
+	})
+	return cmp.FilterPath(func(p cmp.Path) bool {
+		return p.String() == field
+	}, eqOpt)
+}
+
 func expectScale(t *testing.T, a UniScaler, now time.Time, want ScaleResult) {
 	t.Helper()
 	got := a.Scale(TestContextWithLogger(t), now)
-	if !cmp.Equal(got, want) {
+	if !cmp.Equal(got, want, approxEquateInt32("ExcessBurstCapacity")) {
 		t.Error("ScaleResult mismatch(-want,+got):\n", cmp.Diff(want, got))
 	}
 }
