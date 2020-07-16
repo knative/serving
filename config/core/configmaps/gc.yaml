@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "47c109b0"
+    knative.dev/example-checksum: "3c71a685"
 data:
   _example: |
     ################################
@@ -68,14 +68,20 @@ data:
     #     are exempted from GC.
     #   * Individual revisions may be marked with the annotation
     #      "knative.dev/no-gc":"true" to be permanently considered active.
-    # Stale
-    #   * Revisions are considered stale if they are not active and were created
-    #      after more than "retain-since-create-time" and last referenced
-    #      by a route more than "retain-since-last-active-time" ago.
-    #   * Either timeout may be set to "disabled" to turn off time-based GC.
+    # Retention Time
+    #   * Revisions are deleted if they are:
+    #       1. not active
+    #       2. were created after more than "retain-since-create-time"
+    #       3. Were last referenced by a route more than
+    #           "retain-since-last-active-time" ago
+    #       4. There are more than "min-non-active-revisions".
+    #     However if they exceed "max-non-active-revisions" they will be deleted
+    #     regardless of age.
+    #   * Timeout may be set to "disabled" to turn off time-based GC.
+    #     In this mode, they will remain until they exceed "max-non-active-revisions".
     #
     # Example config to immediately collect any inactive revision:
-    #    min-stale-revisions: "0"
+    #    min-non-active-revisions: "0"
     #    retain-since-create-time: "0"
     #    retain-since-last-active-time: "0"
     #
@@ -94,7 +100,7 @@ data:
     # burst activity from exploding the count of old revisions:
     #      retain-since-create-time: "48h"
     #      retain-since-last-active-time: "15h"
-    #      min-stale-revisions: "2"
+    #      min-non-active-revisions: "2"
     #      max-non-active-revisions: "1000"
 
     # Duration since creation before considering a revision for GC or "disabled".
@@ -103,8 +109,8 @@ data:
     # Duration since active before considering a revision for GC or "disabled".
     retain-since-last-active-time: "15h"
 
-    # Minimum number of stale revisions to retain.
-    min-stale-revisions: "20"
+    # Minimum number of non-active revisions to retain.
+    min-non-active-revisions: "20"
 
     # Maximum number of non-active revisions to retain
     # or "disabled" to disable any maximum limit.

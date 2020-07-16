@@ -56,7 +56,7 @@ type Config struct {
 	// Set Disabled (-1) to disable/ignore duration and always consider active.
 	RetainSinceLastActiveTime time.Duration
 	// Minimum number of stale revisions to keep before considering for GC.
-	MinStaleRevisions int64
+	MinNonActiveRevisions int64
 	// Maximum number of non-active revisions to keep before considering for GC.
 	// regardless of creation or staleness time-bounds.
 	// Set Disabled (-1) to disable/ignore max.
@@ -74,7 +74,7 @@ func defaultConfig() *Config {
 		// V2 GC Settings
 		RetainSinceCreateTime:     48 * time.Hour,
 		RetainSinceLastActiveTime: 15 * time.Hour,
-		MinStaleRevisions:         20,
+		MinNonActiveRevisions:     20,
 		MaxNonActiveRevisions:     1000,
 	}
 }
@@ -95,7 +95,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			// v2 settings
 			cm.AsString("retain-since-create-time", &retainCreate),
 			cm.AsString("retain-since-last-active-time", &retainActive),
-			cm.AsInt64("min-stale-revisions", &c.MinStaleRevisions),
+			cm.AsInt64("min-stale-revisions", &c.MinNonActiveRevisions),
 			cm.AsString("max-non-active-revisions", &max),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
@@ -122,11 +122,11 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		if err := parseDisabledOrInt64(max, &c.MaxNonActiveRevisions); err != nil {
 			return nil, fmt.Errorf("failed to parse max-stale-revisions: %w", err)
 		}
-		if c.MinStaleRevisions < 0 {
-			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinStaleRevisions)
+		if c.MinNonActiveRevisions < 0 {
+			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinNonActiveRevisions)
 		}
-		if c.MaxNonActiveRevisions >= 0 && c.MinStaleRevisions > c.MaxNonActiveRevisions {
-			return nil, fmt.Errorf("min-stale-revisions(%d) must be <= max-stale-revisions(%d)", c.MinStaleRevisions, c.MaxNonActiveRevisions)
+		if c.MaxNonActiveRevisions >= 0 && c.MinNonActiveRevisions > c.MaxNonActiveRevisions {
+			return nil, fmt.Errorf("min-stale-revisions(%d) must be <= max-stale-revisions(%d)", c.MinNonActiveRevisions, c.MaxNonActiveRevisions)
 		}
 		return c, nil
 	}
