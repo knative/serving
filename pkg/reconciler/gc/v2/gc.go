@@ -50,8 +50,11 @@ func Collect(
 		return err
 	}
 
-	minStale, maxStale := int(cfg.MinStaleRevisions), int(cfg.MaxNonActiveRevisions)
-	if l := len(revs); l <= minStale || l <= maxStale {
+	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
+	if len(revs) <= min ||
+		max == gc.Disabled &&
+			cfg.RetainSinceCreateTime == gc.Disabled &&
+			cfg.RetainSinceLastActiveTime == gc.Disabled {
 		return nil
 	}
 
@@ -66,21 +69,25 @@ func Collect(
 		if isRevisionActive(rev, config) {
 			continue
 		}
-
 		nonactive++
 		if isRevisionStale(cfg, rev, logger) {
 			numStale++
 		}
 
-		if numStale > minStale || maxStale != gc.Disabled && nonactive >= maxStale {
-			err := client.ServingV1().Revisions(rev.Namespace).Delete(
-				rev.Name, &metav1.DeleteOptions{})
-			if err != nil {
-				logger.With(
-					zap.Error(err)).Errorf(
-					"Failed to delete stale revision %q", rev.Name)
-				continue
-			}
+		if numStale > min {
+			logger.Infof("Deleting stale revision %q", rev.ObjectMeta.Name)
+		} else if max != gc.Disabled && nonactive >= max {
+			logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q",
+				max, rev.ObjectMeta.Name)
+		} else {
+			continue
+		}
+
+		err := client.ServingV1().Revisions(rev.Namespace).Delete(
+			rev.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
+			continue
 		}
 	}
 	return nil
@@ -116,7 +123,7 @@ func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger
 		return false // Revision was recently active. Not stale.
 	}
 
-	logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
+	logger.Infof("Detected stale revision %q with creation time %v and last active time %v.",
 		rev.ObjectMeta.Name, createTime, active)
 	return true
 }

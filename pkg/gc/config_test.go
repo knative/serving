@@ -53,7 +53,7 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
 			RetainSinceCreateTime:           17 * time.Hour,
 			RetainSinceLastActiveTime:       16 * time.Hour,
-			MinStaleRevisions:               5,
+			MinNonActiveRevisions:           5,
 			MaxNonActiveRevisions:           500,
 		},
 		data: map[string]string{
@@ -167,7 +167,7 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 			RetainSinceCreateTime:           48 * time.Hour,
 			RetainSinceLastActiveTime:       15 * time.Hour,
-			MinStaleRevisions:               20,
+			MinNonActiveRevisions:           20,
 			MaxNonActiveRevisions:           1000,
 		},
 		data: map[string]string{

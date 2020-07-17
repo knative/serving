@@ -58,7 +58,7 @@ func TestCollectMin(t *testing.T) {
 		RevisionGC: &gcconfig.Config{
 			RetainSinceCreateTime:     5 * time.Minute,
 			RetainSinceLastActiveTime: 5 * time.Minute,
-			MinStaleRevisions:         1,
+			MinNonActiveRevisions:     1,
 			MaxNonActiveRevisions:     -1, // assert no changes to min case
 		},
 	}
@@ -85,7 +85,7 @@ func TestCollectMin(t *testing.T) {
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(oldest)),
-			// Stale, but MinStaleRevisions is 1
+			// Stale, but MinNonActiveRevisions is 1
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateReserve),
@@ -117,7 +117,7 @@ func TestCollectMin(t *testing.T) {
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(oldest)),
-			// Stale, but MinStaleRevisions is 1
+			// Stale, but MinNonActiveRevisions is 1
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateReserve),
@@ -255,7 +255,7 @@ func TestCollectMax(t *testing.T) {
 		RevisionGC: &gcconfig.Config{
 			RetainSinceCreateTime:     1 * time.Hour,
 			RetainSinceLastActiveTime: 1 * time.Hour,
-			MinStaleRevisions:         1,
+			MinNonActiveRevisions:     1,
 			MaxNonActiveRevisions:     3,
 		},
 	}
@@ -502,7 +502,7 @@ func TestIsRevisionStale(t *testing.T) {
 	cfg := &gcconfig.Config{
 		RetainSinceCreateTime:     5 * time.Minute,
 		RetainSinceLastActiveTime: 5 * time.Minute,
-		MinStaleRevisions:         2,
+		MinNonActiveRevisions:     2,
 	}
 
 	for _, test := range tests {
