@@ -18,7 +18,6 @@ package kpa
 
 import (
 	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -60,31 +59,26 @@ func register() {
 			Description: "Number of pods autoscaler requested from Kubernetes",
 			Measure:     requestedPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods that are allocated currently",
 			Measure:     actualPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods that are not ready currently",
 			Measure:     notReadyPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods that are pending currently",
 			Measure:     pendingPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods that are terminating currently",
 			Measure:     terminatingPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 	); err != nil {
 		panic(err)

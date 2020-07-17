@@ -28,6 +28,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var testM = stats.Int64(
@@ -41,7 +42,7 @@ func register(t *testing.T) func() {
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     testM,
 			Aggregation: view.LastValue(),
-			TagKeys:     append(CommonRevisionKeys, ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey),
+			TagKeys:     []tag.Key{ResponseCodeKey, ResponseCodeClassKey, PodTagKey, ContainerTagKey},
 		}); err != nil {
 		t.Fatal("Failed to register view:", err)
 	}
@@ -99,8 +100,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:                "testpod",
-			metricskey.ContainerName:          "testcontainer",
+			metricskey.PodName:       "testpod",
+			metricskey.ContainerName: "testcontainer",
 		},
 	}, {
 		name: "pod revision context (empty svc)",
@@ -108,8 +109,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:                "testpod",
-			metricskey.ContainerName:          "testcontainer",
+			metricskey.PodName:       "testpod",
+			metricskey.ContainerName: "testcontainer",
 		},
 	}, {
 		name: "pod revision context (empty svc)",
@@ -117,8 +118,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:                "testpod",
-			metricskey.ContainerName:          "testcontainer",
+			metricskey.PodName:       "testpod",
+			metricskey.ContainerName: "testcontainer",
 		},
 	}, {
 		name: "pod context augmented with revision",
@@ -130,8 +131,8 @@ func TestContexts(t *testing.T) {
 			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev"), nil
 		}),
 		wantTags: map[string]string{
-			metricskey.PodName:                "testpod",
-			metricskey.ContainerName:          "testcontainer",
+			metricskey.PodName:       "testpod",
+			metricskey.ContainerName: "testcontainer",
 		},
 	}, {
 		name: "pod revision context augmented with response",
