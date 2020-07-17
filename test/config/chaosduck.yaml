@@ -62,6 +62,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
+  replicas: 0
   selector:
     matchLabels:
       app: chaosduck
