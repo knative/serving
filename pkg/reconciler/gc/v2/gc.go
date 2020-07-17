@@ -64,17 +64,17 @@ func Collect(
 		return a.After(b)
 	})
 
-	numStale, nonactive := 0, 0
+	stale, nonactive := 0, 0
 	for _, rev := range revs {
 		if isRevisionActive(rev, config) {
 			continue
 		}
 		nonactive++
 		if isRevisionStale(cfg, rev, logger) {
-			numStale++
+			stale++
 		}
 
-		if numStale > min {
+		if stale > min {
 			logger.Infof("Deleting stale revision %q", rev.ObjectMeta.Name)
 		} else if max != gc.Disabled && nonactive >= max {
 			logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q",
