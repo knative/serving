@@ -62,5 +62,5 @@ replace (
 
 	// DO NOT SUBMIT
 	//	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200717180613-06893064219d
-	knative.dev/pkg => knative.dev/pkg v0.0.0-20200715200833-67e9bcf967f7
+	knative.dev/pkg => knative.dev/pkg v0.0.0-20200716004533-096656a2d4c8
 )

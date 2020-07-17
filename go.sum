@@ -1625,8 +1625,8 @@ knative.dev/caching v0.0.0-20200716164533-ea602fec68d6/go.mod h1:/ey35hW/9lssPtv
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a h1:En4OAS5aL8eYPaLOhVhyVWHYDEW0X5X1Y78MSyw5/Ps=
 knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a/go.mod h1:6CW3DsOMkpK1HdMWraZ+50nl5+lbVzmWJ92CDoNmFi8=
-knative.dev/pkg v0.0.0-20200715200833-67e9bcf967f7 h1:MjA8GNpXjk700l2aELN+nD34y7g1r9Uweh0dGN+pnpM=
-knative.dev/pkg v0.0.0-20200715200833-67e9bcf967f7/go.mod h1:yFXTzV2GIB30Qs6pdJNCbtKaIEhxH9fsmrrltAqfjWE=
+knative.dev/pkg v0.0.0-20200716004533-096656a2d4c8 h1:N/JUG4qTWrmgTmxaJ/9AMgxDYJVWq7FgfSGLK4kztNY=
+knative.dev/pkg v0.0.0-20200716004533-096656a2d4c8/go.mod h1:yFXTzV2GIB30Qs6pdJNCbtKaIEhxH9fsmrrltAqfjWE=
 knative.dev/test-infra v0.0.0-20200713220518-5a4c4cad5372/go.mod h1:vtT6dLs/iNj8pKcfag8CSVqHKNMgyCFtU/g1pV7Bovs=
 knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee h1:SH4N5kSRiEgmOcgjFwsyLMipS3sPJlN6dpp783C/ILQ=
 knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=

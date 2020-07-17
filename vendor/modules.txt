@@ -1051,7 +1051,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
-# knative.dev/pkg v0.0.0-20200717205433-931d1210f189 => knative.dev/pkg v0.0.0-20200715200833-67e9bcf967f7
+# knative.dev/pkg v0.0.0-20200717205433-931d1210f189 => knative.dev/pkg v0.0.0-20200716004533-096656a2d4c8
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1190,4 +1190,4 @@ sigs.k8s.io/yaml
 # k8s.io/client-go => k8s.io/client-go v0.17.6
 # k8s.io/code-generator => k8s.io/code-generator v0.17.6
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-# knative.dev/pkg => knative.dev/pkg v0.0.0-20200715200833-67e9bcf967f7
+# knative.dev/pkg => knative.dev/pkg v0.0.0-20200716004533-096656a2d4c8
