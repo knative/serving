@@ -17,16 +17,8 @@ kind: IstioOperator
 spec:
   values:
     global:
-      mtls:
-        enabled: true
-        auto: false
       proxy:
-        autoInject: enabled
-        accessLogFile: "/dev/stdout"
-        accessLogEncoding: 'JSON'
-      disablePolicyChecks: true
-      defaultPodDisruptionBudget:
-        enabled: false
+        autoInject: disabled
       useMCP: false
       # The third-party-jwt is not enabled on all k8s.
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
@@ -40,13 +32,6 @@ spec:
       istio-ingressgateway:
         autoscaleMin: 2
         autoscaleMax: 5
-    sidecarInjectorWebhook:
-      rewriteAppHTTPProbe: true
-
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        TERMINATION_DRAIN_DURATION_SECONDS: "20"
 
   addonComponents:
     pilot:
@@ -55,8 +40,6 @@ spec:
       enabled: false
 
   components:
-    pilot:
-      enabled: true
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
@@ -68,18 +51,10 @@ spec:
             requests:
               cpu: 1000m
               memory: 1024Mi
-          service:
-            type: LoadBalancer
-            ports:
-            - port: 15020
-              name: status-port
-            - port: 80
-              name: http2
-            - port: 443
-              name: https
           overlays:
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
-            # https://github.com/istio/istio/issues/22095
+            # see: https://github.com/istio/istio/issues/22095
+            # it causes an issue for TestIstioProbing/HTTP2. see: https://github.com/istio/istio/issues/24061
             - kind: Gateway
               name: istio-ingressgateway
               patches:
@@ -88,6 +63,9 @@ spec:
                     dummy
       - name: cluster-local-gateway
         enabled: true
+        label:
+          istio: cluster-local-gateway
+          app: cluster-local-gateway
         k8s:
           resources:
             limits:
@@ -106,44 +84,9 @@ spec:
             - port: 443
               name: https
           overlays:
-            - kind: Service
-              name: cluster-local-gateway
-              patches:
-                - path: spec.selector.istio
-                  value:
-                    cluster-local-gateway
-                - path: spec.selector.app
-                  value:
-                    cluster-local-gateway
-                - path: metadata.labels.istio
-                  value:
-                    cluster-local-gateway
-                - path: metadata.labels.app
-                  value:
-                    cluster-local-gateway
-            - kind: Deployment
-              name: cluster-local-gateway
-              patches:
-                - path: metadata.labels.istio
-                  value:
-                    cluster-local-gateway
-                - path: metadata.labels.app
-                  value:
-                    cluster-local-gateway
-                - path: spec.selector.matchLabels.istio
-                  value:
-                    cluster-local-gateway
-                - path: spec.selector.matchLabels.app
-                  value:
-                    cluster-local-gateway
-                - path: spec.template.metadata.labels.istio
-                  value:
-                    cluster-local-gateway
-                - path: spec.template.metadata.labels.app
-                  value:
-                    cluster-local-gateway
             # Although we don't need this Gateway, we cannot remove it. Add "dummy" selector for the workaround.
-            # https://github.com/istio/istio/issues/22095
+            # see: https://github.com/istio/istio/issues/22095
+            # it causes an issue for TestIstioProbing/HTTP2. see: https://github.com/istio/istio/issues/24061
             - kind: Gateway
               name: cluster-local-gateway
               patches:
