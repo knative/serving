@@ -69,13 +69,16 @@ func TestGCReconcile(t *testing.T) {
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
 				RevisionGC: &gcconfig.Config{
+					// v1 settings
 					StaleRevisionCreateDelay:        5 * time.Minute,
 					StaleRevisionTimeout:            5 * time.Minute,
 					StaleRevisionMinimumGenerations: 2,
-					RetainSinceCreateTime:           5 * time.Minute,
-					RetainSinceLastActiveTime:       5 * time.Minute,
-					MinNonActiveRevisions:           1,
-					MaxNonActiveRevisions:           gc.Disabled,
+
+					// v2 settings
+					RetainSinceCreateTime:     5 * time.Minute,
+					RetainSinceLastActiveTime: 5 * time.Minute,
+					MinNonActiveRevisions:     1,
+					MaxNonActiveRevisions:     gc.Disabled,
 				},
 			},
 		}}
