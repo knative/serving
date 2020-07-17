@@ -76,7 +76,7 @@ func Collect(
 
 		if stale > min {
 			logger.Infof("Deleting stale revision %q", rev.ObjectMeta.Name)
-		} else if max != gc.Disabled && nonactive >= max {
+		} else if max != gc.Disabled && nonactive > max {
 			logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q",
 				max, rev.ObjectMeta.Name)
 		} else {

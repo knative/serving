@@ -224,7 +224,7 @@ func TestCollectMax(t *testing.T) {
 			RetainSinceCreateTime:     1 * time.Hour,
 			RetainSinceLastActiveTime: 1 * time.Hour,
 			MinNonActiveRevisions:     1,
-			MaxNonActiveRevisions:     3,
+			MaxNonActiveRevisions:     2,
 		},
 	}
 
@@ -374,7 +374,7 @@ func TestCollectSettings(t *testing.T) {
 			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
 			RetainSinceLastActiveTime: time.Duration(gcconfig.Disabled),
 			MinNonActiveRevisions:     0,
-			MaxNonActiveRevisions:     2,
+			MaxNonActiveRevisions:     1,
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
