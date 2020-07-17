@@ -17,20 +17,12 @@ limitations under the License.
 package controller
 
 import (
-	"fmt"
-
 	"k8s.io/client-go/util/workqueue"
 )
 
-// item wraps workqueue.Interface.Get() return
-type item struct {
-	i  interface{}
-	sd bool
-}
-
 // twoLaneQueue is a rate limited queue that wraps around two queues
-// -- fast queue, whose contents are processed with priority.
-// -- slow queue, whose contents are processed if fast queue has no items.
+// -- fast queue (anonymously aliased), whose contents are processed with priority.
+// -- slow queue (slowLane queue), whose contents are processed if fast queue has no items.
 // All the default methods operate on the fast queue, unless noted otherwise.
 type twoLaneQueue struct {
 	workqueue.RateLimitingInterface
@@ -42,11 +34,12 @@ type twoLaneQueue struct {
 
 	name string
 
-	fastChan chan item
-	slowChan chan item
+	fastChan chan interface{}
+	slowChan chan interface{}
 }
 
-func NewTwoLaneQueue(name string) workqueue.RateLimitingInterface {
+// Creates a new twoLaneQueue.
+func newTwoLaneWorkQueue(name string) *twoLaneQueue {
 	rl := workqueue.DefaultControllerRateLimiter()
 	tlq := &twoLaneQueue{
 		RateLimitingInterface: workqueue.NewNamedRateLimitingQueue(
@@ -59,81 +52,77 @@ func NewTwoLaneQueue(name string) workqueue.RateLimitingInterface {
 		),
 		consumerQueue: workqueue.NewNamed(name + "-consumer"),
 		name:          name,
-		fastChan:      make(chan item),
-		slowChan:      make(chan item),
+		fastChan:      make(chan interface{}),
+		slowChan:      make(chan interface{}),
 	}
-	tlq.runConsumer()
-	tlq.runProducers()
+	// Run consumer thread.
+	go tlq.runConsumer()
+	// Run producer threads.
+	go process(tlq.RateLimitingInterface, tlq.fastChan)
+	go process(tlq.slowLane, tlq.slowChan)
 	return tlq
 }
 
-func process(q workqueue.Interface, ch chan item) {
-	go func(q workqueue.Interface) {
-		for {
-			i, d := q.Get()
-			// If the queue is empty and we're shutting down — stop the loop.
-			if d {
-				break
-			}
-			fmt.Println("### read", i, d)
-			ch <- item{i: i, sd: d}
+func process(q workqueue.Interface, ch chan interface{}) {
+	// Sender closes the channel
+	defer close(ch)
+	for {
+		i, d := q.Get()
+		// If the queue is empty and we're shutting down — stop the loop.
+		if d {
+			break
 		}
-		// Sender closes the channel
-		close(ch)
-	}(q)
-}
-
-func (tlq *twoLaneQueue) runProducers() {
-	process(tlq.RateLimitingInterface, tlq.fastChan)
-	process(tlq.slowLane, tlq.slowChan)
+		ch <- i
+		q.Done(i)
+	}
 }
 
 func (tlq *twoLaneQueue) runConsumer() {
-	tlq.consumerQueue = workqueue.NewNamed(tlq.name + "consumer")
 	// Shutdown flags.
 	fast, slow := true, true
-	go func() {
-		for fast || slow {
-			// By default drain the fast lane.
-			if fast {
-				select {
-				case item, ok := <-tlq.fastChan:
-					if !ok {
-						fmt.Println(tlq.name, "TLQ: fast queue done")
-						fast = false
-						continue
-					}
-					fmt.Println(tlq.name, "TLQ: reading from the fast lane", item.i, item.sd)
-					tlq.consumerQueue.Add(item.i)
-					continue
-				default:
-				}
-			}
-			// Fast lane is empty, so wait for either channel to trigger. Since
-			// channels are picked randomly any of the lanes might trigger.
+	// When both producer queues are shutdown stop the consumerQueue.
+	defer tlq.consumerQueue.ShutDown()
+	// While any of the queues is still running, try to read off of them.
+	for fast || slow {
+		// By default drain the fast lane.
+		// Channels in select are picked random, so first
+		// we have a select that only looks at the fast lane queue.
+		if fast {
 			select {
 			case item, ok := <-tlq.fastChan:
 				if !ok {
-					fmt.Println(tlq.name, "TLQ: fast queue done")
+					// This queue is shutdown and drained. Stop looking at it.
 					fast = false
 					continue
 				}
-				fmt.Println(tlq.name, "TLQ: reading from the fast lane, 2", item.i, item.sd)
-				tlq.consumerQueue.Add(item.i)
-			case item, ok := <-tlq.slowChan:
-				if !ok {
-					fmt.Println(tlq.name, "TLQ: slow queue done")
-					slow = false
-					continue
-				}
-				fmt.Println(tlq.name, "TLQ: reading from the slow lane", item.i, item.sd)
-				tlq.consumerQueue.Add(item.i)
+				tlq.consumerQueue.Add(item)
+				continue
+			default:
+				// This immediately exits the wait if the fast chan is empty.
 			}
 		}
-		fmt.Println(tlq.name, "TLQ: both producers shutdown; killing consumer")
-		// We know both queues are shutdown now. Stop the consumerQueue.
-		tlq.consumerQueue.ShutDown()
-	}()
+
+		// If the fast lane queue had no items, we can select from both.
+		// Obviously if suddenly both are populated at the same time there's a
+		// 50% chance that the slow would be picked first, but this should be
+		// a rare occasion not to really worry about it.
+		select {
+		case item, ok := <-tlq.fastChan:
+			if !ok {
+				// This queue is shutdown and drained. Stop looking at it.
+				fast = false
+				continue
+			}
+			tlq.consumerQueue.Add(item)
+		case item, ok := <-tlq.slowChan:
+			if !ok {
+				// This queue is shutdown and drained. Stop looking at it.
+				slow = false
+				continue
+			}
+			tlq.consumerQueue.Add(item)
+		}
+	}
 }
 
 // Shutdown implements workqueue.Interace.
@@ -144,14 +133,11 @@ func (tlq *twoLaneQueue) ShutDown() {
 }
 
 // Done implements workqueue.Interface.
-// Done marks the item as completed in both queues.
+// Done marks the item as completed in all the queues.
 // NB: this will just re-enqueue the object on the queue that
 // didn't originate the object.
 func (tlq *twoLaneQueue) Done(i interface{}) {
-	// Mark the item as done in the consumer queue, so it can be removed.
 	tlq.consumerQueue.Done(i)
-	tlq.RateLimitingInterface.Done(i)
-	tlq.slowLane.Done(i)
 }
 
 // Get implements workqueue.Interface.

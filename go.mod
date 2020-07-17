@@ -61,5 +61,5 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 
 	// DO NOT SUBMIT
-	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200717001813-61399f1b4ba7
+	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200717163650-b551e55e8b11
 )
