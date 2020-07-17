@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "c675b489"
+    knative.dev/example-checksum: "cb6a7f17"
 data:
   _example: |
     ################################
@@ -60,27 +60,57 @@ data:
     # V2 Garbage Collector Settings
     # ---------------------------------------
     #
-    # These settings are enabled via the 'responsive-revision-gc' feature flag.
+    # These settings are enabled via the "responsive-revision-gc" feature flag.
     # ALPHA NOTE: This feature is still experimental and under active development.
+    #
+    # Active
+    #   * Revisions which are referenced by a Route are considered active.
+    #   * Individual revisions may be marked with the annotation
+    #      "knative.dev/no-gc":"true" to be permanently considered active.
+    #   * Active revisions are not considered for GC.
+    # Retention
+    #   * Revisions are retained if they are any of the following:
+    #       1. Active
+    #       2. Were created within "retain-since-create-time"
+    #       3. Were last referenced by a route within
+    #           "retain-since-last-active-time"
+    #       4. There are fewer than "min-non-active-revisions"
+    #     If none of these conditions are met, or if the count of revisions exceed
+    #      "max-non-active-revisions", they will be deleted by GC.
+    #     The special value "disabled" may be used to turn off these limits.
+    #
+    # Example config to immediately collect any inactive revision:
+    #    min-non-active-revisions: "0"
+    #    retain-since-create-time: "0"
+    #    retain-since-last-active-time: "0"
+    #
+    # Example config to always keep around the last ten non-active revisions:
+    #     retain-since-create-time: "disabled"
+    #     retain-since-last-active-time: "disabled"
+    #     max-non-active-revisions: "10"
+    #
+    # Example config to disable all GC:
+    #     retain-since-create-time: "disabled"
+    #     retain-since-last-active-time: "disabled"
+    #     max-non-active-revisions: "disabled"
+    #
+    # Example config to keep recently deployed or active revisions,
+    # always maintain the last two in case of rollback, and prevent
+    # burst activity from exploding the count of old revisions:
+    #      retain-since-create-time: "48h"
+    #      retain-since-last-active-time: "15h"
+    #      min-non-active-revisions: "2"
+    #      max-non-active-revisions: "1000"
 
-    # Duration since revision creation before considering it for GC.
+    # Duration since creation before considering a revision for GC or "disabled".
     retain-since-create-time: "48h"
 
-    # Duration since a route has pointed at the revision
-    # before considering it for GC.
+    # Duration since active before considering a revision for GC or "disabled".
     retain-since-last-active-time: "15h"
 
     # Minimum number of non-active revisions to retain.
-    min-stale-revisions: "20"
+    min-non-active-revisions: "20"
 
-    # Maximum number of non-active revisions to retain regardless of
-    # creation or staleness time-bounds.
-    #
-    # Instead of allowing revisions to become stale down to min-stale-revisions,
-    # this mode will keep around revisions up to this maximum limit. A value of 0
-    # will immediately delete any non-active revisions. The expected total number
-    # of revisions is the number of active plus this value.
-    #
-    # Set to -1 to disable this setting. Revisions will be eligible for gc as soon
-    # as they are considered stale as long as there are more than min-stale-revisions.
-    max-stale-revisions: "-1"
+    # Maximum number of non-active revisions to retain
+    # or "disabled" to disable any maximum limit.
+    max-non-active-revisions: "1000"
