@@ -59,45 +59,20 @@ if (( HTTPS )); then
   toggle_feature autoTLS Enabled config-network
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-  add_trap "toggle_feature autoTLS Disabled config-network" SIGKILL SIGTERM SIGQUIT
 fi
-
-
-# Keep this in sync with test/ha/ha.go
-readonly REPLICAS=3
-readonly BUCKETS=10
-
 
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || failed=1
-add_trap "kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{\"data\":{\"allow-zero-initial-scale\":\"false\"}}'" SIGKILL SIGTERM SIGQUIT
 
 # Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || failed=1
-add_trap "kubectl get cm config-leader-election -n ${SYSTEM_NAMESPACE} -oyaml | sed '/.*buckets.*/d' | kubectl replace -f -" SIGKILL SIGTERM SIGQUIT
-
-# Save activator HPA original values for later use.
-hpa_spec=$(echo '{"spec": {'$(kubectl get hpa activator -n "knative-serving" -ojsonpath='"minReplicas": {.spec.minReplicas}, "maxReplicas": {.spec.maxReplicas}')'}}')
 
 kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
   --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || failed=1
-add_trap "kubectl patch hpa activator -n ${SYSTEM_NAMESPACE} \
-  --type 'merge' \
-  --patch $hpa_spec" SIGKILL SIGTERM SIGQUIT
 
-for deployment in controller autoscaler-hpa webhook; do
-  # Make sure all pods run in leader-elected mode.
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
-  # Give it time to kill the pods.
-  sleep 5
-  # Scale up components for HA tests
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
-done
-add_trap "for deployment in controller autoscaler-hpa webhook; do \
-  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=0; \
-  kubectl -n ${SYSTEM_NAMESPACE} scale deployment $deployment --replicas=1; done" SIGKILL SIGTERM SIGQUIT
+scale_controlplane controller autoscaler-hpa webhook
 
 # Changing the bucket count and cycling the controllers will leave around stale
 # lease resources at the old sharding factor, so clean these up.
@@ -142,12 +117,10 @@ if (( HTTPS )); then
 fi
 
 toggle_feature tagHeaderBasedRouting Enabled config-network
-add_trap "toggle_feature tagHeaderBasedRouting Disabled config-network" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
 toggle_feature tagHeaderBasedRouting Disabled config-network
 
 toggle_feature multi-container Enabled
-add_trap "toggle_feature multi-container Disabled" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
 
