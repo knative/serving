@@ -83,9 +83,8 @@ func Collect(
 			continue
 		}
 
-		err := client.ServingV1().Revisions(rev.Namespace).Delete(
-			rev.Name, &metav1.DeleteOptions{})
-		if err != nil {
+		if err := client.ServingV1().Revisions(rev.Namespace).Delete(
+			rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 			continue
 		}
@@ -108,7 +107,7 @@ func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 
 func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger) bool {
 	sinceCreate, sinceActive := cfg.RetainSinceCreateTime, cfg.RetainSinceLastActiveTime
-	if cfg.RetainSinceCreateTime == gc.Disabled && sinceActive == gc.Disabled {
+	if sinceCreate == gc.Disabled && sinceActive == gc.Disabled {
 		return false // Time checks are both disabled. Not stale.
 	}
 
