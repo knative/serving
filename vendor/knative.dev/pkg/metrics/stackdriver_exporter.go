@@ -274,6 +274,12 @@ func sdCustomMetricsRecorder(mc metricsConfig, allowCustomMetrics bool) func(con
 	}
 }
 
+// clientConfig stores the stackdriver configs for cerating additional connections.
+type clientConfig struct {
+	storeConfig *metricsConfig
+	storeLogger *zap.SugaredLogger
+}
+
 // getStackdriverExporterClientOptions creates client options for the opencensus Stackdriver exporter from the given stackdriverClientConfig.
 // On error, an empty array of client options is returned.
 func getStackdriverExporterClientOptions(config *metricsConfig) ([]option.ClientOption, error) {

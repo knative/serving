@@ -168,14 +168,9 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	MemStatsOrDie(ctx)
 
-	// Respect user provided settings, but if omitted customize the default behavior.
-	if cfg.QPS == 0 {
-		// Adjust our client's rate limits based on the number of controllers we are running.
-		cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
-	}
-	if cfg.Burst == 0 {
-		cfg.Burst = len(ctors) * rest.DefaultBurst
-	}
+	// Adjust our client's rate limits based on the number of controllers we are running.
+	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
+	cfg.Burst = len(ctors) * rest.DefaultBurst
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
