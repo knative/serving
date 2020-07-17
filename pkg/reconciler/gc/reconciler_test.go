@@ -35,6 +35,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	"knative.dev/serving/pkg/gc"
 	gcconfig "knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
@@ -71,6 +72,10 @@ func TestGCReconcile(t *testing.T) {
 					StaleRevisionCreateDelay:        5 * time.Minute,
 					StaleRevisionTimeout:            5 * time.Minute,
 					StaleRevisionMinimumGenerations: 2,
+					RetainSinceCreateTime:           5 * time.Minute,
+					RetainSinceLastActiveTime:       5 * time.Minute,
+					MinNonActiveRevisions:           1,
+					MaxNonActiveRevisions:           gc.Disabled,
 				},
 			},
 		}}
@@ -85,16 +90,16 @@ func TestGCReconcile(t *testing.T) {
 				WithConfigObservedGen),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(oldest)),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(oldest)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(older)),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(old)),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
