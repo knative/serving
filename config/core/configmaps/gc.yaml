@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "3e619e04"
+    knative.dev/example-checksum: "cb6a7f17"
 data:
   _example: |
     ################################
@@ -89,7 +89,7 @@ data:
     #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "10"
     #
-    # Example disable all GC:
+    # Example config to disable all GC:
     #     retain-since-create-time: "disabled"
     #     retain-since-last-active-time: "disabled"
     #     max-non-active-revisions: "disabled"
