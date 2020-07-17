@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "52231144"
+    knative.dev/example-checksum: "38e90f86"
 data:
   _example: |
     ################################
@@ -40,6 +40,15 @@ data:
 
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
+
+    # Indicates whether Kubernetes affinity support is enabled
+    kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes nodeSelector support is enabled
+    kubernetes.podspec-nodeselector: "disabled"
+
+    # Indicates whether Kubernetes tolerations support is enabled
+    kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
     kubernetes.podspec-fieldref: "disabled"

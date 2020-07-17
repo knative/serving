@@ -263,7 +263,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	// 	return apis.ErrMissingField(apis.CurrentField)
 	// }
 
-	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
+	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
 	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {

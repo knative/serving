@@ -160,6 +160,18 @@ function delete_dns_record() {
 # Skip installing istio as an add-on
 initialize $@ --skip-istio-addon
 
+header "Enabling high-availability"
+
+scale_controlplane controller autoscaler-hpa webhook
+
+# Wait for a new leader Controller to prevent race conditions during service reconciliation
+wait_for_leader_controller || failed=1
+
+# Dump the leases post-setup.
+header "Leaders"
+kubectl get lease -n "${SYSTEM_NAMESPACE}"
+
+
 # Run the tests
 header "Running tests"
 
