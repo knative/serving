@@ -72,7 +72,7 @@ func Collect(
 			numStale++
 		}
 
-		if numStale > minStale || maxStale != gc.Infinity && nonactive >= maxStale {
+		if numStale > minStale || maxStale != gc.Disabled && nonactive >= maxStale {
 			err := client.ServingV1().Revisions(rev.Namespace).Delete(
 				rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
