@@ -219,6 +219,9 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 			logger.Info("Starting to fail readiness probes...")
 			close(wh.stopCh)
 
+			// As we start to shutdown, disable keep-alives to avoid clients hanging onto connections.
+			server.SetKeepAlivesEnabled(false)
+
 			// Wait for a grace period for the above to take effect and this Pod's
 			// endpoint to be removed from the webhook service's Endpoints.
 			// For this to be effective, it must be greater than the probe's
