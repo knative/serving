@@ -19,6 +19,7 @@ package leaderelection
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"strings"
 	"sync"
 
@@ -166,15 +167,16 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 }
 
 func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucket {
-	names := make(sets.String, cc.Buckets)
-	for i := uint32(0); i < cc.Buckets; i++ {
-		names.Insert(standardBucketName(i, queueName, cc))
-	}
-	bs := hash.NewBucketSet(names)
-
 	bkts := make([]reconciler.Bucket, 0, cc.Buckets)
-	for name := range names {
-		bkts = append(bkts, hash.NewBucket(name, bs))
+	for i := uint32(0); i < cc.Buckets; i++ {
+		bkt := &bucket{
+			// The resource name is the lowercase:
+			//   {component}.{workqueue}.{index}-of-{total}
+			name:  standardBucketName(i, queueName, cc),
+			index: i,
+			total: cc.Buckets,
+		}
+		bkts = append(bkts, bkt)
 	}
 	return bkts
 }
@@ -278,4 +280,27 @@ func (ruc *runUntilCancelled) Run(ctx context.Context) {
 			// Context wasn't cancelled, start over.
 		}
 	}
+}
+
+type bucket struct {
+	name string
+
+	// We are bucket {index} of {total}
+	index uint32
+	total uint32
+}
+
+var _ reconciler.Bucket = (*bucket)(nil)
+
+// Name implements reconciler.Bucket
+func (b *bucket) Name() string {
+	return b.name
+}
+
+// Has implements reconciler.Bucket
+func (b *bucket) Has(nn types.NamespacedName) bool {
+	h := fnv.New32a()
+	h.Write([]byte(nn.Namespace + "." + nn.Name))
+	ii := h.Sum32() % b.total
+	return b.index == ii
 }
