@@ -71,7 +71,7 @@ data:
     # Retention
     #   * Revisions are retained if they are any of the following:
     #       1. Active
-    #       1. Were created within "retain-since-create-time"
+    #       2. Were created within "retain-since-create-time"
     #       3. Were last referenced by a route within
     #           "retain-since-last-active-time"
     #       4. There are fewer than "min-non-active-revisions"
