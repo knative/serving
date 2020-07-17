@@ -45,6 +45,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -855,5 +856,5 @@ func RouteFailed(reason, message string) RouteOption {
 
 func rev(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Revision {
 	cfg := config(name, namespace, so, co...)
-	return configresources.MakeRevision(context.Background(), cfg)
+	return configresources.MakeRevision(context.Background(), cfg, clock.RealClock{})
 }
