@@ -213,39 +213,7 @@ func TestCollectMin(t *testing.T) {
 
 	for _, test := range table {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
-			ctx = config.ToContext(ctx, cfgMap)
-			client := fakeservingclient.Get(ctx)
-
-			ri := fakerevisioninformer.Get(ctx)
-			for _, rev := range test.revs {
-				ri.Informer().GetIndexer().Add(rev)
-			}
-
-			recorderList := ActionRecorderList{client}
-
-			Collect(ctx, client, ri.Lister(), test.cfg)
-
-			actions, err := recorderList.ActionsByVerb()
-			if err != nil {
-				t.Errorf("Error capturing actions by verb: %q", err)
-			}
-
-			for i, want := range test.wantDeletes {
-				if i >= len(actions.Deletes) {
-					t.Errorf("Missing delete: %#v", want)
-					continue
-				}
-				got := actions.Deletes[i]
-				if got.GetName() != want.GetName() {
-					t.Errorf("Unexpected delete[%d]: %#v", i, got)
-				}
-			}
-			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
-				for _, extra := range actions.Deletes[want:] {
-					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
-				}
-			}
+			runTest(t, cfgMap, test.revs, test.cfg, test.wantDeletes)
 		})
 	}
 }
@@ -301,7 +269,7 @@ func TestCollectMax(t *testing.T) {
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// Stale and over the max
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev("keep-two", "foo", 5553, MarkRevisionReady,
 				WithRevName("5553"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(oldest)),
@@ -340,65 +308,137 @@ func TestCollectMax(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			// Stale and over the max
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev("keep-two", "foo", 5553, MarkRevisionReady,
 				WithRevName("5553"),
-				WithRoutingState(v1.RoutingStateActive),
-				WithRoutingStateModified(oldest)),
-			// Stale but under max
+				WithRoutingState(v1.RoutingStateActive)),
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateActive),
-				WithRoutingStateModified(older)),
-			// Stale but under max
+				WithRoutingState(v1.RoutingStateActive)),
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateActive),
-				WithRoutingStateModified(older)),
-			// Actively referenced by Configuration
+				WithRoutingState(v1.RoutingStateActive)),
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
-				WithRoutingStateModified(old)),
+				WithRoutingState(v1.RoutingStateActive)),
 		},
 	}}
 
 	for _, test := range table {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
-			ctx = config.ToContext(ctx, cfgMap)
-			client := fakeservingclient.Get(ctx)
-
-			ri := fakerevisioninformer.Get(ctx)
-			for _, rev := range test.revs {
-				ri.Informer().GetIndexer().Add(rev)
-			}
-
-			recorderList := ActionRecorderList{client}
-
-			Collect(ctx, client, ri.Lister(), test.cfg)
-
-			actions, err := recorderList.ActionsByVerb()
-			if err != nil {
-				t.Errorf("Error capturing actions by verb: %q", err)
-			}
-
-			for i, want := range test.wantDeletes {
-				if i >= len(actions.Deletes) {
-					t.Errorf("Missing delete: %#v", want)
-					continue
-				}
-				got := actions.Deletes[i]
-				if got.GetName() != want.GetName() {
-					t.Errorf("Unexpected delete[%d]: %#v", i, got)
-				}
-			}
-			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
-				for _, extra := range actions.Deletes[want:] {
-					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
-				}
-			}
+			runTest(t, cfgMap, test.revs, test.cfg, test.wantDeletes)
 		})
+	}
+}
+
+func TestCollectSettings(t *testing.T) {
+	now := time.Now()
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	cfg := cfg("keep-two", "foo", 5556,
+		WithLatestCreated("5556"),
+		WithLatestReady("5556"),
+		WithConfigObservedGen)
+
+	revs := []*v1.Revision{
+		rev("keep-two", "foo", 5554, MarkRevisionReady,
+			WithRevName("5554"),
+			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingStateModified(oldest)),
+		rev("keep-two", "foo", 5555, MarkRevisionReady,
+			WithRevName("5555"),
+			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingStateModified(older)),
+		rev("keep-two", "foo", 5556, MarkRevisionReady,
+			WithRevName("5556"),
+			WithRoutingState(v1.RoutingStateActive),
+			WithRoutingStateModified(old)),
+	}
+
+	table := []struct {
+		name        string
+		gcConfig    gcconfig.Config
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "all disabled",
+		gcConfig: gcconfig.Config{
+			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gcconfig.Disabled),
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     gcconfig.Disabled,
+		},
+	}, {
+		name: "delete oldest, keep three max",
+		gcConfig: gcconfig.Config{
+			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
+			RetainSinceLastActiveTime: 1 * time.Minute,
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     gcconfig.Disabled,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
+	}}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			cfgMap := &config.Config{
+				RevisionGC: &test.gcConfig,
+			}
+			runTest(t, cfgMap, revs, cfg, test.wantDeletes)
+		})
+	}
+}
+
+func runTest(
+	t *testing.T,
+	cfgMap *config.Config,
+	revs []*v1.Revision,
+	cfg *v1.Configuration,
+	wantDeletes []clientgotesting.DeleteActionImpl) {
+	t.Helper()
+	ctx, _ := SetupFakeContext(t)
+	ctx = config.ToContext(ctx, cfgMap)
+	client := fakeservingclient.Get(ctx)
+
+	ri := fakerevisioninformer.Get(ctx)
+	for _, rev := range revs {
+		ri.Informer().GetIndexer().Add(rev)
+	}
+
+	recorderList := ActionRecorderList{client}
+
+	Collect(ctx, client, ri.Lister(), cfg)
+
+	actions, err := recorderList.ActionsByVerb()
+	if err != nil {
+		t.Errorf("Error capturing actions by verb: %q", err)
+	}
+
+	for i, want := range wantDeletes {
+		if i >= len(actions.Deletes) {
+			t.Errorf("Missing delete: %#v", want)
+			continue
+		}
+		got := actions.Deletes[i]
+		if got.GetName() != want.GetName() {
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
+		}
+	}
+	if got, want := len(actions.Deletes), len(wantDeletes); got > want {
+		for _, extra := range actions.Deletes[want:] {
+			t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
+		}
 	}
 }
 
