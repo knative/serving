@@ -35,7 +35,6 @@ const (
 	queueAverageProxiedConcurrentRequests = 2.0
 	queueProxiedOperationsPerSecond       = 4
 	processUptime                         = 2937.12
-	zeroProcessUptime                     = 0
 	podName                               = "test-revision-1234"
 )
 
@@ -248,5 +247,49 @@ func newTestHTTPClient(response *http.Response, err error) *http.Client {
 			response:      response,
 			responseError: err,
 		},
+	}
+}
+
+func BenchmarkUnmarshallingProtoData(b *testing.B) {
+	stat := Stat{
+		ProcessUptime:                    12.2,
+		AverageConcurrentRequests:        2.3,
+		AverageProxiedConcurrentRequests: 100.2,
+		RequestCount:                     122,
+		ProxiedRequestCount:              122,
+	}
+
+	benchmarks := []struct {
+		name    string
+		podName string
+	}{
+		{
+			name:    "BenchmarkStatWithEmptyPodName",
+			podName: "",
+		}, {
+			name:    "BenchmarkStatWithSmallPodName",
+			podName: "a-lzrjc-deployment-85d4b7d859-gspjs",
+		}, {
+			name:    "BenchmarkStatWithMediumPodName",
+			podName: "a-lzrjc-deployment-85d4b7d859-gspjs" + strings.Repeat("p", 50),
+		}, {
+			name:    "BenchmarkStatWithLargePodName",
+			podName: strings.Repeat("p", 253),
+		},
+	}
+	for _, bm := range benchmarks {
+		stat.PodName = bm.podName
+		bodyBytes, err := stat.Marshal()
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err = statFromProto(bytes.NewReader(bodyBytes))
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }

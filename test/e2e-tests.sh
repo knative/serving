@@ -52,10 +52,6 @@ if (( MESH )); then
   kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
 fi
 
-if [[ "${ISTIO_VERSION}" == "1.5-latest" ]]; then
-  parallelism="-parallel 1"
-fi
-
 if (( HTTPS )); then
   use_https="--https"
   # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
@@ -122,6 +118,15 @@ sleep 30
 go_test_e2e -timeout=30m \
   $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
+  `# Run TestServiceWithTrafficSplit separately due to 503 flaking` \
+  -run="Test[^ServiceWithTrafficSplit]" \
+  ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+go_test_e2e -timeout=30m \
+  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+  ./test/e2e \
+  -run="TestServiceWithTrafficSplit" \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
