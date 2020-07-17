@@ -27,7 +27,7 @@ import (
 
 // TestIngressTLS verifies that the Ingress properly handles the TLS field.
 func TestIngressTLS(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	clients := test.Setup(t)
 
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
