@@ -213,12 +213,9 @@ func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Imp
 func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
 	logger = logger.Named(workQueueName)
 	return &Impl{
-		Name:       workQueueName,
-		Reconciler: r,
-		WorkQueue: workqueue.NewNamedRateLimitingQueue(
-			workqueue.DefaultControllerRateLimiter(),
-			workQueueName,
-		),
+		Name:          workQueueName,
+		Reconciler:    r,
+		WorkQueue:     newTwoLaneWorkQueue(workQueueName),
 		logger:        logger,
 		statsReporter: reporter,
 	}

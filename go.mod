@@ -40,7 +40,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 	knative.dev/caching v0.0.0-20200716164533-ea602fec68d6
 	knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a
-	knative.dev/pkg v0.0.0-20200716235533-0f78f8a8cccf
+	knative.dev/pkg v0.0.0-20200717170934-a9ea699c7017
 	knative.dev/test-infra v0.0.0-20200716222033-3c06d840fc70
 )
 
@@ -61,5 +61,5 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
 
 	// DO NOT SUBMIT
-	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200717163650-b551e55e8b11
+	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200717180613-06893064219d
 )
