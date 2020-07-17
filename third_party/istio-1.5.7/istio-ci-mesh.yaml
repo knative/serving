@@ -483,11 +483,11 @@ data:
     enableTracing: true
 
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
+    accessLogFile: "/dev/stdout"
 
     accessLogFormat: ""
 
-    accessLogEncoding: 'TEXT'
+    accessLogEncoding: 'JSON'
 
     enableEnvoyAccessLogService: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -534,7 +534,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: true
+    enableAutoMtls: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -617,7 +617,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.5.4"
+          image: "docker.io/istio/pilot:1.5.7"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -771,6 +771,48 @@ spec:
 ---
 
 
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: istio
+spec:
+  peers:
+  - mtls: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -794,7 +836,7 @@ data:
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
-          "enabled": false
+          "enabled": true
         },
         "defaultResources": {
           "requests": {
@@ -832,8 +874,8 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": false,
+          "enabled": true
         },
         "multiCluster": {
           "clusterName": "",
@@ -853,10 +895,10 @@ data:
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
+          "accessLogEncoding": "JSON",
+          "accessLogFile": "/dev/stdout",
           "accessLogFormat": "",
-          "autoInject": "disabled",
+          "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
@@ -930,7 +972,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.5.4",
+        "tag": "1.5.7",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -982,7 +1024,7 @@ data:
   # New fields should not use Values - it is a 'primary' config object, users should be able
   # to fine tune it or use it with kube-inject.
   config: |-
-    policy: disabled
+    policy: enabled
     alwaysInjectSelector:
       []
     neverInjectSelector:
@@ -1073,7 +1115,7 @@ data:
       - name: enable-core-dump
         args:
         - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
       {{- if contains "/" .Values.global.proxy_init.image }}
@@ -1385,6 +1427,8 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -1425,6 +1469,8 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
       - name: podinfo
         downwardAPI:
           items:
@@ -1516,6 +1562,24 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
 ---
 
 
@@ -8630,8 +8694,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -8645,13 +8707,19 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: docker.io/istio/proxyv2:1.5.4
+        image: docker.io/istio/proxyv2:1.5.7
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15020
         - containerPort: 80
         - containerPort: 443
+        - containerPort: 15029
+        - containerPort: 15030
+        - containerPort: 15031
+        - containerPort: 15032
+        - containerPort: 31400
+        - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
         - containerPort: 8060
@@ -8737,6 +8805,25 @@ spec:
         name: cpu
         targetAverageUtilization: 80
 ---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    
+    release: istio
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+      
+      release: istio
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -8767,25 +8854,56 @@ subjects:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: null
+  name: istio-ingressgateway
+  namespace: istio-system
+  annotations:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio
-  name: istio-ingressgateway
-  namespace: istio-system
 spec:
-  ports:
-  - name: status-port
-    port: 15020
-  - name: http2
-    port: 80
-  - name: https
-    port: 443
+  type: LoadBalancer
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
-  type: LoadBalancer
+    
+  ports:
+    -
+      name: status-port
+      port: 15020
+      targetPort: 15020
+    -
+      name: http2
+      port: 80
+      targetPort: 80
+    -
+      name: https
+      port: 443
+    -
+      name: kiali
+      port: 15029
+      targetPort: 15029
+    -
+      name: prometheus
+      port: 15030
+      targetPort: 15030
+    -
+      name: grafana
+      port: 15031
+      targetPort: 15031
+    -
+      name: tracing
+      port: 15032
+      targetPort: 15032
+    -
+      name: tcp
+      port: 31400
+      targetPort: 31400
+    -
+      name: tls
+      port: 15443
+      targetPort: 15443
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -8810,6 +8928,26 @@ spec:
     - hosts:
         - "*/*"
 ---
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  labels:
+    release: istio
+  name: cluster-local-gateway
+  namespace: istio-system
+spec:
+  selector:
+    app: cluster-local-gateway
+    istio: dummy
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
 
 ---
 apiVersion: apps/v1
@@ -8948,8 +9086,6 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -8963,7 +9099,7 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: docker.io/istio/proxyv2:1.5.4
+        image: docker.io/istio/proxyv2:1.5.7
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -9007,7 +9143,7 @@ spec:
         - mountPath: /etc/istio/ingressgateway-ca-certs
           name: ingressgateway-ca-certs
           readOnly: true
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: cluster-local-gateway-service-account
       volumes:
       - configMap:
           name: istio-ca-root-cert
@@ -9031,27 +9167,75 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  labels:
-    release: istio
   name: cluster-local-gateway
   namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+    
+    release: istio
 spec:
+  maxReplicas: 5
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cluster-local-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
+  labels:
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+    
+    release: istio
+spec:
+  minAvailable: 1
   selector:
-    app: istio-ingressgateway
-    istio: dummy
-  servers:
-  - hosts:
-    - '*'
-    port:
-      name: http
-      number: 80
-      protocol: HTTP
-
+    matchLabels:
+      app: cluster-local-gateway
+      istio: cluster-local-gateway
+      
+      release: istio
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cluster-local-gateway-sds
+  namespace: istio-system
+  labels:
+    release: istio
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cluster-local-gateway-sds
+  namespace: istio-system
+  labels:
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cluster-local-gateway-sds
+subjects:
+- kind: ServiceAccount
+  name: cluster-local-gateway-service-account
 ---
 apiVersion: v1
 kind: Service
@@ -9075,66 +9259,15 @@ spec:
     app: cluster-local-gateway
     istio: cluster-local-gateway
   type: ClusterIP
-
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    
-    release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 2
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: cluster-local-gateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: istio-ingressgateway-sds
-  namespace: istio-system
-  labels:
-    release: istio
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "watch", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: istio-ingressgateway-sds
-  namespace: istio-system
-  labels:
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: istio-ingressgateway-sds
-subjects:
-- kind: ServiceAccount
-  name: istio-ingressgateway-service-account
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
     
     release: istio
 ---
@@ -9152,8 +9285,6 @@ spec:
 ---
 
 # NodeAgent component is disabled.
-
-# Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -9567,18 +9698,46 @@ data:
 
 
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio
-  namespace: istio-system
-  labels:
-    release: istio
 data:
-
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-    networks: {}
-
+  mesh: |-
+    accessLogEncoding: JSON
+    accessLogFile: /dev/stdout
+    accessLogFormat: ""
+    certificates: []
+    defaultConfig:
+      concurrency: 2
+      configPath: /etc/istio/proxy
+      connectTimeout: 10s
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: istiod.istio-system.svc:15012
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      proxyAdminPort: 15000
+      proxyMetadata:
+        TERMINATION_DRAIN_DURATION_SECONDS: "20"
+      serviceCluster: istio-proxy
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+    disableMixerHttpReports: true
+    disablePolicyChecks: true
+    enableAutoMtls: false
+    enableEnvoyAccessLogService: false
+    enableTracing: true
+    ingressClass: istio
+    ingressControllerMode: STRICT
+    ingressService: istio-ingressgateway
+    localityLbSetting:
+      enabled: true
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    protocolDetectionTimeout: 100ms
+    reportBatchMaxEntries: 100
+    reportBatchMaxTime: 1s
+    sdsUdsPath: unix:/etc/istio/proxy/SDS
+    trustDomain: cluster.local
+    trustDomainAliases: null
+  meshNetworks: 'networks: {}'
   values.yaml: |-
     appNamespaces: []
     autoscaleEnabled: true
@@ -9623,111 +9782,13 @@ data:
     tag: ""
     tolerations: []
     traceSampling: 1
+kind: ConfigMap
+metadata:
+  labels:
+    release: istio
+  name: istio
+  namespace: istio-system
 
-  mesh: |-
-    # Set enableTracing to false to disable request tracing.
-    enableTracing: true
-
-    # Set accessLogFile to empty string to disable access log.
-    accessLogFile: ""
-
-    accessLogFormat: ""
-
-    accessLogEncoding: 'TEXT'
-
-    enableEnvoyAccessLogService: false
-    # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
-    reportBatchMaxEntries: 100
-    # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
-    reportBatchMaxTime: 1s
-    disableMixerHttpReports: true
-
-    # Set the following variable to true to disable policy checks by the Mixer.
-    # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: true
-
-    # Automatic protocol detection uses a set of heuristics to
-    # determine whether the connection is using TLS or not (on the
-    # server side), as well as the application protocol being used
-    # (e.g., http vs tcp). These heuristics rely on the client sending
-    # the first bits of data. For server first protocols like MySQL,
-    # MongoDB, etc., Envoy will timeout on the protocol detection after
-    # the specified period, defaulting to non mTLS plain TCP
-    # traffic. Set this field to tweak the period that Envoy will wait
-    # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: 100ms
-
-    # This is the k8s ingress service name, update if you used a different name
-    ingressService: "istio-ingressgateway"
-    ingressControllerMode: "STRICT"
-    ingressClass: "istio"
-
-    # The trust domain corresponds to the trust root of a system.
-    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: "cluster.local"
-
-    #  The trust domain aliases represent the aliases of trust_domain.
-    #  For example, if we have
-    #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
-    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
-    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
-    trustDomainAliases:
-
-    # Used by pilot-agent
-    sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
-    # If true, automatically configure client side mTLS settings to match the corresponding service's
-    # server side mTLS authentication policy, when destination rule for that service does not specify
-    # TLS settings.
-    enableAutoMtls: true
-
-    outboundTrafficPolicy:
-      mode: ALLOW_ANY
-    localityLbSetting:
-      enabled: true
-
-    # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    # The DNS certificate provisioning is enabled by default now so it get tested.
-    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
-    certificates:
-      []
-
-    defaultConfig:
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
-      #
-      ### ADVANCED SETTINGS #############
-      # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
-      # The pseudo service name used for Envoy.
-      serviceCluster: istio-proxy
-      # These settings that determine how long an old Envoy
-      # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      #
-      # Port where Envoy listens (on local host) for admin commands
-      # You can exec into the istio-proxy container in a pod and
-      # curl the admin port (curl http://localhost:15000/) to obtain
-      # diagnostic information from Envoy. See
-      # https://lyft.github.io/envoy/docs/operations/admin.html
-      # for more details
-      proxyAdminPort: 15000
-      #
-      # Set concurrency to a specific number to control the number of Proxy worker threads.
-      # If set to 0 (default), then start worker thread for each CPU thread/core.
-      concurrency: 2
-      #
-      tracing:
-        zipkin:
-          # Address of the Zipkin collector
-          address: zipkin.istio-system:9411
-      # If port is 15012, will use SDS.
-      # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
-      controlPlaneAuthPolicy: NONE
-      discoveryAddress: istiod.istio-system.svc:15012
 ---
 
 
@@ -9841,7 +9902,7 @@ spec:
         - configMapRef:
             name: istiod
             optional: true
-        image: docker.io/istio/pilot:1.5.4
+        image: docker.io/istio/pilot:1.5.7
         imagePullPolicy: IfNotPresent
         name: discovery
         ports:
@@ -9905,7 +9966,48 @@ spec:
       - configMap:
           name: pilot-envoy-config
         name: pilot-envoy-config
+---
 
+
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: istio
+spec:
+  peers:
+  - mtls: {}
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: istio-system
+  labels:
+    release: istio
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
 ---
 
 
@@ -9932,7 +10034,7 @@ data:
         "controlPlaneSecurityEnabled": true,
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
-          "enabled": false
+          "enabled": true
         },
         "defaultResources": {
           "requests": {
@@ -9970,8 +10072,8 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": false,
+          "enabled": true
         },
         "multiCluster": {
           "clusterName": "",
@@ -9991,10 +10093,10 @@ data:
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
+          "accessLogEncoding": "JSON",
+          "accessLogFile": "/dev/stdout",
           "accessLogFormat": "",
-          "autoInject": "disabled",
+          "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
@@ -10068,7 +10170,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.5.4",
+        "tag": "1.5.7",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -10120,7 +10222,7 @@ data:
   # New fields should not use Values - it is a 'primary' config object, users should be able
   # to fine tune it or use it with kube-inject.
   config: |-
-    policy: disabled
+    policy: enabled
     alwaysInjectSelector:
       []
     neverInjectSelector:
@@ -10211,7 +10313,7 @@ data:
       - name: enable-core-dump
         args:
         - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
+        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
         command:
           - /bin/sh
       {{- if contains "/" .Values.global.proxy_init.image }}
@@ -10523,6 +10625,8 @@ data:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - mountPath: /etc/istio/custom-bootstrap
           name: custom-bootstrap-volume
@@ -10563,6 +10667,8 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
       - name: podinfo
         downwardAPI:
           items:
@@ -10654,6 +10760,24 @@ webhooks:
     namespaceSelector:
       matchLabels:
         istio-injection: enabled
+---
+
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
 ---
 
 

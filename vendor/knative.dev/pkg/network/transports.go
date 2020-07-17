@@ -92,7 +92,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 	return nil, fmt.Errorf("timed out dialing after %.2fs", elapsed.Seconds())
 }
 
-func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.RoundTripper {
+func newHTTPTransport(disableKeepAlives bool) http.RoundTripper {
 	return &http.Transport{
 		// Those match net/http/transport.go
 		Proxy:                 http.ProxyFromEnvironment,
@@ -112,7 +112,7 @@ func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.Ro
 // since it will not cache connections.
 func NewProberTransport() http.RoundTripper {
 	return newAutoTransport(
-		newHTTPTransport(DefaultConnTimeout, true /*disable keep-alives*/),
+		newHTTPTransport(true /*disable keep-alives*/),
 		NewH2CTransport())
 }
 
@@ -120,7 +120,7 @@ func NewProberTransport() http.RoundTripper {
 // based on the request's HTTP version.
 func NewAutoTransport() http.RoundTripper {
 	return newAutoTransport(
-		newHTTPTransport(DefaultConnTimeout, false /*disable keep-alives*/),
+		newHTTPTransport(false /*disable keep-alives*/),
 		NewH2CTransport())
 }
 

@@ -85,7 +85,7 @@ func TestProtoHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.reporter.Handler().(http.HandlerFunc))
+			handler := test.reporter.Handler()
 			handler.ServeHTTP(rr, req)
 			if test.errorMsg != "" { // error case
 				expected := test.errorMsg + "\n"

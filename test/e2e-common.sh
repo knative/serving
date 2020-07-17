@@ -50,6 +50,12 @@ readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 export SYSTEM_NAMESPACE
 SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
+
+# Keep this in sync with test/ha/ha.go
+readonly REPLICAS=3
+readonly BUCKETS=10
+
+
 # Parse our custom flags.
 function parse_flags() {
   case "$1" in
@@ -477,6 +483,8 @@ function knative_teardown() {
   fi
 }
 
+
+
 # Add function call to trap
 # Parameters: $1 - Function to call
 #             $2...$n - Signals for trap
@@ -630,6 +638,17 @@ function toggle_feature() {
   echo -n "Setting feature ${FEATURE} to ${STATE}"
   kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
   # We don't have a good mechanism for positive handoff so sleep :(
-  echo "Waiting 20s for change to get picked up."
-  sleep 20
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
+}
+
+function scale_controlplane() {
+  for deployment in "$@"; do
+    # Make sure all pods run in leader-elected mode.
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
+    # Give it time to kill the pods.
+    sleep 5
+    # Scale up components for HA tests
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
+  done
 }
