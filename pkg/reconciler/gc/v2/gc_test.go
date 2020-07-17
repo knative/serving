@@ -142,39 +142,39 @@ func TestCollectMin(t *testing.T) {
 		}},
 	}, {
 		name: "keep oldest when none Reserved",
-		cfg: cfg("keep-no-last-pinned", "foo", 5556,
+		cfg: cfg("none-reserved", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// No lastPinned so we will keep this.
-			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
+			rev("none-reserved", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStatePending),
 				WithCreationTimestamp(oldest)),
-			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
+			rev("none-reserved", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateUnset),
 				WithCreationTimestamp(older)),
-			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
+			rev("none-reserved", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithRoutingState(v1.RoutingStateActive),
 				WithCreationTimestamp(old)),
 		},
 	}, {
 		name: "none stale",
-		cfg:  cfg("keep-no-last-pinned", "foo", 5556, WithConfigObservedGen),
+		cfg:  cfg("none-stale", "foo", 5556, WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// No lastPinned so we will keep this.
-			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
+			rev("none-stale", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(now)),
-			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
+			rev("none-stale", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(now)),
-			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
+			rev("none-stale", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(now)),
@@ -240,46 +240,46 @@ func TestCollectMax(t *testing.T) {
 		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
 		name: "at max",
-		cfg: cfg("keep-two", "foo", 5556,
+		cfg: cfg("at max", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// Under max
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev("at max", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(older)),
 			// Under max
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
+			rev("at max", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(older)),
 			// Actively referenced by Configuration
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
+			rev("at max", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
 				WithRoutingState(v1.RoutingStateActive),
 				WithRoutingStateModified(old)),
 		},
 	}, {
 		name: "delete oldest, keep three max",
-		cfg: cfg("keep-two", "foo", 5556,
+		cfg: cfg("delete oldest", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
 			// Stale and over the max
-			rev("keep-two", "foo", 5553, MarkRevisionReady,
+			rev("delete oldest", "foo", 5553, MarkRevisionReady,
 				WithRevName("5553"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(oldest)),
 			// Stale but under max
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
+			rev("delete oldest", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(older)),
 			// Stale but under max
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
+			rev("delete oldest", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
 				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(older)),
@@ -336,21 +336,21 @@ func TestCollectSettings(t *testing.T) {
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
 
-	cfg := cfg("keep-two", "foo", 5556,
+	cfg := cfg("settings-test", "foo", 5556,
 		WithLatestCreated("5556"),
 		WithLatestReady("5556"),
 		WithConfigObservedGen)
 
 	revs := []*v1.Revision{
-		rev("keep-two", "foo", 5554, MarkRevisionReady,
+		rev("settings-test", "foo", 5554, MarkRevisionReady,
 			WithRevName("5554"),
 			WithRoutingState(v1.RoutingStateReserve),
 			WithRoutingStateModified(oldest)),
-		rev("keep-two", "foo", 5555, MarkRevisionReady,
+		rev("settings-test", "foo", 5555, MarkRevisionReady,
 			WithRevName("5555"),
 			WithRoutingState(v1.RoutingStateReserve),
 			WithRoutingStateModified(older)),
-		rev("keep-two", "foo", 5556, MarkRevisionReady,
+		rev("settings-test", "foo", 5556, MarkRevisionReady,
 			WithRevName("5556"),
 			WithRoutingState(v1.RoutingStateActive),
 			WithRoutingStateModified(old)),
@@ -368,6 +368,26 @@ func TestCollectSettings(t *testing.T) {
 			MinNonActiveRevisions:     1,
 			MaxNonActiveRevisions:     gcconfig.Disabled,
 		},
+	}, {
+		name: "staleness disabled",
+		gcConfig: gcconfig.Config{
+			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gcconfig.Disabled),
+			MinNonActiveRevisions:     0,
+			MaxNonActiveRevisions:     2,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
 	}, {
 		name: "delete oldest, keep three max",
 		gcConfig: gcconfig.Config{
