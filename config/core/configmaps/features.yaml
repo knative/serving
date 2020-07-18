@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "fdaf343c"
+    knative.dev/example-checksum: "37146f24"
 data:
   _example: |
     ################################
@@ -47,8 +47,8 @@ data:
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
     #
-    # When "enabled",  the server will always run the extra validation.
-    # When "allowed", the server will not run the dry-run validation by default.
+    # When "enabled" the server will always run the extra validation.
+    # When "allowed" the server will not run the dry-run validation by default.
     #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "enabled"
