@@ -62,10 +62,27 @@ var testClock clock.Clock
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	retryAttempted := false
-	now := time.Now()
-	testClock = clock.NewFakeClock(now)
+	testClock = clock.NewFakeClock(time.Now())
 	testCtx = context.Background()
+
+	test(t)
+}
+
+func TestReconcileNewGCEnabled(t *testing.T) {
+	testClock = clock.NewFakeClock(time.Now())
+
+	c := &cfgMap.Config{
+		Features: &cfgMap.Features{
+			ResponsiveRevisionGC: cfgMap.Enabled,
+		},
+	}
+	testCtx = cfgMap.ToContext(context.Background(), c)
+	test(t)
+}
+
+func test(t *testing.T) {
+	retryAttempted := false
+	now := testClock.Now()
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -82,6 +99,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/delete-pending",
 	}, {
 		Name: "create revision matching generation, with retry",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("no-revisions-yet", "foo", 1234),
 		},
@@ -114,6 +132,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/no-revisions-yet",
 	}, {
 		Name: "create revision byo name",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-create", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
@@ -139,6 +158,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-name-create",
 	}, {
 		Name: "create revision byo name (exists)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-exists", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-exists-foo"
@@ -154,6 +174,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-name-exists",
 	}, {
 		Name: "create revision byo name (exists, wrong generation, right spec)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
 			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
@@ -172,6 +193,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-name-git-revert",
 	}, {
 		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
@@ -193,6 +215,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-name-wrong-gen-wrong-spec",
 	}, {
 		Name: "create revision byo name (exists not owned)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
@@ -211,6 +234,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/byo-rev-not-owned",
 	}, {
 		Name: "webhook validation failure",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		// If we attempt to create a Revision with a bad ContainerConcurrency set, we fail.
 		WantErr: true,
 		Objects: []runtime.Object{
@@ -231,6 +255,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/validation-failure",
 	}, {
 		Name: "reconcile revision matching generation (ready: unknown)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
 			rev("matching-revision-not-done", "foo", 5432,
@@ -247,6 +272,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-not-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555, WithLatestCreated("matching-revision-done-00001"), WithConfigObservedGen),
 			rev("matching-revision-done", "foo", 5555,
@@ -267,6 +293,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,
 				WithConfigObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
@@ -276,6 +303,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555, WithLatestCreated("matching-revision"), WithConfigObservedGen),
 			rev("matching-revision-failed", "foo", 5555,
@@ -295,6 +323,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-failed",
 	}, {
 		Name: "reconcile revision matching generation (ready: bad)",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("bad-condition", "foo", 5555, WithLatestCreated("bad-condition"), WithConfigObservedGen),
 			rev("bad-condition", "foo", 5555,
@@ -316,6 +345,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/bad-condition",
 	}, {
 		Name: "failure creating revision",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		// We induce a failure creating a revision
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -340,6 +370,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/create-revision-failure",
 	}, {
 		Name: "failure updating configuration status",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		// Induce a failure updating the status of the configuration.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -365,6 +396,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/update-config-failure",
 	}, {
 		Name: "failed revision recovers",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("revision-recovers", "foo", 1337,
 				WithLatestCreated("revision-recovers-00001"),
@@ -392,6 +424,7 @@ func TestReconcile(t *testing.T) {
 		// querying the latest created revision includes the configuration name
 		// as part of the selector
 		Name: "two steady state configs with same generation should be a noop",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			// double-trouble needs to be first for this test to fail
 			// when no fix is present
@@ -412,6 +445,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/double-trouble",
 	}, {
 		Name: "three revisions with the latest revision failed, the latest ready should be updated to the last ready revision",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00002"),
@@ -444,6 +478,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/threerevs",
 	}, {
 		Name: "revision not ready, the latest ready should be updated, but the configuration should still be ready==Unknown",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("revnotready", "foo", 3,
 				WithLatestCreated("revnotready-00002"),
@@ -477,6 +512,7 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/revnotready",
 	}, {
 		Name: "current LRR doesn't exist, LCR is ready",
+		Ctx:  cfgMap.ToContext(context.Background(), cfgMap.FromContext(testCtx)),
 		Objects: []runtime.Object{
 			cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
@@ -504,68 +540,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "lrrnotexist-00002"),
 		},
 		Key: "foo/lrrnotexist",
-	}}
-
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		retryAttempted = false
-		r := &Reconciler{
-			client:         servingclient.Get(ctx),
-			revisionLister: listers.GetRevisionLister(),
-			clock:          testClock,
-		}
-
-		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
-			servingclient.Get(ctx), listers.GetConfigurationLister(),
-			controller.GetEventRecorder(ctx), r)
-
-	}))
-}
-
-func TestReconcileNewGCEnabled(t *testing.T) {
-	retryAttempted := false
-	now := time.Now()
-	testClock = clock.NewFakeClock(now)
-
-	c := &cfgMap.Config{
-		Features: &cfgMap.Features{
-			ResponsiveRevisionGC: cfgMap.Enabled,
-		},
-	}
-	testCtx = cfgMap.ToContext(context.Background(), c)
-
-	table := TableTest{{
-		Name: "create revision matching generation, with retry",
-		Ctx:  cfgMap.ToContext(context.Background(), c),
-		Objects: []runtime.Object{
-			cfg("no-revisions-yet", "foo", 1234),
-		},
-		WithReactors: []clientgotesting.ReactionFunc{
-			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted || !action.Matches("update", "configurations") || action.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
-			},
-		},
-		WantCreates: []runtime.Object{
-			rev("no-revisions-yet", "foo", 1234),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("no-revisions-yet", "foo", 1234,
-				// The following properties are set when we first reconcile a
-				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
-		}, {
-			Object: cfg("no-revisions-yet", "foo", 1234,
-				// The following properties are set when we first reconcile a
-				// Configuration and a Revision is created.
-				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-00001"),
-		},
-		Key: "foo/no-revisions-yet",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
