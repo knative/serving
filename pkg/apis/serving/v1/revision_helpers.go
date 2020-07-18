@@ -111,7 +111,7 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 
 // SetRoutingState sets the routingState label on this Revision and updates the
 // routingStateModified annotation.
-func (r *Revision) SetRoutingState(state RoutingState) {
+func (r *Revision) SetRoutingState(state RoutingState, clock clock.Clock) {
 	stateStr := string(state)
 	if t := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]; t != "" &&
 		r.Labels[serving.RoutingStateLabelKey] == stateStr {
@@ -123,7 +123,7 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 
 	r.Annotations = kmeta.UnionMaps(r.Annotations,
 		map[string]string{
-			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(clock.RealClock{}),
+			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(clock),
 		})
 }
 
