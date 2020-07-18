@@ -28,6 +28,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
@@ -35,14 +36,29 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
+	cfgMap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
+
+var revisionSpec = v1.RevisionSpec{
+	PodSpec: corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: "busybox",
+		}},
+	},
+	TimeoutSeconds: ptr.Int64(60),
+}
+
+var testCtx context.Context
+var testClock clock.Clock
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -503,4 +519,95 @@ func TestReconcile(t *testing.T) {
 			controller.GetEventRecorder(ctx), r)
 
 	}))
+}
+
+func TestReconcileNewGCEnabled(t *testing.T) {
+	retryAttempted := false
+	now := time.Now()
+	testClock = clock.NewFakeClock(now)
+
+	c := &cfgMap.Config{
+		Features: &cfgMap.Features{
+			ResponsiveRevisionGC: cfgMap.Enabled,
+		},
+	}
+	testCtx = cfgMap.ToContext(context.Background(), c)
+
+	table := TableTest{{
+		Name: "create revision matching generation, with retry",
+		Ctx:  cfgMap.ToContext(context.Background(), c),
+		Objects: []runtime.Object{
+			cfg("no-revisions-yet", "foo", 1234),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "configurations") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
+		WantCreates: []runtime.Object{
+			rev("no-revisions-yet", "foo", 1234),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("no-revisions-yet", "foo", 1234,
+				// The following properties are set when we first reconcile a
+				// Configuration and a Revision is created.
+				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
+		}, {
+			Object: cfg("no-revisions-yet", "foo", 1234,
+				// The following properties are set when we first reconcile a
+				// Configuration and a Revision is created.
+				WithLatestCreated("no-revisions-yet-00001"), WithConfigObservedGen),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "no-revisions-yet-00001"),
+		},
+		Key: "foo/no-revisions-yet",
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
+		r := &Reconciler{
+			client:         servingclient.Get(ctx),
+			revisionLister: listers.GetRevisionLister(),
+			clock:          testClock,
+		}
+
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r)
+
+	}))
+}
+
+func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Configuration {
+	c := &v1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       name,
+			Namespace:  namespace,
+			Generation: generation,
+		},
+		Spec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
+				Spec: *revisionSpec.DeepCopy(),
+			},
+		},
+	}
+	for _, opt := range co {
+		opt(c)
+	}
+	c.SetDefaults(context.Background())
+	return c
+}
+
+func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
+	r := resources.MakeRevision(testCtx, cfg(name, namespace, generation), testClock)
+	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	for _, opt := range ro {
+		opt(r)
+	}
+	return r
 }
