@@ -49,7 +49,7 @@ data:
     #
     # When "enabled"  the server will always run the extra validation.
     # When "allowed", the server will not run the dry-run validation by default.
-    #   However clients may enable the behavior on an individual Service by
+    #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "enabled"
 
