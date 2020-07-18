@@ -59,4 +59,8 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.6
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
+
+	// DO NOT SUBMIT
+	knative.dev/pkg => github.com/vagababov/pkg v0.0.0-20200718193755-434b36018d64
+
 )
