@@ -147,7 +147,6 @@ func TestCollectMin(t *testing.T) {
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			// No lastPinned so we will keep this.
 			rev("none-reserved", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStatePending),
@@ -165,7 +164,6 @@ func TestCollectMin(t *testing.T) {
 		name: "none stale",
 		cfg:  cfg("none-stale", "foo", 5556, WithConfigObservedGen),
 		revs: []*v1.Revision{
-			// No lastPinned so we will keep this.
 			rev("none-stale", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
 				WithRoutingState(v1.RoutingStateReserve),
