@@ -509,8 +509,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "stale pinned time",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "myrev",
-				// We technically don't expect create time to ever be ahead of pinned
+				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
@@ -522,8 +521,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "fresh pinned time",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "myrev",
-				// We technically don't expect create time to ever be ahead of pinned
+				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", curTime.Unix()),
@@ -535,8 +533,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "stale revisionStateModified",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "myrev",
-				// We technically don't expect create time to ever be ahead of pinned
+				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/routingStateModified": staleTime.UTC().Format(time.RFC3339),
@@ -548,8 +545,7 @@ func TestIsRevisionStale(t *testing.T) {
 		name: "fresh revisionStateModified",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "myrev",
-				// We technically don't expect create time to ever be ahead of pinned
+				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
 					"serving.knative.dev/routingStateModified": curTime.UTC().Format(time.RFC3339),
