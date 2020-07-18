@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/transport"
+	"k8s.io/klog"
 
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -63,18 +65,39 @@ func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
+
+	// We produce configs a bunch of ways, this gives us a single place
+	// to "decorate" them with common useful things (e.g. for debugging)
+	decorate := func(cfg *rest.Config) *rest.Config {
+
+		// Augment the rest.Config with a "wrapper" around the transport that
+		// will emit varying levels of debug logging when -v is passed with
+		// levels 6 to 9.
+		wt := transport.DebugWrappers
+		if cfg.WrapTransport != nil {
+			wt = transport.Wrappers(wt, cfg.WrapTransport)
+		}
+		cfg.WrapTransport = wt
+
+		return cfg
+	}
+
 	// If we have an explicit indication of where the kubernetes config lives, read that.
 	if kubeconfig != "" {
-		return clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+		if c, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig); err != nil {
+			return nil, err
+		} else {
+			return decorate(c), nil
+		}
 	}
 	// If not, try the in-cluster config.
 	if c, err := rest.InClusterConfig(); err == nil {
-		return c, nil
+		return decorate(c), nil
 	}
 	// If no in-cluster config, try the default location in the user's home directory.
 	if usr, err := user.Current(); err == nil {
 		if c, err := clientcmd.BuildConfigFromFlags("", filepath.Join(usr.HomeDir, ".kube", "config")); err == nil {
-			return c, nil
+			return decorate(c), nil
 		}
 	}
 
@@ -168,9 +191,14 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	MemStatsOrDie(ctx)
 
-	// Adjust our client's rate limits based on the number of controllers we are running.
-	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
-	cfg.Burst = len(ctors) * rest.DefaultBurst
+	// Respect user provided settings, but if omitted customize the default behavior.
+	if cfg.QPS == 0 {
+		// Adjust our client's rate limits based on the number of controllers we are running.
+		cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
+	}
+	if cfg.Burst == 0 {
+		cfg.Burst = len(ctors) * rest.DefaultBurst
+	}
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
@@ -260,6 +288,7 @@ func ParseAndGetConfigOrDie() *rest.Config {
 		kubeconfig = flag.String("kubeconfig", "",
 			"Path to a kubeconfig. Only required if out-of-cluster.")
 	)
+	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
 	cfg, err := GetConfig(*masterURL, *kubeconfig)
