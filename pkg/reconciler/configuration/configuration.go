@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -45,6 +46,8 @@ type Reconciler struct {
 
 	// listers index properties about resources
 	revisionLister listers.RevisionLister
+
+	clock clock.Clock
 }
 
 // Check that our Reconciler implements configreconciler.Interface
@@ -260,7 +263,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revisi
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
 	logger := logging.FromContext(ctx)
 
-	rev := resources.MakeRevision(config)
+	rev := resources.MakeRevision(ctx, config, c.clock)
 	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err

@@ -17,16 +17,19 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
+	cfgMap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // MakeRevision creates a revision object from configuration.
-func MakeRevision(config *v1.Configuration) *v1.Revision {
+func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clock) *v1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1.Revision{
 		ObjectMeta: config.Spec.GetTemplate().ObjectMeta,
@@ -41,6 +44,11 @@ func MakeRevision(config *v1.Configuration) *v1.Revision {
 
 	UpdateRevisionLabels(rev, config)
 	UpdateRevisionAnnotations(rev, config)
+
+	// Pending tells the labeler that we have not processed this revision.
+	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgMap.Enabled {
+		rev.SetRoutingState(v1.RoutingStatePending, clock)
+	}
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))

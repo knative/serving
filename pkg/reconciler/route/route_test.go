@@ -38,10 +38,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1488,21 +1486,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			grp := errgroup.Group{}
 
 			servingClient := fakeservingclient.Get(ctx)
-			h := NewHooks()
-
-			// Check for Ingress created as a signal that syncHandler ran
-			h.OnUpdate(&servingClient.Fake, "routes", func(obj runtime.Object) HookResult {
-				rt := obj.(*v1.Route)
-				t.Logf("route updated: %q", rt.Name)
-
-				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
-				if rt.Status.URL.Host != expectedDomain {
-					t.Logf("Expected domain %q but saw %q", expectedDomain, rt.Status.URL.Host)
-					return HookIncomplete
-				}
-
-				return HookComplete
-			})
+			routeInformer := fakerouteinformer.Get(ctx)
 
 			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 			if err != nil {
@@ -1525,30 +1509,38 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			// Create a route.
 			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Labels = map[string]string{"app": "prod"}
+			route.Generation = 1
 
 			created, err := servingClient.ServingV1().Routes(route.Namespace).Create(route)
 			if err != nil {
 				t.Fatal("Failed to create route", err)
 			}
+			routeInformer.Informer().GetIndexer().Add(created)
 
-			rl := fakerouteinformer.Get(ctx).Lister()
+			rl := routeInformer.Lister()
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 				r, err := rl.Routes(route.Namespace).Get(route.Name)
-				if apierrs.IsNotFound(err) {
-					return false, nil
-				} else if err != nil {
+				if err != nil {
 					return false, err
 				}
-				// Once we see a status difference, we know the route got reconciled initially.
-				return !cmp.Equal(r.Status, created.Status), nil
+				// Once we see an observed generation, we know the route got initially reconciled.
+				return r.Status.ObservedGeneration == 1, nil
 			}); err != nil {
 				t.Fatal("Failed to see route creation propagation:", err)
 			}
 
 			test.doThings(watcher)
 
-			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Error(err)
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, test.expectedDomainSuffix)
+			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				if err != nil {
+					return false, err
+				}
+
+				return r.Status.URL.Host == expectedDomain, nil
+			}); err != nil {
+				t.Fatal("Failed to see route update propagation:", err)
 			}
 		})
 	}

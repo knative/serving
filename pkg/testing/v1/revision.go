@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -115,7 +116,7 @@ func WithRoutingStateModified(t time.Time) RevisionOption {
 // WithRoutingState updates the annotation to the provided timestamp.
 func WithRoutingState(s v1.RoutingState) RevisionOption {
 	return func(rev *v1.Revision) {
-		rev.SetRoutingState(s)
+		rev.SetRoutingState(s, clock.RealClock{})
 	}
 }
 

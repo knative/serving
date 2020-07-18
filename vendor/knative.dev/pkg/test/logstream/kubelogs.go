@@ -113,16 +113,13 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				watchedPods.Delete(p.Name)
 			case watch.Added, watch.Modified:
 				if watchedPods.Has(p.Name) {
-					t.Log("Already watching pod", p.Name)
 					continue
 				}
 				if podIsReady(p) {
-					t.Log("Watching logs for pod: ", p.Name)
 					watchedPods.Insert(p.Name)
 					k.startForPod(&eg, p)
 					continue
 				}
-				t.Log("Pod is not yet ready: ", p.Name)
 			}
 		}
 	}()
