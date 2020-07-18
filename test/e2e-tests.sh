@@ -90,12 +90,10 @@ kubectl get lease -n "${SYSTEM_NAMESPACE}"
 sleep 30
 
 # Run conformance and e2e tests.
-
 go_test_e2e -timeout=30m \
   ./test/conformance/api/... ./test/conformance/runtime/... \
+  $(go list ./test/conformance/api/... | grep -v 'certificate\|ingress' ) \
   ./test/e2e \
-  `# Run TestServiceWithTrafficSplit separately due to 503 flaking` \
-  -run="[^(TestServiceWithTrafficSplit)$]" \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
@@ -105,6 +103,10 @@ go_test_e2e -timeout=30m \
   -run="TestServiceWithTrafficSplit|TestService$" \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+# Dump cluster state in case of failure
+(( failed )) && dump_cluster_state
+(( failed )) && fail_test
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
 go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
