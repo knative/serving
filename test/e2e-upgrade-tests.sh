@@ -71,6 +71,11 @@ function knative_setup() {
 
 initialize $@ --skip-istio-addon
 
+# We haven't configured these deployments for high-availability,
+# so disable the chaos duck.
+# TODO(mattmoor): Reconsider this after 0.17 cuts.
+disable_chaosduck
+
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
 
