@@ -242,8 +242,9 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 		} else {
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
-		// This happens in the initialScale 0 case. After SKS has been setup, we override want -1
-		// with 0 when PA's desired scale is not set yet.
+		// In the initialScale 0 case. After SKS has been setup, we override want -1 with 0 when
+		// PA's desired scale is not set yet. However, we will only be here for one iteration,
+		// because pc.want will be -1 again (no metric collection).
 		if pc.ready >= minReady {
 			pa.Status.MarkScaleTargetInitialized()
 		}
@@ -253,15 +254,18 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
 		} else {
-			// Need to set a condition because otherwise we will get NewObservedGenFailure because the reconciler
-			// does not set any condition during reconciliation of a new generation
+			// This is for the initialScale 0 case. We override pc.want = -1 with 0 only once, before
+			// setting MarkScaleTargetInitialized, which switches minReady from 0 to 1, and
+			// because there's no metric collection yet, we will end up with pc.want = -1 again.
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
 	case pc.ready >= minReady:
 		if pc.want > 0 || !pa.Status.IsInactive() {
-			// If initial scale is 0, we don't want to mark scale target initialized when
-			// want is still -1, because we will override -1 with 0 after SKS has been setup.
+			// In the initialScale 0 case, as soon as SKS has been setup, we override pc.want = -1
+			// with 0, but only for one iteration, and we MarkScaleTargetInitialized and MarkActive
+			// in that same iteration. For future iterations, minReady switches to 1, and pc.want
+			// is going to be -1 until we are able to get metrics from pods.
 			if minReady > 0 || (minReady == 0 && pc.want != -1) {
 				pa.Status.MarkScaleTargetInitialized()
 				pa.Status.MarkActive()

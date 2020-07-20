@@ -189,6 +189,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			logger.Info("Activation has timed out after ", activationTimeout)
 			return desiredScale, true
 		}
+		// Override -1 with 0 for the initialScale 0 case, and only do so for one iteration.
 		if !pa.Status.IsScaleTargetInitialized() && kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa) == 0 {
 			logger.Info("Scale target is not initialized in initial scale zero case.")
 			return desiredScale, true
