@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -117,7 +118,8 @@ func TestPodSpecMask(t *testing.T) {
 		}},
 	}
 
-	got := PodSpecMask(in)
+	ctx := context.Background()
+	got := PodSpecMask(ctx, in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -129,7 +131,7 @@ func TestPodSpecMask(t *testing.T) {
 		t.Errorf("PodSpecMask (-want, +got): %s", diff)
 	}
 
-	if got = PodSpecMask(nil); got != nil {
+	if got = PodSpecMask(ctx, nil); got != nil {
 		t.Errorf("PodSpecMask(nil) = %v, want: nil", got)
 	}
 }

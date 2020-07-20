@@ -134,7 +134,9 @@ function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
   local failed_pod=""
   for i in {1..150}; do  # timeout after 5 minutes
-    local pods="$(kubectl get pods --no-headers -n $1 2>/dev/null)"
+    # List all pods. Ignore Terminating pods as those have either been replaced through
+    # a deployment or terminated on purpose (through chaosduck for example).
+    local pods="$(kubectl get pods --no-headers -n $1 2>/dev/null | grep -v Terminating)"
     # All pods must be running (ignore ImagePull error to allow the pod to retry)
     local not_running_pods=$(echo "${pods}" | grep -v Running | grep -v Completed | grep -v ErrImagePull | grep -v ImagePullBackOff)
     if [[ -n "${pods}" ]] && [[ -z "${not_running_pods}" ]]; then

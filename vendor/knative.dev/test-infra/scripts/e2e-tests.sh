@@ -85,6 +85,19 @@ function go_test_e2e() {
   report_go_test -v -race -count=1 ${go_options} $@ "${test_options}"
 }
 
+# Dumps the k8s api server metrics. Spins up a proxy, waits a little bit and
+# dumps the metrics to ${ARTIFACTS}/k8s.metrics.txt
+function dump_metrics() {
+    header ">> Starting kube proxy"
+    kubectl proxy --port=8080 &
+    local proxy_pid=$!
+    sleep 5
+    header ">> Grabbing k8s metrics"
+    curl -s http://localhost:8080/metrics > ${ARTIFACTS}/k8s.metrics.txt
+    # Clean up proxy so it doesn't interfere with job shutting down
+    kill $proxy_pid || true
+}
+
 # Dump info about the test cluster. If dump_extra_cluster_info() is defined, calls it too.
 # This is intended to be called when a test fails to provide debugging information.
 function dump_cluster_state() {
@@ -410,6 +423,7 @@ function success() {
   echo "**************************************"
   echo "***        E2E TESTS PASSED        ***"
   echo "**************************************"
+  dump_metrics
   exit 0
 }
 
@@ -419,6 +433,7 @@ function fail_test() {
   set_test_return_code 1
   [[ -n $1 ]] && echo "ERROR: $1"
   dump_cluster_state
+  dump_metrics
   exit 1
 }
 
