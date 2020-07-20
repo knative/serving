@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "38e90f86"
+    knative.dev/example-checksum: "ba0dd46d"
 data:
   _example: |
     ################################
@@ -56,9 +56,10 @@ data:
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
     #
-    # When "allowed", the client may enable the behavior with the
-    # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
-    # When "enabled"  the server will always run the extra validation.
+    # When "enabled", the server will always run the extra validation.
+    # When "allowed", the server will not run the dry-run validation by default.
+    #   However, clients may enable the behavior on an individual Service by
+    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "enabled"
 
     # Indicates whether new responsive garbage collection is enabled. This
