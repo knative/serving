@@ -112,12 +112,12 @@ func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger
 	}
 
 	createTime := rev.ObjectMeta.CreationTimestamp.Time
-	if sinceCreate != gc.Disabled && time.Since(createTime) > sinceCreate {
+	if sinceCreate != gc.Disabled && time.Since(createTime) < sinceCreate {
 		return false // Revision was created sooner than RetainSinceCreateTime. Not stale.
 	}
 
 	active := revisionLastActiveTime(rev)
-	if sinceActive != gc.Disabled && time.Since(active) > sinceActive {
+	if sinceActive != gc.Disabled && time.Since(active) < sinceActive {
 		return false // Revision was recently active. Not stale.
 	}
 
