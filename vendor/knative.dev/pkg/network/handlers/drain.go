@@ -105,6 +105,5 @@ func (d *Drainer) reset() {
 func (d *Drainer) draining() bool {
 	d.RLock()
 	defer d.RUnlock()
-
 	return d.timer != nil
 }
