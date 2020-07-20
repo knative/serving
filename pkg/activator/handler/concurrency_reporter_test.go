@@ -382,8 +382,8 @@ func TestMetricsReported(t *testing.T) {
 	<-s.statChan // The actual report we want to see
 
 	wantTags := map[string]string{
-		metricskey.PodName:                "the-best-activator",
-		metricskey.ContainerName:          "activator",
+		metricskey.PodName:       "the-best-activator",
+		metricskey.ContainerName: "activator",
 	}
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
 }
