@@ -9,7 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.0
-	github.com/google/go-containerregistry v0.1.1
+	github.com/google/go-containerregistry v0.1.2-0.20200717224239-a84993334b27
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
