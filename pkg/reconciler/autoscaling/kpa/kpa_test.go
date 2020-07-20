@@ -155,8 +155,7 @@ type metricOption func(*asv1a1.Metric)
 
 func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	pa := kpa(ns, n)
-	m := aresources.MakeMetric(pa,
-		kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
+	m := aresources.MakeMetric(pa, kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
 	for _, o := range opts {
 		o(m)
 	}

@@ -36,8 +36,7 @@ func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) t
 }
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
-func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string,
-	config *autoscalerconfig.Config) *v1alpha1.Metric {
+func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string, config *autoscalerconfig.Config) *v1alpha1.Metric {
 	stableWindow := StableWindow(pa, config)
 
 	// Look for a panic window percentage annotation.
