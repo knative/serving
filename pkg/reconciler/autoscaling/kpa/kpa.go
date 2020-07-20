@@ -219,18 +219,20 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 }
 
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)
-// and the current status, as per the following table:
+// active threshold (min), and the current status, as per the following table:
 //
-//    | Want | Got    | Status     | New status |
-//    | 0    | <any>  | <any>      | inactive   |
-//    | >0   | < min  | <any>      | activating |
-//    | >0   | >= min | <any>      | active     |
-//    | -1   | < min  | inactive   | inactive   |
-//    | -1   | < min  | activating | activating |
-//    | -1   | < min  | active     | activating |
-//    | -1   | >= min | inactive   | inactive   |
-//    | -1   | >= min | activating | active     |
-//    | -1   | >= min | active     | active     |
+//    | Want | Got    | min   | Status     | New status |
+//    | 0    | <any>  | <any> | <any>      | inactive   |
+//    | >0   | < min  | <any> | <any>      | activating |
+//    | >0   | >= min | <any> | <any>      | active     |
+//    | -1   | < min  | <any> | inactive   | inactive   |
+//    | -1   | < min  | <any> | activating | activating |
+//    | -1   | < min  | <any> | active     | activating |
+//    | -1   | >= min | <any> | inactive   | inactive   |
+//    | -1   | >= min | 0     | activating | activating |
+//    | -1   | >= min | 0     | active     | active     |
+//    | -1   | >= min | >0    | activating | active     |
+//    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
 
