@@ -77,6 +77,13 @@ spec:
         # and substituted here.
         image: ko://knative.dev/pkg/leaderelection/chaosduck
 
+        args:
+        # Disable chaos on the Istio components.
+        - "-disable=istio-webhook"
+        - "-disable=networking-istio"
+        # Disable chaos on the Contour components.
+        - "-disable=contour-ingress-controller"
+
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

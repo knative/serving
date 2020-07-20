@@ -1619,13 +1619,11 @@ k8s.io/utils v0.0.0-20191114184206-e782cd3c129f/go.mod h1:sZAwmy6armz5eXlNoLmJcl
 k8s.io/utils v0.0.0-20200124190032-861946025e34 h1:HjlUD6M0K3P8nRXmr2B9o4F9dUy9TCj/aEpReeyi6+k=
 k8s.io/utils v0.0.0-20200124190032-861946025e34/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
 knative.dev/caching v0.0.0-20200116200605-67bca2c83dfa/go.mod h1:dHXFU6CGlLlbzaWc32g80cR92iuBSpsslDNBWI8C7eg=
-knative.dev/caching v0.0.0-20200716164533-ea602fec68d6 h1:fBKFQMZai2UuBAUOBxMFxYJ1BBbd821CgOlqddrJBxU=
-knative.dev/caching v0.0.0-20200716164533-ea602fec68d6/go.mod h1:/ey35hW/9lssPtvTznIkZuhCI1UbB2UV4ZY3p8RW3BI=
+knative.dev/caching v0.0.0-20200720170736-3c3c283e9f70 h1:6ymx6fY5548ZQuP7Xo3Ced3emsK1OJZ19PaQxM3jEMw=
+knative.dev/caching v0.0.0-20200720170736-3c3c283e9f70/go.mod h1:p+D2jFIHNQN5rxCDekE0gymQ7oR7R45w+xeTsw3Azw8=
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
-knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a h1:En4OAS5aL8eYPaLOhVhyVWHYDEW0X5X1Y78MSyw5/Ps=
-knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a/go.mod h1:6CW3DsOMkpK1HdMWraZ+50nl5+lbVzmWJ92CDoNmFi8=
-knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee h1:SH4N5kSRiEgmOcgjFwsyLMipS3sPJlN6dpp783C/ILQ=
-knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=
+knative.dev/networking v0.0.0-20200720170535-ca74f50d1c0e h1:6LeqWtHVBZ974+yrhi0fwwviA/52W2/nS2cvE9DnNrg=
+knative.dev/networking v0.0.0-20200720170535-ca74f50d1c0e/go.mod h1:1TqQGW4KD4n6Ljf07EmWMJYsn0dW+Koby47XVm3Tbf0=
 knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5 h1:ZspjtLBz7pzkB9PvPxSgDNHVNftTU1mmjtYh+j5LZJE=
 knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
