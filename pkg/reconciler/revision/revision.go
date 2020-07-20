@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
@@ -43,8 +44,10 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
+const digestResolutionTimeout = 60 * time.Second
+
 type resolver interface {
-	Resolve(string, k8schain.Options, sets.String) (string, error)
+	Resolve(context.Context, string, k8schain.Options, sets.String) (string, error)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -103,18 +106,24 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		container := container // Standard Go concurrency pattern.
 		i := i
 		digestGrp.Go(func() error {
-			digest, err := c.resolver.Resolve(container.Image,
+			ctx, cancel := context.WithTimeout(ctx, digestResolutionTimeout)
+			defer cancel()
+
+			digest, err := c.resolver.Resolve(ctx, container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
 				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
 			}
+
 			if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
 				rev.Status.DeprecatedImageDigest = digest
 			}
+
 			containerStatuses[i] = v1.ContainerStatuses{
 				Name:        container.Name,
 				ImageDigest: digest,
 			}
+
 			return nil
 		})
 	}
