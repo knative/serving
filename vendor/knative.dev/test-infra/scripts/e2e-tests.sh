@@ -93,7 +93,7 @@ function dump_metrics() {
     local proxy_pid=$!
     sleep 5
     header ">> Grabbing k8s metrics"
-    curl -s http://localhost:8080/metrics ${ARTIFACTS}/k8s.metrics.txt
+    curl -s http://localhost:8080/metrics > ${ARTIFACTS}/k8s.metrics.txt
     # Clean up proxy so it doesn't interfere with job shutting down
     kill $proxy_pid || true
 }
