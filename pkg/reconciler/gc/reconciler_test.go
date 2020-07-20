@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -186,7 +187,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	config := cfg(name, namespace, generation)
-	rev := resources.MakeRevision(config)
+	rev := resources.MakeRevision(context.Background(), config, clock.RealClock{})
 	rev.SetDefaults(context.Background())
 
 	for _, opt := range ro {

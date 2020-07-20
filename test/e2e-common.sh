@@ -652,3 +652,11 @@ function scale_controlplane() {
     kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
   done
 }
+
+function disable_chaosduck() {
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || failed=1
+}
+
+function enable_chaosduck() {
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || failed=1
+}

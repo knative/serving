@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
 	net "knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -336,6 +337,7 @@ func TestGetContainer(t *testing.T) {
 func TestSetRoutingState(t *testing.T) {
 	rev := &Revision{}
 	empty := time.Time{}
+	clock := clock.RealClock{}
 
 	// Test unset timestamp
 	if rev.GetRoutingStateModified() != empty {
@@ -343,7 +345,7 @@ func TestSetRoutingState(t *testing.T) {
 	}
 
 	// Test retrieving routing state and modified
-	rev.SetRoutingState(RoutingStateActive)
+	rev.SetRoutingState(RoutingStateActive, clock)
 	if state := rev.GetRoutingState(); state != RoutingStateActive {
 		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateActive)
 	}
@@ -353,13 +355,13 @@ func TestSetRoutingState(t *testing.T) {
 	}
 
 	// Test that no-op modifications don't bump timestamps.
-	rev.SetRoutingState(RoutingStateActive)
+	rev.SetRoutingState(RoutingStateActive, clock)
 	if rev.GetRoutingStateModified() != modified {
 		t.Errorf("modified was bumped, but no change expected.")
 	}
 
 	// Test the actual modifications do bump timestamps.
-	rev.SetRoutingState(RoutingStateReserve)
+	rev.SetRoutingState(RoutingStateReserve, clock)
 	if state := rev.GetRoutingState(); state != RoutingStateReserve {
 		t.Errorf("retrieved the wrong state got: %v want: %v", state, RoutingStateReserve)
 	}
