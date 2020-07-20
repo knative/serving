@@ -111,7 +111,7 @@ func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Conte
 	return ctx.(context.Context), nil
 }
 
-// AugmentWithRevision augments the given context with revision specific tags.
+// AugmentWithRevision augments the given context with a knative_revision resource.
 func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
 	r := resource.Resource{
 		Type: metricskey.ResourceTypeKnativeRevision,
