@@ -111,18 +111,23 @@ spec:
     spec:
       containers:
       - args:
+        - --base-id
+        - "1"
         - -c
         - /tmp/config/envoy-bootstrap.yaml
         command:
         - /usr/local/bin/envoy
-        image: docker.io/maistra/proxyv2-ubi8:1.1.1
+        image: docker.io/maistra/proxyv2-ubi8:1.1.3
         imagePullPolicy: Always
         name: kourier-gateway
         ports:
-        - name: http2
+        - name: http2-external
           containerPort: 8080
           protocol: TCP
-        - name: https
+        - name: http2-internal
+          containerPort: 8081
+          protocol: TCP
+        - name: https-external
           containerPort: 8443
           protocol: TCP
         volumeMounts:
@@ -166,7 +171,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:66163e6d9a4d21543e8c4800f1674cc165b6bb2fb0a763c4e0c8dbb7f6582968
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f7b1e253137984b3696973cc783f98a9bb943ec8a6058bc1dd3e65b4099278b4
         imagePullPolicy: Always
         name: kourier-control
         env:
@@ -178,6 +183,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        ports:
+        - name: http2-xds
+          containerPort: 18000
+          protocol: TCP
       restartPolicy: Always
       serviceAccountName: 3scale-kourier
 ---
@@ -254,7 +263,8 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
 spec:
   ports:
-  - port: 18000
+  - name: grpc-xds
+    port: 18000
     protocol: TCP
     targetPort: 18000
   selector:
