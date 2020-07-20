@@ -228,6 +228,7 @@ func TestReconcile(t *testing.T) {
 		unknownScale = scaleUnknown
 		underscale   = defaultScale - 1
 		overscale    = defaultScale + 1
+		asConfigKey  = ""
 	)
 
 	// Set up a default deployment with the appropriate scale so that we don't
@@ -289,8 +290,6 @@ func TestReconcile(t *testing.T) {
 
 	deciderKey := struct{}{}
 	retryAttempted := false
-
-	asConfigKey := ""
 
 	// Note: due to how KPA reconciler works we are dependent on the
 	// two constant objects above, which means, that all tests must share
