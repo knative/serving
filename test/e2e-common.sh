@@ -54,6 +54,7 @@ SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 # Keep this in sync with test/ha/ha.go
 readonly REPLICAS=3
 readonly BUCKETS=10
+HA_COMPONENTS=()
 
 
 # Parse our custom flags.
@@ -277,6 +278,7 @@ function install_contour() {
   kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
+  HA_COMPONENTS+=( "contour-ingress-controller" )
 
   local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
   sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
@@ -370,6 +372,7 @@ function install_knative_serving_standard() {
   UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
 
   echo ">> Installing Knative serving"
+  HA_COMPONENTS+=( "controller" "webhook" "autoscaler-hpa" )
   if [[ "$1" == "HEAD" ]]; then
     local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
