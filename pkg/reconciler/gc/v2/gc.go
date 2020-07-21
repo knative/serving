@@ -92,7 +92,7 @@ func Collect(
 		return nil
 	}
 
-	// Delete extra revisions past max, but iterate backwards for oldest ordering
+	// Delete extra revisions past max
 	for _, rev := range revs[max:] {
 		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
