@@ -266,7 +266,7 @@ type errorResolver struct {
 	err error
 }
 
-func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
+func (r *errorResolver) Resolve(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", r.err
 }
 

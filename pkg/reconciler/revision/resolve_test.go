@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,12 +31,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
+	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -114,6 +117,24 @@ func fakeRegistryManifestFailure(t *testing.T, repo string) *httptest.Server {
 	}))
 }
 
+func fakeRegistryBlocking(t *testing.T) (ts *httptest.Server, cancel func()) {
+	ch := make(chan struct{})
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/":
+			w.Header().Set("WWW-Authenticate", `Basic `)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		default:
+			<-ch
+		}
+	}))
+
+	return ts, func() {
+		close(ch)
+		ts.Close()
+	}
+}
+
 func TestResolve(t *testing.T) {
 	username, password := "foo", "bar"
 	ns, svcacct := "user-project", "user-robot"
@@ -167,7 +188,7 @@ func TestResolve(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet)
+	resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet)
 	if err != nil {
 		t.Fatalf("Resolve() = %v", err)
 	}
@@ -196,7 +217,7 @@ func TestResolveWithDigest(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	resolvedDigest, err := dr.Resolve(originalDigest, opt, emptyRegistrySet)
+	resolvedDigest, err := dr.Resolve(context.Background(), originalDigest, opt, emptyRegistrySet)
 	if err != nil {
 		t.Fatal("Resolve() =", err)
 	}
@@ -223,7 +244,7 @@ func TestResolveWithBadTag(t *testing.T) {
 
 	// Invalid character
 	invalidImage := "ubuntu%latest"
-	if resolvedDigest, err := dr.Resolve(invalidImage, opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), invalidImage, opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -260,7 +281,7 @@ func TestResolveWithPingFailure(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -297,7 +318,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 		Namespace:          ns,
 		ServiceAccountName: svcacct,
 	}
-	if resolvedDigest, err := dr.Resolve(tag.String(), opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
 	}
 }
@@ -311,8 +332,56 @@ func TestResolveNoAccess(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if resolvedDigest, err := dr.Resolve("ubuntu:latest", opt, emptyRegistrySet); err == nil {
+	if resolvedDigest, err := dr.Resolve(context.Background(), "ubuntu:latest", opt, emptyRegistrySet); err == nil {
 		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
+	}
+}
+
+func TestResolveTimeout(t *testing.T) {
+	// Stand up a fake registry which blocks until cancelled.
+	server, cancel := fakeRegistryBlocking(t)
+	defer cancel()
+
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
+	}
+
+	// Create a tag pointing to an image on our fake registry.
+	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, "doesnt/matter"), name.WeakValidation)
+	if err != nil {
+		t.Fatalf("NewTag() = %v", err)
+	}
+
+	// Set up a fake service account with pull secrets for our fake registry.
+	ns, svcacct := "user-project", "user-robot"
+	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcacct,
+			Namespace: ns,
+		},
+	})
+
+	// Time out after 200ms (long enough to be sure we're testing cancelling of
+	// digest lookup, rather than just credential lookup).
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	// Resolve the digest. The endpoint will never resolve, but we
+	// should give up anyway due the context timeout above.
+	dr := &digestResolver{client: client, transport: http.DefaultTransport}
+	opt := k8schain.Options{
+		Namespace:          ns,
+		ServiceAccountName: svcacct,
+	}
+
+	resolvedDigest, err := dr.Resolve(ctx, tag.String(), opt, emptyRegistrySet)
+	if err == nil {
+		t.Fatalf("Resolve() = %v, want timeout error", resolvedDigest)
+	}
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("Expected Resolve() to fail via timeout, but failed with", err)
 	}
 }
 
@@ -354,7 +423,7 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 
-	resolvedDigest, err := dr.Resolve("localhost:5000/ubuntu:latest", opt, registriesToSkip)
+	resolvedDigest, err := dr.Resolve(context.Background(), "localhost:5000/ubuntu:latest", opt, registriesToSkip)
 	if err != nil {
 		t.Fatal("Resolve() =", err)
 	}

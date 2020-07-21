@@ -166,10 +166,14 @@ func CheckError(resp *http.Response, codes ...int) error {
 
 	// https://github.com/docker/distribution/blob/master/docs/spec/api.md#errors
 	structuredError := &Error{}
-	if err := json.Unmarshal(b, structuredError); err != nil {
-		structuredError.rawBody = string(b)
-	}
+
+	// This can fail if e.g. the response body is not valid JSON. That's fine,
+	// we'll construct an appropriate error string from the body and status code.
+	_ = json.Unmarshal(b, structuredError)
+
+	structuredError.rawBody = string(b)
 	structuredError.StatusCode = resp.StatusCode
 	structuredError.request = resp.Request
+
 	return structuredError
 }
