@@ -86,13 +86,13 @@ func Collect(
 			}
 		}
 	}
-	nonstale := revs[swap:] // reslice to include the nonstale revisions, but now in reverse-order
+	nonstale := revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
 
 	if max == gc.Disabled || len(nonstale) <= max {
 		return nil
 	}
 
-	// Delete extra revisions past max, but iterate backwards for oldest ordering.
+	// Delete extra revisions past max, but iterate backwards for oldest ordering
 	for i := len(nonstale) - 1; i >= max; i-- {
 		rev := revs[i]
 		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
