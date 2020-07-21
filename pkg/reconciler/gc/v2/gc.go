@@ -66,15 +66,16 @@ func Collect(
 	})
 
 	// Delete stale revisions while more than min remain
-	remaining := len(revs)
-	nonstale := make([]*v1.Revision, 0, remaining)
+	count, remaining := 0, len(revs)
+	nonstale := make([]*v1.Revision, remaining)
 	for _, rev := range revs {
 		switch {
 		case remaining <= min:
 			return nil
 
 		case !isRevisionStale(cfg, rev, logger):
-			nonstale = append(nonstale, rev)
+			nonstale[count] = rev
+			count++
 			continue
 
 		default:
@@ -85,6 +86,7 @@ func Collect(
 			}
 		}
 	}
+	nonstale = nonstale[:count]
 
 	if max == gc.Disabled || len(nonstale) <= max {
 		return nil
@@ -101,13 +103,14 @@ func Collect(
 }
 
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
-	nonactive := make([]*v1.Revision, 0, len(revs))
+	nonactive, count := make([]*v1.Revision, len(revs)), 0
 	for _, rev := range revs {
 		if !isRevisionActive(rev, config) {
-			nonactive = append(nonactive, rev)
+			nonactive[count] = rev
+			count++
 		}
 	}
-	return nonactive
+	return nonactive[:count]
 }
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
