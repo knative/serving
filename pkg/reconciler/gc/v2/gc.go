@@ -67,7 +67,7 @@ func Collect(
 
 	// Delete stale revisions while more than min remain
 	count, remaining := 0, len(revs)
-	nonstale := make([]*v1.Revision, remaining)
+	nonstale := make([]*v1.Revision, remaining) // TODO: use the swap trick again?
 	for _, rev := range revs {
 		switch {
 		case remaining <= min:
@@ -105,10 +105,12 @@ func Collect(
 // nonactiveRevisions swaps active revisions to the end and omits them in new slice
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
 	swap := len(revs)
-	for i := len(revs) - 1; i >= 0; i-- {
+	for i := 0; i < swap; {
 		if isRevisionActive(revs[i], config) {
 			swap--
 			revs[swap], revs[i] = revs[i], revs[swap]
+		} else {
+			i++
 		}
 	}
 	return revs[:swap]
