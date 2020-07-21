@@ -86,7 +86,7 @@ func Collect(
 			}
 		}
 	}
-	nonstale := revs[swap:] // nonstale revisions are moved to the end, but now in reverse-order
+	nonstale := revs[swap:] // reslice to include the nonstale revisions, but now in reverse-order
 
 	if max == gc.Disabled || len(nonstale) <= max {
 		return nil
@@ -103,7 +103,7 @@ func Collect(
 	return nil
 }
 
-// nonactiveRevisions swaps active revisions to the end and omits them in new slice
+// nonactiveRevisions swaps active revisions to the end and reslices to omit them
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
 	swap := len(revs)
 	for i := 0; i < swap; {
