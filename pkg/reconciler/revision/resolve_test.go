@@ -347,13 +347,13 @@ func TestResolveTimeout(t *testing.T) {
 		t.Fatalf("url.Parse(%v) = %v", server.URL, err)
 	}
 
-	// Create a tag pointing to an image on our fake registry
+	// Create a tag pointing to an image on our fake registry.
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, "doesnt/matter"), name.WeakValidation)
 	if err != nil {
 		t.Fatalf("NewTag() = %v", err)
 	}
 
-	// Set up a fake service account with pull secrets for our fake registry
+	// Set up a fake service account with pull secrets for our fake registry.
 	ns, svcacct := "user-project", "user-robot"
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -362,7 +362,9 @@ func TestResolveTimeout(t *testing.T) {
 		},
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	// Time out after 200ms (long enough to be sure we're testing cancelling of
+	// digest lookup, rather than just credential lookup).
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
 	// Resolve the digest. The endpoint will never resolve, but we
