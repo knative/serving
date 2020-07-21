@@ -66,34 +66,35 @@ func Collect(
 	})
 
 	// Delete stale revisions while more than min remain
-	count, remaining := 0, len(revs)
-	nonstale := make([]*v1.Revision, remaining) // TODO: use the swap trick again?
-	for _, rev := range revs {
+	swap := len(revs)
+	for i := 0; i < swap; {
+		rev := revs[i]
 		switch {
-		case remaining <= min:
+		case len(revs)-i <= min:
 			return nil
 
 		case !isRevisionStale(cfg, rev, logger):
-			nonstale[count] = rev
-			count++
+			swap--
+			revs[i], revs[swap] = revs[swap], revs[i]
 			continue
 
 		default:
-			remaining--
-			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
+			i++
+			logger.Info("Deleting stale revision: ", revs[i].ObjectMeta.Name)
 			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 			}
 		}
 	}
-	nonstale = nonstale[:count]
+	nonstale := revs[swap:] // nonstale revisions are moved to the end, but now in reverse-order
 
 	if max == gc.Disabled || len(nonstale) <= max {
 		return nil
 	}
 
-	// Delete extra revisions past max
-	for _, rev := range nonstale[:len(nonstale)-max] {
+	// Delete extra revisions past max, but iterate backwards for oldest ordering.
+	for i := len(nonstale) - 1; i >= max; i-- {
+		rev := revs[i]
 		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
