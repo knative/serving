@@ -58,22 +58,19 @@ func Collect(
 		return nil
 	}
 
+	// filter out active revs
+	revs = nonactiveRevisions(revs, config)
+
 	// Sort by last active descending
 	sort.Slice(revs, func(i, j int) bool {
 		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
 		return a.After(b)
 	})
 
-	nonactive := 0
-	for _, rev := range revs {
-		if isRevisionActive(rev, config) {
-			continue
-		}
-		nonactive++
-
-		if isRevisionStale(cfg, rev, logger) && nonactive > min {
+	for i, rev := range revs {
+		if isRevisionStale(cfg, rev, logger) && i >= min {
 			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
-		} else if max != gc.Disabled && nonactive > max {
+		} else if max != gc.Disabled && i >= max {
 			logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q",
 				max, rev.ObjectMeta.Name)
 		} else {
@@ -87,6 +84,16 @@ func Collect(
 		}
 	}
 	return nil
+}
+
+func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
+	nonactiverevs := make([]*v1.Revision, 0, len(revs))
+	for _, rev := range revs {
+		if !isRevisionActive(rev, config) {
+			nonactiverevs = append(nonactiverevs, rev)
+		}
+	}
+	return nonactiverevs
 }
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
