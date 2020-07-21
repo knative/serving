@@ -116,7 +116,10 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 
 	bkts := newStandardBuckets(queueName, b.lec)
 	electors := make([]Elector, 0, b.lec.Buckets)
-	for _, bkt := range bkts {
+	for i := range bkts {
+		// Use a local var which won't change across the for loop since it is
+		// used as a callback asynchronously.
+		bkt := bkts[i]
 		rl, err := resourcelock.New(KnativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
@@ -173,7 +176,8 @@ func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucke
 	bs := hash.NewBucketSet(names)
 
 	bkts := make([]reconciler.Bucket, 0, cc.Buckets)
-	for name := range names {
+	// Create a list in order.
+	for _, name := range names.List() {
 		bkts = append(bkts, hash.NewBucket(name, bs))
 	}
 	return bkts
