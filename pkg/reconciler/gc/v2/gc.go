@@ -102,15 +102,16 @@ func Collect(
 	return nil
 }
 
+// nonactiveRevisions swaps active revisions to the end and omits them in new slice
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
-	nonactive, count := make([]*v1.Revision, len(revs)), 0
-	for _, rev := range revs {
-		if !isRevisionActive(rev, config) {
-			nonactive[count] = rev
-			count++
+	swap := len(revs)
+	for i := len(revs) - 1; i >= 0; i-- {
+		if isRevisionActive(revs[i], config) {
+			swap--
+			revs[swap], revs[i] = revs[i], revs[swap]
 		}
 	}
-	return nonactive[:count]
+	return revs[:swap]
 }
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
