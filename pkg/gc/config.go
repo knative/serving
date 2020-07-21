@@ -55,7 +55,7 @@ type Config struct {
 	// and exempt from GC.Note that GCMaxStaleRevision may override this if set.
 	// Set Disabled (-1) to disable/ignore duration and always consider active.
 	RetainSinceLastActiveTime time.Duration
-	// Minimum number of stale revisions to keep before considering for GC.
+	// Minimum number of non-active revisions to keep before considering for GC.
 	MinNonActiveRevisions int64
 	// Maximum number of non-active revisions to keep before considering for GC.
 	// regardless of creation or staleness time-bounds.
