@@ -65,33 +65,35 @@ func Collect(
 		return a.Before(b)
 	})
 
-	// Delete stale revisions while more than min remain
-	remaining := len(revs)
-	nonstale := make([]*v1.Revision, 0, remaining)
-	for _, rev := range revs {
+	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
+	swap := len(revs)
+	for i := 0; i < swap; {
+		rev := revs[i]
 		switch {
-		case remaining <= min:
+		case len(revs)-i <= min:
 			return nil
 
 		case !isRevisionStale(cfg, rev, logger):
-			nonstale = append(nonstale, rev)
+			swap--
+			revs[i], revs[swap] = revs[swap], revs[i]
 			continue
 
 		default:
-			remaining--
+			i++
 			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
 			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 			}
 		}
 	}
+	revs = revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
 
-	if max == gc.Disabled || len(nonstale) <= max {
+	if max == gc.Disabled || len(revs) <= max {
 		return nil
 	}
 
 	// Delete extra revisions past max
-	for _, rev := range nonstale[:len(nonstale)-max] {
+	for _, rev := range revs[max:] {
 		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
@@ -100,14 +102,18 @@ func Collect(
 	return nil
 }
 
+// nonactiveRevisions swaps active revisions to the end and reslices to omit them
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
-	nonactive := make([]*v1.Revision, 0, len(revs))
-	for _, rev := range revs {
-		if !isRevisionActive(rev, config) {
-			nonactive = append(nonactive, rev)
+	swap := len(revs)
+	for i := 0; i < swap; {
+		if isRevisionActive(revs[i], config) {
+			swap--
+			revs[swap], revs[i] = revs[i], revs[swap]
+		} else {
+			i++
 		}
 	}
-	return nonactive
+	return revs[:swap]
 }
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
