@@ -81,7 +81,7 @@ spec:
         livenessProbe: *probe
 
 ---
-# Deprecated. Use Service autoscaler-ss instead.
+# Deprecated. Use Service autoscaler-sts instead.
 apiVersion: v1
 kind: Service
 metadata:
@@ -117,7 +117,7 @@ spec:
   # is not supported yet. If there are existing pods of this StatefulSet running, make sure
   # that scale them to 0 first before changing this value.
   replicas: 1
-  serviceName: autoscaler-ss
+  serviceName: autoscaler-sts
   selector:
     matchLabels:
       app: autoscaler
@@ -161,7 +161,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: STATEFUL_SERVICE_NAME
-          value: autoscaler-ss
+          value: autoscaler-sts
         - name: STATEFUL_SERVICE_PORT
           value: "8080"
         - name: STATEFUL_SERVICE_PROTOCOL
@@ -192,7 +192,7 @@ metadata:
   labels:
     app: autoscaler
     serving.knative.dev/release: devel
-  name: autoscaler-ss
+  name: autoscaler-sts
   namespace: knative-serving
 spec:
   ports:
