@@ -65,7 +65,7 @@ func Collect(
 		return a.Before(b)
 	})
 
-	// Delete stale revisions while more than min remain
+	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
 	swap := len(revs)
 	for i := 0; i < swap; {
 		rev := revs[i]
@@ -80,7 +80,7 @@ func Collect(
 
 		default:
 			i++
-			logger.Info("Deleting stale revision: ", revs[i].ObjectMeta.Name)
+			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
 			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 			}
