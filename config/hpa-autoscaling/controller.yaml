@@ -21,7 +21,6 @@ metadata:
     serving.knative.dev/release: devel
     autoscaling.knative.dev/autoscaler-provider: hpa
 spec:
-  replicas: 3
   selector:
     matchLabels:
       app: autoscaler-hpa
