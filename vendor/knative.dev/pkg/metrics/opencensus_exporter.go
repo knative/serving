@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"path"
 
 	"contrib.go.opencensus.io/exporter/ocagent"
 	"go.opencensus.io/resource"
@@ -34,6 +35,10 @@ func newOpenCensusExporter(config *metricsConfig, logger *zap.SugaredLogger) (vi
 	opts := []ocagent.ExporterOption{ocagent.WithServiceName(config.component)}
 	if config.collectorAddress != "" {
 		opts = append(opts, ocagent.WithAddress(config.collectorAddress))
+	}
+	metrixPrefix := path.Join(config.domain, config.component)
+	if metrixPrefix != "" {
+		opts = append(opts, ocagent.WithMetricNamePrefix(metrixPrefix))
 	}
 	if config.requireSecure {
 		opts = append(opts, ocagent.WithTLSCredentials(getCredentials(config.component, config.secret, logger)))

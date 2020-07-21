@@ -50,6 +50,8 @@ contrib.go.opencensus.io/exporter/ocagent v0.4.12/go.mod h1:450APlNTSR6FrvC3CTRq
 contrib.go.opencensus.io/exporter/ocagent v0.5.0/go.mod h1:ImxhfLRpxoYiSq891pBrLVhN+qmP8BTVvdH2YLs7Gl0=
 contrib.go.opencensus.io/exporter/ocagent v0.6.1-0.20200121232419-b3d61dbd6252 h1:78QgIAE2FeU2klDzCuergwddNYzuC9EihGyR2Eq+/XM=
 contrib.go.opencensus.io/exporter/ocagent v0.6.1-0.20200121232419-b3d61dbd6252/go.mod h1:COXDBN+YYlzrujnt2M1Ym3DBY4O3GlMujpfhzvS27Rk=
+contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200615190824-f8c219d2d895 h1:bXMXgHq+WAIkI2dQivk1yMyKVVqMj8emLmhEqQghPWw=
+contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200615190824-f8c219d2d895/go.mod h1:IshRmMJBhDfFj5Y67nVhMYTTIze91RUeT73ipWKs/GY=
 contrib.go.opencensus.io/exporter/prometheus v0.1.0 h1:SByaIoWwNgMdPSgl5sMqM2KDE5H/ukPWBRo314xiDvg=
 contrib.go.opencensus.io/exporter/prometheus v0.1.0/go.mod h1:cGFniUXGZlKRjzOyuZJ6mgB+PgBcCIa79kEKR8YCW+A=
 contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0 h1:2O3c1g5CzMc1+Uah4Waot9Obm0yw70VXJzWaP6Fz3nw=
@@ -159,6 +161,7 @@ github.com/andybalholm/brotli v0.0.0-20190621154722-5f990b63d2d6/go.mod h1:+lx6/
 github.com/andygrunwald/go-gerrit v0.0.0-20190120104749-174420ebee6c/go.mod h1:0iuRQp6WJ44ts+iihy5E/WlPqfg5RNeQxOmzRkxCdtk=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6/go.mod h1:V8iCPQYkqmusNa815XgQio277wI47sdRh1dUOLdyC6Q=
+github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apex/log v1.1.4/go.mod h1:AlpoD9aScyQfJDVHmLMEcx4oU6LqzkWp4Mg9GdAcEvQ=
 github.com/apex/log v1.3.0/go.mod h1:jd8Vpsr46WAe3EZSQ/IUMs2qQD/GOycT5rPWCO1yGcs=
@@ -607,6 +610,8 @@ github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t
 github.com/grpc-ecosystem/grpc-gateway v1.12.1/go.mod h1:8XEsbTttt/W+VvjtQhLACqCisSPWTxCZ7sBRjU6iH9c=
 github.com/grpc-ecosystem/grpc-gateway v1.12.2 h1:D0EVSTwQoQOyfY35QNSuPJA4jpZRtkoGYWQMB7XNg5o=
 github.com/grpc-ecosystem/grpc-gateway v1.12.2/go.mod h1:8XEsbTttt/W+VvjtQhLACqCisSPWTxCZ7sBRjU6iH9c=
+github.com/grpc-ecosystem/grpc-gateway v1.14.6 h1:8ERzHx8aj1Sc47mu9n/AksaKCSWrMchFtkdrS4BIj5o=
+github.com/grpc-ecosystem/grpc-gateway v1.14.6/go.mod h1:zdiPV4Yse/1gnckTHtghG4GkDEdKCRJduHpTxT3/jcw=
 github.com/h2non/gock v1.0.9/go.mod h1:CZMcB0Lg5IWnr9bF79pPMg9WeV6WumxQiUJ1UvdO1iE=
 github.com/hashicorp/consul/api v1.1.0/go.mod h1:VmuI/Lkw1nC05EYQWNKwWGbkg+FbDBtguAZLlVdkD9Q=
 github.com/hashicorp/consul/sdk v0.1.1/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
@@ -1458,6 +1463,7 @@ google.golang.org/genproto v0.0.0-20200312145019-da6875a35672/go.mod h1:55QSHmfG
 google.golang.org/genproto v0.0.0-20200331122359-1ee6d9798940/go.mod h1:55QSHmfGQM9UVYDPBsyGGes0y52j32PQ3BqQfXhyH3c=
 google.golang.org/genproto v0.0.0-20200430143042-b979b6f78d84/go.mod h1:55QSHmfGQM9UVYDPBsyGGes0y52j32PQ3BqQfXhyH3c=
 google.golang.org/genproto v0.0.0-20200511104702-f5ebc3bea380/go.mod h1:55QSHmfGQM9UVYDPBsyGGes0y52j32PQ3BqQfXhyH3c=
+google.golang.org/genproto v0.0.0-20200513103714-09dca8ec2884/go.mod h1:55QSHmfGQM9UVYDPBsyGGes0y52j32PQ3BqQfXhyH3c=
 google.golang.org/genproto v0.0.0-20200515170657-fc4c6c6a6587/go.mod h1:YsZOwe1myG/8QRHRsmBRE1LrgQY60beZKjly0O1fX9U=
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
 google.golang.org/genproto v0.0.0-20200527145253-8367513e4ece/go.mod h1:jDfRM7FcilCzHH/e9qn6dsT145K34l5v+OpcnNgKAAA=
@@ -1624,12 +1630,14 @@ knative.dev/networking v0.0.0-20200720170535-ca74f50d1c0e h1:6LeqWtHVBZ974+yrhi0
 knative.dev/networking v0.0.0-20200720170535-ca74f50d1c0e/go.mod h1:1TqQGW4KD4n6Ljf07EmWMJYsn0dW+Koby47XVm3Tbf0=
 knative.dev/pkg v0.0.0-20200207155214-fef852970f43/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20200719221534-601c9ff3832e/go.mod h1:3mm5ZffkmyYnqN+SOq1cN9TX0KTjhEbiZL8YBpP4C4Y=
-knative.dev/pkg v0.0.0-20200720171235-9108ba3bd0c9 h1:XjgimoxAuDkHcK2qZC+n/y/kt783KTvMeO+lfso8dKI=
-knative.dev/pkg v0.0.0-20200720171235-9108ba3bd0c9/go.mod h1:5mU2I58DKDi0O23BrnPN72fCUq+WpXJ4OmDoeN1Kp98=
+knative.dev/pkg v0.0.0-20200721091635-3b7ca76a63e4 h1:Xwz4UudITaD3T8KXv/ReRMtDGeh5vX+YOhkRF3Hlb4o=
+knative.dev/pkg v0.0.0-20200721091635-3b7ca76a63e4/go.mod h1:uiDEJrNciKWl5fTSURoGXekCN5Wz9yo9ambLR80ISL0=
 knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee h1:SH4N5kSRiEgmOcgjFwsyLMipS3sPJlN6dpp783C/ILQ=
 knative.dev/test-infra v0.0.0-20200715185233-6964ba126fee/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=
 knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5 h1:ZspjtLBz7pzkB9PvPxSgDNHVNftTU1mmjtYh+j5LZJE=
 knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=
+knative.dev/test-infra v0.0.0-20200720224135-d2706240545c h1:hUjic+ENVkzG7Kp4GhXp1+WkUsCzbGFaBrgeAMet4v8=
+knative.dev/test-infra v0.0.0-20200720224135-d2706240545c/go.mod h1:mAsPDmFmlsTJjRWplWBz8xtEiarSgvGiiOjkGj4Or1g=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
