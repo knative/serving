@@ -31,6 +31,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/gc"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -49,63 +50,98 @@ func Collect(
 		return err
 	}
 
-	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
-
-	if gcSkipOffset >= int64(len(revs)) {
+	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
+	if len(revs) <= min ||
+		max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
 		return nil
 	}
 
-	// Sort by last active descending
+	// Filter out active revs
+	revs = nonactiveRevisions(revs, config)
+
+	// Sort by last active ascending (oldest first)
 	sort.Slice(revs, func(i, j int) bool {
 		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
-		return a.After(b)
+		return a.Before(b)
 	})
 
-	for _, rev := range revs[gcSkipOffset:] {
-		if strings.EqualFold(rev.ObjectMeta.Annotations[serving.RevisionPreservedAnnotationKey], "true") {
+	// Delete stale revisions while more than min remain
+	remaining := len(revs)
+	nonstale := make([]*v1.Revision, 0, remaining)
+	for _, rev := range revs {
+		switch {
+		case remaining <= min:
+			return nil
+
+		case !isRevisionStale(cfg, rev, logger):
+			nonstale = append(nonstale, rev)
 			continue
-		}
-		if isRevisionStale(ctx, rev, config) {
-			err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
-			if err != nil {
-				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
-				continue
+
+		default:
+			remaining--
+			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
+			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 			}
+		}
+	}
+
+	if max == gc.Disabled || len(nonstale) <= max {
+		return nil
+	}
+
+	// Delete extra revisions past max
+	for _, rev := range nonstale[:len(nonstale)-max] {
+		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
+		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 		}
 	}
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
+func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
+	nonactive := make([]*v1.Revision, 0, len(revs))
+	for _, rev := range revs {
+		if !isRevisionActive(rev, config) {
+			nonactive = append(nonactive, rev)
+		}
+	}
+	return nonactive
+}
+
+func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
-		return false
-	}
-	cfg := configns.FromContext(ctx).RevisionGC
-	logger := logging.FromContext(ctx)
-	curTime := time.Now()
-	createTime := rev.ObjectMeta.CreationTimestamp
-
-	if createTime.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
-		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
-		return false
+		return true // never delete latest ready, even if config is not active.
 	}
 
-	lastActive := revisionLastActiveTime(rev)
+	if strings.EqualFold(rev.Annotations[serving.RevisionPreservedAnnotationKey], "true") {
+		return true
+	}
+	// Anything that the labeler hasn't explicitly labelled as inactive.
+	// Revisions which do not yet have any annotation are not eligible for deletion.
+	return rev.GetRoutingState() != v1.RoutingStateReserve
+}
 
-	// TODO(whaught): this is carried over from v1, but I'm not sure why we can't delete a ready revision
-	// that isn't referenced? Maybe because of labeler failure - can we replace this with 'pending' routing state check?
-	if lastActive.Equal(createTime.Time) {
-		// Revision was never active and it's not ready after staleRevisionCreateDelay.
-		// It usually happens when ksvc was deployed with wrong configuration.
-		return !rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
+func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger) bool {
+	sinceCreate, sinceActive := cfg.RetainSinceCreateTime, cfg.RetainSinceLastActiveTime
+	if sinceCreate == gc.Disabled && sinceActive == gc.Disabled {
+		return false // Time checks are both disabled. Not stale.
 	}
 
-	ret := lastActive.Add(cfg.StaleRevisionTimeout).Before(curTime)
-	if ret {
-		logger.Infof("Detected stale revision %v with creation time %v and last active time %v.",
-			rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastActive)
+	createTime := rev.ObjectMeta.CreationTimestamp.Time
+	if sinceCreate != gc.Disabled && time.Since(createTime) < sinceCreate {
+		return false // Revision was created sooner than RetainSinceCreateTime. Not stale.
 	}
-	return ret
+
+	active := revisionLastActiveTime(rev)
+	if sinceActive != gc.Disabled && time.Since(active) < sinceActive {
+		return false // Revision was recently active. Not stale.
+	}
+
+	logger.Infof("Detected stale revision %q with creation time %v and last active time %v.",
+		rev.ObjectMeta.Name, createTime, active)
+	return true
 }
 
 // revisionLastActiveTime returns if present:
