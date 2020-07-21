@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
@@ -45,13 +46,15 @@ type components map[string]sets.String
 
 var (
 	disabledComponents kflag.StringSet
-	tributePeriod      time.Duration = 30 * time.Second
+	tributePeriod      time.Duration = 20 * time.Second
+	tributeFactor                    = 2.0
 )
 
 func init() {
 	// Note that we don't explicitly call flag.Parse() because ParseAndGetConfigOrDie below does this already.
 	flag.Var(&disabledComponents, "disable", "A repeatable flag to disable chaos for certain components.")
-	flag.DurationVar(&tributePeriod, "period", tributePeriod, "How frequently to terminate a leader pod per component.")
+	flag.DurationVar(&tributePeriod, "period", tributePeriod, "How frequently to terminate a leader pod per component (this is the base duration used with the jitter factor from -factor).")
+	flag.Float64Var(&tributeFactor, "factor", tributeFactor, "The jitter factor to apply to the period.")
 }
 
 func countingRFind(wr rune, wc int) func(rune) bool {
@@ -126,31 +129,25 @@ func main() {
 
 	// Until we are shutdown, build up an index of components and kill
 	// of a leader at the specified frequency.
-	for {
-		select {
-		case <-time.After(tributePeriod):
-			components, err := buildComponents(kc)
-			if err != nil {
-				log.Printf("Error building components: %v", err)
-			}
-			log.Printf("Got components: %#v", components)
-
-			eg, ctx := errgroup.WithContext(ctx)
-			for name, leaders := range components {
-				if disabledComponents.Value.Has(name) {
-					continue
-				}
-				name, leaders := name, leaders
-				eg.Go(func() error {
-					return quack(ctx, kc, name, leaders)
-				})
-			}
-			if err := eg.Wait(); err != nil {
-				log.Printf("Ended iteration with err: %v", err)
-			}
-
-		case <-ctx.Done():
-			return
+	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
+		components, err := buildComponents(kc)
+		if err != nil {
+			log.Printf("Error building components: %v", err)
 		}
-	}
+		log.Printf("Got components: %#v", components)
+
+		eg, ctx := errgroup.WithContext(ctx)
+		for name, leaders := range components {
+			if disabledComponents.Value.Has(name) {
+				continue
+			}
+			name, leaders := name, leaders
+			eg.Go(func() error {
+				return quack(ctx, kc, name, leaders)
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			log.Printf("Ended iteration with err: %v", err)
+		}
+	}, tributePeriod, tributeFactor, true /* sliding: do not include the runtime of the above in the interval */)
 }
