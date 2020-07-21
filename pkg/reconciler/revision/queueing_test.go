@@ -51,7 +51,7 @@ import (
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
+func (r *nopResolver) Resolve(context.Context, string, k8schain.Options, sets.String) (string, error) {
 	return "", nil
 }
 
