@@ -38,7 +38,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing/v1"
