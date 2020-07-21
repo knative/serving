@@ -34,14 +34,14 @@ require (
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.1
-	k8s.io/apimachinery v0.18.5
+	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200720170736-3c3c283e9f70
+	knative.dev/caching v0.0.0-20200721163356-191470591e4c
 	knative.dev/networking v0.0.0-20200720170535-ca74f50d1c0e
-	knative.dev/pkg v0.0.0-20200721091635-3b7ca76a63e4
-	knative.dev/test-infra v0.0.0-20200720224135-d2706240545c
+	knative.dev/pkg v0.0.0-20200721155336-c0a9ec7f1104
+	knative.dev/test-infra v0.0.0-20200721160835-f31b2ce4e804
 )
 
 replace (
