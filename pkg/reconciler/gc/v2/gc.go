@@ -86,15 +86,14 @@ func Collect(
 			}
 		}
 	}
-	nonstale := revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
+	revs = revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
 
-	if max == gc.Disabled || len(nonstale) <= max {
+	if max == gc.Disabled || len(revs) <= max {
 		return nil
 	}
 
 	// Delete extra revisions past max, but iterate backwards for oldest ordering
-	for i := len(nonstale) - 1; i >= max; i-- {
-		rev := revs[i]
+	for _, rev := range revs[max:] {
 		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
