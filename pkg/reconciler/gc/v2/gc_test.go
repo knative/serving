@@ -388,7 +388,7 @@ func TestCollectSettings(t *testing.T) {
 			Name: "5554",
 		}},
 	}, {
-		name: "delete oldest, keep three max",
+		name: "max disabled",
 		gcConfig: gcconfig.Config{
 			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
 			RetainSinceLastActiveTime: 1 * time.Minute,

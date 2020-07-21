@@ -58,42 +58,58 @@ func Collect(
 		return nil
 	}
 
-	// filter out active revs
+	// Filter out active revs
 	revs = nonactiveRevisions(revs, config)
 
-	// Sort by last active descending
+	// Sort by last active ascending (oldest first)
 	sort.Slice(revs, func(i, j int) bool {
 		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
-		return a.After(b)
+		return a.Before(b)
 	})
 
-	for i, rev := range revs {
-		if max != gc.Disabled && i >= max {
-			logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q",
-				max, rev.ObjectMeta.Name)
-		} else if isRevisionStale(cfg, rev, logger) && i >= min {
-			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
-		} else {
-			continue
-		}
+	// Delete stale revisions while more than min remain
+	remaining := len(revs)
+	nonstale := make([]*v1.Revision, 0, remaining)
+	for _, rev := range revs {
+		switch {
+		case remaining <= min:
+			return nil
 
-		if err := client.ServingV1().Revisions(rev.Namespace).Delete(
-			rev.Name, &metav1.DeleteOptions{}); err != nil {
-			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
+		case !isRevisionStale(cfg, rev, logger):
+			nonstale = append(nonstale, rev)
 			continue
+
+		default:
+			remaining--
+			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
+			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
+			}
+		}
+	}
+
+	if max == gc.Disabled || len(nonstale) <= max {
+		return nil
+	}
+
+	// Delete extra revisions past max
+	for _, rev := range nonstale[:len(nonstale)-max] {
+		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
+		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
+			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
 		}
 	}
 	return nil
 }
 
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
-	nonactiverevs := make([]*v1.Revision, 0, len(revs))
+	nonactive := make([]*v1.Revision, 0, len(revs))
 	for _, rev := range revs {
 		if !isRevisionActive(rev, config) {
-			nonactiverevs = append(nonactiverevs, rev)
+			nonactive = append(nonactive, rev)
 		}
 	}
-	return nonactiverevs
+	return nonactive
 }
 
 func isRevisionActive(rev *v1.Revision, config *v1.Configuration) bool {
