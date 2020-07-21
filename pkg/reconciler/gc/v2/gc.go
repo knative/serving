@@ -72,18 +72,15 @@ func Collect(
 		switch {
 		case len(revs)-i <= min:
 			return nil
-
-		case !isRevisionStale(cfg, rev, logger):
-			swap--
-			revs[i], revs[swap] = revs[swap], revs[i]
-			continue
-
-		default:
+		case isRevisionStale(cfg, rev, logger):
 			i++
 			logger.Info("Deleting stale revision: ", rev.ObjectMeta.Name)
 			if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
-				logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
+				logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 			}
+		default:
+			swap--
+			revs[i], revs[swap] = revs[swap], revs[i]
 		}
 	}
 	revs = revs[swap:] // Reslice to include the nonstale revisions, which are now in reverse order
@@ -92,11 +89,13 @@ func Collect(
 		return nil
 	}
 
-	// Delete extra revisions past max
+	// Delete extra revisions past max.
+	logger.Infof("Maximum number of revisions (%d) reached, deleting oldest non-active (%d) revisions",
+		max, len(revs)-max)
 	for _, rev := range revs[max:] {
-		logger.Infof("Maximum(%d) reached. Deleting oldest non-active revision %q", max, rev.ObjectMeta.Name)
+		logger.Info("Deleting non-active revision: " + rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
-			logger.With(zap.Error(err)).Error("Failed to GC revision: ", rev.Name)
+			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}
 	}
 	return nil
