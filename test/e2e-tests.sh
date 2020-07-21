@@ -72,7 +72,8 @@ kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
   --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || failed=1
 
-scale_controlplane controller autoscaler-hpa webhook
+# Scale up all of the HA components in knative-serving.
+scale_controlplane "${HA_COMPONENTS[@]}"
 
 # Changing the bucket count and cycling the controllers will leave around stale
 # lease resources at the old sharding factor, so clean these up.
