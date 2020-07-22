@@ -42,6 +42,7 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -1656,48 +1657,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/split",
 	}, {
-		Name: "Update stale lastPinned",
-		Objects: []runtime.Object{
-			Route("default", "stale-lastpinned", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer,
-				WithRouteGeneration(1), WithRouteObservedGeneration,
-				WithStatusTraffic(
-					v1.TrafficTarget{
-						RevisionName:   "config-00001",
-						Percent:        ptr.Int64(100),
-						LatestRevision: ptr.Bool(true),
-					})),
-			cfg("default", "config",
-				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
-				// The Route controller attaches our label to this Configuration.
-				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
-			),
-			rev("default", "config", 1, MarkRevisionReady,
-				WithRevName("config-00001"),
-				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
-			simpleReadyIngress(
-				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      ptr.Int64(100),
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-			simpleK8sService(Route("default", "stale-lastpinned", WithConfigTarget("config"))),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{
-			patchLastPinned("default", "config-00001"),
-		},
-		Key: "default/stale-lastpinned",
-	}, {
 		Name: "check that we can find the ingress with old naming",
 		Objects: []runtime.Object{
 			Route("default", "old-naming", WithConfigTarget("config"), WithRouteFinalizer,
@@ -1832,6 +1791,112 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (direct reference)
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		r := &Reconciler{
+			kubeclient:          kubeclient.Get(ctx),
+			client:              servingclient.Get(ctx),
+			netclient:           networkingclient.Get(ctx),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			ingressLister:       listers.GetIngressLister(),
+			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
+			clock:               FakeClock{Time: fakeCurTime},
+		}
+
+		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+	}))
+}
+
+func TestReconcile_ResponsiveGC(t *testing.T) {
+	table := TableTest{{
+		Name: "Update stale lastPinned",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
+		Objects: []runtime.Object{
+			Route("default", "stale-lastpinned", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer,
+				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
+			),
+			rev("default", "config", 1, MarkRevisionReady,
+				WithRevName("config-00001"),
+				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+			simpleReadyIngress(
+				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(Route("default", "stale-lastpinned", WithConfigTarget("config"))),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchLastPinned("default", "config-00001"),
+		},
+		Key: "default/stale-lastpinned",
+	}, {
+		Name: "lastPinned update disabled",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
+		Objects: []runtime.Object{
+			Route("default", "stale-lastpinned", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteFinalizer,
+				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001"),
+				// The Route controller attaches our label to this Configuration.
+				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
+			),
+			rev("default", "config", 1, MarkRevisionReady,
+				WithRevName("config-00001"),
+				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+			simpleReadyIngress(
+				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(Route("default", "stale-lastpinned", WithConfigTarget("config"))),
+		},
+		// WantPatches: Expecting no patch for when disabled.
+		Key: "default/stale-lastpinned",
+	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
@@ -2748,4 +2813,10 @@ func url(s string) *apis.URL {
 	}
 
 	return url
+}
+
+func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
+	c := cfgmap.FromContextOrDefaults(ctx)
+	c.Features.ResponsiveRevisionGC = flag
+	return cfgmap.ToContext(ctx, c)
 }
