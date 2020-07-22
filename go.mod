@@ -9,7 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.0
-	github.com/google/go-containerregistry v0.1.1
+	github.com/google/go-containerregistry v0.1.2-0.20200717224239-a84993334b27
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
@@ -34,14 +34,14 @@ require (
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.1
-	k8s.io/apimachinery v0.18.5
+	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200716164533-ea602fec68d6
-	knative.dev/networking v0.0.0-20200716201933-30a27fbaff8a
-	knative.dev/pkg v0.0.0-20200719210134-1cea86c85f8a
-	knative.dev/test-infra v0.0.0-20200719034534-5adf654f5ed5
+	knative.dev/caching v0.0.0-20200721163356-191470591e4c
+	knative.dev/networking v0.0.0-20200721203054-c218540746c9
+	knative.dev/pkg v0.0.0-20200721211453-557b6826ef85
+	knative.dev/test-infra v0.0.0-20200721175154-c98db9bd4d5d
 )
 
 replace (

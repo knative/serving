@@ -248,9 +248,9 @@ func verifyResourceForest(forest *ResourceForest) error {
 
 	arrayType := reflect.TypeOf(arrayType{})
 	if value, found := forest.ConnectedNodes[arrayType.PkgPath()+"."+arrayType.Name()]; !found {
-		return errors.New("Cannot find arrayType{} connectedNode")
+		return errors.New("cannot find arrayType{} connectedNode")
 	} else if value.Len() != 1 {
-		return fmt.Errorf("Invalid length of arrayType{} Node. Expected : 1 Found : %d", value.Len())
+		return fmt.Errorf("invalid length of arrayType{} Node. Expected : 1 Found : %d", value.Len())
 	}
 
 	return nil
@@ -274,7 +274,7 @@ func verifyBaseTypeValue(logPrefix string, node NodeInterface) error {
 
 func verifyPtrValueAllCovered(node NodeInterface) error {
 	if !node.GetData().Covered {
-		return errors.New("Node marked as not-Covered. Expected to be Covered")
+		return errors.New("node marked as not-Covered. Expected to be Covered")
 	}
 
 	child := node.GetData().Children["basePtr"]
@@ -300,7 +300,7 @@ func verifyPtrValueAllCovered(node NodeInterface) error {
 
 func verifyPtrValueSomeCovered(node NodeInterface) error {
 	if !node.GetData().Covered {
-		return errors.New("Node marked as not-Covered. Expected to be Covered")
+		return errors.New("node marked as not-Covered. Expected to be Covered")
 	}
 
 	child := node.GetData().Children["basePtr"]
@@ -326,7 +326,7 @@ func verifyPtrValueSomeCovered(node NodeInterface) error {
 
 func verifyArryValueAllCovered(node NodeInterface) error {
 	if !node.GetData().Covered {
-		return errors.New("Node marked as not-Covered. Expected to be Covered")
+		return errors.New("node marked as not-Covered. Expected to be Covered")
 	}
 
 	child := node.GetData().Children["baseArr"]
@@ -361,7 +361,7 @@ func verifyArryValueAllCovered(node NodeInterface) error {
 
 func verifyArrValueSomeCovered(node NodeInterface) error {
 	if !node.GetData().Covered {
-		return errors.New("Node marked as not-Covered. Expected to be Covered")
+		return errors.New("node marked as not-Covered. Expected to be Covered")
 	}
 
 	child := node.GetData().Children["baseArr"]
@@ -387,7 +387,7 @@ func verifyArrValueSomeCovered(node NodeInterface) error {
 
 func verifyOtherTypeValue(node NodeInterface) error {
 	if !node.GetData().Covered {
-		return errors.New("Node marked as not-Covered. Expected to be Covered")
+		return errors.New("node marked as not-Covered. Expected to be Covered")
 	}
 
 	if !node.GetData().Children["structMap"].GetData().Covered {

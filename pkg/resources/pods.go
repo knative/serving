@@ -81,8 +81,10 @@ func (pc PodAccessor) ReadyCount() (int, error) {
 		// Cheap to check that the pod is running.
 		if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
 			for _, cond := range p.Status.Conditions {
-				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-					ret++
+				if cond.Type == corev1.PodReady {
+					if cond.Status == corev1.ConditionTrue {
+						ret++
+					}
 					break
 				}
 			}

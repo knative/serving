@@ -32,7 +32,6 @@ import (
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
@@ -154,8 +153,7 @@ type metricOption func(*asv1a1.Metric)
 
 func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	pa := kpa(ns, n)
-	m := aresources.MakeMetric(context.Background(), pa,
-		kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
+	m := aresources.MakeMetric(pa, kmeta.ChildName(n, "-private"), defaultConfig().Autoscaler)
 	for _, o := range opts {
 		o(m)
 	}
@@ -1268,7 +1266,7 @@ func TestUpdate(t *testing.T) {
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
-	metric := aresources.MakeMetric(ctx, kpa, "", defaultConfig().Autoscaler)
+	metric := aresources.MakeMetric(kpa, "", defaultConfig().Autoscaler)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().Metrics(testNamespace).Create(metric)
 	fakemetricinformer.Get(ctx).Informer().GetIndexer().Add(metric)
 

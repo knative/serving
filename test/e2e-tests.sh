@@ -72,7 +72,8 @@ kubectl patch hpa activator -n "${SYSTEM_NAMESPACE}" \
   --type "merge" \
   --patch '{"spec": {"minReplicas": '${REPLICAS}', "maxReplicas": '${REPLICAS}'}}' || failed=1
 
-scale_controlplane controller autoscaler-hpa webhook
+# Scale up all of the HA components in knative-serving.
+scale_controlplane "${HA_COMPONENTS[@]}"
 
 # Changing the bucket count and cycling the controllers will leave around stale
 # lease resources at the old sharding factor, so clean these up.
@@ -91,7 +92,7 @@ sleep 30
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+  ./test/conformance/api/... ./test/conformance/runtime/... \
   ./test/e2e \
   `# Run TestServiceWithTrafficSplit separately due to 503 flaking` \
   -run="Test[^ServiceWithTrafficSplit]" \
@@ -99,7 +100,7 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v 'certificate\|ingress' ) \
+  ./test/conformance/api/... ./test/conformance/runtime/... \
   ./test/e2e \
   -run="TestServiceWithTrafficSplit" \
   ${parallelism} \

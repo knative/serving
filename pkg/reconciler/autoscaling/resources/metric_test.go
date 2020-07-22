@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -76,7 +75,7 @@ func TestMakeMetric(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.want, MakeMetric(context.Background(), tc.pa, tc.msn, config)); diff != "" {
+			if diff := cmp.Diff(tc.want, MakeMetric(tc.pa, tc.msn, config)); diff != "" {
 				t.Errorf("%q (-want, +got):\n%v", tc.name, diff)
 			}
 		})
