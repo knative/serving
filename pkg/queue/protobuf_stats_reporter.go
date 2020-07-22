@@ -31,7 +31,7 @@ const (
 	contentTypeHeader = "Content-Type"
 )
 
-// PrometheusStatsReporter structure represents a prometheus stats reporter.
+// ProtobufStatsReporter structure represents a protobuf stats reporter.
 type ProtobufStatsReporter struct {
 	reportingPeriod time.Duration
 	startTime       time.Time
@@ -39,7 +39,7 @@ type ProtobufStatsReporter struct {
 	podName         string
 }
 
-// NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
+// NewProtobufStatsReporter creates a reporter that collects and reports queue metrics.
 func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *ProtobufStatsReporter {
 	return &ProtobufStatsReporter{
 		reportingPeriod: reportingPeriod,
