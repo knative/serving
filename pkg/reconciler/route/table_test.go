@@ -1814,7 +1814,7 @@ func TestReconcile(t *testing.T) {
 func TestReconcile_ResponsiveGC(t *testing.T) {
 	table := TableTest{{
 		Name: "Update stale lastPinned",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			Route("default", "stale-lastpinned", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
@@ -1857,7 +1857,7 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 		Key: "default/stale-lastpinned",
 	}, {
 		Name: "lastPinned update disabled",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
 		Objects: []runtime.Object{
 			Route("default", "stale-lastpinned", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
