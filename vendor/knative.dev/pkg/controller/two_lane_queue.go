@@ -16,9 +16,7 @@ limitations under the License.
 
 package controller
 
-import (
-	"k8s.io/client-go/util/workqueue"
-)
+import "k8s.io/client-go/util/workqueue"
 
 // twoLaneQueue is a rate limited queue that wraps around two queues
 // -- fast queue (anonymously aliased), whose contents are processed with priority.
@@ -72,8 +70,8 @@ func process(q workqueue.Interface, ch chan interface{}) {
 		if d {
 			break
 		}
-		ch <- i
 		q.Done(i)
+		ch <- i
 	}
 }
 
