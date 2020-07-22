@@ -51,29 +51,30 @@ var _ routereconciler.Finalizer = (*Reconciler)(nil)
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 
-	case cfgmap.Enabled: // v2 logic
-		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
-		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
-		return labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc)
-
-	default: // v1 logic
+	case cfgmap.Disabled: // v1 logic
 		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
 		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
 		return labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc)
+
+	default: // v2 logic
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+		return labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc)
 	}
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 
-	case cfgmap.Enabled: // v2 logic
+	case cfgmap.Disabled: // v1 logic
+		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
+		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		return labelerv1.SyncLabels(r, cacc, racc)
+
+	default: // v2 logic
 		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
 		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 		return labelerv2.SyncLabels(r, cacc, racc)
 
-	default: // v1 logic
-		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-		return labelerv1.SyncLabels(r, cacc, racc)
 	}
 }
