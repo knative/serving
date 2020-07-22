@@ -121,7 +121,6 @@ func TestPodReadyUnreadyCount(t *testing.T) {
 			if want := len(tc.pods) - tc.want; got != want {
 				t.Errorf("NotReadyCount = %d, want: %d", got, want)
 			}
-
 		})
 	}
 }
