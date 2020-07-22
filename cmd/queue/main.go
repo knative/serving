@@ -425,14 +425,14 @@ func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *htt
 
 func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", metricsHttpHandler(promStatReporter, protobufStatReporter))
+	metricsMux.Handle("/metrics", metricsHTTPHandler(promStatReporter, protobufStatReporter))
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
 	}
 }
 
-func metricsHttpHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
+func metricsHTTPHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
 			protobufStatReporter.Handler().ServeHTTP(w, r)
