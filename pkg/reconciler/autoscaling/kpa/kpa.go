@@ -229,26 +229,23 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | < min  | <any> | activating | activating |
 //    | -1   | < min  | <any> | active     | activating |
 //    | -1   | >= min | <any> | inactive   | inactive   |
-//    | -1   | >= min | 0     | activating | activating |
-//    | -1   | >= min | 0     | active     | active     |
+//    | -1   | >= min | 0     | activating | inactive   |
+//    | -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
 //    | -1   | >= min | >0    | activating | active     |
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
+	if pc.ready >= minReady {
+		pa.Status.MarkScaleTargetInitialized()
+	}
 
 	switch {
-	case pc.want == 0:
+	case pc.want == 0 || minReady == 0:
 		if pa.Status.IsActivating() && minReady > 0 {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
 		} else {
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
-		}
-		// In the initialScale 0 case. After SKS has been setup, we override want -1 with 0 when
-		// PA's desired scale is not set yet. However, we will only be here for one iteration,
-		// because pc.want will be -1 again (no metric collection).
-		if pc.ready >= minReady {
-			pa.Status.MarkScaleTargetInitialized()
 		}
 
 	case pc.ready < minReady:
@@ -256,22 +253,19 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
 		} else {
-			// This is for the initialScale 0 case. We override pc.want = -1 with 0 only once, before
-			// setting MarkScaleTargetInitialized, which switches minReady from 0 to 1, and
-			// because there's no metric collection yet, we will end up with pc.want = -1 again.
+			// This is for the initialScale 0 case. In the first iteration, minReady is 0,
+			// but for the following iterations, minReady is 1. pc.want will continue being
+			// -1 until we start receiving metrics, so we will end up here.
+			// Even though PA is already been marked as inactive in the first iteration, we
+			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
+			// because we cannot go through one iteration of reconciliation without setting
+			// some status.
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
 	case pc.ready >= minReady:
 		if pc.want > 0 || !pa.Status.IsInactive() {
-			// In the initialScale 0 case, as soon as SKS has been setup, we override pc.want = -1
-			// with 0, but only for one iteration, and we MarkScaleTargetInitialized and MarkActive
-			// in that same iteration. For future iterations, minReady switches to 1, and pc.want
-			// is going to be -1 until we are able to get metrics from pods.
-			if minReady > 0 || (minReady == 0 && pc.want != -1) {
-				pa.Status.MarkScaleTargetInitialized()
-				pa.Status.MarkActive()
-			}
+			pa.Status.MarkActive()
 		}
 	}
 }
