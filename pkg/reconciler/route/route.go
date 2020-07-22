@@ -114,7 +114,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgmap.Enabled {
+	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
 		// In all cases we will add annotations to the referred targets.  This is so that when they become
 		// routable we can know (through a listener) and attempt traffic configuration again.
 		if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
