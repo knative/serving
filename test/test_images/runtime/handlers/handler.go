@@ -28,9 +28,10 @@ import (
 
 // InitHandlers initializes all handlers.
 func InitHandlers(mux *http.ServeMux) {
-	h := network.NewProbeHandler(withHeaders(withRequestLog(runtimeHandler)))
-	mux.HandleFunc("/", h.ServeHTTP)
-	mux.HandleFunc(network.ProbePath, withRequestLog(withKubeletProbeHeaderCheck))
+	mux.HandleFunc("/", withHeaders(withRequestLog(runtimeHandler)))
+
+	h := network.NewProbeHandler(withRequestLog(withKubeletProbeHeaderCheck))
+	mux.HandleFunc(network.ProbePath, h.ServeHTTP)
 }
 
 // withRequestLog logs each request before handling it.

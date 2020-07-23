@@ -43,7 +43,6 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
-// This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestV1Reconcile(t *testing.T) {
 	now := metav1.Now()
 

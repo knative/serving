@@ -148,10 +148,9 @@ func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Ac
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		// TODO() If routename is in there.
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(rl))
+	for i, r := range rl {
+		kl[i] = r
 	}
 	return kl, err
 }
