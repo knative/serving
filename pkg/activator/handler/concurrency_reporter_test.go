@@ -461,7 +461,7 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 		})
 	}
 
-	request := func(key types.NamespacedName) {
+	requestChannel := func(key types.NamespacedName) {
 		reqCh <- network.ReqEvent{
 			Time: time.Now(),
 			Type: network.ReqIn,
@@ -474,19 +474,50 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 		}
 	}
 
-	b.Run("sequential", func(b *testing.B) {
+	requestDirect := func(key types.NamespacedName) {
+		cr.handleEvent(network.ReqEvent{
+			Time: time.Now(),
+			Type: network.ReqIn,
+			Key:  key,
+		})
+		cr.handleEvent(network.ReqEvent{
+			Time: time.Now(),
+			Type: network.ReqOut,
+			Key:  key,
+		})
+	}
+
+	b.Run("sequential-direct", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
 			key := keys[j%len(keys)]
-			request(key)
+			requestDirect(key)
 		}
 	})
 
-	b.Run("parallel", func(b *testing.B) {
+	b.Run("sequential-channel", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			key := keys[j%len(keys)]
+			requestChannel(key)
+		}
+	})
+
+	b.Run("parallel-direct", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			var j int
 			for pb.Next() {
 				key := keys[j%len(keys)]
-				request(key)
+				requestDirect(key)
+				j++
+			}
+		})
+	})
+
+	b.Run("parallel-channel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			var j int
+			for pb.Next() {
+				key := keys[j%len(keys)]
+				requestChannel(key)
 				j++
 			}
 		})
