@@ -126,15 +126,7 @@ func SetupZipkinTracing(kubeClientset *kubernetes.Clientset, logf logging.Format
 			return
 		}
 
-		zipkinPortForwardPID, e = monitoring.PortForward(
-			logf,
-			zipkinPods,
-			ZipkinPort,
-			zipkinRemotePort,
-			zipkinNamespace,
-			logging.NewLoggerWriter("zipkin-port-forward-stdout", logf),
-			logging.NewLoggerWriter("zipkin-port-forward-stderr", logf),
-		)
+		zipkinPortForwardPID, e = monitoring.PortForward(logf, zipkinPods, ZipkinPort, zipkinRemotePort, zipkinNamespace)
 		if e != nil {
 			err = fmt.Errorf("error starting kubectl port-forward command: %w", err)
 			return
