@@ -434,11 +434,23 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 
 	// Buffer equal to the activator.
 	reqCh := make(chan network.ReqEvent, 100)
-	cr := NewConcurrencyReporter(ctx, activatorPodName, reqCh, make(chan []asmetrics.StatMessage, 1000))
+	statCh := make(chan []asmetrics.StatMessage)
+	cr := NewConcurrencyReporter(ctx, activatorPodName, reqCh, statCh)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	go cr.Run(stopCh)
+
+	// Just read and ignore all stat messages.
+	go func() {
+		for {
+			select {
+			case <-statCh:
+			case <-stopCh:
+				return
+			}
+		}
+	}()
 
 	// Spread the load across 100 revisions.
 	keys := make([]types.NamespacedName, 0, 100)
