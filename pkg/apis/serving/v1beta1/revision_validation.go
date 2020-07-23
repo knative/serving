@@ -63,6 +63,6 @@ func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
 		}
-		return
 	}
+	return
 }
