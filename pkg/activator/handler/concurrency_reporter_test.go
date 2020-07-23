@@ -461,19 +461,23 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 		})
 	}
 
+	request := func(key types.NamespacedName) {
+		reqCh <- network.ReqEvent{
+			Time: time.Now(),
+			Type: network.ReqIn,
+			Key:  key,
+		}
+		reqCh <- network.ReqEvent{
+			Time: time.Now(),
+			Type: network.ReqOut,
+			Key:  key,
+		}
+	}
+
 	b.Run("sequential", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
 			key := keys[j%len(keys)]
-			reqCh <- network.ReqEvent{
-				Time: time.Now(),
-				Type: network.ReqIn,
-				Key:  key,
-			}
-			reqCh <- network.ReqEvent{
-				Time: time.Now(),
-				Type: network.ReqOut,
-				Key:  key,
-			}
+			request(key)
 		}
 	})
 
@@ -482,16 +486,7 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 			var j int
 			for pb.Next() {
 				key := keys[j%len(keys)]
-				reqCh <- network.ReqEvent{
-					Time: time.Now(),
-					Type: network.ReqIn,
-					Key:  key,
-				}
-				reqCh <- network.ReqEvent{
-					Time: time.Now(),
-					Type: network.ReqOut,
-					Key:  key,
-				}
+				request(key)
 				j++
 			}
 		})
