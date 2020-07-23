@@ -69,3 +69,35 @@ func TestRequestEventHandler(t *testing.T) {
 		t.Errorf("out.Time.Sub(in.Time) = %v, want > %v", out.Time.Sub(in.Time), timeOffset)
 	}
 }
+
+func BenchmarkRequestEventHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	reqCtx := util.WithRevID(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+
+	reqChan := make(chan network.ReqEvent, 100)
+	defer close(reqChan)
+	go func() {
+		// Just consume all the events.
+		for range reqChan {
+		}
+	}()
+
+	handler := NewRequestEventHandler(reqChan, baseHandler)
+
+	resp := httptest.NewRecorder()
+	b.Run("sequential", func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
