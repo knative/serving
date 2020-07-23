@@ -77,7 +77,7 @@ func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
 			// Read this container's stream.
 			scanner := bufio.NewScanner(stream)
 			for scanner.Scan() {
-				k.handleLine(scanner.Bytes())
+				k.handleLine(scanner.Bytes(), pn)
 			}
 			// Pods get killed with chaos duck, so logs might end
 			// before the test does. So don't report an error here.
@@ -148,7 +148,7 @@ func (k *kubelogs) init(t test.TLegacy) {
 	k.watchPods(t)
 }
 
-func (k *kubelogs) handleLine(l []byte) {
+func (k *kubelogs) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"level"`
@@ -185,9 +185,10 @@ func (k *kubelogs) handleLine(l []byte) {
 			site = line.Caller
 		}
 		// E 15:04:05.000 [route-controller] [default/testroute-xyz] this is my message
-		msg := fmt.Sprintf("%s %s [%s] [%s] %s",
+		msg := fmt.Sprintf("%s %s %s [%s] [%s] %s",
 			strings.ToUpper(string(line.Level[0])),
 			line.Timestamp.Format(timeFormat),
+			pod,
 			site,
 			line.Key,
 			line.Message)
