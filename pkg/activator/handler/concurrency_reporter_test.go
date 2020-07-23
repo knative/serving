@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/network"
@@ -424,4 +426,62 @@ func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
+}
+
+func BenchmarkConcurrencyReporter(b *testing.B) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
+	defer cancel()
+
+	// Buffer equal to the activator.
+	reqCh := make(chan network.ReqEvent, 100)
+	cr := NewConcurrencyReporter(ctx, activatorPodName, reqCh, make(chan []asmetrics.StatMessage, 1000))
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go cr.Run(stopCh)
+
+	// Spread the load across 100 revisions.
+	keys := make([]types.NamespacedName, 0, 100)
+	for i := 0; i < cap(keys); i++ {
+		keys = append(keys, types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      testRevName + strconv.Itoa(i),
+		})
+	}
+
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			key := keys[j%len(keys)]
+			reqCh <- network.ReqEvent{
+				Time: time.Now(),
+				Type: network.ReqIn,
+				Key:  key,
+			}
+			reqCh <- network.ReqEvent{
+				Time: time.Now(),
+				Type: network.ReqOut,
+				Key:  key,
+			}
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			var j int
+			for pb.Next() {
+				key := keys[j%len(keys)]
+				reqCh <- network.ReqEvent{
+					Time: time.Now(),
+					Type: network.ReqIn,
+					Key:  key,
+				}
+				reqCh <- network.ReqEvent{
+					Time: time.Now(),
+					Type: network.ReqOut,
+					Key:  key,
+				}
+				j++
+			}
+		})
+	})
 }
