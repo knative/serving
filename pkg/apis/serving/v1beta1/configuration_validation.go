@@ -62,6 +62,7 @@ func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 		case serving.VisibilityLabelKey:
 			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case serving.RouteLabelKey:
+			// Known valid labels.
 		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 		default:
