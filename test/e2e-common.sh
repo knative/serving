@@ -648,18 +648,18 @@ function toggle_feature() {
 function scale_controlplane() {
   for deployment in "$@"; do
     # Make sure all pods run in leader-elected mode.
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || fail_test
     # Give it time to kill the pods.
     sleep 5
     # Scale up components for HA tests
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || fail_test
   done
 }
 
 function disable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || fail_test
 }
 
 function enable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || fail_test
 }
