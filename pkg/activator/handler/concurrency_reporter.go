@@ -92,10 +92,11 @@ func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
 // If absent it creates a new one and returns it, potentially returning a StatMessage too
 // to trigger an immediate scale-from-0.
 func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network.RequestStats, *asmetrics.StatMessage) {
-	cr.mux.RLock()
-	stat := cr.stats[event.Key]
-	cr.mux.RUnlock()
-
+	stat := func() *network.RequestStats {
+		cr.mux.RLock()
+		defer cr.mux.RUnlock()
+		return cr.stats[event.Key]
+	}()
 	if stat != nil {
 		return stat, nil
 	}
