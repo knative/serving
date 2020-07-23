@@ -49,32 +49,49 @@ var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
+	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
-	case cfgmap.Disabled: // v1 logic
+	// v1 logic
+	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
 		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
 		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-		return labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc)
+		if err := labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
+			return err
+		}
+	}
 
-	default: // v2 logic
+	// v2 logic
+	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
 		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
 		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
-		return labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc)
+		if err := labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
+	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
-	case cfgmap.Disabled: // v1 logic
+	// v1 logic
+	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
 		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
 		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-		return labelerv1.SyncLabels(r, cacc, racc)
+		if err := labelerv1.SyncLabels(r, cacc, racc); err != nil {
+			return err
+		}
+	}
 
-	default: // v2 logic
+	// v2 logic
+	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
 		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
 		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
-		return labelerv2.SyncLabels(r, cacc, racc)
-
+		if err := labelerv2.SyncLabels(r, cacc, racc); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
