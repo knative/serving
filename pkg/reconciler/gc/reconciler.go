@@ -43,10 +43,10 @@ var _ configreconciler.Interface = (*reconciler)(nil)
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 
-	case cfgmap.Enabled: // v2 logic
-		return gcv2.Collect(ctx, c.client, c.revisionLister, config)
-
-	default: // v1 logic
+	case cfgmap.Disabled: // v1 logic
 		return gcv1.Collect(ctx, c.client, c.revisionLister, config)
+
+	default: // v2 logic
+		return gcv2.Collect(ctx, c.client, c.revisionLister, config)
 	}
 }

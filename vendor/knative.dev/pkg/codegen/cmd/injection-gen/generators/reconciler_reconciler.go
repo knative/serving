@@ -230,6 +230,15 @@ type ReadOnlyFinalizer interface {
 	ObserveFinalizeKind(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
 }
 
+type doReconcile func(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
+
+const (
+	doReconcileKind       = "ReconcileKind"
+	doFinalizeKind        = "FinalizeKind"
+	doObserveKind         = "ObserveKind"
+	doObserveFinalizeKind = "ObserveFinalizeKind"
+)
+
 // reconcilerImpl implements controller.Reconciler for {{.type|raw}} resources.
 type reconcilerImpl struct {
 	// LeaderAwareFuncs is inlined to help us implement {{.reconcilerLeaderAware|raw}}
@@ -332,22 +341,19 @@ var reconcilerImplFactory = `
 func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) error {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
-	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := {{.cacheSplitMetaNamespaceKey|raw}}(key)
+	// Initialize the reconciler state. This will convert the namespace/name 
+	// string into a distinct namespace and name, determin if this instance of
+	// the reconciler is the leader, and any additional interfaces implemented
+	// by the reconciler. Returns an error is the resource key is invalid.
+	s, err := newState(key, r)
 	if err != nil {
 		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	// Establish whether we are the leader for use below.
-	isLeader := r.IsLeaderFor({{.typesNamespacedName|raw}}{
-		Namespace: namespace,
-		Name: name,
-	})
-	roi, isROI := r.reconciler.(ReadOnlyInterface)
-	rof, isROF := r.reconciler.(ReadOnlyFinalizer);
-	if !isLeader && !isROI && !isROF {
-		// If we are not the leader, and we don't implement either ReadOnly
-		// interface, then take a fast-path out.
+	
+	// If we are not the leader, and we don't implement either ReadOnly
+	// observer interfaces, then take a fast-path out.
+	if s.isNotLeaderNorObserver() {
 		return nil
 	}
 
@@ -363,9 +369,9 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	{{if .nonNamespaced}}
 	getter := r.Lister
 	{{else}}
-	getter := r.Lister.{{.type|apiGroup}}(namespace)
+	getter := r.Lister.{{.type|apiGroup}}(s.namespace)
 	{{end}}
-	original, err := getter.Get(name)
+	original, err := getter.Get(s.name)
 
 	if {{.apierrsIsNotFound|raw}}(err) {
 		// The resource may no longer exist, in which case we stop processing.
@@ -387,50 +393,45 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	resource := original.DeepCopy()
 
 	var reconcileEvent {{.reconcilerEvent|raw}}
-	if resource.GetDeletionTimestamp().IsZero() {
-		if isLeader {
-			// Append the target method to the logger.
-			logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
-			// Set and update the finalizer on resource if r.reconciler
-			// implements Finalizer.
-			if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
-				return {{.fmtErrorf|raw}}("failed to set finalizers: %w", err)
-			}
-			{{if .isKRShaped}}
-			reconciler.PreProcessReconcile(ctx, resource)
-			{{end}}
-
-			// Reconcile this copy of the resource and then write back any status
-			// updates regardless of whether the reconciliation errored out.
-			reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
-
-			{{if .isKRShaped}}
-			reconciler.PostProcessReconcile(ctx, resource, original)
-			{{end}}
-		} else if isROI {
-			// Append the target method to the logger.
-			logger = logger.With(zap.String("targetMethod", "ObserveKind"))
-
-			// Observe any changes to this resource, since we are not the leader.
-			reconcileEvent = roi.ObserveKind(ctx, resource)
-		}
-	} else if fin, ok := r.reconciler.(Finalizer); isLeader && ok {
+	name, do := s.reconcileMethodFor(resource)
+	// Append the target method to the logger.
+	logger = logger.With(zap.String("targetMethod", name))
+	switch name {
+	case doReconcileKind:
 		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
+		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
+		// Set and update the finalizer on resource if r.reconciler
+		// implements Finalizer.
+		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
+			return {{.fmtErrorf|raw}}("failed to set finalizers: %w", err)
+		}
+		{{if .isKRShaped}}
+		reconciler.PreProcessReconcile(ctx, resource)
+		{{end}}
+
+		// Reconcile this copy of the resource and then write back any status
+		// updates regardless of whether the reconciliation errored out.
+		reconcileEvent = do(ctx, resource)
+
+		{{if .isKRShaped}}
+		reconciler.PostProcessReconcile(ctx, resource, original)
+		{{end}}
+
+	case "FinalizeKind":
 		// For finalizing reconcilers, if this resource being marked for deletion
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
-		reconcileEvent = fin.FinalizeKind(ctx, resource)
+		reconcileEvent = do(ctx, resource)
+
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
 			return {{.fmtErrorf|raw}}("failed to clear finalizers: %w", err)
 		}
-	} else if !isLeader && isROF {
-		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "ObserveFinalizeKind"))
 
-		// For finalizing reconcilers, just observe when we aren't the leader.
-		reconcileEvent = rof.ObserveFinalizeKind(ctx, resource)
+	case "ObserveKind", "ObserveFinalizeKind":
+		// Observe any changes to this resource, since we are not the leader.
+		reconcileEvent = do(ctx, resource)
+
 	}
 
 	// Synchronize the status.
@@ -443,7 +444,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// This is important because the copy we loaded from the injectionInformer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	case !isLeader:
+	case !s.isLeader:
 		// High-availability reconcilers may have many replicas watching the resource, but only
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
