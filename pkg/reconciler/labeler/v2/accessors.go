@@ -36,7 +36,7 @@ import (
 type Accessor interface {
 	list(ns, name string) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
+	makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -148,7 +148,7 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (r *Revision) makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error) {
 	rev, err := r.revisionLister.Revisions(ns).Get(name)
 	if err != nil {
 		return nil, err
@@ -203,7 +203,7 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (c *Configuration) makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error) {
 	config, err := c.configurationLister.Configurations(ns).Get(name)
 	if err != nil {
 		return nil, err
