@@ -539,6 +539,12 @@ func TestProbeVerifier(t *testing.T) {
 	prober := NewProber(zaptest.NewLogger(t).Sugar(), nil, nil)
 	verifier := prober.probeVerifier(&workItem{
 		ingressState: &ingressState{
+			ing: &v1alpha1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "bar",
+				},
+			},
 			hash: hash,
 		},
 		podState: nil,
