@@ -76,10 +76,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
 	// v1 logic
-	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
-		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-		if err := labelerv1.SyncLabels(r, cacc, racc); err != nil {
+	caccV1 := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
+	raccV1 := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+	switch newGC {
+	case cfgmap.Disabled, cfgmap.Allowed:
+		if err := labelerv1.SyncLabels(r, caccV1, raccV1); err != nil {
+			return err
+		}
+	case cfgmap.Enabled:
+		if err := labelerv1.ClearLabels(r.Namespace, r.Name, caccV1, raccV1); err != nil {
 			return err
 		}
 	}
