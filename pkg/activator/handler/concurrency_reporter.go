@@ -81,9 +81,9 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 
 // handleEvent handles request events (in, out) and updates the respective stats.
 func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
-	stats, msgs := cr.getOrCreateStat(event)
-	if len(msgs) > 0 {
-		cr.statCh <- msgs
+	stats, msg := cr.getOrCreateStat(event)
+	if msg != nil {
+		cr.statCh <- []asmetrics.StatMessage{*msg}
 	}
 	stats.HandleEvent(event)
 }
@@ -91,7 +91,7 @@ func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
 // getOrCreateStat gets a stat from the state if present.
 // If absent it creates a new one and returns it, potentially returning a StatMessage too
 // to trigger an immediate scale-from-0.
-func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network.RequestStats, []asmetrics.StatMessage) {
+func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network.RequestStats, *asmetrics.StatMessage) {
 	cr.mux.RLock()
 	stat := cr.stats[event.Key]
 	cr.mux.RUnlock()
@@ -112,24 +112,19 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network
 	stat = network.NewRequestStats(event.Time)
 	cr.stats[event.Key] = stat
 
-	if event.Type == network.ReqIn {
-		// Return a StatMessage if this is an incoming request.
-		cr.reportedFirstRequest[event.Key] = 1
-		return stat, []asmetrics.StatMessage{{
-			Key: event.Key,
-			Stat: asmetrics.Stat{
-				// Stat time is unset by design. Will be set by receiver.
-				PodName:                   cr.podName,
-				AverageConcurrentRequests: 1,
-				// The way the checks are written, this cannot ever be
-				// anything else but 1. The stats map key is only deleted
-				// after a reporting period, so we see this code path at most
-				// once per period.
-				RequestCount: 1,
-			},
-		}}
+	cr.reportedFirstRequest[event.Key] = 1
+	return stat, &asmetrics.StatMessage{
+		Key: event.Key,
+		Stat: asmetrics.Stat{
+			PodName:                   cr.podName,
+			AverageConcurrentRequests: 1,
+			// The way the checks are written, this cannot ever be
+			// anything else but 1. The stats map key is only deleted
+			// after a reporting period, so we see this code path at most
+			// once per period.
+			RequestCount: 1,
+		},
 	}
-	return stat, nil
 }
 
 // report cuts a report from all collected statistics and sends the respective messages
