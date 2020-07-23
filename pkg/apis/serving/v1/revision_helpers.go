@@ -184,7 +184,7 @@ func (r *Revision) SetLastPinned(t time.Time) {
 
 // GetLastPinned returns the time the revision was last pinned.
 func (r *Revision) GetLastPinned() (time.Time, error) {
-	if r.ObjectMeta.Annotations == nil {
+	if r.Annotations == nil {
 		return time.Time{}, LastPinnedParseError{
 			Type: AnnotationParseErrorTypeMissing,
 		}
