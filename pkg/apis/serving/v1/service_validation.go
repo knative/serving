@@ -67,11 +67,13 @@ func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 // validateLabels function validates service labels
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
-		switch {
-		case key == serving.VisibilityLabelKey:
+		switch key {
+		case serving.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		default:
+			if strings.HasPrefix(key, serving.GroupNamePrefix) {
+				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+			}
 		}
 	}
 	return
