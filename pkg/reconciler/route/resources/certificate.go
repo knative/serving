@@ -64,7 +64,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
-				}, route.ObjectMeta.Annotations), func(key string) bool {
+				}, route.Annotations), func(key string) bool {
 					return key == corev1.LastAppliedConfigAnnotation
 				}),
 				Labels: map[string]string{
