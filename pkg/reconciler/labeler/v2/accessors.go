@@ -17,7 +17,7 @@ limitations under the License.
 package v2
 
 import (
-	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,9 +34,9 @@ import (
 // Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type Accessor interface {
-	list(ns, name string) ([]kmeta.Accessor, error)
+	list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
+	makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -66,15 +66,11 @@ func NewRevisionAccessor(
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
-	acc kmeta.Accessor, routeName string, addRoutingState bool, clock clock.Clock) (map[string]interface{}, error) {
+	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.Clock) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
-	if err := addRouteLabel(acc, routeName, labels); err != nil {
-		return nil, err
-	}
-
-	if addRoutingState {
+	if stateChanged := addRouteAnnotation(acc, routeName, annotations, remove); stateChanged && addRoutingState {
 		markRoutingState(acc, routeName != "", clock, labels, annotations)
 	}
 
@@ -106,30 +102,47 @@ func markRoutingState(
 	}
 }
 
-// addRouteLabel appends the route label to the list of labels if needed
-// or removes the label if routeName is nil.
-func addRouteLabel(acc kmeta.Accessor, routeName string, diffLabels map[string]interface{}) error {
-	if routeName == "" { // remove the label
-		if acc.GetLabels()[serving.RouteLabelKey] != "" {
-			diffLabels[serving.RouteLabelKey] = nil
+// addRouteAnnotation appends the route annotation to the list of labels if needed
+// or removes the annotation if routeName is nil.
+func addRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
+	v, has := getListAnnValue(acc.GetAnnotations(), serving.RouteLabelKey, routeName)
+	switch {
+	case has && remove:
+		if len(v) == 1 {
+			diffAnn[serving.RouteLabelKey] = nil
+			return true
 		}
-	} else { // add the label
-		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
-			diffLabels[serving.RouteLabelKey] = routeName
-		} else if oldLabel != routeName {
-			// TODO(whaught): this restricts us to only one route -> revision
-			// We can move this to a comma separated list annotation and use the new routingState label.
-			return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
+		s := removeFromList(v, routeName)
+		diffAnn[serving.RouteLabelKey] = strings.Join(s, ",")
+		return false
+
+	case !has && !remove:
+		if len(v) == 0 {
+			diffAnn[serving.RouteLabelKey] = routeName
+			return true
 		}
+		diffAnn[serving.RouteLabelKey] = strings.Join(v, ",") + "," + routeName
+		return false
 	}
 
-	return nil
+	return false
+}
+
+func removeFromList(strs []string, s string) []string {
+	l := len(strs)
+	for i := 0; i < l; i++ {
+		if strs[i] == s {
+			strs[i], strs[l-1] = strs[l-1], strs[i]
+			break
+		}
+	}
+	return strs[:l-1]
 }
 
 // list implements Accessor
-func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
+func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
+		serving.RoutingStateLabelKey: string(state),
 	}))
 	if err != nil {
 		return nil, err
@@ -137,6 +150,7 @@ func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, len(rl))
 	for _, r := range rl {
+		// TODO() If routename is in there.
 		kl = append(kl, r)
 	}
 	return kl, err
@@ -148,12 +162,12 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
 	rev, err := r.revisionLister.Revisions(ns).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, r.clock)
+	return makeMetadataPatch(rev, routeName, true, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -182,19 +196,34 @@ func NewConfigurationAccessor(
 }
 
 // list implements Accessor
-func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
+func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+	// TODO(whaught): Do we want routingState labels on Configurations? Maybe
+	cl, err := c.configurationLister.Configurations(ns).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, 0, len(cl))
+	for _, c := range cl {
+		if _, has := getListAnnValue(c.Annotations, serving.RouteLabelKey, routeName); has {
+			kl = append(kl, c)
+		}
 	}
 	return kl, err
+}
+
+func getListAnnValue(annotations map[string]string, key, value string) ([]string, bool) {
+	l, ok := annotations[key]
+	if ok {
+		vals := strings.Split(l, ",")
+		for _, r := range vals {
+			if r == value {
+				return vals, true
+			}
+		}
+		return vals, false
+	}
+	return []string{}, false
 }
 
 // patch implements Accessor
@@ -203,10 +232,10 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
 	config, err := c.configurationLister.Configurations(ns).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, c.clock)
+	return makeMetadataPatch(config, routeName, false, remove, c.clock)
 }

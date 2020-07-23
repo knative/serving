@@ -18,6 +18,7 @@ package labeler
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	// Inject the fake informers that this controller needs.
@@ -327,4 +328,26 @@ func TestV1Reconcile(t *testing.T) {
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r)
 	}))
+}
+
+func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null}}}`, key)
+
+	action.Patch = []byte(patch)
+	return action
+}
+
+func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)
+
+	action.Patch = []byte(patch)
+	return action
 }

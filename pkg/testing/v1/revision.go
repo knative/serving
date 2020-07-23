@@ -213,6 +213,16 @@ func WithRevisionLabel(key, value string) RevisionOption {
 	}
 }
 
+// WithRevisionAnn attaches a particular label to the revision.
+func WithRevisionAnn(key, value string) RevisionOption {
+	return func(config *v1.Revision) {
+		if config.Annotations == nil {
+			config.Annotations = make(map[string]string, 1)
+		}
+		config.Annotations[key] = value
+	}
+}
+
 // WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
 func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
 	return func(r *v1.Revision) {

@@ -108,6 +108,16 @@ func WithConfigLabel(key, value string) ConfigOption {
 	}
 }
 
+// WithConfigAnn attaches a particular label to the configuration.
+func WithConfigAnn(key, value string) ConfigOption {
+	return func(config *v1.Configuration) {
+		if config.Annotations == nil {
+			config.Annotations = make(map[string]string, 1)
+		}
+		config.Annotations[key] = value
+	}
+}
+
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
 func WithConfigOwnersRemoved(cfg *v1.Configuration) {
 	cfg.OwnerReferences = nil

@@ -29,7 +29,7 @@ import (
 )
 
 // SyncLabels makes sure that the revisions and configurations referenced from
-// a Route are labeled with route labels.
+// a Route are labeled with route annotations.
 func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
@@ -109,8 +109,8 @@ func ClearLabels(ns, name string, accs ...Accessor) error {
 // listed within "names" in the same namespace.
 func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRouteLabel(acc, route.Namespace, name, route.Name); err != nil {
-			return fmt.Errorf("failed to add route label to Namespace=%s Name=%q: %w", route.Namespace, name, err)
+		if err := setRouteAnn(acc, route.Namespace, name, route.Name, false); err != nil {
+			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
 	return nil
@@ -120,7 +120,7 @@ func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
 // not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
 func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(ns, routeName)
+	oldList, err := acc.list(ns, routeName, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
@@ -132,8 +132,8 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 			continue
 		}
 
-		if err := setRouteLabel(acc, ns, name, ""); err != nil {
-			return fmt.Errorf("failed to remove route label to %s %q: %w",
+		if err := setRouteAnn(acc, ns, name, routeName, true); err != nil {
+			return fmt.Errorf("failed to remove route annotation to %s %q: %w",
 				elt.GroupVersionKind(), name, err)
 		}
 	}
@@ -141,11 +141,11 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 	return nil
 }
 
-// setRouteLabel toggles the route label on the specified element through the provided accessor.
-// a nil route name will cause the route label to be deleted, and a non-nil route will cause
+// setRouteAnn toggles the route annotation on the specified element through the provided accessor.
+// a nil route name will cause the route annotation to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc Accessor, ns, name string, routeName string) error {
-	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
+func setRouteAnn(acc Accessor, ns, name, routeName string, remove bool) error {
+	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)
