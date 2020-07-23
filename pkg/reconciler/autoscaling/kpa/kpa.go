@@ -130,24 +130,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	pa.Status.ServiceName = sks.Status.ServiceName
 
 	// Compare the desired and observed resources to determine our situation.
-	ready, notReady := 0, 0
 	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
-	// Currently, SKS.IsReady==True when revision has >0 ready pods.
-	if sks.IsReady() {
-		ready, err = podCounter.ReadyCount()
-		if err != nil {
-			return fmt.Errorf("error getting ready pods %s: %w", sks.Status.PrivateServiceName, err)
-		}
-
-		notReady, err = podCounter.NotReadyCount()
-		if err != nil {
-			return fmt.Errorf("error getting not ready pods %s: %w", sks.Status.PrivateServiceName, err)
-		}
-	}
-
-	pending, terminating, err := podCounter.PendingTerminatingCount()
+	ready, notReady, pending, terminating, err := podCounter.PodCountsByState()
 	if err != nil {
-		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
+		return fmt.Errorf("error getting pod counts %s: %w", sks.Status.PrivateServiceName, err)
+	}
+	// If SKS is not ready — ensure we're not becoming ready.
+	// TODO: see if we can perhaps propagate the SKS state to computing active status.
+	if !sks.IsReady() {
+		ready = 0
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
