@@ -69,8 +69,8 @@ type ingressState struct {
 
 // podState represents the probing state of a Pod (for a specific Ingress)
 type podState struct {
-	// successCount is the number of successful probes
-	successCount int32
+	// pendindCount is the number of probes for the Pod
+	pendingCount int32
 
 	cancel func()
 }
@@ -236,7 +236,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 
 		podCtx, cancel := context.WithCancel(ingCtx)
 		podState := &podState{
-			successCount: 0,
+			pendingCount: int32(len(ipWorkItems)),
 			cancel:       cancel,
 		}
 
@@ -402,8 +402,8 @@ func (m *Prober) processWorkItem() bool {
 }
 
 func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
-	if atomic.AddInt32(&podState.successCount, 1) == 1 {
-		// This is the first successful probe call for the pod, cancel all other work items for this pod
+	// This is the last probe call for the pod, the pod is ready
+	if atomic.AddInt32(&podState.pendingCount, -1) == 0 {
 		podState.cancel()
 
 		// This is the last pod being successfully probed, the Ingress is ready
