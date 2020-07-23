@@ -152,7 +152,7 @@ func (r *Revision) GetRoutingStateModified() time.Time {
 
 // IsReachable returns whether or not the revision can be reached by a route.
 func (r *Revision) IsReachable() bool {
-	return r.Labels[serving.RouteLabelKey] != "" || r.Annotations[serving.RouteLabelKey] != ""
+	return r.Labels[serving.RouteLabelKey] != "" || r.Annotations[serving.RoutesAnnotationKey] != ""
 }
 
 // GetProtocol returns the app level network protocol.
