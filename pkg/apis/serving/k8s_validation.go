@@ -60,7 +60,7 @@ var (
 		"K_REVISION",
 	)
 
-	reservedPorts = sets.NewInt(
+	reservedPorts = sets.NewInt32(
 		networking.BackendHTTPPort,
 		networking.BackendHTTP2Port,
 		networking.QueueAdminPort,
