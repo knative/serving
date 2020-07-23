@@ -27,7 +27,7 @@ require (
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.30.0
 	istio.io/api v0.0.0-20200512234804-e5412c253ffe
@@ -38,10 +38,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200722161057-641864dd528b
-	knative.dev/networking v0.0.0-20200722170957-facd9a20c21d
-	knative.dev/pkg v0.0.0-20200723060257-ae9c3f7fa8d3
-	knative.dev/test-infra v0.0.0-20200722142057-3ca910b5a25e
+	knative.dev/caching v0.0.0-20200723145958-d031ce9de55d
+	knative.dev/networking v0.0.0-20200723155758-cc457d7322d6
+	knative.dev/pkg v0.0.0-20200723172857-6167cd9c1f2b
+	knative.dev/test-infra v0.0.0-20200723141258-383af8175387
 )
 
 replace (
