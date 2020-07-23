@@ -83,7 +83,7 @@ spec:
         - "-disable=networking-istio"
         # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
         # sorted out.
-        - "disable=webhook"
+        - "-disable=webhook"
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
