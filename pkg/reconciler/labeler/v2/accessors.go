@@ -36,7 +36,7 @@ import (
 type Accessor interface {
 	list(ns, name string) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
+	makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -135,9 +135,9 @@ func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(rl))
+	for i, r := range rl {
+		kl[i] = r
 	}
 	return kl, err
 }
@@ -148,7 +148,7 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (r *Revision) makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error) {
 	rev, err := r.revisionLister.Revisions(ns).Get(name)
 	if err != nil {
 		return nil, err
@@ -183,16 +183,16 @@ func NewConfigurationAccessor(
 
 // list implements Accessor
 func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
+	cl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
 	if err != nil {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(cl))
+	for i, c := range cl {
+		kl[i] = c
 	}
 	return kl, err
 }
@@ -203,7 +203,7 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
+func (c *Configuration) makeMetadataPatch(ns, name, routeName string) (map[string]interface{}, error) {
 	config, err := c.configurationLister.Configurations(ns).Get(name)
 	if err != nil {
 		return nil, err

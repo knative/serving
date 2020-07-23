@@ -144,7 +144,7 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 // setRouteLabel toggles the route label on the specified element through the provided accessor.
 // a nil route name will cause the route label to be deleted, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc Accessor, ns, name string, routeName string) error {
+func setRouteLabel(acc Accessor, ns, name, routeName string) error {
 	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
 		return err
 	} else if mergePatch != nil {
