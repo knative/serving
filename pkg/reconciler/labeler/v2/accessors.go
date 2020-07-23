@@ -135,9 +135,9 @@ func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(rl))
+	for i, r := range rl {
+		kl[i] = r
 	}
 	return kl, err
 }
@@ -183,16 +183,16 @@ func NewConfigurationAccessor(
 
 // list implements Accessor
 func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
+	cl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
 	if err != nil {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(cl))
+	for i, c := range cl {
+		kl[i] = c
 	}
 	return kl, err
 }
