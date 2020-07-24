@@ -85,16 +85,25 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	}
 
 	// v2 logic
+	cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+	racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
-		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
-		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 		if err := labelerv2.SyncLabels(r, cacc, racc); err != nil {
 			return err
 		}
 	}
 
+	// Delete whichever is off for upgrade/downgrade migrations.
+	// Once the flag is permanently enabled we can eliminate this logic.
+
 	if newGC == cfgmap.Enabled {
 		if err := labelerv1.ClearLabels(r.Namespace, r.Name, caccV1, raccV1); err != nil {
+			return err
+		}
+	}
+
+	if newGC == cfgmap.Disabled {
+		if err := labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
 			return err
 		}
 	}
