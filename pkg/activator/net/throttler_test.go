@@ -80,6 +80,13 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		containerConcurrency: 10,
 	}
 
+	// temporarily lower MaxConcurrency since the default value is math.MaxInt32
+	// and that will cause very, very slow tests as we try to create huge numbers
+	// of podTrackers in updateCapacity below.
+	bmp := revisionBreakerParams.MaxConcurrency
+	revisionBreakerParams.MaxConcurrency = 1000
+	defer func() { revisionBreakerParams.MaxConcurrency = bmp }()
+
 	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -88,8 +95,8 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	if got, want := rt.breaker.Capacity(), 100; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(breakerMaxConcurrency) // So in theory should be 10x.
-	if got, want := rt.breaker.Capacity(), breakerMaxConcurrency; got != want {
+	rt.updateCapacity(revisionBreakerParams.MaxConcurrency) // So in theory should be 10x.
+	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.numActivators = 10
@@ -109,16 +116,16 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 
 	rt.containerConcurrency = 0
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), breakerMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), breakerMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.numActivators = 200
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), breakerMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(0)
@@ -170,7 +177,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	rt.containerConcurrency = 0
 	rt.podTrackers = makeTrackers(3, 0)
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), breakerMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {

@@ -56,9 +56,9 @@ const (
 	// The upper bound for concurrent requests sent to the revision.
 	// As new endpoints show up, the revisionThrottler's concurrency increases up
 	// to this value.  We need to set some value here since the breaker requires
-	// an explicit buffer size (it's backed by a chan struct{}), but it can
-	// safely be quite large.
-	breakerMaxConcurrency = 100000
+	// an explicit buffer size (it's backed by a chan struct{}), but
+	// queue.MaxBreakerCapacity is very large.
+	breakerMaxConcurrency = queue.MaxBreakerCapacity
 )
 
 var (
