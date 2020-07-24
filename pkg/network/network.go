@@ -162,7 +162,7 @@ const (
 	// FlushInterval controls the time when we flush the connection in the
 	// reverse proxies (Activator, QP).
 	// NB: having it equal to 0 is a problem for streaming requests
-	// since the data won't be transfered in chunks less than 4kb, if the
+	// since the data won't be transferred in chunks less than 4kb, if the
 	// reverse proxy fails to detect streaming (gRPC, e.g.).
 	FlushInterval = 20 * time.Millisecond
 )
