@@ -130,9 +130,9 @@ func addRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string
 
 func removeFromList(strs []string, s string) []string {
 	l := len(strs)
-	for i := 0; i < l; i++ {
+	for i := 0; i < l-1; i++ {
 		if strs[i] == s {
-			strs[i], strs[l-1] = strs[l-1], strs[i]
+			strs[i] = strs[l-1]
 			break
 		}
 	}
@@ -205,25 +205,33 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, len(cl))
 	for _, c := range cl {
-		if _, has := getListAnnValue(c.Annotations, serving.RoutesAnnotationKey, routeName); has {
+		if containsListAnnValue(c.Annotations, serving.RoutesAnnotationKey, routeName) {
 			kl = append(kl, c)
 		}
 	}
 	return kl, err
 }
 
+// containsListAnnValue returns true if value is present in a comma-separated annotation.
+func containsListAnnValue(annotations map[string]string, key, value string) (has bool) {
+	_, has = getListAnnValue(annotations, key, value)
+	return
+}
+
+// getListAnnValue finds a given value in a comma-separated annotation.
+// returns the entire annotation value and true if found.
 func getListAnnValue(annotations map[string]string, key, value string) ([]string, bool) {
-	l, ok := annotations[key]
-	if ok {
-		vals := strings.Split(l, ",")
-		for _, r := range vals {
-			if r == value {
-				return vals, true
-			}
-		}
-		return vals, false
+	l, _ := annotations[key]
+	if l == "" {
+		return []string{}, false
 	}
-	return []string{}, false
+	vals := strings.Split(l, ",")
+	for _, r := range vals {
+		if r == value {
+			return vals, true
+		}
+	}
+	return vals, false
 }
 
 // patch implements Accessor
