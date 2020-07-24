@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -461,14 +462,23 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 
 func TestMetricsReported(t *testing.T) {
 	reset()
-	cr, _, cancel := newTestReporter(t)
+	cr, ctx, cancel := newTestReporter(t)
 	defer cancel()
+
+	reportCh := make(chan time.Time)
+	go func() {
+		cr.run(ctx.Done(), reportCh)
+		close(reportCh)
+	}()
 
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
-	cr.report(time.Time{}.Add(1 * time.Millisecond))
+
+	reportCh <- time.Now()
+	<-cr.statCh
+	<-cr.statCh
 
 	wantTags := map[string]string{
 		metricskey.LabelRevisionName:      rev1.Name,
@@ -478,6 +488,11 @@ func TestMetricsReported(t *testing.T) {
 		metricskey.PodName:                "the-best-activator",
 		metricskey.ContainerName:          "activator",
 	}
+	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 3)
+
+	reportCh <- time.Now()
+	<-cr.statCh
+
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
 }
 
@@ -525,13 +540,22 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 		}
 	}()
 
+	fake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
 	// Spread the load across 100 revisions.
 	keys := make([]types.NamespacedName, 0, 100)
 	for i := 0; i < cap(keys); i++ {
-		keys = append(keys, types.NamespacedName{
+		key := types.NamespacedName{
 			Namespace: testNamespace,
 			Name:      testRevName + strconv.Itoa(i),
-		})
+		}
+		keys = append(keys, key)
+
+		// Create revisions in the fake clients to trigger report logic.
+		rev := revision(key.Namespace, key.Name)
+		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		revisions.Informer().GetIndexer().Add(rev)
 	}
 
 	request := func(key types.NamespacedName) {
@@ -564,4 +588,54 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 			}
 		})
 	})
+}
+
+// BenchmarkConcurrencyReporterReport benchmarks the report function specifically
+// to get a feeling for how expensive it is as it'll lock the mutex and thus block
+// requests for the respective time too.
+func BenchmarkConcurrencyReporterReport(b *testing.B) {
+	for _, revs := range []int{1, 5, 10, 50, 100, 200} {
+		b.Run(fmt.Sprintf("revs-%d", revs), func(b *testing.B) {
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
+			defer cancel()
+
+			// Buffer equal to the activator.
+			statCh := make(chan []asmetrics.StatMessage)
+			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+
+			// Just read and ignore all stat messages.
+			go func() {
+				for {
+					select {
+					case <-statCh:
+					}
+				}
+			}()
+
+			fake := fakeservingclient.Get(ctx)
+			revisions := fakerevisioninformer.Get(ctx)
+			for i := 0; i < revs; i++ {
+				key := types.NamespacedName{
+					Namespace: testNamespace,
+					Name:      testRevName + strconv.Itoa(i),
+				}
+
+				// Create revisions in the fake clients to trigger report logic.
+				rev := revision(key.Namespace, key.Name)
+				fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+				revisions.Informer().GetIndexer().Add(rev)
+
+				// Send a dummy request for each revision to make sure it's reported.
+				cr.handleEvent(network.ReqEvent{
+					Time: time.Now(),
+					Type: network.ReqIn,
+					Key:  key,
+				})
+			}
+
+			for j := 0; j < b.N; j++ {
+				cr.report(time.Now())
+			}
+		})
+	}
 }
