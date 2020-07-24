@@ -205,21 +205,15 @@ func MarkRevisionReady(r *v1.Revision) {
 
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1.Revision) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string, 1)
-		}
-		config.Labels[key] = value
+	return func(rev *v1.Revision) {
+		rev.Labels = kmeta.UnionMaps(rev.Labels, map[string]string{key: value})
 	}
 }
 
 // WithRevisionAnn attaches a particular label to the revision.
 func WithRevisionAnn(key, value string) RevisionOption {
-	return func(config *v1.Revision) {
-		if config.Annotations == nil {
-			config.Annotations = make(map[string]string, 1)
-		}
-		config.Annotations[key] = value
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations, map[string]string{key: value})
 	}
 }
 
