@@ -162,7 +162,8 @@ func TestProbeAllHosts(t *testing.T) {
 
 	// Just drain the requests in the channel to not block the handler
 	go func() {
-		for range probeRequests {}
+		for range probeRequests {
+		}
 	}()
 
 	// Wait for the probing to eventually succeed
