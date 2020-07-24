@@ -252,6 +252,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		name           string
 		expectedSpec   corev1.ServiceSpec
 		expectedLabels map[string]string
+		expectedAnnos  map[string]string
 		wantErr        bool
 		route          *v1.Route
 	}{{
@@ -267,6 +268,23 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		},
 		wantErr: false,
 	}, {
+		name: "labels and annotations are propagated from the route",
+		route: Route("test-ns", "test-route",
+			WithRouteLabel(map[string]string{"route-label": "foo"}), WithRouteAnnotation(map[string]string{"route-anno": "bar"})),
+		expectedSpec: corev1.ServiceSpec{
+			Type:            corev1.ServiceTypeExternalName,
+			ExternalName:    "foo-test-route.test-ns.example.com",
+			SessionAffinity: corev1.ServiceAffinityNone,
+		},
+		expectedLabels: map[string]string{
+			serving.RouteLabelKey: "test-route",
+			"route-label":         "foo",
+		},
+		expectedAnnos: map[string]string{
+			"route-anno": "bar",
+		},
+		wantErr: false,
+	}, {
 		name:  "cluster local route",
 		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 		expectedSpec: corev1.ServiceSpec{
@@ -275,7 +293,8 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 		expectedLabels: map[string]string{
-			serving.RouteLabelKey: "test-route",
+			serving.RouteLabelKey:      "test-route",
+			serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
 		},
 	}}
 	for _, tt := range tests {
@@ -300,6 +319,9 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 
 			if !cmp.Equal(tt.expectedLabels, got.ObjectMeta.Labels) {
 				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.ObjectMeta.Labels))
+			}
+			if !cmp.Equal(tt.expectedAnnos, got.ObjectMeta.Annotations) {
+				t.Errorf("Unexpected Annotations (-want +got): %s", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))
 			}
 			if !cmp.Equal(tt.expectedSpec, got.Spec) {
 				t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(tt.expectedSpec, got.Spec))
