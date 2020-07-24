@@ -34,7 +34,6 @@ var (
 		serving.RevisionLastPinnedAnnotationKey,
 		serving.RevisionPreservedAnnotationKey,
 		serving.RoutingStateModifiedAnnotationKey,
-		serving.UpdaterAnnotation,
 		serving.RoutesAnnotationKey,
 	)
 )
