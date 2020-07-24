@@ -105,7 +105,7 @@ func markRoutingState(
 
 // updateRouteAnnotation appends the route annotation to the list of labels if needed
 // or removes the annotation if routeName is nil.
-// Returns true if an update was made.
+// Returns true if the entire annotation is newly added or removed, which signifies a state change.
 func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
 	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
 	has := valSet.Has(routeName)
