@@ -31,6 +31,7 @@ import (
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 	PodAutoscalerConditionScaleTargetInitialized,
+	PodAutoscalerConditionDependenciesReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -185,6 +186,18 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
+// MarkDependenciesReadymarks the PA condition denoting that all its
+// dependencies are ready.
+func (pas *PodAutoscalerStatus) MarkDependenciesReady() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionDependenciesReady)
+}
+
+// MarkDependenciesNotReady marks the PA condation that at least one of the
+// dependendcies is not ready.
+func (pas *PodAutoscalerStatus) MarkDependenciesNotReady(reason, message string) {
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionDependenciesReady, reason, message)
+}
+
 // GetCondition gets the condition `t`.
 func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return podCondSet.Manage(pas).GetCondition(t)
@@ -248,7 +261,7 @@ func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time
 
 // inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
 // the specified status for at least the specified duration. Otherwise it returns negative duration,
-// including when the status is undetermined (Active condition is not found.)
+// including when the status is undetermined.
 func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {

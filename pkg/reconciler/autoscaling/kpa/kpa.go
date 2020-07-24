@@ -79,12 +79,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 
 	// Having an SKS and its PrivateServiceName is a prerequisite for all upcoming steps.
-	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
+	if sks == nil || sks.Status.PrivateServiceName == "" {
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
+		pa.Status.MarkDependenciesNotReady("DependenciesNotReady", "SKS is provisioning")
 		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
@@ -138,7 +139,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// If SKS is not ready — ensure we're not becoming ready.
 	// TODO: see if we can perhaps propagate the SKS state to computing active status.
 	if !sks.IsReady() {
+		logger.Debug("SKS is not ready, marking dependencies not ready")
 		ready = 0
+		pa.Status.MarkDependenciesNotReady("DependenciesNotReady", "SKS is provisioning")
+	} else {
+		logger.Debug("SKS is ready, marking dependencies not ready")
+		pa.Status.MarkDependenciesReady()
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
