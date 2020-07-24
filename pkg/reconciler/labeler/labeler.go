@@ -75,35 +75,33 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
-	// v1 logic
 	caccV1 := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
 	raccV1 := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
+	caccV2 := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+	raccV2 := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+
+	switch newGC {
+	case cfgmap.Disabled:
 		if err := labelerv1.SyncLabels(r, caccV1, raccV1); err != nil {
 			return err
 		}
-	}
-
-	// v2 logic
-	cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
-	racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
-	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
-		if err := labelerv2.SyncLabels(r, cacc, racc); err != nil {
+		// Clear the new label for downgrade
+		if err := labelerv2.ClearLabels(r.Namespace, r.Name, caccV2, raccV2); err != nil {
 			return err
 		}
-	}
-
-	// Delete whichever is off for upgrade/downgrade migrations.
-	// Once the flag is permanently enabled we can eliminate this logic.
-
-	if newGC == cfgmap.Enabled {
+	case cfgmap.Allowed: // Both labelers on, down/upgrade don't lose data.
+		if err := labelerv1.SyncLabels(r, caccV1, raccV1); err != nil {
+			return err
+		}
+		if err := labelerv2.SyncLabels(r, caccV2, raccV2); err != nil {
+			return err
+		}
+	case cfgmap.Enabled:
+		if err := labelerv2.SyncLabels(r, caccV2, raccV2); err != nil {
+			return err
+		}
+		// Clear the old label for upgrade
 		if err := labelerv1.ClearLabels(r.Namespace, r.Name, caccV1, raccV1); err != nil {
-			return err
-		}
-	}
-
-	if newGC == cfgmap.Disabled {
-		if err := labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
 			return err
 		}
 	}
