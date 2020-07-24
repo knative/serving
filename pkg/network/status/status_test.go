@@ -57,8 +57,8 @@ var (
 )
 
 func TestProbeAllHosts(t *testing.T) {
-	hostA := "foo.bar.com"
-	hostB := "ksvc.test.dev"
+	const hostA = "foo.bar.com"
+	const hostB = "ksvc.test.dev"
 	hostBEnabled := int32(0)
 
 	ing := ingTemplate.DeepCopy()
@@ -162,9 +162,7 @@ func TestProbeAllHosts(t *testing.T) {
 
 	// Just drain the requests in the channel to not block the handler
 	go func() {
-		for {
-			<-probeRequests
-		}
+		for range probeRequests {}
 	}()
 
 	// Wait for the probing to eventually succeed
