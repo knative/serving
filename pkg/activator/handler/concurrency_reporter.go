@@ -130,7 +130,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network
 
 // report cuts a report from all collected statistics and sends the respective messages
 // via the statsCh and reports the concurrency metrics to prometheus.
-func (cr *ConcurrencyReporter) report(now time.Time) {
+func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 	cr.mux.Lock()
 	defer cr.mux.Unlock()
 
@@ -162,11 +162,9 @@ func (cr *ConcurrencyReporter) report(now time.Time) {
 		})
 		cr.reportToMetricsBackend(key, report.AverageConcurrency)
 	}
-	if len(messages) > 0 {
-		cr.statCh <- messages
-	}
-
 	cr.reportedFirstRequest = make(map[types.NamespacedName]float64)
+
+	return messages
 }
 
 func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency float64) {
@@ -197,7 +195,10 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		case event := <-cr.reqCh:
 			cr.handleEvent(event)
 		case now := <-reportCh:
-			cr.report(now)
+			msgs := cr.report(now)
+			if len(msgs) > 0 {
+				cr.statCh <- msgs
+			}
 		case <-stopCh:
 			return
 		}
