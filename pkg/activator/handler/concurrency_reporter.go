@@ -201,13 +201,15 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	}
 }
 
-// Handler returns a handler that records request coming in/being finished in the stats
+// Handler returns a handler that records requests coming in/being finished in the stats
 // machinery.
 func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		revisionKey := util.RevIDFrom(r.Context())
 		cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
-		defer cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
+		defer func() {
+			cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
+		}()
 
 		next.ServeHTTP(w, r)
 	}

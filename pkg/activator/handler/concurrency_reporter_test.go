@@ -443,7 +443,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 	}, {
 		Key: rev1,
 		Stat: metrics.Stat{
-			AverageConcurrentRequests: 0,
+			AverageConcurrentRequests: 0, // Discounted via the from 0 stat.
 			RequestCount:              2, // Discounted via the from 0 stat.
 			PodName:                   activatorPodName,
 		},
