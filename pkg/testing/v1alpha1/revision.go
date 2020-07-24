@@ -170,7 +170,7 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1alpha1.Revision) {
+	return func(rev *v1alpha1.Revision) {
 		rev.Labels = kmeta.UnionMaps(rev.Labels, map[string]string{key: value})
 	}
 }
