@@ -78,13 +78,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	// v1 logic
 	caccV1 := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
 	raccV1 := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-	switch newGC {
-	case cfgmap.Disabled, cfgmap.Allowed:
+	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
 		if err := labelerv1.SyncLabels(r, caccV1, raccV1); err != nil {
-			return err
-		}
-	case cfgmap.Enabled:
-		if err := labelerv1.ClearLabels(r.Namespace, r.Name, caccV1, raccV1); err != nil {
 			return err
 		}
 	}
@@ -94,6 +89,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
 		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
 		if err := labelerv2.SyncLabels(r, cacc, racc); err != nil {
+			return err
+		}
+	}
+
+	if newGC == cfgmap.Enabled {
+		if err := labelerv1.ClearLabels(r.Namespace, r.Name, caccV1, raccV1); err != nil {
 			return err
 		}
 	}
