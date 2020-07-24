@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/kube-openapi/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/pkg/tracker"
@@ -105,38 +106,29 @@ func markRoutingState(
 // addRouteAnnotation appends the route annotation to the list of labels if needed
 // or removes the annotation if routeName is nil.
 func addRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
-	v, has := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey, routeName)
+	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
+	has := valSet.Has(routeName)
 	switch {
 	case has && remove:
-		if len(v) == 1 {
+		if len(valSet) == 1 {
 			diffAnn[serving.RoutesAnnotationKey] = nil
 			return true
 		}
-		s := removeFromList(v, routeName)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(s, ",")
+		valSet.Delete(routeName)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
 		return false
 
 	case !has && !remove:
-		if len(v) == 0 {
+		if len(valSet) == 0 {
 			diffAnn[serving.RoutesAnnotationKey] = routeName
 			return true
 		}
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(v, ",") + "," + routeName
+		valSet.Insert(routeName)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
 		return false
 	}
 
 	return false
-}
-
-func removeFromList(strs []string, s string) []string {
-	l := len(strs)
-	for i := 0; i < l-1; i++ {
-		if strs[i] == s {
-			strs[i] = strs[l-1]
-			break
-		}
-	}
-	return strs[:l-1]
 }
 
 // list implements Accessor
@@ -150,7 +142,7 @@ func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Ac
 	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, len(rl))
 	for _, r := range rl {
-		if _, has := getListAnnValue(r.Annotations, serving.RoutesAnnotationKey, routeName); has {
+		if getListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, r)
 		}
 	}
@@ -205,33 +197,21 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, len(cl))
 	for _, c := range cl {
-		if containsListAnnValue(c.Annotations, serving.RoutesAnnotationKey, routeName) {
+		if getListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, c)
 		}
 	}
 	return kl, err
 }
 
-// containsListAnnValue returns true if value is present in a comma-separated annotation.
-func containsListAnnValue(annotations map[string]string, key, value string) (has bool) {
-	_, has = getListAnnValue(annotations, key, value)
-	return
-}
-
 // getListAnnValue finds a given value in a comma-separated annotation.
 // returns the entire annotation value and true if found.
-func getListAnnValue(annotations map[string]string, key, value string) ([]string, bool) {
+func getListAnnValue(annotations map[string]string, key string) sets.String {
 	l, _ := annotations[key]
 	if l == "" {
-		return []string{}, false
+		return sets.String{}
 	}
-	vals := strings.Split(l, ",")
-	for _, r := range vals {
-		if r == value {
-			return vals, true
-		}
-	}
-	return vals, false
+	return sets.NewString(strings.Split(l, ",")...)
 }
 
 // patch implements Accessor
