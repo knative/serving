@@ -160,7 +160,7 @@ func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (m
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true, remove, r.clock)
+	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -207,7 +207,7 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 // getListAnnValue finds a given value in a comma-separated annotation.
 // returns the entire annotation value and true if found.
 func getListAnnValue(annotations map[string]string, key string) sets.String {
-	l, _ := annotations[key]
+	l := annotations[key]
 	if l == "" {
 		return sets.String{}
 	}
@@ -225,5 +225,5 @@ func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove boo
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false, remove, c.clock)
+	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, remove, c.clock)
 }
