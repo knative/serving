@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"math"
+	"net/http"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -44,8 +46,6 @@ type ConcurrencyReporter struct {
 	logger  *zap.SugaredLogger
 	podName string
 
-	// Ticks with every request arrived/completed respectively
-	reqCh chan network.ReqEvent
 	// Stat reporting channel
 	statCh chan []asmetrics.StatMessage
 
@@ -65,12 +65,10 @@ type ConcurrencyReporter struct {
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
-func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan network.ReqEvent, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
+func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:  logging.FromContext(ctx),
 		podName: podName,
-		reqCh:   reqCh,
 		statCh:  statCh,
 		rl:      revisioninformer.Get(ctx).Lister(),
 
@@ -192,8 +190,6 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
 	for {
 		select {
-		case event := <-cr.reqCh:
-			cr.handleEvent(event)
 		case now := <-reportCh:
 			msgs := cr.report(now)
 			if len(msgs) > 0 {
@@ -202,5 +198,17 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		case <-stopCh:
 			return
 		}
+	}
+}
+
+// Handler returns a handler that records request coming in/being finished in the stats
+// machinery.
+func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		revisionKey := util.RevIDFrom(r.Context())
+		cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqIn, Time: time.Now()})
+		defer cr.handleEvent(network.ReqEvent{Key: revisionKey, Type: network.ReqOut, Time: time.Now()})
+
+		next.ServeHTTP(w, r)
 	}
 }
