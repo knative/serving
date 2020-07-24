@@ -68,9 +68,6 @@ import (
 const (
 	component = "activator"
 
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
-
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
 )
@@ -168,9 +165,6 @@ func main() {
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
-	reqCh := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqCh)
-
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx)
@@ -198,13 +192,13 @@ func main() {
 	go statReporter(statSink, statCh, logger)
 
 	// Create and run our concurrency reporter
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
-	go cr.Run(ctx.Done())
+	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
+	go concurrencyReporter.Run(ctx.Done())
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
-	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
+	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
