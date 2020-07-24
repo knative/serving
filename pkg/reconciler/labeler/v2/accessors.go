@@ -105,23 +105,23 @@ func markRoutingState(
 // addRouteAnnotation appends the route annotation to the list of labels if needed
 // or removes the annotation if routeName is nil.
 func addRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
-	v, has := getListAnnValue(acc.GetAnnotations(), serving.RouteLabelKey, routeName)
+	v, has := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey, routeName)
 	switch {
 	case has && remove:
 		if len(v) == 1 {
-			diffAnn[serving.RouteLabelKey] = nil
+			diffAnn[serving.RoutesAnnotationKey] = nil
 			return true
 		}
 		s := removeFromList(v, routeName)
-		diffAnn[serving.RouteLabelKey] = strings.Join(s, ",")
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(s, ",")
 		return false
 
 	case !has && !remove:
 		if len(v) == 0 {
-			diffAnn[serving.RouteLabelKey] = routeName
+			diffAnn[serving.RoutesAnnotationKey] = routeName
 			return true
 		}
-		diffAnn[serving.RouteLabelKey] = strings.Join(v, ",") + "," + routeName
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(v, ",") + "," + routeName
 		return false
 	}
 
@@ -141,16 +141,16 @@ func removeFromList(strs []string, s string) []string {
 
 // list implements Accessor
 func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
-	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RoutingStateLabelKey: string(state),
-	}))
+	rl, err := r.revisionLister.Revisions(ns).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, len(rl))
-	for i, r := range rl {
-		kl[i] = r
+	kl := make([]kmeta.Accessor, 0, len(rl))
+	for _, r := range rl {
+		if _, has := getListAnnValue(r.Annotations, serving.RoutesAnnotationKey, routeName); has {
+			kl = append(kl, r)
+		}
 	}
 	return kl, err
 }
@@ -196,7 +196,6 @@ func NewConfigurationAccessor(
 
 // list implements Accessor
 func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
-	// TODO(whaught): Do we want routingState labels on Configurations? Maybe
 	cl, err := c.configurationLister.Configurations(ns).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -204,7 +203,7 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, len(cl))
 	for _, c := range cl {
-		if _, has := getListAnnValue(c.Annotations, serving.RouteLabelKey, routeName); has {
+		if _, has := getListAnnValue(c.Annotations, serving.RoutesAnnotationKey, routeName); has {
 			kl = append(kl, c)
 		}
 	}

@@ -18,9 +18,7 @@ package labeler
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
 	// Inject the fake informers that this controller needs.
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -57,7 +55,7 @@ func TestV2ReconcileAllowed(t *testing.T) {
 
 			rev("default", "old-config",
 				WithRevisionLabel("serving.knative.dev/route", "config-change"),
-				WithRevisionAnn("serving.knative.dev/route", "config-change"),
+				WithRevisionAnn("serving.knative.dev/routes", "config-change"),
 				WithRoutingState(v1.RoutingStateActive)),
 
 			simpleConfig("default", "new-config"),
@@ -91,28 +89,4 @@ func TestV2ReconcileAllowed(t *testing.T) {
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r)
 	}))
-}
-
-func patchAddBothAndState(namespace, name, routeName string, now time.Time) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	state := string(v1.RoutingStateReserve)
-
-	// Note: the raw json `"key": null` removes a value, whereas an actual value
-	// called "null" would need quotes to parse as a string `"key":"null"`.
-	if routeName != "null" {
-		state = string(v1.RoutingStateActive)
-		routeName = `"` + routeName + `"`
-	}
-
-	patch := fmt.Sprintf(
-		`{"metadata":{"annotations":{"serving.knative.dev/route":%s,`+
-			`"serving.knative.dev/routingStateModified":%q},`+
-			`"labels":{"serving.knative.dev/routingState":%q,`+
-			`"serving.knative.dev/route":%s}}}`, routeName, now.UTC().Format(time.RFC3339), state, routeName)
-
-	action.Patch = []byte(patch)
-	return action
 }
