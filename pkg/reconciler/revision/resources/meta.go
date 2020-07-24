@@ -28,7 +28,6 @@ var (
 	excludeLabels = sets.NewString(
 		serving.RouteLabelKey,
 		serving.RoutingStateLabelKey,
-		serving.RevisionLabelKey,
 	)
 
 	excludeAnnotations = sets.NewString(
