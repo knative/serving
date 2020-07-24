@@ -141,7 +141,9 @@ func removeFromList(strs []string, s string) []string {
 
 // list implements Accessor
 func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
-	rl, err := r.revisionLister.Revisions(ns).List(labels.Everything())
+	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
+		serving.RoutingStateLabelKey: string(state),
+	}))
 	if err != nil {
 		return nil, err
 	}
