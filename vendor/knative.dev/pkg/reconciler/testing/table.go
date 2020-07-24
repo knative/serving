@@ -98,6 +98,8 @@ type TableRow struct {
 	// testing framework. Instead it is used in the test method. E.g. setting up the responses for a
 	// mock client can go in here.
 	OtherTestData map[string]interface{}
+
+	CmpOpts []cmp.Option
 }
 
 func objKey(o runtime.Object) string {
@@ -175,7 +177,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Errorf("Unexpected action[%d]: %#v", i, got)
 		}
 
-		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+		if diff := cmp.Diff(want, obj, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...); diff != "" {
 			t.Errorf("Unexpected create (-want, +got): %s", diff)
 		}
 	}
@@ -196,7 +198,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				continue
 			}
 			t.Errorf("Missing update for %s (-want, +prevState): %s", key,
-				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+				cmp.Diff(wo, oldObj, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...))
 			continue
 		}
 
@@ -209,7 +211,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		// Update the object state.
 		objPrevState[objKey(got)] = got
 
-		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+		if diff := cmp.Diff(want.GetObject(), got, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...); diff != "" {
 			t.Errorf("Unexpected update (-want, +got): %s", diff)
 		}
 	}
@@ -231,7 +233,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				continue
 			}
 			t.Errorf("Missing status update for %s (-want, +prevState): %s", key,
-				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+				cmp.Diff(wo, oldObj, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...))
 			continue
 		}
 
@@ -240,7 +242,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		// Update the object state.
 		objPrevState[objKey(got)] = got
 
-		if diff := cmp.Diff(want.GetObject(), got, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
+		if diff := cmp.Diff(want.GetObject(), got, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...); diff != "" {
 			t.Errorf("Unexpected status update (-want, +got): %s\nFull: %v", diff, got)
 		}
 	}
@@ -254,7 +256,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 				continue
 			}
 			t.Errorf("Extra status update for %s (-extra, +prevState): %s", key,
-				cmp.Diff(wo, oldObj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()))
+				cmp.Diff(wo, oldObj, append(r.CmpOpts, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty())...))
 		}
 	}
 
