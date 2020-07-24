@@ -81,8 +81,8 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// temporarily lower MaxConcurrency since the default value is math.MaxInt32
-	// and that will cause very, very slow tests as we try to create huge numbers
-	// of podTrackers in updateCapacity below.
+	// and we want to test calling updateCapacity() below with the same value
+	// as MaxConcurrency. This will be very, very slow if MaxConcurrency is very large.
 	bmp := revisionBreakerParams.MaxConcurrency
 	revisionBreakerParams.MaxConcurrency = 1000
 	defer func() { revisionBreakerParams.MaxConcurrency = bmp }()
