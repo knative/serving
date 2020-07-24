@@ -112,7 +112,8 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: svcLabels,
+			Labels:      kmeta.UnionMaps(route.GetLabels(), svcLabels),
+			Annotations: route.GetAnnotations(),
 		},
 	}, nil
 }
