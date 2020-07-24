@@ -71,7 +71,7 @@ func makeMetadataPatch(
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
-	if stateChanged := addRouteAnnotation(acc, routeName, annotations, remove); stateChanged && addRoutingState {
+	if stateChanged := updateRouteAnnotation(acc, routeName, annotations, remove); stateChanged && addRoutingState {
 		markRoutingState(acc, routeName != "", clock, labels, annotations)
 	}
 
@@ -103,9 +103,10 @@ func markRoutingState(
 	}
 }
 
-// addRouteAnnotation appends the route annotation to the list of labels if needed
+// updateRouteAnnotation appends the route annotation to the list of labels if needed
 // or removes the annotation if routeName is nil.
-func addRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
+// Returns true if an update was made.
+func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
 	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
 	has := valSet.Has(routeName)
 	switch {
