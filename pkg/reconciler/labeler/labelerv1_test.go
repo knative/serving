@@ -330,23 +330,17 @@ func TestV1Reconcile(t *testing.T) {
 }
 
 func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null}}}`, key)
-
-	action.Patch = []byte(patch)
-	return action
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(fmt.Sprintf(`{"metadata":{"labels":{%q:null}}}`, key)),
+	}
 }
 
 func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)
-
-	action.Patch = []byte(patch)
-	return action
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)),
+	}
 }

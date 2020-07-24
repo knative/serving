@@ -423,9 +423,10 @@ func patchRemoveRouteAndServingStateLabel(namespace, name string, now time.Time)
 }
 
 func patchAddRouteAnn(namespace, name, value string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
+	action := clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+	}
 
 	// Note: the raw json `"key": null` removes a value, whereas an actual value
 	// called "null" would need quotes to parse as a string `"key":"null"`.
@@ -433,53 +434,46 @@ func patchAddRouteAnn(namespace, name, value string) clientgotesting.PatchAction
 		value = `"` + value + `"`
 	}
 
-	patch := fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/routes":%s}}}`, value)
-
-	action.Patch = []byte(patch)
+	action.Patch = []byte(fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/routes":%s}}}`, value))
 	return action
 }
 
 func patchAddRouteAndServingStateLabel(namespace, name, routeName string, now time.Time) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-
-	state := string(v1.RoutingStateReserve)
+	action := clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+	}
 
 	// Note: the raw json `"key": null` removes a value, whereas an actual value
 	// called "null" would need quotes to parse as a string `"key":"null"`.
+	state := string(v1.RoutingStateReserve)
 	if routeName != "null" {
 		state = string(v1.RoutingStateActive)
 		routeName = `"` + routeName + `"`
 	}
 
-	patch := fmt.Sprintf(
+	action.Patch = []byte(fmt.Sprintf(
 		`{"metadata":{"annotations":{"serving.knative.dev/routes":%s,`+
 			`"serving.knative.dev/routingStateModified":%q},`+
-			`"labels":{"serving.knative.dev/routingState":%q}}}`, routeName, now.UTC().Format(time.RFC3339), state)
-
-	action.Patch = []byte(patch)
+			`"labels":{"serving.knative.dev/routingState":%q}}}`, routeName, now.UTC().Format(time.RFC3339), state))
 	return action
 }
 
 func patchAddFinalizerAction(namespace, name string) clientgotesting.PatchActionImpl {
-	resource := v1.Resource("routes")
-	finalizer := resource.String()
-
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-	patch := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":""}}`, finalizer)
-	action.Patch = []byte(patch)
-	return action
+	p := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":""}}`, v1.Resource("routes").String())
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(p),
+	}
 }
 
 func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-	action.Patch = []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`)
-	return action
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`),
+	}
 }
 
 func TestNew(t *testing.T) {
