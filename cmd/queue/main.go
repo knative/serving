@@ -329,7 +329,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = -1
+	httpProxy.FlushInterval = network.FlushInterval
 	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(env)
