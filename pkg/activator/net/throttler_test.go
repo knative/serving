@@ -85,7 +85,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	// as MaxConcurrency. This will be very, very slow if MaxConcurrency is very large.
 	bmp := revisionBreakerParams.MaxConcurrency
 	revisionBreakerParams.MaxConcurrency = 1000
-	defer func() { revisionBreakerParams.MaxConcurrency = bmp }()
+	t.Cleanup(func() { revisionBreakerParams.MaxConcurrency = bmp })
 
 	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
