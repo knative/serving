@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 )
@@ -32,6 +33,10 @@ var (
 	// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
 	ErrRequestQueueFull = errors.New("pending request queue full")
 )
+
+// MaxBreakerCapacity is the largest valid value for the MaxConcurrency value of BreakerParams.
+// This is limited by the maximum size of a chan struct{} in the current implementation.
+const MaxBreakerCapacity = math.MaxInt32
 
 // BreakerParams defines the parameters of the breaker.
 type BreakerParams struct {
