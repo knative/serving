@@ -480,6 +480,102 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
 		},
 	}, {
+		Name: "kpa does not become ready without minScale endpoints when reachable",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
+				WithReachabilityReachable, WithPAMetricsService(privateSvc)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+		}, defaultReady...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPADepsReady,
+				markActivating, withMinScale(2), WithPAMetricsService(privateSvc),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable,
+				WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "kpa does not become ready without minScale endpoints when reachability is unknown",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
+				WithPAMetricsService(privateSvc), WithReachabilityUnknown),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+		}, defaultReady...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPADepsReady,
+				markActivating, withMinScale(2), WithPAMetricsService(privateSvc),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown,
+				WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "kpa becomes ready without minScale endpoints when unreachable",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
+				WithPAMetricsService(privateSvc), WithReachabilityUnreachable),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+		}, defaultReady...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPADepsReady,
+				markActive, markScaleTargetInitialized, withMinScale(2), WithPAMetricsService(privateSvc),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnreachable,
+				WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "kpa becomes ready with minScale endpoints when reachable",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale), WithReachabilityReachable),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+		}, makeReadyPods(2, testNamespace, testRevision)...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPADepsReady,
+				markActive, markScaleTargetInitialized, withMinScale(2), WithPAMetricsService(privateSvc),
+				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable,
+				WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "kpa becomes ready with minScale endpoints when reachability is unknown",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale), WithReachabilityUnknown),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+		}, makeReadyPods(2, testNamespace, testRevision)...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPADepsReady,
+				markActive, markScaleTargetInitialized, withMinScale(2), WithPAMetricsService(privateSvc),
+				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown,
+				WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "sks does not exist",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActive, WithPAMetricsService(privateSvc), withScales(1, defaultScale)),
+			defaultDeployment,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// SKS does not exist, so we're just creating and have no status.
+			Object: kpa(testNamespace, testRevision, WithPADepsNotReady("DependenciesNotReady", "SKS is provisioning"),
+				markActivating, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
+				WithObservedGeneration(1)),
+		}},
+		WantCreates: []runtime.Object{
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
+		},
+	}, {
 		Name: "sks is out of whack",
 		Key:  key,
 		Objects: []runtime.Object{
