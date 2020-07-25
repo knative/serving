@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -221,10 +220,6 @@ func MakeDeployment(rev *v1.Revision,
 	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
 	autoscalerConfig *asconfig.Config) (*appsv1.Deployment, error) {
 
-	podTemplateAnnotations := kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
-		return k == serving.RevisionLastPinnedAnnotationKey
-	})
-
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
@@ -237,15 +232,15 @@ func MakeDeployment(rev *v1.Revision,
 		replicaCount, _ = strconv.Atoi(ann)
 	}
 
+	labels := makeLabels(rev)
+	anns := makeAnnotations(rev)
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Deployment(rev),
-			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
-			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
-				// Exclude the heartbeat label, which can have high variance.
-				return k == serving.RevisionLastPinnedAnnotationKey
-			}),
+			Name:            names.Deployment(rev),
+			Namespace:       rev.Namespace,
+			Labels:          labels,
+			Annotations:     anns,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -254,8 +249,8 @@ func MakeDeployment(rev *v1.Revision,
 			ProgressDeadlineSeconds: ptr.Int32(int32(deploymentConfig.ProgressDeadline.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeLabels(rev),
-					Annotations: podTemplateAnnotations,
+					Labels:      labels,
+					Annotations: anns,
 				},
 				Spec: *podSpec,
 			},

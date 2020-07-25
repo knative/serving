@@ -40,6 +40,7 @@ var (
 		RoutingStateModifiedAnnotationKey,
 		GroupNamePrefix+"forceUpgrade",
 		RevisionPreservedAnnotationKey,
+		RoutesAnnotationKey,
 	)
 )
 
