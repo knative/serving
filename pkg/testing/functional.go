@@ -84,6 +84,18 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithPADepsReady marks PA status that all its deps are ready.
+func WithPADepsReady(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkDependenciesReady()
+}
+
+// WithPADepsReady marks PA status that at least one of its deps is not ready.
+func WithPADepsNotReady(s, m string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MarkDependenciesNotReady(s, m)
+	}
+}
+
 // WithScaleTargetInitialized updates the PA to reflect it having initialized its
 // ScaleTarget.
 func WithScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
