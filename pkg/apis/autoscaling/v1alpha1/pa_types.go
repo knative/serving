@@ -117,7 +117,7 @@ const (
 	PodAutoscalerConditionScaleTargetInitialized apis.ConditionType = "ScaleTargetInitialized"
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
-	// PodAutoscalerCondtionDependenciesReady is set when all the dependencies have are ready and
+	// PodAutoscalerCondtionDependenciesReady is set when all the dependencies are ready and
 	// the revision is ready to scale.
 	PodAutoscalerConditionDependenciesReady = "DependeciesReady"
 )

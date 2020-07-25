@@ -187,7 +187,7 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 }
 
 // MarkDependenciesReadymarks the PA condition denoting that all its
-// dependencies are ready.
+// dependencies (e.g. SKS) are ready.
 func (pas *PodAutoscalerStatus) MarkDependenciesReady() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionDependenciesReady)
 }

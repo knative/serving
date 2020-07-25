@@ -143,7 +143,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		ready = 0
 		pa.Status.MarkDependenciesNotReady("DependenciesNotReady", "SKS is provisioning")
 	} else {
-		logger.Debug("SKS is ready, marking dependencies not ready")
+		logger.Debug("SKS is ready, marking dependencies ready")
 		pa.Status.MarkDependenciesReady()
 	}
 
