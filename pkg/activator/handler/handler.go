@@ -53,7 +53,9 @@ type activationHandler struct {
 
 // New constructs a new http.Handler that deals with revision activation.
 func New(ctx context.Context, t Throttler) http.Handler {
-	defaultTransport := pkgnet.AutoTransport
+	// TODO: run loadtests to determine the optimal values here.
+	defaultTransport := pkgnet.NewAutoTransport(1000, /*maxidleconnes*/
+		100 /*maxidleperhos*/)
 	return &activationHandler{
 		transport: defaultTransport,
 		tracingTransport: &ochttp.Transport{
