@@ -247,7 +247,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			pa("foo", "pa-ready", WithPADepsReady, WithTraffic,
+			pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
 				WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
@@ -344,7 +344,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
 				WithRevisionLabel(serving.RouteLabelKey, "foo")),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPADepsReady, WithScaleTargetInitialized,
+				WithTraffic, WithPASKSReady, WithScaleTargetInitialized,
 				WithPAStatusService("fix-mutated-pa")),
 			deploy(t, "foo", "fix-mutated-pa"),
 			image("foo", "fix-mutated-pa"),
@@ -359,7 +359,7 @@ func TestReconcile(t *testing.T) {
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa", WithPADepsReady,
+			Object: pa("foo", "fix-mutated-pa", WithPASKSReady,
 				WithTraffic, WithScaleTargetInitialized,
 				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
 		}},
@@ -514,7 +514,7 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
-			pa("foo", "steady-ready", WithPADepsReady, WithTraffic,
+			pa("foo", "steady-ready", WithPASKSReady, WithTraffic,
 				WithScaleTargetInitialized, WithPAStatusService("steadier-even")),
 			deploy(t, "foo", "steady-ready"),
 			image("foo", "steady-ready"),

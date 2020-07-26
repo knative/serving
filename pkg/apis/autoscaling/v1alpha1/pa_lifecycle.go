@@ -31,7 +31,7 @@ import (
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 	PodAutoscalerConditionScaleTargetInitialized,
-	PodAutoscalerConditionDependenciesReady,
+	PodAutoscalerSKSReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -186,16 +186,14 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
-// MarkDependenciesReadymarks the PA condition denoting that all its
-// dependencies (e.g. SKS) are ready.
-func (pas *PodAutoscalerStatus) MarkDependenciesReady() {
-	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionDependenciesReady)
+// MarkSKSReady marks the PA condition denoting that SKS is ready.
+func (pas *PodAutoscalerStatus) MarkSKSReady() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerSKSReady)
 }
 
-// MarkDependenciesNotReady marks the PA condation that at least one of the
-// dependendcies is not ready.
-func (pas *PodAutoscalerStatus) MarkDependenciesNotReady(reason, message string) {
-	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionDependenciesReady, reason, message)
+// MarkSKSNotReady marks the PA condation that SKS is not yet ready.
+func (pas *PodAutoscalerStatus) MarkSKSNotReady() {
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerSKSReady, "SKSNotReady", "SKS is not ready yet")
 }
 
 // GetCondition gets the condition `t`.

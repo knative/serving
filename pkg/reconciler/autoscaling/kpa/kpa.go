@@ -85,7 +85,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		pa.Status.MarkDependenciesNotReady("DependenciesNotReady", "SKS is provisioning")
+		pa.Status.MarkSKSNotReady()
 		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
@@ -141,10 +141,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if !sks.IsReady() {
 		logger.Debug("SKS is not ready, marking dependencies not ready")
 		ready = 0
-		pa.Status.MarkDependenciesNotReady("DependenciesNotReady", "SKS is provisioning")
+		pa.Status.MarkSKSNotReady()
 	} else {
 		logger.Debug("SKS is ready, marking dependencies ready")
-		pa.Status.MarkDependenciesReady()
+		pa.Status.MarkSKSReady()
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,

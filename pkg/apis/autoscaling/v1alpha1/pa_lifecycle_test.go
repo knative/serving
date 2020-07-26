@@ -978,12 +978,12 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
-	apistest.CheckConditionOngoing(r, PodAutoscalerConditionDependenciesReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
 
 	r.MarkActive()
-	r.MarkDependenciesReady()
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionDependenciesReady, t)
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
@@ -991,27 +991,27 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionDependenciesReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
-	r.MarkDependenciesReady()
+	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionDependenciesReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
-	r.MarkDependenciesNotReady("omg", "not ready")
+	r.MarkSKSNotReady("omg", "not ready")
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionOngoing(r, PodAutoscalerConditionDependenciesReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// Restore.
-	r.MarkDependenciesReady()
+	r.MarkSKSReady()
 
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
@@ -1036,7 +1036,7 @@ func TestTypicalFlow(t *testing.T) {
 		t.Error("Active was not set.")
 	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionDependenciesReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }
