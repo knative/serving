@@ -85,7 +85,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		pa.Status.MarkSKSNotReady()
+		pa.Status.MarkSKSNotReady("No Private Service Name") // In both cases this is true.
 		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
@@ -139,11 +139,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// If SKS is not ready — ensure we're not becoming ready.
 	// TODO: see if we can perhaps propagate the SKS state to computing active status.
 	if !sks.IsReady() {
-		logger.Debug("SKS is not ready, marking dependencies not ready")
+		logger.Debug("SKS is not ready, marking SKS status not ready")
 		ready = 0
-		pa.Status.MarkSKSNotReady()
+		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
 	} else {
-		logger.Debug("SKS is ready, marking dependencies ready")
+		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
 	}
 

@@ -1004,7 +1004,7 @@ func TestTypicalFlow(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
-	r.MarkSKSNotReady()
+	r.MarkSKSNotReady("something something private")
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)

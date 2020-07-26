@@ -58,6 +58,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -161,9 +162,14 @@ func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	return m
 }
 
+func sksNoConds(s *nv1a1.ServerlessService) {
+	s.Status.Status = duckv1.Status{}
+}
+
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	kpa := kpa(ns, n)
 	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
+	s.Status.InitializeConditions()
 	for _, opt := range so {
 		opt(s)
 	}
@@ -241,7 +247,7 @@ func TestReconcile(t *testing.T) {
 
 	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"),
+			testNamespace, testRevision, WithPASKSNotReady(""),
 			markInactive, withScales(g, unknownScale),
 			WithReachabilityReachable, withMinScale(defaultScale), WithPAStatusService(testRevision),
 			WithPAMetricsService(privateSvc), WithObservedGeneration(1),
@@ -249,7 +255,7 @@ func TestReconcile(t *testing.T) {
 	}
 	activatingKPAMinScale := func(g int32, opts ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 		kpa := kpa(
-			testNamespace, testRevision, WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"),
+			testNamespace, testRevision, WithPASKSNotReady(""),
 			markActivating, withScales(g, defaultScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			WithObservedGeneration(1),
@@ -465,20 +471,23 @@ func TestReconcile(t *testing.T) {
 		}, defaultReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withScales(0, defaultScale),
-				WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"), markActivating,
+				WithPASKSNotReady(""), markActivating,
 				WithPAMetricsService(privateSvc), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 		}},
 	}, {
 		Name: "sks becomes ready",
 		Key:  key,
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"),
+			kpa(testNamespace, testRevision, WithPASKSNotReady(""),
 				markActivating, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
 				WithObservedGeneration(1)),
+			defaultSKS, defaultDeployment, metric(testNamespace, testRevision),
 		}),
-		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
-		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithPAStatusService(testRevision),
+				markActivating, WithPAMetricsService(privateSvc), withScales(0, defaultScale),
+				WithObservedGeneration(1)),
+		}},
 	}, {
 		Name: "kpa does not become ready without minScale endpoints when reachable",
 		Key:  key,
@@ -568,12 +577,12 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS does not exist, so we're just creating and have no status.
-			Object: kpa(testNamespace, testRevision, WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"),
+			Object: kpa(testNamespace, testRevision, WithPASKSNotReady("No Private Service Name"),
 				markActivating, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
 				WithObservedGeneration(1)),
 		}},
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0), sksNoConds),
 		},
 	}, {
 		Name: "sks is out of whack",
@@ -587,7 +596,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
-			Object: kpa(testNamespace, testRevision, WithPASKSNotReady("DependenciesNotReady", "SKS is provisioning"),
+			Object: kpa(testNamespace, testRevision, WithPASKSNotReady(""),
 				markActivating, withScales(0, defaultScale), WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 		}},
@@ -608,7 +617,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithNumActivators(0), sksNoConds),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -1160,6 +1169,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	kpa := revisionresources.MakePA(rev)
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
 	sks.Status.PrivateServiceName = "bogus"
+	sks.Status.InitializeConditions()
 
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)

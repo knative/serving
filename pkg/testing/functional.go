@@ -90,9 +90,9 @@ func WithPASKSReady(pa *asv1a1.PodAutoscaler) {
 }
 
 // WithPADepsReady marks PA status that at least one of its deps is not ready.
-func WithPASKSNotReady(s, m string) PodAutoscalerOption {
+func WithPASKSNotReady(m string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MarkSKSNotReady()
+		pa.Status.MarkSKSNotReady(m)
 	}
 }
 
