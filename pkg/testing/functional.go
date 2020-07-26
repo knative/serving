@@ -118,10 +118,9 @@ func WithPAMetricsService(svc string) PodAutoscalerOption {
 
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
-func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MarkActivating(reason, message)
-	}
+func WithBufferedTraffic(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActivating("Queued",
+		"Requests to the target are being buffered as resources are provisioned.")
 }
 
 // WithNoTraffic updates the PA to reflect the fact that it is not
