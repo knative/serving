@@ -51,25 +51,15 @@ import (
 const (
 	// The number of requests that are queued on the breaker before the 503s are sent.
 	// The value must be adjusted depending on the actual production requirements.
+	// This value is used both for the breaker in revisionThrottler (throttling
+	// across the entire revision), and for the individual podTracker breakers.
 	breakerQueueDepth = 10000
 
-	// The upper bound for concurrent requests sent to the revision.
-	// As new endpoints show up, the revisionThrottler's concurrency increases up
-	// to this value.  We need to set some value here since the breaker requires
-	// an explicit buffer size (it's backed by a chan struct{}), but
-	// queue.MaxBreakerCapacity is very large.
-	breakerMaxConcurrency = queue.MaxBreakerCapacity
-)
-
-var (
-	// These params are used to build the breaker that throttles across the entire revision.
-	// This is used when CC!=0 because we need to queue requests in case no
-	// individual podTracker is free.
-	revisionBreakerParams = queue.BreakerParams{
-		QueueDepth:      breakerQueueDepth,
-		MaxConcurrency:  breakerMaxConcurrency,
-		InitialCapacity: 0,
-	}
+	// The revisionThrottler breaker's concurrency increases up to this value as
+	// new endpoints show up. We need to set some value here since the breaker
+	// requires an explicit buffer size (it's backed by a chan struct{}), but
+	// queue.MaxBreakerCapacity is math.MaxInt32.
+	revisionMaxConcurrency = queue.MaxBreakerCapacity
 )
 
 type podTracker struct {
@@ -119,6 +109,10 @@ type breaker interface {
 	Reserve(ctx context.Context) (func(), bool)
 }
 
+// revisionThrottler is used to throttle requests across the entire revision.
+// We use a breaker across the entire revision as well as individual
+// podTrackers because we need to queue requests in case no individual
+// podTracker has available slots (when CC!=0).
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
@@ -239,6 +233,9 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > maxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
+		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
+		// breaker requires some limit (it's backed by a chan struct{}), but the
+		// limit is math.MaxInt32 so in practice this should never be a real limit.
 		targetCapacity = maxConcurrency
 	} else if targetCapacity > 0 {
 		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
@@ -266,7 +263,6 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
-
 	ac, ai := int(atomic.LoadInt32(&rt.numActivators)), int(atomic.LoadInt32(&rt.activatorIndex))
 	numTrackers := func() int {
 		// We do not have to process the `podTrackers` under lock, since
@@ -298,11 +294,11 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, revisionBreakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, revisionMaxConcurrency)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		capacity = rt.calculateCapacity(backendCount, ac, revisionBreakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(backendCount, ac, revisionMaxConcurrency)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
@@ -421,7 +417,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 					tracker = &podTracker{
 						dest: newDest,
 						b: queue.NewBreaker(queue.BreakerParams{
-							QueueDepth:      revisionBreakerParams.QueueDepth,
+							QueueDepth:      breakerQueueDepth,
 							MaxConcurrency:  rt.containerConcurrency,
 							InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
 						}),
@@ -537,8 +533,13 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
-		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()),
-			networking.ServicePortName(rev.GetProtocol()), revisionBreakerParams, t.logger)
+		revThrottler = newRevisionThrottler(
+			revID,
+			int(rev.Spec.GetContainerConcurrency()),
+			networking.ServicePortName(rev.GetProtocol()),
+			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			t.logger,
+		)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil

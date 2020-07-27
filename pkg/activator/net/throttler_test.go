@@ -50,9 +50,9 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
-var defaultParams = queue.BreakerParams{
+var testBreakerParams = queue.BreakerParams{
 	QueueDepth:      1,
-	MaxConcurrency:  breakerMaxConcurrency,
+	MaxConcurrency:  revisionMaxConcurrency,
 	InitialCapacity: 0,
 }
 
@@ -61,47 +61,33 @@ type tryResult struct {
 	err  error
 }
 
-func newTestThrottler(ctx context.Context) (*Throttler, func()) {
-	// Use different values for the test.
-	bp := revisionBreakerParams
-	revisionBreakerParams = defaultParams
-
-	throttler := NewThrottler(ctx, "10.10.10.10")
-	return throttler, func() {
-		revisionBreakerParams = bp
-	}
+func newTestThrottler(ctx context.Context) *Throttler {
+	return NewThrottler(ctx, "10.10.10.10")
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
 	rt := &revisionThrottler{
 		logger:               logger,
-		breaker:              queue.NewBreaker(defaultParams),
+		breaker:              queue.NewBreaker(testBreakerParams),
 		containerConcurrency: 10,
 	}
 
-	// temporarily lower MaxConcurrency since the default value is math.MaxInt32
-	// and we want to test calling updateCapacity() below with the same value
-	// as MaxConcurrency. This will be very, very slow if MaxConcurrency is very large.
-	bmp := revisionBreakerParams.MaxConcurrency
-	revisionBreakerParams.MaxConcurrency = 1000
-	t.Cleanup(func() { revisionBreakerParams.MaxConcurrency = bmp })
-
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
+	if got, want := rt.breaker.Capacity(), 1*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 100; got != want {
+	if got, want := rt.breaker.Capacity(), 10*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(revisionBreakerParams.MaxConcurrency) // So in theory should be 10x.
-	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
+	rt.updateCapacity(100)
+	if got, want := rt.breaker.Capacity(), 100*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 10
+	rt.numActivators = 5
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
+	if got, want := rt.breaker.Capacity(), 10*10/5; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.numActivators = 200
@@ -114,23 +100,40 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
+	// now test with CC=0.
+	// in the CC=0 cases we use the infinite breaker whose capacity can either be
+	// totally blocked (0) or totally open (1).
 	rt.containerConcurrency = 0
+	rt.breaker = newInfiniteBreaker(logger)
+
+	rt.updateCapacity(0)
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
+
 	rt.numActivators = 200
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(0)
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	// shouldn't really happen since queue.MaxBreakerCapacity is very, very large,
+	// but check that we behave reasonably if it's exceeded.
+	capacity := rt.calculateCapacity(queue.MaxBreakerCapacity+5, 1, queue.MaxBreakerCapacity)
+	if got, want := capacity, queue.MaxBreakerCapacity; got != want {
+		t.Errorf("calculateCapacity = %d, want: %d", got, want)
 	}
 
 	// Now test with podIP trackers in tow.
@@ -139,6 +142,8 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	rt.activatorIndex = 0
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
+	rt.breaker = queue.NewBreaker(testBreakerParams)
+
 	rt.updateCapacity(0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -172,12 +177,15 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
-	// Infinite capacity.
+	// Infinite capacity with podIP trackers.
 	rt.activatorIndex = 1
 	rt.containerConcurrency = 0
+	rt.breaker = newInfiniteBreaker(logger)
 	rt.podTrackers = makeTrackers(3, 0)
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), revisionBreakerParams.MaxConcurrency; got != want {
+
+	// infinite breaker capacity is either 0 (blocked) or 1 (totally open)
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {
@@ -220,8 +228,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
+	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
 		Dests: sets.NewString("128.0.0.1:1234"),
@@ -272,8 +279,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
+	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:           revID,
 		ClusterIPDest: "129.0.0.1:1234",
@@ -500,9 +506,8 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
-	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
+	throttler := newTestThrottler(ctx)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
 	rt.numActivators = 4
 	rt.activatorIndex = 0
 	throttler.revisionThrottlers[revName] = rt
@@ -555,9 +560,8 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
-	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
+	throttler := newTestThrottler(ctx)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -790,7 +794,7 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
 		networking.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
-		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
+		t.Errorf("The type of revisionBreaker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
 }
 
@@ -1075,13 +1079,13 @@ func TestAssignSlice(t *testing.T) {
 	t.Run("idx=1, cc=5", func(t *testing.T) {
 		trackers := []*podTracker{{
 			dest: "2",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "1",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 5)
@@ -1097,13 +1101,13 @@ func TestAssignSlice(t *testing.T) {
 	t.Run("idx=1, cc=6", func(t *testing.T) {
 		trackers := []*podTracker{{
 			dest: "2",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "1",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 6)
