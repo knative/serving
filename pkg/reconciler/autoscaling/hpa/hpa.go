@@ -89,11 +89,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	if !sks.IsReady() {
-		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
+		pa.Status.MarkSKSNotReady("SKS Services are not ready yet")
 	} else {
+		pa.Status.MarkSKSReady()
 		pa.Status.MarkScaleTargetInitialized()
-		pa.Status.MarkActive()
 	}
+	// HPA is always _active_.
+	pa.Status.MarkActive()
 
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
