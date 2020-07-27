@@ -466,12 +466,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "sks becomes ready",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSNotReady(""),
 				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
 				WithObservedGeneration(1)),
 			defaultSKS, defaultDeployment, metric(testNamespace, testRevision),
-		}),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithPAStatusService(testRevision),
 				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, defaultScale),
@@ -906,7 +906,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, unknownScale, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."), WithPAMetricsService(privateSvc),
 				withScales(0, -1), WithPAStatusService(testRevision), WithObservedGeneration(1)),
@@ -914,7 +914,7 @@ func TestReconcile(t *testing.T) {
 				WithProxyMode, WithSKSReady),
 			metric(testNamespace, testRevision),
 			defaultDeployment,
-		}),
+		},
 	}, {
 		Name: "steady not enough capacity",
 		Key:  key,
