@@ -25,6 +25,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/pool"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
@@ -32,6 +33,7 @@ import (
 // the given percentage distribution.
 func TestPercentage(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	// Use a post-split injected header to establish which split we are sending traffic to.

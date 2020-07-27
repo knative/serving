@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
@@ -34,6 +35,7 @@ const updateHeaderName = "Who-Are-You"
 // TestUpdate verifies that when the network programming changes that traffic isn't dropped.
 func TestUpdate(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	firstName, firstPort, firstCancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)

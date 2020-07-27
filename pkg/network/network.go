@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"strings"
 	"text/template"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
@@ -157,6 +158,13 @@ const (
 
 	// ProtoAcceptContent is the content type to be used when autoscaler scrapes metrics from the QP
 	ProtoAcceptContent = "application/protobuf"
+
+	// FlushInterval controls the time when we flush the connection in the
+	// reverse proxies (Activator, QP).
+	// NB: having it equal to 0 is a problem for streaming requests
+	// since the data won't be transferred in chunks less than 4kb, if the
+	// reverse proxy fails to detect streaming (gRPC, e.g.).
+	FlushInterval = 20 * time.Millisecond
 )
 
 // DomainTemplateValues are the available properties people can choose from

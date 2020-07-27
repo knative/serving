@@ -320,11 +320,6 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	return time.Unix(secs, 0), nil
 }
 
-// IsReachable returns whether or not the revision can be reached by a route.
-func (r *Revision) IsReachable() bool {
-	return r.Labels[serving.RouteLabelKey] != ""
-}
-
 // PropagateDeploymentStatus takes the Deployment status and applies its values
 // to the Revision status.
 func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {

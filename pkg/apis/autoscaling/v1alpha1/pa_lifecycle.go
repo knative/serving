@@ -31,6 +31,7 @@ import (
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 	PodAutoscalerConditionScaleTargetInitialized,
+	PodAutoscalerSKSReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -185,6 +186,16 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
+// MarkSKSReady marks the PA condition denoting that SKS is ready.
+func (pas *PodAutoscalerStatus) MarkSKSReady() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerSKSReady)
+}
+
+// MarkSKSNotReady marks the PA condation that SKS is not yet ready.
+func (pas *PodAutoscalerStatus) MarkSKSNotReady(mes string) {
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerSKSReady, "NotReady", mes)
+}
+
 // GetCondition gets the condition `t`.
 func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return podCondSet.Manage(pas).GetCondition(t)
@@ -248,7 +259,7 @@ func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time
 
 // inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
 // the specified status for at least the specified duration. Otherwise it returns negative duration,
-// including when the status is undetermined (Active condition is not found.)
+// including when the status is undetermined.
 func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {

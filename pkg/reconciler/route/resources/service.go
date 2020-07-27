@@ -112,7 +112,12 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: svcLabels,
+			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+				// Do not propagate the visibility label from Route as users may want to set the label
+				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
+				return key == serving.VisibilityLabelKey
+			}), svcLabels),
+			Annotations: route.GetAnnotations(),
 		},
 	}, nil
 }

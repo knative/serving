@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
@@ -161,6 +162,7 @@ func ingressKey(ing *v1alpha1.Ingress) string {
 // Also, it means that IsReady is not called concurrently.
 func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
 	ingressKey := ingressKey(ing)
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey))
 
 	bytes, err := ingress.ComputeHash(ing)
 	if err != nil {
@@ -261,7 +263,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 			wi.podState = podState
 			wi.context = podCtx
 			m.workQueue.AddAfter(wi, initialDelay)
-			m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
+			logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
 				wi.url, wi.podIP, wi.podPort, m.workQueue.Len())
 		}
 	}
@@ -349,7 +351,8 @@ func (m *Prober) processWorkItem() bool {
 		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n",
 			reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey(item.ingressState.ing)))
+	logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
 		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -390,7 +393,7 @@ func (m *Prober) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
+		logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
 			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
 		m.updateStates(item.ingressState, item.podState)
@@ -411,6 +414,8 @@ func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
 }
 
 func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey(item.ingressState.ing)))
+
 	return func(r *http.Response, _ []byte) (bool, error) {
 		// In the happy path, the probe request is forwarded to Activator or Queue-Proxy and the response (HTTP 200)
 		// contains the "K-Network-Hash" header that can be compared with the expected hash. If the hashes match,
@@ -425,7 +430,7 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			hash := r.Header.Get(network.HashHeaderName)
 			switch hash {
 			case "":
-				m.logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response doesn't contain the %q header",
+				logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response doesn't contain the %q header",
 					item.url, item.podIP, item.podPort, network.HashHeaderName)
 				return true, nil
 			case item.ingressState.hash:
@@ -433,11 +438,14 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			default:
 				return false, fmt.Errorf("unexpected hash: want %q, got %q", item.ingressState.hash, hash)
 			}
+
 		case http.StatusNotFound, http.StatusServiceUnavailable:
-			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, http.StatusNotFound)
+			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, r.StatusCode)
+
 		default:
-			m.logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response status is %v, expected 200 or 404",
-				item.url, item.podIP, item.podPort, r.StatusCode)
+			logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response status is %v, expected one of: %v",
+				item.url, item.podIP, item.podPort, r.StatusCode,
+				[]int{http.StatusOK, http.StatusNotFound, http.StatusServiceUnavailable})
 			return true, nil
 		}
 	}

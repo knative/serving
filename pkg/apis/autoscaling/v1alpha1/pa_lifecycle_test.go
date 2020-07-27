@@ -251,6 +251,7 @@ func TestInactiveFor(t *testing.T) {
 		})
 	}
 }
+
 func TestActiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -977,20 +978,40 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
+
+	r.MarkActive()
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
+	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+
+	r.MarkSKSNotReady("something something private")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+
+	// Restore.
+	r.MarkSKSReady()
 
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
@@ -1014,9 +1035,10 @@ func TestTypicalFlow(t *testing.T) {
 	if !r.IsActive() {
 		t.Error("Active was not set.")
 	}
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }
 
 func TestTargetBC(t *testing.T) {
