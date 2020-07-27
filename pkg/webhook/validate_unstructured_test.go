@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func TestServiceValidation(t *testing.T) {
+func TestUnstructuredValidation(t *testing.T) {
 	newCreateWithOptions = newTestPods
 
 	tests := []struct {
@@ -104,7 +104,7 @@ func TestServiceValidation(t *testing.T) {
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)
@@ -150,7 +150,7 @@ func TestDryRunFeatureFlag(t *testing.T) {
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(data)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)
@@ -219,7 +219,7 @@ func TestSkipUpdate(t *testing.T) {
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.new)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)
