@@ -124,7 +124,7 @@ func TestMakeAnnotations(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				Annotations: map[string]string{
-					serving.RoutingStateModifiedAnnotationKey: "exlcude me",
+					serving.RoutingStateModifiedAnnotationKey: "exclude me",
 					"keep": "keep me",
 				},
 			},
