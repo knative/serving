@@ -7,7 +7,6 @@ require (
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.1
 	github.com/google/go-containerregistry v0.1.2-0.20200717224239-a84993334b27
 	github.com/google/gofuzz v1.1.0
