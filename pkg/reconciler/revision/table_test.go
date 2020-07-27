@@ -272,7 +272,7 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic("Something", "This is something longer"),
+				WithBufferedTraffic,
 				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
@@ -283,7 +283,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("its-not-confidential"),
 				// When we reconcile a ready state and our pa is in an activating
 				// state, we should see the following mutation.
-				MarkActivating("Something", "This is something longer"),
+				MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned."),
 				withObservedGeneration(1),
 			),
 		}},
