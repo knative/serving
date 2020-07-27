@@ -293,8 +293,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 		expectedLabels: map[string]string{
-			serving.RouteLabelKey:      "test-route",
-			serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+			serving.RouteLabelKey: "test-route",
 		},
 	}}
 	for _, tt := range tests {
