@@ -158,7 +158,13 @@ func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 			},
 		})
 	}
-	cr.reportedFirstRequest = make(map[types.NamespacedName]float64)
+
+	// We've now accounted for any cases where we immediately reported seeing the
+	// first request for a revision in handleEvent by subtracting them from this
+	// report.
+	for k := range cr.reportedFirstRequest {
+		delete(cr.reportedFirstRequest, k)
+	}
 
 	return messages
 }
