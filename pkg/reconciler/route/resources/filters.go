@@ -21,24 +21,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
-// Filter is used for applying a function to a service
-type Filter func(service *corev1.Service) bool
-
-// FilterService applies a filter to the list of services and return the services that are accepted
-func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Service {
-	var filteredServices []*corev1.Service
-
-	for _, service := range services {
-		if acceptFilter(service) {
-			filteredServices = append(filteredServices, service)
-		}
-	}
-
-	return filteredServices
-}
-
-// Filter functions.
-
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
 	return svc.GetLabels()[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal
