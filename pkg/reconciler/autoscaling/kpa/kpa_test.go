@@ -1065,9 +1065,10 @@ func TestReconcile(t *testing.T) {
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, markActivating, withScales(0, -1), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1076,7 +1077,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
 				withScales(0, -1), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPASKSNotReady(""),
 			),
 		}},
 	}, {
@@ -1086,10 +1088,10 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized, withScales(0, scaleUnknown), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+			kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized, withScales(0, scaleUnknown),
+				WithReachabilityReachable, WithPAMetricsService(privateSvc), WithPASKSNotReady(""),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1098,7 +1100,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
 				withScales(0, scaleUnknown), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1), WithPASKSNotReady(""),
 			),
 		}},
 	}, {
@@ -1108,8 +1110,9 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+			kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2),
+				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				WithPASKSReady,
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
 			metricWithASConfig(testNamespace, testRevision, initialScaleZeroConfigMap()),
@@ -1118,8 +1121,10 @@ func TestReconcile(t *testing.T) {
 			}),
 		}, makeReadyPods(2, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2), WithReachabilityReachable,
-				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2),
+				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				WithObservedGeneration(1),
+				WithPASKSReady,
 			),
 		}},
 	}}

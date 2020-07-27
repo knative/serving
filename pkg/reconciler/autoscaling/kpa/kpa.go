@@ -44,6 +44,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+const noPrivateServiceName = "No Private Service Name"
+
 // podCounts keeps record of various numbers of pods
 // for each revision.
 type podCounts struct {
@@ -85,7 +87,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		pa.Status.MarkSKSNotReady("No Private Service Name") // In both cases this is true.
+		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
 		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
@@ -235,7 +237,9 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady {
+	if pc.ready >= minReady && (pa.Status.IsSKSReady() ||
+		// In the initial scale 0 case, there won't be any endpoints ready, and therefore SKS will still be not ready.
+		(!pa.Status.IsSKSReady() && pa.Status.GetCondition(pav1alpha1.PodAutoscalerSKSReady).Message != noPrivateServiceName)) {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
