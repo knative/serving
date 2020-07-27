@@ -205,7 +205,7 @@ func newTestRevision(namespace string, name string) *v1.Revision {
 }
 
 func getLastPinnedTimestamp(t *testing.T, rev *v1.Revision) (string, error) {
-	lastPinnedTime, ok := rev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	lastPinnedTime, ok := rev.Annotations[serving.RevisionLastPinnedAnnotationKey]
 	if !ok {
 		return "", errors.New("last pinned annotation not found")
 	}
@@ -306,14 +306,14 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 	ci2 := newTestIngress(t, r)
 	// Add ingress.class annotation.
-	ci2.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = expClass
+	ci2.Annotations[networking.IngressClassAnnotationKey] = expClass
 
 	if _, err := reconciler.reconcileIngress(ctx, r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	updated = getRouteIngressFromClient(ctx, t, r)
-	updatedClass := updated.ObjectMeta.Annotations[networking.IngressClassAnnotationKey]
+	updatedClass := updated.Annotations[networking.IngressClassAnnotationKey]
 	if expClass != updatedClass {
 		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)
 	}

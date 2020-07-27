@@ -316,8 +316,8 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 				t.Fatal("Unexpected nil service")
 			}
 
-			if !cmp.Equal(tt.expectedLabels, got.ObjectMeta.Labels) {
-				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.ObjectMeta.Labels))
+			if !cmp.Equal(tt.expectedLabels, got.Labels) {
+				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.Labels))
 			}
 			if !cmp.Equal(tt.expectedAnnos, got.ObjectMeta.Annotations) {
 				t.Errorf("Unexpected Annotations (-want +got): %s", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))

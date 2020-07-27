@@ -226,7 +226,7 @@ func MakeDeployment(rev *v1.Revision,
 	}
 
 	replicaCount := int(autoscalerConfig.InitialScale)
-	ann, found := rev.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey]
+	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
 		replicaCount, _ = strconv.Atoi(ann)
