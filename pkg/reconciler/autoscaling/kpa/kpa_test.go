@@ -1064,7 +1064,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, markActivating, withScales(0, -1), WithReachabilityReachable,
+			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName),
 			),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
@@ -1075,7 +1075,8 @@ func TestReconcile(t *testing.T) {
 			}),
 		}, makeReadyPods(0, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
+			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized,
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 				WithPASKSNotReady(""),
@@ -1088,19 +1089,19 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized, withScales(0, scaleUnknown),
+			kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(0, scaleUnknown),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc), WithPASKSNotReady(""),
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
 		}, makeReadyPods(0, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markInactive, markScaleTargetInitialized,
+			Object: kpa(testNamespace, testRevision, WithPASKSNotReady(""), WithBufferedTraffic, markScaleTargetInitialized,
 				withScales(0, scaleUnknown), WithReachabilityReachable,
-				WithPAMetricsService(privateSvc), WithObservedGeneration(1), WithPASKSNotReady(""),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
 	}, {
@@ -1110,7 +1111,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2),
+			kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(2, 2),
 				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
 			),
@@ -1121,10 +1122,9 @@ func TestReconcile(t *testing.T) {
 			}),
 		}, makeReadyPods(2, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, markScaleTargetInitialized, withScales(2, 2),
-				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
-				WithObservedGeneration(1),
-				WithPASKSReady,
+			Object: kpa(testNamespace, testRevision, WithTraffic, WithPASKSReady, markScaleTargetInitialized,
+				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
 	}}
