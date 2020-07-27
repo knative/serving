@@ -237,13 +237,12 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady && (pa.Status.IsSKSReady() ||
-		// In the initial scale 0 case, there won't be any endpoints ready, and therefore SKS will still be not ready.
-		(!pa.Status.IsSKSReady() && pa.Status.GetCondition(pav1alpha1.PodAutoscalerSKSReady).Message != noPrivateServiceName)) {
+	if pc.ready >= minReady {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
 	switch {
+	// Need to check for minReady = 0 because in the initialScale 0 case, pc.want will be -1.
 	case pc.want == 0 || minReady == 0:
 		if pa.Status.IsActivating() && minReady > 0 {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
