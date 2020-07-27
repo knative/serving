@@ -64,7 +64,7 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
 		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
 		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
-		if err := labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
+		if err := labelerv2.ClearRoutingMeta(r.Namespace, r.Name, cacc, racc); err != nil {
 			return err
 		}
 	}
@@ -86,18 +86,18 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 			return err
 		}
 		// Clear the new label for downgrade
-		if err := labelerv2.ClearLabels(r.Namespace, r.Name, caccV2, raccV2); err != nil {
+		if err := labelerv2.ClearRoutingMeta(r.Namespace, r.Name, caccV2, raccV2); err != nil {
 			return err
 		}
 	case cfgmap.Allowed: // Both labelers on, down/upgrade don't lose data.
 		if err := labelerv1.SyncLabels(r, caccV1, raccV1); err != nil {
 			return err
 		}
-		if err := labelerv2.SyncLabels(r, caccV2, raccV2); err != nil {
+		if err := labelerv2.SyncRoutingMeta(r, caccV2, raccV2); err != nil {
 			return err
 		}
 	case cfgmap.Enabled:
-		if err := labelerv2.SyncLabels(r, caccV2, raccV2); err != nil {
+		if err := labelerv2.SyncRoutingMeta(r, caccV2, raccV2); err != nil {
 			return err
 		}
 		// Clear the old label for upgrade
