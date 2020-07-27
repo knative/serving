@@ -127,7 +127,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
 		copy := existingCert.DeepCopy()
 		copy.Spec = desiredCert.Spec
-		copy.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey]
+		copy.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.Labels[networking.WildcardCertDomainLabelKey]
 
 		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy); err != nil {
 			recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",

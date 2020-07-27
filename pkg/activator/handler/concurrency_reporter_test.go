@@ -517,7 +517,7 @@ func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 	}
 }
 
-func BenchmarkConcurrencyReporter(b *testing.B) {
+func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	defer cancel()
 
@@ -543,38 +543,30 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 	fake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
 
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := cr.Handler(baseHandler)
+
 	// Spread the load across 100 revisions.
-	keys := make([]types.NamespacedName, 0, 100)
-	for i := 0; i < cap(keys); i++ {
+	reqs := make([]*http.Request, 0, 100)
+	for i := 0; i < cap(reqs); i++ {
 		key := types.NamespacedName{
 			Namespace: testNamespace,
 			Name:      testRevName + strconv.Itoa(i),
 		}
-		keys = append(keys, key)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		reqs = append(reqs, req.WithContext(util.WithRevID(context.Background(), key)))
 
 		// Create revisions in the fake clients to trigger report logic.
 		rev := revision(key.Namespace, key.Name)
 		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
-
-	request := func(key types.NamespacedName) {
-		cr.handleEvent(network.ReqEvent{
-			Time: time.Now(),
-			Type: network.ReqIn,
-			Key:  key,
-		})
-		cr.handleEvent(network.ReqEvent{
-			Time: time.Now(),
-			Type: network.ReqOut,
-			Key:  key,
-		})
-	}
+	resp := httptest.NewRecorder()
 
 	b.Run("sequential", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
-			key := keys[j%len(keys)]
-			request(key)
+			req := reqs[j%len(reqs)]
+			handler.ServeHTTP(resp, req)
 		}
 	})
 
@@ -582,8 +574,8 @@ func BenchmarkConcurrencyReporter(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			var j int
 			for pb.Next() {
-				key := keys[j%len(keys)]
-				request(key)
+				req := reqs[j%len(reqs)]
+				handler.ServeHTTP(resp, req)
 				j++
 			}
 		})
@@ -605,10 +597,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 
 			// Just read and ignore all stat messages.
 			go func() {
-				for {
-					select {
-					case <-statCh:
-					}
+				for range <-statCh {
 				}
 			}()
 

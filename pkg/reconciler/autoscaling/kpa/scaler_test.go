@@ -425,7 +425,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		},
 	}, {
 		label:         "initial scale reached for the first time",
@@ -435,7 +435,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
 		},
 	}}
 
