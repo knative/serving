@@ -32,40 +32,31 @@ func TestFilterService(t *testing.T) {
 		services     []*corev1.Service
 		acceptFilter Filter
 		want         []*corev1.Service
-	}{
-		{
-			name: "no services",
+	}{{
+		name: "no services",
+	}, {
+		name: "matches services",
+		services: []*corev1.Service{{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo-1",
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "bar-2",
+			},
+		}},
+		acceptFilter: func(service *corev1.Service) bool {
+			return strings.HasPrefix(service.Name, "foo")
 		},
-		{
-			name: "matches services",
-			services: []*corev1.Service{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "bar-2",
-					},
-				},
+		want: []*corev1.Service{{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo-1",
 			},
-			acceptFilter: func(service *corev1.Service) bool {
-				return strings.HasPrefix(service.Name, "foo")
-			},
-			want: []*corev1.Service{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-1",
-					},
-				},
-			},
-		},
-	}
+		}},
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			if got := FilterService(tt.services, tt.acceptFilter); !cmp.Equal(got, tt.want) {
 				t.Errorf("FilterService() (-want, +got) = %v", cmp.Diff(tt.want, got))
 			}
@@ -78,35 +69,29 @@ func TestIsClusterLocalService(t *testing.T) {
 		name string
 		svc  *corev1.Service
 		want bool
-	}{
-		{
-			name: "Service does NOT have visibility label set",
-			svc:  &corev1.Service{},
-			want: false,
-		},
-		{
-			name: "Service has visibility label set to anything but ClusterLocal",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						serving.VisibilityLabelKey: "something-unknown",
-					},
+	}{{
+		name: "Service does NOT have visibility label set",
+		svc:  &corev1.Service{},
+	}, {
+		name: "Service has visibility label set to anything but ClusterLocal",
+		svc: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					serving.VisibilityLabelKey: "something-unknown",
 				},
 			},
-			want: false,
 		},
-		{
-			name: "Service has visibility label set to cluster local",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
-					},
+	}, {
+		name: "Service has visibility label set to cluster local",
+		svc: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
-			want: true,
 		},
-	}
+		want: true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsClusterLocalService(tt.svc); got != tt.want {

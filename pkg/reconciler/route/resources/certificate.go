@@ -54,7 +54,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		// The "-[tag digest]" is computed only if there's a tag
 		certName := names.Certificate(route)
 		if tag != "" {
-			certName += fmt.Sprintf("-%d", adler32.Checksum([]byte(tag)))
+			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 		}
 
 		certs = append(certs, &networkingv1alpha1.Certificate{

@@ -28,8 +28,7 @@ type Filter func(service *corev1.Service) bool
 func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Service {
 	var filteredServices []*corev1.Service
 
-	for i := range services {
-		service := services[i]
+	for _, service := range services {
 		if acceptFilter(service) {
 			filteredServices = append(filteredServices, service)
 		}
@@ -38,10 +37,9 @@ func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Se
 	return filteredServices
 }
 
-// Filter functions
+// Filter functions.
 
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
-	visibility, ok := svc.GetLabels()[serving.VisibilityLabelKey]
-	return ok && serving.VisibilityClusterLocal == visibility
+	return svc.GetLabels()[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal
 }
