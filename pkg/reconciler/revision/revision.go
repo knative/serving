@@ -181,7 +181,7 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 
 	uid := string(rev.UID)
 
-	rev.Status.LogURL = strings.Replace(
+	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid, -1)
+		"${REVISION_UID}", uid)
 }
