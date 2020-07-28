@@ -79,11 +79,13 @@ func TestV2ReconcileAllowed(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			client:              servingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			tracker:             &NullTracker{},
-			clock:               clock.NewFakeClock(fakeTime),
+			client:   servingclient.Get(ctx),
+			cLister:  listers.GetConfigurationLister(),
+			cIndexer: listers.IndexerFor(&v1.Configuration{}),
+			rLister:  listers.GetRevisionLister(),
+			rIndexer: listers.IndexerFor(&v1.Revision{}),
+			tracker:  &NullTracker{},
+			clock:    clock.NewFakeClock(fakeTime),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

@@ -45,7 +45,7 @@ func SyncRoutingMeta(r *v1.Route, cacc *Configuration, racc *Revision) error {
 				return err
 			}
 
-			rev, err := racc.revisionLister.Revisions(r.Namespace).Get(revName)
+			rev, err := racc.lister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
 				// The revision might not exist (yet). The informers will notify if it gets created.
 				continue
@@ -64,7 +64,7 @@ func SyncRoutingMeta(r *v1.Route, cacc *Configuration, racc *Revision) error {
 				return err
 			}
 
-			config, err := cacc.configurationLister.Configurations(r.Namespace).Get(configName)
+			config, err := cacc.lister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
 				// The config might not exist (yet). The informers will notify if it gets created.
 				continue

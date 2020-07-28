@@ -59,10 +59,12 @@ func newControllerWithClock(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &Reconciler{
-		client:              servingclient.Get(ctx),
-		configurationLister: configInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-		clock:               clock,
+		client:   servingclient.Get(ctx),
+		cLister:  configInformer.Lister(),
+		cIndexer: configInformer.Informer().GetIndexer(),
+		rLister:  revisionInformer.Lister(),
+		rIndexer: revisionInformer.Informer().GetIndexer(),
+		clock:    clock,
 	}
 	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{

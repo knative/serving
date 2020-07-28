@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kube-openapi/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 
@@ -42,10 +43,11 @@ type Accessor interface {
 
 // Revision is an implementation of Accessor for Revisions.
 type Revision struct {
-	client         clientset.Interface
-	tracker        tracker.Interface
-	revisionLister listers.RevisionLister
-	clock          clock.Clock
+	client  clientset.Interface
+	tracker tracker.Interface
+	lister  listers.RevisionLister
+	indexer cache.Indexer
+	clock   clock.Clock
 }
 
 // Revision implements Accessor
@@ -56,12 +58,14 @@ func NewRevisionAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.RevisionLister,
+	indexer cache.Indexer,
 	clock clock.Clock) *Revision {
 	return &Revision{
-		client:         client,
-		tracker:        tracker,
-		revisionLister: lister,
-		clock:          clock,
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
 	}
 }
 
@@ -134,20 +138,21 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 
 // list implements Accessor
 func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
-	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RoutingStateLabelKey: string(state),
-	}))
-	if err != nil {
-		return nil, err
-	}
-	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, 1)
-	for _, r := range rl {
+	filter := func(m interface{}) {
+		r := m.(*v1.Revision)
 		if getListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, r)
 		}
 	}
-	return kl, err
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.RoutingStateLabelKey: string(state),
+	})
+
+	if err := cache.ListAllByNamespace(r.indexer, ns, selector, filter); err != nil {
+		return nil, err
+	}
+	return kl, nil
 }
 
 // patch implements Accessor
@@ -157,7 +162,7 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 }
 
 func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	rev, err := r.revisionLister.Revisions(ns).Get(name)
+	rev, err := r.lister.Revisions(ns).Get(name)
 	if err != nil {
 		return nil, err
 	}
@@ -166,10 +171,11 @@ func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (m
 
 // Configuration is an implementation of Accessor for Configurations.
 type Configuration struct {
-	client              clientset.Interface
-	tracker             tracker.Interface
-	configurationLister listers.ConfigurationLister
-	clock               clock.Clock
+	client  clientset.Interface
+	tracker tracker.Interface
+	lister  listers.ConfigurationLister
+	indexer cache.Indexer
+	clock   clock.Clock
 }
 
 // Configuration implements Accessor
@@ -180,29 +186,31 @@ func NewConfigurationAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
+	indexer cache.Indexer,
 	clock clock.Clock) *Configuration {
 	return &Configuration{
-		client:              client,
-		tracker:             tracker,
-		configurationLister: lister,
-		clock:               clock,
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
 	}
 }
 
 // list implements Accessor
 func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
-	cl, err := c.configurationLister.Configurations(ns).List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-	// Need a copy to change types in Go
 	kl := make([]kmeta.Accessor, 0, 1)
-	for _, c := range cl {
+	filter := func(m interface{}) {
+		c := m.(*v1.Configuration)
 		if getListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, c)
 		}
 	}
-	return kl, err
+
+	if err := cache.ListAllByNamespace(c.indexer, ns, labels.Everything(), filter); err != nil {
+		return nil, err
+	}
+	return kl, nil
 }
 
 // getListAnnValue finds a given value in a comma-separated annotation.
@@ -222,7 +230,7 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 }
 
 func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	config, err := c.configurationLister.Configurations(ns).Get(name)
+	config, err := c.lister.Configurations(ns).Get(name)
 	if err != nil {
 		return nil, err
 	}

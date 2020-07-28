@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/tools/cache"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	cfgmap "knative.dev/serving/pkg/apis/config"
@@ -38,10 +39,14 @@ type Reconciler struct {
 	// tracker to track revisions and configurations
 	tracker tracker.Interface
 
-	// Listers index properties about resources
-	configurationLister listers.ConfigurationLister
-	revisionLister      listers.RevisionLister
-	clock               clock.Clock
+	// Indexers index properties about resources
+	// Listers provide convenient read access to index
+	cLister  listers.ConfigurationLister
+	cIndexer cache.Indexer
+	rLister  listers.RevisionLister
+	rIndexer cache.Indexer
+
+	clock clock.Clock
 }
 
 // Check that our Reconciler implements routereconciler.Interface
@@ -53,8 +58,8 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 
 	// v1 logic
 	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
-		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.cLister)
+		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.rLister)
 		if err := labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc); err != nil {
 			return err
 		}
@@ -62,8 +67,8 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 
 	// v2 logic
 	if newGC == cfgmap.Allowed || newGC == cfgmap.Enabled {
-		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
-		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.cLister, c.cIndexer, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.rLister, c.rIndexer, c.clock)
 		if err := labelerv2.ClearRoutingMeta(r.Namespace, r.Name, cacc, racc); err != nil {
 			return err
 		}
@@ -75,10 +80,10 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
-	caccV1 := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-	raccV1 := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-	caccV2 := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
-	raccV2 := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+	caccV1 := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.cLister)
+	raccV1 := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.rLister)
+	caccV2 := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.cLister, c.cIndexer, c.clock)
+	raccV2 := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.rLister, c.rIndexer, c.clock)
 
 	switch newGC {
 	case cfgmap.Disabled:
