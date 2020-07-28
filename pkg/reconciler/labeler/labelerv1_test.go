@@ -265,6 +265,26 @@ func TestV1Reconcile(t *testing.T) {
 		},
 		Key: "default/delete-route",
 	}, {
+		Name:    "delete route failure",
+		Ctx:     setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "configurations"),
+		},
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "delete-route", "the-config", WithRouteFinalizer, WithRouteDeletionTimestamp(&now)),
+			simpleConfig("default", "the-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-route")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", "the-config", "serving.knative.dev/route"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to remove route label to /, Kind= "the-config": inducing failure for patch configurations`),
+		},
+		Key: "default/delete-route",
+	}, {
 		Name: "failure while removing a cfg annotation should return an error",
 		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
