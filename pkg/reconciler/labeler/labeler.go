@@ -53,6 +53,8 @@ type Reconciler struct {
 var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
+// FinalizeKind removes all Route reference metadata from its traffic targets.
+// This does not modify or observe spec for the Route itself.
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
@@ -77,6 +79,8 @@ func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconcile
 	return nil
 }
 
+// ReconcileKind syncs the Route reference metadata to its traffic targets.
+// This does not modify or observe spec for the Route itself.
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
