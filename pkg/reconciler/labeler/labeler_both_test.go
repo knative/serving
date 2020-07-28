@@ -26,6 +26,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -77,6 +78,29 @@ func TestV2ReconcileAllowed(t *testing.T) {
 			patchAddRouteAnn("default", "new-config", "config-change"),
 		},
 		Key: "default/config-change",
+	}, {
+		Name: "failure while removing a rev annotation should return an error",
+		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Allowed),
+		// Induce a failure during patching
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "revisions"),
+		},
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "add-label-failure", "new-config", WithRouteFinalizer),
+			simpleConfig("default", "new-config",
+				WithConfigLabel("serving.knative.dev/route", "add-label-failure")),
+			rev("default", "new-config"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", rev("default", "new-config").Name,
+				"serving.knative.dev/route", "add-label-failure"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to add route label to /, Kind= "new-config-dbnfd": inducing failure for patch revisions`),
+		},
+		Key: "default/add-label-failure",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
