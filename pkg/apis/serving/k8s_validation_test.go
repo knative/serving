@@ -71,9 +71,10 @@ func withPodSpecTolerationsEnabled() configOption {
 
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		ps   corev1.PodSpec
-		want *apis.FieldError
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "valid",
 		ps: corev1.PodSpec{
@@ -197,7 +198,8 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		cfgOpts: []configOption{withMultiContainerDisabled()},
+		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{
@@ -222,7 +224,15 @@ func TestPodSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidatePodSpec(context.Background(), test.ps)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := ValidatePodSpec(ctx, test.ps)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
