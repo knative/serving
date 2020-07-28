@@ -65,9 +65,7 @@ func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconci
 // ReconcileKind syncs the Route reference metadata to its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
-
-	switch newGC {
+	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 	case cfgmap.Disabled:
 		if err := labelerv1.SyncLabels(r, rec.caccV1, rec.raccV1); err != nil {
 			return err
