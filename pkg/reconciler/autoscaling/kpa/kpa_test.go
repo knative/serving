@@ -109,7 +109,7 @@ func defaultConfigMapData() map[string]string {
 	}
 }
 
-func initialScaleZeroConfigMap() *autoscalerconfig.Config {
+func initialScaleZeroASConfig() *autoscalerconfig.Config {
 	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
 	autoscalerConfig.AllowZeroInitialScale = true
 	autoscalerConfig.InitialScale = 0
@@ -174,15 +174,6 @@ func sksNoConds(s *nv1a1.ServerlessService) {
 	s.Status.Status = duckv1.Status{}
 }
 
-func metricWithASConfig(ns, n string, asConfig *autoscalerconfig.Config, opts ...metricOption) *asv1a1.Metric {
-	pa := kpa(ns, n)
-	m := aresources.MakeMetric(pa, kmeta.ChildName(n, "-private"), asConfig)
-	for _, o := range opts {
-		o(m)
-	}
-	return m
-}
-
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	kpa := kpa(ns, n)
 	s := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe, scaling.MinActivators)
@@ -228,7 +219,6 @@ func TestReconcile(t *testing.T) {
 		unknownScale = scaleUnknown
 		underscale   = defaultScale - 1
 		overscale    = defaultScale + 1
-		asConfigKey  = ""
 	)
 
 	// Set up a default deployment with the appropriate scale so that we don't
@@ -288,7 +278,9 @@ func TestReconcile(t *testing.T) {
 	overscaledReady := makeReadyPods(overscale, testNamespace, testRevision)
 	defaultReady := makeReadyPods(1, testNamespace, testRevision)
 
-	deciderKey := struct{}{}
+	type deciderKey struct{}
+	type asConfigKey struct{}
+
 	retryAttempted := false
 
 	// Note: due to how KPA reconciler works we are dependent on the
@@ -687,7 +679,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady not serving",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(0, 0),
@@ -703,7 +695,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady not serving (scale to zero)",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(0, 0),
@@ -724,7 +716,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "from serving to proxy",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markOld,
@@ -747,7 +739,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "scaling to 0, but not stable for long enough, so no-op",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
@@ -760,7 +752,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "activation failure",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic, markOld,
@@ -791,7 +783,7 @@ func TestReconcile(t *testing.T) {
 		Name: "want=-1, underscaled, PA inactive",
 		// No-op
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, unknownScale, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(0), underscaledDeployment,
@@ -803,7 +795,7 @@ func TestReconcile(t *testing.T) {
 		Name: "want=1, underscaled, PA inactive",
 		// Status -> Activating and Deployment has to be patched.
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 1, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(0), underscaledDeployment,
@@ -825,7 +817,7 @@ func TestReconcile(t *testing.T) {
 		Name: "underscaled, PA activating",
 		// Scale to `minScale`
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 2 /*autoscaler desired scale*/, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			activatingKPAMinScale(underscale, WithPASKSReady), underscaledDeployment,
@@ -838,7 +830,7 @@ func TestReconcile(t *testing.T) {
 		Name: "underscaled, PA active",
 		// Mark PA "activating"
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			activeKPAMinScale(underscale, defaultScale), underscaledDeployment,
@@ -854,7 +846,7 @@ func TestReconcile(t *testing.T) {
 		// Scale to `minScale` and mark PA "active"
 		Name: "overscaled, PA inactive",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /*wantScale*/, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(overscale), overscaledDeployment,
@@ -874,7 +866,7 @@ func TestReconcile(t *testing.T) {
 		Name: "overscaled, PA activating",
 		// Scale to `minScale` and mark PA "active"
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 1 /*wantScale*/, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			inactiveKPAMinScale(overscale), overscaledDeployment,
@@ -894,7 +886,7 @@ func TestReconcile(t *testing.T) {
 		Name: "over maxScale for real, PA active",
 		// No-op.
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, overscale, /*want more than minScale*/
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -905,7 +897,7 @@ func TestReconcile(t *testing.T) {
 		Name: "over maxScale, need to scale down, PA active",
 		// No-op.
 		Key: key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 1, /*less than minScale*/
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -921,7 +913,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "scaled-to-0-no-scale-data",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, unknownScale, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
@@ -936,7 +928,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady not enough capacity",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -950,7 +942,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady, proxy mode, many activators requested",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, 1982 /*numActivators*/)),
 		Objects: append([]runtime.Object{
@@ -969,7 +961,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "traffic increased, no longer enough burst capacity",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-18 /* ebc */, scaling.MinActivators+1)),
 		Objects: append([]runtime.Object{
@@ -988,7 +980,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "traffic decreased, now we have enough burst capacity",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				1 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1007,7 +999,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale > minScale, have not reached initial scale, PA still activating",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1032,7 +1024,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale reached, mark PA as active",
 		Key:  key,
-		Ctx: context.WithValue(context.Background(), deciderKey,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1060,7 +1052,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale zero: scale to zero",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1085,7 +1077,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale zero: stay at zero",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1107,7 +1099,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "initial scale zero: scale to greater than zero",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey, initialScaleZeroConfigMap()), deciderKey,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
@@ -1116,7 +1108,7 @@ func TestReconcile(t *testing.T) {
 				WithPASKSReady,
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
-			metricWithASConfig(testNamespace, testRevision, initialScaleZeroConfigMap()),
+			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
 			}),
@@ -1138,7 +1130,7 @@ func TestReconcile(t *testing.T) {
 		// constant namespace and revision names.
 
 		// Make new decider if it's not in the context
-		if d := ctx.Value(deciderKey); d == nil {
+		if d := ctx.Value(deciderKey{}); d == nil {
 			decider := resources.MakeDecider(
 				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
 			decider.Status.DesiredScale = defaultScale
@@ -1150,7 +1142,7 @@ func TestReconcile(t *testing.T) {
 		}
 
 		testConfigs := defaultConfig()
-		if asConfig := ctx.Value(asConfigKey); asConfig != nil {
+		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
 			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
 		}
 		psf := podscalable.Get(ctx)

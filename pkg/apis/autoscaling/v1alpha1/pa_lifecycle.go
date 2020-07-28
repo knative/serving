@@ -186,7 +186,7 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
-// IsSKSReady returns true if the PA condition denoting that SKS is ready.
+// IsSKSReady returns true if the PodAutoscaler's SKS is ready.
 func (pas *PodAutoscalerStatus) IsSKSReady() bool {
 	return pas.GetCondition(PodAutoscalerSKSReady).IsTrue()
 }
