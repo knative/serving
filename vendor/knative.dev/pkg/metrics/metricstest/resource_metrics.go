@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/metric/metricproducer"
 	"go.opencensus.io/resource"
+	"go.opencensus.io/stats/view"
 )
 
 // Value provides a simplified implementation of a metric Value suitable for
@@ -102,6 +103,18 @@ func NewMetric(metric *metricdata.Metric) Metric {
 	return value
 }
 
+// EnsureRecorded makes sure that all stats metrics are actually flushed and recorded.
+func EnsureRecorded() {
+	// stats.Record queues the actual record to a channel to be accounted for by
+	// a background goroutine (nonblocking). Call a method which does a
+	// round-trip to that goroutine to ensure that records have been flushed.
+	for _, producer := range metricproducer.GlobalManager().GetAll() {
+		if meter, ok := producer.(view.Meter); ok {
+			meter.Find("nonexistent")
+		}
+	}
+}
+
 // GetMetric returns all values for the named metric.
 func GetMetric(name string) []Metric {
 	producers := metricproducer.GlobalManager().GetAll()
@@ -152,31 +165,37 @@ func FloatMetric(name string, value float64, keyvalues ...string) Metric {
 	return genericMetricFactory(name, Value{Float64: &value}, keyvalues...)
 }
 
-// AssertMetric verifies that the metrics have the specified values.
+// AssertMetric verifies that the metrics have the specified values. Note that
+// this method will spuriously fail if there are multiple metrics with the same
+// name on different Meters. Calls EnsureRecorded internally before fetching the
+// batch of metrics.
 func AssertMetric(t *testing.T, values ...Metric) {
 	t.Helper()
+	EnsureRecorded()
 	for _, v := range values {
 		if diff := cmp.Diff(v, GetOneMetric(v.Name)); diff != "" {
-			t.Errorf("Wrong adds (-want +got): %s", diff)
+			t.Errorf("Wrong metric (-want +got): %s", diff)
 		}
 	}
 }
 
 // AssertMetricExists verifies that at least one metric values has been reported for
 // each of metric names.
+// Calls EnsureRecorded internally before fetching the batch of metrics.
 func AssertMetricExists(t *testing.T, names ...string) {
-	t.Helper()
-	for _, name := range names {
-		if len(GetMetric(name)) == 0 {
-			t.Errorf("No metrics found for %q", name)
-		}
+	metrics := make([]Metric, 0, len(names))
+	for _, n := range names {
+		metrics = append(metrics, Metric{Name: n})
 	}
+	AssertMetric(t, metrics...)
 }
 
 // AssertNoMetric verifies that no metrics have been reported for any of the
 // metric names.
+// Calls EnsureRecorded internally before fetching the batch of metrics.
 func AssertNoMetric(t *testing.T, names ...string) {
 	t.Helper()
+	EnsureRecorded()
 	for _, name := range names {
 		if m := GetMetric(name); len(m) != 0 {
 			t.Error("Found unexpected data for:", m)
