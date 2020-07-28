@@ -19,8 +19,8 @@ metadata:
     release: istio
     istio.io/rev: default
 spec:
-  maxReplicas: 5
-  minReplicas: 1
+  maxReplicas: 10
+  minReplicas: 3
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -29,7 +29,7 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      targetAverageUtilization: 60
 ---
 
 
@@ -113,7 +113,7 @@ spec:
         fsGroup: 1337
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.6.4"
+          image: "docker.io/istio/pilot:1.6.5"
           args:
           - "discovery"
           - --monitoringAddr=:15014
@@ -334,7 +334,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.6.4",
+        "tag": "1.6.5",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -421,7 +421,11 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
+        {{- if excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}
         - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        {{- else }}
+        - "15090,15021"
+        {{- end }}
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -902,10 +906,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
     - name: dns-tls
       port: 853
       targetPort: 15053
@@ -1874,132 +1874,6 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
----
-
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: adapters.config.istio.io
-  labels:
-    app: mixer
-    package: adapter
-    istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: adapter
-    plural: adapters
-    singular: adapter
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: templates.config.istio.io
-  labels:
-    app: mixer
-    package: template
-    istio: mixer-template
-    chart: istio
-    heritage: Tiller
-    release: istio
-  annotations:
-    "helm.sh/resource-policy": keep
-spec:
-  group: config.istio.io
-  names:
-    kind: template
-    plural: templates
-    singular: template
-    categories:
-    - istio-io
-    - policy-istio-io
-  scope: Namespaced
-  subresources:
-    status: {}
-  versions:
-    - name: v1alpha2
-      served: true
-      storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: istiooperators.install.istio.io
-  labels:
-    release: istio
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.revision
-    description: Istio control plane revision
-    name: Revision
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: 'CreationTimestamp is a timestamp representing the server time when
-      this object was created. It is not guaranteed to be set in happens-before order
-      across separate operations. Clients may not set this value. It is represented
-      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
-    name: Age
-    type: date
-  group: install.istio.io
-  names:
-    kind: IstioOperator
-    plural: istiooperators
-    singular: istiooperator
-    shortNames:
-    - iop
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        spec:
-          description: 'Specification of the desired state of the istio control plane resource.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-        status:
-          description: 'Status describes each of istio control plane component status at the current time.
-            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
-            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
 ---
 
 
@@ -6932,6 +6806,132 @@ spec:
     storage: true
 ---
 
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: adapters.config.istio.io
+  labels:
+    app: mixer
+    package: adapter
+    istio: mixer-adapter
+    chart: istio
+    heritage: Tiller
+    release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  group: config.istio.io
+  names:
+    kind: adapter
+    plural: adapters
+    singular: adapter
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  subresources:
+    status: {}
+  versions:
+    - name: v1alpha2
+      served: true
+      storage: true
+---
+
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: templates.config.istio.io
+  labels:
+    app: mixer
+    package: template
+    istio: mixer-template
+    chart: istio
+    heritage: Tiller
+    release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  group: config.istio.io
+  names:
+    kind: template
+    plural: templates
+    singular: template
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  subresources:
+    status: {}
+  versions:
+    - name: v1alpha2
+      served: true
+      storage: true
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+  labels:
+    release: istio
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.revision
+    description: Istio control plane revision
+    name: Revision
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+
 # Cni component is disabled.
 
 # EgressGateways istio-egressgateway component is disabled.
@@ -6949,7 +6949,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -6965,12 +6965,12 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
     release: istio
+  name: istio-ingressgateway
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -6982,195 +6982,195 @@ spec:
       maxUnavailable: 25%
   template:
     metadata:
-      labels:
-        app: istio-ingressgateway
-        istio: ingressgateway
-        heritage: Tiller
-        release: istio
-        chart: gateways
-        service.istio.io/canonical-name: istio-ingressgateway
-        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
+      labels:
+        app: istio-ingressgateway
+        chart: gateways
+        heritage: Tiller
+        istio: ingressgateway
+        release: istio
+        service.istio.io/canonical-name: istio-ingressgateway
+        service.istio.io/canonical-revision: latest
     spec:
-      serviceAccountName: istio-ingressgateway-service-account
-      containers:
-        - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.6.4"
-          ports:
-            - containerPort: 15021
-            - containerPort: 8080
-            - containerPort: 8443
-            - containerPort: 15443
-            - containerPort: 15011
-            - containerPort: 15012
-            - containerPort: 8060
-            - containerPort: 853
-            - containerPort: 15090
-              protocol: TCP
-              name: http-envoy-prom
-          args:
-          - proxy
-          - router
-          - --domain
-          - $(POD_NAMESPACE).svc.cluster.local
-          - --proxyLogLevel=warning
-          - --proxyComponentLogLevel=misc:error
-          - --log_output_level=default:info
-          - --serviceCluster
-          - istio-ingressgateway
-          - --trust-domain=cluster.local
-          readinessProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz/ready
-              port: 15021
-              scheme: HTTP
-            initialDelaySeconds: 1
-            periodSeconds: 2
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          env:
-          - name: JWT_POLICY
-            value: first-party-jwt
-          - name: PILOT_CERT_PROVIDER
-            value: istiod
-          - name: CA_ADDR
-            value: istiod.istio-system.svc:15012
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          - name: HOST_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.hostIP
-          - name: SERVICE_ACCOUNT
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.serviceAccountName
-          - name: CANONICAL_SERVICE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-name']
-          - name: CANONICAL_REVISION
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-revision']
-          - name: ISTIO_META_WORKLOAD_NAME
-            value: istio-ingressgateway
-          - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
-          - name: ISTIO_META_MESH_ID
-            value: "cluster.local"
-          - name: ISTIO_META_ROUTER_MODE
-            value: sni-dnat
-          
-          - name: ISTIO_META_CLUSTER_ID
-            value: "Kubernetes"
-          volumeMounts:
-          - name: istio-envoy
-            mountPath: /etc/istio/proxy
-          - name: config-volume
-            mountPath: /etc/istio/config
-          - mountPath: /var/run/secrets/istio
-            name: istiod-ca-cert
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-          - name: podinfo
-            mountPath: /etc/istio/pod
-          - name: ingressgateway-certs
-            mountPath: "/etc/istio/ingressgateway-certs"
-            readOnly: true
-          - name: ingressgateway-ca-certs
-            mountPath: "/etc/istio/ingressgateway-ca-certs"
-            readOnly: true
-      volumes:
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
-      - name: podinfo
-        downwardAPI:
-          items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
-      - name: istio-envoy
-        emptyDir: {}
-      - name: ingressgatewaysdsudspath
-        emptyDir: {}
-      - name: config-volume
-        configMap:
-          name: istio
-          optional: true
-      - name: ingressgateway-certs
-        secret:
-          secretName: "istio-ingressgateway-certs"
-          optional: true
-      - name: ingressgateway-ca-certs
-        secret:
-          secretName: "istio-ingressgateway-ca-certs"
-          optional: true
-      affinity:      
+      affinity:
         nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
+        - --log_output_level=default:info
+        - --serviceCluster
+        - istio-ingressgateway
+        - --trust-domain=cluster.local
+        env:
+        - name: JWT_POLICY
+          value: first-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: istio-ingressgateway
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        image: docker.io/istio/proxyv2:1.6.5
+        name: istio-proxy
+        ports:
+        - containerPort: 15021
+        - containerPort: 8080
+        - containerPort: 8443
+        - containerPort: 15443
+        - containerPort: 15011
+        - containerPort: 15012
+        - containerPort: 8060
+        - containerPort: 853
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 3000m
+            memory: 2048Mi
+          requests:
+            cpu: 1000m
+            memory: 1024Mi
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/ingress_gateway
+          name: ingressgatewaysdsudspath
+        - mountPath: /etc/istio/pod
+          name: podinfo
+        - mountPath: /etc/istio/ingressgateway-certs
+          name: ingressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/ingressgateway-ca-certs
+          name: ingressgateway-ca-certs
+          readOnly: true
+      serviceAccountName: istio-ingressgateway-service-account
+      volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
+      - emptyDir: {}
+        name: ingressgatewaysdsudspath
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
+      - name: ingressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-ca-certs
+
 ---
 
 
@@ -7284,7 +7284,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -7300,12 +7300,12 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
   labels:
     app: cluster-local-gateway
     istio: cluster-local-gateway
     release: istio
+  name: cluster-local-gateway
+  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -7317,194 +7317,194 @@ spec:
       maxUnavailable: 25%
   template:
     metadata:
-      labels:
-        app: cluster-local-gateway
-        istio: cluster-local-gateway
-        heritage: Tiller
-        release: istio
-        chart: gateways
-        service.istio.io/canonical-name: cluster-local-gateway
-        service.istio.io/canonical-revision: latest
       annotations:
         sidecar.istio.io/inject: "false"
+      labels:
+        app: cluster-local-gateway
+        chart: gateways
+        heritage: Tiller
+        istio: cluster-local-gateway
+        release: istio
+        service.istio.io/canonical-name: cluster-local-gateway
+        service.istio.io/canonical-revision: latest
     spec:
-      serviceAccountName: cluster-local-gateway-service-account
-      containers:
-        - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.6.4"
-          ports:
-            - containerPort: 15020
-            - containerPort: 80
-            - containerPort: 443
-            - containerPort: 15011
-            - containerPort: 15012
-            - containerPort: 8060
-            - containerPort: 853
-            - containerPort: 15090
-              protocol: TCP
-              name: http-envoy-prom
-          args:
-          - proxy
-          - router
-          - --domain
-          - $(POD_NAMESPACE).svc.cluster.local
-          - --proxyLogLevel=warning
-          - --proxyComponentLogLevel=misc:error
-          - --log_output_level=default:info
-          - --serviceCluster
-          - cluster-local-gateway
-          - --trust-domain=cluster.local
-          readinessProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz/ready
-              port: 15021
-              scheme: HTTP
-            initialDelaySeconds: 1
-            periodSeconds: 2
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources:
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          env:
-          - name: JWT_POLICY
-            value: first-party-jwt
-          - name: PILOT_CERT_PROVIDER
-            value: istiod
-          - name: CA_ADDR
-            value: istiod.istio-system.svc:15012
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
-          - name: HOST_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.hostIP
-          - name: SERVICE_ACCOUNT
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.serviceAccountName
-          - name: CANONICAL_SERVICE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-name']
-          - name: CANONICAL_REVISION
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-revision']
-          - name: ISTIO_META_WORKLOAD_NAME
-            value: cluster-local-gateway
-          - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
-          - name: ISTIO_META_MESH_ID
-            value: "cluster.local"
-          - name: ISTIO_META_ROUTER_MODE
-            value: sni-dnat
-          
-          - name: ISTIO_META_CLUSTER_ID
-            value: "Kubernetes"
-          volumeMounts:
-          - name: istio-envoy
-            mountPath: /etc/istio/proxy
-          - name: config-volume
-            mountPath: /etc/istio/config
-          - mountPath: /var/run/secrets/istio
-            name: istiod-ca-cert
-          - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway
-          - name: podinfo
-            mountPath: /etc/istio/pod
-          - name: ingressgateway-certs
-            mountPath: "/etc/istio/ingressgateway-certs"
-            readOnly: true
-          - name: ingressgateway-ca-certs
-            mountPath: "/etc/istio/ingressgateway-ca-certs"
-            readOnly: true
-      volumes:
-      - name: istiod-ca-cert
-        configMap:
-          name: istio-ca-root-cert
-      - name: podinfo
-        downwardAPI:
-          items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
-      - name: istio-envoy
-        emptyDir: {}
-      - name: ingressgatewaysdsudspath
-        emptyDir: {}
-      - name: config-volume
-        configMap:
-          name: istio
-          optional: true
-      - name: ingressgateway-certs
-        secret:
-          secretName: "istio-ingressgateway-certs"
-          optional: true
-      - name: ingressgateway-ca-certs
-        secret:
-          secretName: "istio-ingressgateway-ca-certs"
-          optional: true
-      affinity:      
+      affinity:
         nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
+        - --log_output_level=default:info
+        - --serviceCluster
+        - cluster-local-gateway
+        - --trust-domain=cluster.local
+        env:
+        - name: JWT_POLICY
+          value: first-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: CANONICAL_SERVICE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-name']
+        - name: CANONICAL_REVISION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: cluster-local-gateway
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: ISTIO_META_ROUTER_MODE
+          value: sni-dnat
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        image: docker.io/istio/proxyv2:1.6.5
+        name: istio-proxy
+        ports:
+        - containerPort: 15020
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 15011
+        - containerPort: 15012
+        - containerPort: 8060
+        - containerPort: 853
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 3000m
+            memory: 2048Mi
+          requests:
+            cpu: 1000m
+            memory: 1024Mi
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/ingress_gateway
+          name: ingressgatewaysdsudspath
+        - mountPath: /etc/istio/pod
+          name: podinfo
+        - mountPath: /etc/istio/ingressgateway-certs
+          name: ingressgateway-certs
+          readOnly: true
+        - mountPath: /etc/istio/ingressgateway-ca-certs
+          name: ingressgateway-ca-certs
+          readOnly: true
+      serviceAccountName: cluster-local-gateway-service-account
+      volumes:
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
+      - emptyDir: {}
+        name: istio-envoy
+      - emptyDir: {}
+        name: ingressgatewaysdsudspath
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
+      - name: ingressgateway-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secret:
+          optional: true
+          secretName: istio-ingressgateway-ca-certs
+
 ---
 
 
@@ -7602,24 +7602,25 @@ metadata:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istiod
-  namespace: istio-system
   labels:
     app: istiod
-    release: istio
     istio.io/rev: default
+    release: istio
+  name: istiod
+  namespace: istio-system
 spec:
-  maxReplicas: 5
-  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 60
+    type: Resource
+  minReplicas: 3
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
+
 ---
 
 
@@ -7746,7 +7747,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: docker.io/istio/pilot:1.6.4
+        image: docker.io/istio/pilot:1.6.5
         name: discovery
         ports:
         - containerPort: 8080
@@ -7921,7 +7922,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.6.4",
+        "tag": "1.6.5",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -8008,7 +8009,11 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
+        {{- if excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}
         - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+        {{- else }}
+        - "15090,15021"
+        {{- end }}
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
@@ -8489,10 +8494,6 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
-    - name: dns
-      port: 53
-      targetPort: 15053
-      protocol: UDP
     - name: dns-tls
       port: 853
       targetPort: 15053

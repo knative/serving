@@ -17,6 +17,9 @@ kind: IstioOperator
 spec:
   values:
     global:
+      mtls:
+        enabled: true
+        auto: false
       proxy:
         autoInject: enabled
         accessLogEncoding: 'JSON'
