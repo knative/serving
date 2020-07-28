@@ -1212,18 +1212,3 @@ func TestIsScaleTargetInitialized(t *testing.T) {
 		t.Errorf("after marking initially active: got: %v, want: %v", got, want)
 	}
 }
-
-func TestIsSKSReady(t *testing.T) {
-	p := PodAutoscaler{}
-	if got, want := p.Status.IsSKSReady(), false; got != want {
-		t.Errorf("before marking SKS ready: got: %v, want: %v", got, want)
-	}
-	p.Status.MarkSKSReady()
-	if got, want := p.Status.IsSKSReady(), true; got != want {
-		t.Errorf("after marking SKS ready: got: %v, want: %v", got, want)
-	}
-	p.Status.MarkSKSNotReady("not ready")
-	if got, want := p.Status.IsSKSReady(), false; got != want {
-		t.Errorf("after marking SKS not ready: got: %v, want: %v", got, want)
-	}
-}
