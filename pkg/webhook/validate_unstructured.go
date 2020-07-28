@@ -49,7 +49,7 @@ func ValidateService(ctx context.Context, uns *unstructured.Unstructured) error 
 	return validateRevisionTemplate(ctx, uns)
 }
 
-// ValidateConfiguration runs extra validation on Configurationresources
+// ValidateConfiguration runs extra validation on Configuration resources
 func ValidateConfiguration(ctx context.Context, uns *unstructured.Unstructured) error {
 	// If owned by a service, skip validation for Configuration.
 	if uns.GetLabels()[serving.ServiceLabelKey] != "" {
