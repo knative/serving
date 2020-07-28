@@ -141,7 +141,7 @@ func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Ac
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
+	kl := make([]kmeta.Accessor, 0, 1)
 	for _, r := range rl {
 		if getListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, r)
@@ -196,7 +196,7 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(cl))
+	kl := make([]kmeta.Accessor, 0, 1)
 	for _, c := range cl {
 		if getListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, c)
