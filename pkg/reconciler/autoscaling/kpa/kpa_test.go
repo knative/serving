@@ -275,6 +275,7 @@ func TestReconcile(t *testing.T) {
 	defaultMetric := metric(testNamespace, testRevision)
 
 	underscaledReady := makeReadyPods(underscale, testNamespace, testRevision)
+	preciseReady := makeReadyPods(defaultScale, testNamespace, testRevision)
 	overscaledReady := makeReadyPods(overscale, testNamespace, testRevision)
 	defaultReady := makeReadyPods(1, testNamespace, testRevision)[0]
 
@@ -455,16 +456,17 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "sks is still not ready",
 		Key:  key,
-		Objects: []runtime.Object{
+		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
 				withScales(0, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
 				WithPrivateService),
 			metric(testNamespace, testRevision),
-			defaultDeployment, defaultReady},
+			defaultDeployment},
+			preciseReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, withScales(0, defaultScale),
-				WithPASKSNotReady(""), WithBufferedTraffic,
+			Object: kpa(testNamespace, testRevision, withScales(defaultScale, defaultScale),
+				WithPASKSNotReady(""), WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 		}},
 	}, {
@@ -775,7 +777,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, unknownScale, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			inactiveKPAMinScale(0), underscaledDeployment,
+			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
 				WithPubService, WithPrivateService),
 			defaultMetric,
@@ -787,13 +789,13 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 1, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			inactiveKPAMinScale(0), underscaledDeployment,
+			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
 				WithPubService, WithPrivateService),
 			defaultMetric,
 		}, underscaledReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: activatingKPAMinScale(0),
+			Object: activatingKPAMinScale(underscale),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,

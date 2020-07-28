@@ -140,13 +140,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	// If SKS is not ready — ensure we're not becoming ready.
 	// TODO: see if we can perhaps propagate the SKS state to computing active status.
-	if !sks.IsReady() {
-		logger.Debug("SKS is not ready, marking SKS status not ready")
-		ready = 0
-		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
-	} else {
+	if sks.IsReady() {
 		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
+	} else {
+		logger.Debug("SKS is not ready, marking SKS status not ready")
+		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
