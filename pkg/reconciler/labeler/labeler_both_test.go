@@ -39,6 +39,8 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	. "knative.dev/pkg/reconciler/testing"
+	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -78,14 +80,17 @@ func TestV2ReconcileAllowed(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		clock := clock.NewFakeClock(fakeTime)
+		client := servingclient.Get(ctx)
+		cLister := listers.GetConfigurationLister()
+		cIndexer := listers.IndexerFor(&v1.Configuration{})
+		rLister := listers.GetRevisionLister()
+		rIndexer := listers.IndexerFor(&v1.Revision{})
 		r := &Reconciler{
-			client:   servingclient.Get(ctx),
-			cLister:  listers.GetConfigurationLister(),
-			cIndexer: listers.IndexerFor(&v1.Configuration{}),
-			rLister:  listers.GetRevisionLister(),
-			rIndexer: listers.IndexerFor(&v1.Revision{}),
-			tracker:  &NullTracker{},
-			clock:    clock.NewFakeClock(fakeTime),
+			caccV1: labelerv1.NewConfigurationAccessor(client, &NullTracker{}, cLister),
+			caccV2: labelerv2.NewConfigurationAccessor(client, &NullTracker{}, cLister, cIndexer, clock),
+			raccV1: labelerv1.NewRevisionAccessor(client, &NullTracker{}, rLister),
+			raccV2: labelerv2.NewRevisionAccessor(client, &NullTracker{}, rLister, rIndexer, clock),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
