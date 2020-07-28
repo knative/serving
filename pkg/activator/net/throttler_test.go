@@ -129,10 +129,10 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
-	// shouldn't really happen since queue.MaxBreakerCapacity is very, very large,
+	// shouldn't really happen since revisionMaxConcurrency is very, very large,
 	// but check that we behave reasonably if it's exceeded.
-	capacity := rt.calculateCapacity(queue.MaxBreakerCapacity+5, 1, queue.MaxBreakerCapacity)
-	if got, want := capacity, queue.MaxBreakerCapacity; got != want {
+	capacity := rt.calculateCapacity(revisionMaxConcurrency+5, 1)
+	if got, want := capacity, revisionMaxConcurrency; got != want {
 		t.Errorf("calculateCapacity = %d, want: %d", got, want)
 	}
 

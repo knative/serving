@@ -227,16 +227,16 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 	return ret
 }
 
-func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurrency int) int {
+func (rt *revisionThrottler) calculateCapacity(size, activatorCount int) int {
 	targetCapacity := rt.containerConcurrency * size
 
-	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > maxConcurrency) {
+	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
 		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
 		// breaker requires some limit (it's backed by a chan struct{}), but the
 		// limit is math.MaxInt32 so in practice this should never be a real limit.
-		targetCapacity = maxConcurrency
+		targetCapacity = revisionMaxConcurrency
 	} else if targetCapacity > 0 {
 		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 	}
@@ -294,11 +294,11 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, revisionMaxConcurrency)
+		capacity = rt.calculateCapacity(len(rt.podTrackers), ac)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		capacity = rt.calculateCapacity(backendCount, ac, revisionMaxConcurrency)
+		capacity = rt.calculateCapacity(backendCount, ac)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
