@@ -51,9 +51,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	logger := logging.FromContext(ctx)
 	logger.Debug("PA exists")
 
-	// HPA-class PAs don't yet support scale-to-zero
-	pa.Status.MarkActive()
-
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
 	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
