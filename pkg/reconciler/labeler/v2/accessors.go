@@ -120,7 +120,7 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return true
 		}
 		valSet.Delete(routeName)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.List(), ",")
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
 		return false
 
 	case !has && !remove:
@@ -129,7 +129,7 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return true
 		}
 		valSet.Insert(routeName)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.List(), ",")
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
 		return false
 	}
 
