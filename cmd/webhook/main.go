@@ -77,12 +77,18 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 }
 
 var serviceValidation = validation.NewCallback(
-	extravalidation.ValidateRevisionTemplate, webhook.Create, webhook.Update)
+	extravalidation.ValidateService, webhook.Create, webhook.Update)
+
+var configValidation = validation.NewCallback(
+	extravalidation.ValidateConfiguration, webhook.Create, webhook.Update)
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
-	servingv1alpha1.SchemeGroupVersion.WithKind("Service"): serviceValidation,
-	servingv1beta1.SchemeGroupVersion.WithKind("Service"):  serviceValidation,
-	servingv1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
+	servingv1alpha1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
+	servingv1beta1.SchemeGroupVersion.WithKind("Service"):        serviceValidation,
+	servingv1.SchemeGroupVersion.WithKind("Service"):             serviceValidation,
+	servingv1alpha1.SchemeGroupVersion.WithKind("Configuration"): configValidation,
+	servingv1beta1.SchemeGroupVersion.WithKind("Configuration"):  configValidation,
+	servingv1.SchemeGroupVersion.WithKind("Configuration"):       configValidation,
 }
 
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
