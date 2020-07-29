@@ -202,23 +202,21 @@ func TestV2Reconcile(t *testing.T) {
 		},
 		Key: "default/add-label-failure",
 	}, {
-		Name: "label config with incorrect annotation",
+		Name: "delete route existing ann",
 		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
 		Objects: []runtime.Object{
-			simpleRunLatest("default", "the-route", "the-config", WithRouteFinalizer),
+			simpleRunLatest("default", "delete-route", "the-config", WithRouteFinalizer, WithRouteDeletionTimestamp(&now)),
 			simpleConfig("default", "the-config",
-				WithConfigAnn("serving.knative.dev/routes", "another-route")),
-			rev("default", "the-config",
-				WithRevisionAnn("serving.knative.dev/routes", "another-route")),
+				WithConfigAnn("serving.knative.dev/routes", "delete-route,another-route")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddRouteAnn(
-				"default", rev("default", "the-config").Name,
-				"another-route,the-route"),
-			patchAddRouteAnn("default", "the-config",
-				"another-route,the-route"),
+			patchAddRouteAnn("default", "the-config", "another-route"),
+			patchRemoveFinalizerAction("default", "delete-route"),
 		},
-		Key: "default/the-route",
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", `Updated "delete-route" finalizers`),
+		},
+		Key: "default/delete-route",
 	}, {
 		Name: "change configurations",
 		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
