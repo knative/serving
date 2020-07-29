@@ -20,9 +20,9 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "088ba8b3"
+    knative.dev/example-checksum: "70978f87"
 data:
-  _example: |
+  _example: |-
     ################################
     #                              #
     #    EXAMPLE CONFIGURATION     #
@@ -172,3 +172,29 @@ data:
     # See the algorithm here: http://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
+
+    # initial-scale is the cluster-wide default value for the initial deployment
+    # replica size of a revision.
+    # This value cannot be set to 0 while allow-zero-initial-scale is false.
+    # If annotation "autoscaling.internal.knative.dev/initialScale" is not set,
+    # or "autoscaling.internal.knative.dev/initialScale" is set to 0 while
+    # allow-zero-initial-scale is false, the cluster wide initial-scale value will
+    # be used for the initial revision deployment size.
+    # If annotation "autoscaling.internal.knative.dev/initialScale" is set to > 0,
+    # or 0 while allow-zero-initial-scale is true, the annotation value will be used
+    # for the initial revision deployment size.
+    initial-scale: "1"
+
+    # allow-zero-initial-scale is the cluster-wide flag to indicate whether
+    # initial-scale is allowed to be 0.
+    # If this is set to true, both the cluster-wide flag initial-scale and
+    # the annotation "autoscaling.internal.knative.dev/initialScale" are allowed
+    # to be set to 0.
+    # If this is set to false, the cluster-wide initial-scale value is not
+    # allowed to be set to 0. If user attemps to deploy a new revision with
+    # "autoscaling.internal.knative.dev/initialScale" annotation set to 0,
+    # the new revision will not be successfully created. If there's an existing
+    # revision with "autoscaling.internal.knative.dev/initialScale" annotation
+    # set to 0, while allow-zero-initial-scale is changed from true to false,
+    # the default value 1 will be used.
+    allow-zero-initial-scale: "false"
