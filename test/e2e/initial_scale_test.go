@@ -37,7 +37,6 @@ import (
 // the revision level. This test runs after the cluster wide flag allow-zero-initial-scale
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -57,7 +56,6 @@ func TestInitScaleZero(t *testing.T) {
 // TestInitScalePositive tests setting of annotation initialScale to greater than 0 on
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -89,7 +87,9 @@ func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, nam
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
 		podList, err := pods.List(metav1.ListOptions{
 			LabelSelector: selector,
-			FieldSelector: "status.phase=Running",
+			// Include both running and terminating pods, because we will scale down from
+			// initial scale immediately if there's no traffic coming in.
+			FieldSelector: "status.phase!=Pending",
 		})
 		if err != nil {
 			return false, err

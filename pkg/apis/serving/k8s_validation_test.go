@@ -34,16 +34,37 @@ import (
 
 type configOption func(*config.Config) *config.Config
 
-func withMultiContainer() configOption {
+func withMultiContainerEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.MultiContainer = config.Enabled
 		return cfg
 	}
 }
 
-func withFieldRef() configOption {
+func withPodSpecFieldRefEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecFieldRef = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecAffinityEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecAffinity = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecNodeSelectorEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecNodeSelector = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecTolerationsEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecTolerations = config.Enabled
 		return cfg
 	}
 }
@@ -240,7 +261,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want:    nil,
 	}, {
 		name: "flag enabled: probes are not allowed for non serving containers",
@@ -260,7 +281,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "must not set the field(s)",
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
@@ -274,7 +295,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want:    apis.ErrMissingField("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple port",
@@ -291,7 +312,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want:    apis.ErrMultipleOneOf("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple ports for each container",
@@ -310,7 +331,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -330,7 +351,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -355,7 +376,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: `"K_SERVICE" is a reserved environment variable`,
 			Paths:   []string{"containers[1].env[1].name"},
@@ -376,7 +397,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want:    nil,
 	}, {
 		name: "Volume mounts ok with single container",
@@ -398,7 +419,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withFieldRef()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 	}, {
 		name: "Volume not mounted when having a single container",
 		ps: corev1.PodSpec{
@@ -414,7 +435,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "busybox",
 			}},
 		},
-		cfgOpts: []configOption{withFieldRef()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 		want: &apis.FieldError{
 			Message: "volume with name \"the-name\" not mounted",
 			Paths:   []string{"volumes[0].name"}},
@@ -456,7 +477,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 	}, {
 		name: "Volume not mounted when having multiple containers",
 		ps: corev1.PodSpec{
@@ -488,7 +509,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				{Image: "busybox"},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainer()},
+		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "volume with name \"the-name2\" not mounted",
 			Paths:   []string{"volumes[1].name"},
@@ -510,6 +531,124 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
 		})
+	}
+}
+
+func TestPodSpecFeatureValidation(t *testing.T) {
+	featureData := []struct {
+		name        string
+		featureSpec corev1.PodSpec
+		cfgOpts     []configOption
+		err         *apis.FieldError
+	}{{
+		name: "Affinity",
+		featureSpec: corev1.PodSpec{
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchExpressions: []corev1.NodeSelectorRequirement{{
+								Key:      "failure-domain.beta.kubernetes.io/zone",
+								Operator: "In",
+								Values:   []string{"us-east1-b"},
+							}},
+						}},
+					},
+				},
+			},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"affinity"},
+		},
+		cfgOpts: []configOption{withPodSpecAffinityEnabled()},
+	}, {
+		name: "NodeSelector",
+		featureSpec: corev1.PodSpec{
+			NodeSelector: map[string]string{
+				"kubernetes.io/arch": "amd64",
+			},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"nodeSelector"},
+		},
+		cfgOpts: []configOption{withPodSpecNodeSelectorEnabled()},
+	}, {
+		name: "Tolerations",
+		featureSpec: corev1.PodSpec{
+			Tolerations: []corev1.Toleration{{
+				Key:      "key",
+				Operator: "Equal",
+				Value:    "value",
+				Effect:   "NoSchedule",
+			}},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"tolerations"},
+		},
+		cfgOpts: []configOption{withPodSpecTolerationsEnabled()},
+	}}
+
+	featureTests := []struct {
+		nameTemplate       string
+		enableFeature      bool
+		includeFeatureSpec bool
+		wantError          bool
+	}{{
+		nameTemplate:       "flag disabled: %s not present",
+		enableFeature:      false,
+		includeFeatureSpec: false,
+		wantError:          false,
+	}, {
+		nameTemplate:       "flag disabled: %s present",
+		enableFeature:      false,
+		includeFeatureSpec: true,
+		wantError:          true,
+	}, {
+		nameTemplate:       "flag enabled: %s not present",
+		enableFeature:      true,
+		includeFeatureSpec: false,
+		wantError:          false,
+	}, {
+		nameTemplate:       "flag enabled: %s present",
+		enableFeature:      true,
+		includeFeatureSpec: true,
+		wantError:          false,
+	}}
+
+	for _, featureData := range featureData {
+		for _, test := range featureTests {
+			t.Run(fmt.Sprintf(test.nameTemplate, featureData.name), func(t *testing.T) {
+				ctx := context.Background()
+				obj := corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				}
+				want := &apis.FieldError{}
+				if test.wantError {
+					want = featureData.err
+				}
+				if test.enableFeature {
+					cfg := config.FromContextOrDefaults(ctx)
+					for _, opt := range featureData.cfgOpts {
+						cfg = opt(cfg)
+					}
+					ctx = config.ToContext(ctx, cfg)
+				}
+				if test.includeFeatureSpec {
+					obj.Affinity = featureData.featureSpec.Affinity
+					obj.NodeSelector = featureData.featureSpec.NodeSelector
+					obj.Tolerations = featureData.featureSpec.Tolerations
+				}
+				got := ValidatePodSpec(ctx, obj)
+				if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
+					t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
+				}
+			})
+		}
 	}
 }
 
@@ -535,7 +674,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 					Name: "NODE_IP",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "status.IP",
+							FieldPath: "status.hostIP",
 						},
 					},
 				}},
@@ -572,7 +711,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 				Image: "busybox",
 			}},
 		},
-		cfgOpts: []configOption{withFieldRef()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 	}, {
 		name: "flag enabled: fieldRef present",
 		ps: corev1.PodSpec{
@@ -582,13 +721,13 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 					Name: "NODE_IP",
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "status.IP",
+							FieldPath: "status.hostIP",
 						},
 					},
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withFieldRef()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 	}, {
 		name: "flag enabled: resourceFieldRef present",
 		ps: corev1.PodSpec{
@@ -605,7 +744,7 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withFieldRef()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 	}}
 
 	for _, test := range tests {

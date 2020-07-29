@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: 2defca8d
+    knative.dev/example-checksum: "b44360b5"
 data:
   _example: |
     ################################
@@ -47,6 +47,9 @@ data:
     # seconds that can be used for revision-timeout-seconds.
     # This value must be greater than or equal to revision-timeout-seconds.
     # If omitted, the system default is used (600 seconds).
+    #
+    # If this value is increased, the activator's terminationGraceTimeSeconds
+    # should also be increased to prevent in-flight requests being disrupted.
     max-revision-timeout-seconds: "600"  # 10 minutes
 
     # revision-cpu-request contains the cpu allocation to assign

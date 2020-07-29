@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: c7f290c9
+    knative.dev/example-checksum: "b22469ec"
 data:
   _example: |
     ################################
@@ -69,8 +69,11 @@ data:
 
     # domainTemplate specifies the golang text template string to use
     # when constructing the Knative service's DNS name. The default
-    # value is "{{.Name}}.{{.Namespace}}.{{.Domain}}". And those three
-    # values (Name, Namespace, Domain) are the only variables defined.
+    # value is "{{.Name}}.{{.Namespace}}.{{.Domain}}".
+    #
+    # Valid variables defined in the template include Name, Namespace, Domain,
+    # Labels, and Annotations. Name will be the result of the tagTemplate
+    # below, if a tag is specified for the route.
     #
     # Changing this value might be necessary when the extra levels in
     # the domain name generated is problematic for wildcard certificates

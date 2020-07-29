@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -69,9 +68,6 @@ import (
 const (
 	component = "activator"
 
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
-
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
 )
@@ -84,19 +80,19 @@ var (
 
 func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
 	logger *zap.SugaredLogger) {
-	for sm := range statChan {
-		go func(msgs []asmetrics.StatMessage) {
-			for _, msg := range msgs {
-				b, err := json.Marshal(msg)
-				if err != nil {
-					logger.Errorw("Error while marshaling stat", zap.Error(err))
-					continue
-				}
-				if err := statSink.SendRaw(gorillawebsocket.TextMessage, b); err != nil {
-					logger.Errorw("Error while sending stat", zap.Error(err))
-				}
+	for sms := range statChan {
+		go func(sms []asmetrics.StatMessage) {
+			wsms := asmetrics.ToWireStatMessages(sms)
+			b, err := wsms.Marshal()
+			if err != nil {
+				logger.Errorw("Error while marshaling stats", zap.Error(err))
+				return
 			}
-		}(sm)
+
+			if err := statSink.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+				logger.Errorw("Error while sending stats", zap.Error(err))
+			}
+		}(sms)
 	}
 }
 
@@ -169,9 +165,6 @@ func main() {
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
-	reqCh := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqCh)
-
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx)
@@ -199,13 +192,13 @@ func main() {
 	go statReporter(statSink, statCh, logger)
 
 	// Create and run our concurrency reporter
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
-	go cr.Run(ctx.Done())
+	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
+	go concurrencyReporter.Run(ctx.Done())
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(ctx, throttler)
-	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
+	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",

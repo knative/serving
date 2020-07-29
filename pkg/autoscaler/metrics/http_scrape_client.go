@@ -17,17 +17,26 @@ limitations under the License.
 package metrics
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"knative.dev/serving/pkg/network"
 )
 
 type httpScrapeClient struct {
 	httpClient *http.Client
+}
+
+var pool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
 }
 
 func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
@@ -45,6 +54,9 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if err != nil {
 		return emptyStat, err
 	}
+	// Ask for protobuf by default. Note that during migration this will not trigger the proto format supported
+	// by Prometheus reporter as the latter uses `application/vnd.google.protobuf`.
+	req.Header.Add("Accept", network.ProtoAcceptContent)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return emptyStat, err
@@ -53,11 +65,29 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
-
-	return extractData(resp.Body)
+	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
+		return statFromProto(resp.Body)
+	}
+	return statFromPrometheus(resp.Body)
 }
 
-func extractData(body io.Reader) (Stat, error) {
+func statFromProto(body io.Reader) (Stat, error) {
+	var stat Stat
+	b := pool.Get().(*bytes.Buffer)
+	b.Reset()
+	defer pool.Put(b)
+	_, err := b.ReadFrom(body)
+	if err != nil {
+		return emptyStat, fmt.Errorf("reading body failed: %w", err)
+	}
+	err = stat.Unmarshal(b.Bytes())
+	if err != nil {
+		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
+	}
+	return stat, nil
+}
+
+func statFromPrometheus(body io.Reader) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {

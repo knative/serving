@@ -80,6 +80,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		name string
 		rev  *v1.Revision
 		lc   logging.Config
+		nc   network.Config
 		oc   metrics.ObservabilityConfig
 		dc   deployment.Config
 		want corev1.Container
@@ -123,7 +124,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			withContainers(containers),
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ServiceLabelKey: "svc",
 				}
 			}),
@@ -309,7 +310,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "20",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -335,7 +336,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -361,7 +362,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "foo",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -389,7 +390,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "100",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{

@@ -18,7 +18,6 @@ package statserver
 
 import (
 	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -36,6 +35,26 @@ import (
 	"knative.dev/serving/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
+)
+
+var (
+	msg1 = metrics.StatMessage{
+		Key: types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"},
+		Stat: metrics.Stat{
+			PodName:                   "activator1",
+			AverageConcurrentRequests: 2.1,
+			RequestCount:              51,
+		},
+	}
+	msg2 = metrics.StatMessage{
+		Key: types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"},
+		Stat: metrics.Stat{
+			PodName:                   "activator2",
+			AverageConcurrentRequests: 2.2,
+			RequestCount:              30,
+		},
+	}
+	both = []metrics.StatMessage{msg1, msg2}
 )
 
 func TestServerLifecycle(t *testing.T) {
@@ -82,17 +101,16 @@ func TestStatsReceived(t *testing.T) {
 	defer server.Shutdown(0)
 	go server.listenAndServe()
 
-	statSink := dialOK(server.listenAddr(), t)
+	statSink := dialOK(t, server.listenAddr())
 
-	// gob encoding
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, false)
+	// protobuf
+	assertReceivedProto(t, both, statSink, statsCh)
 
 	// json encoding
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, true)
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, true)
+	assertReceivedJSON(t, msg1, statSink, statsCh)
+	assertReceivedJSON(t, msg2, statSink, statsCh)
 
-	closeSink(statSink, t)
+	closeSink(t, statSink)
 }
 
 func TestServerShutdown(t *testing.T) {
@@ -102,16 +120,16 @@ func TestServerShutdown(t *testing.T) {
 	go server.listenAndServe()
 
 	listenAddr := server.listenAddr()
-	statSink := dialOK(listenAddr, t)
+	statSink := dialOK(t, listenAddr)
 
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
+	assertReceivedProto(t, both, statSink, statsCh)
 
 	server.Shutdown(time.Second)
 	// We own the channel.
 	close(statsCh)
 
 	// Send a statistic to the server
-	if err := send(statSink, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), false); err != nil {
+	if err := sendProto(statSink, both); err != nil {
 		t.Fatal("Expected send to succeed, got:", err)
 	}
 
@@ -139,23 +157,24 @@ func TestServerShutdown(t *testing.T) {
 		t.Fatal("Connection not refused")
 	}
 
-	closeSink(statSink, t)
+	closeSink(t, statSink)
 }
 
 func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
+	defer server.Shutdown(0)
 
 	go server.listenAndServe()
 
 	originalGoroutines := runtime.NumGoroutine()
 
 	listenAddr := server.listenAddr()
-	statSink := dialOK(listenAddr, t)
+	statSink := dialOK(t, listenAddr)
 
-	assertReceivedOK(t, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, false)
+	assertReceivedProto(t, both, statSink, statsCh)
 
-	closeSink(statSink, t)
+	closeSink(t, statSink)
 
 	// Check the number of goroutines eventually reduces to the number there were before the connection was created
 	for i := 1000; i >= 0; i-- {
@@ -168,12 +187,10 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 			t.Fatalf("Current number of goroutines %d is not equal to the original number %d", currentGoRoutines, originalGoroutines)
 		}
 	}
-
-	server.Shutdown(time.Second)
 }
 
 func BenchmarkStatServer(b *testing.B) {
-	statsCh := make(chan metrics.StatMessage, 1)
+	statsCh := make(chan metrics.StatMessage, 100)
 	server := newTestServer(statsCh)
 	go server.listenAndServe()
 	defer server.Shutdown(time.Second)
@@ -183,47 +200,74 @@ func BenchmarkStatServer(b *testing.B) {
 		b.Fatal("Dial failed:", err)
 	}
 
-	msg := newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51)
+	// The activator sends a bunch of metrics at once usually. This simulates cases with
+	// the respective number of active revisions, sending via the activator.
+	for _, size := range []int{1, 2, 5, 10, 20, 50, 100} {
+		msgs := make([]metrics.StatMessage, 0, size)
+		for i := 0; i < size; i++ {
+			msgs = append(msgs, msg1)
+		}
 
-	for encoding, jsonEncoding := range map[string]bool{"json": true, "gob": false} {
-		b.Run(fmt.Sprintf("%s-encoding-sequential", encoding), func(b *testing.B) {
+		b.Run(fmt.Sprintf("json-encoding-%d-msgs", len(msgs)), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				if err := send(statSink, msg, jsonEncoding); err != nil {
+				for _, msg := range msgs {
+					if err := sendJSON(statSink, msg); err != nil {
+						b.Fatal("Expected send to succeed, but got:", err)
+					}
+				}
+
+				for range msgs {
+					<-statsCh
+				}
+			}
+		})
+
+		b.Run(fmt.Sprintf("proto-encoding-%d-msgs", len(msgs)), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if err := sendProto(statSink, msgs); err != nil {
 					b.Fatal("Expected send to succeed, but got:", err)
 				}
-				<-statsCh
+
+				for range msgs {
+					<-statsCh
+				}
 			}
 		})
 	}
 }
 
-func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) metrics.StatMessage {
-	return metrics.StatMessage{
-		Key: revKey,
-		Stat: metrics.Stat{
-			PodName:                   podName,
-			AverageConcurrentRequests: averageConcurrentRequests,
-			RequestCount:              requestCount,
-		},
-	}
-}
+func assertReceivedJSON(t *testing.T, sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
+	t.Helper()
 
-func assertReceivedOK(t *testing.T, sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage, jsonEncoding bool) bool {
-	if err := send(statSink, sm, jsonEncoding); err != nil {
+	if err := sendJSON(statSink, sm); err != nil {
 		t.Fatal("Expected send to succeed, got:", err)
 	}
 
-	recv, ok := <-statsCh
-	if !ok {
-		t.Fatal("Statistic not received")
-	}
+	recv := <-statsCh
 	if !cmp.Equal(sm, recv) {
 		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm))
 	}
-	return true
 }
 
-func dialOK(serverURL string, t *testing.T) *websocket.Conn {
+func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
+	t.Helper()
+
+	if err := sendProto(statSink, sms); err != nil {
+		t.Fatal("Expected send to succeed, got:", err)
+	}
+
+	got := make([]metrics.StatMessage, 0, len(sms))
+	for range sms {
+		got = append(got, <-statsCh)
+	}
+	if !cmp.Equal(sms, got) {
+		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(got, sms))
+	}
+}
+
+func dialOK(t *testing.T, serverURL string) *websocket.Conn {
+	t.Helper()
+
 	statSink, err := dial(serverURL)
 	if err != nil {
 		t.Fatal("Dial failed:", err)
@@ -245,29 +289,36 @@ func dial(serverURL string) (*websocket.Conn, error) {
 	return statSink, err
 }
 
-func send(statSink *websocket.Conn, sm metrics.StatMessage, jsonEncoding bool) error {
+func sendJSON(statSink *websocket.Conn, sm metrics.StatMessage) error {
 	var b bytes.Buffer
-
-	var enc encoder = gob.NewEncoder(&b)
-	messageType := websocket.BinaryMessage
-
-	if jsonEncoding {
-		enc = json.NewEncoder(&b)
-		messageType = websocket.TextMessage
-	}
-
+	enc := json.NewEncoder(&b)
 	if err := enc.Encode(sm); err != nil {
-		return fmt.Errorf("failed to encode data from stats channel: %w", err)
+		return fmt.Errorf("failed to encode StatMessage: %w", err)
 	}
 
-	if err := statSink.WriteMessage(messageType, b.Bytes()); err != nil {
+	if err := statSink.WriteMessage(websocket.TextMessage, b.Bytes()); err != nil {
+		return fmt.Errorf("failed to write to stat sink: %w", err)
+	}
+	return nil
+}
+
+func sendProto(statSink *websocket.Conn, sms []metrics.StatMessage) error {
+	wsms := metrics.ToWireStatMessages(sms)
+	msg, err := wsms.Marshal()
+	if err != nil {
+		return fmt.Errorf("failed to marshal StatMessage: %w", err)
+	}
+
+	if err := statSink.WriteMessage(websocket.BinaryMessage, msg); err != nil {
 		return fmt.Errorf("failed to write to stat sink: %w", err)
 	}
 
 	return nil
 }
 
-func closeSink(statSink *websocket.Conn, t *testing.T) {
+func closeSink(t *testing.T, statSink *websocket.Conn) {
+	t.Helper()
+
 	if err := statSink.Close(); err != nil {
 		t.Fatal("Failed to close", err)
 	}
@@ -308,9 +359,4 @@ type testListener struct {
 func (t *testListener) Accept() (net.Conn, error) {
 	t.listenAddr <- "http://" + t.Listener.Addr().String()
 	return t.Listener.Accept()
-}
-
-// encoder is the interface implemented by gob.Encoder and json.Encoder
-type encoder interface {
-	Encode(interface{}) error
 }

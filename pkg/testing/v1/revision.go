@@ -21,6 +21,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -87,6 +90,33 @@ func WithCreationTimestamp(t time.Time) RevisionOption {
 func WithLastPinned(t time.Time) RevisionOption {
 	return func(rev *v1.Revision) {
 		rev.SetLastPinned(t)
+	}
+}
+
+// WithRevisionPreserveAnnotation updates the annotation with preserve key.
+func WithRevisionPreserveAnnotation() RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations,
+			map[string]string{
+				serving.RevisionPreservedAnnotationKey: "true",
+			})
+	}
+}
+
+// WithRoutingStateModified updates the annotation to the provided timestamp.
+func WithRoutingStateModified(t time.Time) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations,
+			map[string]string{
+				serving.RoutingStateModifiedAnnotationKey: t.UTC().Format(time.RFC3339),
+			})
+	}
+}
+
+// WithRoutingState updates the annotation to the provided timestamp.
+func WithRoutingState(s v1.RoutingState) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.SetRoutingState(s, clock.RealClock{})
 	}
 }
 
@@ -175,11 +205,8 @@ func MarkRevisionReady(r *v1.Revision) {
 
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1.Revision) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string, 1)
-		}
-		config.Labels[key] = value
+	return func(rev *v1.Revision) {
+		rev.Labels = kmeta.UnionMaps(rev.Labels, map[string]string{key: value})
 	}
 }
 

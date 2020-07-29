@@ -19,13 +19,16 @@ package labeler
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -38,6 +41,7 @@ type Reconciler struct {
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
+	clock               clock.Clock
 }
 
 // Check that our Reconciler implements routereconciler.Interface
@@ -45,13 +49,32 @@ var _ routereconciler.Interface = (*Reconciler)(nil)
 var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
 func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-	racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-	return labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc)
+	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
+
+	case cfgmap.Disabled: // v1 logic
+		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
+		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		return labelerv1.ClearLabels(r.Namespace, r.Name, cacc, racc)
+
+	default: // v2 logic
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+		return labelerv2.ClearLabels(r.Namespace, r.Name, cacc, racc)
+	}
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
-	racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
-	return labelerv1.SyncLabels(r, cacc, racc)
+	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
+
+	case cfgmap.Disabled: // v1 logic
+		cacc := labelerv1.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister)
+		racc := labelerv1.NewRevisionAccessor(c.client, c.tracker, c.revisionLister)
+		return labelerv1.SyncLabels(r, cacc, racc)
+
+	default: // v2 logic
+		cacc := labelerv2.NewConfigurationAccessor(c.client, c.tracker, c.configurationLister, c.clock)
+		racc := labelerv2.NewRevisionAccessor(c.client, c.tracker, c.revisionLister, c.clock)
+		return labelerv2.SyncLabels(r, cacc, racc)
+
+	}
 }

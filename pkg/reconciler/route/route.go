@@ -38,6 +38,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
@@ -113,11 +114,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	logger.Info("Updating targeted revisions.")
-	// In all cases we will add annotations to the referred targets.  This is so that when they become
-	// routable we can know (through a listener) and attempt traffic configuration again.
-	if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
-		return err
+	if cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Enabled {
+		// In all cases we will add annotations to the referred targets.  This is so that when they become
+		// routable we can know (through a listener) and attempt traffic configuration again.
+		if err := c.reconcileTargetRevisions(ctx, traffic, r); err != nil {
+			return err
+		}
 	}
 
 	r.Status.Address = &duckv1.Addressable{
@@ -423,7 +425,7 @@ func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*ne
 }
 
 func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
-	dnsNames := sets.NewString()
+	dnsNames := make(sets.String, len(cert.Spec.DNSNames))
 	logger := logging.FromContext(ctx)
 
 	for _, dns := range cert.Spec.DNSNames {

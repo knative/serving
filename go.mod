@@ -3,18 +3,16 @@ module knative.dev/serving
 go 1.14
 
 require (
-	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.3.5
-	github.com/google/go-cmp v0.4.0
-	github.com/google/go-containerregistry v0.0.0-20200331213917-3d03ed9b1ca2
+	github.com/google/go-cmp v0.5.1
+	github.com/google/go-containerregistry v0.1.2-0.20200717224239-a84993334b27
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
@@ -25,24 +23,24 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	google.golang.org/api v0.20.0
-	google.golang.org/grpc v1.28.1
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	google.golang.org/api v0.29.0
+	google.golang.org/grpc v1.30.0
 	istio.io/api v0.0.0-20200512234804-e5412c253ffe
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.1
-	k8s.io/apimachinery v0.18.1
+	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200630172829-a78409990d76
-	knative.dev/networking v0.0.0-20200630191330-5080f859c17d
-	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
-	knative.dev/test-infra v0.0.0-20200630141629-15f40fe97047
+	knative.dev/caching v0.0.0-20200727212459-57f445653b40
+	knative.dev/networking v0.0.0-20200727212359-ff2200ff6c05
+	knative.dev/pkg v0.0.0-20200728070958-58be631c12c0
+	knative.dev/test-infra v0.0.0-20200727204758-76fda3dc3ff7
 )
 
 replace (

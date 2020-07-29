@@ -28,10 +28,10 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
-const hasBeenActiveAnnotation = "HasBeenActive"
-
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
+	PodAutoscalerConditionScaleTargetInitialized,
+	PodAutoscalerSKSReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -174,20 +174,26 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsFalse()
 }
 
-// HasBeenActive returns true if the pod autoscaler has reached its initial scale.
-func (pas *PodAutoscalerStatus) HasBeenActive() bool {
-	if val, ok := pas.Annotations[hasBeenActiveAnnotation]; !ok || val != "true" {
-		return false
-	}
-	return true
+// IsScaleTargetInitialized returns true if the PodAutoscaler's scale target has been
+// initialized successfully.
+func (pas *PodAutoscalerStatus) IsScaleTargetInitialized() bool {
+	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue()
 }
 
-// MarkHasBeenActive marks the PA's PodAutoscalerConditionInitiallyActive condition true.
-func (pas *PodAutoscalerStatus) MarkHasBeenActive() {
-	if pas.Annotations == nil {
-		pas.Annotations = map[string]string{}
-	}
-	pas.Annotations[hasBeenActiveAnnotation] = "true"
+// MarkScaleTargetInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
+// condition true.
+func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
+}
+
+// MarkSKSReady marks the PA condition denoting that SKS is ready.
+func (pas *PodAutoscalerStatus) MarkSKSReady() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerSKSReady)
+}
+
+// MarkSKSNotReady marks the PA condation that SKS is not yet ready.
+func (pas *PodAutoscalerStatus) MarkSKSNotReady(mes string) {
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerSKSReady, "NotReady", mes)
 }
 
 // GetCondition gets the condition `t`.
@@ -253,7 +259,7 @@ func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time
 
 // inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
 // the specified status for at least the specified duration. Otherwise it returns negative duration,
-// including when the status is undetermined (Active condition is not found.)
+// including when the status is undetermined.
 func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {

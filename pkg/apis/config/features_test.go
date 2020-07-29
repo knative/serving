@@ -56,25 +56,32 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantFeatures: defaultFeaturesConfig(),
 		data:         map[string]string{},
 	}, {
+		name:    "features Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			MultiContainer:       Enabled,
+			PodSpecAffinity:      Enabled,
+			PodSpecDryRun:        Enabled,
+			PodSpecNodeSelector:  Enabled,
+			PodSpecTolerations:   Enabled,
+			ResponsiveRevisionGC: Enabled,
+		}),
+		data: map[string]string{
+			"multi-container":                 "Enabled",
+			"kubernetes.podspec-affinity":     "Enabled",
+			"kubernetes.podspec-dryrun":       "Enabled",
+			"kubernetes.podspec-nodeselector": "Enabled",
+			"kubernetes.podspec-tolerations":  "Enabled",
+			"responsive-revision-gc":          "Enabled",
+		},
+	}, {
 		name:    "multi-container Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer: Allowed,
-			PodSpecDryRun:  Allowed,
 		}),
 		data: map[string]string{
 			"multi-container": "Allowed",
-		},
-	}, {
-		name:    "features Enabled",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			MultiContainer: Enabled,
-			PodSpecDryRun:  Enabled,
-		}),
-		data: map[string]string{
-			"multi-container":           "Enabled",
-			"kubernetes.podspec-dryrun": "Enabled",
 		},
 	}, {
 		name:    "multi-container Disabled",
@@ -84,6 +91,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"multi-container": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-affinity Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecAffinity: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-affinity": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-affinity Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecAffinity: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-affinity": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-affinity Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecAffinity: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-affinity": "Disabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-fieldref Allowed",
@@ -111,6 +145,87 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-fieldref": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-dryrun Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecDryRun: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-dryrun": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-nodeselector Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecNodeSelector: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-nodeselector": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-nodeselector Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecNodeSelector: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-nodeselector": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-nodeselector Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecNodeSelector: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-nodeselector": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-tolerations Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecTolerations: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-tolerations": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-tolerations Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecTolerations: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-tolerations": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-tolerations Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecTolerations: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-tolerations": "Disabled",
+		},
+	}, {
+		name:    "responsive-revision-gc Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ResponsiveRevisionGC: Allowed,
+		}),
+		data: map[string]string{
+			"responsive-revision-gc": "Allowed",
+		},
+	}, {
+		name:    "responsive-revision-gc Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ResponsiveRevisionGC: Enabled,
+		}),
+		data: map[string]string{
+			"responsive-revision-gc": "Enabled",
 		},
 	}}
 

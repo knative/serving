@@ -45,7 +45,7 @@ type Decider struct {
 	Status DeciderStatus
 }
 
-// DeciderSpec is the parameters in which the Revision should scaled.
+// DeciderSpec is the parameters by which the Revision should be scaled.
 type DeciderSpec struct {
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
@@ -159,7 +159,7 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 		ret = true
 	}
 
-	// If sign has changed -- then we have to update KPA
+	// If sign has changed -- then we have to update KPA.
 	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, sRes.ExcessBurstCapacity)
 
 	// Update with the latest calculation anyway.
@@ -167,18 +167,19 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	return ret
 }
 
-// MultiScaler maintains a collection of Uniscalers.
+// MultiScaler maintains a collection of UniScalers.
 type MultiScaler struct {
-	scalers       map[types.NamespacedName]*scalerRunner
-	scalersMutex  sync.RWMutex
+	scalersMutex sync.RWMutex
+	scalers      map[types.NamespacedName]*scalerRunner
+
 	scalersStopCh <-chan struct{}
 
 	uniScalerFactory UniScalerFactory
 
 	logger *zap.SugaredLogger
 
-	watcher      func(types.NamespacedName)
 	watcherMutex sync.RWMutex
+	watcher      func(types.NamespacedName)
 
 	tickProvider func(time.Duration) *time.Ticker
 }
@@ -234,7 +235,7 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 	return scaler.decider, nil
 }
 
-// Update applied the desired DeciderSpec to a currently running Decider.
+// Update applies the desired DeciderSpec to a currently running Decider.
 func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
@@ -324,10 +325,9 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	case -1, 0:
 		d.Status.ExcessBurstCapacity = int32(tbc)
 	default:
-		// If TBC > Target * InitialScale (currently 1), then we know initial
+		// If TBC > Target * InitialScale, then we know initial
 		// scale won't be enough to cover TBC and we'll be behind activator.
-		// TODO(autoscale-wg): fix this when we switch to non "1" initial scale.
-		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TotalValue - tbc)
+		d.Status.ExcessBurstCapacity = int32(float64(d.Spec.InitialScale)*d.Spec.TotalValue - tbc)
 	}
 
 	m.runScalerTicker(ctx, runner)

@@ -44,7 +44,7 @@ LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
 LATEST_NET_ISTIO_RELEASE_VERSION=$(
-  curl --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
+  curl -L --silent "https://api.github.com/repos/knative/net-istio/releases" | grep '"tag_name"' \
     | cut -f2 -d: | sed "s/[^v0-9.]//g" | sort | tail -n1)
 
 function install_latest_release() {
@@ -54,8 +54,6 @@ function install_latest_release() {
       || fail_test "Knative latest release installation failed"
   wait_until_pods_running ${SYSTEM_NAMESPACE}
   wait_until_batch_job_complete ${SYSTEM_NAMESPACE}
-  # TODO - delete this once 0.16 lands and we use generateName
-  kubectl delete jobs -n ${SYSTEM_NAMESPACE} -l app=storage-version-migration
 }
 
 function install_head() {
@@ -72,6 +70,11 @@ function knative_setup() {
 # Script entry point.
 
 initialize $@ --skip-istio-addon
+
+# We haven't configured these deployments for high-availability,
+# so disable the chaos duck.
+# TODO(mattmoor): Reconsider this after 0.17 cuts.
+disable_chaosduck
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m

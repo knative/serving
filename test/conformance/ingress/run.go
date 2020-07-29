@@ -16,8 +16,15 @@ limitations under the License.
 
 package ingress
 
-import "testing"
+import (
+	"testing"
 
+	"knative.dev/serving/test"
+)
+
+// RunConformance will run ingress conformance tests
+//
+// Depending on the options it may test alpha and beta features
 func RunConformance(t *testing.T) {
 	t.Run("basics", TestBasics)
 	t.Run("basics/http2", TestBasicsHTTP2)
@@ -27,7 +34,6 @@ func RunConformance(t *testing.T) {
 
 	t.Run("headers/pre-split", TestPreSplitSetHeaders)
 	t.Run("headers/post-split", TestPostSplitSetHeaders)
-	t.Run("headers/tags", TestTagHeaders)
 
 	t.Run("hosts/multiple", TestMultipleHosts)
 
@@ -47,4 +53,21 @@ func RunConformance(t *testing.T) {
 
 	t.Run("websocket", TestWebsocket)
 	t.Run("websocket/split", TestWebsocketSplit)
+
+	// TODO(dprotaso) we'll need something more robust
+	// in the long term that lets downstream
+	// implementations to better select which tests
+	// should be run -  selection across various
+	// dimensions
+	// ie. state - alpha, beta, ga
+	// ie. requirement - must, should, may
+	if test.ServingFlags.EnableBetaFeatures {
+		// Add your conformance test for beta features
+	}
+
+	if test.ServingFlags.EnableAlphaFeatures {
+		// Add your conformance test for alpha features
+		t.Run("headers/tags", TestTagHeaders)
+		t.Run("host-rewrite", TestRewriteHost)
+	}
 }

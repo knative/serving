@@ -80,7 +80,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
 func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
-	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
+	desiredMetric := resources.MakeMetric(pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		_, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)

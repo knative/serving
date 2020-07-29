@@ -60,6 +60,14 @@ var (
 		"K_REVISION",
 	)
 
+	reservedPorts = sets.NewInt32(
+		networking.BackendHTTPPort,
+		networking.BackendHTTP2Port,
+		networking.QueueAdminPort,
+		networking.AutoscalingQueueMetricsPort,
+		networking.UserQueueMetricsPort,
+		profiling.ProfilingPort)
+
 	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.NewString("PORT"))
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
@@ -74,7 +82,7 @@ var (
 )
 
 func ValidateVolumes(vs []corev1.Volume, mountedVolumes sets.String) (sets.String, *apis.FieldError) {
-	volumes := sets.NewString()
+	volumes := make(sets.String, len(vs))
 	var errs *apis.FieldError
 	for i, volume := range vs {
 		if volumes.Has(volume.Name) {
@@ -263,7 +271,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	// 	return apis.ErrMissingField(apis.CurrentField)
 	// }
 
-	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
+	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
 	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
@@ -308,6 +316,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 	return errs
 }
 
+// AllMountedVolumes returns all the mounted volumes in all the containers.
 func AllMountedVolumes(containers []corev1.Container) sets.String {
 	volumeNames := sets.NewString()
 	for _, c := range containers {
@@ -445,8 +454,8 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes sets.String) *api
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
-	seenName := sets.NewString()
-	seenMountPath := sets.NewString()
+	seenName := make(sets.String, len(mounts))
+	seenMountPath := make(sets.String, len(mounts))
 	for i, vm := range mounts {
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
@@ -500,13 +509,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.Protocol, "protocol"))
 	}
 
-	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == networking.BackendHTTPPort ||
-		userPort.ContainerPort == networking.BackendHTTP2Port ||
-		userPort.ContainerPort == networking.QueueAdminPort ||
-		userPort.ContainerPort == networking.AutoscalingQueueMetricsPort ||
-		userPort.ContainerPort == networking.UserQueueMetricsPort ||
-		userPort.ContainerPort == profiling.ProfilingPort {
+	// Don't allow userPort to conflict with knative system reserved ports
+	if reservedPorts.Has(userPort.ContainerPort) {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 

@@ -436,6 +436,71 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple containers with some names empty",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "",
+					}, {
+						Name: "user-container-0",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name: "user-container-3",
+					}, {
+						Name: "",
+					}, {
+						Name: "user-container-5",
+					}, {
+						Name: "",
+					}, {
+						Name: "",
+					}, {
+						Name: "user-container-4",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "user-container-1",
+						Resources: defaultResources,
+					}, {
+						Name:           "user-container-0",
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8888,
+						}},
+					}, {
+						Name:      "user-container-3",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-2",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-5",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-6",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-7",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-4",
+						Resources: defaultResources,
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {

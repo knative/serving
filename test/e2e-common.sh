@@ -50,6 +50,13 @@ readonly KNATIVE_DEFAULT_NAMESPACE="knative-serving"
 export SYSTEM_NAMESPACE
 SYSTEM_NAMESPACE=$(uuidgen | tr 'A-Z' 'a-z')
 
+
+# Keep this in sync with test/ha/ha.go
+readonly REPLICAS=3
+readonly BUCKETS=10
+HA_COMPONENTS=()
+
+
 # Parse our custom flags.
 function parse_flags() {
   case "$1" in
@@ -271,6 +278,7 @@ function install_contour() {
   kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
+  HA_COMPONENTS+=( "contour-ingress-controller" )
 
   local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
   sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
@@ -364,6 +372,7 @@ function install_knative_serving_standard() {
   UNINSTALL_LIST+=( "${CERT_YAML_NAME}" )
 
   echo ">> Installing Knative serving"
+  HA_COMPONENTS+=( "controller" "webhook" "autoscaler-hpa" )
   if [[ "$1" == "HEAD" ]]; then
     local CORE_YAML_NAME=${TMP_DIR}/${SERVING_CORE_YAML##*/}
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${SERVING_CORE_YAML} > ${CORE_YAML_NAME}
@@ -477,6 +486,8 @@ function knative_teardown() {
   fi
 }
 
+
+
 # Add function call to trap
 # Parameters: $1 - Function to call
 #             $2...$n - Signals for trap
@@ -512,6 +523,9 @@ function test_setup() {
   # Clean up kail so it doesn't interfere with job shutting down
   add_trap "kill $kail_pid || true" EXIT
 
+  echo ">> Waiting for Serving components to be running..."
+  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
+
   local TEST_CONFIG_DIR=${TEST_DIR}/config
   echo ">> Creating test resources (${TEST_CONFIG_DIR}/)"
   ko apply ${KO_FLAGS} -f ${TEST_CONFIG_DIR}/ || return 1
@@ -524,9 +538,6 @@ function test_setup() {
 
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
-
-  echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running ${SYSTEM_NAMESPACE} || return 1
 
   echo ">> Waiting for Cert Manager components to be running..."
   wait_until_pods_running cert-manager || return 1
@@ -607,10 +618,48 @@ function dump_extra_cluster_state() {
   kubectl get serverlessservices -o yaml --all-namespaces
 }
 
-function turn_on_auto_tls() {
-  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Enabled"}}'
+function wait_for_leader_controller() {
+  echo -n "Waiting for a leader Controller"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{range .items[*].spec}{"\n"}{.holderIdentity}' | cut -d"_" -f1 | grep "^controller-" | head -1)
+    # Make sure the leader pod exists.
+    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
+      echo -e "\nNew leader Controller has been elected"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for leader controller"
+  return 1
 }
 
-function turn_off_auto_tls() {
-  kubectl patch configmap config-network -n ${SYSTEM_NAMESPACE} -p '{"data":{"autoTLS":"Disabled"}}'
+function toggle_feature() {
+  local FEATURE="$1"
+  local STATE="$2"
+  local CONFIG="${3:-config-features}"
+  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
+}
+
+function scale_controlplane() {
+  for deployment in "$@"; do
+    # Make sure all pods run in leader-elected mode.
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || fail_test
+    # Give it time to kill the pods.
+    sleep 5
+    # Scale up components for HA tests
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || fail_test
+  done
+}
+
+function disable_chaosduck() {
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || fail_test
+}
+
+function enable_chaosduck() {
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || fail_test
 }

@@ -21,7 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/network"
 
 	dto "github.com/prometheus/client_model/go"
@@ -34,7 +38,74 @@ const (
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
-func TestNewPrometheusStatsReporter_negative(t *testing.T) {
+var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")
+
+var testCases = []struct {
+	name            string
+	reportingPeriod time.Duration
+	report          network.RequestStatsReport
+	want            metrics.Stat
+}{{
+	name:            "no proxy requests",
+	reportingPeriod: 1 * time.Second,
+	report: network.RequestStatsReport{
+		AverageConcurrency: 3,
+		RequestCount:       39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests: 3,
+		RequestCount:              39,
+	},
+}, {
+	name:            "reportingPeriod=10s",
+	reportingPeriod: 10 * time.Second,
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              1.5,
+		RequestCount:                     3.9,
+	},
+}, {
+	name:            "reportingPeriod=2s",
+	reportingPeriod: 2 * time.Second,
+
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              7.5,
+		RequestCount:                     19.5,
+	},
+}, {
+	name:            "reportingPeriod=1s",
+	reportingPeriod: 1 * time.Second,
+
+	report: network.RequestStatsReport{
+		AverageConcurrency:        3,
+		AverageProxiedConcurrency: 2,
+		ProxiedRequestCount:       15,
+		RequestCount:              39,
+	},
+	want: metrics.Stat{
+		AverageConcurrentRequests:        3,
+		AverageProxiedConcurrentRequests: 2,
+		ProxiedRequestCount:              15,
+		RequestCount:                     39,
+	},
+}}
+
+func TestNewPrometheusStatsReporterNegative(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorMsg  string
@@ -44,37 +115,33 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 		revision  string
 		pod       string
 	}{{
-		"Empty_Namespace_Value",
-		"Expected namespace empty error",
-		errors.New("namespace must not be empty"),
-		"",
-		config,
-		revision,
-		pod,
+		name:     "Empty_Namespace_Value",
+		errorMsg: "Expected namespace empty error",
+		result:   errors.New("namespace must not be empty"),
+		config:   config,
+		revision: revision,
+		pod:      pod,
 	}, {
-		"Empty_Config_Value",
-		"Expected config empty error",
-		errors.New("config must not be empty"),
-		namespace,
-		"",
-		revision,
-		pod,
+		name:      "Empty_Config_Value",
+		errorMsg:  "Expected config empty error",
+		result:    errors.New("config must not be empty"),
+		namespace: namespace,
+		revision:  revision,
+		pod:       pod,
 	}, {
-		"Empty_Revision_Value",
-		"Expected revision empty error",
-		errors.New("revision must not be empty"),
-		namespace,
-		config,
-		"",
-		pod,
+		name:      "Empty_Revision_Value",
+		errorMsg:  "Expected revision empty error",
+		result:    errors.New("revision must not be empty"),
+		namespace: namespace,
+		config:    config,
+		pod:       pod,
 	}, {
-		"Empty_Pod_Value",
-		"Expected pod empty error",
-		errors.New("pod must not be empty"),
-		namespace,
-		config,
-		revision,
-		"",
+		name:      "Empty_Pod_Value",
+		errorMsg:  "Expected pod empty error",
+		result:    errors.New("pod must not be empty"),
+		namespace: namespace,
+		config:    config,
+		revision:  revision,
 	}}
 
 	for _, test := range tests {
@@ -86,73 +153,8 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 	}
 }
 
-func TestReporterReport(t *testing.T) {
-	tests := []struct {
-		name            string
-		reportingPeriod time.Duration
-
-		concurrency        float64
-		proxiedConcurrency float64
-		reqCount           float64
-		proxiedReqCount    float64
-
-		expectedReqCount            float64
-		expectedProxiedRequestCount float64
-		expectedConcurrency         float64
-		expectedProxiedConcurrency  float64
-	}{{
-		name:            "no proxy requests",
-		reportingPeriod: 1 * time.Second,
-
-		reqCount:    39,
-		concurrency: 3,
-
-		expectedReqCount:            39,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 0,
-		expectedProxiedConcurrency:  0,
-	}, {
-		name:            "reportingPeriod=10s",
-		reportingPeriod: 10 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            3.9,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 1.5,
-		expectedProxiedConcurrency:  2,
-	}, {
-		name:            "reportingPeriod=2s",
-		reportingPeriod: 2 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            19.5,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 7.5,
-		expectedProxiedConcurrency:  2,
-	}, {
-		name:            "reportingPeriod=1s",
-		reportingPeriod: 1 * time.Second,
-
-		reqCount:           39,
-		concurrency:        3,
-		proxiedReqCount:    15,
-		proxiedConcurrency: 2,
-
-		expectedReqCount:            39,
-		expectedConcurrency:         3,
-		expectedProxiedRequestCount: 15,
-		expectedProxiedConcurrency:  2,
-	}}
-
-	for _, test := range tests {
+func TestPrometheusStatsReporterReport(t *testing.T) {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, test.reportingPeriod)
 			if err != nil {
@@ -160,28 +162,21 @@ func TestReporterReport(t *testing.T) {
 			}
 			// Make the value slightly more interesting, rather than microseconds.
 			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(network.RequestStatsReport{
-				AverageConcurrency:        test.concurrency,
-				AverageProxiedConcurrency: test.proxiedConcurrency,
-				RequestCount:              test.reqCount,
-				ProxiedRequestCount:       test.proxiedReqCount,
-			})
-			checkData(t, requestsPerSecondGV, test.expectedReqCount)
-			checkData(t, averageConcurrentRequestsGV, test.expectedConcurrency)
-			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)
-			checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
-
-			if got := getData(t, processUptimeGV); got < 5.0 || got > 6.0 {
-				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", got)
+			reporter.Report(test.report)
+			got := metrics.Stat{
+				RequestCount:                     getData(t, requestsPerSecondGV),
+				AverageConcurrentRequests:        getData(t, averageConcurrentRequestsGV),
+				ProxiedRequestCount:              getData(t, proxiedRequestsPerSecondGV),
+				AverageProxiedConcurrentRequests: getData(t, averageProxiedConcurrentRequestsGV),
+				ProcessUptime:                    getData(t, processUptimeGV),
+			}
+			if !cmp.Equal(test.want, got, ignoreStatFields) {
+				t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got))
+			}
+			if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
 			}
 		})
-	}
-}
-
-func checkData(t *testing.T, gv *prometheus.GaugeVec, want float64) {
-	t.Helper()
-	if got := getData(t, gv); got != want {
-		t.Errorf("Got %v for Gauge value, wanted %v", got, want)
 	}
 }
 
@@ -196,7 +191,6 @@ func getData(t *testing.T, gv *prometheus.GaugeVec) float64 {
 	if err != nil {
 		t.Fatal("GaugeVec.GetMetricWith() error =", err)
 	}
-
 	m := dto.Metric{}
 	if err := g.Write(&m); err != nil {
 		t.Fatal("Gauge.Write() error =", err)

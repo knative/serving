@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: e0eb3d80
+    knative.dev/example-checksum: "ba0dd46d"
 data:
   _example: |
     ################################
@@ -41,15 +41,31 @@ data:
     # Indicates whether multi container support is enabled
     multi-container: "disabled"
 
+    # Indicates whether Kubernetes affinity support is enabled
+    kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes nodeSelector support is enabled
+    kubernetes.podspec-nodeselector: "disabled"
+
+    # Indicates whether Kubernetes tolerations support is enabled
+    kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
     kubernetes.podspec-fieldref: "disabled"
 
-
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
     #
-    # When "allowed", the client may enable the behavior with the
-    # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
-    # When "enabled"  the server will always run the extra validation.
-    kubernetes.podspec-dryrun: "allowed"
+    # When "enabled", the server will always run the extra validation.
+    # When "allowed", the server will not run the dry-run validation by default.
+    #   However, clients may enable the behavior on an individual Service by
+    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
+    kubernetes.podspec-dryrun: "enabled"
+
+    # Indicates whether new responsive garbage collection is enabled. This
+    # feature labels revisions in real-time as they become referenced and
+    # dereferenced by Routes. This allows us to reap revisions shortly after
+    # they are no longer active.
+    # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
+    # should be used for testing purposes only.
+    responsive-revision-gc: "disabled"

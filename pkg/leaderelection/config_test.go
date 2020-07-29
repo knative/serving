@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "knative.dev/pkg/configmap/testing"
 	kle "knative.dev/pkg/leaderelection"
@@ -32,12 +31,10 @@ import (
 
 func okConfig() *kle.Config {
 	return &kle.Config{
-		ResourceLock:      "leases",
-		Buckets:           1,
-		LeaseDuration:     15 * time.Second,
-		RenewDeadline:     10 * time.Second,
-		RetryPeriod:       2 * time.Second,
-		EnabledComponents: sets.NewString("controller"),
+		Buckets:       1,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
 	}
 }
 
@@ -46,10 +43,9 @@ func okData() map[string]string {
 		// values in this data come from the defaults suggested in the
 		// code:
 		// https://github.com/kubernetes/client-go/blob/kubernetes-1.16.0/tools/leaderelection/leaderelection.go
-		"leaseDuration":     "15s",
-		"renewDeadline":     "10s",
-		"retryPeriod":       "2s",
-		"enabledComponents": "controller",
+		"leaseDuration": "15s",
+		"renewDeadline": "10s",
+		"retryPeriod":   "2s",
 	}
 }
 
@@ -71,14 +67,6 @@ func TestValidateConfig(t *testing.T) {
 			return data
 		}(),
 		err: errors.New(`failed to parse "renewDeadline": time: invalid duration not a duration`),
-	}, {
-		name: "invalid component",
-		data: func() map[string]string {
-			data := okData()
-			data["enabledComponents"] = "controller,frobulator"
-			return data
-		}(),
-		err: errors.New(`invalid enabledComponent "frobulator": valid values are ["certcontroller" "contour-ingress-controller" "controller" "hpaautoscaler" "istiocontroller" "net-http01" "nscontroller" "webhook"]`),
 	}}
 
 	for _, tc := range cases {
@@ -104,7 +92,6 @@ func TestServingConfig(t *testing.T) {
 	}{{
 		name: "Default config",
 		want: &kle.Config{
-			ResourceLock:  "leases",
 			Buckets:       1,
 			LeaseDuration: 15 * time.Second,
 			RenewDeadline: 10 * time.Second,
@@ -114,12 +101,10 @@ func TestServingConfig(t *testing.T) {
 	}, {
 		name: "Example config",
 		want: &kle.Config{
-			ResourceLock:      "leases",
-			Buckets:           1,
-			LeaseDuration:     15 * time.Second,
-			RenewDeadline:     10 * time.Second,
-			RetryPeriod:       2 * time.Second,
-			EnabledComponents: validComponents,
+			Buckets:       1,
+			LeaseDuration: 15 * time.Second,
+			RenewDeadline: 10 * time.Second,
+			RetryPeriod:   2 * time.Second,
 		},
 		data: example,
 	}} {

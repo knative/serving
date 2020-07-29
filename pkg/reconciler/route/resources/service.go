@@ -19,7 +19,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +37,7 @@ var errLoadBalancerNotFound = errors.New("failed to fetch loadbalancer domain/IP
 
 // GetNames returns a set of service names.
 func GetNames(services []*corev1.Service) sets.String {
-	names := sets.NewString()
+	names := make(sets.String, len(services))
 
 	for i := range services {
 		names.Insert(services[i].Name)
@@ -80,8 +79,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress, isPrivate)
+func MakeK8sService(ctx context.Context, route *v1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingress, isPrivate, clusterIP)
 	if err != nil {
 		return nil, err
 	}
@@ -112,23 +111,25 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: svcLabels,
+			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+				// Do not propagate the visibility label from Route as users may want to set the label
+				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
+				return key == serving.VisibilityLabelKey
+			}), svcLabels),
+			Annotations: route.GetAnnotations(),
 		},
 	}, nil
 }
 
-func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
 
-	var lbStatus *netv1alpha1.LoadBalancerStatus
-
+	lbStatus := ingressStatus.PublicLoadBalancer
 	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
 		// Always use private load balancer if it exists,
 		// because k8s service is only useful for inter-cluster communication.
 		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
 		lbStatus = ingressStatus.PrivateLoadBalancer
-	} else {
-		lbStatus = ingressStatus.PublicLoadBalancer
 	}
 
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
@@ -136,7 +137,8 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 	}
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ingress.GetName())
+		return nil, errors.New(
+			"more than one ingress are specified in status(LoadBalancer) of Ingress " + ingress.GetName())
 	}
 	balancer := lbStatus.Ingress[0]
 
@@ -162,7 +164,8 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Serv
 		// sure the domain name is available for access within the
 		// mesh.
 		return &corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: clusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: networking.ServicePortNameHTTP1,
 				Port: networking.ServiceHTTPPort,

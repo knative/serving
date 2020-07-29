@@ -108,6 +108,7 @@ func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	pa := resources.MakePA(rev)
 	pa.Status.InitializeConditions()
 	pa.Status.MarkActive()
+	pa.Status.MarkScaleTargetInitialized()
 	pa.Status.ServiceName = serviceName(rev.Name)
 	return pa
 }
@@ -265,7 +266,7 @@ type errorResolver struct {
 	err error
 }
 
-func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
+func (r *errorResolver) Resolve(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
 	return "", r.err
 }
 

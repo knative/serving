@@ -53,7 +53,9 @@ type activationHandler struct {
 
 // New constructs a new http.Handler that deals with revision activation.
 func New(ctx context.Context, t Throttler) http.Handler {
-	defaultTransport := pkgnet.AutoTransport
+	// TODO: run loadtests to determine the optimal values here.
+	defaultTransport := pkgnet.NewAutoTransport(1000, /*maxidleconnes*/
+		100 /*maxidleperhos*/)
 	return &activationHandler{
 		transport: defaultTransport,
 		tracingTransport: &ochttp.Transport{
@@ -115,7 +117,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
-	proxy.FlushInterval = -1
+	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	util.SetupHeaderPruning(proxy)
 

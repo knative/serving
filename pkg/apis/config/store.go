@@ -45,17 +45,23 @@ func FromContext(ctx context.Context) *Config {
 // FromContextOrDefaults is like FromContext, but when no Config is attached it
 // returns a Config populated with the defaults for each of the Config fields.
 func FromContextOrDefaults(ctx context.Context) *Config {
-	if cfg := FromContext(ctx); cfg != nil {
-		return cfg
+	cfg := FromContext(ctx)
+	if cfg == nil {
+		cfg = &Config{}
 	}
-	defaults, _ := NewDefaultsConfigFromMap(map[string]string{})
-	features, _ := NewFeaturesConfigFromMap(map[string]string{})
-	autoscaler, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
-	return &Config{
-		Defaults:   defaults,
-		Features:   features,
-		Autoscaler: autoscaler,
+
+	if cfg.Defaults == nil {
+		cfg.Defaults, _ = NewDefaultsConfigFromMap(map[string]string{})
 	}
+
+	if cfg.Features == nil {
+		cfg.Features, _ = NewFeaturesConfigFromMap(map[string]string{})
+	}
+
+	if cfg.Autoscaler == nil {
+		cfg.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{})
+	}
+	return cfg
 }
 
 // ToContext attaches the provided Config to the provided context, returning the

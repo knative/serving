@@ -247,7 +247,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
+			pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
+				WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
 		},
@@ -271,7 +272,7 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic("Something", "This is something longer"),
+				WithBufferedTraffic,
 				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
@@ -282,7 +283,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("its-not-confidential"),
 				// When we reconcile a ready state and our pa is in an activating
 				// state, we should see the following mutation.
-				MarkActivating("Something", "This is something longer"),
+				MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned."),
 				withObservedGeneration(1),
 			),
 		}},
@@ -343,7 +344,8 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("ill-follow-the-sun"), WithLogURL, MarkRevisionReady,
 				WithRevisionLabel(serving.RouteLabelKey, "foo")),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPAStatusService("fix-mutated-pa")),
+				WithTraffic, WithPASKSReady, WithScaleTargetInitialized,
+				WithPAStatusService("fix-mutated-pa")),
 			deploy(t, "foo", "fix-mutated-pa"),
 			image("foo", "fix-mutated-pa"),
 		},
@@ -357,7 +359,8 @@ func TestReconcile(t *testing.T) {
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa", WithTraffic,
+			Object: pa("foo", "fix-mutated-pa", WithPASKSReady,
+				WithTraffic, WithScaleTargetInitialized,
 				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
 		}},
 		WantEvents: []string{
@@ -511,7 +514,8 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			rev("foo", "steady-ready", withK8sServiceName("very-steady"), WithLogURL),
-			pa("foo", "steady-ready", WithTraffic, WithPAStatusService("steadier-even")),
+			pa("foo", "steady-ready", WithPASKSReady, WithTraffic,
+				WithScaleTargetInitialized, WithPAStatusService("steadier-even")),
 			deploy(t, "foo", "steady-ready"),
 			image("foo", "steady-ready"),
 		},

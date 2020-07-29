@@ -387,7 +387,7 @@ func withContainerConcurrency(cc int64) RevisionOption {
 }
 
 func withoutLabels(revision *v1.Revision) {
-	revision.ObjectMeta.Labels = map[string]string{}
+	revision.Labels = map[string]string{}
 }
 
 func withOwnerReference(name string) RevisionOption {
@@ -777,7 +777,7 @@ func TestMakePodSpec(t *testing.T) {
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -824,7 +824,7 @@ func TestMakePodSpec(t *testing.T) {
 				ImageDigest: "alpine@sha256:deadbfff",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -886,7 +886,7 @@ func TestMakePodSpec(t *testing.T) {
 				ImageDigest: "ubuntu@sha256:deadbffe",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -1031,7 +1031,7 @@ func TestMakeDeployment(t *testing.T) {
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			withoutLabels, func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					sidecarIstioInjectAnnotation: "false",
 				}
 			}),
@@ -1085,13 +1085,13 @@ func TestMakeDeployment(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+				revision.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 			},
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
-			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Spec.Template.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 		}),
 	}}
 

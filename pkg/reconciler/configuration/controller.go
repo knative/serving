@@ -19,6 +19,7 @@ package configuration
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -38,6 +39,15 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	return NewControllerWithClock(ctx, cmw, clock.RealClock{})
+}
+
+// NewControllerWithClock creates a new Configuration controller with a clock
+func NewControllerWithClock(
+	ctx context.Context,
+	cmw configmap.Watcher,
+	clock clock.Clock,
+) *controller.Impl {
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
@@ -46,6 +56,7 @@ func NewController(
 	c := &Reconciler{
 		client:         servingclient.Get(ctx),
 		revisionLister: revisionInformer.Lister(),
+		clock:          clock,
 	}
 	impl := configreconciler.NewImpl(ctx, c)
 
