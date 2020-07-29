@@ -38,15 +38,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-type configOption func(*config.Config) *config.Config
-
-func withMultiContainerDisabled() configOption {
-	return func(cfg *config.Config) *config.Config {
-		cfg.Features.MultiContainer = config.Disabled
-		return cfg
-	}
-}
-
 func TestRevisionValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -294,11 +285,10 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		rs      *v1.RevisionSpec
-		wc      func(context.Context) context.Context
-		cfgOpts []configOption
-		want    *apis.FieldError
+		name string
+		rs   *v1.RevisionSpec
+		wc   func(context.Context) context.Context
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rs: &v1.RevisionSpec{
@@ -394,8 +384,20 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainerDisabled()},
-		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.FeaturesConfigName,
+				},
+				Data: map[string]string{
+					"multi-container:": "disabled"},
+			})
+			return s.ToContext(ctx)
+		},
+		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "exceed max timeout",
 		rs: &v1.RevisionSpec{
@@ -454,13 +456,6 @@ func TestRevisionSpecValidation(t *testing.T) {
 			ctx := context.Background()
 			if test.wc != nil {
 				ctx = test.wc(ctx)
-			}
-			if test.cfgOpts != nil {
-				cfg := config.FromContextOrDefaults(ctx)
-				for _, opt := range test.cfgOpts {
-					cfg = opt(cfg)
-				}
-				ctx = config.ToContext(ctx, cfg)
 			}
 			got := test.rs.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
