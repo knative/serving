@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opencensus.io/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
@@ -383,11 +384,20 @@ func TestMetricsReported(t *testing.T) {
 	<-s.statChan // The scale from 0 quick-report
 	<-s.statChan // The actual report we want to see
 
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelRevisionName:      rev1.Name,
+			metricskey.LabelNamespaceName:     rev1.Namespace,
+			metricskey.LabelServiceName:       "service-" + rev1.Name,
+			metricskey.LabelConfigurationName: "config-" + rev1.Name,
+		},
+	}
 	wantTags := map[string]string{
 		metricskey.PodName:       "the-best-activator",
 		metricskey.ContainerName: "activator",
 	}
-	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
+	metricstest.AssertMetric(t, metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource))
 }
 
 // Test type to hold the bi-directional time channels

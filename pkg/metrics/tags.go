@@ -117,7 +117,7 @@ func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) cont
 		Type: metricskey.ResourceTypeKnativeRevision,
 		Labels: map[string]string{
 			metricskey.LabelNamespaceName:     ns,
-			metricskey.LabelServiceName:       svc,
+			metricskey.LabelServiceName:       valueOrUnknown(svc),
 			metricskey.LabelConfigurationName: cfg,
 			metricskey.LabelRevisionName:      rev,
 		},
