@@ -392,7 +392,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Name: config.FeaturesConfigName,
 				},
 				Data: map[string]string{
-					"multi-container:": "disabled"},
+					"multi-container": "disabled"},
 			})
 			return s.ToContext(ctx)
 		},
