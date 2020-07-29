@@ -53,6 +53,10 @@ type Breaker struct {
 	inFlight   int64
 	totalSlots int64
 	sem        *semaphore
+
+	// release is the callback function returned to callers by Reserve to
+	// allow the reservation made by Reserve to be released.
+	release func()
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -67,11 +71,19 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := newSemaphore(params.MaxConcurrency, params.InitialCapacity)
-	return &Breaker{
+
+	b := &Breaker{
 		totalSlots: int64(params.QueueDepth + params.MaxConcurrency),
-		sem:        sem,
+		sem:        newSemaphore(params.MaxConcurrency, params.InitialCapacity),
 	}
+
+	// Allocating the closure returned by Reserve here avoids an allocation in Reserve.
+	b.release = func() {
+		b.sem.release()
+		b.releasePending()
+	}
+
+	return b
 }
 
 // tryAcquirePending tries to acquire a slot on the pending "queue".
@@ -118,10 +130,8 @@ func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 		b.releasePending()
 		return nil, false
 	}
-	return func() {
-		b.sem.release()
-		b.releasePending()
-	}, true
+
+	return b.release, true
 }
 
 // Maybe conditionally executes thunk based on the Breaker concurrency
