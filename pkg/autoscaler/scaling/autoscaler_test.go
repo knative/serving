@@ -122,7 +122,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	a := newTestAutoscalerNoPC(t, 10, 100, metrics)
 	// Non-panic created autoscaler.
-	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 0)
+	metricstest.AssertMetric(t, metricstest.IntMetric(panicM.Name(), 0, wantTags).WithResource(wantResource))
 	ebc := expectedEBC(10, 100, 50, 1)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{5, ebc, na, true})
@@ -149,12 +149,15 @@ func TestAutoscalerMetricsWithRPS(t *testing.T) {
 	spec := a.currentSpec()
 
 	expectScale(t, a, time.Now().Add(61*time.Second), ScaleResult{10, ebc, na, true})
-	metricstest.CheckLastValueData(t, stableRPSM.Name(), wantTags, 100)
-	metricstest.CheckLastValueData(t, panicRPSM.Name(), wantTags, 100)
-	metricstest.CheckLastValueData(t, desiredPodCountM.Name(), wantTags, 10)
-	metricstest.CheckLastValueData(t, targetRPSM.Name(), wantTags, spec.TargetValue)
-	metricstest.CheckLastValueData(t, excessBurstCapacityM.Name(), wantTags, float64(ebc))
-	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 1)
+	wantMetrics := []metricstest.Metric{
+		metricstest.FloatMetric(stableRPSM.Name(), 100, wantTags).WithResource(wantResource),
+		metricstest.FloatMetric(panicRPSM.Name(), 100, wantTags).WithResource(wantResource),
+		metricstest.IntMetric(desiredPodCountM.Name(), 10, wantTags).WithResource(wantResource),
+		metricstest.FloatMetric(targetRPSM.Name(), spec.TargetValue, wantTags).WithResource(wantResource),
+		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), wantTags).WithResource(wantResource),
+		metricstest.IntMetric(panicM.Name(), 1, wantTags).WithResource(wantResource),
+	}
+	metricstest.AssertMetric(t, wantMetrics...)
 }
 
 func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
