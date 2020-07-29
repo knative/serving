@@ -47,6 +47,10 @@ const (
 	// triggered their creation.
 	RouteLabelKey = GroupName + "/route"
 
+	// RoutesAnnotationKey is an annotation attached to a Revision to indicate that it is
+	// referenced by one or many routes. The value is a comma separated list of Route names.
+	RoutesAnnotationKey = GroupName + "/routes"
+
 	// RoutingStateLabelKey is the label attached to a Revision indicating
 	// its state in relation to serving a Route.
 	RoutingStateLabelKey = GroupName + "/routingState"

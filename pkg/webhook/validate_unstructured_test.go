@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func TestServiceValidation(t *testing.T) {
+func TestUnstructuredValidation(t *testing.T) {
 	newCreateWithOptions = newTestPods
 
 	tests := []struct {
@@ -84,7 +84,7 @@ func TestServiceValidation(t *testing.T) {
 		},
 		want: "could not traverse nested spec.template field",
 	}, {
-		name: "no test anotation",
+		name: "no test annotation",
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":        "valid",
@@ -104,7 +104,7 @@ func TestServiceValidation(t *testing.T) {
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)
@@ -117,7 +117,7 @@ func TestServiceValidation(t *testing.T) {
 }
 
 func TestDryRunFeatureFlag(t *testing.T) {
-	data := map[string]interface{}{
+	om := map[string]interface{}{
 		"metadata": map[string]interface{}{
 			"name":        "valid",
 			"namespace":   "foo",
@@ -129,14 +129,59 @@ func TestDryRunFeatureFlag(t *testing.T) {
 	tests := []struct {
 		name       string
 		dryRunFlag config.Flag
+		data       map[string]interface{}
 		want       string
 	}{{
 		name:       "enabled dry-run",
 		dryRunFlag: config.Enabled,
+		data:       om,
 		want:       "could not traverse nested spec.template field",
+	}, {
+		name:       "enabled with strict annotation",
+		dryRunFlag: config.Enabled,
+		data: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "valid",
+				"namespace": "foo",
+				"annotations": map[string]interface{}{
+					"features.knative.dev/podspec-dryrun": "strict",
+				},
+			},
+			"spec": true, // Invalid, spec is expected to be a struct
+		},
+		want: "could not traverse nested spec.template field",
+	}, {
+		name:       "disabled with enabled annotation",
+		dryRunFlag: config.Disabled,
+		data: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "invalid",
+				"namespace": "foo",
+				"annotations": map[string]interface{}{
+					"features.knative.dev/podspec-dryrun": "enabled",
+				},
+			},
+			"spec": true, // Invalid, spec is expected to be a struct
+		},
+		want: "", // expect no error despite invalid data.
+	}, {
+		name:       "disabled with strict annotation",
+		dryRunFlag: config.Disabled,
+		data: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "invalid",
+				"namespace": "foo",
+				"annotations": map[string]interface{}{
+					"features.knative.dev/podspec-dryrun": "strict",
+				},
+			},
+			"spec": true, // Invalid, spec is expected to be a struct
+		},
+		want: "", // expect no error despite invalid data.
 	}, {
 		name:       "disabled dry-run",
 		dryRunFlag: config.Disabled,
+		data:       om,
 		want:       "", // expect no error despite invalid data.
 	}}
 
@@ -148,14 +193,14 @@ func TestDryRunFeatureFlag(t *testing.T) {
 			ctx = enableDryRun(ctx, test.dryRunFlag)
 
 			unstruct := &unstructured.Unstructured{}
-			unstruct.SetUnstructuredContent(data)
+			unstruct.SetUnstructuredContent(test.data)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)
 				}
-			} else if !strings.Contains(got.Error(), test.want) {
+			} else if test.want == "" || !strings.Contains(got.Error(), test.want) {
 				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
 			}
 		})
@@ -219,7 +264,7 @@ func TestSkipUpdate(t *testing.T) {
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.new)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got=nil, want=%q", test.want)

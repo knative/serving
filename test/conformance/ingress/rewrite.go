@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,33 +22,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
-// TestMultipleHosts verifies that an Ingress can respond to multiple hosts.
-func TestMultipleHosts(t *testing.T) {
+// TestRewriteHost verifies that a RewriteHost rule can be used to implement vanity URLs.
+func TestRewriteHost(t *testing.T) {
 	t.Parallel()
-	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
-	// TODO(mattmoor): Once .svc.cluster.local stops being a special case
-	// for Visibility, add it here.
-	hosts := []string{
-		"foo.com",
-		"www.foo.com",
-		"a-b-1.something-really-really-long.knative.dev",
-		"add.your.interesting.domain.here.io",
-	}
-
 	// Create a simple Ingress over the Service.
-	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+	_, _, cancel = CreateIngressReady(t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
-			Hosts:      hosts,
-			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Hosts:      []string{name + ".example.com"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
 					Splits: []v1alpha1.IngressBackendSplit{{
@@ -64,7 +53,20 @@ func TestMultipleHosts(t *testing.T) {
 	})
 	defer cancel()
 
-	for _, host := range hosts {
-		RuntimeRequest(t, client, "http://"+host)
-	}
+	// Now create a RewriteHost ingress to point a custom Host at the Service
+	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{"vanity.ismy.name", "vanity.isalsomy.number"},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					RewriteHost: name + ".example.com",
+				}},
+			},
+		}},
+	})
+	defer cancel()
+
+	RuntimeRequest(t, client, "http://vanity.ismy.name")
+	RuntimeRequest(t, client, "http://vanity.isalsomy.number")
 }

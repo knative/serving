@@ -42,8 +42,8 @@ func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clo
 		rev.GenerateName = config.Name + "-"
 	}
 
-	UpdateRevisionLabels(rev, config)
-	UpdateRevisionAnnotations(rev, config)
+	updateRevisionLabels(rev, config)
+	updateRevisionAnnotations(rev, config)
 
 	// Pending tells the labeler that we have not processed this revision.
 	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgMap.Enabled {
@@ -56,11 +56,11 @@ func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clo
 	return rev
 }
 
-// UpdateRevisionLabels sets the revisions labels given a Configuration.
-func UpdateRevisionLabels(rev, config metav1.Object) {
+// updateRevisionLabels sets the revisions labels given a Configuration.
+func updateRevisionLabels(rev, config metav1.Object) {
 	labels := rev.GetLabels()
 	if labels == nil {
-		labels = make(map[string]string)
+		labels = make(map[string]string, 3)
 	}
 
 	for _, key := range []string{
@@ -74,14 +74,14 @@ func UpdateRevisionLabels(rev, config metav1.Object) {
 	rev.SetLabels(labels)
 }
 
-// UpdateRevisionAnnotations sets the revisions annotations given a Configuration's updater annotation.
-func UpdateRevisionAnnotations(rev, config metav1.Object) {
+// updateRevisionAnnotations sets the revision's annotation given a Configuration's updater annotation.
+func updateRevisionAnnotations(rev, config metav1.Object) {
 	annotations := rev.GetAnnotations()
 	if annotations == nil {
-		annotations = make(map[string]string)
+		annotations = make(map[string]string, 1)
 	}
 
-	// Populate the CreatorAnnotation from configuration.
+	// Populate the CreatorAnnotation from configuration's Updater annotation.
 	cans := config.GetAnnotations()
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
 		annotations[serving.CreatorAnnotation] = c
@@ -98,8 +98,7 @@ func RevisionLabelValueForKey(key string, config metav1.Object) string {
 	case serving.ServiceLabelKey:
 		return config.GetLabels()[serving.ServiceLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
-		return fmt.Sprintf("%d", config.GetGeneration())
+		return fmt.Sprint(config.GetGeneration())
 	}
-
 	return ""
 }

@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
@@ -68,8 +69,8 @@ type ingressState struct {
 
 // podState represents the probing state of a Pod (for a specific Ingress)
 type podState struct {
-	// successCount is the number of successful probes
-	successCount int32
+	// pendindCount is the number of probes for the Pod
+	pendingCount int32
 
 	cancel func()
 }
@@ -161,6 +162,7 @@ func ingressKey(ing *v1alpha1.Ingress) string {
 // Also, it means that IsReady is not called concurrently.
 func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
 	ingressKey := ingressKey(ing)
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey))
 
 	bytes, err := ingress.ComputeHash(ing)
 	if err != nil {
@@ -234,7 +236,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 
 		podCtx, cancel := context.WithCancel(ingCtx)
 		podState := &podState{
-			successCount: 0,
+			pendingCount: int32(len(ipWorkItems)),
 			cancel:       cancel,
 		}
 
@@ -251,17 +253,17 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 			}
 		}()
 
-		// Update the states when probing is successful or cancelled
+		// Update the states when probing is cancelled
 		go func() {
 			<-podCtx.Done()
-			m.updateStates(ingressState, podState)
+			m.onProbingCancellation(ingressState, podState)
 		}()
 
 		for _, wi := range ipWorkItems {
 			wi.podState = podState
 			wi.context = podCtx
 			m.workQueue.AddAfter(wi, initialDelay)
-			m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
+			logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
 				wi.url, wi.podIP, wi.podPort, m.workQueue.Len())
 		}
 	}
@@ -349,7 +351,8 @@ func (m *Prober) processWorkItem() bool {
 		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n",
 			reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey(item.ingressState.ing)))
+	logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
 		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -390,17 +393,18 @@ func (m *Prober) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
+		logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
 			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
-		m.updateStates(item.ingressState, item.podState)
+		m.onProbingSuccess(item.ingressState, item.podState)
 	}
 	return true
 }
 
-func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
-	if atomic.AddInt32(&podState.successCount, 1) == 1 {
-		// This is the first successful probe call for the pod, cancel all other work items for this pod
+func (m *Prober) onProbingSuccess(ingressState *ingressState, podState *podState) {
+	// The last probe call for the Pod succeeded, the Pod is ready
+	if atomic.AddInt32(&podState.pendingCount, -1) == 0 {
+		// Unlock the goroutine blocked on <-podCtx.Done()
 		podState.cancel()
 
 		// This is the last pod being successfully probed, the Ingress is ready
@@ -410,7 +414,28 @@ func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
 	}
 }
 
+func (m *Prober) onProbingCancellation(ingressState *ingressState, podState *podState) {
+	for {
+		pendingCount := atomic.LoadInt32(&podState.pendingCount)
+		if pendingCount <= 0 {
+			// Probing succeeded, nothing to do
+			return
+		}
+
+		// Attempt to set pendingCount to 0
+		if atomic.CompareAndSwapInt32(&podState.pendingCount, pendingCount, 0) {
+			// This is the last pod being successfully probed, the Ingress is ready
+			if atomic.AddInt32(&ingressState.pendingCount, -1) == 0 {
+				m.readyCallback(ingressState.ing)
+			}
+			return
+		}
+	}
+}
+
 func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
+	logger := m.logger.With(zap.String(logkey.Key, ingressKey(item.ingressState.ing)))
+
 	return func(r *http.Response, _ []byte) (bool, error) {
 		// In the happy path, the probe request is forwarded to Activator or Queue-Proxy and the response (HTTP 200)
 		// contains the "K-Network-Hash" header that can be compared with the expected hash. If the hashes match,
@@ -425,7 +450,7 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			hash := r.Header.Get(network.HashHeaderName)
 			switch hash {
 			case "":
-				m.logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response doesn't contain the %q header",
+				logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response doesn't contain the %q header",
 					item.url, item.podIP, item.podPort, network.HashHeaderName)
 				return true, nil
 			case item.ingressState.hash:
@@ -433,11 +458,14 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 			default:
 				return false, fmt.Errorf("unexpected hash: want %q, got %q", item.ingressState.hash, hash)
 			}
+
 		case http.StatusNotFound, http.StatusServiceUnavailable:
-			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, http.StatusNotFound)
+			return false, fmt.Errorf("unexpected status code: want %v, got %v", http.StatusOK, r.StatusCode)
+
 		default:
-			m.logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response status is %v, expected 200 or 404",
-				item.url, item.podIP, item.podPort, r.StatusCode)
+			logger.Errorf("Probing of %s abandoned, IP: %s:%s: the response status is %v, expected one of: %v",
+				item.url, item.podIP, item.podPort, r.StatusCode,
+				[]int{http.StatusOK, http.StatusNotFound, http.StatusServiceUnavailable})
 			return true, nil
 		}
 	}

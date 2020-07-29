@@ -154,7 +154,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.Channel <- now
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency &&
@@ -164,10 +164,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	})
 
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicConcurrency = %v", err)
+		t.Errorf("StableAndPanicConcurrency() = %v", err)
 	}
 	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicRPS = %v", err)
+		t.Errorf("StableAndPanicRPS() = %v", err)
 	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
@@ -187,16 +187,16 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.Channel <- now
 
 	// Wait for async loop to finish.
-	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency*5 && gotRPS == reportRPS*5, nil
 	})
 	if gotConcurrency != reportConcurrency*5 {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, reportConcurrency*5)
 	}
 	if gotRPS != reportRPS*5 {
-		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, wantRPS)
+		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, reportRPS*5)
 	}
 
 	// Deleting the metric should cause a calculation error.
@@ -239,10 +239,10 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != nil {
-		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
 	}
 	if errRPS != nil {
-		t.Errorf("StableAndPanicRPS = %v", errRPS)
+		t.Errorf("StableAndPanicRPS() = %v", errRPS)
 	}
 	if panicConcurrency != wantStat {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
@@ -270,7 +270,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
-		t.Errorf("StableAndPanicRPS = %v", err)
+		t.Errorf("StableAndPanicRPS() = %v", err)
 	}
 	if gotRPS != wantRC {
 		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRC)
@@ -304,10 +304,10 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != ErrNoData {
-		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
 	}
 	if errRPS != ErrNoData {
-		t.Errorf("StableAndPanicRPS = %v", errRPS)
+		t.Errorf("StableAndPanicRPS() = %v", errRPS)
 	}
 }
 

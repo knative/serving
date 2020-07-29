@@ -44,6 +44,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+const noPrivateServiceName = "No Private Service Name"
+
 // podCounts keeps record of various numbers of pods
 // for each revision.
 type podCounts struct {
@@ -79,12 +81,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 
 	// Having an SKS and its PrivateServiceName is a prerequisite for all upcoming steps.
-	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
+	if sks == nil || sks.Status.PrivateServiceName == "" {
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe, 0 /*numActivators == all*/); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
+		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
 		return computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 	}
 
@@ -137,8 +140,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	// If SKS is not ready — ensure we're not becoming ready.
 	// TODO: see if we can perhaps propagate the SKS state to computing active status.
-	if !sks.IsReady() {
-		ready = 0
+	if sks.IsReady() {
+		logger.Debug("SKS is ready, marking SKS status ready")
+		pa.Status.MarkSKSReady()
+	} else {
+		logger.Debug("SKS is not ready, marking SKS status not ready")
+		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
@@ -213,24 +220,30 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 }
 
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)
-// and the current status, as per the following table:
+// active threshold (min), and the current status, as per the following table:
 //
-//    | Want | Got    | Status     | New status |
-//    | 0    | <any>  | <any>      | inactive   |
-//    | >0   | < min  | <any>      | activating |
-//    | >0   | >= min | <any>      | active     |
-//    | -1   | < min  | inactive   | inactive   |
-//    | -1   | < min  | activating | activating |
-//    | -1   | < min  | active     | activating |
-//    | -1   | >= min | inactive   | inactive   |
-//    | -1   | >= min | activating | active     |
-//    | -1   | >= min | active     | active     |
+//    | Want | Got    | min   | Status     | New status |
+//    | 0    | <any>  | <any> | <any>      | inactive   |
+//    | >0   | < min  | <any> | <any>      | activating |
+//    | >0   | >= min | <any> | <any>      | active     |
+//    | -1   | < min  | <any> | inactive   | inactive   |
+//    | -1   | < min  | <any> | activating | activating |
+//    | -1   | < min  | <any> | active     | activating |
+//    | -1   | >= min | <any> | inactive   | inactive   |
+//    | -1   | >= min | 0     | activating | inactive   |
+//    | -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
+//    | -1   | >= min | >0    | activating | active     |
+//    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
+	if pc.ready >= minReady {
+		pa.Status.MarkScaleTargetInitialized()
+	}
 
 	switch {
-	case pc.want == 0:
-		if pa.Status.IsActivating() {
+	// Need to check for minReady = 0 because in the initialScale 0 case, pc.want will be -1.
+	case pc.want == 0 || minReady == 0:
+		if pa.Status.IsActivating() && minReady > 0 {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
 		} else {
@@ -241,12 +254,19 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 		if pc.want > 0 || !pa.Status.IsInactive() {
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		} else {
+			// This is for the initialScale 0 case. In the first iteration, minReady is 0,
+			// but for the following iterations, minReady is 1. pc.want will continue being
+			// -1 until we start receiving metrics, so we will end up here.
+			// Even though PA is already been marked as inactive in the first iteration, we
+			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
+			// because we cannot go through one iteration of reconciliation without setting
+			// some status.
+			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
 	case pc.ready >= minReady:
 		if pc.want > 0 || !pa.Status.IsInactive() {
-			pa.Status.MarkScaleTargetInitialized()
-			// SKS should already be active.
 			pa.Status.MarkActive()
 		}
 	}

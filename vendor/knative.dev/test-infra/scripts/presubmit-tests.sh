@@ -28,7 +28,7 @@ readonly PRESUBMIT_TEST_FAIL_FAST=${PRESUBMIT_TEST_FAIL_FAST:-0}
 readonly NO_PRESUBMIT_FILES=(\.png \.gitignore \.gitattributes ^OWNERS ^OWNERS_ALIASES ^AUTHORS)
 
 # Flag if this is a presubmit run or not.
-(( IS_PROW )) && [[ -n "${PULL_PULL_SHA}" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0
+(( IS_PROW )) && [[ ${JOB_TYPE} == "presubmit" ]] && IS_PRESUBMIT=1 || IS_PRESUBMIT=0
 readonly IS_PRESUBMIT
 
 # List of changed files on presubmit, LF separated.
@@ -109,7 +109,8 @@ function run_build_tests() {
 # Parameters: $1 - report name.
 #             $2... - command (test) to run.
 function report_build_test() {
-  local report="$(mktemp)"
+  local report
+  report="$(mktemp)"
   local report_name="$1"
   shift
   local errors=""
@@ -163,7 +164,8 @@ function default_build_test_runner() {
   [[ -z "${go_pkg_dirs}" ]] && return ${failed}
   # Ensure all the code builds
   subheader "Checking that go code builds"
-  local report="$(mktemp)"
+  local report
+  report="$(mktemp)"
   local errors_go1=""
   local errors_go2=""
   if ! capture_output "${report}" go build -v ./... ; then
@@ -172,10 +174,12 @@ function default_build_test_runner() {
     errors_go1="$(grep -v '^\(github\.com\|knative\.dev\)/' "${report}" | sort | uniq)"
   fi
   # Get all build tags in go code (ignore /vendor, /hack and /third_party)
-  local tags="$(grep -r '// +build' . \
+  local tags
+  tags="$(grep -r '// +build' . \
     | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
     | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
-  local tagged_pkgs="$(grep -r '// +build' . \
+  local tagged_pkgs
+  tagged_pkgs="$(grep -r '// +build' . \
     | grep -v '^./vendor/' | grep -v '^./hack/' | grep -v '^./third_party' \
     | grep ":// +build " | cut -f1 -d: | xargs dirname \
     | sort | uniq | tr '\n' ' ')"
@@ -190,7 +194,8 @@ function default_build_test_runner() {
     rm -f e2e.test
   done
 
-  local errors_go="$(echo -e "${errors_go1}\n${errors_go2}" | uniq)"
+  local errors_go
+  errors_go="$(echo -e "${errors_go1}\n${errors_go2}" | uniq)"
   create_junit_xml _build_tests Build_Go "${errors_go}"
   # Check that we don't have any forbidden licenses in our images.
   subheader "Checking for forbidden licenses"
@@ -266,17 +271,16 @@ function run_integration_tests() {
 
 # Default integration test runner that runs all `test/e2e-*tests.sh`.
 function default_integration_test_runner() {
-  # options is always empty.
-  # TODO: remove it or indeed allow passing options.
-  local options=""
   local failed=0
-  for e2e_test in $(find test/ -name e2e-*tests.sh); do
+  find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" > tmp
+  while IFS= read -r e2e_test
+  do
     echo "Running integration test ${e2e_test}"
-    if ! ${e2e_test} ${options}; then
+    if ! ${e2e_test}; then
       failed=1
-      step_failed "${e2e_test} ${options}"
+      step_failed "${e2e_test}"
     fi
-  done
+  done < tmp
   return ${failed}
 }
 
@@ -324,7 +328,7 @@ function main() {
     # (https://github.com/kubernetes/test-infra/blob/09bd4c6709dc64308406443f8996f90cf3b40ed1/jenkins/bootstrap.py#L588)
     # TODO(chaodaiG): follow up on https://github.com/kubernetes/test-infra/blob/0fabd2ea816daa8c15d410c77a0c93c0550b283f/prow/initupload/run.go#L49
     echo ">> node name"
-    echo "$(curl -H "Metadata-Flavor: Google" 'http://169.254.169.254/computeMetadata/v1/instance/name' 2> /dev/null)"
+    curl -H "Metadata-Flavor: Google" 'http://169.254.169.254/computeMetadata/v1/instance/name' 2> /dev/null
     echo ">> pod name"
     echo "${HOSTNAME}"
   fi
@@ -336,6 +340,15 @@ function main() {
   while [[ $# -ne 0 ]]; do
     local parameter=$1
     case ${parameter} in
+      --help|-h)
+        echo "Usage: ./presubmit-tests.sh [options...]"
+        echo "  --build-tests: run build tests."
+        echo "  --unit-tests: run unit tests."
+        echo "  --integration-tests: run integration tests, basically all the e2e-*tests.sh."
+        echo "  --all-tests: run build tests, unit tests and integration tests in sequence."
+        echo "  --run-test: run custom tests. Can be used to run multiple tests that need different args."
+        echo "              For example, ./presubmit-tests.sh --run-test \"e2e-tests1.sh arg1\" \"e2e-tests2.sh arg2\"."
+        ;;
       --build-tests) RUN_BUILD_TESTS=1 ;;
       --unit-tests) RUN_UNIT_TESTS=1 ;;
       --integration-tests) RUN_INTEGRATION_TESTS=1 ;;

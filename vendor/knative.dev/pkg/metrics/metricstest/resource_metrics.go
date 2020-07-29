@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/metric/metricproducer"
 	"go.opencensus.io/resource"
+	"go.opencensus.io/stats/view"
 )
 
 // Value provides a simplified implementation of a metric Value suitable for
@@ -40,6 +41,10 @@ type Value struct {
 	Int64        *int64
 	Float64      *float64
 	Distribution *metricdata.Distribution
+	// VerifyDistributionCountOnly makes Equal compare the Distribution with the
+	// field Count only, and ingore all other fields of Distribution.
+	// This is ingored when the value is not a Distribution.
+	VerifyDistributionCountOnly bool
 }
 
 // Metric provides a simplified (for testing) implementation of a metric report
@@ -92,7 +97,9 @@ func NewMetric(metric *metricdata.Metric) Metric {
 	for _, ts := range metric.TimeSeries {
 		tags := make(map[string]string, len(metric.Descriptor.LabelKeys))
 		for i, k := range metric.Descriptor.LabelKeys {
-			tags[k.Key] = ts.LabelValues[i].Value
+			if ts.LabelValues[i].Present {
+				tags[k.Key] = ts.LabelValues[i].Value
+			}
 		}
 		v := Value{Tags: tags}
 		ts.Points[0].ReadValue(&v)
@@ -100,6 +107,18 @@ func NewMetric(metric *metricdata.Metric) Metric {
 	}
 
 	return value
+}
+
+// EnsureRecorded makes sure that all stats metrics are actually flushed and recorded.
+func EnsureRecorded() {
+	// stats.Record queues the actual record to a channel to be accounted for by
+	// a background goroutine (nonblocking). Call a method which does a
+	// round-trip to that goroutine to ensure that records have been flushed.
+	for _, producer := range metricproducer.GlobalManager().GetAll() {
+		if meter, ok := producer.(view.Meter); ok {
+			meter.Find("nonexistent")
+		}
+	}
 }
 
 // GetMetric returns all values for the named metric.
@@ -126,57 +145,70 @@ func GetOneMetric(name string) Metric {
 	return m[0]
 }
 
-func genericMetricFactory(name string, v Value, keyvalues ...string) Metric {
-	if len(keyvalues)%2 != 0 {
-		panic("Odd number of arguments to CountMetric")
-	}
-	if v.Tags == nil {
-		v.Tags = make(map[string]string, len(keyvalues)/2)
-	}
-	for i := 0; i < len(keyvalues); i += 2 {
-		v.Tags[keyvalues[i]] = keyvalues[i+1]
-	}
+// IntMetric creates an Int64 metric.
+func IntMetric(name string, value int64, tags map[string]string) Metric {
 	return Metric{
 		Name:   name,
-		Values: []Value{v},
+		Values: []Value{{Int64: &value, Tags: tags}},
 	}
 }
 
-// IntMetric is a shortcut factory for creating an Int64 metric.
-func IntMetric(name string, value int64, keyvalues ...string) Metric {
-	return genericMetricFactory(name, Value{Int64: &value}, keyvalues...)
+// FloatMetric creates a Float64 metric
+func FloatMetric(name string, value float64, tags map[string]string) Metric {
+	return Metric{
+		Name:   name,
+		Values: []Value{{Float64: &value, Tags: tags}},
+	}
 }
 
-// FloatMetric is a shortcut factor for creating a Float64 metric
-func FloatMetric(name string, value float64, keyvalues ...string) Metric {
-	return genericMetricFactory(name, Value{Float64: &value}, keyvalues...)
+// DistributionCountOnlyMetric creates a distrubtion metric for test, and verifying only the count.
+func DistributionCountOnlyMetric(name string, count int64, tags map[string]string) Metric {
+	return Metric{
+		Name: name,
+		Values: []Value{{
+			Distribution:                &metricdata.Distribution{Count: count},
+			Tags:                        tags,
+			VerifyDistributionCountOnly: true}},
+	}
 }
 
-// AssertMetric verifies that the metrics have the specified values.
+// WithResource sets the resource of the metric.
+func (m Metric) WithResource(r *resource.Resource) Metric {
+	m.Resource = r
+	return m
+}
+
+// AssertMetric verifies that the metrics have the specified values. Note that
+// this method will spuriously fail if there are multiple metrics with the same
+// name on different Meters. Calls EnsureRecorded internally before fetching the
+// batch of metrics.
 func AssertMetric(t *testing.T, values ...Metric) {
 	t.Helper()
+	EnsureRecorded()
 	for _, v := range values {
 		if diff := cmp.Diff(v, GetOneMetric(v.Name)); diff != "" {
-			t.Errorf("Wrong adds (-want +got): %s", diff)
+			t.Errorf("Wrong metric (-want +got): %s", diff)
 		}
 	}
 }
 
 // AssertMetricExists verifies that at least one metric values has been reported for
 // each of metric names.
+// Calls EnsureRecorded internally before fetching the batch of metrics.
 func AssertMetricExists(t *testing.T, names ...string) {
-	t.Helper()
-	for _, name := range names {
-		if len(GetMetric(name)) == 0 {
-			t.Errorf("No metrics found for %q", name)
-		}
+	metrics := make([]Metric, 0, len(names))
+	for _, n := range names {
+		metrics = append(metrics, Metric{Name: n})
 	}
+	AssertMetric(t, metrics...)
 }
 
 // AssertNoMetric verifies that no metrics have been reported for any of the
 // metric names.
+// Calls EnsureRecorded internally before fetching the batch of metrics.
 func AssertNoMetric(t *testing.T, names ...string) {
 	t.Helper()
+	EnsureRecorded()
 	for _, name := range names {
 		if m := GetMetric(name); len(m) != 0 {
 			t.Error("Found unexpected data for:", m)
@@ -278,6 +310,9 @@ func (v Value) Equal(other Value) bool {
 		}
 		if v.Distribution.Count != other.Distribution.Count {
 			return false
+		}
+		if v.VerifyDistributionCountOnly || other.VerifyDistributionCountOnly {
+			return true
 		}
 		if v.Distribution.Sum != other.Distribution.Sum {
 			return false

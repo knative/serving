@@ -28,11 +28,13 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/pool"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
 func TestVisibility(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	// Create the private backend
@@ -93,6 +95,7 @@ func TestVisibility(t *testing.T) {
 
 func TestVisibilitySplit(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	// Use a post-split injected header to establish which split we are sending traffic to.
@@ -224,6 +227,7 @@ func TestVisibilitySplit(t *testing.T) {
 
 func TestVisibilityPath(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	// For /foo

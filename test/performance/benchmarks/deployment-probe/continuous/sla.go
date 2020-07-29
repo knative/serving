@@ -19,10 +19,10 @@ package main
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/mako"
 )
 
@@ -30,14 +30,14 @@ import (
 // to 25 seconds.
 func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Deploy p95 latency"),
+		Name: ptr.String("Deploy p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(0 * time.Second),
 			Max: bound(25 * time.Second),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("dl"),
+				PercentileMilliRank: ptr.Int32(95000),
+				ValueKey:            ptr.String("dl"),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
@@ -50,13 +50,13 @@ func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 // handful of the trailing deployments, so we relax this to 410.
 func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Ready deployment count"),
+		Name: ptr.String("Ready deployment count"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(410),
-			Max: proto.Float64(420),
+			Min: ptr.Float64(410),
+			Max: ptr.Float64(420),
 			DataFilter: &mpb.DataFilter{
 				DataType: mpb.DataFilter_METRIC_AGGREGATE_COUNT.Enum(),
-				ValueKey: proto.String("dl"),
+				ValueKey: ptr.String("dl"),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
@@ -66,5 +66,5 @@ func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
 // bound is a helper for making the inline SLOs more readable by expressing
 // them as durations.
 func bound(d time.Duration) *float64 {
-	return proto.Float64(d.Seconds())
+	return ptr.Float64(d.Seconds())
 }

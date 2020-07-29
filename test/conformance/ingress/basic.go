@@ -22,12 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
 // TestBasics verifies that a no frills Ingress exposes a simple Pod/Service via the public load balancer.
 func TestBasics(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
@@ -60,6 +62,7 @@ func TestBasics(t *testing.T) {
 // will see a ProtoMajor of 2.
 func TestBasicsHTTP2(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameH2C)
