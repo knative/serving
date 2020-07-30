@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -58,6 +59,10 @@ func newControllerWithClock(
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
+	logger.Info("Setting up ConfigMap receivers")
+	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
+
 	c := &Reconciler{
 		client:              servingclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
@@ -66,6 +71,7 @@ func newControllerWithClock(
 	}
 	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{
+			ConfigStore: configStore,
 			// The labeler shouldn't mutate the route's status.
 			SkipStatusUpdates: true,
 		}

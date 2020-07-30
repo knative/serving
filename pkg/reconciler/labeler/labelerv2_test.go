@@ -40,8 +40,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -487,7 +489,27 @@ func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchAct
 func TestNew(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewController(ctx, configmap.NewStaticWatcher())
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.FeaturesConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscalercfg.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	})
+
+	c := NewController(ctx, configMapWatcher)
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
