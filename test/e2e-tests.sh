@@ -102,9 +102,9 @@ if (( HTTPS )); then
   toggle_feature autoTLS Disabled config-network
 fi
 
-toggle_feature tagHeaderBasedRouting Enabled config-network
+toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-toggle_feature tagHeaderBasedRouting Disabled config-network
+toggle_feature tag-header-based-routing Disabled
 
 toggle_feature multi-container Enabled
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1

@@ -2800,6 +2800,16 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
 		},
+		Features: &cfgmap.Features{
+			MultiContainer:        cfgmap.Disabled,
+			PodSpecAffinity:       cfgmap.Disabled,
+			PodSpecFieldRef:       cfgmap.Disabled,
+			PodSpecDryRun:         cfgmap.Enabled,
+			PodSpecNodeSelector:   cfgmap.Disabled,
+			PodSpecTolerations:    cfgmap.Disabled,
+			ResponsiveRevisionGC:  cfgmap.Disabled,
+			TagHeaderBasedRouting: cfgmap.Disabled,
+		},
 	}
 }
 

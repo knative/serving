@@ -31,6 +31,7 @@ import (
 	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
@@ -353,6 +354,16 @@ func testConfig() *config.Config {
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		},
+		Features: &apiConfig.Features{
+			MultiContainer:        apiConfig.Disabled,
+			PodSpecAffinity:       apiConfig.Disabled,
+			PodSpecFieldRef:       apiConfig.Disabled,
+			PodSpecDryRun:         apiConfig.Enabled,
+			PodSpecNodeSelector:   apiConfig.Disabled,
+			PodSpecTolerations:    apiConfig.Disabled,
+			ResponsiveRevisionGC:  apiConfig.Disabled,
+			TagHeaderBasedRouting: apiConfig.Disabled,
 		},
 	}
 }
