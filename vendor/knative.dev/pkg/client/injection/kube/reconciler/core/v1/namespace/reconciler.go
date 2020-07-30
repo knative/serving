@@ -84,13 +84,6 @@ type ReadOnlyFinalizer interface {
 
 type doReconcile func(ctx context.Context, o *v1.Namespace) reconciler.Event
 
-const (
-	doReconcileKind       = "ReconcileKind"
-	doFinalizeKind        = "FinalizeKind"
-	doObserveKind         = "ObserveKind"
-	doObserveFinalizeKind = "ObserveFinalizeKind"
-)
-
 // reconcilerImpl implements controller.Reconciler for v1.Namespace resources.
 type reconcilerImpl struct {
 	// LeaderAwareFuncs is inlined to help us implement reconciler.LeaderAware
@@ -230,7 +223,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// Append the target method to the logger.
 	logger = logger.With(zap.String("targetMethod", name))
 	switch name {
-	case doReconcileKind:
+	case reconciler.DoReconcileKind:
 		// Append the target method to the logger.
 		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
@@ -244,7 +237,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = do(ctx, resource)
 
-	case "FinalizeKind":
+	case reconciler.DoFinalizeKind:
 		// For finalizing reconcilers, if this resource being marked for deletion
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
 		reconcileEvent = do(ctx, resource)
@@ -253,7 +246,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
 
-	case "ObserveKind", "ObserveFinalizeKind":
+	case reconciler.DoObserveKind, reconciler.DoObserveFinalizeKind:
 		// Observe any changes to this resource, since we are not the leader.
 		reconcileEvent = do(ctx, resource)
 
