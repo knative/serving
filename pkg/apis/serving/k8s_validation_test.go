@@ -422,7 +422,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withPodSpecFieldRefEnabled(), withMultiContainerDisabled()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 	}, {
 		name: "Volume not mounted when having a single container",
 		ps: corev1.PodSpec{
@@ -438,7 +438,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "busybox",
 			}},
 		},
-		cfgOpts: []configOption{withPodSpecFieldRefEnabled(), withMultiContainerDisabled()},
+		cfgOpts: []configOption{withPodSpecFieldRefEnabled()},
 		want: &apis.FieldError{
 			Message: "volume with name \"the-name\" not mounted",
 			Paths:   []string{"volumes[0].name"}},
