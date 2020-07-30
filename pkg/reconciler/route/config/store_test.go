@@ -77,6 +77,22 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 }
 
+func TestStoreLoadWithContextOrDefaults(t *testing.T) {
+	store := NewStore(logtesting.TestContextWithLogger(t))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
+
+	config := FromContextOrDefaults(store.ToContext(context.Background()))
+
+	t.Run("domain", func(t *testing.T) {
+		expected, _ := cfgmap.NewFeaturesConfigFromMap(map[string]string{})
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
+			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+		}
+	})
+}
+
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))

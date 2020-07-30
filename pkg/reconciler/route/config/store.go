@@ -101,10 +101,16 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 }
 
 func (s *Store) Load() *Config {
-	return &Config{
+	config := &Config{
 		Domain:   s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
 		GC:       s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
 		Network:  s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Features: s.UntypedLoad(cfgmap.FeaturesConfigName).(*cfgmap.Features).DeepCopy(),
+		Features: nil,
 	}
+
+	if featureConfig := s.UntypedLoad(cfgmap.FeaturesConfigName); featureConfig != nil {
+		config.Features = featureConfig.(*cfgmap.Features).DeepCopy()
+	}
+
+	return config
 }
