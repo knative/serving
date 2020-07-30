@@ -322,6 +322,21 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "with multi containers (ok)",
+		rs: &RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8881,
+					}},
+				}, {
+					Image: "helloworld",
+				}},
+			},
+		},
+		want: nil,
+	}, {
 		name: "with volume name collision",
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
