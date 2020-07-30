@@ -452,6 +452,14 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 
+	// Don't create a watcher if we're already shutting down. Crucial to be called
+	// called under lock to be consistent with the above.
+	select {
+	case <-rbm.ctx.Done():
+		return nil, nil
+	default:
+	}
+
 	rwCh, ok := rbm.revisionWatchers[rev]
 	if !ok {
 		proto, err := rbm.getRevisionProtocol(rev)
@@ -478,6 +486,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		return
 	default:
 	}
+
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
 	logger := rbm.logger.With(zap.Object(logkey.Key, logging.NamespacedName(revID)))
@@ -489,6 +498,11 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		logger.Errorw("Failed to get revision watcher", zap.Error(err))
 		return
 	}
+	if rw == nil {
+		// Do nothing if we didn't actually create a revisionWatcher.
+		return
+	}
+
 	ready, notReady := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
 	logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(ready), len(notReady))
 	select {
