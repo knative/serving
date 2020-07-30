@@ -1761,7 +1761,6 @@ var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)
-	wantTags := map[string]string{}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
 		Labels: map[string]string{
@@ -1780,11 +1779,11 @@ func TestMetricsReporter(t *testing.T) {
 	}
 	reportMetrics(pa, pc)
 	wantMetrics := []metricstest.Metric{
-		metricstest.IntMetric("requested_pods", 1982, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("actual_pods", 1984, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("not_ready_pods", 1988, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("pending_pods", 1996, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("terminating_pods", 1983, wantTags).WithResource(wantResource),
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1983, nil).WithResource(wantResource),
 	}
 	metricstest.AssertMetric(t, wantMetrics...)
 
@@ -1795,11 +1794,11 @@ func TestMetricsReporter(t *testing.T) {
 
 	// Basically same values and change to `terminating` to verify reporting has occurred.
 	wantMetrics = []metricstest.Metric{
-		metricstest.IntMetric("requested_pods", 1982, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("actual_pods", 1984, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("not_ready_pods", 1988, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("pending_pods", 1996, wantTags).WithResource(wantResource),
-		metricstest.IntMetric("terminating_pods", 1955, wantTags).WithResource(wantResource),
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1955, nil).WithResource(wantResource),
 	}
 	metricstest.AssertMetric(t, wantMetrics...)
 }

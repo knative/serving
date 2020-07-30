@@ -57,7 +57,6 @@ var wantResource = &resource.Resource{
 		metricskey.LabelServiceName:       "testSvc",
 	},
 }
-var wantTags = map[string]string{}
 
 type fakePodCounter struct {
 	resources.EndpointsCounter
@@ -113,7 +112,7 @@ func TestAutoscalerStartMetrics(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	newTestAutoscalerWithScalingMetric(t, 10, 100, metrics,
 		"concurrency", true /*startInPanic*/)
-	metricstest.AssertMetric(t, metricstest.IntMetric(panicM.Name(), 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.IntMetric(panicM.Name(), 1, nil).WithResource(wantResource))
 }
 
 func TestAutoscalerMetrics(t *testing.T) {
@@ -122,19 +121,19 @@ func TestAutoscalerMetrics(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	a := newTestAutoscalerNoPC(t, 10, 100, metrics)
 	// Non-panic created autoscaler.
-	metricstest.AssertMetric(t, metricstest.IntMetric(panicM.Name(), 0, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.IntMetric(panicM.Name(), 0, nil).WithResource(wantResource))
 	ebc := expectedEBC(10, 100, 50, 1)
 	na := expectedNA(a, 1)
 	expectScale(t, a, time.Now(), ScaleResult{5, ebc, na, true})
 	spec := a.currentSpec()
 
 	wantMetrics := []metricstest.Metric{
-		metricstest.FloatMetric(stableRequestConcurrencyM.Name(), 50, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(panicRequestConcurrencyM.Name(), 50, wantTags).WithResource(wantResource),
-		metricstest.IntMetric(desiredPodCountM.Name(), 5, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(targetRequestConcurrencyM.Name(), spec.TargetValue, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), wantTags).WithResource(wantResource),
-		metricstest.IntMetric(panicM.Name(), 1, wantTags).WithResource(wantResource),
+		metricstest.FloatMetric(stableRequestConcurrencyM.Name(), 50, nil).WithResource(wantResource),
+		metricstest.FloatMetric(panicRequestConcurrencyM.Name(), 50, nil).WithResource(wantResource),
+		metricstest.IntMetric(desiredPodCountM.Name(), 5, nil).WithResource(wantResource),
+		metricstest.FloatMetric(targetRequestConcurrencyM.Name(), spec.TargetValue, nil).WithResource(wantResource),
+		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), nil).WithResource(wantResource),
+		metricstest.IntMetric(panicM.Name(), 1, nil).WithResource(wantResource),
 	}
 	metricstest.AssertMetric(t, wantMetrics...)
 }
@@ -150,12 +149,12 @@ func TestAutoscalerMetricsWithRPS(t *testing.T) {
 
 	expectScale(t, a, time.Now().Add(61*time.Second), ScaleResult{10, ebc, na, true})
 	wantMetrics := []metricstest.Metric{
-		metricstest.FloatMetric(stableRPSM.Name(), 100, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(panicRPSM.Name(), 100, wantTags).WithResource(wantResource),
-		metricstest.IntMetric(desiredPodCountM.Name(), 10, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(targetRPSM.Name(), spec.TargetValue, wantTags).WithResource(wantResource),
-		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), wantTags).WithResource(wantResource),
-		metricstest.IntMetric(panicM.Name(), 1, wantTags).WithResource(wantResource),
+		metricstest.FloatMetric(stableRPSM.Name(), 100, nil).WithResource(wantResource),
+		metricstest.FloatMetric(panicRPSM.Name(), 100, nil).WithResource(wantResource),
+		metricstest.IntMetric(desiredPodCountM.Name(), 10, nil).WithResource(wantResource),
+		metricstest.FloatMetric(targetRPSM.Name(), spec.TargetValue, nil).WithResource(wantResource),
+		metricstest.FloatMetric(excessBurstCapacityM.Name(), float64(ebc), nil).WithResource(wantResource),
+		metricstest.IntMetric(panicM.Name(), 1, nil).WithResource(wantResource),
 	}
 	metricstest.AssertMetric(t, wantMetrics...)
 }

@@ -494,10 +494,13 @@ func TestMetricsReported(t *testing.T) {
 		metricskey.PodName:       "the-best-activator",
 		metricskey.ContainerName: "activator",
 	}
-	metricstest.AssertMetric(t, metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource))
+
+	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
+	metricstest.AssertMetric(t, wantMetric)
 	reportCh <- time.Now()
 	<-cr.statCh
-	metricstest.AssertMetric(t, metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource))
+	*wantMetric.Values[0].Float64++
+	metricstest.AssertMetric(t, wantMetric)
 }
 
 func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc) {
