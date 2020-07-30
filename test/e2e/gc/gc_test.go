@@ -28,7 +28,9 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func TestHelloWorld(t *testing.T) {
+// TODO(whaught): This tests that the labeler applies the new label, but we need to update the GC config
+// and assert deletion of old revisions.
+func TestRevisionGC(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -63,18 +65,11 @@ func TestHelloWorld(t *testing.T) {
 	}
 
 	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
-		if val != names.Config {
-			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
+	if val, ok := revision.Labels["serving.knative.dev/routingState"]; ok {
+		if val != "active" {
+			t.Fatalf(`Expect routingState "active" in Revision label but got %q`, val)
 		}
 	} else {
-		t.Fatalf("Failed to get configuration name from Revision label")
-	}
-	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
-		if val != names.Service {
-			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
-		}
-	} else {
-		t.Fatalf("Failed to get Service name from Revision label")
+		t.Fatalf("Failed to get routingState from Revision label")
 	}
 }
