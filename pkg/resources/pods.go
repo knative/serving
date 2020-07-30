@@ -104,7 +104,7 @@ func (pa PodAccessor) NotReadyCount() (int, error) {
 type PodFilter func(p *corev1.Pod) bool
 
 // PodTransformer provides a way to do something with the pod
-// that has been selected by the filters.
+// that has been selected by all the filters.
 // For example pod transformer may extract a field and store it in
 // internal state.
 type PodTransformer func(p *corev1.Pod)
