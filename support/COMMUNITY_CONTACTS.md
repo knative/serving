@@ -6,20 +6,24 @@ community contact's duty (subject to change) is as followed:
 
 ## Daily check list
 
-* Check the knative-users@ mailing list for new unanswered questions.
+* Check the knative-users@ mailing list and #serving-questions Slack channel for
+  new unanswered questions.
 * Check [unassigned issues / untriaged
   issues](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
   for unanswered questions.
-* Join conversations that @serving-help is tagged.
+* You should already be added to @serving-help usergroup by the previous contact
+  person, and will be tagged into user questions in other channels.
 
 ## Weekly check list
 
 ### Monday
-Check the [Serving test grid](https://testgrid.knative.dev/serving) for
-flakiness to pick a test and focus on fixing it during your week.
-
-Once you pick the test flake, assign the corresponding bug filed by flakiness
-test reporter to yourself so that others won't pick the same test to fix.
+* Check the [Serving test grid](https://testgrid.knative.dev/serving) for
+  flakiness to pick a test and focus on fixing it during your week. Once you
+  pick the test flake, assign the corresponding bug filed by flakiness test
+  reporter to yourself so that others won't pick the same test to fix.
+* Join the @serving-help user group if you haven't been invited by the previous
+  contact person using this
+  [link](https://app.slack.com/client/T93ELUK42/browse-user-groups/user_groups/S0186KPJYG4)
 
 ### Tuesday - Thursday
 
@@ -27,8 +31,11 @@ Continue on fixing test flakes and answer
 
 ### Friday
 
-* Remove yourself from @serving-help usergroup and add the next contact. If you
-  don't have permission, ask in the Slack channel #steering-toc-questions.
+* Remove yourself from @serving-help usergroup and add the next contact using
+  this [link](
+  https://app.slack.com/client/T93ELUK42/browse-user-groups/user_groups/S0186KPJYG4).
+  If you don't have permission, ask in the Slack channel
+  #steering-toc-questions.
 * Email the next contacts, cc'ing knative-dev@ with a short summaries of the
   user questions encountered and links to them.
 * File issue or document suggested improvements to this process.
