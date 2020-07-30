@@ -109,7 +109,7 @@ type PodFilter func(p *corev1.Pod) bool
 // internal state.
 type PodTransformer func(p *corev1.Pod)
 
-// ProcessProd filters all the pods using provided pod filters and then if the pod
+// ProcessPods filters all the pods using provided pod filters and then if the pod
 // is selected, applies the transformer to it.
 func (pa PodAccessor) ProcessPods(pt PodTransformer, pfs ...PodFilter) error {
 	pods, err := pa.podsLister.List(pa.selector)
@@ -117,18 +117,20 @@ func (pa PodAccessor) ProcessPods(pt PodTransformer, pfs ...PodFilter) error {
 		return err
 	}
 	for _, p := range pods {
-		take := true
-		for _, pf := range pfs {
-			if !pf(p) {
-				take = false
-				break
-			}
-		}
-		if take {
+		if applyFilters(p, pfs...) {
 			pt(p)
 		}
 	}
 	return nil
+}
+
+func applyFilters(p *corev1.Pod, pfs ...PodFilter) bool {
+	for _, pf := range pfs {
+		if !pf(p) {
+			return false
+		}
+	}
+	return true
 }
 
 func podRunning(p *corev1.Pod) bool {
