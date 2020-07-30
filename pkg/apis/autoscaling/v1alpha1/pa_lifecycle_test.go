@@ -71,102 +71,6 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestCanScaleToZero(t *testing.T) {
-	now := time.Now()
-	cases := []struct {
-		name   string
-		status PodAutoscalerStatus
-		result bool
-		grace  time.Duration
-	}{{
-		name:   "empty status",
-		status: PodAutoscalerStatus{},
-		result: false,
-		grace:  10 * time.Second,
-	}, {
-		name: "active condition",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-		},
-		result: false,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (no LTT)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					// No LTT = beginning of time, so for sure we can.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT longer than grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
-					// LTT = 30 seconds ago.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT exact grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
-					// LTT = 10 seconds ago.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT less than grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
-					// LTT = 10 seconds ago.
-				}},
-			},
-		},
-		result: false,
-		grace:  30 * time.Second,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanScaleToZero(now, tc.grace); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-			}
-		})
-	}
-}
-
 func TestInactiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -251,6 +155,7 @@ func TestInactiveFor(t *testing.T) {
 		})
 	}
 }
+
 func TestActiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -977,20 +882,40 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
+
+	r.MarkActive()
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
+	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+
+	r.MarkSKSNotReady("something something private")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+
+	// Restore.
+	r.MarkSKSReady()
 
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
@@ -1014,9 +939,10 @@ func TestTypicalFlow(t *testing.T) {
 	if !r.IsActive() {
 		t.Error("Active was not set.")
 	}
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }
 
 func TestTargetBC(t *testing.T) {

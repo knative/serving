@@ -7,7 +7,6 @@ require (
 	github.com/docker/cli v0.0.0-20200210162036-a4bedce16568 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.1
 	github.com/google/go-containerregistry v0.1.2-0.20200717224239-a84993334b27
 	github.com/google/gofuzz v1.1.0
@@ -38,10 +37,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200723145958-d031ce9de55d
-	knative.dev/networking v0.0.0-20200723155758-cc457d7322d6
-	knative.dev/pkg v0.0.0-20200724055557-c36f46cc8c80
-	knative.dev/test-infra v0.0.0-20200723182457-517b66ba19c1
+	knative.dev/caching v0.0.0-20200728143859-34cb7522da95
+	knative.dev/networking v0.0.0-20200728143800-eb5121147cf4
+	knative.dev/pkg v0.0.0-20200729100859-68b3eeeaab46
+	knative.dev/test-infra v0.0.0-20200729023559-d33097928a54
 )
 
 replace (

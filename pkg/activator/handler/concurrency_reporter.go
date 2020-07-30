@@ -152,15 +152,19 @@ func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 		messages = append(messages, asmetrics.StatMessage{
 			Key: key,
 			Stat: asmetrics.Stat{
-				// Stat time is unset by design. The receiver will set the time.
 				PodName:                   cr.podName,
 				AverageConcurrentRequests: adjustedConcurrency,
 				RequestCount:              adjustedCount,
 			},
 		})
-		cr.reportToMetricsBackend(key, report.AverageConcurrency)
 	}
-	cr.reportedFirstRequest = make(map[types.NamespacedName]float64)
+
+	// We've now accounted for any cases where we immediately reported seeing the
+	// first request for a revision in handleEvent by subtracting them from this
+	// report.
+	for k := range cr.reportedFirstRequest {
+		delete(cr.reportedFirstRequest, k)
+	}
 
 	return messages
 }
@@ -192,6 +196,9 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		select {
 		case now := <-reportCh:
 			msgs := cr.report(now)
+			for _, msg := range msgs {
+				cr.reportToMetricsBackend(msg.Key, msg.Stat.AverageConcurrentRequests)
+			}
 			if len(msgs) > 0 {
 				cr.statCh <- msgs
 			}

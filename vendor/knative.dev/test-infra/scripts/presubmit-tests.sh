@@ -281,6 +281,7 @@ function default_integration_test_runner() {
       step_failed "${e2e_test}"
     fi
   done < tmp
+  return ${failed}
 }
 
 # Options set by command-line flags.

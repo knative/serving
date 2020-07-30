@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -43,19 +44,33 @@ const (
 	DryRunStrict DryRunMode = "strict"
 )
 
-// ValidateRevisionTemplate runs extra validation on Service resources
-func ValidateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
+// ValidateService runs extra validation on Service resources
+func ValidateService(ctx context.Context, uns *unstructured.Unstructured) error {
+	return validateRevisionTemplate(ctx, uns)
+}
+
+// ValidateConfiguration runs extra validation on Configuration resources
+func ValidateConfiguration(ctx context.Context, uns *unstructured.Unstructured) error {
+	// If owned by a service, skip validation for Configuration.
+	if uns.GetLabels()[serving.ServiceLabelKey] != "" {
+		return nil
+	}
+
+	return validateRevisionTemplate(ctx, uns)
+}
+
+func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
 
-	var mode DryRunMode
+	mode := DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
 	features := config.FromContextOrDefaults(ctx).Features
 	switch features.PodSpecDryRun {
 	case config.Enabled:
-		mode = DryRunEnabled
+		if mode != DryRunStrict {
+			mode = DryRunEnabled
+		}
 	case config.Disabled:
 		return nil
-	default:
-		mode = DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
 	}
 
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations

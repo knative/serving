@@ -58,14 +58,17 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 // validateLabels function validates configuration labels
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
-		switch {
-		case key == serving.VisibilityLabelKey:
+		switch key {
+		case serving.RouteLabelKey:
+			// Known valid labels.
+		case serving.VisibilityLabelKey:
 			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
-		case key == serving.RouteLabelKey:
-		case key == serving.ServiceLabelKey:
+		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		default:
+			if strings.HasPrefix(key, serving.GroupNamePrefix) {
+				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+			}
 		}
 	}
 	return

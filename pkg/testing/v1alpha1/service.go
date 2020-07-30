@@ -297,11 +297,11 @@ func WithContainerConcurrency(cc int) ServiceOption {
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1alpha1.Service) {
 		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations = kmeta.UnionMaps(
-				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Annotations, annotations)
+			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Annotations = kmeta.UnionMaps(
+				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Annotations, annotations)
 		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = kmeta.UnionMaps(
-				service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
+			service.Spec.ConfigurationSpec.Template.Annotations = kmeta.UnionMaps(
+				service.Spec.ConfigurationSpec.Template.Annotations, annotations)
 		}
 	}
 }

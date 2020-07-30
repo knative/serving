@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -54,6 +55,120 @@ var (
 		},
 	}
 )
+
+func TestProbeAllHosts(t *testing.T) {
+	const hostA = "foo.bar.com"
+	const hostB = "ksvc.test.dev"
+	hostBEnabled := int32(0)
+
+	ing := ingTemplate.DeepCopy()
+	ing.Spec.Rules[0].Hosts = append(ing.Spec.Rules[0].Hosts, hostB)
+	hash, err := ingress.InsertProbe(ing)
+	if err != nil {
+		t.Fatal("Failed to insert probe:", err)
+	}
+
+	// Dummy handler returning HTTP 500 (it should never be called during probing)
+	dummyRequests := make(chan *http.Request)
+	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dummyRequests <- r
+		w.WriteHeader(500)
+	})
+
+	// Actual probe handler used in Activator and Queue-Proxy
+	probeHandler := network.NewProbeHandler(dummyHandler)
+
+	// Probes to hostA always succeed and probes to hostB only succeed if hostBEnabled is true
+	probeRequests := make(chan *http.Request)
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeRequests <- r
+		if !strings.HasPrefix(r.Host, hostA) &&
+			(atomic.LoadInt32(&hostBEnabled) == 0 || !strings.HasPrefix(r.Host, hostB)) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		r.Header.Set(network.HashHeaderName, hash)
+		probeHandler.ServeHTTP(w, r)
+	})
+
+	ts := httptest.NewServer(finalHandler)
+	defer ts.Close()
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
+	}
+	port, err := strconv.Atoi(tsURL.Port())
+	if err != nil {
+		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
+	}
+	hostname := tsURL.Hostname()
+
+	ready := make(chan *v1alpha1.Ingress)
+	prober := NewProber(
+		zaptest.NewLogger(t).Sugar(),
+		fakeProbeTargetLister{{
+			PodIPs:  sets.NewString(hostname),
+			PodPort: strconv.Itoa(port),
+			URLs:    []*url.URL{tsURL},
+		}},
+		func(ing *v1alpha1.Ingress) {
+			ready <- ing
+		})
+
+	done := make(chan struct{})
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
+
+	// The first call to IsReady must succeed and return false
+	ok, err := prober.IsReady(context.Background(), ing)
+	if err != nil {
+		t.Fatal("IsReady failed:", err)
+	}
+	if ok {
+		t.Fatal("IsReady() returned true")
+	}
+
+	// Wait for both hosts to be probed
+	hostASeen, hostBSeen := false, false
+	for req := range probeRequests {
+		if req.Host == hostA {
+			hostASeen = true
+		} else if req.Host == hostB {
+			hostBSeen = true
+		} else {
+			t.Fatalf("Host header = %q, want %q or %q", req.Host, hostA, hostB)
+		}
+
+		if hostASeen && hostBSeen {
+			break
+		}
+	}
+
+	select {
+	case <-ready:
+		// Since HostB doesn't return 200, the prober shouldn't be ready
+		t.Fatal("Prober shouldn't be ready")
+	case <-time.After(1 * time.Second):
+		// Not ideal but it gives time to the prober to write to ready
+		break
+	}
+
+	// Make probes to hostB succeed
+	atomic.StoreInt32(&hostBEnabled, 1)
+
+	// Just drain the requests in the channel to not block the handler
+	go func() {
+		for range probeRequests {
+		}
+	}()
+
+	// Wait for the probing to eventually succeed
+	<-ready
+}
 
 func TestProbeLifecycle(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
@@ -630,9 +745,11 @@ func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alph
 			Port:    target.Port,
 		}
 		for _, url := range target.URLs {
-			newURL := *url
-			newURL.Host = ing.Spec.Rules[0].Hosts[0]
-			newTarget.URLs = append(newTarget.URLs, &newURL)
+			for _, host := range ing.Spec.Rules[0].Hosts {
+				newURL := *url
+				newURL.Host = host
+				newTarget.URLs = append(newTarget.URLs, &newURL)
+			}
 		}
 		targets = append(targets, newTarget)
 	}

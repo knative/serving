@@ -69,8 +69,8 @@ type ingressState struct {
 
 // podState represents the probing state of a Pod (for a specific Ingress)
 type podState struct {
-	// successCount is the number of successful probes
-	successCount int32
+	// pendindCount is the number of probes for the Pod
+	pendingCount int32
 
 	cancel func()
 }
@@ -236,7 +236,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 
 		podCtx, cancel := context.WithCancel(ingCtx)
 		podState := &podState{
-			successCount: 0,
+			pendingCount: int32(len(ipWorkItems)),
 			cancel:       cancel,
 		}
 
@@ -253,10 +253,10 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 			}
 		}()
 
-		// Update the states when probing is successful or cancelled
+		// Update the states when probing is cancelled
 		go func() {
 			<-podCtx.Done()
-			m.updateStates(ingressState, podState)
+			m.onProbingCancellation(ingressState, podState)
 		}()
 
 		for _, wi := range ipWorkItems {
@@ -396,19 +396,39 @@ func (m *Prober) processWorkItem() bool {
 		logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
 			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
-		m.updateStates(item.ingressState, item.podState)
+		m.onProbingSuccess(item.ingressState, item.podState)
 	}
 	return true
 }
 
-func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
-	if atomic.AddInt32(&podState.successCount, 1) == 1 {
-		// This is the first successful probe call for the pod, cancel all other work items for this pod
+func (m *Prober) onProbingSuccess(ingressState *ingressState, podState *podState) {
+	// The last probe call for the Pod succeeded, the Pod is ready
+	if atomic.AddInt32(&podState.pendingCount, -1) == 0 {
+		// Unlock the goroutine blocked on <-podCtx.Done()
 		podState.cancel()
 
 		// This is the last pod being successfully probed, the Ingress is ready
 		if atomic.AddInt32(&ingressState.pendingCount, -1) == 0 {
 			m.readyCallback(ingressState.ing)
+		}
+	}
+}
+
+func (m *Prober) onProbingCancellation(ingressState *ingressState, podState *podState) {
+	for {
+		pendingCount := atomic.LoadInt32(&podState.pendingCount)
+		if pendingCount <= 0 {
+			// Probing succeeded, nothing to do
+			return
+		}
+
+		// Attempt to set pendingCount to 0
+		if atomic.CompareAndSwapInt32(&podState.pendingCount, pendingCount, 0) {
+			// This is the last pod being successfully probed, the Ingress is ready
+			if atomic.AddInt32(&ingressState.pendingCount, -1) == 0 {
+				m.readyCallback(ingressState.ing)
+			}
+			return
 		}
 	}
 }
