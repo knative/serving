@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b99a443c"
+    knative.dev/example-checksum: "71d93076"
 data:
   _example: |
     ################################
@@ -173,28 +173,12 @@ data:
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
 
-    # initial-scale is the cluster-wide default value for the initial deployment
-    # replica size of a revision.
-    # This value cannot be set to 0 while allow-zero-initial-scale is false.
-    # If annotation "autoscaling.knative.dev/initialScale" is not set,
-    # or "autoscaling.knative.dev/initialScale" is set to 0 while
-    # allow-zero-initial-scale is false, the cluster wide initial-scale value will
-    # be used for the initial revision deployment size.
-    # If annotation "autoscaling.knative.dev/initialScale" is set to > 0,
-    # or 0 while allow-zero-initial-scale is true, the annotation value will be used
-    # for the initial revision deployment size.
+    # initial-scale is the cluster-wide default value for the initial target
+    # scale of a revision after creation, unless overridden by the
+    # "autoscaling.knative.dev/initialScale" annotation.
+    # This value must be greater than 0 unless allow-zero-initial-scale is true.
     initial-scale: "1"
 
-    # allow-zero-initial-scale is the cluster-wide flag to indicate whether
-    # initial-scale is allowed to be 0.
-    # If this is set to true, both the cluster-wide flag initial-scale and
-    # the annotation "autoscaling.knative.dev/initialScale" are allowed
-    # to be set to 0.
-    # If this is set to false, the cluster-wide initial-scale value is not
-    # allowed to be set to 0. If user attemps to deploy a new revision with
-    # "autoscaling.knative.dev/initialScale" annotation set to 0,
-    # the new revision will not be successfully created. If there's an existing
-    # revision with "autoscaling.knative.dev/initialScale" annotation
-    # set to 0, while allow-zero-initial-scale is changed from true to false,
-    # the default value 1 will be used.
+    # allow-zero-initial-scale controls whether either the cluster-wide initial-scale flag,
+    # or the "autoscaling.knative.dev/initialScale" annotation, can be set to 0.
     allow-zero-initial-scale: "false"
