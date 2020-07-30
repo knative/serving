@@ -18,6 +18,7 @@ package labeler
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	// Inject the fake informers that this controller needs.
@@ -29,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
@@ -36,15 +38,18 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	cfgmap "knative.dev/serving/pkg/apis/config"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	. "knative.dev/pkg/reconciler/testing"
+	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
-// This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestV1Reconcile(t *testing.T) {
 	now := metav1.Now()
+	fakeTime := now.Time
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -260,6 +265,26 @@ func TestV1Reconcile(t *testing.T) {
 		},
 		Key: "default/delete-route",
 	}, {
+		Name:    "delete route failure",
+		Ctx:     setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "configurations"),
+		},
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "delete-route", "the-config", WithRouteFinalizer, WithRouteDeletionTimestamp(&now)),
+			simpleConfig("default", "the-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-route")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", "the-config", "serving.knative.dev/route"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to remove route label to /, Kind= "the-config": inducing failure for patch configurations`),
+		},
+		Key: "default/delete-route",
+	}, {
 		Name: "failure while removing a cfg annotation should return an error",
 		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		// Induce a failure during patching
@@ -317,14 +342,36 @@ func TestV1Reconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = setResponsiveGCFeature(ctx, cfgmap.Disabled)
+		clock := clock.NewFakeClock(fakeTime)
+		client := servingclient.Get(ctx)
+		cLister := listers.GetConfigurationLister()
+		cIndexer := listers.IndexerFor(&v1.Configuration{})
+		rLister := listers.GetRevisionLister()
+		rIndexer := listers.IndexerFor(&v1.Revision{})
 		r := &Reconciler{
-			client:              servingclient.Get(ctx),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			tracker:             &NullTracker{},
+			caccV1: labelerv1.NewConfigurationAccessor(client, &NullTracker{}, cLister),
+			caccV2: labelerv2.NewConfigurationAccessor(client, &NullTracker{}, cLister, cIndexer, clock),
+			raccV1: labelerv1.NewRevisionAccessor(client, &NullTracker{}, rLister),
+			raccV2: labelerv2.NewRevisionAccessor(client, &NullTracker{}, rLister, rIndexer, clock),
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r)
 	}))
+}
+
+func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(fmt.Sprintf(`{"metadata":{"labels":{%q:null}}}`, key)),
+	}
+}
+
+func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+	return clientgotesting.PatchActionImpl{
+		Name:       name,
+		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
+		Patch:      []byte(fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)),
+	}
 }
