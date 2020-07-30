@@ -54,6 +54,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opencensus.io/resource"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
@@ -1760,11 +1761,14 @@ var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)
-	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      testRevision,
-		metricskey.LabelNamespaceName:     testNamespace,
-		metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
-		metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelRevisionName:      testRevision,
+			metricskey.LabelNamespaceName:     testNamespace,
+			metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
+			metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+		},
 	}
 	pc := podCounts{
 		want:        1982,
@@ -1774,11 +1778,14 @@ func TestMetricsReporter(t *testing.T) {
 		terminating: 1983,
 	}
 	reportMetrics(pa, pc)
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1983)
+	wantMetrics := []metricstest.Metric{
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1983, nil).WithResource(wantResource),
+	}
+	metricstest.AssertMetric(t, wantMetrics...)
 
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
@@ -1786,11 +1793,14 @@ func TestMetricsReporter(t *testing.T) {
 	reportMetrics(pa, pc)
 
 	// Basically same values and change to `terminating` to verify reporting has occurred.
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1955)
+	wantMetrics = []metricstest.Metric{
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1955, nil).WithResource(wantResource),
+	}
+	metricstest.AssertMetric(t, wantMetrics...)
 }
 
 func TestResolveScrapeTarget(t *testing.T) {

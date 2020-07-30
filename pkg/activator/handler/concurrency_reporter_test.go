@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opencensus.io/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
@@ -480,20 +481,26 @@ func TestMetricsReported(t *testing.T) {
 	<-cr.statCh
 	<-cr.statCh
 
-	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      rev1.Name,
-		metricskey.LabelNamespaceName:     rev1.Namespace,
-		metricskey.LabelServiceName:       "service-" + rev1.Name,
-		metricskey.LabelConfigurationName: "config-" + rev1.Name,
-		metricskey.PodName:                "the-best-activator",
-		metricskey.ContainerName:          "activator",
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelRevisionName:      rev1.Name,
+			metricskey.LabelNamespaceName:     rev1.Namespace,
+			metricskey.LabelServiceName:       "service-" + rev1.Name,
+			metricskey.LabelConfigurationName: "config-" + rev1.Name,
+		},
 	}
-	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 3)
+	wantTags := map[string]string{
+		metricskey.PodName:       "the-best-activator",
+		metricskey.ContainerName: "activator",
+	}
 
+	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
+	metricstest.AssertMetric(t, wantMetric)
 	reportCh <- time.Now()
 	<-cr.statCh
-
-	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
+	*wantMetric.Values[0].Float64++
+	metricstest.AssertMetric(t, wantMetric)
 }
 
 func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc) {

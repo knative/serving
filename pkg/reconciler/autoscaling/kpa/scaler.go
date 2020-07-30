@@ -234,7 +234,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// Most conservative check, if it passes we're good.
 			lastPodTimeout := lastPodRetention(pa, cfgAS)
 			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
-			if pa.Status.CanScaleToZero(now, lastPodMaxTimeout) {
+			// If we have been inactive for this long, we can scale to 0!
+			if pa.Status.InactiveFor(now) >= lastPodMaxTimeout {
 				return desiredScale, true
 			}
 

@@ -210,6 +210,13 @@ func WithRevisionLabel(key, value string) RevisionOption {
 	}
 }
 
+// WithRevisionAnn attaches a particular label to the revision.
+func WithRevisionAnn(key, value string) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations, map[string]string{key: value})
+	}
+}
+
 // WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
 func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
 	return func(r *v1.Revision) {

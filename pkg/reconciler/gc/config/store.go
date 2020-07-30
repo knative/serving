@@ -21,6 +21,7 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
 )
 
@@ -29,6 +30,7 @@ type cfgKey struct{}
 // +k8s:deepcopy-gen=false
 type Config struct {
 	RevisionGC *gc.Config
+	Features   *apiconfig.Features
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -51,6 +53,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+		Features:   s.UntypedLoad(apiconfig.FeaturesConfigName).(*apiconfig.Features).DeepCopy(),
 	}
 }
 
@@ -60,7 +63,8 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			"configuration",
 			logging.FromContext(ctx),
 			configmap.Constructors{
-				gc.ConfigName: gc.NewConfigFromConfigMapFunc(ctx),
+				gc.ConfigName:                gc.NewConfigFromConfigMapFunc(ctx),
+				apiconfig.FeaturesConfigName: apiconfig.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),

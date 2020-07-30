@@ -81,7 +81,6 @@ func init() {
 			Description: "The time to scrape metrics in milliseconds",
 			Measure:     scrapeTimeM,
 			Aggregation: view.Distribution(pkgmetrics.Buckets125(1, 100000)...),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 	); err != nil {
 		panic(err)
