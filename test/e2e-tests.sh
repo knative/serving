@@ -97,8 +97,8 @@ go_test_e2e -timeout=30m \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
-  # We run KIngress conformance ingress separately, to make it easier to skip some tests.
-  go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+# We run KIngress conformance ingress separately, to make it easier to skip some tests.
+go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
   `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
   -run="TestIngressConformance/^[^u]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
