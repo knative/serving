@@ -72,10 +72,10 @@ func TestProtoHandler(t *testing.T) {
 	}, {
 		name: "Metrics available",
 		reporter: ProtobufStatsReporter{
-			reportingPeriod: time.Duration(1),
-			startTime:       time.Now(),
-			stat:            metricsStat,
-			podName:         "testPod"},
+			reportingPeriodSeconds: 1,
+			startTime:              time.Now(),
+			stat:                   metricsStat,
+			podName:                "testPod"},
 	}}
 
 	for _, test := range tests {
@@ -85,8 +85,7 @@ func TestProtoHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 			rr := httptest.NewRecorder()
-			handler := test.reporter.Handler()
-			handler.ServeHTTP(rr, req)
+			test.reporter.ServeHTTP(rr, req)
 			if test.errorMsg != "" { // error case
 				expected := test.errorMsg + "\n"
 				if status := rr.Code; status != http.StatusInternalServerError {

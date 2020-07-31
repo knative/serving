@@ -33,55 +33,55 @@ const (
 
 // ProtobufStatsReporter structure represents a protobuf stats reporter.
 type ProtobufStatsReporter struct {
-	reportingPeriod time.Duration
-	startTime       time.Time
-	stat            atomic.Value
-	podName         string
+	startTime time.Time
+	stat      atomic.Value
+	podName   string
+
+	// RequestCount and ProxiedRequestCount need to be divided by the reporting period
+	// they were collected over to get a "per-second" value.
+	reportingPeriodSeconds float64
 }
 
 // NewProtobufStatsReporter creates a reporter that collects and reports queue metrics.
 func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *ProtobufStatsReporter {
 	return &ProtobufStatsReporter{
-		reportingPeriod: reportingPeriod,
-		startTime:       time.Now(),
-		stat:            atomic.Value{},
-		podName:         pod,
+		startTime: time.Now(),
+		podName:   pod,
+
+		reportingPeriodSeconds: reportingPeriod.Seconds(),
 	}
 }
 
 // Report captures request metrics.
 func (r *ProtobufStatsReporter) Report(stats network.RequestStatsReport) {
-	// Requests per second is a rate over time while concurrency is not.
-	rp := r.reportingPeriod.Seconds()
 	r.stat.Store(metrics.Stat{
-		PodName:                          r.podName,
-		RequestCount:                     stats.RequestCount / rp,
-		ProxiedRequestCount:              stats.ProxiedRequestCount / rp,
+		PodName:       r.podName,
+		ProcessUptime: time.Since(r.startTime).Seconds(),
+
+		// RequestCount and ProxiedRequestCount are a rate over time while concurrency is not.
+		RequestCount:                     stats.RequestCount / r.reportingPeriodSeconds,
+		ProxiedRequestCount:              stats.ProxiedRequestCount / r.reportingPeriodSeconds,
 		AverageConcurrentRequests:        stats.AverageConcurrency,
 		AverageProxiedConcurrentRequests: stats.AverageProxiedConcurrency,
-		ProcessUptime:                    time.Since(r.startTime).Seconds(),
 	})
 }
 
-// Handler returns an uninstrumented http.Handler used to serve stats registered by this
-// ProtobufStatsReporter.
-func (r *ProtobufStatsReporter) Handler() http.Handler {
-	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		stat := r.stat.Load()
-		if stat == nil {
-			httpError(rsp, "no metrics available yet")
-			return
-		}
-		header := rsp.Header()
-		data := stat.(metrics.Stat)
-		buffer, err := proto.Marshal(&data)
-		if err != nil {
-			httpError(rsp, err.Error())
-			return
-		}
-		header.Set(contentTypeHeader, network.ProtoAcceptContent)
-		rsp.Write(buffer)
-	})
+// ServeHTTP serves the stats in protobuf format over HTTP.
+func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	stat := r.stat.Load()
+	if stat == nil {
+		httpError(w, "no metrics available yet")
+		return
+	}
+	header := w.Header()
+	data := stat.(metrics.Stat)
+	buffer, err := proto.Marshal(&data)
+	if err != nil {
+		httpError(w, err.Error())
+		return
+	}
+	header.Set(contentTypeHeader, network.ProtoAcceptContent)
+	w.Write(buffer)
 }
 
 func httpError(rsp http.ResponseWriter, errMsg string) {

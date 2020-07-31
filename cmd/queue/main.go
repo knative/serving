@@ -435,9 +435,9 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 func metricsHTTPHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
-			protobufStatReporter.Handler().ServeHTTP(w, r)
+			protobufStatReporter.ServeHTTP(w, r)
 		} else {
-			promStatReporter.Handler().ServeHTTP(w, r)
+			promStatReporter.ServeHTTP(w, r)
 		}
 	})
 }
