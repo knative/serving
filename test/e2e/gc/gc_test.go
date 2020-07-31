@@ -21,15 +21,16 @@ package gc
 import (
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TODO(whaught): This tests that the labeler applies the new label, but we need to update the GC config
-// and assert deletion of old revisions.
 func TestRevisionGC(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
@@ -54,5 +55,31 @@ func TestRevisionGC(t *testing.T) {
 	revision := resources.Revision
 	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "active" {
 		t.Fatalf(`Got revision label %s=%q, want="active"`, serving.RoutingStateLabelKey, val)
+	}
+
+	t.Log("Updating the Service to use a different image.")
+	names.Image = test.PizzaPlanet2
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+	}
+	//secondRevision := names.Revision
+
+	t.Log("Service should reflect new revision created and ready in status.")
+	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatal("New image not reflected in Service:", err)
+	}
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
+	}
+
+	firstRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(`Could not retrieve original revision`)
+	}
+	if firstRevision.GetDeletionTimestamp() == nil {
+		t.Fatal(`Got no deleted time. Original revision should be deleted by GC.`)
 	}
 }
