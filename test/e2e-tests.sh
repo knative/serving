@@ -91,11 +91,11 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m \
-  ./test/conformance/api/... ./test/conformance/runtime/... \
-  ./test/e2e \
-  ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=30m \
+#  ./test/conformance/api/... ./test/conformance/runtime/... \
+#  ./test/e2e \
+#  ${parallelism} \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
 go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
@@ -108,16 +108,18 @@ if (( HTTPS )); then
   toggle_feature autoTLS Disabled config-network
 fi
 
-toggle_feature tagHeaderBasedRouting Enabled config-network
-go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-toggle_feature tagHeaderBasedRouting Disabled config-network
+#toggle_feature tagHeaderBasedRouting Enabled config-network
+#go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+#toggle_feature tagHeaderBasedRouting Disabled config-network
 
-toggle_feature multi-container Enabled
-go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-toggle_feature multi-container Disabled
+#toggle_feature multi-container Enabled
+#go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
+#toggle_feature multi-container Disabled
 
 toggle_feature responsive-revision-gc Enabled
+immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+default_gc
 toggle_feature responsive-revision-gc Disabled
 
 # Certificate conformance tests must be run separately
@@ -133,7 +135,7 @@ go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_cl
 kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
 # Run scale tests.
-go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
+#go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
@@ -145,8 +147,8 @@ fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
-	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+#go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
+#	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 
