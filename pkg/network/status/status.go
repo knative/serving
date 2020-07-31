@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// DEPRECATED: Use knative.dev/networking/pkg/status instead.
+// Package status is now deprecated, please use
+// knative.dev/networking/pkg/status instead.
+//
+// DEPRECATED
 package status
 
 import (

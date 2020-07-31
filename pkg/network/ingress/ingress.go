@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// DEPRECATED: Use knative.dev/networking/pkg/ingress instead.
+// Package ingress is now deprecated. Use
+// knative.dev/networking/pkg/ingress instead.
+//
+// DEPRECATED
 package ingress
 
 import (
