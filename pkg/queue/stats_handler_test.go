@@ -21,7 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 func TestStatsHandler(t *testing.T) {

@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// DEPRECATED: Use knative.dev/networking/pkg/ingress instead.
 package ingress
 
 import (
@@ -23,9 +24,9 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	net "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network"
-	net "knative.dev/serving/pkg/network"
 )
 
 // ComputeHash computes a hash of the Ingress Spec, Namespace and Name

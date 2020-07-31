@@ -23,8 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/network"
 )
 
 const (

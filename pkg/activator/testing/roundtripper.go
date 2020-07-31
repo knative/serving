@@ -23,7 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue"
 )
 

@@ -24,12 +24,12 @@ import (
 	"text/template"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )

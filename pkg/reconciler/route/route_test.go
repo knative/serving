@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -56,7 +57,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -44,7 +45,6 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

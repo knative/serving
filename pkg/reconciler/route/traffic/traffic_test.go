@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	network "knative.dev/networking/pkg"
 	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
@@ -37,7 +38,6 @@ import (
 	informers "knative.dev/serving/pkg/client/informers/externalversions"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	. "knative.dev/serving/pkg/testing/v1"

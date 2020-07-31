@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -40,7 +41,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/serving/pkg/testing/v1"
 )
