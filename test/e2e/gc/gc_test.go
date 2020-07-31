@@ -23,6 +23,7 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -65,11 +66,11 @@ func TestRevisionGC(t *testing.T) {
 	}
 
 	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/routingState"]; ok {
+	if val, ok := revision.Labels[serving.RoutingStateLabelKey]; ok {
 		if val != "active" {
-			t.Fatalf(`Expect routingState "active" in Revision label but got %q`, val)
+			t.Fatalf(`Got Revision routingState=%q, want="active"`, val)
 		}
 	} else {
-		t.Fatalf("Failed to get routingState from Revision label")
+		t.Fatal("Failed to get routingState from Revision label")
 	}
 }
