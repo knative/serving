@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -425,21 +424,11 @@ func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *htt
 
 func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", metricsHTTPHandler(promStatReporter, protobufStatReporter))
+	metricsMux.Handle("/metrics", queue.NewStatsHandler(promStatReporter, protobufStatReporter))
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
 	}
-}
-
-func metricsHTTPHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
-			protobufStatReporter.ServeHTTP(w, r)
-		} else {
-			promStatReporter.ServeHTTP(w, r)
-		}
-	})
 }
 
 func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
