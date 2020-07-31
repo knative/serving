@@ -16,7 +16,11 @@ limitations under the License.
 
 package fake
 
-import "time"
+import (
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/clock"
+)
 
 // A ManualTickProvider holds a channel that delivers `ticks' of a clock at intervals.
 type ManualTickProvider struct {
@@ -29,4 +33,21 @@ func (mtp *ManualTickProvider) NewTicker(time.Duration) *time.Ticker {
 	return &time.Ticker{
 		C: mtp.Channel,
 	}
+}
+
+// C returns the tick channel.
+func (mtp *ManualTickProvider) C() <-chan time.Time {
+	return mtp.Channel
+}
+func (mtp *ManualTickProvider) Stop() {}
+
+// FakeClock is K8s clock.FakeClock but it overrides tick provider
+// with ManualTickProvider above.
+type FakeClock struct {
+	*clock.FakeClock
+	TP *ManualTickProvider
+}
+
+func (fc FakeClock) NewTicker(time.Duration) clock.Ticker {
+	return fc.TP
 }
