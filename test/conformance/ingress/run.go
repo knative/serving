@@ -61,9 +61,10 @@ func RunConformance(t *testing.T) {
 	// dimensions
 	// ie. state - alpha, beta, ga
 	// ie. requirement - must, should, may
-	if test.ServingFlags.EnableBetaFeatures {
-		// Add your conformance test for beta features
-	}
+
+	//if test.ServingFlags.EnableBetaFeatures {
+	// Add your conformance test for beta features
+	//}
 
 	if test.ServingFlags.EnableAlphaFeatures {
 		// Add your conformance test for alpha features
