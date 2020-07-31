@@ -37,7 +37,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	"knative.dev/serving/pkg/gc"
-	gcconfig "knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
@@ -69,7 +68,7 @@ func TestGCReconcile(t *testing.T) {
 	controllerOpts := controller.Options{
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
-				RevisionGC: &gcconfig.Config{
+				RevisionGC: &gc.Config{
 					// v1 settings
 					StaleRevisionCreateDelay:        5 * time.Minute,
 					StaleRevisionTimeout:            5 * time.Minute,
@@ -143,7 +142,7 @@ func TestGCReconcileV2(t *testing.T) {
 	controllerOpts := controller.Options{
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
-				RevisionGC: &gcconfig.Config{
+				RevisionGC: &gc.Config{
 					// v1 settings
 					StaleRevisionCreateDelay:        5 * time.Minute,
 					StaleRevisionTimeout:            5 * time.Minute,

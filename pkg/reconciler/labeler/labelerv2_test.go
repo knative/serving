@@ -445,10 +445,6 @@ func patchRemoveRouteAnn(namespace, name string) clientgotesting.PatchActionImpl
 	return patchAddRouteAnn(namespace, name, "null")
 }
 
-func patchRemoveRouteAndServingStateLabel(namespace, name string, now time.Time) clientgotesting.PatchActionImpl {
-	return patchAddRouteAndServingStateLabel(namespace, name, "null", now)
-}
-
 func patchAddRouteAnn(namespace, name, value string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{
 		Name:       name,
