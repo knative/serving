@@ -117,7 +117,9 @@ go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
 
 toggle_feature responsive-revision-gc Enabled
+immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+default_gc
 toggle_feature responsive-revision-gc Disabled
 
 # Certificate conformance tests must be run separately
