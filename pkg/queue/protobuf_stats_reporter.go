@@ -44,12 +44,19 @@ type ProtobufStatsReporter struct {
 
 // NewProtobufStatsReporter creates a reporter that collects and reports queue metrics.
 func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *ProtobufStatsReporter {
-	return &ProtobufStatsReporter{
+	r := &ProtobufStatsReporter{
 		startTime: time.Now(),
 		podName:   pod,
 
 		reportingPeriodSeconds: reportingPeriod.Seconds(),
 	}
+
+	// Start with an empty value in case we're scraped before Report has been called.
+	// This matches the prometheus reporter where the gauges would just be empty
+	// in this case.
+	r.stat.Store(metrics.Stat{PodName: pod})
+
+	return r
 }
 
 // Report captures request metrics.
@@ -67,27 +74,14 @@ func (r *ProtobufStatsReporter) Report(stats network.RequestStatsReport) {
 }
 
 // ServeHTTP serves the stats in protobuf format over HTTP.
-func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	stat := r.stat.Load()
-	if stat == nil {
-		httpError(w, "no metrics available yet")
-		return
-	}
-	header := w.Header()
-	data := stat.(metrics.Stat)
+func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	data := r.stat.Load().(metrics.Stat)
 	buffer, err := proto.Marshal(&data)
 	if err != nil {
-		httpError(w, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	header.Set(contentTypeHeader, network.ProtoAcceptContent)
-	w.Write(buffer)
-}
 
-func httpError(rsp http.ResponseWriter, errMsg string) {
-	http.Error(
-		rsp,
-		"An error has occurred while serving metrics:\n\n"+errMsg,
-		http.StatusInternalServerError,
-	)
+	w.Header().Set(contentTypeHeader, network.ProtoAcceptContent)
+	w.Write(buffer)
 }
