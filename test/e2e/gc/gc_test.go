@@ -20,6 +20,7 @@ package gc
 
 import (
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
@@ -74,6 +75,9 @@ func TestRevisionGC(t *testing.T) {
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
+
+	// I don't have a great way to observe that GC has run after readiness. Wait a few.
+	time.Sleep(5 * time.Second)
 
 	firstRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
 	if err != nil {
