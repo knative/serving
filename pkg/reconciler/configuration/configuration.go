@@ -58,7 +58,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	recorder := controller.GetEventRecorder(ctx)
 
 	// First, fetch the revision that should exist for the current generation.
-	lcr, err := c.latestCreatedRevision(config)
+	lcr, err := c.latestCreatedRevision(ctx, config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
@@ -204,9 +204,10 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
 // is available (not found), exists (but matches), or exists with conflict (doesn't match).
-func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionLister) (*v1.Revision, error) {
+func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister listers.RevisionLister) (*v1.Revision, error) {
 	// If config.Spec.GetTemplate().Name is set, then we can directly look up
 	// the revision by name.
+	logger := logging.FromContext(ctx)
 	name := config.Spec.GetTemplate().Name
 	if name == "" {
 		return nil, nil
@@ -223,6 +224,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	} else if !metav1.IsControlledBy(rev, config) {
 		// If the revision isn't controller by this configuration, then
 		// do not use it.
+		logger.Warnf("The revision is not controlled by this configuration. Rev.meta: %#v", rev.GetOwnerReferences())
 		return nil, errConflict
 	}
 
@@ -235,13 +237,14 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	// We only require spec equality because the rest is immutable and the user may have
 	// annotated or labeled the Revision (beyond what the Configuration might have).
 	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
+		logger.Warnf("The rev.Spec %#v is differnet from expected config.Spec.GetTemplate().Spec: %#v", rev.Spec, config.Spec.GetTemplate().Spec)
 		return nil, errConflict
 	}
 	return rev, nil
 }
 
-func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, error) {
-	if rev, err := CheckNameAvailability(config, c.revisionLister); rev != nil || err != nil {
+func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
+	if rev, err := CheckNameAvailability(ctx, config, c.revisionLister); rev != nil || err != nil {
 		return rev, err
 	}
 
