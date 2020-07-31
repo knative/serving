@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"go.opencensus.io/resource"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
@@ -31,8 +32,8 @@ import (
 const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
-	if _, err := NewRequestMetricsHandler(nil /*next*/, "shøüld fail", "a", "b", "c", "d"); err == nil {
-		t.Error("Should get error when StatsReporter is empty")
+	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
+		t.Error("Should get error when tag value is not ascii")
 	}
 }
 
@@ -49,25 +50,30 @@ func TestRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
 		"tag":                             disabledTagName,
 	}
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelNamespaceName:     "ns",
+			metricskey.LabelRevisionName:      "rev",
+			metricskey.LabelServiceName:       "svc",
+			metricskey.LabelConfigurationName: "cfg",
+		},
+	}
 
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
-	metricstest.CheckDistributionCount(t, "request_latencies", wantTags, 1) // Dummy latency range.
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
 	req.Header.Set(network.ProbeHeaderName, "activator")
 	handler.ServeHTTP(resp, req)
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
-	metricstest.CheckDistributionCount(t, "request_latencies", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
 func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
@@ -85,18 +91,23 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
 		"tag":                             "test-tag",
 	}
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelNamespaceName:     "ns",
+			metricskey.LabelRevisionName:      "rev",
+			metricskey.LabelServiceName:       "svc",
+			metricskey.LabelConfigurationName: "cfg",
+		},
+	}
 
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	// Testing for default route
 	reset()
@@ -105,7 +116,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["tag"] = defaultTagName
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
 	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
@@ -113,7 +124,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	req.Header.Set(network.DefaultRouteHeaderName, "true")
 	handler.ServeHTTP(resp, req)
 	wantTags["tag"] = undefinedTagName
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
 	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
@@ -121,7 +132,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	req.Header.Set(network.DefaultRouteHeaderName, "false")
 	handler.ServeHTTP(resp, req)
 	wantTags["tag"] = "test-tag"
-	metricstest.CheckCountData(t, "request_count", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 }
 
 func reset() {
@@ -148,18 +159,23 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
 			metricskey.PodName:                "pod",
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
 			"tag":                             disabledTagName,
 		}
-		metricstest.CheckCountData(t, "request_count", wantTags, 1)
-		metricstest.CheckDistributionCount(t, "request_latencies", wantTags, 1) // Dummy latency range.
+		wantResource := &resource.Resource{
+			Type: "knative_revision",
+			Labels: map[string]string{
+				metricskey.LabelNamespaceName:     "ns",
+				metricskey.LabelRevisionName:      "rev",
+				metricskey.LabelServiceName:       "svc",
+				metricskey.LabelConfigurationName: "cfg",
+			},
+		}
+		metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("request_latencies", 1, wantTags).WithResource(wantResource))
 	}()
 	handler.ServeHTTP(resp, req)
 }
@@ -211,17 +227,23 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 		wantTags := map[string]string{
-			metricskey.LabelNamespaceName:     "ns",
-			metricskey.LabelRevisionName:      "rev",
-			metricskey.LabelServiceName:       "svc",
-			metricskey.LabelConfigurationName: "cfg",
 			metricskey.PodName:                "pod",
 			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
 		}
-		metricstest.CheckCountData(t, "app_request_count", wantTags, 1)
-		metricstest.CheckDistributionCount(t, "app_request_latencies", wantTags, 1) // Dummy latency range.
+		wantResource := &resource.Resource{
+			Type: "knative_revision",
+			Labels: map[string]string{
+				metricskey.LabelNamespaceName:     "ns",
+				metricskey.LabelRevisionName:      "rev",
+				metricskey.LabelServiceName:       "svc",
+				metricskey.LabelConfigurationName: "cfg",
+			},
+		}
+
+		metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+		metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 	}()
 	handler.ServeHTTP(resp, req)
 }
@@ -241,24 +263,29 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	wantTags := map[string]string{
-		metricskey.LabelNamespaceName:     "ns",
-		metricskey.LabelRevisionName:      "rev",
-		metricskey.LabelServiceName:       "svc",
-		metricskey.LabelConfigurationName: "cfg",
 		metricskey.PodName:                "pod",
 		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
 	}
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelNamespaceName:     "ns",
+			metricskey.LabelRevisionName:      "rev",
+			metricskey.LabelServiceName:       "svc",
+			metricskey.LabelConfigurationName: "cfg",
+		},
+	}
 
-	metricstest.CheckCountData(t, "app_request_count", wantTags, 1)
-	metricstest.CheckDistributionCount(t, "app_request_latencies", wantTags, 1) // Dummy latency range.
+	metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 
 	// A probe request should not be recorded.
 	req.Header.Set(network.ProbeHeaderName, "activator")
 	handler.ServeHTTP(resp, req)
-	metricstest.CheckCountData(t, "app_request_count", wantTags, 1)
-	metricstest.CheckDistributionCount(t, "app_request_latencies", wantTags, 1)
+	metricstest.AssertMetric(t, metricstest.IntMetric("app_request_count", 1, wantTags).WithResource(wantResource))
+	metricstest.AssertMetric(t, metricstest.DistributionCountOnlyMetric("app_request_latencies", 1, wantTags).WithResource(wantResource))
 }
 
 func BenchmarkRequestMetricsHandler(b *testing.B) {

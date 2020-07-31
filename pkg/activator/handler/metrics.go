@@ -22,6 +22,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var (
@@ -56,21 +57,19 @@ func register() {
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey),
+			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey},
 		},
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
 			Aggregation: view.Count(),
-			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
-				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
+			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     responseTimeInMsecM,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
-				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
+			TagKeys:     []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
 		},
 	); err != nil {
 		panic(err)

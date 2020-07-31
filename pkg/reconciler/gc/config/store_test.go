@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	logtesting "knative.dev/pkg/logging/testing"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
 
 	. "knative.dev/pkg/configmap/testing"
@@ -33,14 +34,23 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(ctx)
 
 	gcConfig := ConfigMapFromTestFile(t, "config-gc")
+	featuresConfig := ConfigMapFromTestFile(t, "config-features")
 
 	store.OnConfigChanged(gcConfig)
+	store.OnConfigChanged(featuresConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
 	t.Run("revision-gc", func(t *testing.T) {
 		expected, _ := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
 		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
+			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+		}
+	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := apiconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}
 	})
