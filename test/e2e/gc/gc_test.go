@@ -55,12 +55,4 @@ func TestRevisionGC(t *testing.T) {
 	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "active" {
 		t.Fatalf(`Got revision label %s=%q, want="active"`, serving.RoutingStateLabelKey, val)
 	}
-
-	// Update Container Image
-	t.Log("Updating the Service to use a different image.")
-	names.Image = test.PizzaPlanet2
-	image2 := pkgTest.ImagePath(names.Image)
-	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err == nil {
-		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
-	}
 }
