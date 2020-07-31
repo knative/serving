@@ -21,8 +21,8 @@ import (
 	"io"
 	"net/http"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/network"
 )
 
 // ProbeHandler handles responding to Knative internal network probes.

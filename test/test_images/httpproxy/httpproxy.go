@@ -25,7 +25,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 

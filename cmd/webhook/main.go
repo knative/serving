@@ -45,12 +45,12 @@ import (
 	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
+	network "knative.dev/networking/pkg"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 

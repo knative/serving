@@ -16,4 +16,5 @@ limitations under the License.
 
 // Package ingress holds utilities related to the implementation of ingress
 // controllers.
+// DEPRECATED: Use knative.dev/networking/pkg/ingress instead.
 package ingress

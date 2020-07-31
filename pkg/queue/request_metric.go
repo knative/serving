@@ -25,10 +25,10 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
+	network "knative.dev/networking/pkg"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/network"
 )
 
 var (

@@ -31,8 +31,8 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
 )

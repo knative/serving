@@ -23,10 +23,10 @@ import (
 	"testing"
 
 	"go.opencensus.io/resource"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
-	"knative.dev/serving/pkg/network"
 )
 
 const targetURI = "http://example.com"
