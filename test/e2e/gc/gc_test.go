@@ -68,9 +68,9 @@ func TestRevisionGC(t *testing.T) {
 	revision := resources.Revision
 	if val, ok := revision.Labels[serving.RoutingStateLabelKey]; ok {
 		if val != "active" {
-			t.Fatalf(`Got Revision routingState=%q, want="active"`, val)
+			t.Fatalf(`Got revision label %s=%q, want="active"`, serving.RoutingStateLabelKey, val)
 		}
 	} else {
-		t.Fatal("Failed to get routingState from Revision label")
+		t.Fatalf("Failed to get revision label %q", serving.RoutingStateLabelKey)
 	}
 }
