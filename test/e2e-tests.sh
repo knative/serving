@@ -52,14 +52,14 @@ if (( MESH )); then
   kubectl patch mutatingwebhookconfigurations istio-sidecar-injector -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}'
 fi
 
-if (( HTTPS )); then
-  use_https="--https"
+#if (( HTTPS )); then
+#  use_https="--https"
   # TODO: parallel 1 is necessary until https://github.com/knative/serving/issues/7406 is solved.
-  parallelism="-parallel 1"
-  toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-fi
+#  parallelism="-parallel 1"
+#  toggle_feature autoTLS Enabled config-network
+#  kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/
+#  add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#fi
 
 # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
 kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || fail_test
@@ -98,15 +98,15 @@ sleep 30
 #  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # We run KIngress conformance ingress separately, to make it easier to skip some tests.
-go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
-  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
-  -run="TestIngressConformance/^[^u]" \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+##go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+#  `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
+#  -run="TestIngressConformance/^[^u]" \
+#  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
-if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
-fi
+#if (( HTTPS )); then
+#  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+#  toggle_feature autoTLS Disabled config-network
+#fi
 
 #toggle_feature tagHeaderBasedRouting Enabled config-network
 #go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
@@ -124,15 +124,15 @@ toggle_feature responsive-revision-gc Disabled
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
-kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
-kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+#kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
+##add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=10m ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
+#kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
-kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+#kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
+#add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#go_test_e2e -timeout=10m ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
+#kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/http01/
 
 # Run scale tests.
 #go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
