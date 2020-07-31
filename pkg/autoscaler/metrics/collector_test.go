@@ -124,7 +124,7 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	now := time.Now()
-	fc := fake.FakeClock{
+	fc := fake.Clock{
 		FakeClock: clock.NewFakeClock(now),
 		TP:        mtp,
 	}
@@ -199,7 +199,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	now := time.Now()
-	fc := fake.FakeClock{
+	fc := fake.Clock{
 		FakeClock: clock.NewFakeClock(now),
 		TP:        mtp,
 	}
@@ -298,7 +298,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	now := time.Now()
-	fc := fake.FakeClock{
+	fc := fake.Clock{
 		FakeClock: clock.NewFakeClock(now),
 		TP:        mtp,
 	}
@@ -429,7 +429,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
 	}
-	fc := fake.FakeClock{
+	fc := fake.Clock{
 		FakeClock: clock.NewFakeClock(now),
 		TP:        mtp,
 	}
@@ -537,7 +537,7 @@ func TestMetricCollectorError(t *testing.T) {
 				Channel: make(chan time.Time),
 			}
 			now := time.Now()
-			fc := fake.FakeClock{
+			fc := fake.Clock{
 				FakeClock: clock.NewFakeClock(now),
 				TP:        mtp,
 			}

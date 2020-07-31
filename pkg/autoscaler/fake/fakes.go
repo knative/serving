@@ -39,15 +39,18 @@ func (mtp *ManualTickProvider) NewTicker(time.Duration) *time.Ticker {
 func (mtp *ManualTickProvider) C() <-chan time.Time {
 	return mtp.Channel
 }
+
+// Stop is nonce here.
 func (mtp *ManualTickProvider) Stop() {}
 
-// FakeClock is K8s clock.FakeClock but it overrides tick provider
+// Clock is K8s clock.Clock but it overrides tick provider
 // with ManualTickProvider above.
-type FakeClock struct {
+type Clock struct {
 	*clock.FakeClock
 	TP *ManualTickProvider
 }
 
-func (fc FakeClock) NewTicker(time.Duration) clock.Ticker {
+// NewTicker returns a NewTicker which is a ManualTickProvider.
+func (fc Clock) NewTicker(time.Duration) clock.Ticker {
 	return fc.TP
 }
