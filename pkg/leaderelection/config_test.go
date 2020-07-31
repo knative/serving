@@ -66,7 +66,6 @@ func TestValidateConfig(t *testing.T) {
 			data["renewDeadline"] = "not a duration"
 			return data
 		}(),
-		// err: errors.New(`failed to parse "renewDeadline": time: invalid duration not a duration`),
 		err: `failed to parse "renewDeadline": time: invalid duration`,
 	}}
 
