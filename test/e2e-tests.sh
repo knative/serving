@@ -97,8 +97,8 @@ go_test_e2e -timeout=30m \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
- # We run KIngress conformance ingress separately, to make it easier to skip some tests.
- go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
+  # We run KIngress conformance ingress separately, to make it easier to skip some tests.
+  go_test_e2e -timeout=20m ./test/conformance/ingress ${parallelism}  \
   `# Skip TestUpdate due to excessive flaking https://github.com/knative/serving/issues/8032` \
   -run="TestIngressConformance/^[^u]" \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
@@ -146,7 +146,7 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Run HA tests separately as they're stopping core Knative Serving pods
- Define short -spoofinterval to ensure frequent probing while stopping pods
+# Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
