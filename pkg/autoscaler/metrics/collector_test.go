@@ -192,6 +192,7 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRPS)
 	}
 }
+
 func TestMetricCollectorScraper(t *testing.T) {
 	logger := TestLogger(t)
 
