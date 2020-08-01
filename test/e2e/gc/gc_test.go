@@ -83,6 +83,10 @@ func TestRevisionGC(t *testing.T) {
 	if err != nil {
 		t.Fatal(`Could not retrieve original revision`)
 	}
+	t.Log("Original rev: ", firstRevision)
+	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "reserve" {
+		t.Fatalf(`Revision state is %v, expected "reserve".`, val)
+	}
 	if firstRevision.GetDeletionTimestamp() == nil {
 		t.Fatal(`Got no deleted time. Original revision should be deleted by GC.`)
 	}
