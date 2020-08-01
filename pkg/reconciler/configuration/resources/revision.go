@@ -71,8 +71,6 @@ func updateRevisionLabels(rev, config metav1.Object) {
 		labels[key] = RevisionLabelValueForKey(key, config)
 	}
 
-	labels[serving.RoutesAnnotationKey] = "littlebunnyfoofoo"
-
 	rev.SetLabels(labels)
 }
 
@@ -88,6 +86,8 @@ func updateRevisionAnnotations(rev, config metav1.Object) {
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
 		annotations[serving.CreatorAnnotation] = c
 	}
+
+	annotations[serving.RoutesAnnotationKey] = "littlebunnyfoofoo"
 
 	rev.SetAnnotations(annotations)
 }
