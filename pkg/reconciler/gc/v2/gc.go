@@ -44,6 +44,7 @@ func Collect(
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
+	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
 		return nil
 	}
@@ -54,7 +55,6 @@ func Collect(
 		return err
 	}
 
-	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if len(revs) <= min {
 		logger.Infof("V2 GC early exit. Rev count: %d, want (%d, %d]", len(revs), min, max)
 		return nil
