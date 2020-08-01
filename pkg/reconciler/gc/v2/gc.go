@@ -44,6 +44,10 @@ func Collect(
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
+	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
+		return nil
+	}
+
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
 	revs, err := revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
@@ -51,11 +55,11 @@ func Collect(
 	}
 
 	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
-	if len(revs) <= min ||
-		max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
+	if len(revs) <= min {
 		logger.Infof("V2 GC early exit. Rev count: %d, want (%d, %d]", len(revs), min, max)
 		return nil
 	}
+	logger.Infof("V2 GC continuing. Rev count: %d, want (%d, %d]", len(revs), min, max)
 
 	// Filter out active revs
 	revs = nonactiveRevisions(revs, config)
@@ -65,6 +69,12 @@ func Collect(
 		a, b := revisionLastActiveTime(revs[i]), revisionLastActiveTime(revs[j])
 		return a.Before(b)
 	})
+
+	if len(revs) <= min {
+		logger.Infof("V2 GC non-active early exit. Rev count: %d, want (%d, %d]", len(revs), min, max)
+		return nil
+	}
+	logger.Infof("V2 GC non-active revisions. Rev count: %d, want (%d, %d]", len(revs), min, max)
 
 	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
 	swap := len(revs)
