@@ -319,9 +319,9 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	min, max := pa.ScaleBounds()
 	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
+	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
-		// Ignore initial scale if minScale >= initialScale and initial scale
-		// hasn't been yet attained.
+		// Ignore initial scale if minScale >= initialScale.
 		if min < initialScale {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
 		}
