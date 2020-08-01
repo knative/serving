@@ -52,6 +52,7 @@ func Collect(
 	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
 
 	if gcSkipOffset >= int64(len(revs)) {
+		logger.Info("V1 GC early exit. Rev count: ", len(revs))
 		return nil
 	}
 

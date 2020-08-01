@@ -53,6 +53,7 @@ func Collect(
 	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if len(revs) <= min ||
 		max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
+		logger.Info("V2 GC early exit. Rev count: ", len(revs))
 		return nil
 	}
 
