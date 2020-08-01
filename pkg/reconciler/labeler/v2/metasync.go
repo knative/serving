@@ -17,12 +17,14 @@ limitations under the License.
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/tracker"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -30,7 +32,7 @@ import (
 
 // SyncRoutingMeta makes sure that the revisions and configurations referenced from
 // a Route are labeled with the routingState label and routes annotation.
-func SyncRoutingMeta(r *v1.Route, cacc *Configuration, racc *Revision) error {
+func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc *Revision) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -81,24 +83,24 @@ func SyncRoutingMeta(r *v1.Route, cacc *Configuration, racc *Revision) error {
 	}
 
 	// Use a revision accessor to manipulate the revisions.
-	if err := clearMetaForNotListed(r.Namespace, r.Name, racc, revisions); err != nil {
+	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
 		return err
 	}
-	if err := setMetaForListed(r, racc, revisions); err != nil {
+	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 
 	// Use a config access to manipulate the configs.
-	if err := clearMetaForNotListed(r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
 		return err
 	}
-	return setMetaForListed(r, cacc, configs)
+	return setMetaForListed(ctx, r, cacc, configs)
 }
 
 // ClearRoutingMeta removes any labels for a named route from given accessors.
-func ClearRoutingMeta(ns, name string, accs ...Accessor) error {
+func ClearRoutingMeta(ctx context.Context, ns, name string, accs ...Accessor) error {
 	for _, acc := range accs {
-		if err := clearMetaForNotListed(ns, name, acc, nil /*none listed*/); err != nil {
+		if err := clearMetaForNotListed(ctx, ns, name, acc, nil /*none listed*/); err != nil {
 			return err
 		}
 	}
@@ -107,9 +109,9 @@ func ClearRoutingMeta(ns, name string, accs ...Accessor) error {
 
 // setMetaForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setMetaForListed(route *v1.Route, acc Accessor, names sets.String) error {
+func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRoutingMeta(acc, route.Namespace, name, route.Name, false); err != nil {
+		if err := setRoutingMeta(ctx, acc, route.Namespace, name, route.Name, false); err != nil {
 			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
@@ -119,7 +121,7 @@ func setMetaForListed(route *v1.Route, acc Accessor, names sets.String) error {
 // clearMetaForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func clearMetaForNotListed(ns, routeName string, acc Accessor, names sets.String) error {
+func clearMetaForNotListed(ctx context.Context, ns, routeName string, acc Accessor, names sets.String) error {
 	oldList, err := acc.list(ns, routeName, v1.RoutingStateActive)
 	if err != nil {
 		return err
@@ -132,7 +134,7 @@ func clearMetaForNotListed(ns, routeName string, acc Accessor, names sets.String
 			continue
 		}
 
-		if err := setRoutingMeta(acc, ns, name, routeName, true); err != nil {
+		if err := setRoutingMeta(ctx, acc, ns, name, routeName, true); err != nil {
 			return fmt.Errorf("failed to remove route annotation to %s %q: %w",
 				elt.GroupVersionKind(), name, err)
 		}
@@ -145,7 +147,7 @@ func clearMetaForNotListed(ns, routeName string, acc Accessor, names sets.String
 // element through the provided accessor.
 // A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRoutingMeta(acc Accessor, ns, name, routeName string, remove bool) error {
+func setRoutingMeta(ctx context.Context, acc Accessor, ns, name, routeName string, remove bool) error {
 	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
@@ -153,6 +155,8 @@ func setRoutingMeta(acc Accessor, ns, name, routeName string, remove bool) error
 		if err != nil {
 			return err
 		}
+		logger := logging.FromContext(ctx)
+		logger.Info("Labeler V2 applying patch: ", mergePatch)
 		return acc.patch(ns, name, types.MergePatchType, patch)
 	}
 
