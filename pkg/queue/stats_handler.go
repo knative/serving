@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 type statsHandler struct {

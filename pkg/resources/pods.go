@@ -68,16 +68,7 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 				notReady++
 				continue
 			}
-			isReady := false
-			for _, cond := range p.Status.Conditions {
-				if cond.Type == corev1.PodReady {
-					if cond.Status == corev1.ConditionTrue {
-						isReady = true
-					}
-					break
-				}
-			}
-			if isReady {
+			if podReady(p) {
 				ready++
 			} else {
 				notReady++
@@ -137,6 +128,17 @@ func podRunning(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil
 }
 
+// podReady checks whether pod's Ready status is True.
+func podReady(p *corev1.Pod) bool {
+	for _, cond := range p.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	// No ready status, probably not even running.
+	return false
+}
+
 type podIPByAgeSorter struct {
 	pods []*corev1.Pod
 }
@@ -163,7 +165,7 @@ func (s *podIPByAgeSorter) get() []string {
 // and non-running are excluded) IP addresses, sorted descending by pod age.
 func (pa PodAccessor) PodIPsByAge() ([]string, error) {
 	ps := podIPByAgeSorter{}
-	if err := pa.ProcessPods(ps.process, podRunning); err != nil {
+	if err := pa.ProcessPods(ps.process, podRunning, podReady); err != nil {
 		return nil, err
 	}
 	return ps.get(), nil

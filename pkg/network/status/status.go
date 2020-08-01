@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package status is now deprecated, please use
+// knative.dev/networking/pkg/status instead.
+//
+// DEPRECATED
 package status
 
 import (
@@ -36,11 +40,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/network/ingress"
 )
 
 const (

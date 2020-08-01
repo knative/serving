@@ -26,6 +26,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 

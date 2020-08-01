@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	pkgnet "knative.dev/pkg/network"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"

@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	network "knative.dev/networking/pkg"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/pkg/configmap/testing"
 )

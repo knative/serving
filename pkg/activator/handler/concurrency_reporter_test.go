@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/resource"
 	"k8s.io/apimachinery/pkg/types"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
@@ -38,7 +39,6 @@ import (
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	"knative.dev/serving/pkg/network"
 )
 
 const (

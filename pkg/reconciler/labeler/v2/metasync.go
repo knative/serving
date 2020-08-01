@@ -156,7 +156,7 @@ func setRoutingMeta(ctx context.Context, acc Accessor, ns, name, routeName strin
 			return err
 		}
 		logger := logging.FromContext(ctx)
-		logger.Info("Labeler V2 applying patch: ", mergePatch)
+		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
 		return acc.patch(ns, name, types.MergePatchType, patch)
 	}
 

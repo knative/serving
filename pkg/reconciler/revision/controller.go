@@ -30,6 +30,7 @@ import (
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -37,7 +38,6 @@ import (
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )

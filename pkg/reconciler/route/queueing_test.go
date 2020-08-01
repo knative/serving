@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/configmap"
@@ -35,7 +36,6 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"

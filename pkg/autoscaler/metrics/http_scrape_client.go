@@ -26,7 +26,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 type httpScrapeClient struct {

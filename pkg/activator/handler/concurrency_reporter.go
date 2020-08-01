@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
@@ -36,7 +37,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/network"
 )
 
 const reportInterval = time.Second
