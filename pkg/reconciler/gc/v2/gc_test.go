@@ -74,6 +74,18 @@ func TestCollectMin(t *testing.T) {
 		revs        []*v1.Revision
 		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
+		name: "too few revisions",
+		cfg: cfg("none-reserved", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("none-reserved", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithCreationTimestamp(old)),
+		},
+	}, {
 		name: "delete oldest, keep one recent, one active",
 		cfg: cfg("keep-two", "foo", 5556,
 			WithLatestCreated("5556"),
