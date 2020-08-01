@@ -46,7 +46,7 @@ func Collect(
 
 	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
-		return nil
+		return nil // all deletion settings are disabled
 	}
 
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
