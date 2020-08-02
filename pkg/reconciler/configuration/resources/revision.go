@@ -87,8 +87,6 @@ func updateRevisionAnnotations(rev, config metav1.Object) {
 		annotations[serving.CreatorAnnotation] = c
 	}
 
-	annotations[serving.RoutesAnnotationKey] = "littlebunnyfoofoo"
-
 	rev.SetAnnotations(annotations)
 }
 
