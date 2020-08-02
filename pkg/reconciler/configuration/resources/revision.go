@@ -75,7 +75,7 @@ func updateRevisionLabels(rev, config metav1.Object) {
 }
 
 // updateRevisionAnnotations sets the revision's annotation given a Configuration's updater annotation.
-func updateRevisionAnnotations(rev, config metav1.Object) {
+func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
 	annotations := rev.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
@@ -85,6 +85,11 @@ func updateRevisionAnnotations(rev, config metav1.Object) {
 	cans := config.GetAnnotations()
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
 		annotations[serving.CreatorAnnotation] = c
+	}
+
+	if v, ok := cans[serving.RoutesAnnotationKey]; ok {
+		annotations[serving.RoutesAnnotationKey] = v
+		rev.SetRoutingState(v1.RoutingStateActive, clock.RealClock{})
 	}
 
 	rev.SetAnnotations(annotations)
