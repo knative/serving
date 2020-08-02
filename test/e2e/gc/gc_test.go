@@ -20,9 +20,10 @@ package gc
 
 import (
 	"testing"
-	"time"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
@@ -64,7 +65,6 @@ func TestRevisionGC(t *testing.T) {
 	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
-	//secondRevision := names.Revision
 
 	t.Log("Service should reflect new revision created and ready in status.")
 	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
@@ -76,19 +76,10 @@ func TestRevisionGC(t *testing.T) {
 		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 
-	// I don't have a great way to observe that GC has run after readiness. Wait a few.
-	time.Sleep(5 * time.Second)
-
-	firstRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(`Could not retrieve original revision`)
-	}
-	t.Log("Original rev: ", firstRevision)
-	t.Log("The Config: ", resources.Config)
-	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "reserve" {
-		t.Fatalf(`Revision state is %v, expected "reserve".`, val)
-	}
-	if firstRevision.GetDeletionTimestamp() == nil {
-		t.Fatal(`Got no deleted time. Original revision should be deleted by GC.`)
+	originalRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Fatalf("Got %q, expected not_found", err)
+	} else if err == nil {
+		t.Fatalf("Got revision %v, expected not_found", originalRevision)
 	}
 }
