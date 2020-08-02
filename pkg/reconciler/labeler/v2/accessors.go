@@ -98,10 +98,8 @@ func makeMetadataPatch(
 func markRoutingState(
 	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
 
-	var hasRoute bool
+	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
 	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
-		hasRoute = val != nil
-	} else if val, has = acc.GetAnnotations()[serving.RoutesAnnotationKey]; has {
 		hasRoute = val != nil
 	}
 
