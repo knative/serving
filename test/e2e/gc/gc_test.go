@@ -84,6 +84,7 @@ func TestRevisionGC(t *testing.T) {
 		t.Fatal(`Could not retrieve original revision`)
 	}
 	t.Log("Original rev: ", firstRevision)
+	t.Log("The Config: ", resources.Config)
 	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "reserve" {
 		t.Fatalf(`Revision state is %v, expected "reserve".`, val)
 	}

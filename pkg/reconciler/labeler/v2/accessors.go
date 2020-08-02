@@ -71,13 +71,15 @@ func NewRevisionAccessor(
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
-	acc kmeta.Accessor, routeName string, remove bool, clock clock.Clock) (map[string]interface{}, error) {
+	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.Clock) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
 	updateRouteAnnotation(acc, routeName, annotations, remove)
 
-	markRoutingState(acc, routeName != "", clock, labels, annotations)
+	if addRoutingState {
+		markRoutingState(acc, clock, labels, annotations)
+	}
 
 	meta := map[string]interface{}{}
 	if len(labels) > 0 {
@@ -94,8 +96,15 @@ func makeMetadataPatch(
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
 func markRoutingState(
-	acc kmeta.Accessor, hasRoute bool, clock clock.Clock,
-	diffLabels, diffAnn map[string]interface{}) {
+	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
+
+	var hasRoute bool
+	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
+		hasRoute = val != nil
+	} else if val, has = acc.GetAnnotations()[serving.RoutesAnnotationKey]; has {
+		hasRoute = val != nil
+	}
+
 	wantState := string(v1.RoutingStateReserve)
 	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
@@ -162,7 +171,7 @@ func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (m
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, remove, r.clock)
+	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -230,5 +239,5 @@ func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove boo
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, remove, c.clock)
+	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, remove, c.clock)
 }
