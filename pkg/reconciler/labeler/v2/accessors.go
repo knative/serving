@@ -1,19 +1,3 @@
-/*
-Copyright 2020 The Knative Authors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v2
 
 import (
@@ -75,8 +59,10 @@ func makeMetadataPatch(
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
-	if stateChanged := updateRouteAnnotation(acc, routeName, annotations, remove); stateChanged && addRoutingState {
-		markRoutingState(acc, routeName != "", clock, labels, annotations)
+	updateRouteAnnotation(acc, routeName, annotations, remove)
+
+	if addRoutingState {
+		markRoutingState(acc, clock, labels, annotations)
 	}
 
 	meta := map[string]interface{}{}
@@ -94,8 +80,13 @@ func makeMetadataPatch(
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
 func markRoutingState(
-	acc kmeta.Accessor, hasRoute bool, clock clock.Clock,
-	diffLabels, diffAnn map[string]interface{}) {
+	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
+
+	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
+	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
+		hasRoute = val != nil
+	}
+
 	wantState := string(v1.RoutingStateReserve)
 	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
@@ -110,30 +101,26 @@ func markRoutingState(
 // updateRouteAnnotation appends the route annotation to the list of labels if needed
 // or removes the annotation if routeName is nil.
 // Returns true if the entire annotation is newly added or removed, which signifies a state change.
-func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
+func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) {
 	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
 	has := valSet.Has(routeName)
 	switch {
 	case has && remove:
 		if len(valSet) == 1 {
 			diffAnn[serving.RoutesAnnotationKey] = nil
-			return true
+			return
 		}
 		valSet.Delete(routeName)
 		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
-		return false
 
 	case !has && !remove:
 		if len(valSet) == 0 {
 			diffAnn[serving.RoutesAnnotationKey] = routeName
-			return true
+			return
 		}
 		valSet.Insert(routeName)
 		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
-		return false
 	}
-
-	return false
 }
 
 // list implements Accessor

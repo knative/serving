@@ -83,7 +83,7 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 	}
 
 	// Use a revision accessor to manipulate the revisions.
-	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
+	if err := clearMetaForNotListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
@@ -91,16 +91,16 @@ func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc
 	}
 
 	// Use a config access to manipulate the configs.
-	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := clearMetaForNotListed(ctx, r, cacc, configs); err != nil {
 		return err
 	}
 	return setMetaForListed(ctx, r, cacc, configs)
 }
 
 // ClearRoutingMeta removes any labels for a named route from given accessors.
-func ClearRoutingMeta(ctx context.Context, ns, name string, accs ...Accessor) error {
+func ClearRoutingMeta(ctx context.Context, r *v1.Route, accs ...Accessor) error {
 	for _, acc := range accs {
-		if err := clearMetaForNotListed(ctx, ns, name, acc, nil /*none listed*/); err != nil {
+		if err := clearMetaForNotListed(ctx, r, acc, nil /*none listed*/); err != nil {
 			return err
 		}
 	}
@@ -111,7 +111,7 @@ func ClearRoutingMeta(ctx context.Context, ns, name string, accs ...Accessor) er
 // listed within "names" in the same namespace.
 func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRoutingMeta(ctx, acc, route.Namespace, name, route.Name, false); err != nil {
+		if err := setRoutingMeta(ctx, acc, route, name, false); err != nil {
 			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
@@ -121,8 +121,8 @@ func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names 
 // clearMetaForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func clearMetaForNotListed(ctx context.Context, ns, routeName string, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(ns, routeName, v1.RoutingStateActive)
+func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names sets.String) error {
+	oldList, err := acc.list(r.Namespace, r.Name, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func clearMetaForNotListed(ctx context.Context, ns, routeName string, acc Access
 			continue
 		}
 
-		if err := setRoutingMeta(ctx, acc, ns, name, routeName, true); err != nil {
+		if err := setRoutingMeta(ctx, acc, r, name, true); err != nil {
 			return fmt.Errorf("failed to remove route annotation to %s %q: %w",
 				elt.GroupVersionKind(), name, err)
 		}
@@ -147,8 +147,8 @@ func clearMetaForNotListed(ctx context.Context, ns, routeName string, acc Access
 // element through the provided accessor.
 // A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRoutingMeta(ctx context.Context, acc Accessor, ns, name, routeName string, remove bool) error {
-	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName, remove); err != nil {
+func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string, remove bool) error {
+	if mergePatch, err := acc.makeMetadataPatch(r.Namespace, name, r.Name, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)
@@ -157,7 +157,7 @@ func setRoutingMeta(ctx context.Context, acc Accessor, ns, name, routeName strin
 		}
 		logger := logging.FromContext(ctx)
 		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
-		return acc.patch(ns, name, types.MergePatchType, patch)
+		return acc.patch(r.Namespace, name, types.MergePatchType, patch)
 	}
 
 	return nil
