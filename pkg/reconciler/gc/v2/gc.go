@@ -56,10 +56,8 @@ func Collect(
 	}
 
 	if len(revs) <= min {
-		logger.Infof("V2 GC early exit. Rev count: %d, want (%d, %d]", len(revs), min, max)
 		return nil
 	}
-	logger.Infof("V2 GC continuing. Rev count: %d, want (%d, %d]", len(revs), min, max)
 
 	// Filter out active revs
 	revs = nonactiveRevisions(revs, config)
@@ -71,10 +69,8 @@ func Collect(
 	})
 
 	if len(revs) <= min {
-		logger.Infof("V2 GC non-active early exit. Rev count: %d, want (%d, %d]", len(revs), min, max)
 		return nil
 	}
-	logger.Infof("V2 GC non-active revisions. Rev count: %d, want (%d, %d]", len(revs), min, max)
 
 	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
 	swap := len(revs)

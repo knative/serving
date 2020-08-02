@@ -56,6 +56,7 @@ var _ configreconciler.Interface = (*Reconciler)(nil)
 func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
+	logger.Debugf("Reconciling config: %#v", config)
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
