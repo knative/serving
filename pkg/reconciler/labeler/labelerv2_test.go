@@ -233,7 +233,7 @@ func TestV2Reconcile(t *testing.T) {
 			rev("default", "new-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveRouteAnn("default", rev("default", "old-config").Name),
+			patchRemoveRouteAndServingStateLabel("default", rev("default", "old-config").Name, now.Time),
 			patchAddRouteAndServingStateLabel(
 				"default", rev("default", "new-config").Name, "config-change", now.Time),
 			patchRemoveRouteAnn("default", "old-config"),
@@ -344,7 +344,7 @@ func TestV2Reconcile(t *testing.T) {
 				WithRevisionAnn("serving.knative.dev/routes", "delete-label-failure")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveRouteAnn("default", rev("default", "old-config").Name),
+			patchRemoveRouteAndServingStateLabel("default", rev("default", "old-config").Name, now.Time),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -459,6 +459,10 @@ func patchAddRouteAnn(namespace, name, value string) clientgotesting.PatchAction
 
 	action.Patch = []byte(fmt.Sprintf(`{"metadata":{"annotations":{"serving.knative.dev/routes":%s}}}`, value))
 	return action
+}
+
+func patchRemoveRouteAndServingStateLabel(namespace, name string, now time.Time) clientgotesting.PatchActionImpl {
+	return patchAddRouteAndServingStateLabel(namespace, name, "null", now)
 }
 
 func patchAddRouteAndServingStateLabel(namespace, name, routeName string, now time.Time) clientgotesting.PatchActionImpl {
