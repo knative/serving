@@ -20,6 +20,7 @@ package gc
 
 import (
 	"testing"
+	"time"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,6 +76,8 @@ func TestRevisionGC(t *testing.T) {
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
+
+	time.Sleep(5 * time.Second)
 
 	originalRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
