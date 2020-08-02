@@ -38,7 +38,7 @@ import (
 type Accessor interface {
 	list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error)
+	makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -164,12 +164,12 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	rev, err := r.lister.Revisions(ns).Get(name)
+func (r *Revision) makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	rev, err := r.lister.Revisions(route.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, remove, r.clock)
+	return makeMetadataPatch(rev, route.Name, true /*addRoutingState*/, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -232,10 +232,10 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	config, err := c.lister.Configurations(ns).Get(name)
+func (c *Configuration) makeMetadataPatch(r *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	config, err := c.lister.Configurations(r.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, remove, c.clock)
+	return makeMetadataPatch(config, r.Name, false /*addRoutingState*/, remove, c.clock)
 }
