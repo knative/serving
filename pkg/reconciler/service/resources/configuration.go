@@ -30,14 +30,19 @@ import (
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
-func MakeConfiguration(service *v1.Service, existing *v1.Configuration, gc cfgmap.Flag) (*v1.Configuration, error) {
+func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
+	return MakeConfigurationFromExisting(service, &v1.Configuration{}, cfgmap.Disabled)
+}
+
+// MakeConfigurationFromExisting creates a Configuration from a Service object given an existing Configuration.
+func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configuration, gc cfgmap.Flag) (*v1.Configuration, error) {
 	labels := map[string]string{serving.ServiceLabelKey: service.Name}
 	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
 		return key == corev1.LastAppliedConfigAnnotation
 	})
 
 	routeName := names.Route(service)
-	if gc == cfgmap.Enabled {
+	if gc != cfgmap.Enabled {
 		labels[serving.RouteLabelKey] = routeName
 	}
 

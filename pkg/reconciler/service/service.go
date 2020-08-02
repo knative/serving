@@ -189,7 +189,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
 	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
-	cfg, err := resources.MakeConfiguration(service, &v1.Configuration{}, gc)
+	cfg, err := resources.MakeConfigurationFromExisting(service, &v1.Configuration{}, gc)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
 	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
-	desiredConfig, err := resources.MakeConfiguration(service, existing, gc)
+	desiredConfig, err := resources.MakeConfigurationFromExisting(service, existing, gc)
 	if err != nil {
 		return nil, err
 	}
