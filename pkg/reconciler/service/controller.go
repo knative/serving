@@ -49,13 +49,20 @@ func NewController(
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
+	logger.Info("Setting up ConfigMap receivers")
+	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
+
 	c := &Reconciler{
 		client:              servingclient.Get(ctx),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := ksvcreconciler.NewImpl(ctx, c)
+	opts := func(*controller.Impl) controller.Options {
+		return controller.Options{ConfigStore: configStore}
+	}
+	impl := ksvcreconciler.NewImpl(ctx, c, opts)
 
 	logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
