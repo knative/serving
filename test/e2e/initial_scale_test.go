@@ -69,6 +69,19 @@ func TestInitScalePositive(t *testing.T) {
 
 	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
 	createAndVerifyInitialScaleService(t, clients, names, 3)
+
+	t.Logf("Waiting for Service %q to scale back below initialScale", names.Service)
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
+		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
+		podList, err := pods.List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service),
+			FieldSelector: "status.phase!=Terminating",
+		})
+
+		return len(podList.Items) < 3, err
+	}, "ServiceScaledBelowInitial"); err != nil {
+		t.Fatal("Service did not scale back below initialScale:", err)
+	}
 }
 
 func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
