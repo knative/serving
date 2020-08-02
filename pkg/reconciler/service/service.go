@@ -219,6 +219,13 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 		return nil, err
 	}
 
+	// Preserve routes annotation.
+	if routes, has := existing.Annotations[serving.RoutesAnnotationKey]; has {
+		desiredConfig.Annotations[serving.RoutesAnnotationKey] = routes
+		// TODO: if v2 labeler enabled, no routes annotation.
+		// TODO: if v2 allowed or enabled, ensure this route in routes ann.
+	}
+
 	if equals, err := configSemanticEquals(ctx, desiredConfig, existing); err != nil {
 		return nil, err
 	} else if equals {
