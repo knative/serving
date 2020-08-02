@@ -111,7 +111,7 @@ func ClearRoutingMeta(ctx context.Context, r *v1.Route, accs ...Accessor) error 
 // listed within "names" in the same namespace.
 func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRoutingMeta(ctx, acc, route.Namespace, name, route.Name, false); err != nil {
+		if err := setRoutingMeta(ctx, acc, route, name, false); err != nil {
 			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
