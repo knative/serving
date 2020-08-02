@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -800,7 +801,7 @@ func TestNew(t *testing.T) {
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Configuration {
 	s := DefaultService(name, namespace, so)
 	s.SetDefaults(context.Background())
-	cfg, err := resources.MakeConfiguration(s)
+	cfg, err := resources.MakeConfiguration(s, &v1.Configuration{}, cfgmap.Disabled)
 	if err != nil {
 		panic(fmt.Sprint("MakeConfiguration() = ", err))
 	}

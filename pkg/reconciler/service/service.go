@@ -119,7 +119,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if apierrs.IsNotFound(err) {
-		config, err = c.createConfiguration(service)
+		config, err = c.createConfiguration(ctx, service)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return nil, fmt.Errorf("failed to create Configuration: %w", err)
@@ -187,8 +187,9 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 	}
 }
 
-func (c *Reconciler) createConfiguration(service *v1.Service) (*v1.Configuration, error) {
-	cfg, err := resources.MakeConfiguration(service)
+func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
+	gc := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
+	cfg, err := resources.MakeConfiguration(service, &v1.Configuration{}, gc)
 	if err != nil {
 		return nil, err
 	}
@@ -226,6 +227,9 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	} else if equals {
 		return config, nil
 	}
+
+	logger := logging.FromContext(ctx)
+	logger.Warnf("Service-delegated Configuration %q diff found. Clobbering.", existing.Name)
 
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
