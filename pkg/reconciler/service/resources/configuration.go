@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -49,7 +51,8 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 		if set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey); set.Has(routeName) {
 			anns[serving.RoutesAnnotationKey] = existing.Annotations[serving.RoutesAnnotationKey]
 		} else {
-			anns[serving.RoutesAnnotationKey] = routeName
+			set.Insert(routeName)
+			anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 		}
 	}
 
