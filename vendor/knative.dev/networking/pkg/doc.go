@@ -17,4 +17,4 @@ limitations under the License.
 // +k8s:deepcopy-gen=package
 // Package network holds the typed objects that define the schemas for
 // configuring the knative/serving networking layer.
-package network
+package pkg
