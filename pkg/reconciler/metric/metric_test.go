@@ -186,8 +186,8 @@ func TestReconcileWithCollector(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	collector := &testCollector{}
-	collector.createOrUpdateCalls = make(chan struct{}, 100)
-	collector.deleteCalls = make(chan struct{}, 100)
+	collector.createOrUpdateCalls = make(chan struct{}, 1)
+	collector.deleteCalls = make(chan struct{}, 1)
 
 	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
 
@@ -197,8 +197,12 @@ func TestReconcileWithCollector(t *testing.T) {
 		t.Fatal("StartInformers() =", err)
 	}
 
+	barrier := make(chan struct{})
 	var eg errgroup.Group
-	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	eg.Go(func() error {
+		close(barrier)
+		return ctl.Run(1, ctx.Done())
+	})
 	defer func() {
 		cancel()
 		wf()
@@ -208,17 +212,19 @@ func TestReconcileWithCollector(t *testing.T) {
 	m := metric("new", "metric")
 	scs := servingclient.Get(ctx)
 
+	// Ensure the controller is running.
+	<-barrier
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
 	select {
 	case <-collector.createOrUpdateCalls:
-	case <-time.After(1 * time.Second):
-		t.Error("CreateOrUpdate() called 0 times, want non-zero times")
+	case <-time.After(2 * time.Second):
+		t.Fatal("CreateOrUpdate() called 0 times, want non-zero times")
 	}
 
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
 	select {
 	case <-collector.deleteCalls:
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 		t.Error("Delete() called 0 times, want non-zero times")
 	}
 }

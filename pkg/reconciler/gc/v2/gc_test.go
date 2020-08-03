@@ -33,12 +33,11 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	gcconfig "knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -56,7 +55,7 @@ var revisionSpec = v1.RevisionSpec{
 
 func TestCollectMin(t *testing.T) {
 	cfgMap := &config.Config{
-		RevisionGC: &gcconfig.Config{
+		RevisionGC: &gc.Config{
 			RetainSinceCreateTime:     5 * time.Minute,
 			RetainSinceLastActiveTime: 5 * time.Minute,
 			MinNonActiveRevisions:     1,
@@ -219,7 +218,7 @@ func TestCollectMin(t *testing.T) {
 
 func TestCollectMax(t *testing.T) {
 	cfgMap := &config.Config{
-		RevisionGC: &gcconfig.Config{
+		RevisionGC: &gc.Config{
 			RetainSinceCreateTime:     1 * time.Hour,
 			RetainSinceLastActiveTime: 1 * time.Hour,
 			MinNonActiveRevisions:     1,
@@ -357,21 +356,21 @@ func TestCollectSettings(t *testing.T) {
 
 	table := []struct {
 		name        string
-		gcConfig    gcconfig.Config
+		gc          gc.Config
 		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
 		name: "all disabled",
-		gcConfig: gcconfig.Config{
-			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
-			RetainSinceLastActiveTime: time.Duration(gcconfig.Disabled),
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
 			MinNonActiveRevisions:     1,
-			MaxNonActiveRevisions:     gcconfig.Disabled,
+			MaxNonActiveRevisions:     gc.Disabled,
 		},
 	}, {
 		name: "staleness disabled",
-		gcConfig: gcconfig.Config{
-			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
-			RetainSinceLastActiveTime: time.Duration(gcconfig.Disabled),
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
 			MinNonActiveRevisions:     0,
 			MaxNonActiveRevisions:     1,
 		},
@@ -389,11 +388,11 @@ func TestCollectSettings(t *testing.T) {
 		}},
 	}, {
 		name: "max disabled",
-		gcConfig: gcconfig.Config{
-			RetainSinceCreateTime:     time.Duration(gcconfig.Disabled),
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
 			RetainSinceLastActiveTime: 1 * time.Minute,
 			MinNonActiveRevisions:     1,
-			MaxNonActiveRevisions:     gcconfig.Disabled,
+			MaxNonActiveRevisions:     gc.Disabled,
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -412,7 +411,7 @@ func TestCollectSettings(t *testing.T) {
 	for _, test := range table {
 		t.Run(test.name, func(t *testing.T) {
 			cfgMap := &config.Config{
-				RevisionGC: &test.gcConfig,
+				RevisionGC: &test.gc,
 			}
 			runTest(t, cfgMap, revs, cfg, test.wantDeletes)
 		})
@@ -554,7 +553,7 @@ func TestIsRevisionStale(t *testing.T) {
 		want: false,
 	}}
 
-	cfg := &gcconfig.Config{
+	cfg := &gc.Config{
 		RetainSinceCreateTime:     5 * time.Minute,
 		RetainSinceLastActiveTime: 5 * time.Minute,
 		MinNonActiveRevisions:     2,

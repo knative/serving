@@ -235,37 +235,32 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 		fmt.Sprintf("Failed to create %s %q.", kind, name))
 }
 
-// CanScaleToZero checks whether the pod autoscaler has been in an inactive state
-// for at least the specified grace period.
-func (pas *PodAutoscalerStatus) CanScaleToZero(now time.Time, gracePeriod time.Duration) bool {
-	return pas.InactiveFor(now) >= gracePeriod
-}
-
 // InactiveFor returns the time PA spent being inactive.
 func (pas *PodAutoscalerStatus) InactiveFor(now time.Time) time.Duration {
-	return pas.inStatusFor(corev1.ConditionFalse, now, 0)
+	return pas.inStatusFor(corev1.ConditionFalse, now)
 }
 
 // ActiveFor returns the time PA spent being active.
 func (pas *PodAutoscalerStatus) ActiveFor(now time.Time) time.Duration {
-	return pas.inStatusFor(corev1.ConditionTrue, now, 0)
+	return pas.inStatusFor(corev1.ConditionTrue, now)
 }
 
 // CanFailActivation checks whether the pod autoscaler has been activating
 // for at least the specified idle period.
 func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionUnknown, now, idlePeriod) > 0
+	return pas.inStatusFor(corev1.ConditionUnknown, now) > idlePeriod
 }
 
-// inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
-// the specified status for at least the specified duration. Otherwise it returns negative duration,
-// including when the status is undetermined.
-func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
+// inStatusFor returns the duration that the PodAutoscalerStatus's Active
+// condition has stayed in the specified status.
+// inStatusFor will return -1 if condition is not initialized or current
+// status is different.
+func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
+	return now.Sub(cond.LastTransitionTime.Inner.Time)
 }
 
 // GetDesiredScale returns the desired scale if ever set, or -1.

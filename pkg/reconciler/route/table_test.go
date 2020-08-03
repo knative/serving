@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
@@ -48,7 +49,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"

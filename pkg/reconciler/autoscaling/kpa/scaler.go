@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	pkgnet "knative.dev/pkg/network"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -234,7 +234,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// Most conservative check, if it passes we're good.
 			lastPodTimeout := lastPodRetention(pa, cfgAS)
 			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
-			if pa.Status.CanScaleToZero(now, lastPodMaxTimeout) {
+			// If we have been inactive for this long, we can scale to 0!
+			if pa.Status.InactiveFor(now) >= lastPodMaxTimeout {
 				return desiredScale, true
 			}
 
@@ -318,7 +319,8 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	min, max := pa.ScaleBounds()
 	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
-	if initialScale > 1 {
+	// If initial scale has been attained, ignore the initialScale altogether.
+	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.
 		if min < initialScale {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)

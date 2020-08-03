@@ -597,7 +597,6 @@ func TestReconcile(t *testing.T) {
 			podAutoscalerLister: listers.GetPodAutoscalerLister(),
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
-			serviceLister:       listers.GetK8sServiceLister(),
 			resolver:            &nopResolver{},
 		}
 

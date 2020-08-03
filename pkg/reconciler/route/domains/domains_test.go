@@ -25,10 +25,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 

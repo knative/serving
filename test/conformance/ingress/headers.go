@@ -23,11 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/test"
 )
 

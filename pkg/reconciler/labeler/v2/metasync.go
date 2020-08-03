@@ -17,20 +17,22 @@ limitations under the License.
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/tracker"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// SyncLabels makes sure that the revisions and configurations referenced from
-// a Route are labeled with route labels.
-func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
+// SyncRoutingMeta makes sure that the revisions and configurations referenced from
+// a Route are labeled with the routingState label and routes annotation.
+func SyncRoutingMeta(ctx context.Context, r *v1.Route, cacc *Configuration, racc *Revision) error {
 	revisions := sets.NewString()
 	configs := sets.NewString()
 
@@ -45,7 +47,7 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 				return err
 			}
 
-			rev, err := racc.revisionLister.Revisions(r.Namespace).Get(revName)
+			rev, err := racc.lister.Revisions(r.Namespace).Get(revName)
 			if err != nil {
 				// The revision might not exist (yet). The informers will notify if it gets created.
 				continue
@@ -64,7 +66,7 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 				return err
 			}
 
-			config, err := cacc.configurationLister.Configurations(r.Namespace).Get(configName)
+			config, err := cacc.lister.Configurations(r.Namespace).Get(configName)
 			if err != nil {
 				// The config might not exist (yet). The informers will notify if it gets created.
 				continue
@@ -81,46 +83,46 @@ func SyncLabels(r *v1.Route, cacc *Configuration, racc *Revision) error {
 	}
 
 	// Use a revision accessor to manipulate the revisions.
-	if err := deleteLabelForNotListed(r.Namespace, r.Name, racc, revisions); err != nil {
+	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
 		return err
 	}
-	if err := setLabelForListed(r, racc, revisions); err != nil {
+	if err := setMetaForListed(ctx, r, racc, revisions); err != nil {
 		return err
 	}
 
 	// Use a config access to manipulate the configs.
-	if err := deleteLabelForNotListed(r.Namespace, r.Name, cacc, configs); err != nil {
+	if err := clearMetaForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
 		return err
 	}
-	return setLabelForListed(r, cacc, configs)
+	return setMetaForListed(ctx, r, cacc, configs)
 }
 
-// ClearLabels removes any labels for a named route from given accessors.
-func ClearLabels(ns, name string, accs ...Accessor) error {
+// ClearRoutingMeta removes any labels for a named route from given accessors.
+func ClearRoutingMeta(ctx context.Context, ns, name string, accs ...Accessor) error {
 	for _, acc := range accs {
-		if err := deleteLabelForNotListed(ns, name, acc, nil /*none listed*/); err != nil {
+		if err := clearMetaForNotListed(ctx, ns, name, acc, nil /*none listed*/); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// setLabelForListed uses the accessor to attach the label for this route to every element
+// setMetaForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setLabelForListed(route *v1.Route, acc Accessor, names sets.String) error {
+func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names sets.String) error {
 	for name := range names {
-		if err := setRouteLabel(acc, route.Namespace, name, route.Name); err != nil {
-			return fmt.Errorf("failed to add route label to Namespace=%s Name=%q: %w", route.Namespace, name, err)
+		if err := setRoutingMeta(ctx, acc, route.Namespace, name, route.Name, false); err != nil {
+			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
 		}
 	}
 	return nil
 }
 
-// deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
-// not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
+// clearMetaForNotListed uses the accessor to delete the label from any listable entity that is
+// not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(ns, routeName)
+func clearMetaForNotListed(ctx context.Context, ns, routeName string, acc Accessor, names sets.String) error {
+	oldList, err := acc.list(ns, routeName, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
@@ -132,8 +134,8 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 			continue
 		}
 
-		if err := setRouteLabel(acc, ns, name, ""); err != nil {
-			return fmt.Errorf("failed to remove route label to %s %q: %w",
+		if err := setRoutingMeta(ctx, acc, ns, name, routeName, true); err != nil {
+			return fmt.Errorf("failed to remove route annotation to %s %q: %w",
 				elt.GroupVersionKind(), name, err)
 		}
 	}
@@ -141,17 +143,20 @@ func deleteLabelForNotListed(ns, routeName string, acc Accessor, names sets.Stri
 	return nil
 }
 
-// setRouteLabel toggles the route label on the specified element through the provided accessor.
-// a nil route name will cause the route label to be deleted, and a non-nil route will cause
+// setRoutingMeta toggles the routing state label, routes list and timestamp annotation on the specified
+// element through the provided accessor.
+// A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
-func setRouteLabel(acc Accessor, ns, name, routeName string) error {
-	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName); err != nil {
+func setRoutingMeta(ctx context.Context, acc Accessor, ns, name, routeName string, remove bool) error {
+	if mergePatch, err := acc.makeMetadataPatch(ns, name, routeName, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)
 		if err != nil {
 			return err
 		}
+		logger := logging.FromContext(ctx)
+		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
 		return acc.patch(ns, name, types.MergePatchType, patch)
 	}
 

@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "ba0dd46d"
+    knative.dev/example-checksum: "ab930d35"
 data:
   _example: |
     ################################
@@ -60,7 +60,7 @@ data:
     # When "allowed", the server will not run the dry-run validation by default.
     #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
-    kubernetes.podspec-dryrun: "enabled"
+    kubernetes.podspec-dryrun: "allowed"
 
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and

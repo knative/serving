@@ -108,8 +108,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/deployment \
   -i knative.dev/serving/pkg/gc \
   -i knative.dev/serving/pkg/logging \
-  -i knative.dev/serving/pkg/metrics \
-  -i knative.dev/serving/pkg/network
+  -i knative.dev/serving/pkg/metrics
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh

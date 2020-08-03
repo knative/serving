@@ -43,7 +43,7 @@ func defaultFeaturesConfig() *Features {
 		MultiContainer:       Disabled,
 		PodSpecAffinity:      Disabled,
 		PodSpecFieldRef:      Disabled,
-		PodSpecDryRun:        Enabled,
+		PodSpecDryRun:        Allowed,
 		PodSpecNodeSelector:  Disabled,
 		PodSpecTolerations:   Disabled,
 		ResponsiveRevisionGC: Disabled,

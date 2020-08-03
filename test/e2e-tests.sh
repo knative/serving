@@ -116,6 +116,10 @@ toggle_feature multi-container Enabled
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
 
+toggle_feature responsive-revision-gc Enabled
+go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+toggle_feature responsive-revision-gc Disabled
+
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
 kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/

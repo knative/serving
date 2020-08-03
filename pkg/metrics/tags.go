@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 
+	"go.opencensus.io/resource"
 	"go.opencensus.io/tag"
 )
 
@@ -55,10 +56,7 @@ func RevisionContext(ns, svc, cfg, rev string) (context.Context, error) {
 	key := types.NamespacedName{Namespace: ns, Name: rev}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
-		rctx, err := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
-		if err != nil {
-			return rctx, err
-		}
+		rctx := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
 		contextCache.Add(key, rctx)
 		ctx = rctx
 	}
@@ -106,24 +104,25 @@ func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Conte
 		if err != nil {
 			return rctx, err
 		}
-		rctx, err = AugmentWithRevision(rctx, ns, svc, cfg, rev)
-		if err != nil {
-			return rctx, err
-		}
+		rctx = AugmentWithRevision(rctx, ns, svc, cfg, rev)
 		contextCache.Add(key, rctx)
 		ctx = rctx
 	}
 	return ctx.(context.Context), nil
 }
 
-// AugmentWithRevision augments the given context with revision specific tags.
-func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) (context.Context, error) {
-	return tag.New(
-		baseCtx,
-		tag.Upsert(NamespaceTagKey, ns),
-		tag.Upsert(ServiceTagKey, valueOrUnknown(svc)),
-		tag.Upsert(ConfigTagKey, cfg),
-		tag.Upsert(RevisionTagKey, rev))
+// AugmentWithRevision augments the given context with a knative_revision resource.
+func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
+	r := resource.Resource{
+		Type: metricskey.ResourceTypeKnativeRevision,
+		Labels: map[string]string{
+			metricskey.LabelNamespaceName:     ns,
+			metricskey.LabelServiceName:       valueOrUnknown(svc),
+			metricskey.LabelConfigurationName: cfg,
+			metricskey.LabelRevisionName:      rev,
+		},
+	}
+	return metricskey.WithResource(baseCtx, r)
 }
 
 // AugmentWithResponse augments the given context with response-code specific tags.

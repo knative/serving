@@ -24,6 +24,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	cache "k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	reconciler "knative.dev/pkg/reconciler"
 )
 
 // state is used to track the state of a reconciler in a single run.
@@ -92,14 +93,14 @@ func (s *state) isNotLeaderNorObserver() bool {
 func (s *state) reconcileMethodFor(o *v1alpha1.ServerlessService) (string, doReconcile) {
 	if o.GetDeletionTimestamp().IsZero() {
 		if s.isLeader {
-			return doReconcileKind, s.reconciler.ReconcileKind
+			return reconciler.DoReconcileKind, s.reconciler.ReconcileKind
 		} else if s.isROI {
-			return doObserveKind, s.roi.ObserveKind
+			return reconciler.DoObserveKind, s.roi.ObserveKind
 		}
 	} else if fin, ok := s.reconciler.(Finalizer); s.isLeader && ok {
-		return doFinalizeKind, fin.FinalizeKind
+		return reconciler.DoFinalizeKind, fin.FinalizeKind
 	} else if !s.isLeader && s.isROF {
-		return doObserveFinalizeKind, s.rof.ObserveFinalizeKind
+		return reconciler.DoObserveFinalizeKind, s.rof.ObserveFinalizeKind
 	}
 	return "unknown", nil
 }

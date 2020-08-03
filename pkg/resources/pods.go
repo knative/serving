@@ -68,16 +68,7 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 				notReady++
 				continue
 			}
-			isReady := false
-			for _, cond := range p.Status.Conditions {
-				if cond.Type == corev1.PodReady {
-					if cond.Status == corev1.ConditionTrue {
-						isReady = true
-					}
-					break
-				}
-			}
-			if isReady {
+			if podReady(p) {
 				ready++
 			} else {
 				notReady++
@@ -99,33 +90,83 @@ func (pa PodAccessor) NotReadyCount() (int, error) {
 	return nr, err
 }
 
-// PodIPsByAge returns the list of running pod (terminating
-// and non-running are excluded) IP addresses, sorted descending by pod age.
-func (pa PodAccessor) PodIPsByAge() ([]string, error) {
+// PodFilter provides a way to filter pods for a revision.
+// Returning true, means that pod should be kept.
+type PodFilter func(p *corev1.Pod) bool
+
+// PodTransformer provides a way to do something with the pod
+// that has been selected by all the filters.
+// For example pod transformer may extract a field and store it in
+// internal state.
+type PodTransformer func(p *corev1.Pod)
+
+// ProcessPods filters all the pods using provided pod filters and then if the pod
+// is selected, applies the transformer to it.
+func (pa PodAccessor) ProcessPods(pt PodTransformer, pfs ...PodFilter) error {
 	pods, err := pa.podsLister.List(pa.selector)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// Keep only running ones.
-	write := 0
 	for _, p := range pods {
-		if p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil {
-			pods[write] = p
-			write++
+		if applyFilters(p, pfs...) {
+			pt(p)
 		}
 	}
-	pods = pods[:write]
+	return nil
+}
 
-	if len(pods) > 1 {
+func applyFilters(p *corev1.Pod, pfs ...PodFilter) bool {
+	for _, pf := range pfs {
+		if !pf(p) {
+			return false
+		}
+	}
+	return true
+}
+
+func podRunning(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodRunning && p.DeletionTimestamp == nil
+}
+
+// podReady checks whether pod's Ready status is True.
+func podReady(p *corev1.Pod) bool {
+	for _, cond := range p.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	// No ready status, probably not even running.
+	return false
+}
+
+type podIPByAgeSorter struct {
+	pods []*corev1.Pod
+}
+
+func (s *podIPByAgeSorter) process(p *corev1.Pod) {
+	s.pods = append(s.pods, p)
+}
+
+func (s *podIPByAgeSorter) get() []string {
+	if len(s.pods) > 1 {
 		// This results in a few reflection calls, which we can easily avoid.
-		sort.SliceStable(pods, func(i, j int) bool {
-			return pods[i].Status.StartTime.Before(pods[j].Status.StartTime)
+		sort.SliceStable(s.pods, func(i, j int) bool {
+			return s.pods[i].Status.StartTime.Before(s.pods[j].Status.StartTime)
 		})
 	}
-	ret := make([]string, 0, len(pods))
-	for _, p := range pods {
+	ret := make([]string, 0, len(s.pods))
+	for _, p := range s.pods {
 		ret = append(ret, p.Status.PodIP)
 	}
+	return ret
+}
 
-	return ret, nil
+// PodIPsByAge returns the list of running pods (terminating
+// and non-running are excluded) IP addresses, sorted descending by pod age.
+func (pa PodAccessor) PodIPsByAge() ([]string, error) {
+	ps := podIPByAgeSorter{}
+	if err := pa.ProcessPods(ps.process, podRunning, podReady); err != nil {
+		return nil, err
+	}
+	return ps.get(), nil
 }
