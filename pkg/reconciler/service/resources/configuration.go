@@ -48,12 +48,11 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	}
 
 	if gc == cfgmap.Enabled || gc == cfgmap.Allowed {
-		if set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey); set.Has(routeName) {
-			anns[serving.RoutesAnnotationKey] = existing.Annotations[serving.RoutesAnnotationKey]
-		} else {
+		set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
+		if !set.Has(routeName) {
 			set.Insert(routeName)
-			anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 		}
+		anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 	}
 
 	return &v1.Configuration{
