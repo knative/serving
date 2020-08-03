@@ -737,6 +737,8 @@ github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7
 github.com/maratori/testpackage v1.0.1/go.mod h1:ddKdw+XG0Phzhx8BFDTKgpWP4i7MpApTE5fXSKAqwDU=
 github.com/markbates/inflect v1.0.4 h1:5fh1gzTFhfae06u3hzHYO9xe3l3v3nW5Pwt3naLTP5g=
 github.com/markbates/inflect v1.0.4/go.mod h1:1fR9+pO2KHEO9ZRtto13gDwwZaAKstQzferVeWqbgNs=
+github.com/markusthoemmes/knative-pkg v0.0.0-20200803125533-03f749f4ea1d h1:9QXjpRSSrZQudRwTQFgkMSaBQWZznQBCUTSmFvlPoV0=
+github.com/markusthoemmes/knative-pkg v0.0.0-20200803125533-03f749f4ea1d/go.mod h1:XgwbBKFaZgeMYBf1LRc5WtHDbCnOv6j+36/W9XFxs7Y=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
 github.com/matoous/godox v0.0.0-20190911065817-5d6d842e92eb/go.mod h1:1BELzlh859Sh1c6+90blK8lbYy0kwQf1bYlBhBysy1s=
 github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a h1:+J2gw7Bw77w/fbK7wnNJJDKmw1IbWft2Ul5BzrG1Qm8=
@@ -1640,9 +1642,6 @@ knative.dev/caching v0.0.0-20200731163501-72860523f33d/go.mod h1:Gb7i/Nrx7SCE248
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/networking v0.0.0-20200731163501-cc631d26a89e h1:6FXzSQnvEwEpSNIlau2z+dLTgl7eJaCEABX+kKzGj4s=
 knative.dev/networking v0.0.0-20200731163501-cc631d26a89e/go.mod h1:Rk+qusbvrhgbDvFTLKlIr847I6Os390ainKV+/dtFCQ=
-knative.dev/pkg v0.0.0-20200207155214-fef852970f43/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
-knative.dev/pkg v0.0.0-20200731005101-694087017879 h1:54ACbR/yTJvP1mCZUgk/u2KodPpOCpMa1RMP3g+QDNI=
-knative.dev/pkg v0.0.0-20200731005101-694087017879/go.mod h1:XgwbBKFaZgeMYBf1LRc5WtHDbCnOv6j+36/W9XFxs7Y=
 knative.dev/test-infra v0.0.0-20200729161259-d21e6ed450cb h1:fwkMDaKklHbKrZpMvjIHrLfk8AXAhiiB1VNEpXrBFZI=
 knative.dev/test-infra v0.0.0-20200729161259-d21e6ed450cb/go.mod h1:AfEfWe/Z/DIA2vQSbSTxMVlF+ErBD7Oqc4/K/x1no90=
 knative.dev/test-infra v0.0.0-20200730214800-52f8800d5692 h1:ftbIX0MQwnUNFVsP/eM4ulpSX40Z4zj0VPWr+/jh51A=
