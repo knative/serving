@@ -58,8 +58,8 @@ func TestScaleToZero(t *testing.T) {
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
 				// Scale to zero as quick as possible
-				autoscaling.WindowAnnotationKey: "6s",
 				autoscaling.TargetBurstCapacityKey: "-1",
+				autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
 			})
 		})
 	if err != nil {
