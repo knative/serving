@@ -111,7 +111,7 @@ func markRoutingState(
 // or removes the annotation if routeName is nil.
 // Returns true if the entire annotation is newly added or removed, which signifies a state change.
 func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) bool {
-	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
+	valSet := GetListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
 	has := valSet.Has(routeName)
 	switch {
 	case has && remove:
@@ -141,7 +141,7 @@ func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Ac
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		r := m.(*v1.Revision)
-		if getListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+		if GetListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, r)
 		}
 	}
@@ -202,7 +202,7 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		c := m.(*v1.Configuration)
-		if getListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+		if GetListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, c)
 		}
 	}
@@ -213,9 +213,9 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	return kl, nil
 }
 
-// getListAnnValue finds a given value in a comma-separated annotation.
+// GetListAnnValue finds a given value in a comma-separated annotation.
 // returns the entire annotation value and true if found.
-func getListAnnValue(annotations map[string]string, key string) sets.String {
+func GetListAnnValue(annotations map[string]string, key string) sets.String {
 	l := annotations[key]
 	if l == "" {
 		return sets.String{}

@@ -26,6 +26,7 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
@@ -34,6 +35,7 @@ func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
 	return MakeConfigurationFromExisting(service, &v1.Configuration{}, cfgmap.Disabled)
 }
 
+// MakeConfigurationFromExisting creates a Configuration from a Service object given an existing Configuration.
 func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configuration, gc cfgmap.Flag) (*v1.Configuration, error) {
 	labels := map[string]string{serving.ServiceLabelKey: service.Name}
 	anns := kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
@@ -46,8 +48,8 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	}
 
 	if gc == cfgmap.Enabled || gc == cfgmap.Allowed {
-		if val, has := existing.Annotations[serving.RoutesAnnotationKey]; has && strings.Contains(val, routeName) {
-			anns[serving.RoutesAnnotationKey] = val
+		if set := labelerv2.GetListAnnValue(anns, serving.RoutesAnnotationKey); set.Has(routeName) {
+			anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 		} else {
 			anns[serving.RoutesAnnotationKey] = routeName
 		}
