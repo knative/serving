@@ -1,7 +1,7 @@
 // +build probe
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,12 +41,8 @@ const scaleToZeroPipe = "/tmp/scale-to-zero-signal"
 
 func TestScaleToZero(t *testing.T) {
 	t.Parallel()
-	// We run the prober as a golang test because it fits in nicely with
-	// the rest of our integration tests, and AssertProberDefault needs
-	// a *testing.T. Unfortunately, "go test" intercepts signals, so we
-	// can't coordinate with the test by just sending e.g. SIGCONT, so we
-	// create a named pipe and wait for the upgrade script to write to it
-	// to signal that we should stop probing.
+	// Create a named pipe and wait for the upgrade script to write to it
+	// to signal that we should stop testing.
 	createPipe(t)
 
 	clients := e2e.Setup(t)
@@ -114,7 +110,7 @@ func TestScaleToZero(t *testing.T) {
 		stop := false
 		// TODO(yanweiguo): In normal scaling to zero e2e test, we use 45 seconds as timeout.
 		// Need to tweak the value both here and there.
-		if err := wait.PollImmediate(500*time.Millisecond, 30*time.Second, func() (bool, error) {
+		if err := wait.PollImmediate(500*time.Millisecond, 45*time.Second, func() (bool, error) {
 			select {
 			case <-stopCh:
 				t.Log("Received stop signal")

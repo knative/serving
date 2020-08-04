@@ -38,7 +38,10 @@ func TestProbe(t *testing.T) {
 	t.Parallel()
 	// We run the prober as a golang test because it fits in nicely with
 	// the rest of our integration tests, and AssertProberDefault needs
-	// a *testing.T.
+	// a *testing.T. Unfortunately, "go test" intercepts signals, so we
+	// can't coordinate with the test by just sending e.g. SIGCONT, so we
+	// create a named pipe and wait for the upgrade script to write to it
+	// to signal that we should stop probing.
 	createPipe(t)
 
 	clients := e2e.Setup(t)
