@@ -82,6 +82,5 @@ func createPipe(t *testing.T) {
 		if err.Error() != "file exists" {
 			t.Fatal("Failed to create pipe:", err)
 		}
-
 	}
 }
