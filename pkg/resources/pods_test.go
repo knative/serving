@@ -150,7 +150,7 @@ func TestPodIPsSortedByAge(t *testing.T) {
 		pods: []*corev1.Pod{
 			pod("ride-the-lightning", makeReady, withStartTime(aTime), withIP("1.9.8.2")),
 			pod("fade-to-black", makeReady, withStartTime(aTime.Add(time.Second)), withIP("1.9.8.4")),
-			pod("battery", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("1.9.8.8")),
+			pod("battery", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("1.9.8.8")),
 		},
 		want: []string{"1.9.8.2", "1.9.8.4", "1.9.8.8"},
 	}, {
@@ -158,18 +158,18 @@ func TestPodIPsSortedByAge(t *testing.T) {
 		pods: []*corev1.Pod{
 			pod("one", makeReady, withStartTime(aTime), withIP("2.0.0.6")),
 			pod("seek-and-destroy", makeReady, withStartTime(aTime.Add(-time.Second)), withIP("2.0.0.3")),
-			pod("metal-militia", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("2.0.0.9")),
+			pod("metal-militia", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("2.0.0.9")),
 		},
 		want: []string{"2.0.0.3", "2.0.0.6", "2.0.0.9"},
 	}, {
 		name: "more than 1 pod, unsorted, preserve order",
 		pods: []*corev1.Pod{
 			pod("nothing-else-matters", makeReady, withStartTime(aTime), withIP("1.2.3.4")),
-			pod("wherever-i-may-roam", makeReady, withStartTime(aTime.Add(-time.Second)), withIP("2.3.4.5")),
-			pod("sad-but-true", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("3.4.5.6")),
-			pod("enter-sandman", makeReady, withStartTime(time.Now()), withIP("1.2.3.5")),
+			pod("wherever-i-may-roam", makeReady, withStartTime(aTime.Add(time.Second)), withIP("2.3.4.5")),
+			pod("sad-but-true", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("3.4.5.6")),
+			pod("enter-sandman", makeReady, withStartTime(aTime.Add(time.Hour)), withIP("1.2.3.5")),
 		},
-		want: []string{"2.3.4.5", "1.2.3.4", "1.2.3.5", "3.4.5.6"},
+		want: []string{"1.2.3.4", "2.3.4.5", "3.4.5.6", "1.2.3.5"},
 	}, {
 		name: "one pod, but can't use",
 		pods: []*corev1.Pod{
