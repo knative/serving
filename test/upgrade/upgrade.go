@@ -19,6 +19,7 @@ package upgrade
 import (
 	"fmt"
 	"net/url"
+	"syscall"
 	"testing"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -72,4 +73,15 @@ func createNewService(serviceName string, t *testing.T) {
 	}
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, names, url, test.PizzaPlanetText1)
+}
+
+// createPipe create a named pipe. It fails the test if any error except
+// already exist happens.
+func createPipe(t *testing.T) {
+	if err := syscall.Mkfifo(pipe, 0666); err != nil {
+		if err.Error() != "file exists" {
+			t.Fatal("Failed to create pipe:", err)
+		}
+
+	}
 }

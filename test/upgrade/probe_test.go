@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"syscall"
 	"testing"
 
 	"knative.dev/serving/test"
@@ -36,23 +35,24 @@ var successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of p
 const pipe = "/tmp/prober-signal"
 
 func TestProbe(t *testing.T) {
+	t.Parallel()
 	// We run the prober as a golang test because it fits in nicely with
 	// the rest of our integration tests, and AssertProberDefault needs
-	// a *testing.T. Unfortunately, "go test" intercepts signals, so we
-	// can't coordinate with the test by just sending e.g. SIGCONT, so we
-	// create a named pipe and wait for the upgrade script to write to it
-	// to signal that we should stop probing.
-	if err := syscall.Mkfifo(pipe, 0666); err != nil {
-		t.Fatal("Failed to create pipe:", err)
-	}
-	defer os.Remove(pipe)
+	// a *testing.T.
+	createPipe(t)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
 		Service: "upgrade-probe",
 		Image:   test.PizzaPlanet1,
 	}
-	defer test.TearDown(clients, &names)
+
+	cleanup := func() {
+		test.TearDown(clients, &names)
+		os.Remove(pipe)
+	}
+	t.Cleanup(cleanup)
+	test.CleanupOnInterrupt(cleanup)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
