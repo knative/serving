@@ -42,6 +42,8 @@ const (
 	scaleToZeroServiceName   = "scale-to-zero-upgrade-service"
 	byoServiceName           = "byo-revision-name-upgrade-test"
 	byoRevName               = byoServiceName + "-" + "rev1"
+
+	pipe = "/tmp/prober-signal"
 )
 
 // Shamelessly cribbed from conformance/service_test.
@@ -77,8 +79,8 @@ func createNewService(serviceName string, t *testing.T) {
 
 // createPipe create a named pipe. It fails the test if any error except
 // already exist happens.
-func createPipe(t *testing.T) {
-	if err := syscall.Mkfifo(pipe, 0666); err != nil {
+func createPipe(name string, t *testing.T) {
+	if err := syscall.Mkfifo(name, 0666); err != nil {
 		if err.Error() != "file exists" {
 			t.Fatal("Failed to create pipe:", err)
 		}

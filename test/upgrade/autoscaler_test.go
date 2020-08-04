@@ -37,13 +37,11 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const scaleToZeroPipe = "/tmp/scale-to-zero-signal"
-
 func TestScaleToZero(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
-	createPipe(t)
+	createPipe(pipe, t)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{

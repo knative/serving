@@ -32,8 +32,6 @@ import (
 
 var successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 
-const pipe = "/tmp/prober-signal"
-
 func TestProbe(t *testing.T) {
 	t.Parallel()
 	// We run the prober as a golang test because it fits in nicely with
@@ -42,7 +40,7 @@ func TestProbe(t *testing.T) {
 	// can't coordinate with the test by just sending e.g. SIGCONT, so we
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
-	createPipe(t)
+	createPipe(pipe, t)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
