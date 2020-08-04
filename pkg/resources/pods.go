@@ -18,6 +18,7 @@ package resources
 
 import (
 	"sort"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -169,4 +170,33 @@ func (pa PodAccessor) PodIPsByAge() ([]string, error) {
 		return nil, err
 	}
 	return ps.get(), nil
+}
+
+type podIPWithCutoffProcessor struct {
+	cutOff  time.Duration
+	now     time.Time
+	older   []string
+	younger []string
+}
+
+func (pp *podIPWithCutoffProcessor) process(p *corev1.Pod) {
+	// If pod is at least as old as cutoff.
+	if pp.now.Sub(p.Status.StartTime.Time) >= pp.cutOff {
+		pp.older = append(pp.older, p.Status.PodIP)
+	} else {
+		pp.younger = append(pp.younger, p.Status.PodIP)
+	}
+}
+
+// PodIPsSplitByAge returns all the ready Pod IPs in two lists: older than cutoff and younger
+// than cutoff.
+func (pa PodAccessor) PodIPsSplitByAge(cutOff time.Duration, now time.Time) (older, younger []string, err error) {
+	pp := podIPWithCutoffProcessor{
+		now:    now,
+		cutOff: cutOff,
+	}
+	if err := pa.ProcessPods(pp.process, podRunning, podReady); err != nil {
+		return nil, nil, err
+	}
+	return pp.older, pp.younger, nil
 }

@@ -125,7 +125,7 @@ func TestPodReadyUnreadyCount(t *testing.T) {
 	}
 }
 
-func TestPodsSortedByAge(t *testing.T) {
+func TestPodIPsSortedByAge(t *testing.T) {
 	aTime := time.Now()
 
 	tests := []struct {
@@ -150,7 +150,7 @@ func TestPodsSortedByAge(t *testing.T) {
 		pods: []*corev1.Pod{
 			pod("ride-the-lightning", makeReady, withStartTime(aTime), withIP("1.9.8.2")),
 			pod("fade-to-black", makeReady, withStartTime(aTime.Add(time.Second)), withIP("1.9.8.4")),
-			pod("battery", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("1.9.8.8")),
+			pod("battery", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("1.9.8.8")),
 		},
 		want: []string{"1.9.8.2", "1.9.8.4", "1.9.8.8"},
 	}, {
@@ -158,18 +158,18 @@ func TestPodsSortedByAge(t *testing.T) {
 		pods: []*corev1.Pod{
 			pod("one", makeReady, withStartTime(aTime), withIP("2.0.0.6")),
 			pod("seek-and-destroy", makeReady, withStartTime(aTime.Add(-time.Second)), withIP("2.0.0.3")),
-			pod("metal-militia", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("2.0.0.9")),
+			pod("metal-militia", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("2.0.0.9")),
 		},
 		want: []string{"2.0.0.3", "2.0.0.6", "2.0.0.9"},
 	}, {
 		name: "more than 1 pod, unsorted, preserve order",
 		pods: []*corev1.Pod{
 			pod("nothing-else-matters", makeReady, withStartTime(aTime), withIP("1.2.3.4")),
-			pod("wherever-i-may-roam", makeReady, withStartTime(aTime.Add(-time.Second)), withIP("2.3.4.5")),
-			pod("sad-but-true", makeReady, withStartTime(time.Now().Add(time.Minute)), withIP("3.4.5.6")),
-			pod("enter-sandman", makeReady, withStartTime(time.Now()), withIP("1.2.3.5")),
+			pod("wherever-i-may-roam", makeReady, withStartTime(aTime.Add(time.Second)), withIP("2.3.4.5")),
+			pod("sad-but-true", makeReady, withStartTime(aTime.Add(time.Minute)), withIP("3.4.5.6")),
+			pod("enter-sandman", makeReady, withStartTime(aTime.Add(time.Hour)), withIP("1.2.3.5")),
 		},
-		want: []string{"2.3.4.5", "1.2.3.4", "1.2.3.5", "3.4.5.6"},
+		want: []string{"1.2.3.4", "2.3.4.5", "3.4.5.6", "1.2.3.5"},
 	}, {
 		name: "one pod, but can't use",
 		pods: []*corev1.Pod{
@@ -352,4 +352,83 @@ func podsInPhases(running, pending, terminating int) []*corev1.Pod {
 		pods = append(pods, phasedPod("pending-pod-"+strconv.Itoa(i), corev1.PodPending))
 	}
 	return pods
+}
+
+func TestPodIPsSplitByAge(t *testing.T) {
+	now := time.Now()
+	const cutOff = time.Minute
+
+	tests := []struct {
+		name    string
+		pods    []*corev1.Pod
+		wantOld []string
+		wantNew []string
+	}{{
+		name: "no pods",
+	}, {
+		name: "one new pod",
+		pods: []*corev1.Pod{
+			pod("let-it-be", makeReady, withStartTime(now.Add(-cutOff+time.Second)), withIP("1.1.1.1")),
+		},
+		wantNew: []string{"1.1.1.1"},
+	}, {
+		name: "one old pod",
+		pods: []*corev1.Pod{
+			pod("i-me-mine", makeReady, withStartTime(now.Add(-cutOff-time.Second)), withIP("1.1.1.1")),
+		},
+		wantOld: []string{"1.1.1.1"},
+	}, {
+		name: "one pod, not ready",
+		pods: []*corev1.Pod{
+			pod("two-of-us", withStartTime(now), withIP("1.1.1.1")),
+		},
+	}, {
+		name: "two old pods, one new",
+		pods: []*corev1.Pod{
+			pod("one-after-909", makeReady, withStartTime(now.Add(-5*time.Second)), withIP("1.9.8.2")),
+			pod("the-long-and-winding-road", makeReady, withStartTime(now.Add(-time.Hour)), withIP("1.9.8.4")),
+			pod("get-back", makeReady, withStartTime(now.Add(-cutOff)), withIP("1.9.8.8")),
+		},
+		wantNew: []string{"1.9.8.2"},
+		wantOld: []string{"1.9.8.4", "1.9.8.8"},
+	}, {
+		name: "one pod, but can't use",
+		pods: []*corev1.Pod{
+			pod("dont-let-me-down", withStartTime(now), withIP("1.1.1.1"), withPhase(corev1.PodPending)),
+		},
+	}, {
+		name: "one pod, but can't use II",
+		pods: []*corev1.Pod{
+			pod("dig-a-pony", withStartTime(now), withIP("1.1.1.1"), withPhase(corev1.PodRunning),
+				func(p *corev1.Pod) {
+					n := metav1.Now()
+					p.DeletionTimestamp = &n // Pod deleted.
+				},
+			),
+		},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+
+			kubeClient := fakek8s.NewSimpleClientset()
+			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
+			for _, p := range tc.pods {
+				kubeClient.CoreV1().Pods(testNamespace).Create(p)
+				podsClient.Informer().GetIndexer().Add(p)
+			}
+			podCounter := NewPodAccessor(podsClient.Lister(), testNamespace, testRevision)
+
+			gotOld, gotNew, err := podCounter.PodIPsSplitByAge(cutOff, now)
+			if err != nil {
+				t.Fatal("PodIPsByAge failed:", err)
+			}
+			if !cmp.Equal(gotOld, tc.wantOld, cmpopts.EquateEmpty()) {
+				t.Error("GotOld wrong answer (-want, +got):\n", cmp.Diff(tc.wantOld, gotOld, cmpopts.EquateEmpty()))
+			}
+			if !cmp.Equal(gotNew, tc.wantNew, cmpopts.EquateEmpty()) {
+				t.Error("GotNew wrong answer (-want, +got):\n", cmp.Diff(tc.wantNew, gotNew, cmpopts.EquateEmpty()))
+			}
+		})
+	}
 }
