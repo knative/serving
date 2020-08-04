@@ -117,9 +117,9 @@ func TestProbeQueueReady(t *testing.T) {
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := 0
+	probed := make(chan struct{})
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		queueProbed++
+		close(probed)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -132,7 +132,9 @@ func TestProbeQueueTimeout(t *testing.T) {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if queueProbed == 0 {
+	select {
+	case <-probed:
+	default:
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
