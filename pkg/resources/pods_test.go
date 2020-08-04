@@ -422,7 +422,7 @@ func TestPodIPsSplitByAge(t *testing.T) {
 
 			gotOld, gotNew, err := podCounter.PodIPsSplitByAge(cutOff, now)
 			if err != nil {
-				t.Fatal("PodIPsByAge failed:", err)
+				t.Fatal("PodIPsSplitByAge failed:", err)
 			}
 
 			// Pod listing is non deterministic so we arbitrarily sort the IPs.

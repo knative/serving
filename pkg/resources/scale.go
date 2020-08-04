@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// ScaleResourceArguments returns GroupResource and the resource name.
-func ScaleResourceArguments(ref corev1.ObjectReference) (*schema.GroupVersionResource, string, error) {
+// ScaleResourceArguments returns the GroupVersionResource and resource name from an ObjectReference.
+func ScaleResourceArguments(ref corev1.ObjectReference) (gvr *schema.GroupVersionResource, name string, err error) {
 	gv, err := schema.ParseGroupVersion(ref.APIVersion)
 	if err != nil {
 		return nil, "", err
