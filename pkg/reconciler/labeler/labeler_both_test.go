@@ -72,7 +72,7 @@ func TestV2ReconcileAllowed(t *testing.T) {
 			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change"),
 
 			// v2 sync
-			patchRemoveRouteAnn("default", rev("default", "old-config").Name),
+			patchRemoveRouteAndServingStateLabel("default", rev("default", "old-config").Name, now.Time),
 			patchAddRouteAndServingStateLabel(
 				"default", rev("default", "new-config").Name, "config-change", now.Time),
 			patchAddRouteAnn("default", "new-config", "config-change"),
