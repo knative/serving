@@ -71,10 +71,6 @@ func Collect(
 		return a.Before(b)
 	})
 
-	if len(revs) <= min {
-		return nil
-	}
-
 	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
 	swap := len(revs)
 	for i := 0; i < swap; {
