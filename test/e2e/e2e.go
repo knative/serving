@@ -62,7 +62,10 @@ func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	t.Helper()
 	pkgTest.SetupLoggingFlags()
-	t.Cleanup(logstream.Start(t))
+
+	cancel := logstream.Start(t)
+	t.Cleanup(cancel)
+
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,

@@ -63,7 +63,9 @@ const (
 // Setup creates client to run Knative Service requests
 func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
-	t.Cleanup(logstream.Start(t))
+
+	cancel := logstream.Start(t)
+	t.Cleanup(cancel)
 
 	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
 	if err != nil {
