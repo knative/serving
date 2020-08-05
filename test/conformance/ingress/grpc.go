@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
@@ -38,7 +37,6 @@ import (
 // TestGRPC verifies that GRPC may be used via a simple Ingress.
 func TestGRPC(t *testing.T) {
 	t.Parallel()
-	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	const suffix = "- pong"
@@ -96,7 +94,6 @@ func TestGRPC(t *testing.T) {
 // TestGRPCSplit verifies that websockets may be used across a traffic split.
 func TestGRPCSplit(t *testing.T) {
 	t.Parallel()
-	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	const suffixBlue = "- blue"

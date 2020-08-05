@@ -33,7 +33,6 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -41,9 +40,7 @@ import (
 )
 
 func TestRequestLogs(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
-
+	t.Parallel()
 	clients := Setup(t)
 
 	names := test.ResourceNames{

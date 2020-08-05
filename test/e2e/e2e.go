@@ -34,6 +34,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	presources "knative.dev/serving/pkg/resources"
 	"knative.dev/serving/test"
@@ -59,7 +60,9 @@ func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
 
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
+	t.Helper()
 	pkgTest.SetupLoggingFlags()
+	t.Cleanup(logstream.Start(t))
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,
