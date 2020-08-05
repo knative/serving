@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/test/logstream"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -31,8 +30,6 @@ import (
 )
 
 func TestProbeRuntime(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := test.Setup(t)
 

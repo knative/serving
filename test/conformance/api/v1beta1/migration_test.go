@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"knative.dev/pkg/test/logstream"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -34,9 +33,6 @@ import (
 
 func TestTranslation(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
-
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
@@ -77,9 +73,6 @@ func TestTranslation(t *testing.T) {
 
 func TestV1beta1Rejection(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
-
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{

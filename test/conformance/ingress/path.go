@@ -26,14 +26,12 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/pool"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 )
 
 // TestPath verifies that an Ingress properly dispatches to backends based on the path of the URL.
 func TestPath(t *testing.T) {
 	t.Parallel()
-	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	// For /foo
@@ -149,7 +147,6 @@ func TestPath(t *testing.T) {
 
 func TestPathAndPercentageSplit(t *testing.T) {
 	t.Parallel()
-	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	fooName, fooPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)

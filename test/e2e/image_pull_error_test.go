@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -31,8 +30,6 @@ import (
 
 func TestImagePullError(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{
