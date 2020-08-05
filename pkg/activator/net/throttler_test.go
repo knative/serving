@@ -22,7 +22,6 @@ import (
 	"math"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -85,12 +84,12 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	if got, want := rt.breaker.Capacity(), 100*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 5
+	rt.numActivators.Store(5)
 	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 10*10/5; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 200
+	rt.numActivators.Store(200)
 	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -119,7 +118,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
-	rt.numActivators = 200
+	rt.numActivators.Store(200)
 	rt.updateCapacity(1)
 	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -132,14 +131,14 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	// shouldn't really happen since revisionMaxConcurrency is very, very large,
 	// but check that we behave reasonably if it's exceeded.
 	capacity := rt.calculateCapacity(revisionMaxConcurrency+5, 1)
-	if got, want := capacity, revisionMaxConcurrency; got != want {
+	if got, want := capacity, queue.MaxBreakerCapacity; got != want {
 		t.Errorf("calculateCapacity = %d, want: %d", got, want)
 	}
 
 	// Now test with podIP trackers in tow.
 	// Simple case.
-	rt.numActivators = 1
-	rt.activatorIndex = 0
+	rt.numActivators.Store(1)
+	rt.activatorIndex.Store(0)
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
 	rt.breaker = queue.NewBreaker(testBreakerParams)
@@ -157,7 +156,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 2 activators.
-	rt.numActivators = 2
+	rt.numActivators.Store(2)
 	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -171,14 +170,14 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 3 pods, index 1.
-	rt.activatorIndex = 1
+	rt.activatorIndex.Store(1)
 	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// Infinite capacity with podIP trackers.
-	rt.activatorIndex = 1
+	rt.activatorIndex.Store(1)
 	rt.containerConcurrency = 0
 	rt.breaker = newInfiniteBreaker(logger)
 	rt.podTrackers = makeTrackers(3, 0)
@@ -458,7 +457,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				wantCapacity = dests * int(*cc)
 			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity, nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
@@ -508,8 +507,8 @@ func TestPodAssignmentFinite(t *testing.T) {
 
 	throttler := newTestThrottler(ctx)
 	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
-	rt.numActivators = 4
-	rt.activatorIndex = 0
+	rt.numActivators.Store(4)
+	rt.activatorIndex.Store(0)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -669,10 +668,10 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 
-	if got, want := atomic.LoadInt32(&rt.numActivators), int32(2); got != want {
+	if got, want := rt.numActivators.Load(), int32(2); got != want {
 		t.Fatalf("numActivators = %d, want %d", got, want)
 	}
-	if got, want := atomic.LoadInt32(&rt.activatorIndex), int32(1); got != want {
+	if got, want := rt.activatorIndex.Load(), int32(1); got != want {
 		t.Fatalf("activatorIndex = %d, want %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), 2; got != want {
@@ -688,8 +687,8 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	// Verify the index was computed.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.numActivators) == 1 &&
-			atomic.LoadInt32(&rt.activatorIndex) == 0, nil
+		return rt.numActivators.Load() == 1 &&
+			rt.activatorIndex.Load() == 0, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
 	}
@@ -764,7 +763,7 @@ func TestMultipleActivators(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", atomic.LoadInt32(&rt.activatorIndex))
+	t.Logf("This activator idx = %d", rt.activatorIndex.Load())
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
