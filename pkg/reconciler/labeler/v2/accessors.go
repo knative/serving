@@ -38,7 +38,7 @@ import (
 type Accessor interface {
 	list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error)
 	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error)
+	makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -118,7 +118,7 @@ func markRoutingState(
 // or removes the annotation if routeName is nil.
 // Returns true if the entire annotation is newly added or removed, which signifies a state change.
 func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) {
-	valSet := getListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
+	valSet := GetListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
 	has := valSet.Has(routeName)
 	switch {
 	case has && remove:
@@ -144,7 +144,7 @@ func (r *Revision) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Ac
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		r := m.(*v1.Revision)
-		if getListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+		if GetListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, r)
 		}
 	}
@@ -164,12 +164,12 @@ func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	rev, err := r.lister.Revisions(ns).Get(name)
+func (r *Revision) makeMetadataPatch(route *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	rev, err := r.lister.Revisions(route.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, remove, r.clock)
+	return makeMetadataPatch(rev, route.Name, true /*addRoutingState*/, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
@@ -205,7 +205,7 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		c := m.(*v1.Configuration)
-		if getListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+		if GetListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
 			kl = append(kl, c)
 		}
 	}
@@ -216,9 +216,9 @@ func (c *Configuration) list(ns, routeName string, state v1.RoutingState) ([]kme
 	return kl, nil
 }
 
-// getListAnnValue finds a given value in a comma-separated annotation.
+// GetListAnnValue finds a given value in a comma-separated annotation.
 // returns the entire annotation value and true if found.
-func getListAnnValue(annotations map[string]string, key string) sets.String {
+func GetListAnnValue(annotations map[string]string, key string) sets.String {
 	l := annotations[key]
 	if l == "" {
 		return sets.String{}
@@ -232,10 +232,10 @@ func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) err
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name, routeName string, remove bool) (map[string]interface{}, error) {
-	config, err := c.lister.Configurations(ns).Get(name)
+func (c *Configuration) makeMetadataPatch(r *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	config, err := c.lister.Configurations(r.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, remove, c.clock)
+	return makeMetadataPatch(config, r.Name, false /*addRoutingState*/, remove, c.clock)
 }

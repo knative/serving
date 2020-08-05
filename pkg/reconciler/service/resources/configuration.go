@@ -26,6 +26,7 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
@@ -47,11 +48,11 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	}
 
 	if gc == cfgmap.Enabled || gc == cfgmap.Allowed {
-		if val, has := existing.Annotations[serving.RoutesAnnotationKey]; has && strings.Contains(val, routeName) {
-			anns[serving.RoutesAnnotationKey] = val
-		} else {
-			anns[serving.RoutesAnnotationKey] = routeName
+		set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
+		if !set.Has(routeName) {
+			set.Insert(routeName)
 		}
+		anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
 	}
 
 	return &v1.Configuration{

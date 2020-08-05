@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"

@@ -46,7 +46,7 @@ func Collect(
 
 	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
-		return nil
+		return nil // all deletion settings are disabled
 	}
 
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
@@ -54,13 +54,16 @@ func Collect(
 	if err != nil {
 		return err
 	}
-
 	if len(revs) <= min {
-		return nil
+		return nil // not enough total revs
 	}
 
 	// Filter out active revs
 	revs = nonactiveRevisions(revs, config)
+
+	if len(revs) <= min {
+		return nil // not enough non-active revs
+	}
 
 	// Sort by last active ascending (oldest first)
 	sort.Slice(revs, func(i, j int) bool {

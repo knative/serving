@@ -236,6 +236,9 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 		return config, nil
 	}
 
+	logger := logging.FromContext(ctx)
+	logger.Warnf("Service-delegated Configuration %q diff found. Clobbering.", existing.Name)
+
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
 	existing.Labels = desiredConfig.Labels
