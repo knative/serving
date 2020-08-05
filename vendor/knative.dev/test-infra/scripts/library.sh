@@ -391,43 +391,45 @@ function mktemp_with_extension() {
 #             $2 - check name as an identifier (e.g., GoBuild)
 #             $3 - failure message (can contain newlines), optional (means success)
 function create_junit_xml() {
-  local xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  local xml
+  xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  echo "JUnit file ${xml} is created for reporting the test result"
   run_kntest junit --suite="$1" --name="$2" --err-msg="$3" --dest="${xml}" || return 1
 }
 
 # Runs a go test and generate a junit summary.
 # Parameters: $1... - parameters to go test
 function report_go_test() {
-  # Run tests in verbose mode to capture details.
-  # go doesn't like repeating -v, so remove if passed.
-  local args=" $@ "
-  local go_test="go test -v ${args/ -v / }"
-  # Just run regular go tests if not on Prow.
-  echo "Running tests with '${go_test}'"
-  local report="$(mktemp)"
-  capture_output "${report}" ${go_test}
+  local go_test_args=( "$@" )
+  # Install gotestsum if necessary.
+  run_go_tool gotest.tools/gotestsum gotestsum --help > /dev/null 2>&1
+  # Capture the test output to the report file.
+  local report
+  report="$(mktemp)"
+  local xml
+  xml="$(mktemp_with_extension "${ARTIFACTS}"/junit_XXXXXXXX xml)"
+  echo "Running go test with args: ${go_test_args[*]}"
+  # TODO(chizhg): change to `--format testname`?
+  capture_output "${report}" gotestsum --format standard-verbose \
+    --junitfile "${xml}" --junitfile-testsuite-name relative --junitfile-testcase-classname relative \
+    -- "${go_test_args[@]}"
   local failed=$?
   echo "Finished run, return code is ${failed}"
-  # Install go-junit-report if necessary.
-  run_go_tool github.com/jstemmer/go-junit-report go-junit-report --help > /dev/null 2>&1
-  local xml="$(mktemp_with_extension ${ARTIFACTS}/junit_XXXXXXXX xml)"
-  cat ${report} \
-      | go-junit-report \
-      | sed -e "s#\"\(github\.com/knative\|knative\.dev\)/${REPO_NAME}/#\"#g" \
-      > ${xml}
+
   echo "XML report written to ${xml}"
-  if [[ -n "$(grep '<testsuites></testsuites>' ${xml})" ]]; then
+  if [[ -n "$(grep '<testsuites></testsuites>' "${xml}")" ]]; then
     # XML report is empty, something's wrong; use the output as failure reason
-    create_junit_xml _go_tests "GoTests" "$(cat ${report})"
+    create_junit_xml _go_tests "GoTests" "$(cat "${report}")"
   fi
   # Capture and report any race condition errors
-  local race_errors="$(sed -n '/^WARNING: DATA RACE$/,/^==================$/p' ${report})"
+  local race_errors
+  race_errors="$(sed -n '/^WARNING: DATA RACE$/,/^==================$/p' "${report}")"
   create_junit_xml _go_tests "DataRaceAnalysis" "${race_errors}"
   if (( ! IS_PROW )); then
     # Keep the suffix, so files are related.
     local logfile=${xml/junit_/go_test_}
     logfile=${logfile/.xml/.log}
-    cp ${report} ${logfile}
+    cp "${report}" "${logfile}"
     echo "Test log written to ${logfile}"
   fi
   return ${failed}
@@ -553,16 +555,13 @@ function run_go_tool() {
 function run_kntest() {
   # If the current repo is test-infra, run kntest from source.
   if [[ "${REPO_NAME}" == "test-infra" ]]; then
-    # Each parameter can possibly be in the format of "--xxx yyy", using $@ can automatically split them into multiple positional arguments for the command.
-    # shellcheck disable=SC2068
-    go run "${REPO_ROOT_DIR}"/kntest/cmd/kntest $@
+    go run "${REPO_ROOT_DIR}"/kntest/cmd/kntest "$@"
   # Otherwise kntest must be installed.
   else
     if [[ ! -x "$(command -v kntest)" ]]; then
       echo "--- FAIL: kntest not installed, please clone test-infra repo and run \`go install ./kntest/cmd/kntest\` to install it"; return 1;
     fi
-    # shellcheck disable=SC2068
-    kntest $@
+    kntest "$@"
   fi
 }
 

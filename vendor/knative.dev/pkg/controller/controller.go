@@ -205,20 +205,40 @@ type Impl struct {
 	statsReporter StatsReporter
 }
 
+// ControllerOptions encapsulates options for creating a new controller,
+// including throttling and stats behavior.
+type ControllerOptions struct {
+	WorkQueueName string
+	Logger        *zap.SugaredLogger
+	Reporter      StatsReporter
+	RateLimiter   workqueue.RateLimiter
+}
+
 // NewImpl instantiates an instance of our controller that will feed work to the
 // provided Reconciler as it is enqueued.
 func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
-	return NewImplWithStats(r, logger, workQueueName, MustNewStatsReporter(workQueueName, logger))
+	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger})
 }
 
 func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
-	logger = logger.Named(workQueueName)
+	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger, Reporter: reporter})
+}
+
+// NewImplFull accepts the full set of options available to all controllers.
+func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
+	logger := options.Logger.Named(options.WorkQueueName)
+	if options.RateLimiter == nil {
+		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
+	}
+	if options.Reporter == nil {
+		options.Reporter = MustNewStatsReporter(options.WorkQueueName, options.Logger)
+	}
 	return &Impl{
-		Name:          workQueueName,
+		Name:          options.WorkQueueName,
 		Reconciler:    r,
-		workQueue:     newTwoLaneWorkQueue(workQueueName),
+		workQueue:     newTwoLaneWorkQueue(options.WorkQueueName, options.RateLimiter),
 		logger:        logger,
-		statsReporter: reporter,
+		statsReporter: options.Reporter,
 	}
 }
 

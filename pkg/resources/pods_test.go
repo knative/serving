@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -423,6 +424,11 @@ func TestPodIPsSplitByAge(t *testing.T) {
 			if err != nil {
 				t.Fatal("PodIPsByAge failed:", err)
 			}
+
+			// Pod listing is non deterministic so we arbitrarily sort the IPs.
+			sort.Strings(gotOld)
+			sort.Strings(gotNew)
+
 			if !cmp.Equal(gotOld, tc.wantOld, cmpopts.EquateEmpty()) {
 				t.Error("GotOld wrong answer (-want, +got):\n", cmp.Diff(tc.wantOld, gotOld, cmpopts.EquateEmpty()))
 			}
