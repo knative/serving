@@ -81,9 +81,9 @@ func WithServiceObservedGenFailure(s *v1.Service) {
 }
 
 // WithConfigSpec confgures the Service to use the given config spec
-func WithConfigSpec(config v1.ConfigurationSpec) ServiceOption {
+func WithConfigSpec(config *v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1.Service) {
-		svc.Spec.ConfigurationSpec = config
+		svc.Spec.ConfigurationSpec = *config
 	}
 }
 

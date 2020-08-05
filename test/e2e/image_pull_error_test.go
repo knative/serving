@@ -99,7 +99,7 @@ func TestImagePullError(t *testing.T) {
 // Wrote our own thing so that we can pass in an image by digest.
 // knative/pkg/test.ImagePath currently assumes there's a tag, which fails to parse.
 func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1.Service, error) {
-	opt := rtesting.WithConfigSpec(*v1test.ConfigurationSpec(names.Image))
+	opt := rtesting.WithConfigSpec(v1test.ConfigurationSpec(names.Image))
 	service := rtesting.ServiceWithoutNamespace(names.Service, opt)
 	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
