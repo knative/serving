@@ -80,7 +80,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 				t.Errorf("ReadyCount() = %d, wantReady: %d", got, test.wantReady)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+				t.Errorf("ReadyCount() wantErr = %v, want: %v, err: %v", got, want, err)
 			}
 
 			got, err = addressCounter.NotReadyCount()
@@ -88,7 +88,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 				t.Errorf("NotReadyCount() = %d, wantNotReady: %d", got, test.wantNotReady)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+				t.Errorf("NotReadyCount() wantErr = %v, want: %v, err: %v", got, want, err)
 			}
 		})
 	}

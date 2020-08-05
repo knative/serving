@@ -71,18 +71,18 @@ func TestScaleResource(t *testing.T) {
 			gvr, name, err := ScaleResourceArguments(tc.objectRef)
 
 			if !cmp.Equal(gvr, tc.wantGVR) {
-				t.Errorf("ScaleResource() = %v, want: %v, diff: %s", gvr, tc.wantGVR, cmp.Diff(gvr, tc.wantGVR))
+				t.Errorf("ScaleResourceArguments() = %v, want: %v, diff: %s", gvr, tc.wantGVR, cmp.Diff(gvr, tc.wantGVR))
 			}
 
 			if name != tc.wantName {
-				t.Errorf("ScaleResource() = %s, want %s", name, tc.wantName)
+				t.Errorf("ScaleResourceArguments() = %s, want %s", name, tc.wantName)
 			}
 
 			if err == nil && tc.wantErr {
-				t.Error("ScaleResource() didn't return an error")
+				t.Error("ScaleResourceArguments() didn't return an error")
 			}
 			if err != nil && !tc.wantErr {
-				t.Errorf("ScaleResource() = %v, want no error", err)
+				t.Errorf("ScaleResourceArguments() = %v, want no error", err)
 			}
 		})
 	}
@@ -101,13 +101,13 @@ func TestGetScaleResource(t *testing.T) {
 	}
 	scale, err := GetScaleResource(testNamespace, objectRef, psInformerFactory)
 	if err != nil {
-		t.Fatal("GetScale got error =", err)
+		t.Fatal("GetScaleResource() got error =", err)
 	}
 	if got, want := scale.Status.Replicas, int32(5); got != want {
-		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
+		t.Errorf("GetScaleResource().Status.Replicas = %d, want: %d", got, want)
 	}
 	if got, want := scale.Spec.Selector.MatchLabels[serving.RevisionUID], "1982"; got != want {
-		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
+		t.Errorf("GetScaleResource().Status.Selector = %q, want = %q", got, want)
 	}
 }
 
