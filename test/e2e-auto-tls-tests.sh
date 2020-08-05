@@ -81,8 +81,8 @@ function cleanup_auto_tls_common() {
 function setup_http01_auto_tls() {
     # The name of the test.
   export AUTO_TLS_TEST_NAME="HTTP01"
-  # The name of the Knative Service deployed in Auto TLS E2E test.
-  export TLS_SERVICE_NAME="http01"
+  # Rely on the built-in naming (for logstream)
+  unset TLS_SERVICE_NAME
   # The full host name of the Knative Service. This is used to configure the DNS record.
   export FULL_HOST_NAME="*.serving-tests.${CUSTOM_DOMAIN_SUFFIX}"
 
