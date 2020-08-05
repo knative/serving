@@ -17,6 +17,11 @@ limitations under the License.
 package test
 
 import (
+	// For our e2e testing, we want this linked first so that our
+	// systen namespace environment variable is defaulted prior to
+	// logstream initialization.
+	_ "knative.dev/serving/test/defaultsystem"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 
