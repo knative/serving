@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,153 +47,101 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		atomic.AddInt64(&probed, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	err = probeQueueHealthPath(time.Second, port)
+	err := probeQueueHealthPath(time.Second, port)
 
 	if err == nil || err.Error() != "probe returned not ready" {
 		t.Error("Unexpected not ready error:", err)
 	}
 
-	if queueProbed == 0 {
+	if atomic.LoadInt64(&probed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeShuttingDown(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		atomic.AddInt64(&probed, 1)
 		w.WriteHeader(http.StatusGone)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	err = probeQueueHealthPath(time.Second, port)
+	err := probeQueueHealthPath(time.Second, port)
 
 	if err == nil || err.Error() != "failed to probe: failing probe deliberately for shutdown" {
 		t.Error("Unexpected error:", err)
 	}
 
-	if queueProbed == 0 {
+	if atomic.LoadInt64(&probed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
 		w.WriteHeader(http.StatusGone)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
 	start := time.Now()
-	if err = probeQueueHealthPath(1, port); err == nil {
+	if err := probeQueueHealthPath(1, port); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
-	// if fails due to timeout and not cancelation, then it took too long
+	// if fails due to timeout and not cancelation, then it took too long.
 	if time.Since(start) >= 1*time.Second {
 		t.Error("took too long to fail")
 	}
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		atomic.AddInt64(&probed, 1)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, u.Port())
+	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
 	if rv := standaloneProbeMain(0 /*use default*/); rv != 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if queueProbed == 0 {
+	if atomic.LoadInt64(&probed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		atomic.AddInt64(&probed, 1)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, u.Port())
+	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
 	const timeout = time.Second
 	if rv := standaloneProbeMain(timeout); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	ts.Close()
-
-	if queueProbed == 0 {
+	if atomic.LoadInt64(&probed) == 0 {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		count++
+	var count int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		count := atomic.AddInt64(&count, 1)
 		if count < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -200,27 +149,28 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
+	if err := probeQueueHealthPath(readiness.PollTimeout, port); err != nil {
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+}
+
+func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter)) (port int) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
+			f(w)
+		}
+	}))
+	t.Cleanup(ts.Close)
 
 	u, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	port, err := strconv.Atoi(u.Port())
+	port, err = strconv.Atoi(u.Port())
 	if err != nil {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err := probeQueueHealthPath(readiness.PollTimeout, port); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
-	}
-}
-
-func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
-			f(w)
-		}
-	}))
+	return port
 }
