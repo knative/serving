@@ -209,6 +209,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":      "admin",
 					"serving.knative.dev/lastModifier": "someone",
+					serving.RoutesAnnotationKey:        "route",
 				},
 				Generation: 10,
 			},
@@ -230,6 +231,7 @@ func TestMakeRevisions(t *testing.T) {
 				GenerateName: "config-",
 				Annotations: map[string]string{
 					"serving.knative.dev/creator": "someone",
+					serving.RoutesAnnotationKey:   "route",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -242,6 +244,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "active",
 				},
 			},
 			Spec: v1.RevisionSpec{
