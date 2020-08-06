@@ -182,6 +182,19 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 	case corev1.ConditionUnknown:
 		rs.MarkActiveUnknown(cond.Reason, cond.Message)
 	case corev1.ConditionFalse:
+		// Here we have 2 things coming together at the same time:
+		// 1. The ready is False, meaning the revision is scaled to 0
+		// 2. Initial scale was never achieved, which means we failed to progress
+		//    towards initial scale during the progress deadline period and scaled to 0
+		//		failing to activate.
+		// So mark the revision as failed at that point.
+		// See #8922 for details. When we try to scale to 0, we force the Deployment's
+		// Progress status to become `true`, since successful scale down means
+		// progress has been achieved.
+		if !ps.IsScaleTargetInitialized() {
+			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
+				"Initial scale was never achieved")
+		}
 		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
 		rs.MarkActiveTrue()

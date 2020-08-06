@@ -575,6 +575,31 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
 }
 
+func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// PodAutoscaler is not ready and initial scale was never attained.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
+	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
+	cond := r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got != want {
+		t.Errorf("Reason = %q, want: %q", got, want)
+	}
+}
+
 func TestPropagateAutoscalerStatusRace(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()

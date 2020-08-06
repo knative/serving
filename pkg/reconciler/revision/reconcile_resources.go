@@ -175,7 +175,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
 	for _, cond := range deployment.Status.Conditions {
-		// Look for Deployment with status False
+		// Look for a condition with status False
 		if cond.Status != corev1.ConditionFalse {
 			continue
 		}
