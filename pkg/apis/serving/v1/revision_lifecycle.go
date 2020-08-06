@@ -191,7 +191,8 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 		// See #8922 for details. When we try to scale to 0, we force the Deployment's
 		// Progress status to become `true`, since successful scale down means
 		// progress has been achieved.
-		if !ps.IsScaleTargetInitialized() {
+		// If the ResourcesAvailable is already false, don't override the message.
+		if !ps.IsScaleTargetInitialized() && !rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse() {
 			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
 				"Initial scale was never achieved")
 		}
