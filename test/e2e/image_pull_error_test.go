@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -51,17 +52,18 @@ func TestImagePullError(t *testing.T) {
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
+	const wantSvcReason = "RevisionFailed"
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
 		cond := r.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if cond.Reason == "RevisionFailed" {
+				if cond.Reason == wantSvcReason {
 					return true, nil
 				}
 			}
-			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the service %s was not marked with expected error condition, but with (Reason=%q, Message=%q, Status=%q)",
-				names.Service, cond.Reason, cond.Message, cond.Status)
+			t.Logf("Reason: %q; Message: %q; Status: %q", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("the KService %s ReadyCondition = (Reason=%q, Message=%q, Status=%q), wantReason: %q",
+				names.Service, cond.Reason, cond.Message, cond.Status, wantSvcReason)
 		}
 		return false, nil
 	}, "ContainerUnpullable")
@@ -76,19 +78,18 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+	wantRevReasons := sets.NewString("ImagePullBackOff", "ErrImagePull")
+	if err := v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
-			if cond.Reason == "ImagePullBackOff" || cond.Reason == "ErrImagePull" {
+			if wantRevReasons.Has(cond.Reason) {
 				return true, nil
 			}
-			return true, fmt.Errorf("the revision %s was not marked with expected error condition, but with (Reason=%q, Message=%q)",
-				revisionName, cond.Reason, cond.Message)
+			return true, fmt.Errorf("the Revision %s ReadyCondition = (Reason=%q, Message=%q), wantReasons: %v",
+				revisionName, cond.Reason, cond.Message, wantRevReasons.UnsortedList())
 		}
 		return false, nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
 }

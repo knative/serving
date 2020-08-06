@@ -80,6 +80,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 			return nil
 		}
 	} else {
+		logger.Debugf("Configuration Conditions = %#v", config.Status.Conditions)
 		// Update our Status based on the state of our underlying Configuration.
 		service.Status.PropagateConfigurationStatus(&config.Status)
 	}

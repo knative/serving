@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -159,7 +160,8 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
-		logger.Infof("PA %s needs reconciliation", pa.Name)
+		diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
+		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
@@ -168,6 +170,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		}
 	}
 
+	logger.Debugf("PA.Status=%#v", pa.Status)
 	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
 }
