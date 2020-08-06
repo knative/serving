@@ -186,41 +186,31 @@ function install_knative_serving() {
 }
 
 function install_istio() {
-  # If no gateway was set on command line, assume Istio
   if [[ -z "${ISTIO_VERSION}" ]]; then
-    echo ">> No gateway set up on command line, using Istio"
-    readonly ISTIO_VERSION="1.4-latest"
+    readonly ISTIO_VERSION="istio-stable"
   fi
 
-  local istio_base="./third_party/istio-${ISTIO_VERSION}"
-  INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
+  local NET_ISTIO_DIR=$(mktemp -d)
+  git clone --quiet https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
+
   if (( MESH )); then
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml"
+    ISTIO_PROFILE="istio-ci-mesh.yaml"
   else
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
+    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
   fi
 
-  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
-  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+  echo ">> Installing Istio"
+  echo "Istio version: ${ISTIO_VERSION}"
+  echo "Istio profile: ${ISTIO_PROFILE}"
+  ${NET_ISTIO_DIR}/third_party/${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
-  echo ">> Bringing up Istio"
-  echo ">> Running Istio CRD installer"
-  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
-  wait_until_batch_job_complete istio-system || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_CRD_YAML}" )
-
-  echo ">> Running Istio"
-  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_YAML}" )
-
-  # If the yaml for the Istio Ingress controller is passed, then install it.
   if [[ -n "$1" ]]; then
-    echo ">> Installing Istio Ingress"
-    echo "Istio Ingress YAML: ${1}"
+    echo ">> Installing net-istio"
+    echo "net-istio original YAML: ${1}"
     # Create temp copy in which we replace knative-serving by the test's system namespace.
     local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
-    echo "Istio Ingress YAML: $YAML_NAME"
+    echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
