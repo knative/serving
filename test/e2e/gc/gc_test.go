@@ -27,6 +27,7 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -74,12 +75,20 @@ func TestRevisionGC(t *testing.T) {
 		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
 	}
 
-	time.Sleep(5 * time.Second)
+	// Poll for a minute to see not_found on the original revision.
+	var originalRevision *v1.Revision
+	for retry := 0; retry < 12; retry++ {
+		originalRevision, err = clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			// GC cleared the revision. Success!
+			return
+		}
+		time.Sleep(5 * time.Second)
+	}
 
-	originalRevision, err := clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Fatalf("Got %q, expected not_found", err)
-	} else if err == nil {
+	if err == nil {
 		t.Fatalf("Got revision %v, expected not_found", originalRevision)
+	} else {
+		t.Fatalf("Got %q, expected not_found", err)
 	}
 }
