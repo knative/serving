@@ -618,7 +618,7 @@ func timeoutDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment
 	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
 		Type:    appsv1.DeploymentProgressing,
 		Status:  corev1.ConditionFalse,
-		Reason:  "ProgressDeadlineExceeded",
+		Reason:  v1.ReasonProgressDeadlineExceeded,
 		Message: message,
 	}}
 	return deploy
