@@ -44,13 +44,6 @@ func NewPodAccessor(lister corev1listers.PodLister, namespace, revisionName stri
 	}
 }
 
-// PendingTerminatingCount returns the number of pods in a Pending or
-// Terminating state
-func (pa PodAccessor) PendingTerminatingCount() (int, int, error) {
-	_, _, p, t, err := pa.PodCountsByState()
-	return p, t, err
-}
-
 // PodCountsByState returns number of pods for the revision grouped by their state, that is
 // of interest to knative (e.g. ignoring failed or terminated pods).
 func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating int, err error) {

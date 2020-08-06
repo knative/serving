@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -37,8 +36,6 @@ import (
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := SetupServingNamespaceforSecurityTesting(t)
 

@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -41,8 +40,6 @@ const targetHostEnv = "TARGET_HOST"
 // to deny access from serving-tests-security ns to cluster-local-gateway.
 func TestClusterLocalAuthorization(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := e2e.SetupServingNamespaceforSecurityTesting(t)
 

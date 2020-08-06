@@ -21,11 +21,13 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -173,13 +175,12 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
 	for _, cond := range deployment.Status.Conditions {
-		// Look for Deployment with status False
+		// Look for a condition with status False
 		if cond.Status != corev1.ConditionFalse {
 			continue
 		}
 		// with Type Progressing and Reason Timeout
-		// TODO(arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
-		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
+		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == v1.ReasonProgressDeadlineExceeded {
 			return true
 		}
 	}

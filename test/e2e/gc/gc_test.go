@@ -21,7 +21,6 @@ package gc
 import (
 	"testing"
 
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -32,8 +31,6 @@ import (
 // and assert deletion of old revisions.
 func TestRevisionGC(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := e2e.Setup(t)
 
