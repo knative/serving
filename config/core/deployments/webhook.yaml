@@ -33,6 +33,17 @@ spec:
         role: webhook
         serving.knative.dev/release: devel
     spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: webhook
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+
       serviceAccountName: controller
       containers:
       - name: webhook
