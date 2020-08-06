@@ -68,6 +68,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			LoggingURLTemplate:     "https://logging.io",
 			EnableVarLogCollection: true,
 			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
+			EnableRequestLog:       true,
 			EnableProbeRequestLog:  true,
 			RequestMetricsBackend:  "stackdriver",
 		},
