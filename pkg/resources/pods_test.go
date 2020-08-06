@@ -226,7 +226,7 @@ func TestPodIPsSortedByAge(t *testing.T) {
 	}
 }
 
-func TestScopedPodsCounter(t *testing.T) {
+func TestPendingTerminatingCounts(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 	createPods := func(pods []*corev1.Pod) {
@@ -269,7 +269,7 @@ func TestScopedPodsCounter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			createPods(test.pods)
 
-			pending, terminating, err := podCounter.PendingTerminatingCount()
+			_, _, pending, terminating, err := podCounter.PodCountsByState()
 			if got, want := (err != nil), test.wantErr; got != want {
 				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
 			}
