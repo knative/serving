@@ -653,9 +653,7 @@ function immediate_gc() {
       `'"min-non-active-revisions":"0",'`
       `'"max-non-active-revisions":"0"'`
       `"}}"
-  echo "Data is" "${DATA}"
   kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
-  # We don't have a good mechanism for positive handoff so sleep :(
   echo "Waiting 10s for change to get picked up."
   sleep 10
 }
@@ -669,7 +667,6 @@ function default_gc() {
       `'"max-non-active-revisions":"1000"'`
       `"}}"
   kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
-  # We don't have a good mechanism for positive handoff so sleep :(
   echo "Waiting 10s for change to get picked up."
   sleep 10
 }
