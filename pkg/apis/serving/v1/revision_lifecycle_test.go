@@ -588,7 +588,7 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 				Status: corev1.ConditionFalse,
 			}, {
 				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
-				Status: corev1.ConditionFalse,
+				Status: corev1.ConditionUnknown,
 			}},
 		},
 	})
