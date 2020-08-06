@@ -37,6 +37,7 @@ import (
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -159,6 +160,8 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	ctx = leaderelection.WithDynamicLeaderElectorBuilder(
+		ctx, kubeClient, leaderelection.ComponentConfig{Buckets: 3, SharedReconcilerCount: len(controllers)})
 	go controller.StartAll(ctx, controllers...)
 
 	go func() {

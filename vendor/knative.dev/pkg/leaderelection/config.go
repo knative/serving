@@ -33,9 +33,8 @@ import (
 )
 
 const (
-	configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
-	// KnativeResourceLock is the only supported lock mechanism for Knative.
-	KnativeResourceLock = resourcelock.LeasesResourceLock
+	configMapNameEnv           = "CONFIG_LEADERELECTION_NAME"
+	defaultKnativeResourceLock = resourcelock.LeasesResourceLock
 )
 
 // MaxBuckets is the maximum number of buckets to allow users to define.
@@ -107,11 +106,12 @@ func defaultConfig() *Config {
 
 // ComponentConfig represents the leader election config for a single component.
 type ComponentConfig struct {
-	Component     string
-	Buckets       uint32
-	LeaseDuration time.Duration
-	RenewDeadline time.Duration
-	RetryPeriod   time.Duration
+	Component             string
+	Buckets               uint32
+	LeaseDuration         time.Duration
+	RenewDeadline         time.Duration
+	RetryPeriod           time.Duration
+	SharedReconcilerCount int
 }
 
 // statefulSetID is a envconfig Decodable controller ordinal and name.

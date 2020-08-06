@@ -18,7 +18,9 @@ package leaderelection
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -34,10 +36,21 @@ import (
 	"knative.dev/pkg/system"
 )
 
+var (
+	sharedElector Elector
+	buildOnce     sync.Once
+	wg            sync.WaitGroup
+	leaderAwaresM sync.RWMutex // Guards leaderAwares
+	leaderAwares  []reconciler.LeaderAware
+)
+
 // WithDynamicLeaderElectorBuilder sets up the statefulset elector based on environment,
 // falling back on the standard elector.
 func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
 	logger := logging.FromContext(ctx)
+	if cc.SharedReconcilerCount > 1 {
+		return withSharedLeaderElectorBuilder(ctx, kc, cc)
+	}
 	b, _, err := NewStatefulSetBucketAndSet(int(cc.Buckets))
 	if err == nil {
 		logger.Info("Running with StatefulSet leader election")
@@ -52,6 +65,13 @@ func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interfac
 // locks via the provided kubernetes client.
 func WithStandardLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
 	return context.WithValue(ctx, builderKey{}, &standardBuilder{
+		kc:  kc,
+		lec: cc,
+	})
+}
+
+func withSharedLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
+	return context.WithValue(ctx, builderKey{}, &sharedElectorBuilder{
 		kc:  kc,
 		lec: cc,
 	})
@@ -120,7 +140,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 		// Use a local var which won't change across the for loop since it is
 		// used in a callback asynchronously.
 		bkt := bkt
-		rl, err := resourcelock.New(KnativeResourceLock,
+		rl, err := resourcelock.New(defaultKnativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),
@@ -179,6 +199,117 @@ func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucke
 
 func standardBucketName(ordinal uint32, queueName string, cc ComponentConfig) string {
 	return strings.ToLower(fmt.Sprintf("%s.%s.%02d-of-%02d", cc.Component, queueName, ordinal, cc.Buckets))
+}
+
+type sharedElectorBuilder struct {
+	kc  kubernetes.Interface
+	lec ComponentConfig
+}
+
+func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware,
+	enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+	logger := logging.FromContext(ctx)
+
+	var e error
+	buildOnce.Do(func() {
+		wg.Add(b.lec.SharedReconcilerCount)
+
+		ip := os.Getenv("POD_IP")
+		if ip != "" {
+			e = errors.New("Pod IP not found")
+			return
+		}
+
+		bkts := newEndpointsBuckets(b.lec)
+		electors := make([]Elector, 0, b.lec.Buckets)
+		for _, bkt := range bkts {
+			// Use a local var which won't change across the for loop since it is
+			// used in a callback asynchronously.
+			bkt := bkt
+			rl, err := resourcelock.New(resourcelock.EndpointsResourceLock,
+				system.Namespace(), // use namespace we are running in
+				bkt.Name(),
+				b.kc.CoreV1(),
+				b.kc.CoordinationV1(),
+				resourcelock.ResourceLockConfig{
+					Identity: ip,
+				})
+			if err != nil {
+				e = err
+				return
+			}
+			logger.Infof("%s will run in leader-elected mode with id %q", bkt.Name(), rl.Identity())
+
+			le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
+				Lock:          rl,
+				LeaseDuration: b.lec.LeaseDuration,
+				RenewDeadline: b.lec.RenewDeadline,
+				RetryPeriod:   b.lec.RetryPeriod,
+				Callbacks: leaderelection.LeaderCallbacks{
+					OnStartedLeading: func(context.Context) {
+						logger.Infof("%q has started leading %q", rl.Identity(), bkt.Name())
+						leaderAwaresM.RLock()
+						defer leaderAwaresM.RUnlock()
+
+						for _, la := range leaderAwares {
+							if err := la.Promote(bkt, enq); err != nil {
+								// TODO(mattmoor): We expect this to effectively never happen,
+								// but if it does, we should support wrapping `le` in an elector
+								// we can cancel here.
+								logger.Fatalf("%q failed to Promote: %v", rl.Identity(), err)
+							}
+						}
+					},
+					OnStoppedLeading: func() {
+						logger.Infof("%q has stopped leading %q", rl.Identity(), bkt.Name())
+						leaderAwaresM.RLock()
+						defer leaderAwaresM.RUnlock()
+
+						for _, la := range leaderAwares {
+							la.Demote(bkt)
+						}
+					},
+				},
+				ReleaseOnCancel: true,
+				Name:            rl.Identity(),
+			})
+			if err != nil {
+				e = err
+				return
+			}
+			// TODO: use health check watchdog, knative/pkg#1048
+			// if lec.WatchDog != nil {
+			// 	lec.WatchDog.SetLeaderElection(le)
+			// }
+			electors = append(electors, &runUntilCancelled{Elector: le})
+		}
+
+		sharedElector = &runOnce{e: &runAll{les: electors}}
+	})
+
+	if e != nil {
+		return nil, e
+	}
+
+	leaderAwaresM.Lock()
+	defer leaderAwaresM.Unlock()
+	leaderAwares = append(leaderAwares, la)
+	wg.Done()
+
+	return sharedElector, nil
+}
+
+func newEndpointsBuckets(cc ComponentConfig) []reconciler.Bucket {
+	names := make(sets.String, cc.Buckets)
+	for i := uint32(0); i < cc.Buckets; i++ {
+		names.Insert(endpointBucketName(i, cc))
+	}
+
+	return hash.NewBucketSet(names).Buckets()
+}
+
+func endpointBucketName(ordinal uint32, cc ComponentConfig) string {
+	return strings.ToLower(fmt.Sprintf("%s-bucket-%02d-of-%02d", cc.Component, ordinal, cc.Buckets))
 }
 
 type statefulSetBuilder struct {
@@ -278,4 +409,18 @@ func (ruc *runUntilCancelled) Run(ctx context.Context) {
 			// Context wasn't cancelled, start over.
 		}
 	}
+}
+
+// runOnce will only run its electors once.
+type runOnce struct {
+	once sync.Once
+	e    Elector
+}
+
+// Run implements Elector
+func (ro *runOnce) Run(ctx context.Context) {
+	wg.Wait() // Wait all reconcilers to add their LeaderAware
+	ro.once.Do(func() {
+		ro.e.Run(ctx)
+	})
 }
