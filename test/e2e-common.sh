@@ -641,8 +641,37 @@ function toggle_feature() {
   echo -n "Setting feature ${FEATURE} to ${STATE}"
   kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
   # We don't have a good mechanism for positive handoff so sleep :(
-  echo "Waiting 30s for change to get picked up."
-  sleep 30
+  echo "Waiting 10s for change to get picked up."
+  sleep 10
+}
+
+function immediate_gc() {
+  echo -n "Setting config-gc to immediate garbage collection"
+  local DATA='{"data":{'`
+      `'"retain-since-create-time":"disabled",'`
+      `'"retain-since-last-active-time":"disabled",'`
+      `'"min-non-active-revisions":"0",'`
+      `'"max-non-active-revisions":"0"'`
+      `"}}"
+  echo "Data is" "${DATA}"
+  kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 10s for change to get picked up."
+  sleep 10
+}
+
+function default_gc() {
+  echo -n "Setting config-gc to default garbage collection"
+    local DATA='{"data":{'`
+      `'"retain-since-create-time":"48h",'`
+      `'"retain-since-last-active-time":"15h",'`
+      `'"min-non-active-revisions":"20",'`
+      `'"max-non-active-revisions":"1000"'`
+      `"}}"
+  kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 10s for change to get picked up."
+  sleep 10
 }
 
 function scale_controlplane() {
