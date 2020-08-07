@@ -186,5 +186,5 @@ data:
     # default-max-scale is the cluster-wide default value for the max
     # scale of a revision, unless overridden by the
     # "autoscaling.knative.dev/maxScale" annotation.
-    # If set to 0, means that the revision has no maximum scale.
+    # If set to 0, the revision has no maximum scale.
     default-max-scale: "0"
