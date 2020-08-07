@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -425,6 +426,7 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 
 	if la, ok := c.Reconciler.(reconciler.LeaderAware); ok {
 		// Build and execute an elector.
+		log.Printf("## workqueue: %s\n", c.workQueue.name)
 		le, err := kle.BuildElector(ctx, la, c.Name, c.MaybeEnqueueBucketKey)
 		if err != nil {
 			return err

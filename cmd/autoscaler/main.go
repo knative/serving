@@ -19,25 +19,35 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	v1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
-
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
+	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/websocket"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -124,7 +134,8 @@ func main() {
 
 	profilingHandler := profiling.NewHandler(logger, false)
 
-	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
+	ns := system.Namespace()
+	cmw := configmap.NewInformedWatcher(kubeClient, ns)
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
@@ -160,10 +171,22 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	selfIP := os.Getenv("POD_IP")
+	cc := leaderelection.ComponentConfig{
+		Component:             "autoscaler",
+		Buckets:               3,
+		SharedReconcilerCount: len(controllers),
+		LeaseDuration:         15 * time.Second,
+		RenewDeadline:         10 * time.Second,
+		RetryPeriod:           2 * time.Second,
+	}
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(
-		ctx, kubeClient, leaderelection.ComponentConfig{Buckets: 3, SharedReconcilerCount: len(controllers)})
+		ctx, kubeClient, cc)
 	go controller.StartAll(ctx, controllers...)
 
+	buckets := leaderelection.NewEndpointsBucketSet(cc)
+
+	go watch(ctx, kubeClient, buckets, selfIP)
 	go func() {
 		for sm := range statsCh {
 			collector.Record(sm.Key, time.Now(), sm.Stat)
@@ -233,4 +256,125 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+type leaseInfo struct {
+	HolderIdentity string `json:"holderIdentity"`
+}
+
+func watch(ctx context.Context, kubeClient kubernetes.Interface, buckets []reconciler.Bucket, selfIP string) {
+	el := endpointsinformer.Get(ctx).Lister().Endpoints(system.Namespace())
+	sl := serviceinformer.Get(ctx).Lister().Services(system.Namespace())
+
+	b2IP := make(map[string]string)
+	for {
+		for _, b := range buckets {
+			name := b.Name()
+			e, err := el.Get(name)
+			if err != nil {
+				log.Printf("## get endpoint %s error\n", name)
+				continue
+			}
+
+			if v, ok := e.Annotations["control-plane.alpha.kubernetes.io/leader"]; ok {
+				l := &leaseInfo{}
+				if err := json.Unmarshal([]byte(v), l); err != nil {
+					log.Printf("## got json error: %v\n", err)
+					continue
+				}
+
+				if b2IP[name] != l.HolderIdentity {
+					b2IP[name] = l.HolderIdentity
+					if l.HolderIdentity == selfIP {
+						if _, err := sl.Get(name); err != nil {
+							if apierrs.IsNotFound(err) {
+								createService(kubeClient, name)
+							}
+						}
+						want := e.DeepCopy()
+						want.Subsets = []v1.EndpointSubset{
+							v1.EndpointSubset{
+								Addresses: []v1.EndpointAddress{
+									v1.EndpointAddress{IP: selfIP},
+								},
+								Ports: []v1.EndpointPort{
+									v1.EndpointPort{
+										Name: "http",
+										Port: 8080,
+									},
+								},
+							},
+						}
+						kubeClient.CoreV1().Endpoints(system.Namespace()).Update(want)
+					}
+				}
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func createService(kubeClient kubernetes.Interface, name string) {
+	ns := system.Namespace()
+	_, err := kubeClient.CoreV1().Services(ns).Create(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Name:       "http",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+				},
+			},
+		},
+	})
+	if err != nil {
+		log.Printf("## create svc err: %v", err)
+	}
+}
+
+type statProcessor func(sm asmetrics.StatMessage)
+
+// statForwarder returns two functions:
+// 1) a function to process a single StatMessage.
+// 2) a function to call when terminating.
+func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger) (statProcessor, func()) {
+	bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
+	if err != nil {
+		logger.Fatalw("Failed to build bucket set", zap.Error(err))
+	}
+
+	// TODO: Same to activator, use gRPC instead of websocket for sending metrics.
+	wsMap := make(map[string]*websocket.ManagedConnection, bucketSize-1)
+	for _, dns := range bs.BucketList() {
+		if dns == bkt.Name() {
+			continue
+		}
+
+		logger.Info("Connecting to Autoscaler at ", dns)
+		statSink := websocket.NewDurableSendingConnection(dns, logger)
+		wsMap[dns] = statSink
+	}
+
+	return func(sm asmetrics.StatMessage) {
+			// If this pod has the key, accept it.
+			if bkt.Has(sm.Key) {
+				accept(sm)
+				return
+			}
+
+			// Otherwise forward to the owner.
+			if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
+				ws.Send(sm)
+			} else {
+				logger.Warnf("Couldn't find Pod owner for Stat with Key %v, dropping it", sm.Key)
+			}
+		}, func() {
+			for _, ws := range wsMap {
+				ws.Shutdown()
+			}
+		}
 }

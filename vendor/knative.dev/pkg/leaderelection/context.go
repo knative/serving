@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -107,6 +108,8 @@ func BuildElector(ctx context.Context, la reconciler.LeaderAware, queueName stri
 		case *standardBuilder:
 			return builder.buildElector(ctx, la, queueName, enq)
 		case *statefulSetBuilder:
+			return builder.buildElector(ctx, la, enq)
+		case *sharedElectorBuilder:
 			return builder.buildElector(ctx, la, enq)
 		}
 	}
@@ -210,12 +213,14 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 	enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
+	log.Printf("### try build\n")
 	var e error
 	buildOnce.Do(func() {
+		log.Printf("### build once\n")
 		wg.Add(b.lec.SharedReconcilerCount)
 
 		ip := os.Getenv("POD_IP")
-		if ip != "" {
+		if ip == "" {
 			e = errors.New("Pod IP not found")
 			return
 		}
@@ -285,18 +290,27 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 		}
 
 		sharedElector = &runOnce{e: &runAll{les: electors}}
+		log.Printf("### buld done")
 	})
 
 	if e != nil {
+		log.Printf("### got error: %v\n", e)
 		return nil, e
 	}
 
+	addLeaderAware(la)
+	wg.Done()
+	log.Printf("### waiting\n")
+	wg.Wait() // Wait all reconcilers to add their LeaderAware
+
+	log.Printf("### return shared elector\n")
+	return sharedElector, nil
+}
+
+func addLeaderAware(la reconciler.LeaderAware) {
 	leaderAwaresM.Lock()
 	defer leaderAwaresM.Unlock()
 	leaderAwares = append(leaderAwares, la)
-	wg.Done()
-
-	return sharedElector, nil
 }
 
 func newEndpointsBuckets(cc ComponentConfig) []reconciler.Bucket {
@@ -352,6 +366,16 @@ func NewStatefulSetBucketAndSet(buckets int) (reconciler.Bucket, *hash.BucketSet
 	// Buckets is sorted in order of names so we can use ordinal to
 	// get the correct Bucket for this binary.
 	return bs.Buckets()[ssc.StatefulSetID.ordinal], bs, nil
+}
+
+func NewEndpointsBucketSet(cc ComponentConfig) []reconciler.Bucket {
+	names := make(sets.String, cc.Buckets)
+	for i := uint32(0); i < cc.Buckets; i++ {
+		names.Insert(endpointBucketName(i, cc))
+	}
+
+	bs := hash.NewBucketSet(names)
+	return bs.Buckets()
 }
 
 func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
@@ -419,7 +443,6 @@ type runOnce struct {
 
 // Run implements Elector
 func (ro *runOnce) Run(ctx context.Context) {
-	wg.Wait() // Wait all reconcilers to add their LeaderAware
 	ro.once.Do(func() {
 		ro.e.Run(ctx)
 	})
