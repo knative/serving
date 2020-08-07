@@ -90,10 +90,9 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 		min, _ = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
 	}
 
+	max := asConfig.MaxScale
 	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotationKey); ok {
 		max = paMax
-	} else {
-		max = asConfig.MaxScale
 	}
 
 	return min, max
