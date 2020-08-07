@@ -86,7 +86,7 @@ func TestImagePullError(t *testing.T) {
 				return true, nil
 			}
 			return true, fmt.Errorf("the Revision %s ReadyCondition = (Reason=%q, Message=%q), wantReasons: %v",
-				revisionName, cond.Reason, cond.Message, wantRevReasons.UnsortedList())
+				revisionName, cond.Reason, cond.Message, wantRevReasons.List())
 		}
 		return false, nil
 	}); err != nil {
