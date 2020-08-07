@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "9f4a7ff9"
+    knative.dev/example-checksum: "01a0d8c2"
 data:
   _example: |
     ################################
@@ -187,4 +187,4 @@ data:
     # scale of a revision, unless overridden by the
     # "autoscaling.knative.dev/maxScale" annotation.
     # If set to 0, the revision has no maximum scale.
-    default-max-scale: "0"
+    max-scale: "0"

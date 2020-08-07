@@ -297,17 +297,17 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with negative default max scale",
 		input: map[string]string{
-			"default-max-scale": "-1",
+			"max-scale": "-1",
 		},
 		wantErr: true,
 	}, {
 		name: "with valid default max scale",
 		input: map[string]string{
-			"default-max-scale": "10",
+			"max-scale": "10",
 		},
 		want: func() *Config {
 			c := defaultConfig()
-			c.DefaultMaxScale = 10
+			c.MaxScale = 10
 			return c
 		}(),
 	}}
