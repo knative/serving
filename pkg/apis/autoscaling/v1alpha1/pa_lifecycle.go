@@ -87,7 +87,7 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 
 	var min int32
 	if pa.Spec.Reachability != ReachabilityUnreachable {
-		min, _ := pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+		min, _ = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
 	}
 
 	max := asConfig.MaxScale
