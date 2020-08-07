@@ -61,7 +61,7 @@ HA_COMPONENTS=()
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      [[ $2 =~ ^(stable|latest)$ ]] || abort "version format must be 'stable' or 'latest'"
       readonly ISTIO_VERSION=$2
       readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
@@ -187,11 +187,11 @@ function install_knative_serving() {
 
 function install_istio() {
   if [[ -z "${ISTIO_VERSION}" ]]; then
-    readonly ISTIO_VERSION="istio-stable"
+    readonly ISTIO_VERSION="stable"
   fi
 
   local NET_ISTIO_DIR=$(mktemp -d)
-  git clone --quiet https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
+  git clone --quiet --depth 1 --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
 
   if (( MESH )); then
     ISTIO_PROFILE="istio-ci-mesh.yaml"
@@ -202,7 +202,7 @@ function install_istio() {
   echo ">> Installing Istio"
   echo "Istio version: ${ISTIO_VERSION}"
   echo "Istio profile: ${ISTIO_PROFILE}"
-  ${NET_ISTIO_DIR}/third_party/${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
