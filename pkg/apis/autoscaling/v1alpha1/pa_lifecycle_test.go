@@ -530,7 +530,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
-		config       *autoscalerconfig.Config
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -554,14 +554,14 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 10,
-		config: &autoscalerconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {
 		name:    "max and config",
 		max:     "0",
 		wantMax: 0,
-		config: &autoscalerconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {
@@ -602,12 +602,7 @@ func TestScaleBounds(t *testing.T) {
 			}
 			pa.Spec.Reachability = tc.reachability
 
-			config := tc.config
-			if config == nil {
-				config, _ = autoscalerconfig.NewConfigFromMap(map[string]string{})
-			}
-
-			min, max := pa.ScaleBounds(config)
+			min, max := pa.ScaleBounds(&tc.config)
 
 			if min != tc.wantMin {
 				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
