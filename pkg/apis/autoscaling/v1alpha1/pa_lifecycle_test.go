@@ -559,8 +559,8 @@ func TestScaleBounds(t *testing.T) {
 		},
 	}, {
 		name:    "max and config",
-		max:     "0",
-		wantMax: 0,
+		max:     "5",
+		wantMax: 5,
 		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
