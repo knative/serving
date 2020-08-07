@@ -84,7 +84,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	runtimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -130,7 +130,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			RuntimeRequest(t, httpsClient, traffic.URL.String())
+			runtimeRequest(t, httpsClient, traffic.URL.String())
 		}
 	})
 }

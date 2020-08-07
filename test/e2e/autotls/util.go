@@ -32,11 +32,12 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgTest "knative.dev/pkg/test"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/network"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 )
@@ -108,23 +109,23 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	}
 }
 
-type RequestOption func(*http.Request)
-type ResponseExpectation func(response *http.Response) error
+type requestOption func(*http.Request)
+type responseExpectation func(response *http.Response) error
 
-func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
-	return RuntimeRequestWithExpectations(t, client, url,
-		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusOK))},
+func runtimeRequest(t *testing.T, client *http.Client, url string, opts ...requestOption) *types.RuntimeInfo {
+	return runtimeRequestWithExpectations(t, client, url,
+		[]responseExpectation{statusCodeExpectation(sets.NewInt(http.StatusOK))},
 		false,
 		opts...)
 }
 
-// RuntimeRequestWithExpectations attempts to make a request to url and return runtime information.
+// runtimeRequestWithExpectations attempts to make a request to url and return runtime information.
 // If connection is successful only then it will validate all response expectations.
 // If allowDialError is set to true then function will not fail if connection is a dial error.
-func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url string,
-	responseExpectations []ResponseExpectation,
+func runtimeRequestWithExpectations(t *testing.T, client *http.Client, url string,
+	responseExpectations []responseExpectation,
 	allowDialError bool,
-	opts ...RequestOption) *types.RuntimeInfo {
+	opts ...requestOption) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -140,7 +141,7 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 	resp, err := client.Do(req)
 
 	if err != nil {
-		if !allowDialError || !IsDialError(err) {
+		if !allowDialError || !isDialError(err) {
 			t.Errorf("Error making GET request: %v", err)
 		}
 		return nil
@@ -151,7 +152,7 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 	for _, e := range responseExpectations {
 		if err := e(resp); err != nil {
 			t.Errorf("Error meeting response expectations: %v", err)
-			DumpResponse(t, resp)
+			dumpResponse(t, resp)
 			return nil
 		}
 	}
@@ -160,7 +161,7 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			t.Errorf("Unable to read response body: %v", err)
-			DumpResponse(t, resp)
+			dumpResponse(t, resp)
 			return nil
 		}
 		ri := &types.RuntimeInfo{}
@@ -173,7 +174,7 @@ func RuntimeRequestWithExpectations(t *testing.T, client *http.Client, url strin
 	return nil
 }
 
-func DumpResponse(t *testing.T, resp *http.Response) {
+func dumpResponse(t *testing.T, resp *http.Response) {
 	t.Helper()
 	b, err := httputil.DumpResponse(resp, true)
 	if err != nil {
@@ -182,7 +183,7 @@ func DumpResponse(t *testing.T, resp *http.Response) {
 	t.Log(string(b))
 }
 
-func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
+func statusCodeExpectation(statusCodes sets.Int) responseExpectation {
 	return func(response *http.Response) error {
 		if !statusCodes.Has(response.StatusCode) {
 			return fmt.Errorf("got unexpected status: %d, expected %v", response.StatusCode, statusCodes)
@@ -191,7 +192,7 @@ func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
 	}
 }
 
-func IsDialError(err error) bool {
+func isDialError(err error) bool {
 	if err, ok := err.(*url.Error); ok {
 		err, ok := err.Err.(*net.OpError)
 		return ok && err.Op == "dial"
