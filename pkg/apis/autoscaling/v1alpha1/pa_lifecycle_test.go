@@ -29,6 +29,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -529,6 +530,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -547,6 +549,21 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 0,
+	}, {
+		name:    "only min, overriden",
+		min:     "1",
+		wantMin: 1,
+		wantMax: 10,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
+	}, {
+		name:    "max and config",
+		max:     "5",
+		wantMax: 5,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
 	}, {
 		name:    "only max",
 		max:     "1",
@@ -585,7 +602,7 @@ func TestScaleBounds(t *testing.T) {
 			}
 			pa.Spec.Reachability = tc.reachability
 
-			min, max := pa.ScaleBounds()
+			min, max := pa.ScaleBounds(&tc.config)
 
 			if min != tc.wantMin {
 				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)

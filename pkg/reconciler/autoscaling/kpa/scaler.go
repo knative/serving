@@ -310,6 +310,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 
 // scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
+	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
@@ -317,8 +318,8 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		return desiredScale, nil
 	}
 
-	min, max := pa.ScaleBounds()
-	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
+	min, max := pa.ScaleBounds(asConfig)
+	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.
