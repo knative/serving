@@ -87,7 +87,8 @@ func TestRevisionGC(t *testing.T) {
 	})
 	if err == wait.ErrWaitTimeout {
 		t.Fatalf("Got revision %v, expected not_found", originalRevision)
-	} else if err != nil {
+	}
+	if err != nil {
 		t.Fatalf("Got %q, expected not_found", err)
 	}
 }
