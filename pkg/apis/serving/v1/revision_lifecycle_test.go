@@ -575,6 +575,35 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
 }
 
+func TestPAResAvailableNoOverride(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// Deployment determined that something's wrong, e.g. the only pod
+	// has crashed.
+	r.MarkResourcesAvailableFalse("somehow", "somewhere")
+
+	// PodAutoscaler achieved initial scale.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionUnknown,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	// Verify we did not override this.
+	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
+	cond := r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, notWant := cond.Reason, ReasonProgressDeadlineExceeded; got == notWant {
+		t.Error("PA Status propagation overrode the ResourcesAvailable status")
+	}
+}
+
 func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()

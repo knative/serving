@@ -82,11 +82,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		pods, err := c.kubeclient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
 		if err != nil {
 			logger.Errorw("Error getting pods", zap.Error(err))
-		} else if len(pods.Items) > 0 {
+			return nil
+		}
+		if len(pods.Items) > 0 {
 			// Arbitrarily grab the very first pod, as they all should be crashing
 			pod := pods.Items[0]
 
-			// Update the revision status if pod cannot be scheduled(possibly resource constraints)
+			// Update the revision status if pod cannot be scheduled (possibly resource constraints)
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
