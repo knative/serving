@@ -73,7 +73,7 @@ type Config struct {
 
 	// DefaultMaxScale is the default max scale for any revision created without an
 	// autoscaling.knative.dev/maxScale annotation
-	DefaultMaxScale int32
+	MaxScale int32
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
