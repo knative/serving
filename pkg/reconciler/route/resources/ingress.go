@@ -285,10 +285,12 @@ func ingressTimeout(ctx context.Context) time.Duration {
 	longTimeout := time.Hour * 48
 
 	// However, if the MaxRevisionTimeout is longer, we should still honor that.
-	maxRevisionTimeout := time.Duration(
-		defaults.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
-	if maxRevisionTimeout < longTimeout {
-		return longTimeout
+	if defaults.FromContext(ctx) != nil && defaults.FromContext(ctx).Defaults != nil {
+		maxRevisionTimeout := time.Duration(
+			defaults.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
+		if maxRevisionTimeout > longTimeout {
+			return maxRevisionTimeout
+		}
 	}
-	return maxRevisionTimeout
+	return longTimeout
 }
