@@ -121,7 +121,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				Name:        container.Name,
 				ImageDigest: digest,
 			}
-
 			return nil
 		})
 	}
@@ -137,25 +136,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	phases := []struct {
-		name string
-		f    func(context.Context, *v1.Revision) error
-	}{{
-		name: "image digest",
-		f:    c.reconcileDigest,
-	}, {
-		name: "user deployment",
-		f:    c.reconcileDeployment,
-	}, {
-		name: "image cache",
-		f:    c.reconcileImageCache,
-	}, {
-		name: "PA",
-		f:    c.reconcilePA,
-	}}
-
-	for _, phase := range phases {
-		if err := phase.f(ctx, rev); err != nil {
+	for _, phase := range []func(context.Context, *v1.Revision) error{
+		c.reconcileDigest, c.reconcileDeployment,
+		c.reconcileImageCache, c.reconcilePA,
+	} {
+		if err := phase(ctx, rev); err != nil {
 			return err
 		}
 	}
@@ -177,9 +162,7 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 		return
 	}
 
-	uid := string(rev.UID)
-
-	rev.Status.LogURL = strings.Replace(
+	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid, -1)
+		"${REVISION_UID}", string(rev.UID))
 }
