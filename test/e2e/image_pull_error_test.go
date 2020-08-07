@@ -32,8 +32,7 @@ func TestImagePullError(t *testing.T) {
 
 	clients := Setup(t)
 	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Config:  test.ObjectNameForTest(t),
+		Config: test.ObjectNameForTest(t),
 		// TODO: Replace this when sha256 is broken.
 		Image: "ubuntu@sha256:0000000000000000000000000000000000000000000000000000000000000000",
 	}
