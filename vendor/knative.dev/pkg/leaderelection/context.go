@@ -368,14 +368,13 @@ func NewStatefulSetBucketAndSet(buckets int) (reconciler.Bucket, *hash.BucketSet
 	return bs.Buckets()[ssc.StatefulSetID.ordinal], bs, nil
 }
 
-func NewEndpointsBucketSet(cc ComponentConfig) []reconciler.Bucket {
+func NewEndpointsBucketSet(cc ComponentConfig) *hash.BucketSet {
 	names := make(sets.String, cc.Buckets)
 	for i := uint32(0); i < cc.Buckets; i++ {
 		names.Insert(endpointBucketName(i, cc))
 	}
 
-	bs := hash.NewBucketSet(names)
-	return bs.Buckets()
+	return hash.NewBucketSet(names)
 }
 
 func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {

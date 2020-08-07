@@ -25,6 +25,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"go.opencensus.io/stats/view"
@@ -43,6 +44,7 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
@@ -53,6 +55,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -78,6 +81,9 @@ const (
 var (
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+
+	b2IPM sync.RWMutex
+	b2IP  = make(map[string]string)
 )
 
 func main() {
@@ -184,9 +190,9 @@ func main() {
 		ctx, kubeClient, cc)
 	go controller.StartAll(ctx, controllers...)
 
-	buckets := leaderelection.NewEndpointsBucketSet(cc)
+	bs := leaderelection.NewEndpointsBucketSet(cc)
 
-	go watch(ctx, kubeClient, buckets, selfIP)
+	go watch(ctx, kubeClient, bs.Buckets(), selfIP)
 	go func() {
 		for sm := range statsCh {
 			collector.Record(sm.Key, time.Now(), sm.Stat)
@@ -262,11 +268,22 @@ type leaseInfo struct {
 	HolderIdentity string `json:"holderIdentity"`
 }
 
+func getIP(name string) string {
+	b2IPM.RLock()
+	defer b2IPM.RUnlock()
+	return b2IP[name]
+}
+
+func setIP(name, IP string) {
+	b2IPM.Lock()
+	defer b2IPM.Unlock()
+	b2IP[name] = IP
+}
+
 func watch(ctx context.Context, kubeClient kubernetes.Interface, buckets []reconciler.Bucket, selfIP string) {
 	el := endpointsinformer.Get(ctx).Lister().Endpoints(system.Namespace())
 	sl := serviceinformer.Get(ctx).Lister().Services(system.Namespace())
 
-	b2IP := make(map[string]string)
 	for {
 		for _, b := range buckets {
 			name := b.Name()
@@ -283,8 +300,8 @@ func watch(ctx context.Context, kubeClient kubernetes.Interface, buckets []recon
 					continue
 				}
 
-				if b2IP[name] != l.HolderIdentity {
-					b2IP[name] = l.HolderIdentity
+				if getIP(name) != l.HolderIdentity {
+					setIP(name, l.HolderIdentity)
 					if l.HolderIdentity == selfIP {
 						if _, err := sl.Get(name); err != nil {
 							if apierrs.IsNotFound(err) {
@@ -341,31 +358,26 @@ type statProcessor func(sm asmetrics.StatMessage)
 // statForwarder returns two functions:
 // 1) a function to process a single StatMessage.
 // 2) a function to call when terminating.
-func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger) (statProcessor, func()) {
-	bkt, bs, err := leaderelection.NewStatefulSetBucketAndSet(bucketSize)
-	if err != nil {
-		logger.Fatalw("Failed to build bucket set", zap.Error(err))
-	}
-
+func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger, bs hash.BucketSet, selfIP string) (statProcessor, func()) {
 	// TODO: Same to activator, use gRPC instead of websocket for sending metrics.
 	wsMap := make(map[string]*websocket.ManagedConnection, bucketSize-1)
-	for _, dns := range bs.BucketList() {
-		if dns == bkt.Name() {
-			continue
-		}
-
-		logger.Info("Connecting to Autoscaler at ", dns)
+	for _, b := range bs.Buckets() {
+		dns := fmt.Sprintf("ws://%s.%s.svc.%s:8080", b, system.Namespace(), pkgnet.GetClusterDomainName())
+		logger.Info("Connecting to Autoscaler at bucket", dns)
 		statSink := websocket.NewDurableSendingConnection(dns, logger)
 		wsMap[dns] = statSink
 	}
 
 	return func(sm asmetrics.StatMessage) {
 			// If this pod has the key, accept it.
-			if bkt.Has(sm.Key) {
+			targetIP := getIP(bs.Owner(sm.Key.String()))
+			if targetIP == selfIP {
+				log.Printf("# accept\n")
 				accept(sm)
 				return
 			}
 
+			log.Printf("# forward\n")
 			// Otherwise forward to the owner.
 			if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
 				ws.Send(sm)
