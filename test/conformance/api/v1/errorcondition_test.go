@@ -178,7 +178,7 @@ func TestContainerExitingMsg(t *testing.T) {
 				cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 				if cond != nil && !cond.IsUnknown() {
 					// Check that it failed and for the right reason.
-					if strings.Contains(cond.Message, errorLog) && cond.Failed() {
+					if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
 						return true, nil
 					}
 					t.Logf("Reason: %s; Message: %q; Status: %s", cond.Reason, cond.Message, cond.Status)
