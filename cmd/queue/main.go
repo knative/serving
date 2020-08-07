@@ -82,6 +82,7 @@ type config struct {
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
 	ServingLoggingLevel          string `split_words:"true" required:"true"`
 	ServingRequestLogTemplate    string `split_words:"true"` // optional
+	ServingEnableRequestLog      bool   `split_words:"true"` // optional
 	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
 
 	// Metrics configuration
@@ -432,7 +433,7 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 }
 
 func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
-	if env.ServingRequestLogTemplate == "" {
+	if !env.ServingEnableRequestLog {
 		return currentHandler
 	}
 
