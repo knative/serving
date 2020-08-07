@@ -112,7 +112,7 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 		return
 	}
 	eg := errgroup.Group{}
-	go func() {
+	eg.Go(func() error {
 		watchedPods := sets.NewString()
 		for ev := range wi.ResultChan() {
 			p := ev.Object.(*corev1.Pod)
@@ -130,7 +130,8 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				}
 			}
 		}
-	}()
+		return nil
+	})
 	// Monitor the error group in the background and surface an error on the kubelogs
 	// in case anything had an active stream open.
 	go func() {
