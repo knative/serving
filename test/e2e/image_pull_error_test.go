@@ -56,7 +56,7 @@ func TestImagePullError(t *testing.T) {
 			}
 			t.Logf("Reason: %q; Message: %q; Status: %q", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("the Config %s ReadyCondition = (Reason=%q, Message=%q, Status=%q), wantReason: %q",
-				names.Service, cond.Reason, cond.Message, cond.Status, wantCfgReason)
+				names.Config, cond.Reason, cond.Message, cond.Status, wantCfgReason)
 		}
 		return false, nil
 	}, "ContainerUnpullable"); err != nil {
