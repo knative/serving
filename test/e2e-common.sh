@@ -641,8 +641,8 @@ function toggle_feature() {
   echo -n "Setting feature ${FEATURE} to ${STATE}"
   kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
   # We don't have a good mechanism for positive handoff so sleep :(
-  echo "Waiting 10s for change to get picked up."
-  sleep 10
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
 }
 
 function immediate_gc() {
@@ -654,8 +654,8 @@ function immediate_gc() {
       `'"max-non-active-revisions":"0"'`
       `"}}"
   kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
-  echo "Waiting 10s for change to get picked up."
-  sleep 10
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
 }
 
 function scale_controlplane() {

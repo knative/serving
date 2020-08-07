@@ -118,7 +118,7 @@ toggle_feature multi-container Disabled
 
 toggle_feature responsive-revision-gc Enabled
 GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)
-add_trap "kubectl patch cm \"config-gc\" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
+add_trap "kubectl patch cm 'config-gc' -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
 immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
 kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
