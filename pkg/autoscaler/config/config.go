@@ -108,7 +108,7 @@ func defaultConfig() *Config {
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
-		MaxScale:               0,
+		MaxScale:                      0,
 	}
 }
 
