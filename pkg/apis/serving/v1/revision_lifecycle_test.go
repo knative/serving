@@ -598,6 +598,27 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got != want {
 		t.Errorf("Reason = %q, want: %q", got, want)
 	}
+
+	// Set a different reason/message
+	r.MarkResourcesAvailableFalse("another-one", "bit-the-dust")
+
+	// And apply the status.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	// Verify it did not alter the reason/message.
+	cond = r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got == want {
+		t.Errorf("Reason = %q should have not overridden a different status", got)
+	}
 }
 
 func TestPropagateAutoscalerStatusRace(t *testing.T) {
