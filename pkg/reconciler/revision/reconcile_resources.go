@@ -97,10 +97,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
-						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
+						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
 						rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
-						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
+						logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
 						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
 					}
 					break
@@ -128,7 +128,6 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 		} else if err != nil {
 			return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 		}
-
 	}
 	return nil
 }
