@@ -183,7 +183,7 @@ data:
     # or the "autoscaling.knative.dev/initialScale" annotation, can be set to 0.
     allow-zero-initial-scale: "false"
 
-    # default-max-scale is the cluster-wide default value for the max
+    # max-scale is the cluster-wide default value for the max
     # scale of a revision, unless overridden by the
     # "autoscaling.knative.dev/maxScale" annotation.
     # If set to 0, the revision has no maximum scale.
