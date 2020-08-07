@@ -170,7 +170,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		}
 	}
 
-	logger.Debugf("PA.Status=%#v", pa.Status)
+	logger.Debugf("Observed PA Status=%#v", pa.Status)
 	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
 }
