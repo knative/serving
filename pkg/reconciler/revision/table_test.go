@@ -237,8 +237,7 @@ func TestReconcile(t *testing.T) {
 				MarkInactive("NoTraffic", "This thing is inactive."),
 				withDefaultContainerStatuses(), withObservedGeneration(1)),
 			pa("foo", "stable-deactivation",
-				WithNoTraffic("NoTraffic", "This thing is inactive."), WithReachabilityUnreachable,
-				WithScaleTargetInitialized),
+				WithNoTraffic("NoTraffic", "This thing is inactive."), WithReachabilityUnreachable),
 			deploy(t, "foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
 		},
@@ -298,7 +297,6 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, withObservedGeneration(1)),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithScaleTargetInitialized,
 				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
@@ -312,28 +310,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pa-inactive",
 	}, {
-		Name: "pa inactive II",
-		// Test propagating the inactivity signal from the pa to the Revision.
-		Objects: []runtime.Object{
-			rev("foo", "pa-inactive",
-				withK8sServiceName("something-in-the-way"), WithLogURL,
-				withObservedGeneration(1)),
-			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			readyDeploy(deploy(t, "foo", "pa-inactive")),
-			image("foo", "pa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: rev("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
-				// When we reconcile an "all ready" revision when the PA
-				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."), withObservedGeneration(1),
-				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded,
-					"Initial scale was never achieved")),
-		}},
-		Key: "foo/pa-inactive",
-	}, {
 		Name: "pa inactive, but has service",
 		// Test propagating the inactivity signal from the pa to the Revision.
 		// But propagate the service name.
@@ -344,7 +320,6 @@ func TestReconcile(t *testing.T) {
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithPAStatusService("pa-inactive-svc"),
-				WithScaleTargetInitialized,
 				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
