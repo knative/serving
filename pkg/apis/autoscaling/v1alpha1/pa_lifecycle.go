@@ -83,7 +83,9 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
 // not set.
 // Note: min will be ignored if the PA is not reachable
-func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (min, max int32) {
+func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, int32) {
+	var min, max int32
+
 	if pa.Spec.Reachability != ReachabilityUnreachable {
 		min, _ = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
 	}
@@ -94,7 +96,7 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (min, ma
 		max = asConfig.MaxScale
 	}
 
-	return
+	return min, max
 }
 
 // Target returns the target annotation value or false if not present, or invalid.
