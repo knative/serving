@@ -208,7 +208,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 }
 
 // GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
-func GetRouteTagNameFromRequest(r *http.Request) string {
+/*func GetRouteTagNameFromRequest(r *http.Request) string {
 	name := r.Header.Get(network.TagHeaderName)
 	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
 
@@ -227,4 +227,4 @@ func GetRouteTagNameFromRequest(r *http.Request) string {
 	}
 	// Otherwise, returns the value of the tag header.
 	return name
-}
+}*/
