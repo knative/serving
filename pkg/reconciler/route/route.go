@@ -105,7 +105,7 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-	logger.Debugf("Reconciling route: %#v", r)
+	logger.Debugf("Reconciling route: %#v", r.Spec)
 
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
