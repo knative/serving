@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -52,7 +51,7 @@ var _ streamer = (*kubelogs)(nil)
 // timeFormat defines a simple timestamp with millisecond granularity
 const timeFormat = "15:04:05.000"
 
-func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
+func (k *kubelogs) startForPod(pod *corev1.Pod) {
 	// Grab data from all containers in the pods.  We need this in case
 	// an envoy sidecar is injected for mesh installs.  This should be
 	// equivalent to --all-containers.
@@ -67,10 +66,10 @@ func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
 			handleLine = k.handleGenericLine
 		}
 
-		eg.Go(func() error {
+		go func() {
 			options := &corev1.PodLogOptions{
 				Container: cn,
-				// Follow directs the api server to continuously stream logs back.
+				// Follow directs the API server to continuously stream logs back.
 				Follow: true,
 				// Only return new logs (this value is being used for "epsilon").
 				SinceSeconds: ptr.Int64(1),
@@ -79,7 +78,11 @@ func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
 			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
 			stream, err := req.Stream()
 			if err != nil {
-				return err
+				func() {
+					k.m.Lock()
+					defer k.m.Unlock()
+					k.err = err
+				}()
 			}
 			defer stream.Close()
 			// Read this container's stream.
@@ -89,8 +92,7 @@ func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
 			}
 			// Pods get killed with chaos duck, so logs might end
 			// before the test does. So don't report an error here.
-			return nil
-		})
+		}()
 	}
 }
 
@@ -111,8 +113,7 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
 		return
 	}
-	eg := errgroup.Group{}
-	eg.Go(func() error {
+	go func() error {
 		watchedPods := sets.NewString()
 		for ev := range wi.ResultChan() {
 			p := ev.Object.(*corev1.Pod)
@@ -125,21 +126,12 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				}
 				if podIsReady(p) {
 					watchedPods.Insert(p.Name)
-					k.startForPod(&eg, p)
+					k.startForPod(p)
 					continue
 				}
 			}
 		}
 		return nil
-	})
-	// Monitor the error group in the background and surface an error on the kubelogs
-	// in case anything had an active stream open.
-	go func() {
-		if err := eg.Wait(); err != nil {
-			k.m.Lock()
-			defer k.m.Unlock()
-			k.err = err
-		}
 	}()
 }
 

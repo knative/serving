@@ -262,7 +262,9 @@ func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 // and enqueues that key in the slow lane.
 func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 	c.workQueue.SlowLane().Add(key)
-	c.logger.Debugf("Adding to the slow queue %s (depth(total/slow): %d/%d)", safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
+	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
+		Debug("Adding to the slow queue %s (depth(total/slow): %d/%d)",
+			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
 }
 
 // EnqueueSlow extracts namesspeced name from the object and enqueues it on the slow
@@ -388,7 +390,8 @@ func (c *Impl) EnqueueNamespaceOf(obj interface{}) {
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.workQueue.Add(key)
-	c.logger.Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
+	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
+		Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
 }
 
 // MaybeEnqueueBucketKey takes a Bucket and namespace/name string and puts it onto
@@ -403,7 +406,8 @@ func (c *Impl) MaybeEnqueueBucketKey(bkt reconciler.Bucket, key types.Namespaced
 // the work queue after given delay.
 func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 	c.workQueue.AddAfter(key, delay)
-	c.logger.Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
+	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
+		Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
 }
 
 // RunContext starts the controller's worker threads, the number of which is threadiness.

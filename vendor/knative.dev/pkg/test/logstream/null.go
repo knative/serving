@@ -24,5 +24,6 @@ var _ streamer = (*null)(nil)
 
 // Start implements streamer
 func (*null) Start(t test.TLegacy) Canceler {
+	t.Log("logstream was requested, but SYSTEM_NAMESPACE was unset.")
 	return func() {}
 }
