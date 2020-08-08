@@ -67,10 +67,10 @@ func TestContainerErrorMsg(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Route = serviceresourcenames.Route(svc)
 
-	manifestUnknown := string(transport.ManifestUnknownErrorCode)
-	t.Log("When the imagepath is invalid, the Configuration should have error status.")
+	const manifestUnknown = string(transport.ManifestUnknownErrorCode)
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.
+	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceAndChildrenFailed, "ServiceIsFailed"); err != nil {
 		t.Fatalf("The Service %s was unexpected state: %v", names.Service, err)
 	}
@@ -82,10 +82,11 @@ func TestContainerErrorMsg(t *testing.T) {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
 				return true, nil
 			}
-			t.Logf("Reason: %s ; Message: %s ; Status %s", cond.Reason, cond.Message, cond.Status)
+			t.Logf("Reason: %s; Message: %s; Status %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
 				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 		}
+		t.Logf("Config %s Ready status = %v", names.Config, cond)
 		return false, nil
 	})
 
@@ -99,7 +100,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	t.Log("When the imagepath is invalid, the revision should have error status.")
-	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+	if err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.Contains(cond.Message, manifestUnknown) {
@@ -108,10 +109,9 @@ func TestContainerErrorMsg(t *testing.T) {
 			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
 				revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
 		}
+		t.Logf("Revision %s Ready state = %#v", revisionName, cond)
 		return false, nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
 
@@ -174,20 +174,20 @@ func TestContainerExitingMsg(t *testing.T) {
 
 			t.Log("When the containers keep crashing, the Configuration should have error status.")
 
-			err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
+			if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
 				cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 				if cond != nil && !cond.IsUnknown() {
+					// Check that it failed and for the right reason.
 					if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
 						return true, nil
 					}
-					t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-					return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
+					t.Logf("Reason: %s; Message: %q; Status: %s", cond.Reason, cond.Message, cond.Status)
+					return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%s, Message=%q, Status=%s), but with (Reason=%s, Message=%q, Status=%s)",
 						names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
 				}
+				t.Logf("Configuration %s Ready = %#v", names.Config, cond)
 				return false, nil
-			}, "ConfigContainersCrashing")
-
-			if err != nil {
+			}, "ConfigContainersCrashing"); err != nil {
 				t.Fatal("Failed to validate configuration state:", err)
 			}
 
@@ -203,9 +203,10 @@ func TestContainerExitingMsg(t *testing.T) {
 					if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
 						return true, nil
 					}
-					return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
+					return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%s, Message=%q), but with (Reason=%s, Message=%q)",
 						revisionName, exitCodeReason, errorLog, cond.Reason, cond.Message)
 				}
+				t.Logf("Revision %s Ready state = %#v", revisionName, cond)
 				return false, nil
 			}, "RevisionContainersCrashing")
 

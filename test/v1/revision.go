@@ -60,9 +60,11 @@ func CheckRevisionState(client *test.ServingClients, name string, inState func(r
 	if err != nil {
 		return err
 	}
-	if done, err := inState(r); err != nil {
+	done, err := inState(r)
+	if err != nil {
 		return err
-	} else if !done {
+	}
+	if !done {
 		return fmt.Errorf("revision %q is not in desired state, got: %+v", name, r)
 	}
 	return nil
