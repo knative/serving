@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "ab930d35"
+    knative.dev/example-checksum: "66de029c"
 data:
   _example: |
     ################################
@@ -39,7 +39,7 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
-    multi-container: "disabled"
+    multi-container: "enabled"
 
     # Indicates whether Kubernetes affinity support is enabled
     kubernetes.podspec-affinity: "disabled"
