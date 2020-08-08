@@ -32,7 +32,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
-	testingress "knative.dev/serving/test/conformance/ingress"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -85,7 +84,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	runtimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -131,7 +130,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+			runtimeRequest(t, httpsClient, traffic.URL.String())
 		}
 	})
 }
@@ -190,7 +189,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := testingress.CreateDialContext(t, ing, clients)
+	dialer := CreateDialContext(t, ing, clients)
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}
