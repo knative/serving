@@ -193,10 +193,18 @@ func main() {
 	bs := leaderelection.NewEndpointsBucketSet(cc)
 
 	go watch(ctx, kubeClient, bs.Buckets(), selfIP)
+	// acceptStat is the func to call when this pod owns the given StatMessage.
+	acceptStat := func(sm asmetrics.StatMessage) {
+		collector.Record(sm.Key, time.Now(), sm.Stat)
+		multiScaler.Poke(sm.Key, sm.Stat)
+	}
+
+	processStat, cancel := statForwarder(3, acceptStat, logger, bs, selfIP)
+
+	defer cancel()
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, time.Now(), sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			processStat(sm)
 		}
 	}()
 
@@ -358,11 +366,11 @@ type statProcessor func(sm asmetrics.StatMessage)
 // statForwarder returns two functions:
 // 1) a function to process a single StatMessage.
 // 2) a function to call when terminating.
-func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger, bs hash.BucketSet, selfIP string) (statProcessor, func()) {
+func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogger, bs *hash.BucketSet, selfIP string) (statProcessor, func()) {
 	// TODO: Same to activator, use gRPC instead of websocket for sending metrics.
 	wsMap := make(map[string]*websocket.ManagedConnection, bucketSize-1)
 	for _, b := range bs.Buckets() {
-		dns := fmt.Sprintf("ws://%s.%s.svc.%s:8080", b, system.Namespace(), pkgnet.GetClusterDomainName())
+		dns := fmt.Sprintf("ws://%s.%s.svc.%s:8080", b.Name(), system.Namespace(), pkgnet.GetClusterDomainName())
 		logger.Info("Connecting to Autoscaler at bucket", dns)
 		statSink := websocket.NewDurableSendingConnection(dns, logger)
 		wsMap[dns] = statSink
@@ -372,12 +380,12 @@ func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogg
 			// If this pod has the key, accept it.
 			targetIP := getIP(bs.Owner(sm.Key.String()))
 			if targetIP == selfIP {
-				log.Printf("# accept\n")
+				log.Printf("## accept\n")
 				accept(sm)
 				return
 			}
 
-			log.Printf("# forward\n")
+			log.Printf("## forward\n")
 			// Otherwise forward to the owner.
 			if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
 				ws.Send(sm)

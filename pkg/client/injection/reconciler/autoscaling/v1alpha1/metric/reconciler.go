@@ -22,6 +22,7 @@ import (
 	context "context"
 	json "encoding/json"
 	fmt "fmt"
+	"log"
 	reflect "reflect"
 
 	zap "go.uber.org/zap"
@@ -190,8 +191,11 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
+		log.Printf("## not the leader metrics\n")
 		return nil
 	}
+
+	log.Printf("## is the leader metrics\n")
 
 	// If configStore is set, attach the frozen configuration to the context.
 	if r.configStore != nil {

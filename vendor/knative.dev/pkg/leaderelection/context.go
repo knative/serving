@@ -41,9 +41,14 @@ var (
 	sharedElector Elector
 	buildOnce     sync.Once
 	wg            sync.WaitGroup
-	leaderAwaresM sync.RWMutex // Guards leaderAwares
-	leaderAwares  []reconciler.LeaderAware
+	sm            sync.RWMutex // Guards leaderAwares
+	leaderAwares  []enqueuePair
 )
+
+type enqueuePair struct {
+	la  reconciler.LeaderAware
+	enq func(reconciler.Bucket, types.NamespacedName)
+}
 
 // WithDynamicLeaderElectorBuilder sets up the statefulset elector based on environment,
 // falling back on the standard elector.
@@ -213,10 +218,8 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 	enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
-	log.Printf("### try build\n")
 	var e error
 	buildOnce.Do(func() {
-		log.Printf("### build once\n")
 		wg.Add(b.lec.SharedReconcilerCount)
 
 		ip := os.Getenv("POD_IP")
@@ -253,11 +256,11 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 				Callbacks: leaderelection.LeaderCallbacks{
 					OnStartedLeading: func(context.Context) {
 						logger.Infof("%q has started leading %q", rl.Identity(), bkt.Name())
-						leaderAwaresM.RLock()
-						defer leaderAwaresM.RUnlock()
+						sm.RLock()
+						defer sm.RUnlock()
 
-						for _, la := range leaderAwares {
-							if err := la.Promote(bkt, enq); err != nil {
+						for _, pair := range leaderAwares {
+							if err := pair.la.Promote(bkt, pair.enq); err != nil {
 								// TODO(mattmoor): We expect this to effectively never happen,
 								// but if it does, we should support wrapping `le` in an elector
 								// we can cancel here.
@@ -267,11 +270,11 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 					},
 					OnStoppedLeading: func() {
 						logger.Infof("%q has stopped leading %q", rl.Identity(), bkt.Name())
-						leaderAwaresM.RLock()
-						defer leaderAwaresM.RUnlock()
+						sm.RLock()
+						defer sm.RUnlock()
 
-						for _, la := range leaderAwares {
-							la.Demote(bkt)
+						for _, pair := range leaderAwares {
+							pair.la.Demote(bkt)
 						}
 					},
 				},
@@ -290,7 +293,6 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 		}
 
 		sharedElector = &runOnce{e: &runAll{les: electors}}
-		log.Printf("### buld done")
 	})
 
 	if e != nil {
@@ -298,19 +300,16 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 		return nil, e
 	}
 
-	addLeaderAware(la)
+	addLeaderAware(la, enq)
 	wg.Done()
-	log.Printf("### waiting\n")
 	wg.Wait() // Wait all reconcilers to add their LeaderAware
-
-	log.Printf("### return shared elector\n")
 	return sharedElector, nil
 }
 
-func addLeaderAware(la reconciler.LeaderAware) {
-	leaderAwaresM.Lock()
-	defer leaderAwaresM.Unlock()
-	leaderAwares = append(leaderAwares, la)
+func addLeaderAware(la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) {
+	sm.Lock()
+	defer sm.Unlock()
+	leaderAwares = append(leaderAwares, enqueuePair{la: la, enq: enq})
 }
 
 func newEndpointsBuckets(cc ComponentConfig) []reconciler.Bucket {

@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"log"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -78,11 +79,14 @@ func (laf *LeaderAwareFuncs) IsLeaderFor(key types.NamespacedName) bool {
 	laf.RLock()
 	defer laf.RUnlock()
 
+	log.Printf("## bucket len=%v\n", len(laf.buckets))
 	for _, bkt := range laf.buckets {
 		if bkt.Has(key) {
+			log.Println("## true")
 			return true
 		}
 	}
+	log.Println("## false")
 	return false
 }
 
