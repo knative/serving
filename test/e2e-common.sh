@@ -128,6 +128,13 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --kong-version)
+      # currently, the value of --kong-version is ignored
+      # latest version of Kong pinned in third_party will be installed
+      readonly KONG_VERSION=$2
+      readonly INGRESS_CLASS="kong"
+      return 2
+      ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
       export SYSTEM_NAMESPACE=$2
@@ -246,6 +253,19 @@ function install_kourier() {
   kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
 }
 
+function install_kong() {
+  local INSTALL_KONG_YAML="./third_party/kong-latest/kong.yaml"
+  echo "Kong YAML: ${INSTALL_KONG_YAML}"
+  echo ">> Bringing up Kong"
+
+  kubectl apply -f ${INSTALL_KONG_YAML} || return 1
+  UNINSTALL_LIST+=( "${INSTALL_KONG_YAML}" )
+
+  echo ">> Patching Kong"
+  # Scale replicas of the Kong gateways to handle large qps
+  kubectl scale -n kong deployment ingress-kong --replicas=6
+}
+
 function install_ambassador() {
   local AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
   echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
@@ -343,6 +363,8 @@ function install_knative_serving_standard() {
     install_ambassador || return 1
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
     install_contour || return 1
+  elif [[ -n "${KONG_VERSION}" ]]; then
+    install_kong || return 1
   else
     if [[ "$1" == "HEAD" ]]; then
       install_istio "./third_party/net-istio.yaml" || return 1
@@ -579,6 +601,14 @@ function test_setup() {
     wait_until_pods_running contour-external || return 1
     wait_until_pods_running contour-internal || return 1
     wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
+  fi
+  if [[ -n "${KONG_VERSION}" ]]; then
+    # we must set these override values to allow the test spoofing client to work with Kong
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=kong-proxy
+    export GATEWAY_NAMESPACE_OVERRIDE=kong
+    wait_until_pods_running kong || return 1
+    wait_until_service_has_external_http_address kong kong-proxy
   fi
 
   if (( INSTALL_MONITORING )); then
