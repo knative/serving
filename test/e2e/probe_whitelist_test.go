@@ -35,7 +35,6 @@ import (
 //policy is present in test/config/security/policy.yaml
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
-	t.Skip("RequestAuthentication dropped the regex support. We need to rewrite this test. See https://github.com/istio/istio/issues/16585")
 	t.Parallel()
 
 	clients := SetupServingNamespaceforSecurityTesting(t)
