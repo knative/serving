@@ -42,13 +42,13 @@ func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clo
 		rev.GenerateName = config.Name + "-"
 	}
 
-	updateRevisionLabels(rev, config)
-	updateRevisionAnnotations(rev, config)
-
 	// Pending tells the labeler that we have not processed this revision.
-	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgMap.Enabled {
+	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgMap.Disabled {
 		rev.SetRoutingState(v1.RoutingStatePending, clock)
 	}
+
+	updateRevisionLabels(rev, config)
+	updateRevisionAnnotations(rev, config)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))

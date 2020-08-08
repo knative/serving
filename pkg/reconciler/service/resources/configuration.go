@@ -47,7 +47,7 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 		labels[serving.RouteLabelKey] = routeName
 	}
 
-	if gc == cfgmap.Enabled || gc == cfgmap.Allowed {
+	if gc != cfgmap.Disabled {
 		set := labelerv2.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
 		if !set.Has(routeName) {
 			set.Insert(routeName)
