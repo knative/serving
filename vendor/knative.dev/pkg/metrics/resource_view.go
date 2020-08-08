@@ -177,6 +177,21 @@ func flushResourceExporters() {
 	}
 }
 
+// ClearMetersForTest clears the internal set of metrics being exported,
+// including cleaning up background threads.
+func ClearMetersForTest() {
+	allMeters.lock.Lock()
+	defer allMeters.lock.Unlock()
+
+	for k, meter := range allMeters.meters {
+		if k == "" {
+			continue
+		}
+		meter.m.Stop()
+		delete(allMeters.meters, k)
+	}
+}
+
 func meterExporterForResource(r *resource.Resource) *meterExporter {
 	key := resourceToKey(r)
 	mE := allMeters.meters[key]
