@@ -314,6 +314,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				}},
 			},
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
@@ -465,6 +466,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -582,6 +584,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
@@ -801,6 +804,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -1007,6 +1011,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 
 	if !cmp.Equal(expectedSpec, ci.Spec) {
@@ -1324,6 +1329,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}},
+		Visibility: v1alpha1.IngressVisibilityExternalIP,
 	}
 
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {

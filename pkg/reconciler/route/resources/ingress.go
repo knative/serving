@@ -154,8 +154,9 @@ func MakeIngressSpec(
 	}
 
 	return netv1alpha1.IngressSpec{
-		Rules: rules,
-		TLS:   tls,
+		Rules:      rules,
+		TLS:        tls,
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, nil
 }
 

@@ -902,8 +902,9 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: netv1alpha1.IngressSpec{
-			Rules: []netv1alpha1.IngressRule{},
-			TLS:   tls,
+			Rules:      []netv1alpha1.IngressRule{},
+			TLS:        tls,
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		},
 	}
 	got, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
