@@ -56,48 +56,85 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		url      string
-		body     string
-		template string
-		want     string
+		name string
+		url  string
+		body string
+		data map[string]string
+		want string
 	}{{
-		name:     "empty template",
-		url:      "http://example.com/testpage",
-		body:     "test",
-		template: "",
-		want:     "",
+		name: "empty template",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "",
+		},
+		want: "",
 	}, {
-		name:     "template with new line",
-		url:      "http://example.com/testpage",
-		body:     "test",
-		template: "{{.Request.URL}}\n",
-		want:     "http://example.com/testpage\n",
+		name: "template with new line",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "{{.Request.URL}}\n",
+		},
+		want: "http://example.com/testpage\n",
 	}, {
-		name:     "invalid template",
-		url:      "http://example.com",
-		body:     "test",
-		template: "{{}}",
-		want:     "http://example.com\n",
+		name: "invalid template",
+		url:  "http://example.com",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "{{}}",
+		},
+		want: "http://example.com\n",
 	}, {
-		name:     "revision info",
-		url:      "http://example.com",
-		body:     "test",
-		template: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
-		want:     "testRevision, testNs, testSvc, testConfig, , \n",
+		name: "revision info",
+		url:  "http://example.com",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+		},
+		want: "testRevision, testNs, testSvc, testConfig, , \n",
 	}, {
-		name:     "empty template 2",
-		url:      "http://example.com/testpage",
-		body:     "test",
-		template: "",
-		want:     "",
+		name: "empty template 2",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "",
+		},
+		want: "",
+	}, {
+		name: "explicitly enable request logging",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "{{.Request.URL}}\n",
+			"logging.enable-request-log":   "true",
+		},
+		want: "http://example.com/testpage\n",
+	}, {
+		name: "explicitly disable request logging",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "disable_request_log",
+			"logging.enable-request-log":   "false",
+		},
+		want: "",
+	}, {
+		name: "explicitly enable request logging with empty template",
+		url:  "http://example.com/testpage",
+		body: "test",
+		data: map[string]string{
+			"logging.request-log-template": "",
+			"logging.enable-request-log":   "true",
+		},
+		want: "",
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf.Reset()
 			cm := &corev1.ConfigMap{}
-			cm.Data = map[string]string{"logging.request-log-template": test.template}
+			cm.Data = test.data
 			(updateRequestLogFromConfigMap(testing2.TestLogger(t), handler))(cm)
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
