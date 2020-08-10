@@ -18,7 +18,6 @@ package autotls
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,8 +40,6 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 )
-
-var rootCAs = x509.NewCertPool()
 
 var dialBackoff = wait.Backoff{
 	Duration: 50 * time.Millisecond,

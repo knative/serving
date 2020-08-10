@@ -28,15 +28,6 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
-var testStat = metrics.Stat{
-	PodName:                          pod,
-	AverageConcurrentRequests:        5.0,
-	AverageProxiedConcurrentRequests: 5.0,
-	ProxiedRequestCount:              100.0,
-	RequestCount:                     100.0,
-	ProcessUptime:                    20.0,
-}
-
 func TestProtobufStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
