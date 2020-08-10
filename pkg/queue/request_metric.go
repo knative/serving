@@ -81,7 +81,7 @@ type appRequestMetricsHandler struct {
 // NewRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewRequestMetricsHandler(next http.Handler,
 	ns, service, config, rev, pod string) (http.Handler, error) {
-	keys := []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey}
+	keys := []tag.Key{metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey /*, metrics.RouteTagKey*/}
 	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
@@ -123,16 +123,22 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime)
-		routeTag := GetRouteTagNameFromRequest(r)
+		// routeTag := GetRouteTagNameFromRequest(r)
 		if err != nil {
-			ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
-				http.StatusInternalServerError, routeTag)
+			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
+			// TODO: add the routeTag back after stackdriver adds support for it.
+			// https://github.com/knative/serving/issues/8970
+			// ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
+			// http.StatusInternalServerError, routeTag)
 			pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 				responseTimeInMsecM.M(float64(latency.Milliseconds())))
 			panic(err)
 		}
-		ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
-			rr.ResponseCode, routeTag)
+		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		// TODO: add the routeTag back after stackdriver adds support for it.
+		// https://github.com/knative/serving/issues/8970
+		// ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
+		// rr.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))
 	}()
@@ -206,7 +212,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 }
 
 // GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
-func GetRouteTagNameFromRequest(r *http.Request) string {
+/*func GetRouteTagNameFromRequest(r *http.Request) string {
 	name := r.Header.Get(network.TagHeaderName)
 	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
 
@@ -225,4 +231,4 @@ func GetRouteTagNameFromRequest(r *http.Request) string {
 	}
 	// Otherwise, returns the value of the tag header.
 	return name
-}
+}*/
