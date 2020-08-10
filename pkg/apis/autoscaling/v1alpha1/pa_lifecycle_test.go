@@ -550,7 +550,7 @@ func TestScaleBounds(t *testing.T) {
 		wantMin: 1,
 		wantMax: 0,
 	}, {
-		name:    "only min, overriden",
+		name:    "only min, overridden",
 		min:     "1",
 		wantMin: 1,
 		wantMax: 10,
