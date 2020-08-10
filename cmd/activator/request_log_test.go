@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -56,11 +57,12 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		url      string
-		body     string
-		template string
-		want     string
+		name             string
+		url              string
+		body             string
+		template         string
+		enableRequestLog *bool
+		want             string
 	}{{
 		name:     "empty template",
 		url:      "http://example.com/testpage",
@@ -91,6 +93,27 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		body:     "test",
 		template: "",
 		want:     "",
+	}, {
+		name:             "explicitly enable request logging",
+		url:              "http://example.com/testpage",
+		body:             "test",
+		template:         "{{.Request.URL}}\n",
+		want:             "http://example.com/testpage\n",
+		enableRequestLog: getBoolPtr(true),
+	}, {
+		name:             "explicitly disable request logging",
+		url:              "http://example.com/testpage",
+		body:             "test",
+		template:         "disable_request_log",
+		want:             "",
+		enableRequestLog: getBoolPtr(false),
+	}, {
+		name:             "explicitly enable request logging with empty template",
+		url:              "http://example.com/testpage",
+		body:             "test",
+		template:         "",
+		want:             "",
+		enableRequestLog: getBoolPtr(true),
 	}}
 
 	for _, test := range tests {
@@ -98,6 +121,9 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			buf.Reset()
 			cm := &corev1.ConfigMap{}
 			cm.Data = map[string]string{"logging.request-log-template": test.template}
+			if test.enableRequestLog != nil {
+				cm.Data["logging.enable-request-log"] = strconv.FormatBool(*test.enableRequestLog)
+			}
 			(updateRequestLogFromConfigMap(testing2.TestLogger(t), handler))(cm)
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
@@ -112,6 +138,12 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getBoolPtr(val bool) *bool {
+	ptr := new(bool)
+	*ptr = val
+	return ptr
 }
 
 func TestRequestLogTemplateInputGetter(t *testing.T) {

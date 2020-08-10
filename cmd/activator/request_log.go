@@ -36,6 +36,7 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 			logger.Errorw("Failed to get observability configmap.", zap.Error(err), "configmap", configMap)
 			return
 		}
+
 		if obsconfig.EnableRequestLog {
 			newTemplate = obsconfig.RequestLogTemplate
 		}
