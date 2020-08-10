@@ -30,15 +30,11 @@ import (
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
-		var newTemplate string // default is an empty template, disables logging
 		obsconfig, err := metrics.NewObservabilityConfigFromConfigMap(configMap)
 		if err != nil {
 			logger.Errorw("Failed to get observability configmap.", zap.Error(err), "configmap", configMap)
 		} else {
-			if obsconfig.EnableRequestLog {
-				newTemplate = obsconfig.RequestLogTemplate
-			}
-			// set this in any case to disable logging if the previous flag is false
+			newTemplate := obsconfig.RequestLogTemplate
 			if err := h.SetTemplate(newTemplate); err != nil {
 				logger.Errorw("Failed to update the request log template.", zap.Error(err), "template", newTemplate)
 			} else {
