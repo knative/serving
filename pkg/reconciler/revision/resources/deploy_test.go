@@ -136,6 +136,9 @@ var (
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: "",
 		}, {
+			Name:  "SERVING_ENABLE_REQUEST_LOG",
+			Value: "false",
+		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: "",
 		}, {

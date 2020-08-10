@@ -756,6 +756,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_SAMPLE_RATE":            "0",
 	"TRACING_CONFIG_DEBUG":                  "false",
 	"SERVING_REQUEST_LOG_TEMPLATE":          "",
+	"SERVING_ENABLE_REQUEST_LOG":            "false",
 	"SERVING_REQUEST_METRICS_BACKEND":       "",
 	"USER_PORT":                             strconv.Itoa(v1.DefaultUserPort),
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
