@@ -65,31 +65,41 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		name: "empty template",
 		url:  "http://example.com/testpage",
 		body: "test",
-		data: map[string]string{"logging.request-log-template": ""},
+		data: map[string]string{
+			"logging.request-log-template": "",
+		},
 		want: "",
 	}, {
 		name: "template with new line",
 		url:  "http://example.com/testpage",
 		body: "test",
-		data: map[string]string{"logging.request-log-template": "{{.Request.URL}}\n"},
+		data: map[string]string{
+			"logging.request-log-template": "{{.Request.URL}}\n",
+		},
 		want: "http://example.com/testpage\n",
 	}, {
 		name: "invalid template",
 		url:  "http://example.com",
 		body: "test",
-		data: map[string]string{"logging.request-log-template": "{{}}"},
+		data: map[string]string{
+			"logging.request-log-template": "{{}}",
+		},
 		want: "http://example.com\n",
 	}, {
 		name: "revision info",
 		url:  "http://example.com",
 		body: "test",
-		data: map[string]string{"logging.request-log-template": "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}"},
+		data: map[string]string{
+			"logging.request-log-template": "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+		},
 		want: "testRevision, testNs, testSvc, testConfig, , \n",
 	}, {
 		name: "empty template 2",
 		url:  "http://example.com/testpage",
 		body: "test",
-		data: map[string]string{"logging.request-log-template": ""},
+		data: map[string]string{
+			"logging.request-log-template": "",
+		},
 		want: "",
 	}, {
 		name: "explicitly enable request logging",
