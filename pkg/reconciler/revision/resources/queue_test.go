@@ -200,6 +200,23 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "disabled request log configuration as env var",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			withContainerConcurrency(1)),
+		oc: metrics.ObservabilityConfig{
+			RequestLogTemplate:    "test template",
+			EnableProbeRequestLog: false,
+			EnableRequestLog:      false,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
+				"SERVING_ENABLE_REQUEST_LOG":       "false",
+				"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
+			})
+		}),
+	}, {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers),
