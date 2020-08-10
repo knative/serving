@@ -126,6 +126,8 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		// routeTag := GetRouteTagNameFromRequest(r)
 		if err != nil {
 			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
+			// TODO: add the routeTag back after stackdriver adds support for it.
+			// https://github.com/knative/serving/issues/8970
 			// ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
 			// http.StatusInternalServerError, routeTag)
 			pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
@@ -133,6 +135,8 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			panic(err)
 		}
 		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		// TODO: add the routeTag back after stackdriver adds support for it.
+		// https://github.com/knative/serving/issues/8970
 		// ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
 		// rr.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
