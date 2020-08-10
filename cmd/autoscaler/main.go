@@ -180,7 +180,7 @@ func main() {
 	selfIP := os.Getenv("POD_IP")
 	cc := leaderelection.ComponentConfig{
 		Component:             "autoscaler",
-		Buckets:               3,
+		Buckets:               5,
 		SharedReconcilerCount: len(controllers),
 		LeaseDuration:         15 * time.Second,
 		RenewDeadline:         10 * time.Second,
@@ -380,12 +380,10 @@ func statForwarder(bucketSize int, accept statProcessor, logger *zap.SugaredLogg
 			// If this pod has the key, accept it.
 			targetIP := getIP(bs.Owner(sm.Key.String()))
 			if targetIP == selfIP {
-				log.Printf("## accept\n")
 				accept(sm)
 				return
 			}
 
-			log.Printf("## forward\n")
 			// Otherwise forward to the owner.
 			if ws, ok := wsMap[bs.Owner(sm.Key.String())]; ok {
 				ws.Send(sm)

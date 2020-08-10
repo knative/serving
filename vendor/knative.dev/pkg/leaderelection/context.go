@@ -218,92 +218,64 @@ func (b *sharedElectorBuilder) buildElector(ctx context.Context, la reconciler.L
 	enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
-	var e error
-	buildOnce.Do(func() {
-		wg.Add(b.lec.SharedReconcilerCount)
-
-		ip := os.Getenv("POD_IP")
-		if ip == "" {
-			e = errors.New("Pod IP not found")
-			return
-		}
-
-		bkts := newEndpointsBuckets(b.lec)
-		electors := make([]Elector, 0, b.lec.Buckets)
-		for _, bkt := range bkts {
-			// Use a local var which won't change across the for loop since it is
-			// used in a callback asynchronously.
-			bkt := bkt
-			rl, err := resourcelock.New(resourcelock.EndpointsResourceLock,
-				system.Namespace(), // use namespace we are running in
-				bkt.Name(),
-				b.kc.CoreV1(),
-				b.kc.CoordinationV1(),
-				resourcelock.ResourceLockConfig{
-					Identity: ip,
-				})
-			if err != nil {
-				e = err
-				return
-			}
-			logger.Infof("%s will run in leader-elected mode with id %q", bkt.Name(), rl.Identity())
-
-			le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
-				Lock:          rl,
-				LeaseDuration: b.lec.LeaseDuration,
-				RenewDeadline: b.lec.RenewDeadline,
-				RetryPeriod:   b.lec.RetryPeriod,
-				Callbacks: leaderelection.LeaderCallbacks{
-					OnStartedLeading: func(context.Context) {
-						logger.Infof("%q has started leading %q", rl.Identity(), bkt.Name())
-						sm.RLock()
-						defer sm.RUnlock()
-
-						for _, pair := range leaderAwares {
-							if err := pair.la.Promote(bkt, pair.enq); err != nil {
-								// TODO(mattmoor): We expect this to effectively never happen,
-								// but if it does, we should support wrapping `le` in an elector
-								// we can cancel here.
-								logger.Fatalf("%q failed to Promote: %v", rl.Identity(), err)
-							}
-						}
-					},
-					OnStoppedLeading: func() {
-						logger.Infof("%q has stopped leading %q", rl.Identity(), bkt.Name())
-						sm.RLock()
-						defer sm.RUnlock()
-
-						for _, pair := range leaderAwares {
-							pair.la.Demote(bkt)
-						}
-					},
-				},
-				ReleaseOnCancel: true,
-				Name:            rl.Identity(),
-			})
-			if err != nil {
-				e = err
-				return
-			}
-			// TODO: use health check watchdog, knative/pkg#1048
-			// if lec.WatchDog != nil {
-			// 	lec.WatchDog.SetLeaderElection(le)
-			// }
-			electors = append(electors, &runUntilCancelled{Elector: le})
-		}
-
-		sharedElector = &runOnce{e: &runAll{les: electors}}
-	})
-
-	if e != nil {
-		log.Printf("### got error: %v\n", e)
-		return nil, e
+	ip := os.Getenv("POD_IP")
+	if ip == "" {
+		return nil, errors.New("Pod IP not found")
 	}
 
-	addLeaderAware(la, enq)
-	wg.Done()
-	wg.Wait() // Wait all reconcilers to add their LeaderAware
-	return sharedElector, nil
+	bkts := newEndpointsBuckets(b.lec)
+	electors := make([]Elector, 0, b.lec.Buckets)
+	for _, bkt := range bkts {
+		// Use a local var which won't change across the for loop since it is
+		// used in a callback asynchronously.
+		bkt := bkt
+		rl, err := resourcelock.New(resourcelock.EndpointsResourceLock,
+			system.Namespace(), // use namespace we are running in
+			bkt.Name(),
+			b.kc.CoreV1(),
+			b.kc.CoordinationV1(),
+			resourcelock.ResourceLockConfig{
+				Identity: ip,
+			})
+		if err != nil {
+			return nil, err
+		}
+		logger.Infof("%s will run in leader-elected mode with id %q", bkt.Name(), rl.Identity())
+
+		le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
+			Lock:          rl,
+			LeaseDuration: b.lec.LeaseDuration,
+			RenewDeadline: b.lec.RenewDeadline,
+			RetryPeriod:   b.lec.RetryPeriod,
+			Callbacks: leaderelection.LeaderCallbacks{
+				OnStartedLeading: func(context.Context) {
+					logger.Infof("%q has started leading %q", rl.Identity(), bkt.Name())
+					log.Println("## %q has started leading %q", rl.Identity(), bkt.Name())
+					if err := la.Promote(bkt, enq); err != nil {
+						// TODO(mattmoor): We expect this to effectively never happen,
+						// but if it does, we should support wrapping `le` in an elector
+						// we can cancel here.
+						logger.Fatalf("%q failed to Promote: %v", rl.Identity(), err)
+					}
+				},
+				OnStoppedLeading: func() {
+					logger.Infof("%q has stopped leading %q", rl.Identity(), bkt.Name())
+					la.Demote(bkt)
+				},
+			},
+			ReleaseOnCancel: true,
+			Name:            rl.Identity(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		// TODO: use health check watchdog, knative/pkg#1048
+		// if lec.WatchDog != nil {
+		// 	lec.WatchDog.SetLeaderElection(le)
+		// }
+		electors = append(electors, &runUntilCancelled{Elector: le})
+	}
+	return &runAll{les: electors}, nil
 }
 
 func addLeaderAware(la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) {
