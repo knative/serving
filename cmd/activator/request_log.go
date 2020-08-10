@@ -33,13 +33,13 @@ func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.Request
 		obsconfig, err := metrics.NewObservabilityConfigFromConfigMap(configMap)
 		if err != nil {
 			logger.Errorw("Failed to get observability configmap.", zap.Error(err), "configmap", configMap)
+			return
+		}
+		newTemplate := obsconfig.RequestLogTemplate
+		if err := h.SetTemplate(newTemplate); err != nil {
+			logger.Errorw("Failed to update the request log template.", zap.Error(err), "template", newTemplate)
 		} else {
-			newTemplate := obsconfig.RequestLogTemplate
-			if err := h.SetTemplate(newTemplate); err != nil {
-				logger.Errorw("Failed to update the request log template.", zap.Error(err), "template", newTemplate)
-			} else {
-				logger.Infow("Updated the request log template.", "template", newTemplate)
-			}
+			logger.Infow("Updated the request log template.", "template", newTemplate)
 		}
 	}
 }
