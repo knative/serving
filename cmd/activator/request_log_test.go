@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	testing2 "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
@@ -99,21 +100,21 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		body:             "test",
 		template:         "{{.Request.URL}}\n",
 		want:             "http://example.com/testpage\n",
-		enableRequestLog: getBoolPtr(true),
+		enableRequestLog: ptr.Bool(true),
 	}, {
 		name:             "explicitly disable request logging",
 		url:              "http://example.com/testpage",
 		body:             "test",
 		template:         "disable_request_log",
 		want:             "",
-		enableRequestLog: getBoolPtr(false),
+		enableRequestLog: ptr.Bool(false),
 	}, {
 		name:             "explicitly enable request logging with empty template",
 		url:              "http://example.com/testpage",
 		body:             "test",
 		template:         "",
 		want:             "",
-		enableRequestLog: getBoolPtr(true),
+		enableRequestLog: ptr.Bool(true),
 	}}
 
 	for _, test := range tests {
@@ -138,12 +139,6 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			}
 		})
 	}
-}
-
-func getBoolPtr(val bool) *bool {
-	ptr := new(bool)
-	*ptr = val
-	return ptr
 }
 
 func TestRequestLogTemplateInputGetter(t *testing.T) {
