@@ -61,8 +61,8 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		url              string
 		body             string
 		template         string
-		enableRequestLog *bool
 		want             string
+		enableRequestLog *bool
 	}{{
 		name:     "empty template",
 		url:      "http://example.com/testpage",
