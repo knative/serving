@@ -228,12 +228,15 @@ func TestContexts(t *testing.T) {
 }
 
 func BenchmarkPodRevisionContext(b *testing.B) {
+	// pre-warm the cache cases.
+	PodRevisionContext("pod", "container", "ns", "svc", "cfg", "name")
+
 	for _, cache := range []bool{true, false} {
 		b.Run(fmt.Sprintf("sequential-cache-%v", cache), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				rev := "name"
 				if !cache {
-					rev = rev + strconv.Itoa(i)
+					rev += strconv.Itoa(i)
 				}
 
 				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
@@ -246,7 +249,7 @@ func BenchmarkPodRevisionContext(b *testing.B) {
 				for pb.Next() {
 					rev := "name"
 					if !cache {
-						rev = rev + strconv.FormatInt(n.Inc(), 10)
+						rev += strconv.FormatInt(n.Inc(), 10)
 					}
 
 					PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
