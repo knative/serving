@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sync"
 
 	"go.uber.org/atomic"
 )
@@ -177,131 +176,136 @@ func (b *Breaker) Capacity() int {
 	return b.sem.Capacity()
 }
 
-// newSemaphore creates a semaphore with the desired maximal and initial capacity.
-// Maximal capacity is the size of the buffered channel, it defines maximum number of tokens
-// in the rotation. Attempting to add more capacity then the max will result in error.
-// Initial capacity is the initial number of free tokens.
+// newSemaphore creates a semaphore with the desired initial capacity.
 func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
 	queue := make(chan struct{}, maxCapacity)
 	sem := &semaphore{queue: queue}
-	if initialCapacity > 0 {
-		sem.updateCapacity(initialCapacity)
-	}
+	sem.updateCapacity(initialCapacity)
 	return sem
 }
 
-// semaphore is an implementation of a semaphore based on Go channels.
-// The presence of elements in the `queue` buffered channel correspond to available tokens.
-// Hence the max number of tokens to hand out equals to the size of the channel.
-// `capacity` defines the current number of tokens in the rotation.
+// semaphore is an implementation of a semaphore based on packed integers and a channel.
+// state is an int64 that has two int32s packed into it: capacity and inFlight. The
+// former specifies how many request are allowed at any given time into the semaphore
+// while the latter refers to the currently in-flight requests.
+// Packing them both into one int64 allows us to optimize access semantics using atomic
+// operations, which can't be guaranteed on 2 individual values.
+// The channel is merely used as a vehicle to be able to "wake up" individual goroutines
+// if capacity becomes free. It's not consistently used in accordance to actual capacity
+// but is rather a communication vehicle to ensure waiting routines are properly worken
+// up.
 type semaphore struct {
-	queue    chan struct{}
-	reducers int
-	capacity int
-	mux      sync.RWMutex
+	state atomic.Int64
+	queue chan struct{}
 }
 
-// tryAcquire receives the token from the semaphore if there's one
-// otherwise an error is returned.
+// tryAcquire receives the token from the semaphore if there's one otherwise returns false.
 func (s *semaphore) tryAcquire() bool {
-	select {
-	case <-s.queue:
-		return true
-	default:
-		return false
+	for {
+		old := s.state.Load()
+		capacity, in := unpack(old)
+		if in >= capacity {
+			return false
+		}
+		in++
+		if s.state.CAS(old, pack(capacity, in)) {
+			return true
+		}
 	}
 }
 
-// acquire receives the token from the semaphore, potentially blocking.
+// acquire acquires capacity from the semaphore.
 func (s *semaphore) acquire(ctx context.Context) error {
-	select {
-	case <-s.queue:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	for {
+		old := s.state.Load()
+		capacity, in := unpack(old)
+
+		if in >= capacity {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-s.queue:
+			}
+			// Force reload state.
+			continue
+		}
+
+		in++
+		if s.state.CAS(old, pack(capacity, in)) {
+			return nil
+		}
 	}
 }
 
-// release potentially puts the token back to the queue.
-// If the semaphore capacity was reduced in between and is not yet reflected,
-// we remove the tokens from the rotation instead of returning them back.
+// release releases capacity in the semaphore.
+// If the semaphore capacity was reduced in between and as a result inFlight is greater
+// than capacity, we don't wake up goroutines as they'd not get any capacity anyway.
 func (s *semaphore) release() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	for {
+		old := s.state.Load()
+		capacity, in := unpack(old)
+		in--
 
-	if s.reducers > 0 {
-		s.capacity--
-		s.reducers--
-		return nil
-	}
+		if in < 0 {
+			return ErrRelease
+		}
 
-	// We want to make sure releasing a token is always non-blocking.
-	select {
-	case s.queue <- struct{}{}:
-		return nil
-	default:
-		// This only happens if release is called more often than acquire.
-		return ErrRelease
+		if s.state.CAS(old, pack(capacity, in)) {
+			if in <= capacity {
+				select {
+				case s.queue <- struct{}{}:
+				default:
+				}
+			}
+			return nil
+		}
 	}
 }
 
-// updateCapacity updates the capacity of the semaphore to the desired
-// size.
+// updateCapacity updates the capacity of the semaphore to the desired size.
 func (s *semaphore) updateCapacity(size int) error {
 	if size < 0 || size > cap(s.queue) {
 		return ErrUpdateCapacity
 	}
 
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s32 := int32(size)
+	for {
+		old := s.state.Load()
+		capacity, in := unpack(old)
 
-	if s.effectiveCapacity() == size {
-		return nil
-	}
+		if capacity == s32 {
+			// Nothing to do, exit early.
+			return nil
+		}
 
-	// Add capacity until we reach size, potentially consuming
-	// outstanding reducers first.
-	for s.effectiveCapacity() < size {
-		if s.reducers > 0 {
-			s.reducers--
-		} else {
-			select {
-			case s.queue <- struct{}{}:
-				s.capacity++
-			default:
-				// This indicates that we're operating close to
-				// MaxCapacity and returned more tokens than we
-				// acquired.
-				return ErrUpdateCapacity
+		if s.state.CAS(old, pack(s32, in)) {
+			for i := int32(0); i < s32-capacity; i++ {
+				select {
+				case s.queue <- struct{}{}:
+				default:
+				}
 			}
+			return nil
 		}
 	}
-
-	// Reduce capacity until we reach size, potentially adding
-	// new reducers if the queue channel is empty because of
-	// requests in-flight.
-	for s.effectiveCapacity() > size {
-		select {
-		case <-s.queue:
-			s.capacity--
-		default:
-			s.reducers++
-		}
-	}
-
-	return nil
-}
-
-// effectiveCapacity is the capacity with reducers taken into account.
-// `mux` must be held to call it.
-func (s *semaphore) effectiveCapacity() int {
-	return s.capacity - s.reducers
 }
 
 // Capacity is the effective capacity after taking reducers into account.
 func (s *semaphore) Capacity() int {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+	capacity, _ := unpack(s.state.Load())
+	return int(capacity)
+}
 
-	return s.effectiveCapacity()
+// unpack takes an int64 and returns two int32 comprised of the leftmost and the
+// rightmost bits respectively.
+func unpack(in int64) (int32, int32) {
+	return int32(in >> 32), int32(in & 0xffffffff)
+}
+
+// pack takes two int32 and packs them into a single int64 at the leftmost and the
+// rightmost bits respectively.
+func pack(left, right int32) int64 {
+	out := int64(left) << 32
+	out += int64(right)
+	return out
 }
