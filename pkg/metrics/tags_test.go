@@ -18,9 +18,12 @@ package metrics
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
+	"go.uber.org/atomic"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
@@ -220,6 +223,35 @@ func TestContexts(t *testing.T) {
 
 			pkgmetrics.Record(test.ctx, testM.M(42))
 			metricstest.AssertMetric(t, metricstest.IntMetric("test_metric", 42, test.wantTags).WithResource(test.wantResource))
+		})
+	}
+}
+
+func BenchmarkPodRevisionContext(b *testing.B) {
+	for _, cache := range []bool{true, false} {
+		b.Run(fmt.Sprintf("sequential-cache-%v", cache), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				rev := "name"
+				if !cache {
+					rev = rev + strconv.Itoa(i)
+				}
+
+				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+			}
+		})
+
+		b.Run(fmt.Sprintf("parallel-cache-%v", cache), func(b *testing.B) {
+			var n atomic.Int64
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					rev := "name"
+					if !cache {
+						rev = rev + strconv.FormatInt(n.Inc(), 10)
+					}
+
+					PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+				}
+			})
 		})
 	}
 }
