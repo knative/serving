@@ -104,7 +104,6 @@ func TestRequestLogs(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Got error waiting for health check log: %v", err)
 	}
-
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
