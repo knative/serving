@@ -295,7 +295,7 @@ function install_contour() {
   echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
 
   echo ">> Bringing up Contour"
-  kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+  sed 's/--log-level info/--log-level debug/g' "${INSTALL_CONTOUR_YAML}" | kubectl apply -f - || return 1
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
   HA_COMPONENTS+=( "contour-ingress-controller" )
