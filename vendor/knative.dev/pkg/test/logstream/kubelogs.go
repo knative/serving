@@ -83,6 +83,7 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 					defer k.m.Unlock()
 					k.err = err
 				}()
+				return
 			}
 			defer stream.Close()
 			// Read this container's stream.
