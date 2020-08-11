@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -45,12 +46,12 @@ func TestIsObjectLocalVisibility(t *testing.T) {
 	}, {
 		name: "false",
 		meta: &v1.ObjectMeta{
-			Labels: map[string]string{serving.VisibilityLabelKey: ""},
+			Labels: map[string]string{network.VisibilityLabelKey: ""},
 		},
 	}, {
 		name: "true",
 		meta: &v1.ObjectMeta{
-			Labels: map[string]string{serving.VisibilityLabelKey: "set"},
+			Labels: map[string]string{network.VisibilityLabelKey: "set"},
 		},
 		want: true,
 	}}
@@ -164,10 +165,10 @@ func TestSetVisibility(t *testing.T) {
 		name:           "Set cluster local true",
 		meta:           &v1.ObjectMeta{},
 		isClusterLocal: true,
-		want:           v1.ObjectMeta{Labels: map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+		want:           v1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
 	}, {
 		name: "Set cluster local false",
-		meta: &v1.ObjectMeta{Labels: map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}},
+		meta: &v1.ObjectMeta{Labels: map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}},
 		want: v1.ObjectMeta{Labels: map[string]string{}},
 	}}
 	for _, tt := range tests {

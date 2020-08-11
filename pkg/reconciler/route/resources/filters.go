@@ -18,10 +18,12 @@ package resources
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
-	return svc.GetLabels()[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal
+	return svc.GetLabels()[network.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
+		svc.GetLabels()[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal
 }

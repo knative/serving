@@ -84,7 +84,8 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	var templ *template.Template
 	// If the route is "cluster local" then don't use the user-defined
 	// domain template, use the default one
-	if rLabels[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+	if rLabels[network.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
+		rLabels[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal {
 		templ = template.Must(template.New("domain-template").Parse(
 			network.DefaultDomainTemplate))
 	} else {
