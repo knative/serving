@@ -86,12 +86,20 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Got error waiting for normal request logs: %v", err)
 	}
 
-	// Health check requests are sent to / with a specific userAgent value periodically.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HTTPRequest.RequestURL == "/" &&
-			log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
-	}); err != nil {
-		t.Fatalf("Got error waiting for health check log: %v", err)
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get("config-observability", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
+	}
+
+	// Only check probe request logs if the feature is enabled in config-observability.
+	if cm.Data["logging.enable-probe-request-log"] == "true" {
+		// Health check requests are sent to / with a specific userAgent value periodically.
+		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+			return log.HTTPRequest.RequestURL == "/" &&
+				log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
+		}); err != nil {
+			t.Fatalf("Got error waiting for health check log: %v", err)
+		}
 	}
 }
 
