@@ -285,9 +285,9 @@ func Route(namespace, name string, ro ...RouteOption) *v1.Route {
 			Name:      name,
 		},
 	}
+	r.SetDefaults(context.Background())
 	for _, opt := range ro {
 		opt(r)
 	}
-	r.SetDefaults(context.Background())
 	return r
 }
