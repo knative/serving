@@ -92,15 +92,19 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.
-	if cm.Data["logging.enable-probe-request-log"] == "true" {
-		// Health check requests are sent to / with a specific userAgent value periodically.
-		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-			return log.HTTPRequest.RequestURL == "/" &&
-				log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
-		}); err != nil {
-			t.Fatalf("Got error waiting for health check log: %v", err)
-		}
+	if cm.Data["logging.enable-probe-request-log"] != "true" {
+		t.Log("Skipping verifing probe request logs because they are not enabled")
+		return
 	}
+
+	// Health check requests are sent to / with a specific userAgent value periodically.
+	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+		return log.HTTPRequest.RequestURL == "/" &&
+			log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
+	}); err != nil {
+		t.Fatalf("Got error waiting for health check log: %v", err)
+	}
+
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
