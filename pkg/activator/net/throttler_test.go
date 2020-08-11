@@ -1035,7 +1035,7 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
-	opt := cmp.Comparer(func(a *podTracker, b *podTracker) bool {
+	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
 	})
 	trackers := []*podTracker{{

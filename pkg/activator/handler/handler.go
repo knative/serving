@@ -91,7 +91,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
-		// Set error on our capacity waiting span and end it
+		// Set error on our capacity waiting span and end it.
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
@@ -110,7 +110,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
-	// Setup the reverse proxy.
+	// Set up the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport

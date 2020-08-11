@@ -164,7 +164,6 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		prober.ExpectsBody(queue.Name),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}))
-
 }
 
 func (rw *revisionWatcher) getDest() (string, error) {
