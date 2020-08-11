@@ -35,12 +35,16 @@ var (
 	contextCache *lru.Cache
 )
 
-const lruCacheSize = 1024
+// This is a fairly arbitrary number but we want it to be higher than the
+// number of active revisions a single activator might be handling, to avoid
+// churning the cache, without being so much higher that it causes an
+// (effective) memory leak.
+// The contents of the cache are quite small, so we can err on the high side.
+const lruCacheSize = 4096
 
 func init() {
 	// The only possible error is when cache size is not positive.
-	lc, _ := lru.New(lruCacheSize)
-	contextCache = lc
+	contextCache, _ = lru.New(lruCacheSize)
 }
 
 func valueOrUnknown(v string) string {
