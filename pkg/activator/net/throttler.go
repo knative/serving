@@ -147,7 +147,7 @@ type revisionThrottler struct {
 	clusterIPTracker *podTracker
 
 	// mux guards the "throttler state" which is the state we use during the
-	//request path. This is: trackers, clusterIPDest.
+	// request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
 	logger *zap.SugaredLogger

@@ -480,7 +480,7 @@ func assertChClosed(t *testing.T, ch chan struct{}) {
 	}
 }
 
-func epSubset(port int32, portName string, ips []string, notReadyIps []string) *corev1.EndpointSubset {
+func epSubset(port int32, portName string, ips, notReadyIps []string) *corev1.EndpointSubset {
 	ss := &corev1.EndpointSubset{
 		Ports: []corev1.EndpointPort{{
 			Name: portName,
@@ -500,7 +500,7 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 	return epNotReady(revL, port, portName, ips, nil)
 }
 
-func epNotReady(revL string, port int32, portName string, readyIps []string, notReadyIps []string) *corev1.Endpoints {
+func epNotReady(revL string, port int32, portName string, readyIps, notReadyIps []string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: revL + "-ep",
