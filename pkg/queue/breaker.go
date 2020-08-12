@@ -195,7 +195,7 @@ func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
 // but is rather a communication vehicle to ensure waiting routines are properly worken
 // up.
 type semaphore struct {
-	state atomic.Int64
+	state atomic.Uint64
 	queue chan struct{}
 }
 
@@ -244,12 +244,12 @@ func (s *semaphore) release() error {
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
-		in--
 
-		if in < 0 {
+		if in == 0 {
 			return ErrRelease
 		}
 
+		in--
 		if s.state.CAS(old, pack(capacity, in)) {
 			if in <= capacity {
 				select {
@@ -268,21 +268,23 @@ func (s *semaphore) updateCapacity(size int) error {
 		return ErrUpdateCapacity
 	}
 
-	s32 := int32(size)
+	s64 := uint64(size)
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
 
-		if capacity == s32 {
+		if capacity == s64 {
 			// Nothing to do, exit early.
 			return nil
 		}
 
-		if s.state.CAS(old, pack(s32, in)) {
-			for i := int32(0); i < s32-capacity; i++ {
-				select {
-				case s.queue <- struct{}{}:
-				default:
+		if s.state.CAS(old, pack(s64, in)) {
+			if s64 > capacity {
+				for i := uint64(0); i < s64-capacity; i++ {
+					select {
+					case s.queue <- struct{}{}:
+					default:
+					}
 				}
 			}
 			return nil
@@ -298,14 +300,13 @@ func (s *semaphore) Capacity() int {
 
 // unpack takes an int64 and returns two int32 comprised of the leftmost and the
 // rightmost bits respectively.
-func unpack(in int64) (int32, int32) {
-	return int32(in >> 32), int32(in & 0xffffffff)
+func unpack(in uint64) (uint64, uint64) {
+	return in >> 32, in & 0xffffffff
 }
 
 // pack takes two int32 and packs them into a single int64 at the leftmost and the
 // rightmost bits respectively.
-func pack(left, right int32) int64 {
-	out := int64(left) << 32
-	out += int64(right)
-	return out
+// It's up to the caller to ensure that left and right actually fit into 32 bit.
+func pack(left, right uint64) uint64 {
+	return left<<32 | right
 }

@@ -328,6 +328,17 @@ func TestSemaphoreUpdateCapacityDoNothing(t *testing.T) {
 	}
 }
 
+func TestPackUnpack(t *testing.T) {
+	wantL := uint64(256)
+	wantR := uint64(513)
+
+	gotL, gotR := unpack(pack(wantL, wantR))
+
+	if gotL != wantL || gotR != wantR {
+		t.Fatalf("Got %d, %d want %d, %d", gotL, gotR, wantL, wantR)
+	}
+}
+
 func tryAcquire(sem *semaphore, gotChan chan struct{}) {
 	go func() {
 		// blocking until someone puts the token into the semaphore
