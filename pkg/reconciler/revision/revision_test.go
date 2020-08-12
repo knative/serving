@@ -19,13 +19,9 @@ package revision
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/config"
 
 	// Inject the fakes for informers this controller relies on.
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
@@ -52,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
+
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/configmap"
@@ -60,9 +57,11 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -143,6 +142,12 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 			"loglevel.queueproxy": "info",
 		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      config.FeaturesConfigName,
+		},
+		Data: map[string]string{},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
@@ -343,7 +348,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 		t.Fatal("Couldn't get revision:", err)
 	}
 
-	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
+	expectedLoggingURL := "http://new-logging.test.com?filter=" + string(rev.UID)
 	if updatedRev.Status.LogURL != expectedLoggingURL {
 		t.Errorf("Updated revision does not have an updated logging URL: expected: %s, got: %s", expectedLoggingURL, updatedRev.Status.LogURL)
 	}
@@ -351,7 +356,6 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 func TestRevWithImageDigests(t *testing.T) {
 	ctx, _, controller, _ := newTestControllerWithConfig(t, nil)
-
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name:  "first",
@@ -488,118 +492,64 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	// Test that changes to the ConfigMap result in the desired changes on an existing
-	// revision.
-	tests := []struct {
-		name              string
-		configMapToUpdate *corev1.ConfigMap
-		callback          func(*testing.T) func(runtime.Object) HookResult
-	}{{
-		name: "Update LoggingURL", // Should update LogURL on revision
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      metrics.ConfigMapName(),
-			},
-			Data: map[string]string{
-				"logging.enable-var-log-collection": "true",
-				"logging.revision-url-template":     "http://log-here.test.com?filter=${REVISION_UID}",
-			},
+	ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+
+	ctx, cancel := context.WithCancel(ctx)
+	grp := errgroup.Group{}
+
+	servingClient := fakeservingclient.Get(ctx)
+
+	rev := testRevision(getPodSpec())
+	revClient := servingClient.ServingV1().Revisions(rev.Namespace)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+		waitInformers()
+	}()
+
+	if err := watcher.Start(ctx.Done()); err != nil {
+		t.Fatal("Failed to start configuration manager:", err)
+	}
+
+	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+
+	revClient.Create(rev)
+	revL := fakerevisioninformer.Get(ctx).Lister()
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		l, err := revL.List(labels.Everything())
+		// We only create a single revision, but make sure it is reconciled.
+		return len(l) > 0 && !cmp.Equal(l[0], rev), err
+	}); err != nil {
+		t.Fatal("Failed to see Revision propagation:", err)
+	}
+	t.Log("Seen revision propagation")
+
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      metrics.ConfigMapName(),
 		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				revision := obj.(*v1.Revision)
-				t.Logf("Revision updated: %v", revision.Name)
-
-				const expected = "http://log-here.test.com?filter="
-				got := revision.Status.LogURL
-				if strings.HasPrefix(got, expected) {
-					return HookComplete
-				}
-
-				t.Logf("No update occurred; expected: %s got: %s", expected, got)
-				return HookIncomplete
-			}
+		Data: map[string]string{
+			"logging.enable-var-log-collection": "true",
+			"logging.revision-url-template":     "http://log-here.test.com?filter=${REVISION_UID}",
 		},
-	}, {
-		name: "Update ContainerConcurrency", // Should update ContainerConcurrency on revision spec
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      config.DefaultsConfigName,
-			},
-			Data: map[string]string{
-				"container-concurrency": "3",
-			},
-		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				revision := obj.(*v1.Revision)
-				t.Logf("Revision updated: %v", revision.Name)
+	})
 
-				expected := int64(3)
-				got := *(revision.Spec.ContainerConcurrency)
-				if got != expected {
-					return HookComplete
-				}
-
-				t.Logf("No update occurred; expected: %d got: %d", expected, got)
-				return HookIncomplete
-			}
-		},
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
-
-			ctx, cancel := context.WithCancel(ctx)
-			grp := errgroup.Group{}
-
-			servingClient := fakeservingclient.Get(ctx)
-
-			rev := testRevision(getPodSpec())
-			revClient := servingClient.ServingV1().Revisions(rev.Namespace)
-
-			h := NewHooks()
-
-			h.OnUpdate(&servingClient.Fake, "revisions", test.callback(t))
-
-			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
-			if err != nil {
-				t.Fatal("Failed to start informers:", err)
-			}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-				waitInformers()
-			}()
-
-			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatal("Failed to start configuration manager:", err)
-			}
-
-			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
-
-			revClient.Create(rev)
-			revL := fakerevisioninformer.Get(ctx).Lister()
-			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-				l, err := revL.List(labels.Everything())
-				// We only create a single revision.
-				return len(l) > 0, err
-			}); err != nil {
-				t.Fatal("Failed to see Revision propagation:", err)
-			}
-			t.Log("Seen revision propagation")
-
-			watcher.OnChange(test.configMapToUpdate)
-
-			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Error("Global Resync Failed:", err)
-			}
-		})
+	const expected = "http://log-here.test.com?filter="
+	if err := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
+		l, _ := revL.List(labels.Everything())
+		// We are guaranteed to have at least 1 element.
+		got := l[0].Status.LogURL
+		return strings.HasPrefix(got, expected), nil
+	}); err != nil {
+		t.Fatal("Failed to see Revision propagation:", err)
 	}
 }
 
@@ -626,7 +576,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				deployment := obj.(*appsv1.Deployment)
 				t.Logf("Deployment updated: %v", deployment.Name)
 
-				expected := "myAwesomeQueueImage"
+				const expected = "myAwesomeQueueImage"
 
 				var got string
 				for _, c := range deployment.Spec.Template.Spec.Containers {
