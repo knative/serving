@@ -22,9 +22,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,9 +41,20 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+const template = `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}`
+
 func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
+
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get("config-observability", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
+	}
+
+	if got, want := cm.Data["logging.request-log-template"], template; got != want {
+		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
+	}
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -78,6 +91,7 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Fail to fetch the pod: %v", err)
 	}
 
+	// TODO: add logging.enable-request-log check once it doesn't depends on the template.
 	// A request was sent to / in WaitForEndpointState.
 	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 		return log.HTTPRequest.RequestURL == "/" &&
@@ -86,12 +100,17 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Got error waiting for normal request logs: %v", err)
 	}
 
-	// Health check requests are sent to / with a specific userAgent value periodically.
-	if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
-		return log.HTTPRequest.RequestURL == "/" &&
-			log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
-	}); err != nil {
-		t.Fatalf("Got error waiting for health check log: %v", err)
+	// Only check probe request logs if the feature is enabled in config-observability.
+	if strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true") {
+		// Health check requests are sent to / with a specific userAgent value periodically.
+		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
+			return log.HTTPRequest.RequestURL == "/" &&
+				log.HTTPRequest.UserAgent == network.QueueProxyUserAgent
+		}); err != nil {
+			t.Fatalf("Got error waiting for health check log: %v", err)
+		}
+	} else {
+		t.Log("Skipping verifing probe request logs because they are not enabled")
 	}
 }
 
