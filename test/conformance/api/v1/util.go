@@ -56,7 +56,7 @@ func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.
 
 func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.URL,
 	baseExpected, trafficTargets, targetsExpected []string) error {
-	subdomains := make([]*url.URL, 0, len(trafficTargets))
+	subdomains := make([]*url.URL, len(trafficTargets))
 	for i, target := range trafficTargets {
 		subdomain, _ := url.Parse(baseDomain.String())
 		subdomain.Host = target + "-" + baseDomain.Host
