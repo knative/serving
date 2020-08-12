@@ -61,12 +61,6 @@ var (
 		stats.UnitDimensionless)
 )
 
-const (
-	defaultTagName   = "DEFAULT"
-	undefinedTagName = "UNDEFINED"
-	disabledTagName  = "DISABLED"
-)
-
 type requestMetricsHandler struct {
 	next     http.Handler
 	statsCtx context.Context
@@ -211,8 +205,18 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	h.next.ServeHTTP(rr, r)
 }
 
+/*
+TODO: add the routeTag back after stackdriver adds support for it.
+https://github.com/knative/serving/issues/8970
+
+const (
+	defaultTagName   = "DEFAULT"
+	undefinedTagName = "UNDEFINED"
+	disabledTagName  = "DISABLED"
+)
+
 // GetRouteTagNameFromRequest extracts the value of the tag header from http.Request
-/*func GetRouteTagNameFromRequest(r *http.Request) string {
+func GetRouteTagNameFromRequest(r *http.Request) string {
 	name := r.Header.Get(network.TagHeaderName)
 	isDefaultRoute := r.Header.Get(network.DefaultRouteHeaderName)
 
