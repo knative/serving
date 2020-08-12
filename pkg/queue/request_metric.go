@@ -206,6 +206,9 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 }
 
 /*
+TODO: add the routeTag back after stackdriver adds support for it.
+https://github.com/knative/serving/issues/8970
+
 const (
 	defaultTagName   = "DEFAULT"
 	undefinedTagName = "UNDEFINED"
