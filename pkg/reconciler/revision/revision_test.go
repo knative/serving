@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -42,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -312,7 +310,6 @@ func TestResolutionFailed(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	ctx, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -500,7 +497,6 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	servingClient := fakeservingclient.Get(ctx)
 
 	rev := testRevision(getPodSpec())
-	revClient := servingClient.ServingV1().Revisions(rev.Namespace)
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
@@ -520,12 +516,12 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
-	revClient.Create(rev)
+	servingClient.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revL := fakerevisioninformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		l, err := revL.List(labels.Everything())
+		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
 		// We only create a single revision, but make sure it is reconciled.
-		return len(l) > 0 && !cmp.Equal(l[0], rev), err
+		return r != nil && r.Status.ObservedGeneration == r.Generation, err
 	}); err != nil {
 		t.Fatal("Failed to see Revision propagation:", err)
 	}
@@ -542,12 +538,11 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		},
 	})
 
-	const expected = "http://log-here.test.com?filter="
+	want := "http://new-logging.test.com?filter=" + string(rev.UID)
 	if err := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
-		l, _ := revL.List(labels.Everything())
-		// We are guaranteed to have at least 1 element.
-		got := l[0].Status.LogURL
-		return strings.HasPrefix(got, expected), nil
+		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
+		// We only create a single revision, but make sure it is reconciled.
+		return r != nil && r.Status.ObservedGeneration == r.Generation && r.Status.LogURL == want, err
 	}); err != nil {
 		t.Fatal("Failed to see Revision propagation:", err)
 	}
