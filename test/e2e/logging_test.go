@@ -52,7 +52,7 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	if got, want := cm.Data["logging.request-log-template"], template; got != want {
-		t.Skip("Skipping verifing request logs because the template doesn't match: %s", cmp.Diff(want, got))
+		t.Skipf("Skipping verifing request logs because the template doesn't match: %s", cmp.Diff(want, got))
 	}
 
 	names := test.ResourceNames{
