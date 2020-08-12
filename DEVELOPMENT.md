@@ -201,7 +201,7 @@ off-machine registry.
 Run:
 
 ```shell
-ko apply --selector knative.dev/crd-install=true -Rf config/
+ko apply --selector knative.dev/crd-install=true -Rf config/core/
 while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Knative CRDs"; sleep 1
 done
