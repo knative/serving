@@ -66,8 +66,8 @@ func TestMinScale(t *testing.T) {
 	serviceName := privateServiceName(t, clients, revName)
 
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale >= %d before becoming ready: %v", revName, minScale, err)
+	if lr, err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d < %d before becoming ready: %v", revName, lr, minScale, err)
 	}
 
 	t.Log("Waiting for revision to become ready")
@@ -78,8 +78,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if !ensureDesiredScale(clients, serviceName, gte(minScale)) {
-		t.Fatalf("The revision %q did not stay at scale >= %d after becoming ready", revName, minScale)
+	if lr, ok := ensureDesiredScale(clients, serviceName, gte(minScale)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
 	t.Log("Updating configuration")
@@ -91,8 +91,8 @@ func TestMinScale(t *testing.T) {
 	newServiceName := privateServiceName(t, clients, newRevName)
 
 	t.Log("Waiting for new revision to scale to minScale after update")
-	if err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale >= %d after creating route: %v", newRevName, minScale, err)
+	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d < %d after creating route: %v", newRevName, lr, minScale, err)
 	}
 
 	t.Log("Waiting for new revision to become ready")
@@ -103,23 +103,23 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding new revision at minScale after becoming ready")
-	if !ensureDesiredScale(clients, newServiceName, gte(minScale)) {
-		t.Fatalf("The new revision %q did not stay at scale >= %d after becoming ready", newRevName, minScale)
+	if lr, ok := ensureDesiredScale(clients, newServiceName, gtel(minScale, t)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", newRevName, lr, minScale)
 	}
 
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
-	if err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", revName, err)
+	if lr, err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", revName, lr, minScale, err)
 	}
 
-	t.Log("Deleting route")
+	t.Log("Deleting route", names.Route)
 	if err := clients.ServingClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
 	}
 
 	t.Log("Waiting for new revision to scale below minScale when there is no route")
-	if err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", newRevName, err)
+	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
 	}
 }
 
@@ -180,31 +180,36 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	return privateServiceName
 }
 
-func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) error {
+// waitForDesiredScale retuns the last observed number of pods and/or error if the cond
+// callback is never satisfied.
+func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return wait.PollImmediate(250*time.Millisecond, 1*time.Minute, func() (bool, error) {
+	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
-		return cond(resources.ReadyAddressCount(endpoint)), nil
+		latestReady = resources.ReadyAddressCount(endpoint)
+		return cond(latestReady), nil
 	})
 }
 
-func ensureDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) bool {
+func ensureDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return wait.PollImmediate(250*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
 		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		if scale := resources.ReadyAddressCount(endpoint); !cond(scale) {
-			return false, fmt.Errorf("scale %d didn't meet condition", scale)
+		if latestReady = resources.ReadyAddressCount(endpoint); !cond(latestReady) {
+			return false, fmt.Errorf("scale %d didn't meet condition", latestReady)
 		}
 
 		return false, nil
-	}) == wait.ErrWaitTimeout
+	})
+
+	return latestReady, err == wait.ErrWaitTimeout
 }
