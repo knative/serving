@@ -46,6 +46,11 @@ failed=0
 # Run tests serially in the mesh and https scenarios
 parallelism=""
 use_https=""
+
+if [[ -n "${ISTIO_VERSION}" ]]; then
+  parallelism="-parallel 1"
+fi
+
 if (( MESH )); then
   parallelism="-parallel 1"
   # This is a workaround until Istio fixes https://github.com/istio/istio/issues/23485.
