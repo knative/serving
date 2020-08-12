@@ -179,12 +179,6 @@ func newTestController(t *testing.T, opts ...reconcilerOption) (
 		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      config.FeaturesConfigName,
-			},
-			Data: map[string]string{},
-		}, {
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
 				Name:      logging.ConfigMapName(),
 			},
 			Data: map[string]string{
