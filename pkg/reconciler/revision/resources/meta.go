@@ -18,17 +18,30 @@ package resources
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
+var (
+	excludeLabels = sets.NewString(
+		serving.RouteLabelKey,
+		serving.RoutingStateLabelKey,
+	)
+
+	excludeAnnotations = sets.NewString(
+		serving.RevisionLastPinnedAnnotationKey,
+		serving.RevisionPreservedAnnotationKey,
+		serving.RoutingStateModifiedAnnotationKey,
+		serving.RoutesAnnotationKey,
+	)
+)
+
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1.Revision) map[string]string {
 	labels := kmeta.FilterMap(revision.GetLabels(), func(k string) bool {
-		// Exclude the Route label so that a Revision becoming routable
-		// doesn't trigger deployment updates.
-		return k == serving.RouteLabelKey
+		return excludeLabels.Has(k)
 	})
 	labels = kmeta.UnionMaps(labels, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
@@ -42,6 +55,12 @@ func makeLabels(revision *v1.Revision) map[string]string {
 		labels[AppLabelKey] = revision.Name
 	}
 	return labels
+}
+
+func makeAnnotations(revision *v1.Revision) map[string]string {
+	return kmeta.FilterMap(revision.GetAnnotations(), func(k string) bool {
+		return excludeAnnotations.Has(k)
+	})
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.

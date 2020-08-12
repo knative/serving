@@ -23,6 +23,7 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
@@ -85,7 +86,7 @@ type MetricCollector struct {
 	logger *zap.SugaredLogger
 
 	statsScraperFactory StatsScraperFactory
-	tickProvider        func(time.Duration) *time.Ticker
+	clock               clock.Clock
 
 	collectionsMutex sync.RWMutex
 	collections      map[types.NamespacedName]*collection
@@ -103,7 +104,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 		logger:              logger,
 		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
-		tickProvider:        time.NewTicker,
+		clock:               clock.RealClock{},
 	}
 }
 
@@ -126,7 +127,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return collection.lastError()
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.Inform, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, c.logger)
 	return nil
 }
 
@@ -246,7 +247,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker,
+func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, clock clock.Clock,
 	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric: metric,
@@ -270,13 +271,13 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 	go func() {
 		defer c.grp.Done()
 
-		scrapeTicker := tickFactory(scrapeTickInterval)
+		scrapeTicker := clock.NewTicker(scrapeTickInterval)
 		defer scrapeTicker.Stop()
 		for {
 			select {
 			case <-c.stopCh:
 				return
-			case <-scrapeTicker.C:
+			case <-scrapeTicker.C():
 				scraper := c.getScraper()
 				if scraper == nil {
 					// Don't scrape empty target service.
@@ -294,7 +295,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 					callback(key)
 				}
 				if stat != emptyStat {
-					c.record(time.Now(), stat)
+					c.record(clock.Now(), stat)
 				}
 			}
 		}

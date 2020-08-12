@@ -172,14 +172,10 @@ func TestContainerExitingMsg(t *testing.T) {
 			t.Log("When the containers keep crashing, the Configuration should have error status.")
 
 			err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+				names.Revision = r.Status.LatestCreatedRevisionName
 				cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 				if cond != nil && !cond.IsUnknown() {
-					if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
-						return true, nil
-					}
-					t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-					return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
-						names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
+					return true, nil
 				}
 				return false, nil
 			}, "ConfigContainersCrashing")
@@ -188,23 +184,18 @@ func TestContainerExitingMsg(t *testing.T) {
 				t.Fatal("Failed to validate configuration state:", err)
 			}
 
-			revisionName, err := getRevisionFromConfiguration(clients, names.Config)
-			if err != nil {
-				t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
-			}
-
 			t.Log("When the containers keep crashing, the revision should have error status.")
-			err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
-				cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
-				if cond != nil {
+			err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
+				// We may not be the only condition surfacing this failure status, so instead of requiring the Ready
+				// condition to pick our message to bubble up, just check that one of the failing sub conditions has
+				for _, cond := range r.Status.Conditions {
 					if cond.Reason == exitCodeReason && strings.Contains(cond.Message, errorLog) {
 						return true, nil
 					}
-					return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
-						revisionName, exitCodeReason, errorLog, cond.Reason, cond.Message)
 				}
-				return false, nil
-			}, "RevisionContainersCrashing")
+				return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%s, Message=%q), but with %#v",
+					names.Revision, exitCodeReason, errorLog, r.Status.Conditions)
+			})
 
 			if err != nil {
 				t.Fatal("Failed to validate revision state:", err)

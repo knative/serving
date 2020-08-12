@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -84,6 +85,7 @@ func newResolverTransport(path string) (*http.Transport, error) {
 
 // Resolve resolves the image references that use tags to digests.
 func (r *digestResolver) Resolve(
+	ctx context.Context,
 	image string,
 	opt k8schain.Options,
 	registriesToSkip sets.String) (string, error) {
@@ -106,7 +108,7 @@ func (r *digestResolver) Resolve(
 		return "", nil
 	}
 
-	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	desc, err := remote.Get(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
 	if err != nil {
 		return "", err
 	}

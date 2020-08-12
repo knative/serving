@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
@@ -32,13 +33,13 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	gcconfig "knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
+	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -52,11 +53,17 @@ var revisionSpec = v1.RevisionSpec{
 	TimeoutSeconds: ptr.Int64(60),
 }
 
-func TestCollect(t *testing.T) {
-	now := time.Now()
-	nineMinutesAgo := now.Add(-9 * time.Minute)
-	tenMinutesAgo := now.Add(-10 * time.Minute)
+func TestCollectMin(t *testing.T) {
+	cfgMap := &config.Config{
+		RevisionGC: &gc.Config{
+			RetainSinceCreateTime:     5 * time.Minute,
+			RetainSinceLastActiveTime: 5 * time.Minute,
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     -1, // assert no changes to min case
+		},
+	}
 
+	now := time.Now()
 	old := now.Add(-11 * time.Minute)
 	older := now.Add(-12 * time.Minute)
 	oldest := now.Add(-13 * time.Minute)
@@ -67,55 +74,38 @@ func TestCollect(t *testing.T) {
 		revs        []*v1.Revision
 		wantDeletes []clientgotesting.DeleteActionImpl
 	}{{
-		name: "delete oldest, keep two lastPinned",
-		cfg: cfg("keep-two", "foo", 5556,
+		name: "too few revisions",
+		cfg: cfg("none-reserved", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
-				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(oldest)),
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
-				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(older)),
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
+			rev("none-reserved", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(old)),
+				WithRoutingState(v1.RoutingStateActive),
+				WithCreationTimestamp(old)),
 		},
-		wantDeletes: []clientgotesting.DeleteActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "foo",
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
-			},
-			Name: "5554",
-		}},
 	}, {
-		name: "delete oldest, keep two routingStateModified",
+		name: "delete oldest, keep one recent, one active",
 		cfg: cfg("keep-two", "foo", 5556,
 			WithLatestCreated("5556"),
 			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
+			// Stale, oldest should be deleted
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
+				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(oldest)),
+			// Stale, but MinNonActiveRevisions is 1
 			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithCreationTimestamp(older),
+				WithRoutingState(v1.RoutingStateReserve),
 				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
 			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithCreationTimestamp(old),
+				WithRoutingState(v1.RoutingStateActive),
 				WithRoutingStateModified(old)),
 		},
 		wantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -131,129 +121,354 @@ func TestCollect(t *testing.T) {
 			Name: "5554",
 		}},
 	}, {
-		name: "keep oldest when no lastPinned",
-		cfg: cfg("keep-no-last-pinned", "foo", 5556,
-			WithLatestCreated("5556"),
-			WithLatestReady("5556"),
-			WithConfigObservedGen),
+		name: "no latest ready, one active",
+		cfg:  cfg("keep-two", "foo", 5556, WithConfigObservedGen),
 		revs: []*v1.Revision{
-			// No lastPinned so we will keep this.
-			rev("keep-no-last-pinned", "foo", 5554, MarkRevisionReady,
-				WithRevName("5554"),
-				WithCreationTimestamp(oldest)),
-			rev("keep-no-last-pinned", "foo", 5555, MarkRevisionReady,
-				WithRevName("5555"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(older)),
-			rev("keep-no-last-pinned", "foo", 5556, MarkRevisionReady,
-				WithRevName("5556"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(old)),
-		},
-	}, {
-		name: "keep recent lastPinned",
-		cfg: cfg("keep-recent-last-pinned", "foo", 5556,
-			WithLatestCreated("5556"),
-			WithLatestReady("5556"),
-			WithConfigObservedGen),
-		revs: []*v1.Revision{
-			rev("keep-recent-last-pinned", "foo", 5554, MarkRevisionReady,
-				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
-				// This is an indication that things are still routing here.
-				WithLastPinned(now)),
-			rev("keep-recent-last-pinned", "foo", 5555, MarkRevisionReady,
-				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(nineMinutesAgo)),
-			rev("keep-recent-last-pinned", "foo", 5556, MarkRevisionReady,
-				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(tenMinutesAgo)),
-		},
-	}, {
-		name: "keep LatestReadyRevision",
-		cfg: cfg("keep-two", "foo", 5556,
-			WithLatestReady("5554"),
-			// This comes after 'WithLatestReady' so the
-			// Configuration's 'Ready' Status is 'Unknown'
-			WithLatestCreated("5556"),
-			WithConfigObservedGen),
-		revs: []*v1.Revision{
-			// Create a revision where the LatestReady is 5554, but LatestCreated is 5556.
-			// We should keep LatestReady even if it is old.
+			// Stale, oldest should be deleted
 			rev("keep-two", "foo", 5554, MarkRevisionReady,
 				WithRevName("5554"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(oldest)),
-			rev("keep-two", "foo", 5555, // Not Ready
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(oldest)),
+			// Stale, but MinNonActiveRevisions is 1
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
 				WithRevName("5555"),
-				WithCreationTimestamp(older),
-				WithLastPinned(older)),
-			rev("keep-two", "foo", 5556, // Not Ready
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
 				WithRevName("5556"),
-				WithCreationTimestamp(old),
-				WithLastPinned(old)),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
 		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
 	}, {
-		name: "keep stale revision because of minimum generations",
-		cfg: cfg("keep-all", "foo", 5554,
-			// Don't set the latest ready revision here
-			// since those by default are always retained
-			WithLatestCreated("keep-all"),
+		name: "keep oldest when none Reserved",
+		cfg: cfg("none-reserved", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
 			WithConfigObservedGen),
 		revs: []*v1.Revision{
-			rev("keep-all", "foo", 5554,
-				WithRevName("keep-all"),
-				WithCreationTimestamp(oldest),
-				WithLastPinned(old)),
+			rev("none-reserved", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStatePending),
+				WithCreationTimestamp(oldest)),
+			rev("none-reserved", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateUnset),
+				WithCreationTimestamp(older)),
+			rev("none-reserved", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithCreationTimestamp(old)),
 		},
+	}, {
+		name: "none stale",
+		cfg:  cfg("none-stale", "foo", 5556, WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("none-stale", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(now)),
+			rev("none-stale", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(now)),
+			rev("none-stale", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(now)),
+		},
+	}, {
+		name: "keep oldest because of the preserve annotation",
+		cfg:  cfg("keep-oldest", "foo", 5556, WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-oldest", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingStateModified(oldest),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRevisionPreserveAnnotation()),
+			rev("keep-oldest", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			rev("keep-oldest", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(old)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5555",
+		}},
 	}}
-
-	cfgMap := &config.Config{
-		RevisionGC: &gcconfig.Config{
-			StaleRevisionCreateDelay:        5 * time.Minute,
-			StaleRevisionTimeout:            5 * time.Minute,
-			StaleRevisionMinimumGenerations: 2,
-		},
-	}
 
 	for _, test := range table {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
-			ctx = config.ToContext(ctx, cfgMap)
-			client := fakeservingclient.Get(ctx)
-
-			ri := fakerevisioninformer.Get(ctx)
-			for _, rev := range test.revs {
-				ri.Informer().GetIndexer().Add(rev)
-			}
-
-			recorderList := ActionRecorderList{client}
-
-			Collect(ctx, client, ri.Lister(), test.cfg)
-
-			actions, err := recorderList.ActionsByVerb()
-			if err != nil {
-				t.Errorf("Error capturing actions by verb: %q", err)
-			}
-
-			for i, want := range test.wantDeletes {
-				if i >= len(actions.Deletes) {
-					t.Errorf("Missing delete: %#v", want)
-					continue
-				}
-				got := actions.Deletes[i]
-				if got.GetName() != want.GetName() {
-					t.Errorf("Unexpected delete[%d]: %#v", i, got)
-				}
-			}
-			if got, want := len(actions.Deletes), len(test.wantDeletes); got > want {
-				for _, extra := range actions.Deletes[want:] {
-					t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
-				}
-			}
+			runTest(t, cfgMap, test.revs, test.cfg, test.wantDeletes)
 		})
+	}
+}
+
+func TestCollectMax(t *testing.T) {
+	cfgMap := &config.Config{
+		RevisionGC: &gc.Config{
+			RetainSinceCreateTime:     1 * time.Hour,
+			RetainSinceLastActiveTime: 1 * time.Hour,
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     2,
+		},
+	}
+
+	now := time.Now()
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	table := []struct {
+		name        string
+		cfg         *v1.Configuration
+		revs        []*v1.Revision
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "at max",
+		cfg: cfg("at max", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Under max
+			rev("at max", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Under max
+			rev("at max", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("at max", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
+		},
+	}, {
+		name: "delete oldest, keep three max",
+		cfg: cfg("delete oldest", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			// Stale and over the max
+			rev("delete oldest", "foo", 5553, MarkRevisionReady,
+				WithRevName("5553"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(oldest)),
+			// Stale but under max
+			rev("delete oldest", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Stale but under max
+			rev("delete oldest", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			// Actively referenced by Configuration
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5553",
+		}},
+	}, {
+		name: "over max, all active",
+		cfg: cfg("keep-two", "foo", 5556,
+			WithLatestCreated("5556"),
+			WithLatestReady("5556"),
+			WithConfigObservedGen),
+		revs: []*v1.Revision{
+			rev("keep-two", "foo", 5553, MarkRevisionReady,
+				WithRevName("5553"),
+				WithRoutingState(v1.RoutingStateActive)),
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateActive)),
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateActive)),
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive)),
+		},
+	}}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			runTest(t, cfgMap, test.revs, test.cfg, test.wantDeletes)
+		})
+	}
+}
+
+func TestCollectSettings(t *testing.T) {
+	now := time.Now()
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	cfg := cfg("settings-test", "foo", 5556,
+		WithLatestCreated("5556"),
+		WithLatestReady("5556"),
+		WithConfigObservedGen)
+
+	revs := []*v1.Revision{
+		rev("settings-test", "foo", 5554, MarkRevisionReady,
+			WithRevName("5554"),
+			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingStateModified(oldest)),
+		rev("settings-test", "foo", 5555, MarkRevisionReady,
+			WithRevName("5555"),
+			WithRoutingState(v1.RoutingStateReserve),
+			WithRoutingStateModified(older)),
+		rev("settings-test", "foo", 5556, MarkRevisionReady,
+			WithRevName("5556"),
+			WithRoutingState(v1.RoutingStateActive),
+			WithRoutingStateModified(old)),
+	}
+
+	table := []struct {
+		name        string
+		gc          gc.Config
+		wantDeletes []clientgotesting.DeleteActionImpl
+	}{{
+		name: "all disabled",
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     gc.Disabled,
+		},
+	}, {
+		name: "staleness disabled",
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: time.Duration(gc.Disabled),
+			MinNonActiveRevisions:     0,
+			MaxNonActiveRevisions:     1,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
+	}, {
+		name: "max disabled",
+		gc: gc.Config{
+			RetainSinceCreateTime:     time.Duration(gc.Disabled),
+			RetainSinceLastActiveTime: 1 * time.Minute,
+			MinNonActiveRevisions:     1,
+			MaxNonActiveRevisions:     gc.Disabled,
+		},
+		wantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "serving.knative.dev",
+					Version:  "v1",
+					Resource: "revisions",
+				},
+			},
+			Name: "5554",
+		}},
+	}}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			cfgMap := &config.Config{
+				RevisionGC: &test.gc,
+			}
+			runTest(t, cfgMap, revs, cfg, test.wantDeletes)
+		})
+	}
+}
+
+func runTest(
+	t *testing.T,
+	cfgMap *config.Config,
+	revs []*v1.Revision,
+	cfg *v1.Configuration,
+	wantDeletes []clientgotesting.DeleteActionImpl) {
+	t.Helper()
+	ctx, _ := SetupFakeContext(t)
+	ctx = config.ToContext(ctx, cfgMap)
+	client := fakeservingclient.Get(ctx)
+
+	ri := fakerevisioninformer.Get(ctx)
+	for _, rev := range revs {
+		ri.Informer().GetIndexer().Add(rev)
+	}
+
+	recorderList := ActionRecorderList{client}
+
+	Collect(ctx, client, ri.Lister(), cfg)
+
+	actions, err := recorderList.ActionsByVerb()
+	if err != nil {
+		t.Errorf("Error capturing actions by verb: %q", err)
+	}
+
+	for i, want := range wantDeletes {
+		if i >= len(actions.Deletes) {
+			t.Errorf("Missing delete: %#v", want)
+			continue
+		}
+		got := actions.Deletes[i]
+		if got.GetName() != want.GetName() {
+			t.Errorf("Unexpected delete[%d]: %#v", i, got)
+		}
+	}
+	if got, want := len(actions.Deletes), len(wantDeletes); got > want {
+		for _, extra := range actions.Deletes[want:] {
+			t.Errorf("Extra delete: %s/%s", extra.GetNamespace(), extra.GetName())
+		}
 	}
 }
 
@@ -267,33 +482,7 @@ func TestIsRevisionStale(t *testing.T) {
 		latestRev string
 		want      bool
 	}{{
-		name: "fresh revision that was never pinned",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(curTime),
-			},
-		},
-		want: false,
-	}, {
-		name: "stale revision that was never pinned w/ Ready status",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              "myrev",
-				CreationTimestamp: metav1.NewTime(staleTime),
-			},
-			Status: v1.RevisionStatus{
-				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{{
-						Type:   v1.RevisionConditionReady,
-						Status: "True",
-					}},
-				},
-			},
-		},
-		want: false,
-	}, {
-		name: "stale revision that was never pinned w/o Ready status",
+		name: "stale create time",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
@@ -310,7 +499,24 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: true,
 	}, {
-		name: "stale revision that was previously pinned",
+		name: "fresh create time",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.NewTime(curTime),
+			},
+			Status: v1.RevisionStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.RevisionConditionReady,
+						Status: "Unknown",
+					}},
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale pinned time",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
@@ -322,7 +528,7 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: true,
 	}, {
-		name: "fresh revision that was previously pinned",
+		name: "fresh pinned time",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
@@ -334,42 +540,40 @@ func TestIsRevisionStale(t *testing.T) {
 		},
 		want: false,
 	}, {
-		name: "stale latest ready revision",
+		name: "stale revisionStateModified",
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "myrev",
 				CreationTimestamp: metav1.NewTime(staleTime),
 				Annotations: map[string]string{
-					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+					"serving.knative.dev/routingStateModified": staleTime.UTC().Format(time.RFC3339),
 				},
 			},
 		},
-		latestRev: "myrev",
-		want:      false,
-	}}
-
-	cfgStore := testConfigStore{
-		config: &config.Config{
-			RevisionGC: &gcconfig.Config{
-				StaleRevisionCreateDelay:        5 * time.Minute,
-				StaleRevisionTimeout:            5 * time.Minute,
-				StaleRevisionMinimumGenerations: 2,
+		want: true,
+	}, {
+		name: "fresh revisionStateModified",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.NewTime(staleTime),
+				Annotations: map[string]string{
+					"serving.knative.dev/routingStateModified": curTime.UTC().Format(time.RFC3339),
+				},
 			},
 		},
+		want: false,
+	}}
+
+	cfg := &gc.Config{
+		RetainSinceCreateTime:     5 * time.Minute,
+		RetainSinceLastActiveTime: 5 * time.Minute,
+		MinNonActiveRevisions:     2,
 	}
-	ctx := cfgStore.ToContext(context.Background())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := &v1.Configuration{
-				Status: v1.ConfigurationStatus{
-					ConfigurationStatusFields: v1.ConfigurationStatusFields{
-						LatestReadyRevisionName: test.latestRev,
-					},
-				},
-			}
-
-			got := isRevisionStale(ctx, test.rev, cfg)
+			got := isRevisionStale(cfg, test.rev, TestLogger(t))
 
 			if got != test.want {
 				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
@@ -398,9 +602,9 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Confi
 	return c
 }
 
-func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
-	config := cfg(name, namespace, generation)
-	rev := resources.MakeRevision(config)
+func rev(configName, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
+	config := cfg(configName, namespace, generation)
+	rev := resources.MakeRevision(context.Background(), config, clock.RealClock{})
 	rev.SetDefaults(context.Background())
 
 	for _, opt := range ro {

@@ -24,7 +24,6 @@ import (
 
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -37,8 +36,6 @@ import (
 // Unknown to False
 func TestRoutesNotReady(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -136,8 +133,6 @@ func TestRouteVisibilityChanges(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.name, func(st *testing.T) {
 			st.Parallel()
-			cancel := logstream.Start(st)
-			defer cancel()
 
 			clients := Setup(st)
 

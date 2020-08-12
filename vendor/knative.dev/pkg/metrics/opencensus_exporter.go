@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"path"
 
 	"contrib.go.opencensus.io/exporter/ocagent"
 	"go.opencensus.io/resource"
@@ -35,6 +36,10 @@ func newOpenCensusExporter(config *metricsConfig, logger *zap.SugaredLogger) (vi
 	if config.collectorAddress != "" {
 		opts = append(opts, ocagent.WithAddress(config.collectorAddress))
 	}
+	metrixPrefix := path.Join(config.domain, config.component)
+	if metrixPrefix != "" {
+		opts = append(opts, ocagent.WithMetricNamePrefix(metrixPrefix))
+	}
 	if config.requireSecure {
 		opts = append(opts, ocagent.WithTLSCredentials(getCredentials(config.component, config.secret, logger)))
 	} else {
@@ -47,11 +52,15 @@ func newOpenCensusExporter(config *metricsConfig, logger *zap.SugaredLogger) (vi
 	}
 	logger.Infow("Created OpenCensus exporter with config:", zap.Any("config", *config))
 	view.RegisterExporter(e)
-	return e, getFactory(opts), nil
+	return e, getFactory(e, opts), nil
 }
 
-func getFactory(stored []ocagent.ExporterOption) ResourceExporterFactory {
+func getFactory(defaultExporter view.Exporter, stored []ocagent.ExporterOption) ResourceExporterFactory {
 	return func(r *resource.Resource) (view.Exporter, error) {
+		if r == nil || (r.Type == "" && len(r.Labels) == 0) {
+			// Don't create duplicate exporters for the default exporter.
+			return defaultExporter, nil
+		}
 		opts := append(stored, ocagent.WithResourceDetector(
 			func(context.Context) (*resource.Resource, error) {
 				return r, nil

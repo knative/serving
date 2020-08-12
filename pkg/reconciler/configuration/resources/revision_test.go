@@ -16,23 +16,34 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
+
 	"knative.dev/pkg/ptr"
+	cfgMap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
+var fakeCurTime = time.Unix(1e9, 0)
+
 func TestMakeRevisions(t *testing.T) {
+	clock := clock.NewFakeClock(fakeCurTime)
+
 	tests := []struct {
 		name          string
+		responsiveGC  bool
 		configuration *v1.Configuration
 		want          *v1.Revision
 	}{{
-		name: "no build",
+		name:         "no build",
+		responsiveGC: true,
 		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  "no",
@@ -55,7 +66,6 @@ func TestMakeRevisions(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "no",
 				GenerateName: "build-",
-				Annotations:  map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Configuration",
@@ -64,9 +74,13 @@ func TestMakeRevisions(t *testing.T) {
 					BlockOwnerDeletion: ptr.Bool(true),
 				}},
 				Labels: map[string]string{
+					serving.RoutingStateLabelKey:            "pending",
 					serving.ConfigurationLabelKey:           "build",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+				},
+				Annotations: map[string]string{
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -187,7 +201,8 @@ func TestMakeRevisions(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with creator annotation from config",
+		name:         "with creator annotation from config",
+		responsiveGC: true,
 		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "anno",
@@ -195,6 +210,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":      "admin",
 					"serving.knative.dev/lastModifier": "someone",
+					serving.RoutesAnnotationKey:        "route",
 				},
 				Generation: 10,
 			},
@@ -215,7 +231,9 @@ func TestMakeRevisions(t *testing.T) {
 				Namespace:    "anno",
 				GenerateName: "config-",
 				Annotations: map[string]string{
-					"serving.knative.dev/creator": "someone",
+					"serving.knative.dev/creator":             "someone",
+					serving.RoutesAnnotationKey:               "route",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -228,6 +246,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "active",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -302,10 +321,26 @@ func TestMakeRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeRevision(test.configuration)
+			ctx := context.Background()
+			if test.responsiveGC {
+				ctx = enableResponsiveGC(ctx)
+			}
+
+			got := MakeRevision(ctx, test.configuration, clock)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)
 			}
 		})
 	}
+}
+
+func enableResponsiveGC(ctx context.Context) context.Context {
+	defaultDefaults, _ := cfgMap.NewDefaultsConfigFromMap(map[string]string{})
+	c := &cfgMap.Config{
+		Features: &cfgMap.Features{
+			ResponsiveRevisionGC: cfgMap.Enabled,
+		},
+		Defaults: defaultDefaults,
+	}
+	return cfgMap.ToContext(ctx, c)
 }

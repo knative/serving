@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -115,7 +115,7 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
 		res, lastErr = httpClient.Do(req)
 		if lastErr != nil {
-			// Return nil error for retrying
+			// Return nil error for retrying.
 			return false, nil
 		}
 
@@ -138,7 +138,7 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 		return fmt.Errorf("failed to probe: %w", lastErr)
 	}
 
-	// An http.StatusOK was never returned during probing
+	// An http.StatusOK was never returned during probing.
 	if timeoutErr != nil {
 		return errors.New("probe returned not ready")
 	}

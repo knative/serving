@@ -26,7 +26,6 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/logstream"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgnet "knative.dev/pkg/network"
@@ -60,8 +59,6 @@ func TestActivatorHANonGraceful(t *testing.T) {
 // that we can scale from zero after activator restart.
 func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	clients := e2e.Setup(t)
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	podDeleteOptions := &metav1.DeleteOptions{GracePeriodSeconds: gracePeriod}
 

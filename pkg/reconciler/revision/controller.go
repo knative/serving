@@ -24,14 +24,13 @@ import (
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -39,7 +38,6 @@ import (
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -71,11 +69,9 @@ func newControllerWithOptions(
 
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
-	deploymentInformer := deploymentinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	configMapInformer := configmapinformer.Get(ctx)
-	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
+	deploymentInformer := deploymentinformer.Get(ctx)
+	imageInformer := imageinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
 
 	c := &Reconciler{
@@ -86,7 +82,6 @@ func newControllerWithOptions(
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
-		serviceLister:       serviceInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),
 			transport: transport,
@@ -121,7 +116,6 @@ func newControllerWithOptions(
 	}
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
 	paInformer.Informer().AddEventHandler(handleMatchingControllers)
-	configMapInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of

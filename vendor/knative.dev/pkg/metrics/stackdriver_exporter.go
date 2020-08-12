@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"time"
 
 	sd "contrib.go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/resource"
@@ -49,6 +50,8 @@ const (
 	StackdriverSecretNameDefault = "stackdriver-service-account-key"
 	// secretDataFieldKey is the name of the k8s Secret field that contains the Secret's key.
 	secretDataFieldKey = "key.json"
+	// stackdriverApiTimeout is the timeout value of Stackdriver API service side.
+	stackdriverApiTimeout = 12 * time.Second
 )
 
 var (
@@ -186,6 +189,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		GetMetricPrefix:         mpf,
 		ReportingInterval:       config.reportingPeriod,
 		DefaultMonitoringLabels: &sd.Labels{},
+		Timeout:                 stackdriverApiTimeout,
 	})
 	if err != nil {
 		logger.Errorw("Failed to create the Stackdriver exporter: ", zap.Error(err))
@@ -206,83 +210,72 @@ func sdCustomMetricsRecorder(mc metricsConfig, allowCustomMetrics bool) func(con
 		metricskey.LabelClusterName: gm.cluster,
 	}
 	return func(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
-		i := 0
-		var templ *resourceTemplate
-		templateFound := false
+		// Some metrics may be promoted to known Stackdriver schemas, so we may
+		// end up multiple Resources recorded for a single `RecordBatch` call.
+		metricsByResource := map[*resourceTemplate][]stats.Measurement{}
 
-		// This loop serves two purpose, filtering out custom metrics when allowCustomMetrics set to false,
-		// and find the template for the system metrics.
 		for _, m := range mss {
 			metricType := path.Join(mc.stackdriverMetricTypePrefix, m.Measure().Name())
 			t, ok := metricToResourceLabels[metricType]
 			if ok || allowCustomMetrics {
-				mss[i] = m
-				i++
-				if templateFound && templ != t {
-					return fmt.Errorf("mixed resource type measurements in one report: %v", mss)
+				if metricsByResource[t] == nil {
+					metricsByResource[t] = make([]stats.Measurement, 0, len(mss))
 				}
-				templ = t
-				templateFound = true
+				metricsByResource[t] = append(metricsByResource[t], m)
 			}
 		}
-		// Trim the array
-		mss = mss[:i]
-		if i == 0 {
-			return nil
-		}
 
+		baseLabels := map[string]string{}
 		baseResource := metricskey.GetResource(ctx)
-		// Extract resource, if possible
-		if templ != nil {
-			tagMap := tag.FromContext(ctx)
-			r := resource.Resource{
-				Type:   templ.Type,
-				Labels: map[string]string{},
-			}
-			tagMutations := make([]tag.Mutator, 0, len(templ.LabelKeys))
-			if baseResource == nil {
-				baseResource = &resource.Resource{}
-			}
-			for k := range templ.LabelKeys {
-				if v, ok := baseResource.Labels[k]; ok {
-					r.Labels[k] = v
-					continue
-				}
-				tagKey := tag.MustNewKey(k)
-				if v, ok := tagMap.Value(tagKey); ok {
-					r.Labels[k] = v
-					tagMutations = append(tagMutations, tag.Delete(tagKey))
-					continue
-				}
-				if v, ok := metadataMap[k]; ok {
-					r.Labels[k] = v
-					continue
-				}
-				r.Labels[k] = metricskey.ValueUnknown
-			}
-			var err error
-			ctx, err = tag.New(metricskey.WithResource(ctx, r), tagMutations...)
-			if err != nil {
-				return err
-			}
-			baseResource = &r
-		}
 		if baseResource != nil {
-			opt, err := optionForResource(baseResource)
-			if err != nil {
+			baseLabels = baseResource.Labels
+		}
+		tagMap := tag.FromContext(ctx)
+		for templ, ms := range metricsByResource {
+			sdResource := baseResource
+			sdCtx := ctx
+			if templ != nil {
+				sdResource = &resource.Resource{
+					Type:   templ.Type,
+					Labels: map[string]string{},
+				}
+				tagMutations := make([]tag.Mutator, 0, len(templ.LabelKeys))
+				for k := range templ.LabelKeys {
+					if v, ok := baseLabels[k]; ok {
+						sdResource.Labels[k] = v
+						continue
+					}
+					tagKey := tag.MustNewKey(k)
+					if v, ok := tagMap.Value(tagKey); ok {
+						sdResource.Labels[k] = v
+						tagMutations = append(tagMutations, tag.Delete(tagKey))
+						continue
+					}
+					if v, ok := metadataMap[k]; ok {
+						sdResource.Labels[k] = v
+						continue
+					}
+					sdResource.Labels[k] = metricskey.ValueUnknown
+				}
+				var err error
+				sdCtx, err = tag.New(metricskey.WithResource(ctx, *sdResource), tagMutations...)
+				if err != nil {
+					return err
+				}
+			}
+			if sdResource != nil {
+				opt, err := optionForResource(sdResource)
+				if err != nil {
+					return err
+				}
+				ros = append(ros, opt)
+			}
+			if err := stats.RecordWithOptions(sdCtx, append(ros, stats.WithMeasurements(ms...))...); err != nil {
 				return err
 			}
-			ros = append(ros, opt)
 		}
-
-		return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
+		return nil
 	}
-}
-
-// clientConfig stores the stackdriver configs for cerating additional connections.
-type clientConfig struct {
-	storeConfig *metricsConfig
-	storeLogger *zap.SugaredLogger
 }
 
 // getStackdriverExporterClientOptions creates client options for the opencensus Stackdriver exporter from the given stackdriverClientConfig.

@@ -18,6 +18,7 @@ package logstream
 
 import (
 	"os"
+	"sync"
 
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test"
@@ -31,6 +32,17 @@ type Canceler func()
 // `test.ObjectNameForTest(t)` to `t.Log`.  It returns a Canceler, which must
 // be called before the test completes.
 func Start(t test.TLegacy) Canceler {
+	// Do this lazily to make import ordering less important.
+	once.Do(func() {
+		if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
+			// If SYSTEM_NAMESPACE is set, then start the stream.
+			stream = &kubelogs{namespace: ns}
+		} else {
+			// Otherwise set up a null stream.
+			stream = &null{}
+		}
+	})
+
 	return stream.Start(t)
 }
 
@@ -38,15 +50,7 @@ type streamer interface {
 	Start(t test.TLegacy) Canceler
 }
 
-var stream streamer
-
-func init() {
-	ns := os.Getenv(system.NamespaceEnvKey)
-	if ns != "" {
-		// If SYSTEM_NAMESPACE is set, then start the stream.
-		stream = &kubelogs{namespace: ns}
-	} else {
-		// Otherwise set up a null stream.
-		stream = &null{}
-	}
-}
+var (
+	stream streamer
+	once   sync.Once
+)

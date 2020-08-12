@@ -17,7 +17,13 @@ limitations under the License.
 package test
 
 import (
+	// For our e2e testing, we want this linked first so that our
+	// systen namespace environment variable is defaulted prior to
+	// logstream initialization.
+	_ "knative.dev/serving/test/defaultsystem"
+
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -62,6 +68,10 @@ const (
 // Setup creates client to run Knative Service requests
 func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
+
+	cancel := logstream.Start(t)
+	t.Cleanup(cancel)
+
 	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
 	if err != nil {
 		t.Fatal("Couldn't initialize clients", "error", err.Error())

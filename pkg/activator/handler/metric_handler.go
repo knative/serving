@@ -28,7 +28,7 @@ import (
 	"knative.dev/serving/pkg/metrics"
 )
 
-// NewMetricHandler creates a handler collects and reports request metrics
+// NewMetricHandler creates a handler that collects and reports request metrics.
 func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
 	return &MetricHandler{
 		nextHandler: next,
@@ -36,7 +36,7 @@ func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
 	}
 }
 
-// MetricHandler sends metrics via reporter
+// MetricHandler is a handler that records request metrics.
 type MetricHandler struct {
 	podName     string
 	nextHandler http.Handler

@@ -29,9 +29,9 @@ var headersToRemove = []string{
 }
 
 // SetupHeaderPruning will cause the http.ReverseProxy
-// to not forward activator headers
+// to not forward activator headers.
 func SetupHeaderPruning(p *httputil.ReverseProxy) {
-	// Director is never null - otherwise ServeHTTP panics
+	// Director is never nil - otherwise ServeHTTP panics.
 	orig := p.Director
 	p.Director = func(r *http.Request) {
 		orig(r)

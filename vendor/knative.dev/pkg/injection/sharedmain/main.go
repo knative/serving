@@ -18,8 +18,8 @@ package sharedmain
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -30,14 +30,17 @@ import (
 	"go.opencensus.io/stats/view"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 
+	_ "go.uber.org/automaxprocs" // automatically set GOMAXPROCS based on cgroups
 	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -63,22 +66,33 @@ func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
+
+	// We produce configs a bunch of ways, this gives us a single place
+	// to "decorate" them with common useful things (e.g. for debugging)
+	decorate := func(cfg *rest.Config) *rest.Config {
+		return cfg
+	}
+
 	// If we have an explicit indication of where the kubernetes config lives, read that.
 	if kubeconfig != "" {
-		return clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+		c, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+		if err != nil {
+			return nil, err
+		}
+		return decorate(c), nil
 	}
 	// If not, try the in-cluster config.
 	if c, err := rest.InClusterConfig(); err == nil {
-		return c, nil
+		return decorate(c), nil
 	}
 	// If no in-cluster config, try the default location in the user's home directory.
 	if usr, err := user.Current(); err == nil {
 		if c, err := clientcmd.BuildConfigFromFlags("", filepath.Join(usr.HomeDir, ".kube", "config")); err == nil {
-			return c, nil
+			return decorate(c), nil
 		}
 	}
 
-	return nil, fmt.Errorf("could not create a valid kubeconfig")
+	return nil, errors.New("could not create a valid kubeconfig")
 }
 
 // GetLoggingConfig gets the logging config from either the file system if present
@@ -168,9 +182,14 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	MemStatsOrDie(ctx)
 
-	// Adjust our client's rate limits based on the number of controllers we are running.
-	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
-	cfg.Burst = len(ctors) * rest.DefaultBurst
+	// Respect user provided settings, but if omitted customize the default behavior.
+	if cfg.QPS == 0 {
+		// Adjust our client's rate limits based on the number of controllers we are running.
+		cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
+	}
+	if cfg.Burst == 0 {
+		cfg.Burst = len(ctors) * rest.DefaultBurst
+	}
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
@@ -260,6 +279,7 @@ func ParseAndGetConfigOrDie() *rest.Config {
 		kubeconfig = flag.String("kubeconfig", "",
 			"Path to a kubeconfig. Only required if out-of-cluster.")
 	)
+	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
 	cfg, err := GetConfig(*masterURL, *kubeconfig)

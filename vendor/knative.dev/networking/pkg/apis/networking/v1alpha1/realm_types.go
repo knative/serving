@@ -87,13 +87,13 @@ type RealmSpec struct {
 	// originating from outside of the cluster.  Could be omitted for a Realm without
 	// external access.
 	// +optional
-	External string
+	External string `json:"external,omitempty"`
 
-	// Cluster contains the name of the Domain resource corresponding with traffic
+	// Internal contains the name of the Domain resource corresponding with traffic
 	// originating from inside of the cluster.  Could be omitted for a Realm without
 	// internal access.
 	// +optional
-	Cluster string
+	Internal string `json:"internal,omitempty"`
 }
 
 // RealmStatus will reflect Ready=True if the implementation accepts the Realm data

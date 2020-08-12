@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -43,8 +43,10 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
+const digestResolutionTimeout = 60 * time.Second
+
 type resolver interface {
-	Resolve(string, k8schain.Options, sets.String) (string, error)
+	Resolve(context.Context, string, k8schain.Options, sets.String) (string, error)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -57,7 +59,6 @@ type Reconciler struct {
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
-	serviceLister       corev1listers.ServiceLister
 
 	resolver resolver
 }
@@ -103,14 +104,19 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		container := container // Standard Go concurrency pattern.
 		i := i
 		digestGrp.Go(func() error {
-			digest, err := c.resolver.Resolve(container.Image,
+			ctx, cancel := context.WithTimeout(ctx, digestResolutionTimeout)
+			defer cancel()
+
+			digest, err := c.resolver.Resolve(ctx, container.Image,
 				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 			if err != nil {
 				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
 			}
+
 			if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
 				rev.Status.DeprecatedImageDigest = digest
 			}
+
 			containerStatuses[i] = v1.ContainerStatuses{
 				Name:        container.Name,
 				ImageDigest: digest,
@@ -130,25 +136,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	phases := []struct {
-		name string
-		f    func(context.Context, *v1.Revision) error
-	}{{
-		name: "image digest",
-		f:    c.reconcileDigest,
-	}, {
-		name: "user deployment",
-		f:    c.reconcileDeployment,
-	}, {
-		name: "image cache",
-		f:    c.reconcileImageCache,
-	}, {
-		name: "PA",
-		f:    c.reconcilePA,
-	}}
-
-	for _, phase := range phases {
-		if err := phase.f(ctx, rev); err != nil {
+	for _, phase := range []func(context.Context, *v1.Revision) error{
+		c.reconcileDigest, c.reconcileDeployment,
+		c.reconcileImageCache, c.reconcilePA,
+	} {
+		if err := phase(ctx, rev); err != nil {
 			return err
 		}
 	}
@@ -170,9 +162,7 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 		return
 	}
 
-	uid := string(rev.UID)
-
-	rev.Status.LogURL = strings.Replace(
+	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid, -1)
+		"${REVISION_UID}", string(rev.UID))
 }

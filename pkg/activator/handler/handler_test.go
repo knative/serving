@@ -25,13 +25,14 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -45,7 +46,6 @@ import (
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -346,7 +346,7 @@ func BenchmarkHandler(b *testing.B) {
 			if resp.code != http.StatusOK {
 				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
 			}
-			if got, want := resp.size, int32(len(body)); got != want {
+			if got, want := resp.size.Load(), int32(len(body)); got != want {
 				b.Fatalf("|body| = %d, want = %d", got, want)
 			}
 		}
@@ -370,7 +370,7 @@ func BenchmarkHandler(b *testing.B) {
 }
 
 func randomString(n int) string {
-	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letter := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	b := make([]rune, n)
 	for i := range b {
@@ -383,7 +383,7 @@ func randomString(n int) string {
 // that captures the response code and size.
 type responseRecorder struct {
 	code int
-	size int32
+	size atomic.Int32
 }
 
 func (rr *responseRecorder) Flush() {}
@@ -393,7 +393,7 @@ func (rr *responseRecorder) Header() http.Header {
 }
 
 func (rr *responseRecorder) Write(p []byte) (int, error) {
-	atomic.AddInt32(&rr.size, int32(len(p)))
+	rr.size.Add(int32(len(p)))
 	return ioutil.Discard.Write(p)
 }
 

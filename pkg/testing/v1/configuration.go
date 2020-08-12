@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -101,10 +102,14 @@ func MarkLatestCreatedFailed(msg string) ConfigOption {
 // WithConfigLabel attaches a particular label to the configuration.
 func WithConfigLabel(key, value string) ConfigOption {
 	return func(config *v1.Configuration) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string, 1)
-		}
-		config.Labels[key] = value
+		config.Labels = kmeta.UnionMaps(config.Labels, map[string]string{key: value})
+	}
+}
+
+// WithConfigAnn attaches a particular label to the configuration.
+func WithConfigAnn(key, value string) ConfigOption {
+	return func(config *v1.Configuration) {
+		config.Annotations = kmeta.UnionMaps(config.Annotations, map[string]string{key: value})
 	}
 }
 

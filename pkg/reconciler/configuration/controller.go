@@ -19,10 +19,12 @@ package configuration
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -38,16 +40,32 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	return NewControllerWithClock(ctx, cmw, clock.RealClock{})
+}
+
+// NewControllerWithClock creates a new Configuration controller with a clock
+func NewControllerWithClock(
+	ctx context.Context,
+	cmw configmap.Watcher,
+	clock clock.Clock,
+) *controller.Impl {
 	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
+	logger.Info("Setting up ConfigMap receivers")
+	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
+
 	c := &Reconciler{
 		client:         servingclient.Get(ctx),
 		revisionLister: revisionInformer.Lister(),
+		clock:          clock,
 	}
-	impl := configreconciler.NewImpl(ctx, c)
+	impl := configreconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

@@ -26,7 +26,6 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
@@ -37,8 +36,6 @@ import (
 // We need to add a similar test for the User pod overload once the second part of overload handling is done.
 func TestActivatorOverload(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	const (
 		// The number of concurrent requests to hit the activator with.

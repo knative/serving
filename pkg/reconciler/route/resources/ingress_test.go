@@ -20,21 +20,23 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/google/go-cmp/cmp"
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
@@ -77,7 +79,7 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	ia, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
+	ia, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -93,7 +95,7 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 		networking.IngressClassAnnotationKey: testIngressClass,
 		corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
 	}), WithRouteUID("1234-5678"), WithURL)
-	ia, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
+	ia, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -144,6 +146,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -165,6 +168,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -186,6 +190,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -207,12 +212,13 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}}
 
-	ci, err := MakeIngressSpec(getContext(), r, nil, targets, nil /* visibility */)
+	ci, err := MakeIngressSpec(testContext(), r, nil, targets, nil /* visibility */)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -288,7 +294,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := MakeIngressSpec(getContext(), c.route, nil, c.targets, c.serviceVisibility)
+			ci, err := MakeIngressSpec(testContext(), c.route, nil, c.targets, c.serviceVisibility)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
@@ -353,6 +359,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}, {
 				AppendHeaders: map[string]string{
 					network.DefaultRouteHeaderName: "true",
@@ -369,6 +376,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -395,6 +403,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}, {
 				AppendHeaders: map[string]string{
 					network.DefaultRouteHeaderName: "true",
@@ -411,6 +420,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -435,6 +445,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
@@ -459,14 +470,14 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}}
 
-	cfg := testConfig()
-	cfg.Network.TagHeaderBasedRouting = true
-	ctx := config.ToContext(context.Background(), cfg)
+	ctx := testContext()
+	config.FromContext(ctx).Network.TagHeaderBasedRouting = true
 
 	ci, err := MakeIngressSpec(ctx, r, nil, targets, nil /* visibility */)
 	if err != nil {
@@ -490,7 +501,7 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
@@ -510,6 +521,7 @@ func TestMakeIngressRule_Vanilla(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -539,7 +551,7 @@ func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -556,6 +568,7 @@ func TestMakeIngressRule_ZeroPercentTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -585,7 +598,7 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -602,6 +615,7 @@ func TestMakeIngressRule_NilPercentTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -632,7 +646,7 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 		Active:      true,
 	}}
 	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -660,6 +674,7 @@ func TestMakeIngressRule_TwoTargets(t *testing.T) {
 						"Knative-Serving-Revision":  "new-revision",
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -682,7 +697,7 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
@@ -702,6 +717,7 @@ func TestMakeIngressRule_InactiveTarget(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -731,7 +747,7 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active:      false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{
 			"a.com",
@@ -762,6 +778,7 @@ func TestMakeIngressRule_TwoInactiveTargets(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -789,7 +806,7 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -806,6 +823,7 @@ func TestMakeIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -834,7 +852,7 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
+	rule := makeIngressRule(testContext(), domains, ns, netv1alpha1.IngressVisibilityExternalIP, targets)
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -851,6 +869,7 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 						"Knative-Serving-Namespace": ns,
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -887,7 +906,7 @@ func TestMakeIngressWithTLS(t *testing.T) {
 			TLS:   tls,
 		},
 	}
-	got, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	got, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -978,6 +997,7 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}}},
 	}, {
 		Hosts: []string{
@@ -1008,10 +1028,11 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
+				Timeout: &metav1.Duration{Duration: 48 * time.Hour},
 			}}},
 	}}
 
-	ci, err := MakeIngressSpec(getContext(), r, nil, targets, nil /* visibility */, acmeChallenge)
+	ci, err := MakeIngressSpec(testContext(), r, nil, targets, nil /* visibility */, acmeChallenge)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
@@ -1038,14 +1059,13 @@ func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 	r := Route(ns, "test-route", WithURL)
 
 	// Create a context that has a bad domain template.
-	badContext := config.ToContext(context.Background(), &config.Config{
-		Domain: &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}},
-		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
-			TagTemplate:         network.DefaultTagTemplate,
-		},
-	})
+	badContext := testContext()
+	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
+	config.FromContext(badContext).Network = &network.Config{
+		DefaultIngressClass: "test-ingress-class",
+		DomainTemplate:      "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
+		TagTemplate:         network.DefaultTagTemplate,
+	}
 	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
 	if err == nil {
 		t.Error("Expected error, saw none")
@@ -1080,14 +1100,13 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 	r := Route(ns, "test-route", WithURL)
 
 	// Create a context that has a bad domain template.
-	badContext := config.ToContext(context.Background(), &config.Config{
-		Domain: &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}},
-		Network: &network.Config{
-			DefaultIngressClass: "test-ingress-class",
-			DomainTemplate:      network.DefaultDomainTemplate,
-			TagTemplate:         "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
-		},
-	})
+	badContext := testContext()
+	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
+	config.FromContext(badContext).Network = &network.Config{
+		DefaultIngressClass: "test-ingress-class",
+		DomainTemplate:      network.DefaultDomainTemplate,
+		TagTemplate:         "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
+	}
 	_, err := MakeIngress(badContext, r, &traffic.Config{Targets: targets}, nil, "")
 	if err == nil {
 		t.Error("Expected error, saw none")
@@ -1097,8 +1116,11 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 	}
 }
 
-func getContext() context.Context {
+func testContext() context.Context {
 	ctx := context.Background()
 	cfg := testConfig()
-	return config.ToContext(ctx, cfg)
+	configDefaults, _ := apiConfig.NewDefaultsConfigFromMap(nil)
+	return config.ToContext(apiConfig.ToContext(ctx, &apiConfig.Config{
+		Defaults: configDefaults,
+	}), cfg)
 }

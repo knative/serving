@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -36,8 +35,6 @@ import (
 
 func TestHelloWorld(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -69,26 +66,16 @@ func TestHelloWorld(t *testing.T) {
 	}
 
 	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
-		if val != names.Config {
-			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
-		}
-	} else {
-		t.Fatalf("Failed to get configuration name from Revision label")
+	if val := revision.Labels[serving.ConfigurationLabelKey]; val != names.Config {
+		t.Fatalf("Got revision label configuration=%q, want=%q ", names.Config, val)
 	}
-	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
-		if val != names.Service {
-			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
-		}
-	} else {
-		t.Fatalf("Failed to get Service name from Revision label")
+	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
+		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
 }
 
 func TestQueueSideCarResourceLimit(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 

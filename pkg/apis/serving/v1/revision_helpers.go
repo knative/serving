@@ -111,9 +111,9 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 
 // SetRoutingState sets the routingState label on this Revision and updates the
 // routingStateModified annotation.
-func (r *Revision) SetRoutingState(state RoutingState) {
+func (r *Revision) SetRoutingState(state RoutingState, clock clock.Clock) {
 	stateStr := string(state)
-	if t := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]; t != "" &&
+	if t := r.Annotations[serving.RoutingStateModifiedAnnotationKey]; t != "" &&
 		r.Labels[serving.RoutingStateLabelKey] == stateStr {
 		return // Don't update timestamp if no change.
 	}
@@ -123,7 +123,7 @@ func (r *Revision) SetRoutingState(state RoutingState) {
 
 	r.Annotations = kmeta.UnionMaps(r.Annotations,
 		map[string]string{
-			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(clock.RealClock{}),
+			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(clock),
 		})
 }
 
@@ -134,12 +134,12 @@ func RoutingStateModifiedString(clock clock.Clock) string {
 
 // GetRoutingState retrieves the RoutingState label.
 func (r *Revision) GetRoutingState() RoutingState {
-	return RoutingState(r.ObjectMeta.Labels[serving.RoutingStateLabelKey])
+	return RoutingState(r.Labels[serving.RoutingStateLabelKey])
 }
 
 // GetRoutingStateModified retrieves the RoutingStateModified annotation.
 func (r *Revision) GetRoutingStateModified() time.Time {
-	val := r.ObjectMeta.Annotations[serving.RoutingStateModifiedAnnotationKey]
+	val := r.Annotations[serving.RoutingStateModifiedAnnotationKey]
 	if val == "" {
 		return time.Time{}
 	}
@@ -152,7 +152,8 @@ func (r *Revision) GetRoutingStateModified() time.Time {
 
 // IsReachable returns whether or not the revision can be reached by a route.
 func (r *Revision) IsReachable() bool {
-	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
+	return r.Labels[serving.RouteLabelKey] != "" ||
+		RoutingState(r.Labels[serving.RoutingStateLabelKey]) == RoutingStateActive
 }
 
 // GetProtocol returns the app level network protocol.
@@ -174,11 +175,11 @@ func (r *Revision) GetProtocol() (p net.ProtocolType) {
 // SetLastPinned sets the revision's last pinned annotations
 // to be the specified time.
 func (r *Revision) SetLastPinned(t time.Time) {
-	if r.ObjectMeta.Annotations == nil {
-		r.ObjectMeta.Annotations = make(map[string]string, 1)
+	if r.Annotations == nil {
+		r.Annotations = make(map[string]string, 1)
 	}
 
-	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
+	r.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
 }
 
 // GetLastPinned returns the time the revision was last pinned.
@@ -189,7 +190,7 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 		}
 	}
 
-	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	str, ok := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
 	if !ok {
 		// If a revision is past the create delay without an annotation it is stale.
 		return time.Time{}, LastPinnedParseError{

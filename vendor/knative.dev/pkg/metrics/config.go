@@ -156,9 +156,9 @@ func NewStackdriverClientConfigFromMap(config map[string]string) *StackdriverCli
 // record applies the `ros` Options to each measurement in `mss` and then records the resulting
 // measurements in the metricsConfig's designated backend.
 func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ros ...stats.Options) error {
-	if mc == nil {
-		// Don't record data points if the metric config is not initialized yet.
-		// At this point, it's unclear whether should record or not.
+	if mc == nil || mc.backendDestination == none {
+		// Don't record data points if the metric config is not initialized yet or if
+		// the defined backend is "none" explicitly.
 		return nil
 	}
 
@@ -292,12 +292,14 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 			return nil, fmt.Errorf("invalid %s value %q", reportingPeriodKey, repStr)
 		}
 		mc.reportingPeriod = time.Duration(repInt) * time.Second
-	} else if mc.backendDestination == stackdriver {
-		mc.reportingPeriod = 60 * time.Second
-	} else if mc.backendDestination == prometheus {
-		mc.reportingPeriod = 5 * time.Second
+	} else {
+		switch mc.backendDestination {
+		case stackdriver, openCensus:
+			mc.reportingPeriod = time.Minute
+		case prometheus:
+			mc.reportingPeriod = 5 * time.Second
+		}
 	}
-
 	return &mc, nil
 }
 

@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync/atomic"
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/google/go-cmp/cmp"
@@ -222,9 +222,9 @@ func TestHTTPSuccess(t *testing.T) {
 }
 
 func TestHTTPManyParallel(t *testing.T) {
-	cnt := int32(0)
+	var count atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if atomic.AddInt32(&cnt, 1) == 1 {
+		if count.Inc() == 1 {
 			// Add a small amount of work to allow the requests below to collapse into one.
 			time.Sleep(200 * time.Millisecond)
 		}
@@ -267,7 +267,7 @@ func TestHTTPManyParallel(t *testing.T) {
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
 	}
-	if got, want := atomic.LoadInt32(&cnt), int32(2); got != want {
+	if got, want := count.Load(), int32(2); got != want {
 		t.Errorf("Probe count = %d, want: %d", got, want)
 	}
 }
@@ -335,10 +335,10 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithRetry(t *testing.T) {
-	var count int32
+	var count atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Fail the very first request.
-		if atomic.AddInt32(&count, 1) == 1 {
+		if count.Inc() == 1 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -371,11 +371,11 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithThreshold(t *testing.T) {
-	var count int32
 	var threshold int32 = 3
 
+	var count atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&count, 1)
+		count.Inc()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -403,18 +403,18 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		t.Error("Expected success after second attempt.")
 	}
 
-	if atomic.LoadInt32(&count) < threshold {
+	if count.Load() < threshold {
 		t.Errorf("Expected %d requests before reporting success", threshold)
 	}
 }
 
 func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
-	var count int32
 	var threshold int32 = 3
 	var requestFailure int32 = 2
 
+	var count atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if atomic.AddInt32(&count, 1) == requestFailure {
+		if count.Inc() == requestFailure {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -450,7 +450,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if atomic.LoadInt32(&count) < threshold+requestFailure {
+	if count.Load() < threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }

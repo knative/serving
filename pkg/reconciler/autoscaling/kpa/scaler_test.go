@@ -418,6 +418,18 @@ func TestScaler(t *testing.T) {
 			paMarkActive(k, time.Now())
 		},
 	}, {
+		label:         "initial scale attained, but now time to scale down",
+		startReplicas: 2,
+		scaleTo:       0,
+		wantReplicas:  1, // First we deactivate and scale to 1.
+		wantScaling:   true,
+		wantCBCount:   1,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-2*time.Minute))
+			k.Status.MarkScaleTargetInitialized()
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+	}, {
 		label:         "haven't scaled to initial scale, override desired scale with initial scale",
 		startReplicas: 0,
 		scaleTo:       1,
@@ -425,7 +437,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		},
 	}, {
 		label:         "initial scale reached for the first time",
@@ -435,7 +447,21 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+		},
+	}, {
+		label:         "reaching initial scale zero",
+		startReplicas: 0,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		wantCBCount:   1,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now())
+			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.AllowZeroInitialScale = true
 		},
 	}}
 

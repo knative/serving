@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -37,6 +36,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -52,7 +52,6 @@ import (
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -83,6 +82,7 @@ type config struct {
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
 	ServingLoggingLevel          string `split_words:"true" required:"true"`
 	ServingRequestLogTemplate    string `split_words:"true"` // optional
+	ServingEnableRequestLog      bool   `split_words:"true"` // optional
 	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
 
 	// Metrics configuration
@@ -329,7 +329,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = -1
+	httpProxy.FlushInterval = network.FlushInterval
 	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(env)
@@ -366,7 +366,7 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 		return pkgnet.AutoTransport
 	}
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(env.ServingPod, logger))
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
 	oct.ApplyConfig(&tracingconfig.Config{
 		Backend:              env.TracingConfigBackend,
 		Debug:                env.TracingConfigDebug,
@@ -425,25 +425,15 @@ func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *htt
 
 func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", metricsHttpHandler(promStatReporter, protobufStatReporter))
+	metricsMux.Handle("/metrics", queue.NewStatsHandler(promStatReporter, protobufStatReporter))
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler: metricsMux,
 	}
 }
 
-func metricsHttpHandler(promStatReporter *queue.PrometheusStatsReporter, protobufStatReporter *queue.ProtobufStatsReporter) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.Header.Get("Accept"), network.ProtoAcceptContent) {
-			protobufStatReporter.Handler().ServeHTTP(w, r)
-		} else {
-			promStatReporter.Handler().ServeHTTP(w, r)
-		}
-	})
-}
-
 func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
-	if env.ServingRequestLogTemplate == "" {
+	if !env.ServingEnableRequestLog {
 		return currentHandler
 	}
 

@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "088ba8b3"
+    knative.dev/example-checksum: "7b6520ae"
 data:
   _example: |
     ################################
@@ -172,3 +172,18 @@ data:
     # See the algorithm here: http://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
+
+    # initial-scale is the cluster-wide default value for the initial target
+    # scale of a revision after creation, unless overridden by the
+    # "autoscaling.knative.dev/initialScale" annotation.
+    # This value must be greater than 0 unless allow-zero-initial-scale is true.
+    initial-scale: "1"
+
+    # allow-zero-initial-scale controls whether either the cluster-wide initial-scale flag,
+    # or the "autoscaling.knative.dev/initialScale" annotation, can be set to 0.
+    allow-zero-initial-scale: "false"
+
+    # max-scale is the cluster-wide default value for the max scale of a revision,
+    # unless overridden by the "autoscaling.knative.dev/maxScale" annotation.
+    # If set to 0, the revision has no maximum scale.
+    max-scale: "0"

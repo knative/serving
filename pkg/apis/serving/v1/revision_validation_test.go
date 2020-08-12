@@ -322,6 +322,21 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "with multi containers (ok)",
+		rs: &RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8881,
+					}},
+				}, {
+					Image: "helloworld",
+				}},
+			},
+		},
+		want: nil,
+	}, {
 		name: "with volume name collision",
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
@@ -382,6 +397,20 @@ func TestRevisionSpecValidation(t *testing.T) {
 					Image: "helloworld",
 				}},
 			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.FeaturesConfigName,
+				},
+				Data: map[string]string{
+					"multi-container": "disabled",
+				},
+			})
+			return s.ToContext(ctx)
 		},
 		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {

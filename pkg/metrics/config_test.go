@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/metrics"
@@ -32,12 +33,25 @@ import (
 func TestOurObservability(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 
-	if _, err := metrics.NewObservabilityConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewObservabilityFromConfigMap(actual) = %v", err)
+	realCfg, err := metrics.NewObservabilityConfigFromConfigMap(cm)
+	if err != nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(actual) =", err)
+	}
+	if realCfg == nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(actual) = nil")
 	}
 
-	if _, err := metrics.NewObservabilityConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewObservabilityFromConfigMap(example) = %v", err)
+	exCfg, err := metrics.NewObservabilityConfigFromConfigMap(example)
+	if err != nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(example) =", err)
+	}
+	if exCfg == nil {
+		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
+	}
+	// TODO(#8644): remove this.
+	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "RequestLogTemplate")
+	if !cmp.Equal(realCfg, exCfg, co) {
+		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg, co))
 	}
 }
 
@@ -54,6 +68,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			LoggingURLTemplate:     "https://logging.io",
 			EnableVarLogCollection: true,
 			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
+			EnableRequestLog:       true,
 			EnableProbeRequestLog:  true,
 			RequestMetricsBackend:  "stackdriver",
 		},

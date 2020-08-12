@@ -35,12 +35,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/client/clientset/versioned"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/network"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 

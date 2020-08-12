@@ -27,7 +27,7 @@ cd ${ROOT_DIR}
 export GO111MODULE=on
 
 # This controls the release branch we track.
-VERSION="master"
+VERSION="release-0.17"
 
 # The list of dependencies that we track at HEAD and periodically
 # float forward in this repository.
@@ -71,3 +71,7 @@ update_licenses third_party/VENDOR-LICENSE "./..."
 
 echo "Removing broken symlinks"
 remove_broken_symlinks ./vendor
+
+# Patch k8s leader-election fixing graceful release
+# More information: https://github.com/kubernetes/kubernetes/pull/91942
+git apply ${ROOT_DIR}/hack/k8s-client-go.patch

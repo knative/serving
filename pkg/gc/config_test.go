@@ -35,17 +35,17 @@ func TestOurConfig(t *testing.T) {
 		want *Config
 		data map[string]string
 	}{{
-		name: "Actual config",
+		name: "actual config",
 		fail: false,
 		want: defaultConfig(),
 		data: actual.Data,
 	}, {
-		name: "Example config",
+		name: "example config",
 		fail: false,
 		want: defaultConfig(),
 		data: example.Data,
 	}, {
-		name: "With value overrides",
+		name: "with value overrides",
 		want: &Config{
 			StaleRevisionCreateDelay:        15 * time.Hour,
 			StaleRevisionTimeout:            14 * time.Hour,
@@ -53,8 +53,8 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: 2*time.Hour + 30*time.Minute + 44*time.Second,
 			RetainSinceCreateTime:           17 * time.Hour,
 			RetainSinceLastActiveTime:       16 * time.Hour,
-			MinStaleRevisions:               5,
-			MaxStaleRevisions:               500,
+			MinNonActiveRevisions:           5,
+			MaxNonActiveRevisions:           500,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay":        "15h",
@@ -63,54 +63,102 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-lastpinned-debounce": "2h30m44s",
 			"retain-since-create-time":           "17h",
 			"retain-since-last-active-time":      "16h",
-			"min-stale-revisions":                "5",
-			"max-stale-revisions":                "500",
+			"min-non-active-revisions":           "5",
+			"max-non-active-revisions":           "500",
 		},
 	}, {
-		name: "Invalid duration",
+		name: "invalid duration",
 		fail: true,
-		want: nil,
 		data: map[string]string{
 			"stale-revision-create-delay": "invalid",
 		},
 	}, {
-		name: "Invalid negative minimum generation",
+		name: "invalid negative minimum generation",
 		fail: true,
-		want: nil,
 		data: map[string]string{
 			"stale-revision-minimum-generations": "-1",
 		},
 	}, {
-		name: "Invalid negative minimum generation v2",
+		name: "invalid minimum generation",
 		fail: true,
-		want: nil,
-		data: map[string]string{
-			"min-stale-revisions": "-1",
-		},
-	}, {
-		name: "Invalid negative maximum generation",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"max-stale-revisions": "-2",
-		},
-	}, {
-		name: "Invalid max less than min",
-		fail: true,
-		want: nil,
-		data: map[string]string{
-			"min-stale-revisions": "20",
-			"max-stale-revisions": "10",
-		},
-	}, {
-		name: "Invalid minimum generation",
-		fail: true,
-		want: nil,
 		data: map[string]string{
 			"stale-revision-minimum-generations": "invalid",
 		},
 	}, {
-		name: "Below minimum timeout",
+		name: "Invalid negative min stale",
+		fail: true,
+		data: map[string]string{
+			"min-non-active-revisions": "-1",
+		},
+	}, {
+		name: "Invalid negative maximum generation",
+		fail: true,
+		data: map[string]string{
+			"max-non-active-revisions": "-2",
+		},
+	}, {
+		name: "invalid max less than min",
+		fail: true,
+		data: map[string]string{
+			"min-non-active-revisions": "20",
+			"max-non-active-revisions": "10",
+		},
+	}, {
+		name: "unparsable create duration",
+		fail: true,
+		data: map[string]string{
+			"retain-since-create-time": "invalid",
+		},
+	}, {
+		name: "negative create duration",
+		fail: true,
+		data: map[string]string{
+			"retain-since-create-time": "-1h",
+		},
+	}, {
+		name: "negative last-active duration",
+		fail: true,
+		data: map[string]string{
+			"retain-since-last-active-time": "-1h",
+		},
+	}, {
+		name: "create delay disabled",
+		want: func() *Config {
+			d := defaultConfig()
+			d.RetainSinceCreateTime = time.Duration(Disabled)
+			return d
+		}(),
+		data: map[string]string{
+			"retain-since-create-time": disabled,
+		},
+	}, {
+		name: "last-active disabled",
+		want: func() *Config {
+			d := defaultConfig()
+			d.RetainSinceLastActiveTime = time.Duration(Disabled)
+			return d
+		}(),
+		data: map[string]string{
+			"retain-since-last-active-time": disabled,
+		},
+	}, {
+		name: "max-non-active unparsable",
+		fail: true,
+		data: map[string]string{
+			"max-non-active-revisions": "invalid",
+		},
+	}, {
+		name: "max-non-active disabled",
+		want: func() *Config {
+			d := defaultConfig()
+			d.MaxNonActiveRevisions = Disabled
+			return d
+		}(),
+		data: map[string]string{
+			"max-non-active-revisions": disabled,
+		},
+	}, {
+		name: "below minimum timeout",
 		fail: false,
 		want: &Config{
 			StaleRevisionCreateDelay:        15 * time.Hour,
@@ -119,8 +167,8 @@ func TestOurConfig(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: 5 * time.Hour,
 			RetainSinceCreateTime:           48 * time.Hour,
 			RetainSinceLastActiveTime:       15 * time.Hour,
-			MinStaleRevisions:               20,
-			MaxStaleRevisions:               -1,
+			MinNonActiveRevisions:           20,
+			MaxNonActiveRevisions:           1000,
 		},
 		data: map[string]string{
 			"stale-revision-create-delay": "15h",

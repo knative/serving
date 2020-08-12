@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 

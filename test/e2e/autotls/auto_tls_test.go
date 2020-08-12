@@ -32,7 +32,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
-	testingress "knative.dev/serving/test/conformance/ingress"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -48,7 +47,9 @@ type config struct {
 
 var env config
 
-func TestAutoTLS(t *testing.T) {
+// Technically TLS is proper Go casing for acronyms, but it makes our test naming
+// hyphenate between every character, and we hit length problems.
+func TestTls(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
@@ -56,7 +57,7 @@ func TestAutoTLS(t *testing.T) {
 }
 
 func testAutoTLS(t *testing.T) {
-	clients := e2e.Setup(t)
+	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -83,7 +84,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	runtimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -93,11 +94,11 @@ func testAutoTLS(t *testing.T) {
 		}
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
-				Tag:            "tag1",
+				Tag:            "r",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}, {
-				Tag:            "tag2",
+				Tag:            "b",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}},
@@ -129,7 +130,7 @@ func testAutoTLS(t *testing.T) {
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+			runtimeRequest(t, httpsClient, traffic.URL.String())
 		}
 	})
 }
@@ -188,7 +189,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := testingress.CreateDialContext(t, ing, clients)
+	dialer := CreateDialContext(t, ing, clients)
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}

@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "721e3176"
+    knative.dev/example-checksum: "848fda3b"
 data:
   _example: |
     ################################
@@ -39,7 +39,16 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
-    multi-container: "disabled"
+    multi-container: "enabled"
+
+    # Indicates whether Kubernetes affinity support is enabled
+    kubernetes.podspec-affinity: "disabled"
+
+    # Indicates whether Kubernetes nodeSelector support is enabled
+    kubernetes.podspec-nodeselector: "disabled"
+
+    # Indicates whether Kubernetes tolerations support is enabled
+    kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
     kubernetes.podspec-fieldref: "disabled"
@@ -47,10 +56,11 @@ data:
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
     #
-    # When "allowed", the client may enable the behavior with the
-    # 'features.knative.dev/podspec-dryrun':'enabled' annotation.
-    # When "enabled"  the server will always run the extra validation.
-    kubernetes.podspec-dryrun: "enabled"
+    # When "enabled", the server will always run the extra validation.
+    # When "allowed", the server will not run the dry-run validation by default.
+    #   However, clients may enable the behavior on an individual Service by
+    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
+    kubernetes.podspec-dryrun: "allowed"
 
     # This feature removes the ability of a user to delete revisions
     # that are actively serving or that are in-progress deployments.

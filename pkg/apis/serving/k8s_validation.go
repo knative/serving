@@ -60,6 +60,14 @@ var (
 		"K_REVISION",
 	)
 
+	reservedPorts = sets.NewInt32(
+		networking.BackendHTTPPort,
+		networking.BackendHTTP2Port,
+		networking.QueueAdminPort,
+		networking.AutoscalingQueueMetricsPort,
+		networking.UserQueueMetricsPort,
+		profiling.ProfilingPort)
+
 	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.NewString("PORT"))
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
@@ -263,7 +271,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	// 	return apis.ErrMissingField(apis.CurrentField)
 	// }
 
-	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(&ps))
+	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
 	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
@@ -501,13 +509,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.Protocol, "protocol"))
 	}
 
-	// Don't allow userPort to conflict with QueueProxy sidecar
-	if userPort.ContainerPort == networking.BackendHTTPPort ||
-		userPort.ContainerPort == networking.BackendHTTP2Port ||
-		userPort.ContainerPort == networking.QueueAdminPort ||
-		userPort.ContainerPort == networking.AutoscalingQueueMetricsPort ||
-		userPort.ContainerPort == networking.UserQueueMetricsPort ||
-		userPort.ContainerPort == profiling.ProfilingPort {
+	// Don't allow userPort to conflict with knative system reserved ports
+	if reservedPorts.Has(userPort.ContainerPort) {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 

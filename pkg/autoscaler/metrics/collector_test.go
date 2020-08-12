@@ -27,6 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
@@ -116,6 +117,82 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	})
 }
 
+func TestMetricCollectorScraperMovingTime(t *testing.T) {
+	logger := TestLogger(t)
+
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	now := time.Now()
+	fc := fake.Clock{
+		FakeClock: clock.NewFakeClock(now),
+		TP:        mtp,
+	}
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	const (
+		reportConcurrency = 10
+		reportRPS         = 20
+		wantConcurrency   = 7 * 10 / 2
+		wantRPS           = 7 * 20 / 2
+		wantPConcurrency  = 7 * 10 / 2
+		wantPRPS          = 7 * 20 / 2
+	)
+	stat := Stat{
+		PodName:                   "testPod",
+		AverageConcurrentRequests: reportConcurrency,
+		RequestCount:              reportRPS,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+
+	coll := NewMetricCollector(factory, logger)
+	coll.clock = fc
+	coll.CreateOrUpdate(&defaultMetric)
+
+	// Tick three times.  Time doesn't matter since we use the time on the Stat.
+	for i := 0; i < 3; i++ {
+		mtp.Channel <- now
+	}
+	now = now.Add(time.Second)
+	fc.SetTime(now)
+	for i := 0; i < 4; i++ {
+		mtp.Channel <- now
+	}
+	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
+	// Poll to see that the async loop completed.
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+		return gotConcurrency == wantConcurrency &&
+			panicConcurrency == wantPConcurrency &&
+			gotRPS == wantRPS &&
+			panicRPS == wantPRPS, nil
+	})
+
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
+		t.Errorf("StableAndPanicConcurrency() = %v", err)
+	}
+	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
+		t.Errorf("StableAndPanicRPS() = %v", err)
+	}
+	if panicConcurrency != wantPConcurrency {
+		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
+	}
+	if panicRPS != wantPRPS {
+		t.Errorf("PanicRPS() = %v, want %v", panicRPS, wantPRPS)
+	}
+	if gotConcurrency != wantConcurrency {
+		t.Errorf("StableConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+	}
+	if gotRPS != wantRPS {
+		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRPS)
+	}
+}
+
 func TestMetricCollectorScraper(t *testing.T) {
 	logger := TestLogger(t)
 
@@ -123,6 +200,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	now := time.Now()
+	fc := fake.Clock{
+		FakeClock: clock.NewFakeClock(now),
+		TP:        mtp,
+	}
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const (
 		reportConcurrency = 10
@@ -145,16 +226,16 @@ func TestMetricCollectorScraper(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	coll.tickProvider = mtp.NewTicker // custom ticker.
+	coll.clock = fc
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	mtp.Channel <- now
-	mtp.Channel <- now
-	mtp.Channel <- now
+	for i := 0; i < 3; i++ {
+		mtp.Channel <- now
+	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency &&
@@ -164,10 +245,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	})
 
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicConcurrency = %v", err)
+		t.Errorf("StableAndPanicConcurrency() = %v", err)
 	}
 	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
-		t.Errorf("StableAndPanicRPS = %v", err)
+		t.Errorf("StableAndPanicRPS() = %v", err)
 	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
@@ -187,16 +268,18 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.Channel <- now
 
 	// Wait for async loop to finish.
-	wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency*5 && gotRPS == reportRPS*5, nil
-	})
+	}); err != nil {
+		t.Fatalf("Timed out waiting for the expected values to appear: CC = %v, RPS = %v", gotConcurrency, gotRPS)
+	}
 	if gotConcurrency != reportConcurrency*5 {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, reportConcurrency*5)
 	}
 	if gotRPS != reportRPS*5 {
-		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, wantRPS)
+		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, reportRPS*5)
 	}
 
 	// Deleting the metric should cause a calculation error.
@@ -216,6 +299,10 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 		Channel: make(chan time.Time),
 	}
 	now := time.Now()
+	fc := fake.Clock{
+		FakeClock: clock.NewFakeClock(now),
+		TP:        mtp,
+	}
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const wantStat = 0.
 	stat := Stat{
@@ -226,23 +313,25 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	factory := scraperFactory(nil, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	coll.tickProvider = mtp.NewTicker // custom ticker.
+	coll.clock = fc
 
 	noTargetMetric := defaultMetric
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	mtp.Channel <- now
-	mtp.Channel <- now
-	mtp.Channel <- now
+	for i := 0; i < 3; i++ {
+		mtp.Channel <- now
+		now = now.Add(time.Second)
+		fc.SetTime(now)
+	}
 
 	gotConcurrency, panicConcurrency, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, panicRPS, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != nil {
-		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
 	}
 	if errRPS != nil {
-		t.Errorf("StableAndPanicRPS = %v", errRPS)
+		t.Errorf("StableAndPanicRPS() = %v", errRPS)
 	}
 	if panicConcurrency != wantStat {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantStat)
@@ -270,7 +359,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 	gotRPS, _, err := coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
-		t.Errorf("StableAndPanicRPS = %v", err)
+		t.Errorf("StableAndPanicRPS() = %v", err)
 	}
 	if gotRPS != wantRC {
 		t.Errorf("StableRPS() = %v, want %v", gotRPS, wantRC)
@@ -304,10 +393,10 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 	_, _, errCon := coll.StableAndPanicConcurrency(metricKey, now)
 	_, _, errRPS := coll.StableAndPanicRPS(metricKey, now)
 	if errCon != ErrNoData {
-		t.Errorf("StableAndPanicConcurrency = %v", errCon)
+		t.Errorf("StableAndPanicConcurrency() = %v", errCon)
 	}
 	if errRPS != ErrNoData {
-		t.Errorf("StableAndPanicRPS = %v", errRPS)
+		t.Errorf("StableAndPanicRPS() = %v", errRPS)
 	}
 }
 
@@ -341,7 +430,11 @@ func TestMetricCollectorRecord(t *testing.T) {
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
 	}
-	coll.tickProvider = mtp.NewTicker // This will ensure time based scraping won't interfere.
+	fc := fake.Clock{
+		FakeClock: clock.NewFakeClock(now),
+		TP:        mtp,
+	}
+	coll.clock = fc
 
 	// Freshly created collection does not contain any metrics and should return an error.
 	coll.CreateOrUpdate(&defaultMetric)
@@ -444,8 +537,13 @@ func TestMetricCollectorError(t *testing.T) {
 			mtp := &fake.ManualTickProvider{
 				Channel: make(chan time.Time),
 			}
+			now := time.Now()
+			fc := fake.Clock{
+				FakeClock: clock.NewFakeClock(now),
+				TP:        mtp,
+			}
 			coll := NewMetricCollector(factory, logger)
-			coll.tickProvider = mtp.NewTicker
+			coll.clock = fc
 
 			watchCh := make(chan types.NamespacedName)
 			coll.Watch(func(key types.NamespacedName) {
@@ -454,7 +552,7 @@ func TestMetricCollectorError(t *testing.T) {
 
 			// Create a collection and immediately tick.
 			coll.CreateOrUpdate(testMetric)
-			mtp.Channel <- time.Now()
+			mtp.Channel <- now
 
 			// Expect an event to be propagated because we're erroring.
 			key := types.NamespacedName{Namespace: testMetric.Namespace, Name: testMetric.Name}
