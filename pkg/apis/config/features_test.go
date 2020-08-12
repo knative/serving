@@ -235,7 +235,9 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantFeatures: defaultWith(&Features{
 			PreventActiveRevisionDeletion: Allowed,
 		}),
-		data: map[string]string{"prevent-active-revision-deletion": "Allowed"},
+		data: map[string]string{
+			"prevent-active-revision-deletion": "Allowed",
+		},
 	}, {
 		name:    "prevent-active-revision-deletion Enabled",
 		wantErr: false,
