@@ -101,9 +101,15 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
-	return &Config{
-		Defaults:   s.UntypedLoad(DefaultsConfigName).(*Defaults).DeepCopy(),
-		Features:   s.UntypedLoad(FeaturesConfigName).(*Features).DeepCopy(),
-		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+	cfg := &Config{}
+	if def, ok := s.UntypedLoad(DefaultsConfigName).(*Defaults); ok {
+		cfg.Defaults = def.DeepCopy()
 	}
+	if feat, ok := s.UntypedLoad(FeaturesConfigName).(*Features); ok {
+		cfg.Features = feat.DeepCopy()
+	}
+	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config); ok {
+		cfg.Autoscaler = as.DeepCopy()
+	}
+	return cfg
 }

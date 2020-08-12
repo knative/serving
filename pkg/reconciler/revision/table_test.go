@@ -624,7 +624,11 @@ func TestReconcile(t *testing.T) {
 
 		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
+			controller.Options{
+				ConfigStore: &testConfigStore{
+					config: ReconcilerTestConfig(),
+				},
+			})
 	}))
 }
 
