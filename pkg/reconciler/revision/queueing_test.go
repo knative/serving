@@ -105,7 +105,8 @@ func testRevision(podSpec corev1.PodSpec) *v1.Revision {
 			Annotations: map[string]string{
 				"testAnnotation": "test",
 			},
-			UID: "test-rev-uid",
+			UID:        "test-rev-uid",
+			Generation: 2,
 		},
 		Spec: v1.RevisionSpec{
 			PodSpec:        podSpec,
