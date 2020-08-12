@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +37,6 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
@@ -131,10 +129,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := (New(ctx, test.throttler)).(*activationHandler)
-
-			// Setup transports.
-			handler.transport = rt
+			handler := New(ctx, test.throttler, rt)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -173,8 +168,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-	handler.transport = rt
+	handler := New(ctx, fakeThrottler{}, rt)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -252,12 +246,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-			handler.transport = rt
-			handler.tracingTransport = &ochttp.Transport{
-				Base:        rt,
-				Propagation: tracecontextb3.B3Egress,
-			}
+			handler := New(ctx, fakeThrottler{}, rt)
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -280,7 +269,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler, store *activatorconfig.Store) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	ctx := store.ToContext(req.Context())
@@ -328,8 +317,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-		handler.transport = rt
+		handler := New(ctx, fakeThrottler{}, rt)
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

@@ -76,6 +76,10 @@ var (
 	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
 		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+
+	// This is here to allow configuring higher values of keep-alive for larger environments.
+	// TODO: run loadtests using this flag to determine optimal default values.
+	maxIdleProxyConns = flag.Int("maxidleconns", 1000, "The number of idle keep-alive connections maintained by the proxy transport.")
 )
 
 func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
@@ -195,9 +199,11 @@ func main() {
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(ctx.Done())
 
+	proxyTransport := pkgnet.NewAutoTransport(*maxIdleProxyConns, 100 /*maxidleperhost*/)
+
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(ctx, throttler)
+	var ah http.Handler = activatorhandler.New(ctx, throttler, proxyTransport)
 	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
