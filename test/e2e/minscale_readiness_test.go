@@ -78,7 +78,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, serviceName, gte(minScale)); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, serviceName, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
@@ -103,7 +103,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding new revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, newServiceName, gtel(minScale, t)); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, newServiceName, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", newRevName, lr, minScale)
 	}
 
@@ -195,7 +195,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	})
 }
 
-func ensureDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
+func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
 	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
@@ -210,6 +210,9 @@ func ensureDesiredScale(clients *test.Clients, serviceName string, cond func(int
 
 		return false, nil
 	})
+	if err != wait.ErrWaitTimeout {
+		t.Log("PollError =", err)
+	}
 
 	return latestReady, err == wait.ErrWaitTimeout
 }
