@@ -33,14 +33,14 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1"
 )
 
-// TestService tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
+// TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
 // Currently the test performs the following updates:
 // 1. Update Container Image
 // 2. Update Metadata
 //    a. Update Labels
 //    b. Update Annotations
-func TestService(t *testing.T) {
+func TestServiceCreateAndUpdate(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
