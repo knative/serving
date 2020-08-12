@@ -519,9 +519,10 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	servingClient.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revL := fakerevisioninformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
+		// The only error we're getting in the test reasonably is NotFound.
+		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
 		// We only create a single revision, but make sure it is reconciled.
-		return r != nil && r.Status.ObservedGeneration == r.Generation, err
+		return r != nil && r.Status.ObservedGeneration == r.Generation, nil
 	}); err != nil {
 		t.Fatal("Failed to see Revision propagation:", err)
 	}
@@ -534,16 +535,15 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection": "true",
-			"logging.revision-url-template":     "http://log-here.test.com?filter=${REVISION_UID}",
+			"logging.revision-url-template":     "http://new-logging.test.com?filter=${REVISION_UID}",
 		},
 	})
 
 	want := "http://new-logging.test.com?filter=" + string(rev.UID)
-	if err := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if ierr := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
 		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
-		// We only create a single revision, but make sure it is reconciled.
-		return r != nil && r.Status.ObservedGeneration == r.Generation && r.Status.LogURL == want, err
-	}); err != nil {
+		return r != nil && r.Status.LogURL == want, err
+	}); ierr != nil {
 		t.Fatal("Failed to see Revision propagation:", err)
 	}
 }
