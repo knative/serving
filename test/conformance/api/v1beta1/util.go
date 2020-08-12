@@ -126,7 +126,7 @@ func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, n
 
 func substrInList(key string, targets []string) string {
 	for _, t := range targets {
-		if strings.Contains(t, key) {
+		if strings.Contains(key, t) {
 			return t
 		}
 	}

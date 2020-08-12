@@ -126,7 +126,7 @@ func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, n
 
 func substrInList(key string, targets []string) string {
 	for _, t := range targets {
-		if strings.Contains(t, key) {
+		if strings.Contains(key, t) {
 			return t
 		}
 	}
@@ -171,7 +171,8 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 					domain, min, count, er))
 		}
 
-		t.Logf("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
+		t.Logf("For domain %s: wanted at least %d, got %d requests for response %q",
+			domain, min, count, er)
 		totalMatches += count
 	}
 	if totalMatches < num {
