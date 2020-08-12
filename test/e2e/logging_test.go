@@ -22,6 +22,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	if got, want := cm.Data["logging.request-log-template"], template; got != want {
-		t.Skipf("Skipping verifing request logs because the template doesn't match: %s", cmp.Diff(want, got))
+		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
 
 	names := test.ResourceNames{
@@ -100,7 +101,7 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.
-	if cm.Data["logging.enable-probe-request-log"] == "true" {
+	if strings.EqualFold(cm.Data["logging.enable-probe-request-log"], "true") {
 		// Health check requests are sent to / with a specific userAgent value periodically.
 		if err := waitForLog(t, clients, pod.Namespace, pod.Name, "queue-proxy", func(log logLine) bool {
 			return log.HTTPRequest.RequestURL == "/" &&
