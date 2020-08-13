@@ -20,8 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 
+	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -66,7 +68,7 @@ type Forwarder struct {
 	// accept is the function to process a StatMessage if it doesn't need
 	// to be forwarded.
 	accept statProcessor
-	// Guide for b2IP.
+	// Lock for b2IP.
 	lock  sync.RWMutex
 	b2IP  map[string]string
 	wsMap map[string]*websocket.ManagedConnection
@@ -87,7 +89,7 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 	bkts := bs.Buckets()
 	f.wsMap = make(map[string]*websocket.ManagedConnection, len(bkts))
 	for _, b := range bkts {
-		dns := fmt.Sprintf("ws://%s.%s.svc.%s:8080", b.Name(), ns, network.GetClusterDomainName())
+		dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", b.Name(), ns, network.GetClusterDomainName(), autoscalerPort)
 		logger.Info("Connecting to Autoscaler bucket at ", dns)
 		statSink := websocket.NewDurableSendingConnection(dns, logger)
 		f.wsMap[b.Name()] = statSink
@@ -99,6 +101,7 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    f.endpointsUpdated,
 			UpdateFunc: controller.PassNew(f.endpointsUpdated),
+			DeleteFunc: f.endpointsDeleted,
 		},
 	})
 	return &f
@@ -245,14 +248,25 @@ func (f *Forwarder) deleteService(ns, name string) error {
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	owner := f.bs.Owner(sm.Key.String())
 	if f.getIP(owner) == f.selfIP {
+		log.Printf("## accept rev %s\n", sm.Key.String())
 		f.accept(sm)
 		return
 	}
 
 	if ws, ok := f.wsMap[owner]; ok {
-		ws.Send(sm)
+		log.Printf("## forward rev %s to %s\n", sm.Key.String(), owner)
+		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
+		b, err := wsms.Marshal()
+		if err != nil {
+			f.logger.Errorw("Error while marshaling stats", zap.Error(err))
+			return
+		}
+
+		if err := ws.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+			f.logger.Errorw("Error while sending stats", zap.Error(err))
+		}
 	} else {
-		f.logger.Warnf("Can't find the owner of key %s, dropping its stat.", sm.Key.String)
+		f.logger.Warnf("Can't find the owner of key %s, dropping the stat.", sm.Key.String())
 	}
 }
 
