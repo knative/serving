@@ -190,6 +190,8 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	if cfg.Burst == 0 {
 		cfg.Burst = len(ctors) * rest.DefaultBurst
 	}
+	ctx = injection.WithConfig(ctx, cfg)
+
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)

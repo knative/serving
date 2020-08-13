@@ -185,6 +185,7 @@ function create_test_cluster() {
     "--cluster-name=${E2E_CLUSTER_NAME}"
     "--num-nodes=${E2E_MIN_CLUSTER_NODES}"
     "--machine-type=${E2E_CLUSTER_MACHINE}"
+    "--network=${E2E_NETWORK_NAME}"
     --up
   )
   if (( ! IS_BOSKOS )); then
