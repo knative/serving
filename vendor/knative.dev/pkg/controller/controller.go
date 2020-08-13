@@ -263,7 +263,7 @@ func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 	c.workQueue.SlowLane().Add(key)
 	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
-		Debug("Adding to the slow queue %s (depth(total/slow): %d/%d)",
+		Debugf("Adding to the slow queue %s (depth(total/slow): %d/%d)",
 			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
 }
 
