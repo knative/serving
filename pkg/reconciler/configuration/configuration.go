@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
@@ -225,7 +225,7 @@ func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister
 	} else if !metav1.IsControlledBy(rev, config) {
 		// If the revision isn't controller by this configuration, then
 		// do not use it.
-		logger.Debugf("The revision %s is not controlled by configuration %s, Rev.owner: %#v", rev.GetName(), config.GetName(), rev.GetOwnerReferences())
+		logger.Debugf("Revision %s is not controlled by Configuration %s, actual owner: %#v", rev.GetName(), config.GetName(), rev.GetOwnerReferences())
 		return nil, errConflict
 	}
 
@@ -238,7 +238,10 @@ func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister
 	// We only require spec equality because the rest is immutable and the user may have
 	// annotated or labeled the Revision (beyond what the Configuration might have).
 	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
-		logger.Debugf("The rev.Spec is differnet from expected config.Spec.GetTemplate().Spec. Differences are: ", cmp.Diff(config.Spec.GetTemplate().Spec, rev.Spec))
+		diff, err := kmp.SafeDiff(config.Spec.GetTemplate().Spec, rev.Spec)
+		if err != nil {
+			logger.Debugf("Revision's spec not equal to Configuration's spec template, diff: ", diff)
+		}
 		return nil, errConflict
 	}
 	return rev, nil
