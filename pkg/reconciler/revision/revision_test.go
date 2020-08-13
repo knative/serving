@@ -488,15 +488,14 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	}
 }
 
-func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
+func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 
-	servingClient := fakeservingclient.Get(ctx)
-
 	rev := testRevision(getPodSpec())
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
@@ -511,12 +510,76 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
-		t.Fatal("Failed to start configuration manager:", err)
+		t.Fatal("Failed to start watcher:", err)
 	}
 
 	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
-	servingClient.ServingV1().Revisions(rev.Namespace).Create(rev)
+	revClient.Create(rev)
+	revL := fakerevisioninformer.Get(ctx).Lister()
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		// The only error we're getting in the test reasonably is NotFound.
+		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
+		return r != nil && r.Status.ObservedGeneration == r.Generation, nil
+	}); err != nil {
+		t.Fatal("Failed to see Revision reconciliation:", err)
+	}
+	t.Log("Saw revision reconciliation")
+
+	// Re-get it and nillify the CC, to ensure defaulting
+	// happens as expected.
+	rev, _ = revL.Revisions(rev.Namespace).Get(rev.Name)
+	rev.Spec.ContainerConcurrency = nil
+	rev.Generation++
+	revClient.Update(rev)
+
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      config.DefaultsConfigName,
+		},
+		Data: map[string]string{
+			"container-concurrency": "41",
+		},
+	})
+
+	paL := fakepainformer.Get(ctx).Lister().PodAutoscalers(rev.Namespace)
+	if ierr := wait.PollImmediate(50*time.Millisecond, 3*time.Second, func() (bool, error) {
+		pa, err := paL.Get(rev.Name)
+		return pa != nil && pa.Spec.ContainerConcurrency == 41, err
+	}); ierr != nil {
+		t.Fatal("Failed to see PA.Spec CC updated with new CM value:", ierr)
+	}
+}
+
+func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
+	ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+
+	ctx, cancel := context.WithCancel(ctx)
+	grp := errgroup.Group{}
+
+	rev := testRevision(getPodSpec())
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+		waitInformers()
+	}()
+
+	if err := watcher.Start(ctx.Done()); err != nil {
+		t.Fatal("Failed to start watcher:", err)
+	}
+
+	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+
+	revClient.Create(rev)
 	revL := fakerevisioninformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// The only error we're getting in the test reasonably is NotFound.
@@ -544,7 +607,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
 		return r != nil && r.Status.LogURL == want, err
 	}); ierr != nil {
-		t.Fatal("Failed to see Revision propagation:", err)
+		t.Fatal("Failed to see Revision propagation:", ierr)
 	}
 }
 
