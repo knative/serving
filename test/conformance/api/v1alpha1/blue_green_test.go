@@ -33,6 +33,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -152,15 +153,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return checkDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return shared.CheckDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
+		return shared.CheckDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
+		return shared.CheckDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatal("Error sending requests:", err)
