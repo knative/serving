@@ -163,8 +163,10 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	selfIP := os.Getenv("POD_IP")
+	// DO NOT SUBMIT
 	// TODO: Add IP validation.
+	selfIP := os.Getenv("POD_IP")
+	// TODO: Read config from configmap.
 	cc := leaderelection.ComponentConfig{
 		Component:     "autoscaler",
 		Buckets:       10,
