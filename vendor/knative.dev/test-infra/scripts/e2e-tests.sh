@@ -221,7 +221,7 @@ function create_test_cluster() {
 
   # Create cluster and run the tests
   create_test_cluster_with_retries "${E2E_SCRIPT} ${test_cmd_args}" \
-    "${CLUSTER_CREATION_ARGS[@]}" "${extra_flags[@]}"
+    "${CLUSTER_CREATION_ARGS[@]}" "${extra_flags[@]}" "${EXTRA_KUBETEST2_FLAGS[@]}"
   local result="$?"
   # Ignore any errors below, this is a best-effort cleanup and shouldn't affect the test result.
   set +o errexit
@@ -378,6 +378,7 @@ E2E_SCRIPT=""
 E2E_CLUSTER_VERSION="latest"
 GKE_ADDONS=""
 EXTRA_CLUSTER_CREATION_FLAGS=()
+EXTRA_KUBETEST2_FLAGS=()
 E2E_SCRIPT_CUSTOM_FLAGS=()
 
 # Parse flags and initialize the test cluster.
@@ -414,6 +415,7 @@ function initialize() {
           --gcp-project) GCP_PROJECT=$1 ;;
           --cluster-version) E2E_CLUSTER_VERSION=$1 ;;
           --cluster-creation-flag) EXTRA_CLUSTER_CREATION_FLAGS+=("$1") ;;
+          --kubetest2-flag) EXTRA_KUBETEST2_FLAGS+=("$1") ;;
           *) abort "unknown option ${parameter}" ;;
         esac
     esac
@@ -431,12 +433,17 @@ function initialize() {
 
   (( IS_PROW )) && [[ -z "${GCP_PROJECT}" ]] && IS_BOSKOS=1
 
-  (( SKIP_ISTIO_ADDON )) || GKE_ADDONS="--addons=Istio"
+  if (( SKIP_ISTIO_ADDON )); then
+    GKE_ADDONS="--addons=NodeLocalDNS"
+  else
+    GKE_ADDONS="--addons=Istio,NodeLocalDNS"
+  fi
 
   readonly RUN_TESTS
   readonly GCP_PROJECT
   readonly IS_BOSKOS
   readonly EXTRA_CLUSTER_CREATION_FLAGS
+  readonly EXTRA_KUBETEST2_FLAGS
   readonly SKIP_KNATIVE_SETUP
   readonly SKIP_TEARDOWNS
   readonly GKE_ADDONS
