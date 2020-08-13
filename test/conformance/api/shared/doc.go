@@ -14,17 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+// Package shared contains functions and types that can be used across various versions of conformance tests, e.g. checkers, requests senders, etc.
 
-import (
-	"os"
-
-	"knative.dev/pkg/system"
-)
-
-func init() {
-	if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
-		return
-	}
-	os.Setenv(system.NamespaceEnvKey, "knative-serving")
-}
+package shared

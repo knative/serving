@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2020 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Generate manifest files from IstioOperator.
-istioctl manifest generate -f istio-ci-mesh-operator.yaml > istio-ci-mesh.yaml
-istioctl manifest generate -f istio-ci-no-mesh-operator.yaml > istio-ci-no-mesh.yaml
-istioctl manifest generate -f istio-minimal-operator.yaml > istio-minimal.yaml
+set -ex
 
-# Generate istio-crds.yaml
-output=$(mktemp -d)
-istioctl manifest generate -f istio-ci-mesh-operator.yaml -o ${output}
-cp ${output}/Base/Base.yaml istio-crds.yaml
+# Download Kong
+KONG_VERSION=0.9.x
+KONG_YAML=all-in-one-dbless.yaml
+DOWNLOAD_URL=https://raw.githubusercontent.com/Kong/kubernetes-ingress-controller/${KONG_VERSION}/deploy/single/${KONG_YAML}
+
+wget -O kong.yaml ${DOWNLOAD_URL}

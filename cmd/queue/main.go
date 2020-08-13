@@ -82,6 +82,7 @@ type config struct {
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
 	ServingLoggingLevel          string `split_words:"true" required:"true"`
 	ServingRequestLogTemplate    string `split_words:"true"` // optional
+	ServingEnableRequestLog      bool   `split_words:"true"` // optional
 	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
 
 	// Metrics configuration
@@ -324,8 +325,13 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
 	}
 
+	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
+	if env.ContainerConcurrency > 0 {
+		maxIdleConns = env.ContainerConcurrency
+	}
+
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
-	httpProxy.Transport = buildTransport(env, logger)
+	httpProxy.Transport = buildTransport(env, logger, maxIdleConns)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = network.FlushInterval
@@ -360,12 +366,15 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 }
 
-func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
+func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.RoundTripper {
+	// set max-idle and max-idle-per-host to same value since we're always proxying to the same host.
+	transport := pkgnet.NewAutoTransport(maxConns /* max-idle */, maxConns /* max-idle-per-host */)
+
 	if env.TracingConfigBackend == tracingconfig.None {
-		return pkgnet.AutoTransport
+		return transport
 	}
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(env.ServingPod, logger))
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
 	oct.ApplyConfig(&tracingconfig.Config{
 		Backend:              env.TracingConfigBackend,
 		Debug:                env.TracingConfigDebug,
@@ -375,7 +384,7 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	})
 
 	return &ochttp.Transport{
-		Base:        pkgnet.AutoTransport,
+		Base:        transport,
 		Propagation: tracecontextb3.B3Egress,
 	}
 }
@@ -432,7 +441,7 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 }
 
 func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
-	if env.ServingRequestLogTemplate == "" {
+	if !env.ServingEnableRequestLog {
 		return currentHandler
 	}
 

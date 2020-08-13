@@ -20,20 +20,23 @@ package gc
 
 import (
 	"testing"
+	"time"
 
-	"knative.dev/pkg/test/logstream"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TODO(whaught): This tests that the labeler applies the new label, but we need to update the GC config
-// and assert deletion of old revisions.
 func TestRevisionGC(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := e2e.Setup(t)
 
@@ -54,5 +57,38 @@ func TestRevisionGC(t *testing.T) {
 	revision := resources.Revision
 	if val := revision.Labels[serving.RoutingStateLabelKey]; val != "active" {
 		t.Fatalf(`Got revision label %s=%q, want="active"`, serving.RoutingStateLabelKey, val)
+	}
+
+	t.Log("Updating the Service to use a different image.")
+	names.Image = test.PizzaPlanet2
+	image2 := pkgTest.ImagePath(names.Image)
+	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
+	}
+
+	t.Log("Service should reflect new revision created and ready in status.")
+	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
+	if err != nil {
+		t.Fatal("New image not reflected in Service:", err)
+	}
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
+	}
+
+	// Poll for a minute to see not_found on the original revision.
+	var originalRevision *v1.Revision
+	err = wait.PollImmediate(5*time.Second, time.Minute, func() (bool, error) {
+		originalRevision, err = clients.ServingClient.Revisions.Get(revision.GetName(), metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	})
+	if err == wait.ErrWaitTimeout {
+		t.Fatalf("Got revision %v, expected not_found", originalRevision)
+	}
+	if err != nil {
+		t.Fatalf("Got %q, expected not_found", err)
 	}
 }

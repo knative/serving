@@ -105,7 +105,8 @@ func testRevision(podSpec corev1.PodSpec) *v1.Revision {
 			Annotations: map[string]string{
 				"testAnnotation": "test",
 			},
-			UID: "test-rev-uid",
+			UID:        "test-rev-uid",
+			Generation: 2,
 		},
 		Spec: v1.RevisionSpec{
 			PodSpec:        podSpec,
@@ -171,6 +172,12 @@ func newTestController(t *testing.T, opts ...reconcilerOption) (
 				Namespace: system.Namespace(),
 				Name:      network.ConfigName,
 			}}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.FeaturesConfigName,
+			},
+			Data: map[string]string{},
+		}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
 				Name:      logging.ConfigMapName(),

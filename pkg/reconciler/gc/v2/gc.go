@@ -99,7 +99,7 @@ func Collect(
 	logger.Infof("Maximum number of revisions (%d) reached, deleting oldest non-active (%d) revisions",
 		max, len(revs)-max)
 	for _, rev := range revs[max:] {
-		logger.Info("Deleting non-active revision: " + rev.ObjectMeta.Name)
+		logger.Info("Deleting non-active revision: ", rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}

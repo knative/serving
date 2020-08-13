@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -38,8 +37,6 @@ import (
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{
@@ -57,8 +54,6 @@ func TestInitScaleZero(t *testing.T) {
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{

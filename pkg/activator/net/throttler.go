@@ -22,8 +22,8 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,15 +66,15 @@ type podTracker struct {
 	dest string
 	b    breaker
 	// weight is used for LB policy implementations.
-	weight int32
+	weight atomic.Int32
 }
 
 func (p *podTracker) addWeight(w int32) {
-	atomic.AddInt32(&p.weight, w)
+	p.weight.Add(w)
 }
 
 func (p *podTracker) getWeight() int32 {
-	return atomic.LoadInt32(&p.weight)
+	return p.weight.Load()
 }
 
 func (p *podTracker) String() string {
@@ -120,12 +120,12 @@ type revisionThrottler struct {
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
-	numActivators int32
+	numActivators atomic.Int32
 	// If -1, it is presumed that this activator should not receive requests
 	// for the revision. But due to the system being distributed it might take
 	// time for everything to propagate. Thus when this is -1 we assign all the
 	// pod trackers.
-	activatorIndex int32
+	activatorIndex atomic.Int32
 	protocol       string
 
 	// Holds the current number of backends. This is used for when we get an activatorCount update and
@@ -147,7 +147,7 @@ type revisionThrottler struct {
 	clusterIPTracker *podTracker
 
 	// mux guards the "throttler state" which is the state we use during the
-	//request path. This is: trackers, clusterIPDest.
+	// request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
 	logger *zap.SugaredLogger
@@ -181,7 +181,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		breaker:              revBreaker,
 		logger:               logger,
 		protocol:             proto,
-		activatorIndex:       -1, // Start with unknown.
+		activatorIndex:       *atomic.NewInt32(-1), // Start with unknown.
 		lbPolicy:             lbp,
 	}
 }
@@ -263,7 +263,7 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
-	ac, ai := int(atomic.LoadInt32(&rt.numActivators)), int(atomic.LoadInt32(&rt.activatorIndex))
+	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
 	numTrackers := func() int {
 		// We do not have to process the `podTrackers` under lock, since
 		// updateCapacity is guaranteed to be executed by a single goroutine.
@@ -624,14 +624,14 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 		return
 	}
 
-	na, ai := atomic.LoadInt32(&rt.numActivators), atomic.LoadInt32(&rt.activatorIndex)
+	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
 	if na == newNA && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	atomic.StoreInt32(&rt.numActivators, newNA)
-	atomic.StoreInt32(&rt.activatorIndex, newAI)
+	rt.numActivators.Store(newNA)
+	rt.activatorIndex.Store(newAI)
 	rt.logger.Infof("This activator index is %d/%d was %d/%d",
 		rt.activatorIndex, rt.numActivators, newAI, newNA)
 	rt.updateCapacity(rt.backendCount)
@@ -691,8 +691,7 @@ type infiniteBreaker struct {
 	// 0 (no downstream capacity) and 1 (infinite downstream capacity).
 	// `Maybe` checks this value to determine whether to proxy the request
 	// immediately or wait for capacity to appear.
-	// `concurrency` should only be manipulated by `sync/atomic` methods.
-	concurrency int32
+	concurrency atomic.Int32
 
 	logger *zap.SugaredLogger
 }
@@ -707,7 +706,7 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 
 // Capacity returns the current capacity of the breaker
 func (ib *infiniteBreaker) Capacity() int {
-	return int(atomic.LoadInt32(&ib.concurrency))
+	return int(ib.concurrency.Load())
 }
 
 func zeroOrOne(x int) int32 {
@@ -724,7 +723,7 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 	// stomp on each other's feet.
 	ib.mu.Lock()
 	defer ib.mu.Unlock()
-	old := atomic.SwapInt32(&ib.concurrency, rcc)
+	old := ib.concurrency.Swap(rcc)
 
 	// Scale up/down event.
 	if old != rcc {

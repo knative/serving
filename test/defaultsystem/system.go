@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -16,10 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package defaultsystem
 
-import "testing"
+import (
+	"os"
 
-func TestIngressConformance(t *testing.T) {
-	RunConformance(t)
+	"knative.dev/pkg/system"
+)
+
+func init() {
+	if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
+		return
+	}
+	os.Setenv(system.NamespaceEnvKey, "knative-serving")
 }

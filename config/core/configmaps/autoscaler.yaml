@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "71d93076"
+    knative.dev/example-checksum: "7b6520ae"
 data:
   _example: |
     ################################
@@ -182,3 +182,8 @@ data:
     # allow-zero-initial-scale controls whether either the cluster-wide initial-scale flag,
     # or the "autoscaling.knative.dev/initialScale" annotation, can be set to 0.
     allow-zero-initial-scale: "false"
+
+    # max-scale is the cluster-wide default value for the max scale of a revision,
+    # unless overridden by the "autoscaling.knative.dev/maxScale" annotation.
+    # If set to 0, the revision has no maximum scale.
+    max-scale: "0"

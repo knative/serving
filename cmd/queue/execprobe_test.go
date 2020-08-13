@@ -22,9 +22,10 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/atomic"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -47,9 +48,9 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	var probed int64
+	var probed atomic.Bool
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		atomic.AddInt64(&probed, 1)
+		probed.Store(true)
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
@@ -59,15 +60,15 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Error("Unexpected not ready error:", err)
 	}
 
-	if atomic.LoadInt64(&probed) == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeShuttingDown(t *testing.T) {
-	var probed int64
+	var probed atomic.Bool
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		atomic.AddInt64(&probed, 1)
+		probed.Store(true)
 		w.WriteHeader(http.StatusGone)
 	})
 
@@ -77,7 +78,7 @@ func TestProbeShuttingDown(t *testing.T) {
 		t.Error("Unexpected error:", err)
 	}
 
-	if atomic.LoadInt64(&probed) == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
@@ -99,9 +100,9 @@ func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	var probed int64
+	var probed atomic.Bool
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		atomic.AddInt64(&probed, 1)
+		probed.Store(true)
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -112,15 +113,15 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if atomic.LoadInt64(&probed) == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	var probed int64
+	var probed atomic.Bool
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		atomic.AddInt64(&probed, 1)
+		probed.Store(true)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -133,16 +134,15 @@ func TestProbeQueueTimeout(t *testing.T) {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if atomic.LoadInt64(&probed) == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	var count int64
+	var count atomic.Int64
 	port := newProbeTestServer(t, func(w http.ResponseWriter) {
-		count := atomic.AddInt64(&count, 1)
-		if count < 9 {
+		if count.Inc() < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

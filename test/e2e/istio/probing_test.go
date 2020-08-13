@@ -47,7 +47,6 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -55,9 +54,6 @@ import (
 )
 
 func TestIstioProbing(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
-
 	clients := e2e.Setup(t)
 	namespace := system.Namespace()
 

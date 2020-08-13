@@ -201,7 +201,8 @@ func TestMakeRevisions(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with creator annotation from config",
+		name:         "with creator annotation from config",
+		responsiveGC: true,
 		configuration: &v1.Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "anno",
@@ -209,6 +210,7 @@ func TestMakeRevisions(t *testing.T) {
 				Annotations: map[string]string{
 					"serving.knative.dev/creator":      "admin",
 					"serving.knative.dev/lastModifier": "someone",
+					serving.RoutesAnnotationKey:        "route",
 				},
 				Generation: 10,
 			},
@@ -229,7 +231,9 @@ func TestMakeRevisions(t *testing.T) {
 				Namespace:    "anno",
 				GenerateName: "config-",
 				Annotations: map[string]string{
-					"serving.knative.dev/creator": "someone",
+					"serving.knative.dev/creator":             "someone",
+					serving.RoutesAnnotationKey:               "route",
+					serving.RoutingStateModifiedAnnotationKey: v1.RoutingStateModifiedString(clock),
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -242,6 +246,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					serving.RoutingStateLabelKey:            "active",
 				},
 			},
 			Spec: v1.RevisionSpec{

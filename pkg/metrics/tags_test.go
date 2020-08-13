@@ -18,9 +18,12 @@ package metrics
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
+	"go.uber.org/atomic"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
@@ -220,6 +223,32 @@ func TestContexts(t *testing.T) {
 
 			pkgmetrics.Record(test.ctx, testM.M(42))
 			metricstest.AssertMetric(t, metricstest.IntMetric("test_metric", 42, test.wantTags).WithResource(test.wantResource))
+		})
+	}
+}
+
+func BenchmarkPodRevisionContext(b *testing.B) {
+	// test with 1 (always hits cache), 4095 (always hits cache, but at capacity),
+	// and 409600  (often misses cache)
+	for _, revisions := range []int{1, 4095, 409600} {
+		b.Run(fmt.Sprintf("sequential-%d-revisions", revisions), func(b *testing.B) {
+			contextCache.Purge()
+			for i := 0; i < b.N; i++ {
+				rev := "name" + strconv.Itoa(i%revisions)
+				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+			}
+		})
+
+		b.Run(fmt.Sprintf("parallel-%d-revisions", revisions), func(b *testing.B) {
+			contextCache.Purge()
+
+			var n atomic.Int64
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					rev := "name" + strconv.Itoa(int(n.Inc())%revisions)
+					PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
+				}
+			})
 		})
 	}
 }

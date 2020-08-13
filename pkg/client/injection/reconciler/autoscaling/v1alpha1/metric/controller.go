@@ -21,7 +21,6 @@ package metric
 import (
 	context "context"
 	fmt "fmt"
-	"log"
 	reflect "reflect"
 	strings "strings"
 

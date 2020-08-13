@@ -29,7 +29,6 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -39,8 +38,6 @@ import (
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
 
@@ -51,16 +48,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
@@ -70,8 +63,6 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
 	defer test.TearDown(ctx.clients, &ctx.names)
@@ -86,8 +77,6 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// getting spare capacity of 20-10=10, which should remove the
 	// Activator from the request path.
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -153,8 +142,6 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -180,8 +167,6 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint,
 		rtesting.WithConfigAnnotations(map[string]string{

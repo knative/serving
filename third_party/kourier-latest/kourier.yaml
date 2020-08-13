@@ -117,7 +117,7 @@ spec:
         - /tmp/config/envoy-bootstrap.yaml
         command:
         - /usr/local/bin/envoy
-        image: docker.io/maistra/proxyv2-ubi8:1.1.3
+        image: docker.io/maistra/proxyv2-ubi8:1.1.5
         imagePullPolicy: Always
         name: kourier-gateway
         ports:
@@ -172,7 +172,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:1f2d9abba4dd282f643605e4bcda3d04ae50ad223efe0f810f086714e059a65a
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:6c5fe5d62246b07ac59cfd603763d1da5f32ee37c923a89345535dd0a82e2de7
         imagePullPolicy: Always
         name: kourier-control
         env:

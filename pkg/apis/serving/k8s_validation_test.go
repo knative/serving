@@ -34,9 +34,9 @@ import (
 
 type configOption func(*config.Config) *config.Config
 
-func withMultiContainerEnabled() configOption {
+func withMultiContainerDisabled() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.MultiContainer = config.Enabled
+		cfg.Features.MultiContainer = config.Disabled
 		return cfg
 	}
 }
@@ -71,9 +71,10 @@ func withPodSpecTolerationsEnabled() configOption {
 
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		ps   corev1.PodSpec
-		want *apis.FieldError
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "valid",
 		ps: corev1.PodSpec{
@@ -197,7 +198,8 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		cfgOpts: []configOption{withMultiContainerDisabled()},
+		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{
@@ -222,7 +224,15 @@ func TestPodSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidatePodSpec(context.Background(), test.ps)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := ValidatePodSpec(ctx, test.ps)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -248,7 +258,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		cfgOpts: []configOption{withMultiContainerDisabled()},
+		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
@@ -261,8 +272,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    nil,
+		want: nil,
 	}, {
 		name: "flag enabled: probes are not allowed for non serving containers",
 		ps: corev1.PodSpec{
@@ -281,7 +291,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "must not set the field(s)",
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
@@ -295,8 +304,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    apis.ErrMissingField("containers.ports"),
+		want: apis.ErrMissingField("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
@@ -312,8 +320,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    apis.ErrMultipleOneOf("containers.ports"),
+		want: apis.ErrMultipleOneOf("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
@@ -331,7 +338,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -351,7 +357,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -376,7 +381,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: `"K_SERVICE" is a reserved environment variable`,
 			Paths:   []string{"containers[1].env[1].name"},
@@ -397,8 +401,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    nil,
+		want: nil,
 	}, {
 		name: "Volume mounts ok with single container",
 		ps: corev1.PodSpec{
@@ -477,7 +480,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 	}, {
 		name: "Volume not mounted when having multiple containers",
 		ps: corev1.PodSpec{
@@ -509,7 +511,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				{Image: "busybox"},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "volume with name \"the-name2\" not mounted",
 			Paths:   []string{"volumes[1].name"},

@@ -40,7 +40,7 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer:       Disabled,
+		MultiContainer:       Enabled,
 		PodSpecAffinity:      Disabled,
 		PodSpecFieldRef:      Disabled,
 		PodSpecDryRun:        Allowed,

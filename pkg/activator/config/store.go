@@ -26,12 +26,12 @@ import (
 
 type cfgKey struct{}
 
-// Config is a configuration for the activator
+// Config is the configuration for the activator.
 type Config struct {
 	Tracing *tracingconfig.Config
 }
 
-// FromContext obtains a Config injected into the passed context
+// FromContext obtains a Config injected into the passed context.
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
 }
@@ -40,13 +40,13 @@ func toContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
-// Store loads/unloads our untyped configuration
+// Store loads/unloads our untyped configuration.
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
 }
 
-// NewStore creates a configuration Store
+// NewStore creates a new configuration Store.
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
@@ -60,12 +60,12 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	}
 }
 
-// ToContext stores the configuration Store in the passed context
+// ToContext stores the configuration Store in the passed context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
 	return toContext(ctx, s.Load())
 }
 
-// Load creates a Config for this store
+// Load creates a Config for this store.
 func (s *Store) Load() *Config {
 	return &Config{
 		Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
@@ -77,13 +77,13 @@ type storeMiddleware struct {
 	next  http.Handler
 }
 
-// ServeHTTP injects Config in to the context of the http request r
+// ServeHTTP injects Config in to the context of the http request r.
 func (mw *storeMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := mw.store.ToContext(r.Context())
 	mw.next.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// HTTPMiddleware is a middleware which stores the current config store in the request context
+// HTTPMiddleware is a middleware which stores the current config store in the request context.
 func (s *Store) HTTPMiddleware(next http.Handler) http.Handler {
 	return &storeMiddleware{
 		store: s,

@@ -42,13 +42,13 @@ func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clo
 		rev.GenerateName = config.Name + "-"
 	}
 
-	updateRevisionLabels(rev, config)
-	updateRevisionAnnotations(rev, config)
-
 	// Pending tells the labeler that we have not processed this revision.
-	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgMap.Enabled {
+	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgMap.Disabled {
 		rev.SetRoutingState(v1.RoutingStatePending, clock)
 	}
+
+	updateRevisionLabels(rev, config)
+	updateRevisionAnnotations(rev, config)
 
 	// Populate OwnerReferences so that deletes cascade.
 	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
@@ -75,7 +75,7 @@ func updateRevisionLabels(rev, config metav1.Object) {
 }
 
 // updateRevisionAnnotations sets the revision's annotation given a Configuration's updater annotation.
-func updateRevisionAnnotations(rev, config metav1.Object) {
+func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
 	annotations := rev.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
@@ -85,6 +85,11 @@ func updateRevisionAnnotations(rev, config metav1.Object) {
 	cans := config.GetAnnotations()
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
 		annotations[serving.CreatorAnnotation] = c
+	}
+
+	if v, ok := cans[serving.RoutesAnnotationKey]; ok {
+		annotations[serving.RoutesAnnotationKey] = v
+		rev.SetRoutingState(v1.RoutingStateActive, clock.RealClock{})
 	}
 
 	rev.SetAnnotations(annotations)

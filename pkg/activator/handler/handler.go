@@ -52,14 +52,11 @@ type activationHandler struct {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t Throttler) http.Handler {
-	// TODO: run loadtests to determine the optimal values here.
-	defaultTransport := pkgnet.NewAutoTransport(1000, /*maxidleconnes*/
-		100 /*maxidleperhos*/)
+func New(ctx context.Context, t Throttler, transport http.RoundTripper) http.Handler {
 	return &activationHandler{
-		transport: defaultTransport,
+		transport: transport,
 		tracingTransport: &ochttp.Transport{
-			Base:        defaultTransport,
+			Base:        transport,
 			Propagation: tracecontextb3.B3Egress,
 		},
 		throttler:  t,
@@ -91,7 +88,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
-		// Set error on our capacity waiting span and end it
+		// Set error on our capacity waiting span and end it.
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
@@ -110,7 +107,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
-	// Setup the reverse proxy.
+	// Set up the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
