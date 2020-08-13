@@ -103,10 +103,12 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 			UpdateFunc: controller.PassNew(f.endpointsUpdated),
 		},
 	})
+	log.Println("## return")
 	return &f
 }
 
 func (f *Forwarder) endpointsUpdated(obj interface{}) {
+	log.Println("## update")
 	e := obj.(*v1.Endpoints)
 
 	if !f.isBucketEndpoints(e.Name) {
@@ -133,6 +135,7 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 	}
 
 	if err := f.createService(e.Namespace, e.Name); err != nil {
+		log.Printf("err %v\n", err)
 		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", e.Name, err)
 	}
 
