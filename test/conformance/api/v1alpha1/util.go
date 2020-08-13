@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving"
@@ -37,9 +39,7 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-const (
-	scaleToZeroGracePeriod = 30 * time.Second
-)
+const scaleToZeroGracePeriod = 30 * time.Second
 
 func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponse string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
@@ -56,11 +56,11 @@ func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.
 
 func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.URL,
 	baseExpected, trafficTargets, targetsExpected []string) error {
-	subdomains := make([]*url.URL, 0, len(trafficTargets))
-	for _, target := range trafficTargets {
+	subdomains := make([]*url.URL, len(trafficTargets))
+	for i, target := range trafficTargets {
 		subdomain, _ := url.Parse(baseDomain.String())
 		subdomain.Host = target + "-" + baseDomain.Host
-		subdomains = append(subdomains, subdomain)
+		subdomains[i] = subdomain
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
@@ -124,10 +124,19 @@ func checkDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, n
 	return checkResponses(t, num, min, url.Hostname(), expectedResponses, actualResponses)
 }
 
+func substrInList(key string, targets []string) string {
+	for _, t := range targets {
+		if strings.Contains(key, t) {
+			return t
+		}
+	}
+	return ""
+}
+
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResponses, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
-	counts := make(map[string]int)
+	counts := make(map[string]int, len(expectedResponses))
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
 	badCounts := make(map[string]int)
 
@@ -138,39 +147,42 @@ func checkResponses(t pkgTest.TLegacy, num int, min int, domain string, expected
 	//   GROUP BY body
 	// )
 	for _, ar := range actualResponses {
-		expected := false
-		for _, er := range expectedResponses {
-			if strings.Contains(ar, er) {
-				counts[er]++
-				expected = true
-			}
-		}
-		if !expected {
+		if er := substrInList(ar, expectedResponses); er != "" {
+			counts[er]++
+		} else {
 			badCounts[ar]++
 		}
+	}
+
+	// Verify that the total expected responses match the number of requests made.
+	for badResponse, count := range badCounts {
+		t.Logf("Saw unexpected response %q %d times.", badResponse, count)
 	}
 
 	// Verify that we saw each entry in "expectedResponses" at least "min" times.
 	// check(SELECT body FROM $counts WHERE total < $min)
 	totalMatches := 0
+	errMsg := []string{}
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
-			return fmt.Errorf("domain %s failed: want at least %d, got %d for response %q", domain, min, count, er)
+			errMsg = append(errMsg,
+				fmt.Sprintf("domain %s failed: want at least %d, got %d for response %q",
+					domain, min, count, er))
 		}
 
 		t.Logf("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
 		totalMatches += count
 	}
-	// Verify that the total expected responses match the number of requests made.
-	for badResponse, count := range badCounts {
-		t.Logf("Saw unexpected response %q %d times.", badResponse, count)
-	}
 	if totalMatches < num {
-		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
+		errMsg = append(errMsg,
+			fmt.Sprintf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num))
 	}
-	// If we made it here, the implementation conforms. Congratulations!
-	return nil
+	if len(errMsg) == 0 {
+		// If we made it here, the implementation conforms. Congratulations!
+		return nil
+	}
+	return errors.New(strings.Join(errMsg, ","))
 }
 
 // sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
