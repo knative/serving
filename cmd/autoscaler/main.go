@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"go.opencensus.io/stats/view"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/injection"
@@ -161,13 +163,15 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	selfIP := os.Getenv("POD_IP")
 	cc := leaderelection.ComponentConfig{
-		Component:             "autoscaler",
-		Buckets:               5,
-		SharedReconcilerCount: len(controllers),
-		LeaseDuration:         15 * time.Second,
-		RenewDeadline:         10 * time.Second,
-		RetryPeriod:           2 * time.Second,
+		Component:     "autoscaler",
+		Buckets:       5,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
+		LockType:      resourcelock.EndpointsResourceLock,
+		Identity:      selfIP,
 	}
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 	// accept is the func to call when this pod owns the given StatMessage.
@@ -175,7 +179,7 @@ func main() {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	f := statforwarder.New(ctx, kubeClient, leaderelection.NewEndpointsBucketSet(cc), accept, logger)
+	f := statforwarder.New(ctx, kubeClient, selfIP, leaderelection.NewEndpointsBucketSet(cc), accept, logger)
 	defer f.Cancel()
 
 	go controller.StartAll(ctx, controllers...)

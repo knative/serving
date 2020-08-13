@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
 
 	"go.uber.org/zap"
@@ -73,8 +72,7 @@ type Forwarder struct {
 	wsMap map[string]*websocket.ManagedConnection
 }
 
-func New(ctx context.Context, kc kubernetes.Interface, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
-	selfIP := os.Getenv("POD_IP")
+func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
 	ns := system.Namespace()
 	f := Forwarder{
 		selfIP:        selfIP,
@@ -83,6 +81,7 @@ func New(ctx context.Context, kc kubernetes.Interface, bs *hash.BucketSet, accep
 		serviceLister: serviceinformer.Get(ctx).Lister(),
 		bs:            bs,
 		accept:        accept,
+		b2IP:          make(map[string]string),
 	}
 
 	bkts := bs.Buckets()

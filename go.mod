@@ -38,7 +38,7 @@ require (
 	knative.dev/caching v0.0.0-20200804183028-66593618d9dc
 	knative.dev/networking v0.0.0-20200804183028-2f331332ce4c
 	knative.dev/pkg v0.0.0-20200805045628-bb91a15b1a18
-	knative.dev/test-infra v0.0.0-20200803175002-5efff0c4bd0a
+	knative.dev/test-infra v0.0.0-20200806191129-68b7defbd189
 )
 
 replace (
@@ -56,5 +56,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.6
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200805223001-2b283b71c7ba
+	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527
 )

@@ -1063,8 +1063,8 @@ github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8/go.mod h1:HUYIGzjTL3rfEspMx
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1/go.mod h1:QcJo0QPSfTONNIgpN5RA8prR7fF8nkF6cTWTcNerRO8=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-github.com/yanweiguo/pkg v0.0.0-20200805223001-2b283b71c7ba h1:gQbSETnHFrtMxd7pL0oVD71q3saHgCaBIA6P+6nM7TQ=
-github.com/yanweiguo/pkg v0.0.0-20200805223001-2b283b71c7ba/go.mod h1:0y8OGCR6F0bIaIT+pK8NXE/KtqfeXKAzDW56t7T0ENk=
+github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527 h1:0t8bSxqjrHigMRwt1SR24knaT6esooxZ20HyjWJXCCo=
+github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527/go.mod h1:X5R/Owehhvpa6XnggKCIVz2rdREMcXwjcAqJG3TPgEw=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
@@ -1667,6 +1667,8 @@ knative.dev/networking v0.0.0-20200804183028-2f331332ce4c h1:wmwGPBh56//zz5fQw7u
 knative.dev/networking v0.0.0-20200804183028-2f331332ce4c/go.mod h1:xcGfZwryBkV+R2Kcc+WgMG0O84mExNLhpeA3ltMRgW8=
 knative.dev/test-infra v0.0.0-20200803175002-5efff0c4bd0a h1:0woae+DQoLaB8PBL1V2LKoPVOm3rldG4G1HYGROo1bo=
 knative.dev/test-infra v0.0.0-20200803175002-5efff0c4bd0a/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
+knative.dev/test-infra v0.0.0-20200806191129-68b7defbd189 h1:PkTuK9kgtsdwrIxUAmaCmDwfRKBoXujiqNRDWO1r8cc=
+knative.dev/test-infra v0.0.0-20200806191129-68b7defbd189/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=

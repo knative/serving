@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	configMapNameEnv           = "CONFIG_LEADERELECTION_NAME"
+	configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
+	// defaultKnativeResourceLock is the default lock mechanism for Knative.
 	defaultKnativeResourceLock = resourcelock.LeasesResourceLock
 )
 
@@ -106,12 +107,18 @@ func defaultConfig() *Config {
 
 // ComponentConfig represents the leader election config for a single component.
 type ComponentConfig struct {
-	Component             string
-	Buckets               uint32
-	LeaseDuration         time.Duration
-	RenewDeadline         time.Duration
-	RetryPeriod           time.Duration
-	SharedReconcilerCount int
+	Component     string
+	Buckets       uint32
+	LeaseDuration time.Duration
+	RenewDeadline time.Duration
+	RetryPeriod   time.Duration
+	// LockType is the resource lock type that will be used for locking.
+	// It defaults to resourcelock.LeasesResourceLock.
+	LockType string
+	// Identity is the unique string identifying a resource lock holder across
+	// all participants in an election. If not present, a new unique string will
+	// be generated to be used as identity for each BuildElector call.
+	Identity string
 }
 
 // statefulSetID is a envconfig Decodable controller ordinal and name.
