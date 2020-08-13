@@ -92,10 +92,16 @@ sleep 30
 # Run conformance and e2e tests.
 
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
- ./test/e2e \
+ ./test/conformance/api/... \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
+
+# We just want to collect log from TestService's error.
+
+# Dump cluster state in case of failure
+(( failed )) && dump_cluster_state
+(( failed )) && fail_test
+success
 
 if (( HTTPS )); then
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
