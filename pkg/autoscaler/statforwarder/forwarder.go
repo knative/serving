@@ -101,7 +101,6 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    f.endpointsUpdated,
 			UpdateFunc: controller.PassNew(f.endpointsUpdated),
-			DeleteFunc: f.endpointsDeleted,
 		},
 	})
 	return &f
@@ -200,7 +199,6 @@ func (f *Forwarder) createService(ns, name string) error {
 
 	return err
 }
-
 
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	owner := f.bs.Owner(sm.Key.String())
