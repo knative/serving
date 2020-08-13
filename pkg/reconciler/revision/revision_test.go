@@ -529,6 +529,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	// Re-get it and nillify the CC, to ensure defaulting
 	// happens as expected.
 	rev, _ = revL.Revisions(rev.Namespace).Get(rev.Name)
+	rev = rev.DeepCopy()
 	rev.Spec.ContainerConcurrency = nil
 	rev.Generation++
 	revClient.Update(rev)
