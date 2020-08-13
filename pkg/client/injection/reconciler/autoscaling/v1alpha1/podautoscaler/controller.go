@@ -68,7 +68,6 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
-				log.Printf("## kpa bkt=%s\n", bkt.Name())
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err

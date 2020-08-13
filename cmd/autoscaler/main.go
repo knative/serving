@@ -164,9 +164,10 @@ func main() {
 	}
 
 	selfIP := os.Getenv("POD_IP")
+	// TODO: Add IP validation.
 	cc := leaderelection.ComponentConfig{
 		Component:     "autoscaler",
-		Buckets:       5,
+		Buckets:       10,
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,

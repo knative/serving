@@ -191,11 +191,9 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
-		log.Printf("## metrics: not the leader for rev %s\n", key)
 		return nil
 	}
 
-	log.Printf("## metrics: the leader for rev %s\n", key)
 	// If configStore is set, attach the frozen configuration to the context.
 	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)

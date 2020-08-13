@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -248,13 +247,13 @@ func (f *Forwarder) deleteService(ns, name string) error {
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	owner := f.bs.Owner(sm.Key.String())
 	if f.getIP(owner) == f.selfIP {
-		log.Printf("## accept rev %s\n", sm.Key.String())
+		f.logger.Debugf("accept rev %s\n", sm.Key.String())
 		f.accept(sm)
 		return
 	}
 
 	if ws, ok := f.wsMap[owner]; ok {
-		log.Printf("## forward rev %s to %s\n", sm.Key.String(), owner)
+		f.logger.Debugf("forward rev %s to %s\n", sm.Key.String(), owner)
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {
