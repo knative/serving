@@ -195,9 +195,17 @@ func main() {
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
 	go concurrencyReporter.Run(ctx.Done())
 
+	// This is here to allow configuring higher values of keep-alive for larger environments.
+	// TODO: run loadtests using these flags to determine optimal default values.
+	maxIdleProxyConns := intFromEnv(logger, "MAX_IDLE_PROXY_CONNS", 1000)
+	maxIdleProxyConnsPerHost := intFromEnv(logger, "MAX_IDLE_PROXY_CONNS_PER_HOST", 100)
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", maxIdleProxyConns, maxIdleProxyConnsPerHost)
+
+	proxyTransport := pkgnet.NewAutoTransport(maxIdleProxyConns, maxIdleProxyConnsPerHost)
+
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(ctx, throttler)
+	var ah http.Handler = activatorhandler.New(ctx, throttler, proxyTransport)
 	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
@@ -299,4 +307,19 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
+}
+
+func intFromEnv(logger *zap.SugaredLogger, envName string, defaultValue int) int {
+	env := os.Getenv(envName)
+	if env == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.Atoi(env)
+	if err != nil {
+		logger.Warnf("parse %q env var as int: %v", envName, err)
+		return defaultValue
+	}
+
+	return parsed
 }
