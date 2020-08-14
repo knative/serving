@@ -103,7 +103,6 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 			UpdateFunc: controller.PassNew(f.endpointsUpdated),
 		},
 	})
-	log.Println("## return")
 	return &f
 }
 
@@ -119,6 +118,7 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
 	if !ok {
 		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, e.Name)
+		log.Println("## not found")
 		return
 	}
 
@@ -137,12 +137,8 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 	if err := f.createService(e.Namespace, e.Name); err != nil {
 		log.Printf("err %v\n", err)
 		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", e.Name, err)
-	}
-
-	// We expected there will be only one IP for the bucket Endpoints.
-	if len(e.Subsets) > 0 && len(e.Subsets[0].Addresses) > 0 && e.Subsets[0].Addresses[0].IP == f.selfIP {
-		f.logger.Debugf("Skip updating Endpoints %s, already has the desired IP", e.Name)
-		return
+	} else {
+		log.Println("created")
 	}
 
 	wantSubsets := []v1.EndpointSubset{{
@@ -163,6 +159,8 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 		} else {
 			f.logger.Info("Bucket Endpoints updated: ", e.Name)
 		}
+	} else {
+		log.Println("## already done")
 	}
 }
 
