@@ -56,5 +56,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.6
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527
+	knative.dev/pkg => github.com/yanweiguo/pkg v0.0.0-20200814215857-40f8a0222ba5
 )

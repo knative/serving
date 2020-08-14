@@ -1052,8 +1052,8 @@ github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8/go.mod h1:HUYIGzjTL3rfEspMx
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1/go.mod h1:QcJo0QPSfTONNIgpN5RA8prR7fF8nkF6cTWTcNerRO8=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527 h1:0t8bSxqjrHigMRwt1SR24knaT6esooxZ20HyjWJXCCo=
-github.com/yanweiguo/pkg v0.0.0-20200811221644-41fb83c4d527/go.mod h1:X5R/Owehhvpa6XnggKCIVz2rdREMcXwjcAqJG3TPgEw=
+github.com/yanweiguo/pkg v0.0.0-20200814215857-40f8a0222ba5 h1:vLs1rFxtnHZa12vwRWiE83Kh3lvdxSBec1C8sDmDLVM=
+github.com/yanweiguo/pkg v0.0.0-20200814215857-40f8a0222ba5/go.mod h1:X5R/Owehhvpa6XnggKCIVz2rdREMcXwjcAqJG3TPgEw=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

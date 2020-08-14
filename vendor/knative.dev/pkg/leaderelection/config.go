@@ -34,8 +34,8 @@ import (
 
 const (
 	configMapNameEnv = "CONFIG_LEADERELECTION_NAME"
-	// defaultKnativeResourceLock is the default lock mechanism for Knative.
-	defaultKnativeResourceLock = resourcelock.LeasesResourceLock
+	// knativeResourceLock is the only supported lock mechanism for Knative.
+	knativeResourceLock = resourcelock.LeasesResourceLock
 )
 
 // MaxBuckets is the maximum number of buckets to allow users to define.
@@ -112,9 +112,10 @@ type ComponentConfig struct {
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
 	RetryPeriod   time.Duration
-	// LockType is the resource lock type that will be used for locking.
-	// It defaults to resourcelock.LeasesResourceLock.
-	LockType string
+	// LeaseName is a function to customize the lease name given the index i.
+	// If not present, a name in format {Component}-{queue-name}.i-of-{Buckets}
+	// will be use.
+	LeaseName func(i uint32) string
 	// Identity is the unique string identifying a resource lock holder across
 	// all participants in an election. If not present, a new unique string will
 	// be generated to be used as identity for each BuildElector call.

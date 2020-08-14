@@ -109,17 +109,22 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 	queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
-	lock, id, bkts, err := b.electorConfig(queueName)
-	if err != nil {
-		return nil, err
+	id := b.lec.Identity
+	if id == "" {
+		uid, err := UniqueID()
+		if err != nil {
+			return nil, err
+		}
+		id = uid
 	}
 
+	bkts := newStandardBuckets(queueName, b.lec)
 	electors := make([]Elector, 0, b.lec.Buckets)
 	for _, bkt := range bkts {
 		// Use a local var which won't change across the for loop since it is
 		// used in a callback asynchronously.
 		bkt := bkt
-		rl, err := resourcelock.New(lock,
+		rl, err := resourcelock.New(knativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),
@@ -167,32 +172,16 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 	return &runAll{les: electors}, nil
 }
 
-// electorConfig returns the resource lock type, an unique ID and a list of Buckets based on
-// the ComponentConfig the standarBuiler has.
-func (b *standardBuilder) electorConfig(queueName string) (string, string, []reconciler.Bucket, error) {
-	id := b.lec.Identity
-	if id == "" {
-		uid, err := UniqueID()
-		if err != nil {
-			return "", "", nil, err
-		}
-		id = uid
-	}
-
-	switch b.lec.LockType {
-	case "", defaultKnativeResourceLock:
-		return defaultKnativeResourceLock, id, newStandardBuckets(queueName, b.lec), nil
-	case resourcelock.EndpointsResourceLock:
-		return b.lec.LockType, id, newEndpointsBuckets(b.lec), nil
-	default:
-		return "", "", nil, fmt.Errorf("unsupported resource lock type: %s", b.lec.LockType)
-	}
-}
-
 func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucket {
+	ln := cc.LeaseName
+	if ln == nil {
+		ln = func(i uint32) string {
+			return standardBucketName(i, queueName, cc)
+		}
+	}
 	names := make(sets.String, cc.Buckets)
 	for i := uint32(0); i < cc.Buckets; i++ {
-		names.Insert(standardBucketName(i, queueName, cc))
+		names.Insert(ln(i))
 	}
 
 	return hash.NewBucketSet(names).Buckets()
@@ -200,21 +189,6 @@ func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucke
 
 func standardBucketName(ordinal uint32, queueName string, cc ComponentConfig) string {
 	return strings.ToLower(fmt.Sprintf("%s.%s.%02d-of-%02d", cc.Component, queueName, ordinal, cc.Buckets))
-}
-
-// NewEndpointsBucketSet returns a hash.BucketSet consists of the buckets based on
-// the given ComponentConfig.
-func NewEndpointsBucketSet(cc ComponentConfig) *hash.BucketSet {
-	names := make(sets.String, cc.Buckets)
-	for i := uint32(0); i < cc.Buckets; i++ {
-		names.Insert(endpointsBucketName(i, cc))
-	}
-
-	return hash.NewBucketSet(names)
-}
-
-func newEndpointsBuckets(cc ComponentConfig) []reconciler.Bucket {
-	return NewEndpointsBucketSet(cc).Buckets()
 }
 
 func endpointsBucketName(ordinal uint32, cc ComponentConfig) string {

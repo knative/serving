@@ -18,31 +18,57 @@ package statforwarder
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	coordinationinformerv1 "k8s.io/client-go/informers/coordination/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/client/injection/kube/informers/factory"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
+
+func init() {
+	injection.Default.RegisterInformer(withInformer)
+}
+
+// Key is used for associating the Informer inside the context.Context.
+type Key struct{}
+
+func withInformer(ctx context.Context) (context.Context, controller.Informer) {
+	f := factory.Get(ctx)
+	inf := f.Coordination().V1().Leases()
+	return context.WithValue(ctx, Key{}, inf), inf.Informer()
+}
+
+// Get extracts the typed informer from the context.
+func get(ctx context.Context) coordinationinformerv1.LeaseInformer {
+	untyped := ctx.Value(Key{})
+	if untyped == nil {
+		logging.FromContext(ctx).Panic(
+			"Unable to fetch k8s.io/client-go/informers/coordination/v1.LeaseInformer from context.")
+	}
+	return untyped.(coordinationinformerv1.LeaseInformer)
+}
 
 const (
 	// The port on which autoscaler WebSocket server listens.
@@ -52,10 +78,6 @@ const (
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
-
-type record struct {
-	HolderIdentity string `json:"holderIdentity"`
-}
 
 // Forwarder is
 type Forwarder struct {
@@ -75,14 +97,13 @@ type Forwarder struct {
 }
 
 func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
-	endpointsInformer := endpointsinformer.Get(ctx)
 	ns := system.Namespace()
 	f := Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
 		serviceLister:   serviceinformer.Get(ctx).Lister(),
-		endpointsLister: endpointsInformer.Lister(),
+		endpointsLister: endpointsinformer.Get(ctx).Lister(),
 		bs:              bs,
 		accept:          accept,
 		b2IP:            make(map[string]string),
@@ -97,82 +118,49 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		f.wsMap[b.Name()] = statSink
 	}
 
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	leaseInformer := get(ctx)
+	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.NamespaceFilterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    f.endpointsUpdated,
-			UpdateFunc: controller.PassNew(f.endpointsUpdated),
-			DeleteFunc: f.endpointsDeleted,
+			AddFunc:    f.leaseUpdated,
+			UpdateFunc: controller.PassNew(f.leaseUpdated),
+			DeleteFunc: f.leaseDeleted,
 		},
 	})
 	return &f
 }
 
-func (f *Forwarder) endpointsUpdated(obj interface{}) {
-	e := obj.(*v1.Endpoints)
-	ns, n := e.Namespace, e.Name
+func (f *Forwarder) leaseUpdated(obj interface{}) {
+	l := obj.(*coordinationv1.Lease)
+	ns, n := l.Namespace, l.Name
 
-	if !f.isBucketEndpoints(n) {
-		f.logger.Debugf("Skip Endpoints %s, not a valid one", n)
+	if !f.isBucketLease(n) {
+		f.logger.Debugf("Skip Lease %s, not a valid one", n)
 		return
 	}
 
-	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
-	if !ok {
-		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, n)
+	leader := *l.Spec.HolderIdentity
+	if leader == "" {
+		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
 		return
 	}
 
-	r := &record{}
-	if err := json.Unmarshal([]byte(v), r); err != nil {
-		f.logger.Errorw("Failed to parse annotation", zap.Error(err))
-		return
-	}
-
-	f.setIP(e.Name, r.HolderIdentity)
-	if r.HolderIdentity != f.selfIP {
+	f.setIP(l.Name, leader)
+	if leader != f.selfIP {
 		f.logger.Debugf("Skip updating Endpoints %s, not the leader", n)
 		return
 	}
 
 	if err := f.createService(ns, n); err != nil {
-		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", n, err)
+		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 	}
 
-	wantSubsets := []v1.EndpointSubset{{
-		Addresses: []v1.EndpointAddress{{
-			IP: f.selfIP,
-		}},
-		Ports: []v1.EndpointPort{{
-			Name: autoscalerPortName,
-			Port: autoscalerPort,
-		}}},
+	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
+		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 	}
-
-	reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		if attempts > 0 {
-			e, err = f.endpointsLister.Endpoints(ns).Get(n)
-			if err != nil {
-				return err
-			}
-		}
-
-		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
-			return nil
-		}
-
-		want := e.DeepCopy()
-		want.Subsets = wantSubsets
-		if _, err := f.kc.CoreV1().Endpoints(e.Namespace).Update(want); err != nil {
-			return err
-		}
-
-		f.logger.Info("Bucket Endpoints updated: ", e.Name)
-		return nil
-	})
 }
 
-func (f *Forwarder) isBucketEndpoints(n string) bool {
+func (f *Forwarder) isBucketLease(n string) bool {
 	for _, bn := range f.bs.BucketList() {
 		if bn == n {
 			return true
@@ -209,34 +197,75 @@ func (f *Forwarder) createService(ns, name string) error {
 	return err
 }
 
-func (f *Forwarder) endpointsDeleted(obj interface{}) {
-	e := obj.(*v1.Endpoints)
+func (f *Forwarder) createOrUpdateEndpoints(ns, name string) error {
+	wantSubsets := []v1.EndpointSubset{{
+		Addresses: []v1.EndpointAddress{{
+			IP: f.selfIP,
+		}},
+		Ports: []v1.EndpointPort{{
+			Name: autoscalerPortName,
+			Port: autoscalerPort,
+		}}},
+	}
 
-	if !f.isBucketEndpoints(e.Name) {
-		f.logger.Debugf("Skip Endpoints %s, not a valid one", e.Name)
+	e, err := f.endpointsLister.Endpoints(ns).Get(name)
+	if err == nil {
+		reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+			if attempts > 0 {
+				e, err = f.endpointsLister.Endpoints(ns).Get(name)
+				if err != nil {
+					return err
+				}
+			}
+
+			if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+				return nil
+			}
+
+			want := e.DeepCopy()
+			want.Subsets = wantSubsets
+			if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
+				return err
+			}
+
+			f.logger.Info("Bucket Endpoints updated: ", e.Name)
+			return nil
+		})
+		return nil
+	}
+
+	if !apierrs.IsNotFound(err) {
+		return err
+	}
+
+	_, err = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Subsets: wantSubsets,
+	})
+
+	return err
+}
+
+func (f *Forwarder) leaseDeleted(obj interface{}) {
+	l := obj.(*coordinationv1.Lease)
+	ns, n := l.Namespace, l.Name
+
+	if !f.isBucketLease(l.Name) {
+		f.logger.Debugf("Skip Lease %s/%s, not a valid one", ns, n)
 		return
 	}
 
-	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
-	if !ok {
-		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, e.Name)
+	f.deleteIP(n)
+	if *l.Spec.HolderIdentity != f.selfIP {
+		f.logger.Debugf("Skip updating Lease %s/%s, not the leader", ns, n)
 		return
 	}
 
-	r := &record{}
-	if err := json.Unmarshal([]byte(v), r); err != nil {
-		f.logger.Errorw("Failed to parse annotation", zap.Error(err))
-		return
-	}
-
-	f.deleteIP(e.Name)
-	if r.HolderIdentity != f.selfIP {
-		f.logger.Debugf("Skip updating Endpoints %s, not the leader", e.Name)
-		return
-	}
-
-	if err := f.deleteService(e.Namespace, e.Name); err != nil {
-		f.logger.Errorf("Failed to delete Service for Endpoints %s: %v", e.Name, err)
+	if err := f.deleteService(ns, n); err != nil {
+		f.logger.Errorf("Failed to delete Service for Endpoints %s: %v", n, err)
 	}
 }
 

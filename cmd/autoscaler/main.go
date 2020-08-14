@@ -24,18 +24,20 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
@@ -173,8 +175,10 @@ func main() {
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
-		LockType:      resourcelock.EndpointsResourceLock,
-		Identity:      selfIP,
+		LeaseName: func(i uint32) string {
+			return endpointsBucketName(i, 10)
+		},
+		Identity: selfIP,
 	}
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 	// accept is the func to call when this pod owns the given StatMessage.
@@ -182,7 +186,7 @@ func main() {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	f := statforwarder.New(ctx, kubeClient, selfIP, leaderelection.NewEndpointsBucketSet(cc), accept, logger)
+	f := statforwarder.New(ctx, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept, logger)
 	defer f.Cancel()
 
 	go controller.StartAll(ctx, controllers...)
@@ -254,4 +258,16 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+func newEndpointsBucketSet(total uint32) *hash.BucketSet {
+	names := make(sets.String, total)
+	for i := uint32(0); i < total; i++ {
+		names.Insert(endpointsBucketName(i, total))
+	}
+	return hash.NewBucketSet(names)
+}
+
+func endpointsBucketName(ordinal, total uint32) string {
+	return strings.ToLower(fmt.Sprintf("%s-bucket-%02d-of-%02d", component, ordinal, total))
 }
