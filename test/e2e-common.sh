@@ -191,7 +191,8 @@ function install_istio() {
   fi
 
   local NET_ISTIO_DIR=$(mktemp -d)
-  git clone --quiet --depth 1 --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
+  git clone --quiet --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
+  git --git-dir "${NET_ISTIO_DIR}/.git" checkout 7398a24a5fa9b06154ce5ef6b551fce856591b08
 
   if (( MESH )); then
     ISTIO_PROFILE="istio-ci-mesh.yaml"
@@ -294,6 +295,9 @@ function install_contour() {
   sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
   echo ">> Bringing up net-contour"
   kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
+
+  # Disable verbosity until https://github.com/golang/go/issues/40771 is fixed.
+  export GO_TEST_VERBOSITY=standard-quiet
 
   UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
