@@ -28,7 +28,6 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
-	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
@@ -37,6 +36,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/record"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
@@ -54,69 +53,30 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 
+	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
 
-func testConfiguration() *v1.Configuration {
-	return &v1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1/namespaces/test/configurations/test-config",
-			Name:      "test-config",
-			Namespace: testNamespace,
-		},
-	}
-}
-
-func serviceName(rn string) string {
-	return rn
-}
-
-func testReadyEndpoints(revName string) *corev1.Endpoints {
-	return &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName(revName),
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				serving.RevisionLabelKey: revName,
-			},
-		},
-		Subsets: []corev1.EndpointSubset{{
-			Addresses: []corev1.EndpointAddress{{
-				IP: "123.456.78.90",
-			}},
-		}},
-	}
-}
-
-func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
-	pa := resources.MakePA(rev)
-	pa.Status.InitializeConditions()
-	pa.Status.MarkActive()
-	pa.Status.MarkScaleTargetInitialized()
-	pa.Status.ServiceName = serviceName(rev.Name)
-	return pa
-}
-
 func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
 	context.Context,
+	context.CancelFunc,
 	[]controller.Informer,
 	*controller.Impl,
 	*configmap.ManualWatcher) {
 
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel) // cancel is reentrant, but permit callers just ignore this, if they don't need it.
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	// Prepend so that callers can override.
@@ -126,7 +86,7 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 
 	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
-	cms := []*corev1.ConfigMap{{
+	for _, cm := range append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      network.ConfigName,
@@ -177,12 +137,9 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()}
-
-	cms = append(cms, configs...)
-
-	for _, configMap := range cms {
-		configMapWatcher.OnChange(configMap)
+	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()},
+		configs...) {
+		configMapWatcher.OnChange(cm)
 	}
 
 	// The Reconciler won't do any work until it becomes the leader.
@@ -190,7 +147,7 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
 	}
 
-	return ctx, informers, controller, configMapWatcher
+	return ctx, cancel, informers, controller, configMapWatcher
 }
 
 func createRevision(
@@ -276,14 +233,11 @@ func (r *errorResolver) Resolve(_ context.Context, _ string, _ k8schain.Options,
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.
 	innerError := errors.New("i am the expected error message, hear me ROAR!")
-	ctx, cancel, _, controller, _ := newTestController(t, func(r *Reconciler) {
+	ctx, _, _, controller, _ := newTestController(t, func(r *Reconciler) {
 		r.resolver = &errorResolver{innerError}
 	})
-	defer cancel()
 
-	rev := testRevision(getPodSpec())
-	config := testConfiguration()
-	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
+	rev := testRevision(testPodSpec())
 
 	createRevision(t, ctx, controller, rev)
 
@@ -311,7 +265,7 @@ func TestResolutionFailed(t *testing.T) {
 }
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
+	ctx, _, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -324,7 +278,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
-	rev := testRevision(getPodSpec())
+	rev := testRevision(testPodSpec())
 	createRevision(t, ctx, controller, rev)
 
 	// Update controllers logging URL
@@ -352,7 +306,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 }
 
 func TestRevWithImageDigests(t *testing.T) {
-	ctx, _, controller, _ := newTestControllerWithConfig(t, nil)
+	ctx, _, _, controller, _ := newTestControllerWithConfig(t, nil)
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name:  "first",
@@ -395,82 +349,10 @@ func TestRevWithImageDigests(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
-func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	ctx, cancel, _, ctl, _ := newTestController(t)
-	defer cancel()
-	rev := testRevision(getPodSpec())
-
-	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
-
-	// Look for the revision ready event. Events are delivered asynchronously so
-	// we need to use hooks here.
-
-	deployingRev := createRevision(t, ctx, ctl, rev)
-
-	// The revision is not marked ready until an endpoint is created.
-	for _, ct := range []apis.ConditionType{"Ready"} {
-		got := deployingRev.Status.GetCondition(ct)
-		want := &apis.Condition{
-			Type:               ct,
-			Status:             corev1.ConditionUnknown,
-			Reason:             "Deploying",
-			LastTransitionTime: got.LastTransitionTime,
-			Severity:           apis.ConditionSeverityError,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	endpoints := testReadyEndpoints(rev.Name)
-	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(endpoints)
-	pa := testReadyPA(rev)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
-	f := ctl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
-	f(endpoints)
-	if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	// Make sure that the changes from the Reconcile are reflected in our Informers.
-	readyRev, _, _ := addResourcesToInformers(t, ctx, rev)
-
-	// After reconciling the endpoint, the revision should be ready.
-	for _, ct := range []apis.ConditionType{"Ready"} {
-		got := readyRev.Status.GetCondition(ct)
-		want := &apis.Condition{
-			Type:               ct,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: got.LastTransitionTime,
-			Severity:           apis.ConditionSeverityError,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	select {
-	case got := <-fakeRecorder.Events:
-		const want = "Normal RevisionReady Revision becomes ready upon all resources being ready"
-		if got != want {
-			t.Errorf("<-Events = %s, wanted %s", got, want)
-		}
-	case <-time.After(3 * time.Second):
-		t.Error("Timeout")
-	}
-}
-
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	ctx, cancel, _, controller, watcher := newTestController(t)
-	defer cancel()
+	ctx, _, _, controller, watcher := newTestController(t)
 
-	rev := testRevision(getPodSpec())
-	config := testConfiguration()
-	rev.OwnerReferences = append(
-		rev.OwnerReferences,
-		*kmeta.NewControllerRef(config),
-	)
+	rev := testRevision(testPodSpec())
 	// Update controller config with no side car image
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -489,25 +371,24 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 }
 
 func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
-	ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 
-	rev := testRevision(getPodSpec())
+	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 		waitInformers()
-	}()
+	})
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("Failed to start watcher:", err)
@@ -554,25 +435,24 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 
-	rev := testRevision(getPodSpec())
+	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 		waitInformers()
-	}()
+	})
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("Failed to start watcher:", err)
@@ -615,88 +495,76 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// deployment.
-	tests := []struct {
-		name              string
-		configMapToUpdate *corev1.ConfigMap
-		callback          func(*testing.T) func(runtime.Object) HookResult
-	}{{
-		name: "Update QueueProxy Image", // Should update queueSidecarImage
-		configMapToUpdate: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      deployment.ConfigName,
-			},
-			Data: map[string]string{
-				"queueSidecarImage": "myAwesomeQueueImage",
-			},
+	configMapToUpdate := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      deployment.ConfigName,
 		},
-		callback: func(t *testing.T) func(runtime.Object) HookResult {
-			return func(obj runtime.Object) HookResult {
-				deployment := obj.(*appsv1.Deployment)
-				t.Logf("Deployment updated: %v", deployment.Name)
+		Data: map[string]string{
+			"queueSidecarImage": "myAwesomeQueueImage",
+		},
+	}
+	callback := func(t *testing.T) func(runtime.Object) HookResult {
+		return func(obj runtime.Object) HookResult {
+			deployment := obj.(*appsv1.Deployment)
+			t.Logf("Deployment updated: %v", deployment.Name)
 
-				const expected = "myAwesomeQueueImage"
+			const expected = "myAwesomeQueueImage"
 
-				var got string
-				for _, c := range deployment.Spec.Template.Spec.Containers {
-					if c.Name == resources.QueueContainerName {
-						got = c.Image
-						if got == expected {
-							return HookComplete
-						}
+			var got string
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.QueueContainerName {
+					got = c.Image
+					if got == expected {
+						return HookComplete
 					}
 				}
-
-				t.Logf("No update occurred; expected: %s got: %s", expected, got)
-				return HookIncomplete
-			}
-		},
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
-
-			ctx, cancel := context.WithCancel(ctx)
-			grp := errgroup.Group{}
-
-			kubeClient := fakekubeclient.Get(ctx)
-
-			rev := testRevision(getPodSpec())
-			revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
-			h := NewHooks()
-			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))
-
-			// Wait for the deployment creation to trigger the global resync. This
-			// avoids the create and update being coalesced into one event.
-			h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) HookResult {
-				watcher.OnChange(test.configMapToUpdate)
-				return HookComplete
-			})
-
-			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
-			if err != nil {
-				t.Fatal("Failed to start informers:", err)
-			}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-				waitInformers()
-			}()
-
-			if err := watcher.Start(ctx.Done()); err != nil {
-				t.Fatal("Failed to start configuration manager:", err)
 			}
 
-			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+			t.Logf("No update occurred; expected: %s got: %s", expected, got)
+			return HookIncomplete
+		}
+	}
 
-			revClient.Create(rev)
+	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
-			if err := h.WaitForHooks(3 * time.Second); err != nil {
-				t.Errorf("%s Global Resync Failed: %v", test.name, err)
-			}
-		})
+	grp := errgroup.Group{}
+
+	kubeClient := fakekubeclient.Get(ctx)
+
+	rev := testRevision(testPodSpec())
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
+	h := NewHooks()
+	h.OnUpdate(&kubeClient.Fake, "deployments", callback(t))
+
+	// Wait for the deployment creation to trigger the global resync. This
+	// avoids the create and update being coalesced into one event.
+	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) HookResult {
+		watcher.OnChange(configMapToUpdate)
+		return HookComplete
+	})
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+		waitInformers()
+	})
+
+	if err := watcher.Start(ctx.Done()); err != nil {
+		t.Fatal("Failed to start configuration manager:", err)
+	}
+
+	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
+
+	revClient.Create(rev)
+
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
+		t.Error("Global Resync Failed:", err)
 	}
 }

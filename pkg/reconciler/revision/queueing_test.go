@@ -61,7 +61,7 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func getPodSpec() corev1.PodSpec {
+func testPodSpec() corev1.PodSpec {
 	return corev1.PodSpec{
 		// corev1.Container has a lot of setting.  We try to pass many
 		// of them here to verify that we pass through the settings to
@@ -156,6 +156,7 @@ func newTestController(t *testing.T, opts ...reconcilerOption) (
 	*configmap.ManualWatcher) {
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	t.Cleanup(cancel) // cancel is reentrant.
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	// Prepend so that callers can override.
@@ -247,7 +248,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	eg := errgroup.Group{}
 
-	rev := testRevision(getPodSpec())
+	rev := testRevision(testPodSpec())
 	servingClient := fakeservingclient.Get(ctx)
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
