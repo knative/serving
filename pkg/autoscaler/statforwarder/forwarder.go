@@ -59,11 +59,12 @@ type record struct {
 
 // Forwarder is
 type Forwarder struct {
-	selfIP        string
-	logger        *zap.SugaredLogger
-	kc            kubernetes.Interface
-	serviceLister corev1listers.ServiceLister
-	bs            *hash.BucketSet
+	selfIP          string
+	logger          *zap.SugaredLogger
+	kc              kubernetes.Interface
+	serviceLister   corev1listers.ServiceLister
+	endpointsLister corev1listers.EndpointsLister
+	bs              *hash.BucketSet
 	// accept is the function to process a StatMessage if it doesn't need
 	// to be forwarded.
 	accept statProcessor
@@ -74,15 +75,17 @@ type Forwarder struct {
 }
 
 func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
+	endpointsInformer := endpointsinformer.Get(ctx)
 	ns := system.Namespace()
 	f := Forwarder{
-		selfIP:        selfIP,
-		logger:        logger,
-		kc:            kc,
-		serviceLister: serviceinformer.Get(ctx).Lister(),
-		bs:            bs,
-		accept:        accept,
-		b2IP:          make(map[string]string),
+		selfIP:          selfIP,
+		logger:          logger,
+		kc:              kc,
+		serviceLister:   serviceinformer.Get(ctx).Lister(),
+		endpointsLister: endpointsInformer.Lister(),
+		bs:              bs,
+		accept:          accept,
+		b2IP:            make(map[string]string),
 	}
 
 	bkts := bs.Buckets()
@@ -94,7 +97,6 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		f.wsMap[b.Name()] = statSink
 	}
 
-	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.NamespaceFilterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -108,15 +110,16 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 
 func (f *Forwarder) endpointsUpdated(obj interface{}) {
 	e := obj.(*v1.Endpoints)
+	ns, n := e.Namespace, e.Name
 
-	if !f.isBucketEndpoints(e.Name) {
-		f.logger.Debugf("Skip Endpoints %s, not a valid one", e.Name)
+	if !f.isBucketEndpoints(n) {
+		f.logger.Debugf("Skip Endpoints %s, not a valid one", n)
 		return
 	}
 
 	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
 	if !ok {
-		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, e.Name)
+		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, n)
 		return
 	}
 
@@ -128,18 +131,12 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 
 	f.setIP(e.Name, r.HolderIdentity)
 	if r.HolderIdentity != f.selfIP {
-		f.logger.Debugf("Skip updating Endpoints %s, not the leader", e.Name)
+		f.logger.Debugf("Skip updating Endpoints %s, not the leader", n)
 		return
 	}
 
-	if err := f.createService(e.Namespace, e.Name); err != nil {
-		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", e.Name, err)
-	}
-
-	// We expected there will be only one IP for the bucket Endpoints.
-	if len(e.Subsets) > 0 && len(e.Subsets[0].Addresses) > 0 && e.Subsets[0].Addresses[0].IP == f.selfIP {
-		f.logger.Debugf("Skip updating Endpoints %s, already has the desired IP", e.Name)
-		return
+	if err := f.createService(ns, n); err != nil {
+		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", n, err)
 	}
 
 	wantSubsets := []v1.EndpointSubset{{
@@ -151,16 +148,28 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 			Port: autoscalerPort,
 		}}},
 	}
-	if !equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+
+	reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		if attempts > 0 {
+			e, err = f.endpointsLister.Endpoints(ns).Get(n)
+			if err != nil {
+				return err
+			}
+		}
+
+		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+			return nil
+		}
+
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
-
 		if _, err := f.kc.CoreV1().Endpoints(e.Namespace).Update(want); err != nil {
-			f.logger.Errorf("Failed to update Endpoints %s: %v", e.Name, err)
-		} else {
-			f.logger.Info("Bucket Endpoints updated: ", e.Name)
+			return err
 		}
-	}
+
+		f.logger.Info("Bucket Endpoints updated: ", e.Name)
+		return nil
+	})
 }
 
 func (f *Forwarder) isBucketEndpoints(n string) bool {
