@@ -548,12 +548,12 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 	out.RunAsGroup = in.RunAsGroup
 	out.RunAsNonRoot = in.RunAsNonRoot
 	out.FSGroup = in.FSGroup
+	out.SupplementalGroups = in.SupplementalGroups
 
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
 	out.SELinuxOptions = nil
 	out.WindowsOptions = nil
-	out.SupplementalGroups = nil
 	out.Sysctls = nil
 
 	return out

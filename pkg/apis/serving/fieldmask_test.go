@@ -680,7 +680,7 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	in := &corev1.PodSecurityContext{
 		SELinuxOptions:     &corev1.SELinuxOptions{},
 		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
-		SupplementalGroups: []int64{},
+		SupplementalGroups: []int64{1},
 		Sysctls:            []corev1.Sysctl{},
 		RunAsUser:          ptr.Int64(1),
 		RunAsGroup:         ptr.Int64(1),
@@ -689,10 +689,11 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	}
 
 	want := &corev1.PodSecurityContext{
-		RunAsUser:    ptr.Int64(1),
-		RunAsGroup:   ptr.Int64(1),
-		RunAsNonRoot: ptr.Bool(true),
-		FSGroup:      ptr.Int64(1),
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+		SupplementalGroups: []int64{1},
 	}
 
 	ctx := config.ToContext(context.Background(),

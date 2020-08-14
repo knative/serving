@@ -669,6 +669,15 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 			errs = errs.Also(apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "fsGroup"))
 		}
 	}
+
+	for i, gid := range sc.SupplementalGroups {
+		if gid < minGroupID || gid > maxGroupID {
+			err := apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "").
+				ViaFieldIndex("supplementalGroups", i)
+			errs = errs.Also(err)
+		}
+	}
+
 	return errs
 }
 

@@ -1778,12 +1778,11 @@ func TestPodSpecSecurityContextValidation(t *testing.T) {
 	}, {
 		name: "disallowed fields",
 		sc: &corev1.PodSecurityContext{
-			SELinuxOptions:     &corev1.SELinuxOptions{},
-			WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
-			SupplementalGroups: []int64{},
-			Sysctls:            []corev1.Sysctl{},
+			SELinuxOptions: &corev1.SELinuxOptions{},
+			WindowsOptions: &corev1.WindowsSecurityContextOptions{},
+			Sysctls:        []corev1.Sysctl{},
 		},
-		want: apis.ErrDisallowedFields("seLinuxOptions", "supplementalGroups", "sysctls", "windowsOptions"),
+		want: apis.ErrDisallowedFields("seLinuxOptions", "sysctls", "windowsOptions"),
 	}, {
 		name: "too large uid",
 		sc: &corev1.PodSecurityContext{
@@ -1820,6 +1819,18 @@ func TestPodSpecSecurityContextValidation(t *testing.T) {
 			FSGroup: ptr.Int64(-10),
 		},
 		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "fsGroup"),
+	}, {
+		name: "too large supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{int64(math.MaxInt32 + 1)},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "supplementalGroups[0]"),
+	}, {
+		name: "negative supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{-10},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "supplementalGroups[0]"),
 	}}
 
 	for _, test := range tests {
