@@ -642,6 +642,10 @@ func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldErr
 	return errs
 }
 
+// ValidatePodSecurityContext validates the PodSecurityContext struct. All fields are disallowed
+// unless the 'PodSpecSecurityContext' feature flag is enabled
+//
+// See the allowed properties in the `PodSecurityContextMask`
 func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityContext) *apis.FieldError {
 	if sc == nil {
 		return nil

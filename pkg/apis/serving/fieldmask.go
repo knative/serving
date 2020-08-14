@@ -530,7 +530,7 @@ func ResourceRequirementsMask(in *corev1.ResourceRequirements) *corev1.ResourceR
 
 }
 
-// PodSecurityContext performs a _shallow_ copy of the Kubernetes PodSecurityContext object into a new
+// PodSecurityContextMask performs a _shallow_ copy of the Kubernetes PodSecurityContext object into a new
 // Kubernetes PodSecurityContext object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or bounds of the provided fields.
 func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) *corev1.PodSecurityContext {
