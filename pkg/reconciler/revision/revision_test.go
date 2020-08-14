@@ -39,9 +39,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,6 +60,7 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 
 	_ "knative.dev/pkg/metrics/testing"
@@ -187,7 +186,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Revisions.Get(%v) = %v", rev.Name, err)
+		t.Fatalf("Revisions.Get(%v) = %v", rev.Name, err)
 	}
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -196,29 +195,25 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	paName := resourcenames.PA(rev)
 	pa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("PodAutoscalers.Get(%v) = %v", paName, err)
-	} else {
-		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
+		t.Fatalf("PodAutoscalers.Get(%v) = %v", paName, err)
 	}
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 
 	for _, v := range rev.Spec.Containers {
 		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+v.Name)
 		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
 		if err != nil {
-			t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
-		} else {
-			fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
+			t.Fatalf("Caching.Images.Get(%v) = %v", imageName, err)
 		}
+		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
 	}
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Deployments.Get(%v) = %v", deploymentName, err)
-	} else {
-		fakedeploymentinformer.Get(ctx).Informer().GetIndexer().Add(deployment)
+		t.Fatalf("Deployments.Get(%v) = %v", deploymentName, err)
 	}
-
+	fakedeploymentinformer.Get(ctx).Informer().GetIndexer().Add(deployment)
 	return rev, deployment, pa
 }
 
@@ -259,7 +254,7 @@ func TestResolutionFailed(t *testing.T) {
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+			t.Errorf("Unexpected revision conditions diff (-want +got):\n%s", diff)
 		}
 	}
 }
@@ -335,7 +330,7 @@ func TestRevWithImageDigests(t *testing.T) {
 	rev.Status.DeprecatedImageDigest = "gcr.io/repo/image"
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
-		t.Error("Image digests does not match with the provided containers")
+		t.Fatal("Image digests do not match the provided containers")
 	}
 	for i, c := range rev.Spec.Containers {
 		if c.Name != rev.Status.ContainerStatuses[i].Name {
@@ -346,27 +341,6 @@ func TestRevWithImageDigests(t *testing.T) {
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Status.ContainerStatuses) != 0 {
 		t.Error("Failed to update revision")
-	}
-}
-
-func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	ctx, _, _, controller, watcher := newTestController(t)
-
-	rev := testRevision(testPodSpec())
-	// Update controller config with no side car image
-	watcher.OnChange(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "config-controller",
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{},
-	})
-	createRevision(t, ctx, controller, rev)
-
-	// Look for the revision deployment.
-	_, err := fakekubeclient.Get(ctx).AppsV1().Deployments(system.Namespace()).Get(rev.Name, metav1.GetOptions{})
-	if !apierrs.IsNotFound(err) {
-		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
 }
 
@@ -385,7 +359,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() = ", err)
 		}
 		waitInformers()
 	})
@@ -449,7 +423,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() = ", err)
 		}
 		waitInformers()
 	})
@@ -504,45 +478,21 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			"queueSidecarImage": "myAwesomeQueueImage",
 		},
 	}
-	callback := func(t *testing.T) func(runtime.Object) HookResult {
-		return func(obj runtime.Object) HookResult {
-			deployment := obj.(*appsv1.Deployment)
-			t.Logf("Deployment updated: %v", deployment.Name)
-
-			const expected = "myAwesomeQueueImage"
-
-			var got string
-			for _, c := range deployment.Spec.Template.Spec.Containers {
-				if c.Name == resources.QueueContainerName {
-					got = c.Image
-					if got == expected {
-						return HookComplete
-					}
-				}
+	const expected = "myAwesomeQueueImage"
+	checkF := func(deployment *appsv1.Deployment) bool {
+		for _, c := range deployment.Spec.Template.Spec.Containers {
+			if c.Name == resources.QueueContainerName {
+				return c.Image == expected
 			}
-
-			t.Logf("No update occurred; expected: %s got: %s", expected, got)
-			return HookIncomplete
 		}
+		return false
 	}
 
 	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
 
 	grp := errgroup.Group{}
-
-	kubeClient := fakekubeclient.Get(ctx)
-
 	rev := testRevision(testPodSpec())
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
-	h := NewHooks()
-	h.OnUpdate(&kubeClient.Fake, "deployments", callback(t))
-
-	// Wait for the deployment creation to trigger the global resync. This
-	// avoids the create and update being coalesced into one event.
-	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) HookResult {
-		watcher.OnChange(configMapToUpdate)
-		return HookComplete
-	})
 
 	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
@@ -551,7 +501,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
+			t.Error("Wait() = ", err)
 		}
 		waitInformers()
 	})
@@ -563,8 +513,24 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
 	revClient.Create(rev)
+	revL := fakerevisioninformer.Get(ctx).Lister().Revisions(rev.Namespace)
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		// The only error we're getting in the test reasonably is NotFound.
+		r, _ := revL.Get(rev.Name)
+		// We only create a single revision, but make sure it is reconciled.
+		return r != nil && r.Status.ObservedGeneration == r.Generation, nil
+	}); err != nil {
+		t.Fatal("Failed to see Revision propagation:", err)
+	}
+	t.Log("Seen revision propagation updating the CM")
 
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Error("Global Resync Failed:", err)
+	watcher.OnChange(configMapToUpdate)
+
+	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		dep, err := depL.Get(names.Deployment(rev))
+		return dep != nil && checkF(dep), err
+	}); err != nil {
+		t.Error("Failed to see deployment properly updating:", err)
 	}
 }
