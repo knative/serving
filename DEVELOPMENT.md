@@ -140,11 +140,12 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-stable/istio-crds.yaml
+STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml"
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-stable/istio-minimal.yaml
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
 ```
 
 Follow the
@@ -159,12 +160,11 @@ installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-kubectl apply -f ./third_party/istio-stable/istio-knative-extras.yaml
+STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-knative-extras.yaml"
 ```
 
-> If you want to customize the `istio*.yaml` files you can refer to
-> `third_party/istio-<VERSION>-latest/download-istio.sh` how these templates
-> were generated.
+> If you want to customize the `istio*.yaml` files you can refer to the [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md) for more information.
 
 ### Deploy cert-manager
 
