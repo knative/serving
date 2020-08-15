@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "983ddf13"
+    knative.dev/example-checksum: "c0b41539"
 data:
   _example: |
     ################################
@@ -61,6 +61,10 @@ data:
     #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "allowed"
+
+    # When set to "enabled" or "allowed" this feature allows end-users to set
+    # the Pod's RuntimeClassName.
+    kubernetes.podspec-runtimeclassname: "disabled"
 
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
     # in addition to expanding the allowable fields within a Container's SecurityContext.

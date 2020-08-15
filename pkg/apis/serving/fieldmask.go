@@ -161,6 +161,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecNodeSelector != config.Disabled {
 		out.NodeSelector = in.NodeSelector
 	}
+	if cfg.Features.PodSpecRuntimeClassName != config.Disabled {
+		out.RuntimeClassName = in.RuntimeClassName
+	}
 	if cfg.Features.PodSpecTolerations != config.Disabled {
 		out.Tolerations = in.Tolerations
 	}
@@ -189,7 +192,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Priority = nil
 	out.DNSConfig = nil
 	out.ReadinessGates = nil
-	out.RuntimeClassName = nil
 
 	return out
 }
