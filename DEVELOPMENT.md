@@ -309,8 +309,8 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-stable/istio-minimal.yaml \
-  -f ./third_party/istio-stable/istio-crds.yaml \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```
