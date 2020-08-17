@@ -228,9 +228,9 @@ func TestContexts(t *testing.T) {
 }
 
 func BenchmarkPodRevisionContext(b *testing.B) {
-	// test with 1 (always hits cache), 4095 (always hits cache, but at capacity),
-	// and 409600  (often misses cache)
-	for _, revisions := range []int{1, 4095, 409600} {
+	// test with 1 (always hits cache),  1024 (25% load), 4095 (always hits cache, but at capacity),
+	// 16k (often misses the cache) and 409600  (practically always misses cache)
+	for _, revisions := range []int{1, 1024, 4095, 0xFFFF, 409600} {
 		b.Run(fmt.Sprintf("sequential-%d-revisions", revisions), func(b *testing.B) {
 			contextCache.Purge()
 			for i := 0; i < b.N; i++ {
