@@ -783,7 +783,7 @@ var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
-		Deployment: getTestDeploymentConfig(),
+		Deployment: testDeploymentConfig(),
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

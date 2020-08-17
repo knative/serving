@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -29,12 +30,14 @@ import (
 	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/ptr"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -56,6 +59,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -67,7 +71,13 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 )
 
-func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
+const (
+	testAutoscalerImage = "autoscalerImage"
+	testNamespace       = "test"
+	testQueueImage      = "queueImage"
+)
+
+func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
 	context.Context,
 	context.CancelFunc,
 	[]controller.Informer,
@@ -75,14 +85,13 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 	*configmap.ManualWatcher) {
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
-	t.Cleanup(cancel) // cancel is reentrant, but permit callers just ignore this, if they don't need it.
+	t.Cleanup(cancel) // cancel is reentrant, so if necessary callers can call it directly, if needed.
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	// Prepend so that callers can override.
 	opts = append([]reconcilerOption{func(r *Reconciler) {
 		r.resolver = &nopResolver{}
 	}}, opts...)
-
 	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
 	for _, cm := range append([]*corev1.ConfigMap{{
@@ -136,7 +145,7 @@ func newTestControllerWithConfig(t *testing.T, configs []*corev1.ConfigMap, opts
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()},
+	}, testDeploymentCM(), testDefaultsCM()},
 		configs...) {
 		configMapWatcher.OnChange(cm)
 	}
@@ -217,6 +226,99 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	return rev, deployment, pa
 }
 
+type nopResolver struct{}
+
+func (r *nopResolver) Resolve(context.Context, string, k8schain.Options, sets.String) (string, error) {
+	return "", nil
+}
+
+func testPodSpec() corev1.PodSpec {
+	return corev1.PodSpec{
+		// corev1.Container has a lot of setting.  We try to pass many
+		// of them here to verify that we pass through the settings to
+		// derived objects.
+		Containers: []corev1.Container{{
+			Image:      "gcr.io/repo/image",
+			Command:    []string{"echo"},
+			Args:       []string{"hello", "world"},
+			WorkingDir: "/tmp",
+			Env: []corev1.EnvVar{{
+				Name:  "EDITOR",
+				Value: "emacs",
+			}},
+			LivenessProbe: &corev1.Probe{
+				TimeoutSeconds: 42,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "health",
+					},
+				},
+				TimeoutSeconds: 43,
+			},
+			TerminationMessagePath: "/dev/null",
+		}},
+	}
+}
+
+func testRevision(podSpec corev1.PodSpec) *v1.Revision {
+	rev := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/test-rev",
+			Name:      "test-rev",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"testLabel1":          "foo",
+				"testLabel2":          "bar",
+				serving.RouteLabelKey: "test-route",
+			},
+			Annotations: map[string]string{
+				"testAnnotation": "test",
+			},
+			UID:        types.UID(uuid.New().String()),
+			Generation: rand.Int63(),
+		},
+		Spec: v1.RevisionSpec{
+			PodSpec:        podSpec,
+			TimeoutSeconds: ptr.Int64(60),
+		},
+	}
+	rev.SetDefaults(context.Background())
+	return rev
+}
+
+func testDeploymentConfig() *deployment.Config {
+	c, _ := deployment.NewConfigFromConfigMap(testDeploymentCM())
+	// ignoring error as test controller is generated
+	return c
+}
+
+func testDeploymentCM() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deployment.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"queueSidecarImage": testQueueImage,
+			"autoscalerImage":   testAutoscalerImage,
+		},
+	}
+}
+
+func testDefaultsCM() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-name-template": "user-container",
+		},
+	}
+}
+
 type errorResolver struct {
 	err error
 }
@@ -228,7 +330,7 @@ func (r *errorResolver) Resolve(_ context.Context, _ string, _ k8schain.Options,
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.
 	innerError := errors.New("i am the expected error message, hear me ROAR!")
-	ctx, _, _, controller, _ := newTestController(t, func(r *Reconciler) {
+	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/, func(r *Reconciler) {
 		r.resolver = &errorResolver{innerError}
 	})
 
@@ -260,7 +362,7 @@ func TestResolutionFailed(t *testing.T) {
 }
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	ctx, _, _, controller, watcher := newTestControllerWithConfig(t, []*corev1.ConfigMap{{
+	ctx, _, _, controller, watcher := newTestController(t, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -269,7 +371,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.enable-var-log-collection": "true",
 			"logging.revision-url-template":     "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
-	}, getTestDeploymentConfigMap(),
+	}, testDeploymentCM(),
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
@@ -301,7 +403,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 }
 
 func TestRevWithImageDigests(t *testing.T) {
-	ctx, _, _, controller, _ := newTestControllerWithConfig(t, nil)
+	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/)
 	rev := testRevision(corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name:  "first",
@@ -345,7 +447,7 @@ func TestRevWithImageDigests(t *testing.T) {
 }
 
 func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
-	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+	ctx, cancel, informers, ctrl, watcher := newTestController(t, nil /*additional CMs*/)
 
 	grp := errgroup.Group{}
 
@@ -409,7 +511,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+	ctx, cancel, informers, ctrl, watcher := newTestController(t, nil /*additional CMs*/)
 
 	grp := errgroup.Group{}
 
@@ -488,7 +590,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		return false
 	}
 
-	ctx, cancel, informers, ctrl, watcher := newTestControllerWithConfig(t, nil)
+	ctx, cancel, informers, ctrl, watcher := newTestController(t, nil /*additional CMs*/)
 
 	grp := errgroup.Group{}
 	rev := testRevision(testPodSpec())
@@ -532,5 +634,51 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 		return dep != nil && checkF(dep), err
 	}); err != nil {
 		t.Error("Failed to see deployment properly updating:", err)
+	}
+}
+
+func TestNewRevisionCallsSyncHandler(t *testing.T) {
+	ctx, cancel, informers, ctrl, _ := newTestController(t, nil /*additional CMs*/)
+
+	eg := errgroup.Group{}
+	rev := testRevision(testPodSpec())
+	servingClient := fakeservingclient.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatal("Error starting informers:", err)
+	}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatal("Error running controller:", err)
+		}
+		waitInformers()
+	}()
+
+	eg.Go(func() error {
+		return ctrl.Run(1, ctx.Done())
+	})
+
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
+		t.Fatal("Error creating revision:", err)
+	}
+
+	// Poll to see PA object to be created.
+	if err := wait.PollImmediate(25*time.Millisecond, 3*time.Second, func() (bool, error) {
+		pa, _ := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(
+			rev.Name, metav1.GetOptions{})
+		return pa != nil, nil
+	}); err != nil {
+		t.Error("Failed to see PA creation")
+	}
+
+	// Poll to see if the deployment is created. This should _already_ be there.
+	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
+	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+		dep, err := depL.Get(names.Deployment(rev))
+		return dep != nil, err
+	}); err != nil {
+		t.Error("Failed to see deployment creation:", err)
 	}
 }
