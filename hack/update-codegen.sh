@@ -30,17 +30,26 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 boilerplate="${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt"
 
-# Parse flags to determine if we should generate protobufs.
+# Parse flags.
 generate_protobufs=0
+checksums_only=0
 while [[ $# -ne 0 ]]; do
   parameter=$1
   case ${parameter} in
     --generate-protobufs) generate_protobufs=1 ;;
+    --checksums-only) checksums_only=1 ;;
     *) abort "unknown option ${parameter}" ;;
   esac
   shift
 done
 readonly generate_protobufs
+
+echo "Generating checksums for configmap _example keys"
+go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
+
+if (( checksums_only )); then
+  exit 0
+fi
 
 if (( generate_protobufs )); then
   echo "Generating protocol buffer code"
@@ -57,11 +66,7 @@ if (( generate_protobufs )); then
   done
 fi
 
-echo "Generating checksums for configmap _example keys"
-go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
-
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
 chmod +x ${CODEGEN_PKG}/generate-groups.sh
