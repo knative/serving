@@ -40,13 +40,14 @@ const (
 
 func defaultFeaturesConfig() *Features {
 	return &Features{
-		MultiContainer:       Enabled,
-		PodSpecAffinity:      Disabled,
-		PodSpecFieldRef:      Disabled,
-		PodSpecDryRun:        Allowed,
-		PodSpecNodeSelector:  Disabled,
-		PodSpecTolerations:   Disabled,
-		ResponsiveRevisionGC: Disabled,
+		MultiContainer:         Enabled,
+		PodSpecAffinity:        Disabled,
+		PodSpecFieldRef:        Disabled,
+		PodSpecDryRun:          Allowed,
+		PodSpecNodeSelector:    Disabled,
+		PodSpecSecurityContext: Disabled,
+		PodSpecTolerations:     Disabled,
+		ResponsiveRevisionGC:   Disabled,
 	}
 }
 
@@ -60,6 +61,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-fieldref", &nc.PodSpecFieldRef),
 		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
 		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
+		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("responsive-revision-gc", &nc.ResponsiveRevisionGC)); err != nil {
 		return nil, err
@@ -74,13 +76,14 @@ func NewFeaturesConfigFromConfigMap(config *corev1.ConfigMap) (*Features, error)
 
 // Features specifies which features are allowed by the webhook.
 type Features struct {
-	MultiContainer       Flag
-	PodSpecAffinity      Flag
-	PodSpecFieldRef      Flag
-	PodSpecDryRun        Flag
-	PodSpecNodeSelector  Flag
-	PodSpecTolerations   Flag
-	ResponsiveRevisionGC Flag
+	MultiContainer         Flag
+	PodSpecAffinity        Flag
+	PodSpecFieldRef        Flag
+	PodSpecDryRun          Flag
+	PodSpecNodeSelector    Flag
+	PodSpecTolerations     Flag
+	PodSpecSecurityContext Flag
+	ResponsiveRevisionGC   Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.

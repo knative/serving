@@ -1172,7 +1172,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200811195106-afcd1747545f
+# knative.dev/test-infra v0.0.0-20200813220834-388e55a496cf
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/yaml v1.2.0

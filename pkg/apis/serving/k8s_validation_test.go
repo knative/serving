@@ -69,6 +69,13 @@ func withPodSpecTolerationsEnabled() configOption {
 	}
 }
 
+func withPodSpecSecurityContextEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecSecurityContext = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -590,6 +597,16 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"tolerations"},
 		},
 		cfgOpts: []configOption{withPodSpecTolerationsEnabled()},
+	}, {
+		name: "PodSpecSecurityContext",
+		featureSpec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"securityContext"},
+		},
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
 	}}
 
 	featureTests := []struct {
@@ -640,9 +657,10 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 					ctx = config.ToContext(ctx, cfg)
 				}
 				if test.includeFeatureSpec {
-					obj.Affinity = featureData.featureSpec.Affinity
-					obj.NodeSelector = featureData.featureSpec.NodeSelector
-					obj.Tolerations = featureData.featureSpec.Tolerations
+					obj = featureData.featureSpec
+					obj.Containers = []corev1.Container{{
+						Image: "busybox",
+					}}
 				}
 				got := ValidatePodSpec(ctx, obj)
 				if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
@@ -774,6 +792,7 @@ func TestContainerValidation(t *testing.T) {
 		c       corev1.Container
 		want    *apis.FieldError
 		volumes sets.String
+		cfgOpts []configOption
 	}{{
 		name: "empty container",
 		c:    corev1.Container{},
@@ -1246,6 +1265,26 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
 	}, {
+		name:    "too large gid - feature enabled",
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsGroup"),
+	}, {
+		name:    "negative gid - feature enabled",
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsGroup: ptr.Int64(-10),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
+	}, {
 		name: "envFrom - None of",
 		c: corev1.Container{
 			Image:   "foo",
@@ -1385,7 +1424,16 @@ func TestContainerValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidateContainer(context.Background(), test.c, test.volumes)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+
+			got := ValidateContainer(ctx, test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
@@ -1714,6 +1762,89 @@ func TestObjectReferenceValidation(t *testing.T) {
 			got := ValidateNamespacedObjectReference(test.r)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateNamespacedObjectReference (-want, +got): \n%s", diff)
+			}
+		})
+	}
+}
+
+func TestPodSpecSecurityContextValidation(t *testing.T) {
+	// Note the feature flag is always enabled on this test
+	tests := []struct {
+		name string
+		sc   *corev1.PodSecurityContext
+		want *apis.FieldError
+	}{{
+		name: "nil",
+	}, {
+		name: "disallowed fields",
+		sc: &corev1.PodSecurityContext{
+			SELinuxOptions: &corev1.SELinuxOptions{},
+			WindowsOptions: &corev1.WindowsSecurityContextOptions{},
+			Sysctls:        []corev1.Sysctl{},
+		},
+		want: apis.ErrDisallowedFields("seLinuxOptions", "sysctls", "windowsOptions"),
+	}, {
+		name: "too large uid",
+		sc: &corev1.PodSecurityContext{
+			RunAsUser: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "runAsUser"),
+	}, {
+		name: "negative uid",
+		sc: &corev1.PodSecurityContext{
+			RunAsUser: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "runAsUser"),
+	}, {
+		name: "too large gid",
+		sc: &corev1.PodSecurityContext{
+			RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "runAsGroup"),
+	}, {
+		name: "negative gid",
+		sc: &corev1.PodSecurityContext{
+			RunAsGroup: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "runAsGroup"),
+	}, {
+		name: "too large fsGroup",
+		sc: &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "fsGroup"),
+	}, {
+		name: "negative fsGroup",
+		sc: &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "fsGroup"),
+	}, {
+		name: "too large supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{int64(math.MaxInt32 + 1)},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "supplementalGroups[0]"),
+	}, {
+		name: "negative supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{-10},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "supplementalGroups[0]"),
+	}}
+
+	for _, test := range tests {
+		ctx := config.ToContext(context.Background(),
+			&config.Config{
+				Features: &config.Features{
+					PodSpecSecurityContext: config.Enabled,
+				},
+			})
+
+		t.Run(test.name, func(t *testing.T) {
+			got := ValidatePodSecurityContext(ctx, test.sc)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidatePodSecurityContext(-want, +got): \n%s", diff)
 			}
 		})
 	}

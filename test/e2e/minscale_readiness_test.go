@@ -180,7 +180,7 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	return privateServiceName
 }
 
-// waitForDesiredScale retuns the last observed number of pods and/or error if the cond
+// waitForDesiredScale returns the last observed number of pods and/or error if the cond
 // callback is never satisfied.
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)

@@ -16,4 +16,6 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 // +groupName=autoscaling.internal.knative.dev
+
+// Package v1alpha1 contains the Autoscaling v1alpha1 API types.
 package v1alpha1
