@@ -35,43 +35,43 @@ import (
 )
 
 type metrics struct {
-	min           time.Duration
-	max           time.Duration
+	minV          time.Duration
+	maxV          time.Duration
 	totalDuration time.Duration
-	num           int64
+	numV          int64
 }
 
-func (m *metrics) Add(start time.Time) {
+func (m *metrics) add(start time.Time) {
 	// Compute the duration since the provided start time.
 	d := time.Since(start)
 
-	if d < m.min || m.min == 0 {
-		m.min = d
+	if d < m.minV || m.minV == 0 {
+		m.minV = d
 	}
-	if d > m.max {
-		m.max = d
+	if d > m.maxV {
+		m.maxV = d
 	}
 	m.totalDuration += d
-	m.num++
+	m.numV++
 }
 
-func (m metrics) Min() float32 {
-	return float32(m.min.Seconds())
+func (m metrics) min() float32 {
+	return float32(m.minV.Seconds())
 }
 
-func (m metrics) Max() float32 {
-	return float32(m.max.Seconds())
+func (m metrics) max() float32 {
+	return float32(m.maxV.Seconds())
 }
 
-func (m metrics) Avg() float32 {
-	if m.num == 0 {
+func (m metrics) avg() float32 {
+	if m.numV == 0 {
 		return -1.0
 	}
-	return float32(m.totalDuration.Seconds()) / float32(m.num)
+	return float32(m.totalDuration.Seconds()) / float32(m.numV)
 }
 
-func (m metrics) Num() int64 {
-	return m.num
+func (m metrics) num() int64 {
+	return m.numV
 }
 
 type latencies struct {
@@ -82,40 +82,41 @@ type latencies struct {
 
 var _ e2e.Latencies = (*latencies)(nil)
 
+// Add implements e2e.Latencies interface, hence is public.
 func (l *latencies) Add(name string, start time.Time) {
 	l.m.Lock()
 	defer l.m.Unlock()
 
 	m := l.metrics[name]
-	m.Add(start)
+	m.add(start)
 	l.metrics[name] = m
 }
 
-func (l *latencies) Min(name string) float32 {
+func (l *latencies) min(name string) float32 {
 	l.m.RLock()
 	defer l.m.RUnlock()
-	return l.metrics[name].Min()
+	return l.metrics[name].min()
 }
 
-func (l *latencies) Max(name string) float32 {
+func (l *latencies) max(name string) float32 {
 	l.m.RLock()
 	defer l.m.RUnlock()
-	return l.metrics[name].Max()
+	return l.metrics[name].max()
 }
 
-func (l *latencies) Avg(name string) float32 {
+func (l *latencies) avg(name string) float32 {
 	l.m.RLock()
 	defer l.m.RUnlock()
-	return l.metrics[name].Avg()
+	return l.metrics[name].avg()
 }
 
-func (l *latencies) Num(name string) int64 {
+func (l *latencies) num(name string) int64 {
 	l.m.RLock()
 	defer l.m.RUnlock()
-	return l.metrics[name].Num()
+	return l.metrics[name].num()
 }
 
-func (l *latencies) Results(t *testing.T) []junit.TestCase {
+func (l *latencies) results(t *testing.T) []junit.TestCase {
 	l.m.RLock()
 	defer l.m.RUnlock()
 
@@ -129,10 +130,10 @@ func (l *latencies) Results(t *testing.T) []junit.TestCase {
 	tc := make([]junit.TestCase, 0, 3*len(order))
 	for _, key := range order {
 		tc = append(tc,
-			perf.CreatePerfTestCase(l.Min(key), fmt.Sprintf("%s.min", key), t.Name()),
-			perf.CreatePerfTestCase(l.Max(key), fmt.Sprintf("%s.max", key), t.Name()),
-			perf.CreatePerfTestCase(l.Avg(key), fmt.Sprintf("%s.avg", key), t.Name()),
-			perf.CreatePerfTestCase(float32(l.Num(key)), fmt.Sprintf("%s.num", key), t.Name()))
+			perf.CreatePerfTestCase(l.min(key), key+".min", t.Name()),
+			perf.CreatePerfTestCase(l.max(key), key+".max", t.Name()),
+			perf.CreatePerfTestCase(l.avg(key), key+".avg", t.Name()),
+			perf.CreatePerfTestCase(float32(l.num(key)), key+".num", t.Name()))
 	}
 	return tc
 }
@@ -145,13 +146,13 @@ func TestScaleToN(t *testing.T) {
 	var results []junit.TestCase
 
 	for _, size := range tests {
-		t.Run(fmt.Sprintf("scale-%02d", size), func(t *testing.T) {
+		t.Run(fmt.Sprintf("scale-%03d", size), func(t *testing.T) {
 			// Record the observed latencies.
 			l := &latencies{
 				metrics: make(map[string]metrics),
 			}
 			defer func() {
-				results = append(results, l.Results(t)...)
+				results = append(results, l.results(t)...)
 			}()
 
 			e2e.ScaleToWithin(t, size, 30*time.Minute, l)
