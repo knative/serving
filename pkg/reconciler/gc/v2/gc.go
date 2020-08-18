@@ -110,7 +110,7 @@ func Collect(
 	return nil
 }
 
-// nonactiveRevisions swaps active revisions to the end and reslices to omit them
+// nonactiveRevisions swaps keeps only non active revisions.
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
 	swap := len(revs)
 	for i := 0; i < swap; {
