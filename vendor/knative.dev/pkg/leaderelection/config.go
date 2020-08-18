@@ -113,7 +113,7 @@ type ComponentConfig struct {
 	RenewDeadline time.Duration
 	RetryPeriod   time.Duration
 	// LeaseName is a function to customize the lease name given the index i.
-	// If not present, a name in format {Component}-{queue-name}.i-of-{Buckets}
+	// If not present, a name in format {Component}.{queue-name}.{i}-of-{Buckets}
 	// will be use.
 	LeaseName func(i uint32) string
 	// Identity is the unique string identifying a resource lock holder across

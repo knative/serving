@@ -135,7 +135,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	ns, n := l.Namespace, l.Name
 
 	if !f.isBucketLease(n) {
-		f.logger.Debugf("Skip Lease %s, not a valid one", n)
+		// f.logger.Debugf("Skip Lease %s, not a valid one", n)
 		return
 	}
 
@@ -283,27 +283,28 @@ func (f *Forwarder) deleteService(ns, name string) error {
 }
 
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
+	l := f.logger.With(zap.String("rev", sm.Key.String()))
 	owner := f.bs.Owner(sm.Key.String())
 	if f.getIP(owner) == f.selfIP {
-		f.logger.Debugf("accept rev %s\n", sm.Key.String())
+		l.Infof("## accept rev %s\n", sm.Key.String())
 		f.accept(sm)
 		return
 	}
 
 	if ws, ok := f.wsMap[owner]; ok {
-		f.logger.Debugf("forward rev %s to %s\n", sm.Key.String(), owner)
+		l.Infof("## forward rev %s to %s\n", sm.Key.String(), owner)
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {
-			f.logger.Errorw("Error while marshaling stats", zap.Error(err))
+			l.Errorw("Error while marshaling stats", zap.Error(err))
 			return
 		}
 
 		if err := ws.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-			f.logger.Errorw("Error while sending stats", zap.Error(err))
+			l.Errorw("Error while sending stats", zap.Error(err))
 		}
 	} else {
-		f.logger.Warnf("Can't find the owner of key %s, dropping the stat.", sm.Key.String())
+		l.Warnf("Can't find the owner of key %s, dropping the stat.", sm.Key.String())
 	}
 }
 

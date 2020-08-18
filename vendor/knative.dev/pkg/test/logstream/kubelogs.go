@@ -41,7 +41,6 @@ type kubelogs struct {
 	once sync.Once
 	m    sync.RWMutex
 	keys map[string]logger
-	err  error
 }
 
 type logger func(string, ...interface{})
@@ -78,11 +77,8 @@ func (k *kubelogs) startForPod(pod *corev1.Pod) {
 			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
 			stream, err := req.Stream()
 			if err != nil {
-				func() {
-					k.m.Lock()
-					defer k.m.Unlock()
-					k.err = err
-				}()
+				k.handleGenericLine([]byte(err.Error()), pn)
+				return
 			}
 			defer stream.Close()
 			// Read this container's stream.
@@ -175,7 +171,7 @@ func (k *kubelogs) handleLine(l []byte, pod string) {
 
 	for name, logf := range k.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
-		if !strings.Contains(line.Key, name) {
+		if !strings.Contains(line.Key, "/"+name) {
 			continue
 		}
 
@@ -230,9 +226,5 @@ func (k *kubelogs) Start(t test.TLegacy) Canceler {
 		k.m.Lock()
 		defer k.m.Unlock()
 		delete(k.keys, name)
-
-		if k.err != nil {
-			t.Error("Error during logstream", "error", k.err)
-		}
 	}
 }

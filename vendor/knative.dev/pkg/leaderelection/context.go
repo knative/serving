@@ -191,10 +191,6 @@ func standardBucketName(ordinal uint32, queueName string, cc ComponentConfig) st
 	return strings.ToLower(fmt.Sprintf("%s.%s.%02d-of-%02d", cc.Component, queueName, ordinal, cc.Buckets))
 }
 
-func endpointsBucketName(ordinal uint32, cc ComponentConfig) string {
-	return strings.ToLower(fmt.Sprintf("%s-bucket-%02d-of-%02d", cc.Component, ordinal, cc.Buckets))
-}
-
 type statefulSetBuilder struct {
 	lec ComponentConfig
 	bkt reconciler.Bucket
