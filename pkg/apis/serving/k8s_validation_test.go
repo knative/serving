@@ -1513,7 +1513,7 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want: apis.ErrMultipleOneOf("configMap", "projected"),
 	}, {
-		name: "multiple project volume single source",
+		name: "multiple projected volumes single source",
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
