@@ -164,7 +164,9 @@ STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-isti
 kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-knative-extras.yaml"
 ```
 
-> If you want to customize the `istio*.yaml` files you can refer to the [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md) for more information.
+> If you want to customize the `istio*.yaml` files you can refer to the
+> [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md)
+> for more information.
 
 ### Deploy cert-manager
 
