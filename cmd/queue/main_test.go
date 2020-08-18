@@ -303,19 +303,6 @@ func TestQueueTraceSpans(t *testing.T) {
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := network.NewRequestStats(time.Now())
-	reportTicker := time.NewTicker(reportingPeriod)
-	defer reportTicker.Stop()
-	promStatReporter, err := queue.NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatal("Failed to create stats reporter:", err)
-	}
-	go func() {
-		for now := range reportTicker.C {
-			promStatReporter.Report(stats.Report(now))
-		}
-	}()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
@@ -329,6 +316,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		label:   "breaker-infinite",
 		breaker: nil,
 	}}
+
 	for _, tc := range tests {
 		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
