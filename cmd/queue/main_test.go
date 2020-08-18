@@ -303,21 +303,48 @@ func TestQueueTraceSpans(t *testing.T) {
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := network.NewRequestStats(time.Now())
+
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		"ns", "testksvc", "testksvc",
+		"pod", reportingPeriod)
+	if err != nil {
+		b.Fatal("Failed to create stats reporter:", err)
+	}
+
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
 	tests := []struct {
-		label   string
-		breaker *queue.Breaker
+		label        string
+		breaker      *queue.Breaker
+		reportPeriod time.Duration
 	}{{
-		label:   "breaker-10",
-		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		label:        "breaker-10-no-reports",
+		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		reportPeriod: time.Hour,
 	}, {
-		label:   "breaker-infinite",
-		breaker: nil,
+		label:        "breaker-infinite-no-reports",
+		breaker:      nil,
+		reportPeriod: time.Hour,
+	}, {
+		label:        "breaker-10-many-reports",
+		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		reportPeriod: 1 * time.Microsecond,
+	}, {
+		label:        "breaker-infinite-many-reports",
+		breaker:      nil,
+		reportPeriod: 1 * time.Microsecond,
 	}}
 
 	for _, tc := range tests {
+		reportTicker := time.NewTicker(tc.reportPeriod)
+
+		go func() {
+			for now := range reportTicker.C {
+				promStatReporter.Report(stats.Report(now))
+			}
+		}()
+
 		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
@@ -333,5 +360,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 				}
 			})
 		})
+
+		reportTicker.Stop()
 	}
 }
