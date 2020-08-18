@@ -8,8 +8,8 @@ community contact's duty (subject to change) is as followed:
 
 ### Monday
 
-- Join the `@serving-help` user group if you haven't been invited by the previous
-  contact person using this
+- Join the `@serving-help` user group if you haven't been invited by the
+  previous contact person using this
   [link](https://app.slack.com/client/T93ELUK42/browse-user-groups/user_groups/S0186KPJYG4)
 - See [All days](#all-days)
 
@@ -18,7 +18,8 @@ community contact's duty (subject to change) is as followed:
 - Remove yourself from `@serving-help` usergroup and add the next contact using
   this
   [link](https://app.slack.com/client/T93ELUK42/browse-user-groups/user_groups/S0186KPJYG4).
-  If you don't have permission, ask in the Slack channel `#steering-toc-questions`.
+  If you don't have permission, ask in the Slack channel
+  `#steering-toc-questions`.
 - Email the next contacts, cc'ing `knative-dev@` with a short summaries of the
   user questions encountered and links to them.
 - Send updates to this process.
@@ -30,8 +31,9 @@ community contact's duty (subject to change) is as followed:
   flakiness to pick a test and focus on fixing it during your week. Once you
   pick the test flake, assign the corresponding bug filed by flakiness test
   reporter to yourself so that others won't pick the same test to fix.
-- Check the [knative-users@](https://groups.google.com/forum/#!forum/knative-users) mailing list
-  and `@serving-help` on Slack for unanswered questions.
+- Check the
+  [knative-users@](https://groups.google.com/forum/#!forum/knative-users)
+  mailing list and `@serving-help` on Slack for unanswered questions.
 - Check
   [unassigned issues / untriaged issues](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+no%3Aassignee+no%3Amilestone)
   for unanswered questions.
