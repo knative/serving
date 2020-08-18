@@ -19,15 +19,14 @@ package config
 import (
 	"context"
 
-	"knative.dev/serving/pkg/apis/config"
-
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 )
 
 type cfgKey struct{}
@@ -57,6 +56,7 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 // +k8s:deepcopy-gen=false
 type Store struct {
 	*configmap.UntypedStore
+	apiStore *config.Store
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated for Revisions
@@ -76,24 +76,46 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			},
 			onAfterStore...,
 		),
+		apiStore: config.NewStore(logger),
 	}
 	return store
 }
 
+func (s *Store) WatchConfigs(cmw configmap.Watcher) {
+	s.UntypedStore.WatchConfigs(cmw)
+	s.apiStore.WatchConfigs(cmw)
+}
+
 // ToContext persists the config on the context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
-	return ToContext(ctx, s.Load())
+	return s.apiStore.ToContext(ToContext(ctx, s.Load()))
 }
 
 // Load returns the config from the store.
 func (s *Store) Load() *Config {
-	return &Config{
-		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
-		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
-		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
-		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
-		Observability: s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
-		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
-		Autoscaler:    s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+	cfg := &Config{}
+
+	if def, ok := s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults); ok {
+		cfg.Defaults = def.DeepCopy()
 	}
+	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
+		cfg.Deployment = dep.DeepCopy()
+	}
+	if log, ok := s.UntypedLoad((logging.ConfigMapName())).(*logging.Config); ok {
+		cfg.Logging = log.DeepCopy()
+	}
+	if net, ok := s.UntypedLoad(network.ConfigName).(*network.Config); ok {
+		cfg.Network = net.DeepCopy()
+	}
+	if obs, ok := s.UntypedLoad(metrics.ConfigMapName()).(*metrics.ObservabilityConfig); ok {
+		cfg.Observability = obs.DeepCopy()
+	}
+	if tr, ok := s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config); ok {
+		cfg.Tracing = tr.DeepCopy()
+	}
+	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config); ok {
+		cfg.Autoscaler = as.DeepCopy()
+	}
+
+	return cfg
 }

@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 

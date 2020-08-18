@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -60,7 +59,6 @@ type Reconciler struct {
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
-	serviceLister       corev1listers.ServiceLister
 
 	resolver resolver
 }
@@ -123,7 +121,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				Name:        container.Name,
 				ImageDigest: digest,
 			}
-
 			return nil
 		})
 	}
@@ -139,25 +136,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	phases := []struct {
-		name string
-		f    func(context.Context, *v1.Revision) error
-	}{{
-		name: "image digest",
-		f:    c.reconcileDigest,
-	}, {
-		name: "user deployment",
-		f:    c.reconcileDeployment,
-	}, {
-		name: "image cache",
-		f:    c.reconcileImageCache,
-	}, {
-		name: "PA",
-		f:    c.reconcilePA,
-	}}
-
-	for _, phase := range phases {
-		if err := phase.f(ctx, rev); err != nil {
+	for _, phase := range []func(context.Context, *v1.Revision) error{
+		c.reconcileDigest, c.reconcileDeployment,
+		c.reconcileImageCache, c.reconcilePA,
+	} {
+		if err := phase(ctx, rev); err != nil {
 			return err
 		}
 	}
@@ -179,9 +162,7 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 		return
 	}
 
-	uid := string(rev.UID)
-
 	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid)
+		"${REVISION_UID}", string(rev.UID))
 }

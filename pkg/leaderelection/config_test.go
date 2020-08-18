@@ -17,7 +17,7 @@ limitations under the License.
 package leaderelection
 
 import (
-	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,7 +54,7 @@ func TestValidateConfig(t *testing.T) {
 		name     string
 		data     map[string]string
 		expected *kle.Config
-		err      error
+		err      string
 	}{{
 		name:     "OK",
 		data:     okData(),
@@ -66,16 +66,21 @@ func TestValidateConfig(t *testing.T) {
 			data["renewDeadline"] = "not a duration"
 			return data
 		}(),
-		err: errors.New(`failed to parse "renewDeadline": time: invalid duration not a duration`),
+		err: `failed to parse "renewDeadline": time: invalid duration`,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
-			if tc.err != nil && tc.err.Error() != actualErr.Error() {
-				t.Fatalf("%v: expected error %v, got %v", tc.name, tc.err, actualErr)
-			}
 
+			if actualErr != nil {
+				// Different versions of Go quote input differently, so check prefix.
+				if got, want := actualErr.Error(), tc.err; !strings.HasPrefix(got, want) {
+					t.Fatalf("Err = '%s', want: '%s'", got, want)
+				}
+			} else if tc.err != "" {
+				t.Fatal("Expected an error, got none")
+			}
 			if got, want := actualConfig, tc.expected; !cmp.Equal(got, want) {
 				t.Errorf("Config = %v, want: %v, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
 			}

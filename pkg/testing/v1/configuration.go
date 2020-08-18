@@ -106,6 +106,13 @@ func WithConfigLabel(key, value string) ConfigOption {
 	}
 }
 
+// WithConfigAnn attaches a particular label to the configuration.
+func WithConfigAnn(key, value string) ConfigOption {
+	return func(config *v1.Configuration) {
+		config.Annotations = kmeta.UnionMaps(config.Annotations, map[string]string{key: value})
+	}
+}
+
 // WithConfigOwnersRemoved clears the owner references of this Configuration.
 func WithConfigOwnersRemoved(cfg *v1.Configuration) {
 	cfg.OwnerReferences = nil

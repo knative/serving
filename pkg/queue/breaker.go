@@ -22,7 +22,8 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 )
 
 var (
@@ -50,9 +51,13 @@ type BreakerParams struct {
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	inFlight   int64
+	inFlight   atomic.Int64
 	totalSlots int64
 	sem        *semaphore
+
+	// release is the callback function returned to callers by Reserve to
+	// allow the reservation made by Reserve to be released.
+	release func()
 }
 
 // NewBreaker creates a Breaker with the desired queue depth,
@@ -67,11 +72,19 @@ func NewBreaker(params BreakerParams) *Breaker {
 	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
-	sem := newSemaphore(params.MaxConcurrency, params.InitialCapacity)
-	return &Breaker{
+
+	b := &Breaker{
 		totalSlots: int64(params.QueueDepth + params.MaxConcurrency),
-		sem:        sem,
+		sem:        newSemaphore(params.MaxConcurrency, params.InitialCapacity),
 	}
+
+	// Allocating the closure returned by Reserve here avoids an allocation in Reserve.
+	b.release = func() {
+		b.sem.release()
+		b.releasePending()
+	}
+
+	return b
 }
 
 // tryAcquirePending tries to acquire a slot on the pending "queue".
@@ -91,11 +104,11 @@ func (b *Breaker) tryAcquirePending() bool {
 	// (it fails if we're raced to it) or if we don't fulfill the condition
 	// anymore.
 	for {
-		cur := atomic.LoadInt64(&b.inFlight)
+		cur := b.inFlight.Load()
 		if cur == b.totalSlots {
 			return false
 		}
-		if atomic.CompareAndSwapInt64(&b.inFlight, cur, cur+1) {
+		if b.inFlight.CAS(cur, cur+1) {
 			return true
 		}
 	}
@@ -103,7 +116,7 @@ func (b *Breaker) tryAcquirePending() bool {
 
 // releasePending releases a slot on the pending "queue".
 func (b *Breaker) releasePending() {
-	atomic.AddInt64(&b.inFlight, -1)
+	b.inFlight.Dec()
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
@@ -118,10 +131,8 @@ func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 		b.releasePending()
 		return nil, false
 	}
-	return func() {
-		b.sem.release()
-		b.releasePending()
-	}, true
+
+	return b.release, true
 }
 
 // Maybe conditionally executes thunk based on the Breaker concurrency
@@ -153,7 +164,7 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
 
 // InFlight returns the number of requests currently in flight in this breaker.
 func (b *Breaker) InFlight() int {
-	return int(atomic.LoadInt64(&b.inFlight))
+	return int(b.inFlight.Load())
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.

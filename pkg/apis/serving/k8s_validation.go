@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	minUserID = 0
-	maxUserID = math.MaxInt32
+	minUserID, maxUserID   = 0, math.MaxInt32
+	minGroupID, maxGroupID = 0, math.MaxInt32
 )
 
 var (
@@ -273,6 +273,8 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
+	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
+
 	volumes, err := ValidateVolumes(ps.Volumes, AllMountedVolumes(ps.Containers))
 	if err != nil {
 		errs = errs.Also(err.ViaField("volumes"))
@@ -415,7 +417,7 @@ func validate(ctx context.Context, container corev1.Container, volumes sets.Stri
 	// Resources
 	errs = errs.Also(validateResources(&container.Resources).ViaField("resources"))
 	// SecurityContext
-	errs = errs.Also(validateSecurityContext(container.SecurityContext).ViaField("securityContext"))
+	errs = errs.Also(validateSecurityContext(ctx, container.SecurityContext).ViaField("securityContext"))
 	// TerminationMessagePolicy
 	switch container.TerminationMessagePolicy {
 	case corev1.TerminationMessageReadFile, corev1.TerminationMessageFallbackToLogsOnError, "":
@@ -435,16 +437,23 @@ func validateResources(resources *corev1.ResourceRequirements) *apis.FieldError 
 	return apis.CheckDisallowedFields(*resources, *ResourceRequirementsMask(resources))
 }
 
-func validateSecurityContext(sc *corev1.SecurityContext) *apis.FieldError {
+func validateSecurityContext(ctx context.Context, sc *corev1.SecurityContext) *apis.FieldError {
 	if sc == nil {
 		return nil
 	}
-	errs := apis.CheckDisallowedFields(*sc, *SecurityContextMask(sc))
+	errs := apis.CheckDisallowedFields(*sc, *SecurityContextMask(ctx, sc))
 
 	if sc.RunAsUser != nil {
 		uid := *sc.RunAsUser
 		if uid < minUserID || uid > maxUserID {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(uid, minUserID, maxUserID, "runAsUser"))
+		}
+	}
+
+	if sc.RunAsGroup != nil {
+		gid := *sc.RunAsGroup
+		if gid < minGroupID || gid > maxGroupID {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "runAsGroup"))
 		}
 	}
 	return errs
@@ -630,6 +639,49 @@ func ValidateNamespacedObjectReference(p *corev1.ObjectReference) *apis.FieldErr
 	} else if verrs := validation.IsDNS1123Label(p.Name); len(verrs) != 0 {
 		errs = errs.Also(apis.ErrInvalidValue(strings.Join(verrs, ", "), "name"))
 	}
+	return errs
+}
+
+// ValidatePodSecurityContext validates the PodSecurityContext struct. All fields are disallowed
+// unless the 'PodSpecSecurityContext' feature flag is enabled
+//
+// See the allowed properties in the `PodSecurityContextMask`
+func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityContext) *apis.FieldError {
+	if sc == nil {
+		return nil
+	}
+
+	errs := apis.CheckDisallowedFields(*sc, *PodSecurityContextMask(ctx, sc))
+
+	if sc.RunAsUser != nil {
+		uid := *sc.RunAsUser
+		if uid < minUserID || uid > maxUserID {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(uid, minUserID, maxUserID, "runAsUser"))
+		}
+	}
+
+	if sc.RunAsGroup != nil {
+		gid := *sc.RunAsGroup
+		if gid < minGroupID || gid > maxGroupID {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "runAsGroup"))
+		}
+	}
+
+	if sc.FSGroup != nil {
+		gid := *sc.FSGroup
+		if gid < minGroupID || gid > maxGroupID {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "fsGroup"))
+		}
+	}
+
+	for i, gid := range sc.SupplementalGroups {
+		if gid < minGroupID || gid > maxGroupID {
+			err := apis.ErrOutOfBoundsValue(gid, minGroupID, maxGroupID, "").
+				ViaFieldIndex("supplementalGroups", i)
+			errs = errs.Also(err)
+		}
+	}
+
 	return errs
 }
 

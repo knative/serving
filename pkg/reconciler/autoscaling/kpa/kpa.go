@@ -140,13 +140,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	// If SKS is not ready — ensure we're not becoming ready.
 	// TODO: see if we can perhaps propagate the SKS state to computing active status.
-	if !sks.IsReady() {
-		logger.Debug("SKS is not ready, marking SKS status not ready")
-		ready = 0
-		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
-	} else {
+	if sks.IsReady() {
 		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
+	} else {
+		logger.Debug("SKS is not ready, marking SKS status not ready")
+		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).Message)
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
@@ -275,9 +274,10 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 
 // activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
-	min, _ := pa.ScaleBounds()
+	asConfig := config.FromContext(ctx).Autoscaler
+	min, _ := pa.ScaleBounds(asConfig)
 	if !pa.Status.IsScaleTargetInitialized() {
-		initialScale := resources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
+		initialScale := resources.GetInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))
 	}
 	return int(intMax(min, 1))

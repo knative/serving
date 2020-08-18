@@ -122,7 +122,6 @@ func TestEndpointsToDests(t *testing.T) {
 				t.Errorf("Got unexpected notReady dests (-want, +got): %s", cmp.Diff(want, got))
 			}
 		})
-
 	}
 }
 

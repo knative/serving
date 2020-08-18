@@ -44,20 +44,26 @@ func Collect(
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
+	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
+	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
+		return nil // all deletion settings are disabled
+	}
+
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
 	revs, err := revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
 		return err
 	}
-
-	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
-	if len(revs) <= min ||
-		max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
-		return nil
+	if len(revs) <= min {
+		return nil // not enough total revs
 	}
 
 	// Filter out active revs
 	revs = nonactiveRevisions(revs, config)
+
+	if len(revs) <= min {
+		return nil // not enough non-active revs
+	}
 
 	// Sort by last active ascending (oldest first)
 	sort.Slice(revs, func(i, j int) bool {
@@ -93,7 +99,7 @@ func Collect(
 	logger.Infof("Maximum number of revisions (%d) reached, deleting oldest non-active (%d) revisions",
 		max, len(revs)-max)
 	for _, rev := range revs[max:] {
-		logger.Info("Deleting non-active revision: " + rev.ObjectMeta.Name)
+		logger.Info("Deleting non-active revision: ", rev.ObjectMeta.Name)
 		if err := client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.Errorw("Failed to GC revision: "+rev.Name, zap.Error(err))
 		}

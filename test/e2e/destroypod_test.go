@@ -33,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -49,8 +48,6 @@ const (
 
 func TestDestroyPodInflight(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -159,9 +156,6 @@ const revisionTimeout = 5 * time.Minute
 func TestDestroyPodTimely(t *testing.T) {
 	// Not running in parallel on purpose.
 
-	cancel := logstream.Start(t)
-	defer cancel()
-
 	clients := Setup(t)
 
 	names := test.ResourceNames{
@@ -244,8 +238,7 @@ func TestDestroyPodTimely(t *testing.T) {
 }
 
 func TestDestroyPodWithRequests(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
+	// Not running in parallel on purpose.
 
 	clients := Setup(t)
 

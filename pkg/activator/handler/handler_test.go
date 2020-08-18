@@ -25,19 +25,18 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
@@ -45,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,10 +129,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := (New(ctx, test.throttler)).(*activationHandler)
-
-			// Setup transports.
-			handler.transport = rt
+			handler := New(ctx, test.throttler, rt)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -173,8 +168,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-	handler.transport = rt
+	handler := New(ctx, fakeThrottler{}, rt)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -252,12 +246,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-			handler.transport = rt
-			handler.tracingTransport = &ochttp.Transport{
-				Base:        rt,
-				Propagation: tracecontextb3.B3Egress,
-			}
+			handler := New(ctx, fakeThrottler{}, rt)
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -280,7 +269,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler, store *activatorconfig.Store) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	ctx := store.ToContext(req.Context())
@@ -328,8 +317,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{})).(*activationHandler)
-		handler.transport = rt
+		handler := New(ctx, fakeThrottler{}, rt)
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -346,7 +334,7 @@ func BenchmarkHandler(b *testing.B) {
 			if resp.code != http.StatusOK {
 				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
 			}
-			if got, want := resp.size, int32(len(body)); got != want {
+			if got, want := resp.size.Load(), int32(len(body)); got != want {
 				b.Fatalf("|body| = %d, want = %d", got, want)
 			}
 		}
@@ -370,7 +358,7 @@ func BenchmarkHandler(b *testing.B) {
 }
 
 func randomString(n int) string {
-	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letter := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	b := make([]rune, n)
 	for i := range b {
@@ -383,7 +371,7 @@ func randomString(n int) string {
 // that captures the response code and size.
 type responseRecorder struct {
 	code int
-	size int32
+	size atomic.Int32
 }
 
 func (rr *responseRecorder) Flush() {}
@@ -393,7 +381,7 @@ func (rr *responseRecorder) Header() http.Header {
 }
 
 func (rr *responseRecorder) Write(p []byte) (int, error) {
-	atomic.AddInt32(&rr.size, int32(len(p)))
+	rr.size.Add(int32(len(p)))
 	return ioutil.Discard.Write(p)
 }
 

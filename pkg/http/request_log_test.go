@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 var (

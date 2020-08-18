@@ -28,8 +28,10 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-type revisionKey struct{}
-type revIDKey struct{}
+type (
+	revisionKey struct{}
+	revIDKey    struct{}
+)
 
 // WithRevision attaches the Revision object to the context.
 func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {

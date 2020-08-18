@@ -54,6 +54,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opencensus.io/resource"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
@@ -275,8 +276,9 @@ func TestReconcile(t *testing.T) {
 	defaultMetric := metric(testNamespace, testRevision)
 
 	underscaledReady := makeReadyPods(underscale, testNamespace, testRevision)
+	preciseReady := makeReadyPods(defaultScale, testNamespace, testRevision)
 	overscaledReady := makeReadyPods(overscale, testNamespace, testRevision)
-	defaultReady := makeReadyPods(1, testNamespace, testRevision)
+	defaultReady := makeReadyPods(1, testNamespace, testRevision)[0]
 
 	type deciderKey struct{}
 	type asConfigKey struct{}
@@ -301,23 +303,22 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "steady state",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(testNamespace, testRevision),
-			defaultDeployment}, defaultReady...),
+			defaultDeployment, defaultReady},
 	}, {
 		Name: "status update retry",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPAMetricsService(privateSvc), WithPAStatusService(testRevision),
 				withScales(0, defaultScale)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 				if retryAttempted || !action.Matches("update", "podautoscalers") || action.GetSubresource() != "status" {
@@ -341,11 +342,11 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "failure-creating-metric-object",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
-			defaultDeployment}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "metrics"),
 		},
@@ -360,13 +361,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "failure-updating-metric-object",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			defaultDeployment,
-			metricWithDiffSvc(testNamespace, testRevision),
-		}, defaultReady...),
+			metricWithDiffSvc(testNamespace, testRevision), defaultReady},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "metrics"),
 		},
@@ -381,11 +381,10 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create metric",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, markScaleTargetInitialized,
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
-			defaultSKS, defaultDeployment,
-		}, defaultReady...),
+			defaultSKS, defaultDeployment, defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithTraffic, markScaleTargetInitialized,
 				withScales(1, defaultScale), WithPASKSReady, WithPAStatusService(testRevision),
@@ -397,14 +396,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "scale up deployment",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), withScales(1, defaultScale), WithPAStatusService(testRevision),
 				WithObservedGeneration(1)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
-		}, defaultReady...),
+			deploy(testNamespace, testRevision), defaultReady},
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: testNamespace,
@@ -419,13 +417,12 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("patch", "deployments"),
 		},
 		WantErr: true,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
-		}, defaultReady...),
+			deploy(testNamespace, testRevision), defaultReady},
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: testNamespace,
@@ -466,11 +463,11 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
 				WithPrivateService),
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment},
+			preciseReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, withScales(0, defaultScale),
-				WithPASKSNotReady(""), WithBufferedTraffic,
+			Object: kpa(testNamespace, testRevision, withScales(defaultScale, defaultScale),
+				WithPASKSNotReady(""), WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 		}},
 	}, {
@@ -490,13 +487,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "kpa does not become ready without minScale endpoints when reachable",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady,
 				WithBufferedTraffic, withMinScale(2), WithPAMetricsService(privateSvc),
@@ -506,13 +502,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "kpa does not become ready without minScale endpoints when reachability is unknown",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
 				WithPAMetricsService(privateSvc), WithReachabilityUnknown),
 			defaultSKS,
 			metric(testNamespace, testRevision),
 			defaultDeployment,
-		}, defaultReady...),
+			defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady,
 				WithBufferedTraffic, withMinScale(2), WithPAMetricsService(privateSvc),
@@ -522,13 +518,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "kpa becomes ready without minScale endpoints when unreachable",
 		Key:  key,
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
 				WithPAMetricsService(privateSvc), WithReachabilityUnreachable),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady,
 				WithTraffic, markScaleTargetInitialized, withMinScale(2), WithPAMetricsService(privateSvc),
@@ -718,13 +713,12 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markOld,
 				withScales(0, 0), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
-		}, defaultReady...),
+			deploy(testNamespace, testRevision), defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(1, 0),
 				WithPASKSReady, WithPAMetricsService(privateSvc),
@@ -741,27 +735,25 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, withScales(1, 1),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
-		}, defaultReady...),
+			deploy(testNamespace, testRevision), defaultReady},
 	}, {
 		Name: "activation failure",
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic, markOld,
 				WithPAStatusService(testRevision), withScales(0, 0),
 				WithPAMetricsService(privateSvc)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
-		}, defaultReady...),
+			deploy(testNamespace, testRevision), defaultReady},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized, WithPASKSReady, WithPAMetricsService(privateSvc),
 				WithNoTraffic("TimedOut", "The target could not be activated."), withScales(1, 0),
@@ -786,7 +778,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, unknownScale, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			inactiveKPAMinScale(0), underscaledDeployment,
+			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
 				WithPubService, WithPrivateService),
 			defaultMetric,
@@ -798,13 +790,13 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, 1, 0 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			inactiveKPAMinScale(0), underscaledDeployment,
+			inactiveKPAMinScale(underscale), underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
 				WithPubService, WithPrivateService),
 			defaultMetric,
 		}, underscaledReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: activatingKPAMinScale(0),
+			Object: activatingKPAMinScale(underscale),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -931,29 +923,27 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 	}, {
 		Name: "steady, proxy mode, many activators requested",
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-42 /* ebc */, 1982 /*numActivators*/)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
 				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName),
 				WithProxyMode, WithSKSReady, WithNumActivators(4)),
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName),
 				WithProxyMode, WithSKSReady, WithNumActivators(1982)),
@@ -964,15 +954,14 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				-18 /* ebc */, scaling.MinActivators+1)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
 				WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
 				WithNumActivators(2)),
 			metric(testNamespace, testRevision),
-			defaultDeployment,
-		}, defaultReady...),
+			defaultDeployment, defaultReady},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
 				WithDeployRef(deployName), WithProxyMode, WithNumActivators(scaling.MinActivators+1)),
@@ -983,7 +972,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
 				1 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
 				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
 				WithPAStatusService(testRevision), WithObservedGeneration(1)),
@@ -991,7 +980,7 @@ func TestReconcile(t *testing.T) {
 				WithNumActivators(3)),
 			metric(testNamespace, testRevision),
 			defaultDeployment,
-		}, defaultReady...),
+			defaultReady},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithSKSReady,
 				WithDeployRef(deployName), WithNumActivators(2)),
@@ -1055,17 +1044,16 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
-				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName),
-			),
+				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
-		}, makeReadyPods(0, testNamespace, testRevision)...),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized,
 				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
@@ -1080,7 +1068,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				0 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(0, scaleUnknown),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc), WithPASKSNotReady(""),
 			),
@@ -1089,7 +1077,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
-		}, makeReadyPods(0, testNamespace, testRevision)...),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSNotReady(""), WithBufferedTraffic, markScaleTargetInitialized,
 				withScales(0, scaleUnknown), WithReachabilityReachable,
@@ -1107,7 +1095,7 @@ func TestReconcile(t *testing.T) {
 				WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
 			),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
@@ -1223,13 +1211,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to start informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 		waitInformers()
-	}()
+	})
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("failed to start configmap watcher:", err)
@@ -1294,18 +1282,18 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		wf()
 		eg.Wait()
-	}()
+	})
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 
-	pods := makeReadyPods(1, testNamespace, testRevision)
-	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pods[0].(*corev1.Pod))
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pods[0].(*corev1.Pod))
+	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
+	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pod)
+	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
@@ -1354,7 +1342,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
@@ -1365,9 +1353,9 @@ func TestUpdate(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	pods := makeReadyPods(1, testNamespace, testRevision)
-	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pods[0].(*corev1.Pod))
-	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pods[0].(*corev1.Pod))
+	pod := makeReadyPods(1, testNamespace, testRevision)[0].(*corev1.Pod)
+	fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pod)
+	fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(pod)
 
 	kpa := revisionresources.MakePA(rev)
 	kpa.SetDefaults(context.Background())
@@ -1433,10 +1421,10 @@ func TestControllerCreateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		waitInformers()
-	}()
+	})
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1474,10 +1462,10 @@ func TestControllerUpdateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		waitInformers()
-	}()
+	})
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1515,10 +1503,10 @@ func TestControllerGetError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		waitInformers()
-	}()
+	})
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1555,10 +1543,10 @@ func TestScaleFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		waitInformers()
-	}()
+	})
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 
@@ -1773,11 +1761,14 @@ var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)
-	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      testRevision,
-		metricskey.LabelNamespaceName:     testNamespace,
-		metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
-		metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelRevisionName:      testRevision,
+			metricskey.LabelNamespaceName:     testNamespace,
+			metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
+			metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+		},
 	}
 	pc := podCounts{
 		want:        1982,
@@ -1787,11 +1778,14 @@ func TestMetricsReporter(t *testing.T) {
 		terminating: 1983,
 	}
 	reportMetrics(pa, pc)
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1983)
+	wantMetrics := []metricstest.Metric{
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1983, nil).WithResource(wantResource),
+	}
+	metricstest.AssertMetric(t, wantMetrics...)
 
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
@@ -1799,11 +1793,14 @@ func TestMetricsReporter(t *testing.T) {
 	reportMetrics(pa, pc)
 
 	// Basically same values and change to `terminating` to verify reporting has occurred.
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1955)
+	wantMetrics = []metricstest.Metric{
+		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
+		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
+		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
+		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
+		metricstest.IntMetric("terminating_pods", 1955, nil).WithResource(wantResource),
+	}
+	metricstest.AssertMetric(t, wantMetrics...)
 }
 
 func TestResolveScrapeTarget(t *testing.T) {

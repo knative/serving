@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -38,8 +37,6 @@ import (
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{
@@ -57,8 +54,6 @@ func TestInitScaleZero(t *testing.T) {
 // the revision level.
 func TestInitScalePositive(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{
@@ -67,8 +62,22 @@ func TestInitScalePositive(t *testing.T) {
 	}
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Log("Creating a new Service with initialScale 3 and verifying that pods are created")
-	createAndVerifyInitialScaleService(t, clients, names, 3)
+	const initialScale = 3
+	t.Logf("Creating a new Service with initialScale %d and verifying that pods are created", initialScale)
+	createAndVerifyInitialScaleService(t, clients, names, initialScale)
+
+	t.Logf("Waiting for Service %q to scale back below initialScale", names.Service)
+	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (b bool, e error) {
+		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
+		podList, err := pods.List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Service),
+			FieldSelector: "status.phase!=Terminating",
+		})
+
+		return len(podList.Items) < initialScale, err
+	}, "ServiceScaledBelowInitial"); err != nil {
+		t.Fatal("Service did not scale back below initialScale:", err)
+	}
 }
 
 func createAndVerifyInitialScaleService(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {

@@ -38,6 +38,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -49,7 +50,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -164,7 +164,6 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		prober.ExpectsBody(queue.Name),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}))
-
 }
 
 func (rw *revisionWatcher) getDest() (string, error) {

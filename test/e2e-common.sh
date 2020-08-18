@@ -61,7 +61,7 @@ HA_COMPONENTS=()
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      [[ $2 =~ ^(stable|latest)$ ]] || abort "version format must be 'stable' or 'latest'"
       readonly ISTIO_VERSION=$2
       readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
@@ -128,6 +128,13 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --kong-version)
+      # currently, the value of --kong-version is ignored
+      # latest version of Kong pinned in third_party will be installed
+      readonly KONG_VERSION=$2
+      readonly INGRESS_CLASS="kong"
+      return 2
+      ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
       export SYSTEM_NAMESPACE=$2
@@ -179,41 +186,32 @@ function install_knative_serving() {
 }
 
 function install_istio() {
-  # If no gateway was set on command line, assume Istio
   if [[ -z "${ISTIO_VERSION}" ]]; then
-    echo ">> No gateway set up on command line, using Istio"
-    readonly ISTIO_VERSION="1.4-latest"
+    readonly ISTIO_VERSION="stable"
   fi
 
-  local istio_base="./third_party/istio-${ISTIO_VERSION}"
-  INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
+  local NET_ISTIO_DIR=$(mktemp -d)
+  git clone --quiet --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
+  git --git-dir "${NET_ISTIO_DIR}/.git" checkout 7398a24a5fa9b06154ce5ef6b551fce856591b08
+
   if (( MESH )); then
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml"
+    ISTIO_PROFILE="istio-ci-mesh.yaml"
   else
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
+    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
   fi
 
-  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
-  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+  echo ">> Installing Istio"
+  echo "Istio version: ${ISTIO_VERSION}"
+  echo "Istio profile: ${ISTIO_PROFILE}"
+  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
-  echo ">> Bringing up Istio"
-  echo ">> Running Istio CRD installer"
-  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
-  wait_until_batch_job_complete istio-system || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_CRD_YAML}" )
-
-  echo ">> Running Istio"
-  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_YAML}" )
-
-  # If the yaml for the Istio Ingress controller is passed, then install it.
   if [[ -n "$1" ]]; then
-    echo ">> Installing Istio Ingress"
-    echo "Istio Ingress YAML: ${1}"
+    echo ">> Installing net-istio"
+    echo "net-istio original YAML: ${1}"
     # Create temp copy in which we replace knative-serving by the test's system namespace.
     local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
     sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
-    echo "Istio Ingress YAML: $YAML_NAME"
+    echo "net-istio patched YAML: $YAML_NAME"
     ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
     UNINSTALL_LIST+=( "${YAML_NAME}" )
   fi
@@ -246,6 +244,19 @@ function install_kourier() {
   kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
 }
 
+function install_kong() {
+  local INSTALL_KONG_YAML="./third_party/kong-latest/kong.yaml"
+  echo "Kong YAML: ${INSTALL_KONG_YAML}"
+  echo ">> Bringing up Kong"
+
+  kubectl apply -f ${INSTALL_KONG_YAML} || return 1
+  UNINSTALL_LIST+=( "${INSTALL_KONG_YAML}" )
+
+  echo ">> Patching Kong"
+  # Scale replicas of the Kong gateways to handle large qps
+  kubectl scale -n kong deployment ingress-kong --replicas=6
+}
+
 function install_ambassador() {
   local AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
   echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
@@ -275,7 +286,7 @@ function install_contour() {
   echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
 
   echo ">> Bringing up Contour"
-  kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+  sed 's/--log-level info/--log-level debug/g' "${INSTALL_CONTOUR_YAML}" | kubectl apply -f - || return 1
 
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
   HA_COMPONENTS+=( "contour-ingress-controller" )
@@ -284,6 +295,9 @@ function install_contour() {
   sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
   echo ">> Bringing up net-contour"
   kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
+
+  # Disable verbosity until https://github.com/golang/go/issues/40771 is fixed.
+  export GO_TEST_VERBOSITY=standard-quiet
 
   UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
@@ -343,6 +357,8 @@ function install_knative_serving_standard() {
     install_ambassador || return 1
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
     install_contour || return 1
+  elif [[ -n "${KONG_VERSION}" ]]; then
+    install_kong || return 1
   else
     if [[ "$1" == "HEAD" ]]; then
       install_istio "./third_party/net-istio.yaml" || return 1
@@ -580,6 +596,14 @@ function test_setup() {
     wait_until_pods_running contour-internal || return 1
     wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
   fi
+  if [[ -n "${KONG_VERSION}" ]]; then
+    # we must set these override values to allow the test spoofing client to work with Kong
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=kong-proxy
+    export GATEWAY_NAMESPACE_OVERRIDE=kong
+    wait_until_pods_running kong || return 1
+    wait_until_service_has_external_http_address kong kong-proxy
+  fi
 
   if (( INSTALL_MONITORING )); then
     echo ">> Waiting for Monitoring to be running..."
@@ -641,6 +665,19 @@ function toggle_feature() {
   echo -n "Setting feature ${FEATURE} to ${STATE}"
   kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
   # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
+}
+
+function immediate_gc() {
+  echo -n "Setting config-gc to immediate garbage collection"
+  local DATA='{"data":{'`
+      `'"retain-since-create-time":"disabled",'`
+      `'"retain-since-last-active-time":"disabled",'`
+      `'"min-non-active-revisions":"0",'`
+      `'"max-non-active-revisions":"0"'`
+      `"}}"
+  kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
   echo "Waiting 30s for change to get picked up."
   sleep 30
 }

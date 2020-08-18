@@ -21,11 +21,10 @@ import (
 	"net/http"
 	"testing"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -42,8 +41,7 @@ import (
 // In order to run this test, the tag hearder based routing feature needs to be turned on:
 // https://github.com/knative/serving/blob/master/config/core/configmaps/network.yaml#L115
 func TestTagHeaderBasedRouting(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
+	t.Parallel()
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{

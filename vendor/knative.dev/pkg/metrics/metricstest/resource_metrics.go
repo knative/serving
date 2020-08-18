@@ -41,6 +41,10 @@ type Value struct {
 	Int64        *int64
 	Float64      *float64
 	Distribution *metricdata.Distribution
+	// VerifyDistributionCountOnly makes Equal compare the Distribution with the
+	// field Count only, and ingore all other fields of Distribution.
+	// This is ingored when the value is not a Distribution.
+	VerifyDistributionCountOnly bool
 }
 
 // Metric provides a simplified (for testing) implementation of a metric report
@@ -93,7 +97,9 @@ func NewMetric(metric *metricdata.Metric) Metric {
 	for _, ts := range metric.TimeSeries {
 		tags := make(map[string]string, len(metric.Descriptor.LabelKeys))
 		for i, k := range metric.Descriptor.LabelKeys {
-			tags[k.Key] = ts.LabelValues[i].Value
+			if ts.LabelValues[i].Present {
+				tags[k.Key] = ts.LabelValues[i].Value
+			}
 		}
 		v := Value{Tags: tags}
 		ts.Points[0].ReadValue(&v)
@@ -139,30 +145,37 @@ func GetOneMetric(name string) Metric {
 	return m[0]
 }
 
-func genericMetricFactory(name string, v Value, keyvalues ...string) Metric {
-	if len(keyvalues)%2 != 0 {
-		panic("Odd number of arguments to CountMetric")
-	}
-	if v.Tags == nil {
-		v.Tags = make(map[string]string, len(keyvalues)/2)
-	}
-	for i := 0; i < len(keyvalues); i += 2 {
-		v.Tags[keyvalues[i]] = keyvalues[i+1]
-	}
+// IntMetric creates an Int64 metric.
+func IntMetric(name string, value int64, tags map[string]string) Metric {
 	return Metric{
 		Name:   name,
-		Values: []Value{v},
+		Values: []Value{{Int64: &value, Tags: tags}},
 	}
 }
 
-// IntMetric is a shortcut factory for creating an Int64 metric.
-func IntMetric(name string, value int64, keyvalues ...string) Metric {
-	return genericMetricFactory(name, Value{Int64: &value}, keyvalues...)
+// FloatMetric creates a Float64 metric
+func FloatMetric(name string, value float64, tags map[string]string) Metric {
+	return Metric{
+		Name:   name,
+		Values: []Value{{Float64: &value, Tags: tags}},
+	}
 }
 
-// FloatMetric is a shortcut factor for creating a Float64 metric
-func FloatMetric(name string, value float64, keyvalues ...string) Metric {
-	return genericMetricFactory(name, Value{Float64: &value}, keyvalues...)
+// DistributionCountOnlyMetric creates a distrubtion metric for test, and verifying only the count.
+func DistributionCountOnlyMetric(name string, count int64, tags map[string]string) Metric {
+	return Metric{
+		Name: name,
+		Values: []Value{{
+			Distribution:                &metricdata.Distribution{Count: count},
+			Tags:                        tags,
+			VerifyDistributionCountOnly: true}},
+	}
+}
+
+// WithResource sets the resource of the metric.
+func (m Metric) WithResource(r *resource.Resource) Metric {
+	m.Resource = r
+	return m
 }
 
 // AssertMetric verifies that the metrics have the specified values. Note that
@@ -297,6 +310,9 @@ func (v Value) Equal(other Value) bool {
 		}
 		if v.Distribution.Count != other.Distribution.Count {
 			return false
+		}
+		if v.VerifyDistributionCountOnly || other.VerifyDistributionCountOnly {
+			return true
 		}
 		if v.Distribution.Sum != other.Distribution.Sum {
 			return false

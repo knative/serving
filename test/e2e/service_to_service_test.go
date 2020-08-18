@@ -168,8 +168,6 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -250,8 +248,6 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 // we're waiting for target app to be scaled to zero
 func TestSvcToSvcViaActivator(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -269,8 +265,6 @@ func TestSvcToSvcViaActivator(t *testing.T) {
 // But it's only accessible from external via the external domain
 func TestCallToPublicService(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 

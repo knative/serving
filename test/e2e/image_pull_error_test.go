@@ -21,56 +21,46 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/pkg/test/logstream"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
 
 func TestImagePullError(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
+		Config: test.ObjectNameForTest(t),
 		// TODO: Replace this when sha256 is broken.
 		Image: "ubuntu@sha256:0000000000000000000000000000000000000000000000000000000000000000",
 	}
 
 	test.EnsureTearDown(t, clients, &names)
 
-	t.Logf("Creating a new Service %s", names.Image)
-	var (
-		svc *v1.Service
-		err error
-	)
-	if svc, err = createLatestService(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
+	t.Logf("Creating a new Configuration  %s:%s", names.Config, names.Image)
+	_, err := createLatestConfig(t, clients, names)
+	if err != nil {
+		t.Fatalf("Failed to create Config %s: %v", names.Config, err)
 	}
 
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
+	const wantCfgReason = "RevisionFailed"
+	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1.Configuration) (bool, error) {
+		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if cond.Reason == "RevisionFailed" {
+				if cond.Reason == wantCfgReason {
 					return true, nil
 				}
 			}
-			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the service %s was not marked with expected error condition, but with (Reason=%q, Message=%q, Status=%q)",
-				names.Service, cond.Reason, cond.Message, cond.Status)
+			t.Logf("Reason: %q; Message: %q; Status: %q", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("the Config %s ReadyCondition = (Reason=%q, Message=%q, Status=%q), wantReason: %q",
+				names.Config, cond.Reason, cond.Message, cond.Status, wantCfgReason)
 		}
 		return false, nil
-	}, "ContainerUnpullable")
-
-	if err != nil {
-		t.Fatal("Failed to validate service state:", err)
+	}, "ContainerUnpullable"); err != nil {
+		t.Fatal("Failed to validate configuration state:", err)
 	}
 
 	revisionName, err := revisionFromConfiguration(clients, names.Config)
@@ -79,28 +69,24 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+	wantRevReasons := sets.NewString("ImagePullBackOff", "ErrImagePull")
+	if err := v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
-			if cond.Reason == "ImagePullBackOff" || cond.Reason == "ErrImagePull" {
+			if wantRevReasons.Has(cond.Reason) {
 				return true, nil
 			}
-			return true, fmt.Errorf("the revision %s was not marked with expected error condition, but with (Reason=%q, Message=%q)",
-				revisionName, cond.Reason, cond.Message)
+			return true, fmt.Errorf("the Revision %s ReadyCondition = (Reason=%q, Message=%q), wantReasons: %v",
+				revisionName, cond.Reason, cond.Message, wantRevReasons.UnsortedList())
 		}
 		return false, nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
 }
 
-// Wrote our own thing so that we can pass in an image by digest.
-// knative/pkg/test.ImagePath currently assumes there's a tag, which fails to parse.
-func createLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1.Service, error) {
-	opt := rtesting.WithConfigSpec(*v1test.ConfigurationSpec(names.Image))
-	service := rtesting.ServiceWithoutNamespace(names.Service, opt)
-	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+func createLatestConfig(t *testing.T, clients *test.Clients, names test.ResourceNames) (*v1.Configuration, error) {
+	return v1test.CreateConfiguration(t, clients, names, func(c *v1.Configuration) {
+		c.Spec = *v1test.ConfigurationSpec(names.Image)
+	})
 }
