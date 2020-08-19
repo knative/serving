@@ -37,8 +37,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-const duration = 1 * time.Minute
-
 // setup creates all the clients that we need to interact with in our tests
 func setup() (*test.Clients, error) {
 	pkgTest.SetupLoggingFlags()
