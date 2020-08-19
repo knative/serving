@@ -296,13 +296,13 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	owner := f.bs.Owner(sm.Key.String())
 	arr := f.getIP(owner)
 	if arr[0] == f.selfIP {
-		l.Infof("## accept rev %s\n", sm.Key.String())
+		l.Infof("## accept rev %s: %+v", sm.Key.String(), sm)
 		f.accept(sm)
 		return
 	}
 
 	if ws, ok := f.wsMap[owner]; ok {
-		l.Infof("## forward rev %s to %s, owned by %s", sm.Key.String(), owner, arr[1])
+		l.Infof("## forward rev %s to %s: %+v", sm.Key.String(), arr[1], sm)
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {

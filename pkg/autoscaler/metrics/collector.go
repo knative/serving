@@ -288,6 +288,8 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, clock clock.C
 				}
 
 				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
+				logger.Infof("scrape metrics: %+v", stat)
+
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 				}

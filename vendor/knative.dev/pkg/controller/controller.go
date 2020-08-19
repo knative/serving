@@ -390,8 +390,8 @@ func (c *Impl) EnqueueNamespaceOf(obj interface{}) {
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.workQueue.Add(key)
-	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
-		Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
+	//c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
+	//	Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
 }
 
 // MaybeEnqueueBucketKey takes a Bucket and namespace/name string and puts it onto
@@ -406,8 +406,8 @@ func (c *Impl) MaybeEnqueueBucketKey(bkt reconciler.Bucket, key types.Namespaced
 // the work queue after given delay.
 func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 	c.workQueue.AddAfter(key, delay)
-	c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
-		Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
+	//c.logger.With(zap.Object(logkey.Key, logging.NamespacedName(key))).
+	//	Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
 }
 
 // RunContext starts the controller's worker threads, the number of which is threadiness.
@@ -479,7 +479,7 @@ func (c *Impl) processNextWorkItem() bool {
 	key := obj.(types.NamespacedName)
 	keyStr := safeKey(key)
 
-	c.logger.Debugf("Processing from queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
+	// c.logger.Debugf("Processing from queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
 
 	startTime := time.Now()
 	// Send the metrics for the current queue depth
@@ -517,7 +517,7 @@ func (c *Impl) processNextWorkItem() bool {
 	// Finally, if no error occurs we Forget this item so it does not
 	// have any delay when another change happens.
 	c.workQueue.Forget(key)
-	logger.Info("Reconcile succeeded. Time taken: ", time.Since(startTime))
+	// logger.Info("Reconcile succeeded. Time taken: ", time.Since(startTime))
 
 	return true
 }
