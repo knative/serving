@@ -168,6 +168,7 @@ func main() {
 	// DO NOT SUBMIT
 	// TODO: Add IP validation.
 	selfIP := os.Getenv("POD_IP")
+	selfPod := os.Getenv("POD_NAME")
 	// TODO: Read config from configmap.
 	cc := leaderelection.ComponentConfig{
 		Component:     "autoscaler",
@@ -178,7 +179,7 @@ func main() {
 		LeaseName: func(i uint32) string {
 			return endpointsBucketName(i, 10)
 		},
-		Identity: selfIP,
+		Identity: selfIP + "/" + selfPod,
 	}
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 	// accept is the func to call when this pod owns the given StatMessage.

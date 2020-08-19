@@ -19,6 +19,7 @@ package statforwarder
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -139,13 +140,20 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	leader := *l.Spec.HolderIdentity
-	if leader == "" {
+	identity := *l.Spec.HolderIdentity
+	if identity == "" {
 		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
 		return
 	}
+	arr := strings.Split(identity, "/")
+	leader := arr[0]
+	if f.getIP(l.Name)[0] == identity {
+		// Already up-to-date.
+		return
+	}
 
-	f.setIP(l.Name, leader)
+	f.setIP(l.Name, identity)
+
 	if leader != f.selfIP {
 		f.logger.Debugf("Skip updating Endpoints %s, not the leader", n)
 		return
@@ -203,8 +211,9 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, name string) error {
 			IP: f.selfIP,
 		}},
 		Ports: []v1.EndpointPort{{
-			Name: autoscalerPortName,
-			Port: autoscalerPort,
+			Name:     autoscalerPortName,
+			Port:     autoscalerPort,
+			Protocol: v1.ProtocolTCP,
 		}}},
 	}
 
@@ -228,7 +237,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, name string) error {
 				return err
 			}
 
-			f.logger.Info("Bucket Endpoints updated: ", e.Name)
+			f.logger.Infof("Bucket Endpoints %s updated with IP %s", name, f.selfIP)
 			return nil
 		})
 		return nil
@@ -285,14 +294,15 @@ func (f *Forwarder) deleteService(ns, name string) error {
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	l := f.logger.With(zap.String("rev", sm.Key.String()))
 	owner := f.bs.Owner(sm.Key.String())
-	if f.getIP(owner) == f.selfIP {
+	arr := f.getIP(owner)
+	if arr[0] == f.selfIP {
 		l.Infof("## accept rev %s\n", sm.Key.String())
 		f.accept(sm)
 		return
 	}
 
 	if ws, ok := f.wsMap[owner]; ok {
-		l.Infof("## forward rev %s to %s\n", sm.Key.String(), owner)
+		l.Infof("## forward rev %s to %s, owned by %s", sm.Key.String(), owner, arr[1])
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {
@@ -314,16 +324,18 @@ func (f *Forwarder) Cancel() {
 	}
 }
 
-func (f *Forwarder) getIP(name string) string {
+func (f *Forwarder) getIP(name string) []string {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
-	return f.b2IP[name]
+	return strings.Split(f.b2IP[name], "/")
 }
 
 func (f *Forwarder) setIP(name, IP string) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.b2IP[name] = IP
+	f.logger.Infof("B2IP mapping changed: %v", f.b2IP)
+	f.logger.Infof("SELFIP: %v", f.setIP)
 }
 
 func (f *Forwarder) deleteIP(name string) {
