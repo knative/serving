@@ -99,7 +99,11 @@ func TestInitialScalePreUpgrade(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+	resources, err := v1test.CreateServiceReady(t, clients, &names)
+	if err != nil {
 		t.Fatal("Failed to create Service:", err)
+	}
+	if err = e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+		t.Fatal("Could not scale to zero:", err)
 	}
 }
