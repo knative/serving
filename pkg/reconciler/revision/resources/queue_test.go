@@ -746,6 +746,7 @@ var defaultEnv = map[string]string{
 	"CONTAINER_CONCURRENCY":                 "0",
 	"ENABLE_PROFILING":                      "false",
 	"METRICS_DOMAIN":                        metrics.Domain(),
+	"METRICS_COLLECTOR_ADDRESS":             "",
 	"QUEUE_SERVING_PORT":                    "8012",
 	"REVISION_TIMEOUT_SECONDS":              "45",
 	"SERVING_CONFIGURATION":                 "",
