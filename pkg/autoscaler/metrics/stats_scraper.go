@@ -193,15 +193,20 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
+func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	startTime := time.Now()
 	defer func() {
+		// No errors and an empty stat? We didn't scrape at all because
+		// we're scaled to 0.
+		if stat == emptyStat && err == nil {
+			return
+		}
 		scrapeTime := time.Since(startTime)
 		pkgmetrics.RecordBatch(s.statsCtx, scrapeTimeM.M(float64(scrapeTime.Milliseconds())))
 	}()
 
 	if s.podsAddressable {
-		stat, err := s.scrapePods()
+		stat, err = s.scrapePods()
 		// Some pods were scraped, but not enough.
 		if err != errNoPodsScraped {
 			return stat, err
@@ -215,7 +220,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	if readyPodsCount == 0 {
 		return emptyStat, nil
 	}
-	stat, err := s.scrapeService(window, readyPodsCount)
+	stat, err = s.scrapeService(window, readyPodsCount)
 	if err == nil {
 		s.logger.Info("Direct pod scraping off, service scraping, on")
 		// If err == nil, this means that we failed to scrape all pods, but service worked
