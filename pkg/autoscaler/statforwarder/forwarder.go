@@ -147,7 +147,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	}
 	arr := strings.Split(identity, "/")
 	leader := arr[0]
-	if f.getIP(l.Name)[0] == identity {
+	if f.getIP(l.Name)[0] == leader {
 		// Already up-to-date.
 		return
 	}
@@ -334,8 +334,7 @@ func (f *Forwarder) setIP(name, IP string) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.b2IP[name] = IP
-	f.logger.Infof("B2IP mapping changed: %v", f.b2IP)
-	f.logger.Infof("SELFIP: %v", f.setIP)
+	f.logger.Infof("B2IP mapping changed: %v %v %v", name, IP, f.b2IP)
 }
 
 func (f *Forwarder) deleteIP(name string) {

@@ -138,7 +138,6 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
-				logger.Infof("Metric: promote bucket %s", bkt.Name())
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err
@@ -151,9 +150,6 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 					})
 				}
 				return nil
-			},
-			DemoteFunc: func(bkt reconciler.Bucket) {
-				logger.Infof("Metric: demote bucket %s", bkt.Name())
 			},
 		},
 		Client:        client,
