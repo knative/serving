@@ -24,6 +24,7 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
 
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
+source $(dirname $0)/e2e-networking-library.sh
 
 CERT_MANAGER_VERSION="0.12.0"
 # Since default is istio, make default ingress as istio
@@ -183,124 +184,6 @@ function install_knative_serving() {
     echo "Installing '${YAML_NAME}'"
     kubectl create -f "${YAML_NAME}" || return 1
   done
-}
-
-function install_istio() {
-  if [[ -z "${ISTIO_VERSION}" ]]; then
-    readonly ISTIO_VERSION="stable"
-  fi
-
-  local NET_ISTIO_DIR=$(mktemp -d)
-  git clone --quiet --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
-  git --git-dir "${NET_ISTIO_DIR}/.git" checkout 7398a24a5fa9b06154ce5ef6b551fce856591b08
-
-  if (( MESH )); then
-    ISTIO_PROFILE="istio-ci-mesh.yaml"
-  else
-    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
-  fi
-
-  echo ">> Installing Istio"
-  echo "Istio version: ${ISTIO_VERSION}"
-  echo "Istio profile: ${ISTIO_PROFILE}"
-  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
-
-  if [[ -n "$1" ]]; then
-    echo ">> Installing net-istio"
-    echo "net-istio original YAML: ${1}"
-    # Create temp copy in which we replace knative-serving by the test's system namespace.
-    local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
-    echo "net-istio patched YAML: $YAML_NAME"
-    ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
-    UNINSTALL_LIST+=( "${YAML_NAME}" )
-  fi
-}
-
-function install_gloo() {
-  local INSTALL_GLOO_YAML="./third_party/gloo-latest/gloo.yaml"
-  echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
-  echo ">> Bringing up Gloo"
-
-  kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_GLOO_YAML}" )
-
-  echo ">> Patching Gloo"
-  # Scale replicas of the Gloo proxies to handle large qps
-  kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
-  kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
-}
-
-function install_kourier() {
-  local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
-  sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${INSTALL_KOURIER_YAML}
-  echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
-  echo ">> Bringing up Kourier"
-
-  kubectl apply -f ${INSTALL_KOURIER_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_KOURIER_YAML}" )
-
-  echo ">> Patching Kourier"
-  # Scale replicas of the Kourier gateways to handle large qps
-  kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
-}
-
-function install_kong() {
-  local INSTALL_KONG_YAML="./third_party/kong-latest/kong.yaml"
-  echo "Kong YAML: ${INSTALL_KONG_YAML}"
-  echo ">> Bringing up Kong"
-
-  kubectl apply -f ${INSTALL_KONG_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_KONG_YAML}" )
-
-  echo ">> Patching Kong"
-  # Scale replicas of the Kong gateways to handle large qps
-  kubectl scale -n kong deployment ingress-kong --replicas=6
-}
-
-function install_ambassador() {
-  local AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
-  echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
-
-  echo ">> Creating namespace 'ambassador'"
-  kubectl create namespace ambassador || return 1
-
-  echo ">> Installing Ambassador"
-  kubectl apply -n ambassador -f ${AMBASSADOR_MANIFESTS_PATH} || return 1
-  UNINSTALL_LIST+=( "${AMBASSADOR_MANIFESTS_PATH}" )
-
-#  echo ">> Fixing Ambassador's permissions"
-#  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
-
-#  echo ">> Enabling Knative support in Ambassador"
-#  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
-
-  echo ">> Patching Ambassador"
-  # Scale replicas of the Ambassador gateway to handle large qps
-  kubectl scale -n ambassador deployment ambassador --replicas=6
-}
-
-function install_contour() {
-  local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
-  local INSTALL_NET_CONTOUR_YAML="./third_party/contour-latest/net-contour.yaml"
-  echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
-  echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
-
-  echo ">> Bringing up Contour"
-  sed 's/--log-level info/--log-level debug/g' "${INSTALL_CONTOUR_YAML}" | kubectl apply -f - || return 1
-
-  UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
-  HA_COMPONENTS+=( "contour-ingress-controller" )
-
-  local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
-  echo ">> Bringing up net-contour"
-  kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
-
-  # Disable verbosity until https://github.com/golang/go/issues/40771 is fixed.
-  export GO_TEST_VERBOSITY=standard-quiet
-
-  UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -503,22 +386,6 @@ function knative_teardown() {
   fi
 }
 
-
-
-# Add function call to trap
-# Parameters: $1 - Function to call
-#             $2...$n - Signals for trap
-function add_trap() {
-  local cmd=$1
-  shift
-  for trap_signal in $@; do
-    local current_trap="$(trap -p $trap_signal | cut -d\' -f2)"
-    local new_cmd="($cmd)"
-    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
-    trap -- "${new_cmd}" $trap_signal
-  done
-}
-
 # Create test resources and images
 function test_setup() {
   echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
@@ -560,51 +427,7 @@ function test_setup() {
   wait_until_pods_running cert-manager || return 1
 
   echo ">> Waiting for Ingress provider to be running..."
-  if [[ -n "${ISTIO_VERSION}" ]]; then
-    wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_http_address istio-system istio-ingressgateway
-  fi
-  if [[ -n "${GLOO_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Gloo
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=knative-external-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
-    wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system knative-external-proxy
-  fi
-  if [[ -n "${KOURIER_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Kourier
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kourier
-    export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
-    wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_http_address kourier-system kourier
-  fi
-  if [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Ambassador
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=ambassador
-    export GATEWAY_NAMESPACE_OVERRIDE=ambassador
-    wait_until_pods_running ambassador || return 1
-    wait_until_service_has_external_http_address ambassador ambassador
-  fi
-  if [[ -n "${CONTOUR_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Contour
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=envoy
-    export GATEWAY_NAMESPACE_OVERRIDE=contour-external
-    wait_until_pods_running contour-external || return 1
-    wait_until_pods_running contour-internal || return 1
-    wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
-  fi
-  if [[ -n "${KONG_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Kong
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kong-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=kong
-    wait_until_pods_running kong || return 1
-    wait_until_service_has_external_http_address kong kong-proxy
-  fi
+  wait_until_ingress_running || return 1
 
   if (( INSTALL_MONITORING )); then
     echo ">> Waiting for Monitoring to be running..."
