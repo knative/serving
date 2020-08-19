@@ -131,6 +131,8 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route." + ns + ".svc.cluster.local",
+			"test-route." + ns + ".svc",
+			"test-route." + ns,
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -175,6 +177,8 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	}, {
 		Hosts: []string{
 			"v1-test-route." + ns + ".svc.cluster.local",
+			"v1-test-route." + ns + ".svc",
+			"v1-test-route." + ns,
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -339,6 +343,8 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route." + ns + ".svc.cluster.local",
+			"test-route." + ns + ".svc",
+			"test-route." + ns,
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -427,6 +433,8 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 	}, {
 		Hosts: []string{
 			"v1-test-route." + ns + ".svc.cluster.local",
+			"v1-test-route." + ns + ".svc",
+			"v1-test-route." + ns,
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
@@ -981,6 +989,8 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route.test-ns.svc.cluster.local",
+			"test-route.test-ns.svc",
+			"test-route.test-ns",
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
