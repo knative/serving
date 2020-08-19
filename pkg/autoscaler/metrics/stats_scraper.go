@@ -23,11 +23,11 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -194,15 +194,6 @@ func urlFromTarget(t, ns string) string {
 // Scrape calls the destination service then sends it
 // to the given stats channel.
 func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
-	readyPodsCount, err := s.podAccessor.ReadyCount()
-	if err != nil {
-		return emptyStat, ErrFailedGetEndpoints
-	}
-
-	if readyPodsCount == 0 {
-		return emptyStat, nil
-	}
-
 	startTime := time.Now()
 	defer func() {
 		scrapeTime := time.Since(startTime)
@@ -210,12 +201,19 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	}()
 
 	if s.podsAddressable {
-		stat, err := s.scrapePods(readyPodsCount)
+		stat, err := s.scrapePods()
 		// Some pods were scraped, but not enough.
 		if err != errNoPodsScraped {
 			return stat, err
 		}
 		// Else fall back to service scrape.
+	}
+	readyPodsCount, err := s.podAccessor.ReadyCount()
+	if err != nil {
+		return emptyStat, ErrFailedGetEndpoints
+	}
+	if readyPodsCount == 0 {
+		return emptyStat, nil
 	}
 	stat, err := s.scrapeService(window, readyPodsCount)
 	if err == nil {
@@ -227,26 +225,23 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	return stat, err
 }
 
-func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
+func (s *serviceScraper) scrapePods() (Stat, error) {
 	pods, err := s.podAccessor.PodIPsByAge()
 	if err != nil {
 		s.logger.Info("Error querying pods by age: ", err)
 		return emptyStat, err
 	}
-	// Race condition when scaling to 0, where the check above
-	// for endpoint count worked, but here we had no ready pods.
 	if len(pods) == 0 {
-		s.logger.Infof("For %s ready pods found 0 pods, are we scaling to 0?", readyPods)
 		return emptyStat, nil
 	}
 
-	frpc := float64(readyPods)
+	frpc := float64(len(pods))
 	sampleSizeF := populationMeanSampleSize(frpc)
 	sampleSize := int(sampleSizeF)
 	results := make(chan Stat, sampleSize)
 
 	grp := errgroup.Group{}
-	idx := int32(-1)
+	idx := atomic.NewInt32(-1)
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
@@ -254,7 +249,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 			// scanning pods down the line.
 			for {
 				// Acquire next pod.
-				myIdx := int(atomic.AddInt32(&idx, 1))
+				myIdx := int(idx.Inc())
 				// All out?
 				if myIdx >= len(pods) {
 					return errPodsExhausted

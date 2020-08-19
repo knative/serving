@@ -187,7 +187,6 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 		cancel()
 		wf()
 	})
-	makePods(ctx, 3)
 
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(ctx, t, client, nil /* mesh not used */, true)
@@ -195,6 +194,14 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 		t.Fatal("serviceScraperForTest:", err)
 	}
 
+	// No pods at all.
+	if stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
+		t.Error("Unexpected error from scraper.Scrape():", err)
+	} else if !cmp.Equal(stat, emptyStat) {
+		t.Errorf("Wanted empty stat got: %#v", stat)
+	}
+
+	makePods(ctx, 3)
 	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
 		t.Fatal("Unexpected error from scraper.Scrape():", err)
 	}
