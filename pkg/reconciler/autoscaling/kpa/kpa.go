@@ -239,10 +239,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady ||
-		// For the case of upgrading an existing service (created pre-0.17)
-		// TODO(taragu): remove after 0.18
-		(minReady == 1 && pa.Status.IsInactive() && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason) {
+	// In pre-0.17 we could have scaled down normally without ever setting ScaleTargetInitialized.
+	// In this case we'll be in the NoTraffic/inactive state.
+	// TODO(taragu): remove after 0.19
+	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason
+	if pc.ready >= minReady || alreadyScaledDownSuccessfully {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 

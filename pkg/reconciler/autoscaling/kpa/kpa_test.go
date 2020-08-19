@@ -244,7 +244,7 @@ func TestReconcile(t *testing.T) {
 
 	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, WithPASKSNotReady(""),
+			testNamespace, testRevision, WithPASKSNotReady(""), WithScaleTargetInitialized,
 			WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 			withScales(g, unknownScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision),
@@ -796,7 +796,7 @@ func TestReconcile(t *testing.T) {
 			defaultMetric,
 		}, underscaledReady...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: activatingKPAMinScale(underscale),
+			Object: activatingKPAMinScale(underscale, WithScaleTargetInitialized),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -1110,12 +1110,12 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "mark initial scale reached for an existing inactive PA",
 		Key:  key,
-		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
-			decider(testNamespace, testRevision, 2, /* desiredScale */
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, -1, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
-				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				withScales(0, -1), WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
@@ -1123,11 +1123,11 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
 			}),
-		}, makeReadyPods(2, testNamespace, testRevision)...),
+		}),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPASKSReady, markScaleTargetInitialized,
-				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision),
+				withScales(0, -1), WithReachabilityReachable, WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
