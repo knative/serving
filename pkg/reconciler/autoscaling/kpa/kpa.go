@@ -44,7 +44,10 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-const noPrivateServiceName = "No Private Service Name"
+const (
+	noPrivateServiceName = "No Private Service Name"
+	noTrafficReason      = "NoTraffic"
+)
 
 // podCounts keeps record of various numbers of pods
 // for each revision.
@@ -236,7 +239,9 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady {
+	if pc.ready >= minReady ||
+		// For the case of upgrading an existing service (created pre-0.17)
+		(minReady == 1 && pa.Status.IsInactive() && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason) {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
@@ -247,7 +252,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
 		} else {
-			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
 
 	case pc.ready < minReady:

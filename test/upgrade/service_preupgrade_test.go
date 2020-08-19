@@ -90,3 +90,16 @@ func TestBYORevisionPreUpgrade(t *testing.T) {
 		t.Fatal("Failed to create Service:", err)
 	}
 }
+
+func TestInitialScalePreUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+	names := test.ResourceNames{
+		Service: initialScaleServiceName,
+		Image:   test.PizzaPlanet1,
+	}
+
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatal("Failed to create Service:", err)
+	}
+}
