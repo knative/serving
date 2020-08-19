@@ -144,8 +144,9 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 			IP: f.selfIP,
 		}},
 		Ports: []v1.EndpointPort{{
-			Name: autoscalerPortName,
-			Port: autoscalerPort,
+			Name:     autoscalerPortName,
+			Port:     autoscalerPort,
+			Protocol: v1.ProtocolTCP,
 		}}},
 	}
 
