@@ -189,10 +189,10 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 	if isClusterLocal {
 		// cluster local domains to support short domains.
 		// e.g. hello.default.svc.cluster.local supports hello.default.svc and hello.default.
-		localDomainSuffix := "svc." + networkpkg.GetClusterDomainName()
+		localDomainSuffix := ".svc." + networkpkg.GetClusterDomainName()
 		if strings.HasSuffix(domain, localDomainSuffix) {
 			domains = append(domains, strings.TrimSuffix(domain, "."+networkpkg.GetClusterDomainName())) // hello.default.svc
-			domains = append(domains, strings.TrimSuffix(domain, "."+localDomainSuffix))                 // hello.default
+			domains = append(domains, strings.TrimSuffix(domain, localDomainSuffix))                     // hello.default
 		}
 	}
 	return domains, err
