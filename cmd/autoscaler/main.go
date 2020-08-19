@@ -23,20 +23,24 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
-
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -50,6 +54,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
+	"knative.dev/serving/pkg/autoscaler/statforwarder"
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
@@ -123,7 +128,8 @@ func main() {
 
 	profilingHandler := profiling.NewHandler(logger, false)
 
-	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
+	ns := system.Namespace()
+	cmw := configmap.NewInformedWatcher(kubeClient, ns)
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
@@ -159,12 +165,35 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	go controller.StartAll(ctx, controllers...)
+	// DO NOT SUBMIT
+	// TODO: Add IP validation.
+	selfIP := os.Getenv("POD_IP")
+	selfPod := os.Getenv("POD_NAME")
+	// TODO: Read config from configmap.
+	cc := leaderelection.ComponentConfig{
+		Component:     "autoscaler",
+		Buckets:       10,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
+		LeaseName: func(i uint32) string {
+			return endpointsBucketName(i, 10)
+		},
+		Identity: selfIP + "/" + selfPod,
+	}
+	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
+	// accept is the func to call when this pod owns the given StatMessage.
+	accept := func(sm asmetrics.StatMessage) {
+		collector.Record(sm.Key, time.Now(), sm.Stat)
+		multiScaler.Poke(sm.Key, sm.Stat)
+	}
+	f := statforwarder.New(ctx, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept, logger)
+	defer f.Cancel()
 
+	go controller.StartAll(ctx, controllers...)
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, time.Now(), sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			f.Process(sm)
 		}
 	}()
 
@@ -230,4 +259,16 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+func newEndpointsBucketSet(total uint32) *hash.BucketSet {
+	names := make(sets.String, total)
+	for i := uint32(0); i < total; i++ {
+		names.Insert(endpointsBucketName(i, total))
+	}
+	return hash.NewBucketSet(names)
+}
+
+func endpointsBucketName(ordinal, total uint32) string {
+	return strings.ToLower(fmt.Sprintf("%s-bucket-%02d-of-%02d", component, ordinal, total))
 }
