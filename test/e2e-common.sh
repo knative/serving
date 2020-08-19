@@ -233,6 +233,7 @@ function install_gloo() {
 
 function install_kourier() {
   local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
+  sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${INSTALL_KOURIER_YAML}
   echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
   echo ">> Bringing up Kourier"
 
