@@ -241,6 +241,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 	minReady := activeThreshold(ctx, pa)
 	if pc.ready >= minReady ||
 		// For the case of upgrading an existing service (created pre-0.17)
+		// TODO(taragu): remove after 0.18
 		(minReady == 1 && pa.Status.IsInactive() && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason) {
 		pa.Status.MarkScaleTargetInitialized()
 	}
@@ -267,7 +268,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
 			// because we cannot go through one iteration of reconciliation without setting
 			// some status.
-			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
 
 	case pc.ready >= minReady:

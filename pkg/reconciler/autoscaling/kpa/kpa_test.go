@@ -245,7 +245,7 @@ func TestReconcile(t *testing.T) {
 	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
 		return kpa(
 			testNamespace, testRevision, WithPASKSNotReady(""),
-			WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+			WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 			withScales(g, unknownScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision),
 			WithPAMetricsService(privateSvc), WithObservedGeneration(1),
@@ -438,7 +438,7 @@ func TestReconcile(t *testing.T) {
 		Name: "pa activates",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, WithScaleTargetInitialized, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+			kpa(testNamespace, testRevision, WithScaleTargetInitialized, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, defaultScale), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 			// SKS is ready here, since its endpoints are populated with Activator endpoints.
 			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithSKSReady),
@@ -678,7 +678,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithScaleTargetInitialized, withScales(0, 0),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPASKSReady, markOld, WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
@@ -694,7 +694,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithScaleTargetInitialized, withScales(0, 0),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPASKSReady, markOld, WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
@@ -722,7 +722,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized, withScales(1, 0),
 				WithPASKSReady, WithPAMetricsService(privateSvc),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithObservedGeneration(1)),
 		}},
@@ -910,7 +910,7 @@ func TestReconcile(t *testing.T) {
 				0 /* ebc */, scaling.MinActivators)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithScaleTargetInitialized, WithPASKSReady,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."), WithPAMetricsService(privateSvc),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."), WithPAMetricsService(privateSvc),
 				withScales(0, -1), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName),
 				WithProxyMode, WithSKSReady),
@@ -1056,7 +1056,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized,
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 				WithPASKSNotReady(""),
@@ -1114,7 +1114,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 2, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
 		Objects: append([]runtime.Object{
-			kpa(testNamespace, testRevision, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+			kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
 			),
@@ -1125,7 +1125,7 @@ func TestReconcile(t *testing.T) {
 			}),
 		}, makeReadyPods(2, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+			Object: kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPASKSReady, markScaleTargetInitialized,
 				withScales(2, 2), WithReachabilityReachable, WithPAStatusService(testRevision),
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
