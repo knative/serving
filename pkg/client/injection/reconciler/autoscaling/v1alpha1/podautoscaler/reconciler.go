@@ -198,6 +198,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
+	logger.Info("KPA: is the leader")
 	// If configStore is set, attach the frozen configuration to the context.
 	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)

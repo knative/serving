@@ -120,6 +120,7 @@ type ComponentConfig struct {
 	// all participants in an election. If not present, a new unique string will
 	// be generated to be used as identity for each BuildElector call.
 	Identity string
+	LockType string
 }
 
 // statefulSetID is a envconfig Decodable controller ordinal and name.

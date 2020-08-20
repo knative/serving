@@ -67,6 +67,7 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+				logger.Infof("KPA: promote bkt %s", bkt.Name())
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err
@@ -79,6 +80,9 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 					})
 				}
 				return nil
+			},
+			DemoteFunc: func(bkt reconciler.Bucket) {
+				logger.Infof("KPA: demote bkt %s", bkt.Name())
 			},
 		},
 		Client:        client.Get(ctx),

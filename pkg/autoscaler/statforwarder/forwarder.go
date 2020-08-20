@@ -18,6 +18,7 @@ package statforwarder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/client/injection/kube/informers/factory"
@@ -50,6 +52,10 @@ import (
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+}
+
+type record struct {
+	HolderIdentity string `json:"holderIdentity"`
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -99,12 +105,13 @@ type Forwarder struct {
 
 func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
 	ns := system.Namespace()
+	endpointsInformer := endpointsinformer.Get(ctx)
 	f := Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
 		serviceLister:   serviceinformer.Get(ctx).Lister(),
-		endpointsLister: endpointsinformer.Get(ctx).Lister(),
+		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
 		accept:          accept,
 		b2IP:            make(map[string]string),
@@ -119,13 +126,22 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		f.wsMap[b.Name()] = statSink
 	}
 
-	leaseInformer := get(ctx)
-	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// leaseInformer := get(ctx)
+	// leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// 	FilterFunc: reconciler.NamespaceFilterFunc(ns),
+	// 	Handler: cache.ResourceEventHandlerFuncs{
+	// 		AddFunc:    f.leaseUpdated,
+	// 		UpdateFunc: controller.PassNew(f.leaseUpdated),
+	// 		DeleteFunc: f.leaseDeleted,
+	// 	},
+	// })
+
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.NamespaceFilterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    f.leaseUpdated,
-			UpdateFunc: controller.PassNew(f.leaseUpdated),
-			DeleteFunc: f.leaseDeleted,
+			AddFunc:    f.endpointsUpdated,
+			UpdateFunc: controller.PassNew(f.endpointsUpdated),
+			DeleteFunc: f.endpointsDeleted,
 		},
 	})
 	return &f
@@ -341,4 +357,112 @@ func (f *Forwarder) deleteIP(name string) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	delete(f.b2IP, name)
+}
+
+func (f *Forwarder) endpointsUpdated(obj interface{}) {
+	e := obj.(*v1.Endpoints)
+	ns, n := e.Namespace, e.Name
+
+	if !f.isBucketLease(n) {
+		f.logger.Debugf("Skip Endpoints %s, not a valid one", n)
+		return
+	}
+
+	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
+	if !ok {
+		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, n)
+		return
+	}
+
+	r := &record{}
+	if err := json.Unmarshal([]byte(v), r); err != nil {
+		f.logger.Errorw("Failed to parse annotation", zap.Error(err))
+		return
+	}
+
+	identity := r.HolderIdentity
+	if identity == "" {
+		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
+		return
+	}
+	arr := strings.Split(identity, "/")
+	leader := arr[0]
+	if f.getIP(e.Name)[0] == leader {
+		// Already up-to-date.
+		return
+	}
+
+	f.setIP(e.Name, r.HolderIdentity)
+	if leader != f.selfIP {
+		f.logger.Debugf("Skip updating Endpoints %s, not the leader", n)
+		return
+	}
+
+	if err := f.createService(ns, n); err != nil {
+		f.logger.Errorf("Failed to create Service for Endpoints %s: %v", n, err)
+	}
+
+	wantSubsets := []v1.EndpointSubset{{
+		Addresses: []v1.EndpointAddress{{
+			IP: f.selfIP,
+		}},
+		Ports: []v1.EndpointPort{{
+			Name:     autoscalerPortName,
+			Port:     autoscalerPort,
+			Protocol: v1.ProtocolTCP,
+		}}},
+	}
+
+	reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		if attempts > 0 {
+			e, err = f.endpointsLister.Endpoints(ns).Get(n)
+			if err != nil {
+				return err
+			}
+		}
+
+		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+			return nil
+		}
+
+		want := e.DeepCopy()
+		want.Subsets = wantSubsets
+		if _, err := f.kc.CoreV1().Endpoints(e.Namespace).Update(want); err != nil {
+			return err
+		}
+
+		f.logger.Info("Bucket Endpoints updated: ", e.Name)
+		return nil
+	})
+}
+
+func (f *Forwarder) endpointsDeleted(obj interface{}) {
+	e := obj.(*v1.Endpoints)
+
+	if !f.isBucketLease(e.Name) {
+		f.logger.Debugf("Skip Endpoints %s, not a valid one", e.Name)
+		return
+	}
+
+	v, ok := e.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]
+	if !ok {
+		f.logger.Debugf("Annotation %s not found for Endpoints %s", resourcelock.LeaderElectionRecordAnnotationKey, e.Name)
+		return
+	}
+
+	r := &record{}
+	if err := json.Unmarshal([]byte(v), r); err != nil {
+		f.logger.Errorw("Failed to parse annotation", zap.Error(err))
+		return
+	}
+
+	f.deleteIP(e.Name)
+	if r.HolderIdentity != f.selfIP {
+		f.logger.Debugf("Skip updating Endpoints %s, not the leader", e.Name)
+		return
+	}
+
+	if err := f.deleteService(e.Namespace, e.Name); err != nil {
+		f.logger.Errorf("Failed to delete Service for Endpoints %s: %v", e.Name, err)
+	}
 }
