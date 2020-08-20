@@ -1102,6 +1102,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
+knative.dev/networking/pkg/ingress
 # knative.dev/pkg v0.0.0-20200812224206-44c860147a87
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
