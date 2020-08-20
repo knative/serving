@@ -19,9 +19,21 @@ function install_istio() {
     readonly ISTIO_VERSION="stable"
   fi
 
+  # Find out the commit of net-istio.yaml.
+  local NET_ISTIO_COMMIT=$(
+    grep 'serving.knative.dev/release:' third_party/net-istio.yaml \
+      | cut -f2 -d\: | cut -f2 -d- | sed "s/[^0-9a-f]//g" \
+      | head -n1)
+
+  # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
-  git clone --quiet --branch master https://github.com/knative-sandbox/net-istio.git ${NET_ISTIO_DIR}
-  git --git-dir "${NET_ISTIO_DIR}/.git" checkout 7398a24a5fa9b06154ce5ef6b551fce856591b08
+  (
+    cd $NET_ISTIO_DIR \
+      && git init \
+      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
+      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
+      && git checkout FETCH_HEAD
+  )
 
   if (( MESH )); then
     ISTIO_PROFILE="istio-ci-mesh.yaml"
