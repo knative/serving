@@ -254,8 +254,8 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: []string{"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
-			netv1alpha1.IngressVisibilityExternalIP:   []string{"myroute.default.example.com"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}, {
 		name:  "private route",
@@ -275,7 +275,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: []string{"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
 		},
 	}, {
 		name:  "unspecified route",
@@ -292,8 +292,8 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 			}},
 		},
 		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
-			netv1alpha1.IngressVisibilityClusterLocal: []string{"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
-			netv1alpha1.IngressVisibilityExternalIP:   []string{"myroute.default.example.com"},
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}}
 	for _, c := range cases {
