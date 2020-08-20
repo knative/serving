@@ -171,7 +171,7 @@ func (k *kubelogs) handleLine(l []byte, pod string) {
 
 	for name, logf := range k.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
-		if !strings.Contains(line.Key, name) {
+		if !strings.Contains(line.Key, "/"+name) {
 			continue
 		}
 
