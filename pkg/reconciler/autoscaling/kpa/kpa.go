@@ -44,7 +44,10 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-const noPrivateServiceName = "No Private Service Name"
+const (
+	noPrivateServiceName = "No Private Service Name"
+	noTrafficReason      = "NoTraffic"
+)
 
 // podCounts keeps record of various numbers of pods
 // for each revision.
@@ -236,7 +239,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady {
+	// In pre-0.17 we could have scaled down normally without ever setting ScaleTargetInitialized.
+	// In this case we'll be in the NoTraffic/inactive state.
+	// TODO(taragu): remove after 0.19
+	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason
+	if pc.ready >= minReady || alreadyScaledDownSuccessfully {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
@@ -247,7 +254,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
 		} else {
-			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
 
 	case pc.ready < minReady:
@@ -262,7 +269,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
 			// because we cannot go through one iteration of reconciliation without setting
 			// some status.
-			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
+			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
 
 	case pc.ready >= minReady:
