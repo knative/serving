@@ -329,11 +329,11 @@ func BenchmarkProxyHandler(b *testing.B) {
 	}, {
 		label:        "breaker-10-many-reports",
 		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
-		reportPeriod: 1 * time.Microsecond,
+		reportPeriod: time.Microsecond,
 	}, {
 		label:        "breaker-infinite-many-reports",
 		breaker:      nil,
-		reportPeriod: 1 * time.Microsecond,
+		reportPeriod: time.Microsecond,
 	}}
 
 	for _, tc := range tests {
