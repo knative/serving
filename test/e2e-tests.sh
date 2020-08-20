@@ -91,48 +91,48 @@ sleep 30
 
 # Run conformance and e2e tests.
 
-go_test_e2e -timeout=30m \
- ./test/conformance/api/... ./test/conformance/runtime/... \
+go_test_e2e -timeout=10m \
  ./test/e2e \
+ -run ^TestRPSBasedAutoscaleUpCountPods$ \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
-if (( HTTPS )); then
-  kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
-fi
+# if (( HTTPS )); then
+#   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+#   toggle_feature autoTLS Disabled config-network
+# fi
 
-toggle_feature tagHeaderBasedRouting Enabled config-network
-go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
-toggle_feature tagHeaderBasedRouting Disabled config-network
+# toggle_feature tagHeaderBasedRouting Enabled config-network
+# go_test_e2e -timeout=2m ./test/e2e/tagheader || failed=1
+# toggle_feature tagHeaderBasedRouting Disabled config-network
 
-toggle_feature multi-container Enabled
-go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
-toggle_feature multi-container Disabled
+# toggle_feature multi-container Enabled
+# go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
+# toggle_feature multi-container Disabled
 
-toggle_feature responsive-revision-gc Enabled
-GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)
-add_trap "kubectl patch cm 'config-gc' -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
-immediate_gc
-go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
-kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
-toggle_feature responsive-revision-gc Disabled
+# toggle_feature responsive-revision-gc Enabled
+# GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)
+# add_trap "kubectl patch cm 'config-gc' -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}" SIGKILL SIGTERM SIGQUIT
+# immediate_gc
+# go_test_e2e -timeout=2m ./test/e2e/gc || failed=1
+# kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
+# toggle_feature responsive-revision-gc Disabled
 
-# Run scale tests.
-go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
+# # Run scale tests.
+# go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
-# Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-  kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
-fi
+# # Istio E2E tests mutate the cluster and must be ran separately
+# if [[ -n "${ISTIO_VERSION}" ]]; then
+#   kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
+#   add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+#   go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+#   kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
+# fi
 
-# Run HA tests separately as they're stopping core Knative Serving pods
-# Define short -spoofinterval to ensure frequent probing while stopping pods
-go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
-	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
+# # Run HA tests separately as they're stopping core Knative Serving pods
+# # Define short -spoofinterval to ensure frequent probing while stopping pods
+# go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
+# 	    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" || failed=1
 
 (( failed )) && fail_test
 

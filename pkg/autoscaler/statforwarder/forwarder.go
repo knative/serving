@@ -126,24 +126,24 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 		f.wsMap[b.Name()] = statSink
 	}
 
-	// leaseInformer := get(ctx)
-	// leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-	// 	FilterFunc: reconciler.NamespaceFilterFunc(ns),
-	// 	Handler: cache.ResourceEventHandlerFuncs{
-	// 		AddFunc:    f.leaseUpdated,
-	// 		UpdateFunc: controller.PassNew(f.leaseUpdated),
-	// 		DeleteFunc: f.leaseDeleted,
-	// 	},
-	// })
-
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	leaseInformer := get(ctx)
+	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.NamespaceFilterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    f.endpointsUpdated,
-			UpdateFunc: controller.PassNew(f.endpointsUpdated),
-			DeleteFunc: f.endpointsDeleted,
+			AddFunc:    f.leaseUpdated,
+			UpdateFunc: controller.PassNew(f.leaseUpdated),
+			DeleteFunc: f.leaseDeleted,
 		},
 	})
+
+	// endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// 	FilterFunc: reconciler.NamespaceFilterFunc(ns),
+	// 	Handler: cache.ResourceEventHandlerFuncs{
+	// 		AddFunc:    f.endpointsUpdated,
+	// 		UpdateFunc: controller.PassNew(f.endpointsUpdated),
+	// 		DeleteFunc: f.endpointsDeleted,
+	// 	},
+	// })
 	return &f
 }
 
