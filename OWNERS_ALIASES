@@ -37,6 +37,7 @@ aliases:
   - mattmoor        # API/TOC
   - mdemirhan       # Network
   - tcnghia         # Network/TOC
+  - ZhiminXiang     # Network
   - vagababov       # Scaling
 
   autoscaling-approvers:
