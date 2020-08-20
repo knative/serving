@@ -19,18 +19,18 @@ package resources
 import (
 	"context"
 	"sort"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
-	networkpkg "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	defaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -187,13 +187,7 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 	}
 	domains := []string{domain}
 	if isClusterLocal {
-		// cluster local domains to support short domains.
-		// e.g. hello.default.svc.cluster.local supports hello.default.svc and hello.default.
-		localDomainSuffix := ".svc." + networkpkg.GetClusterDomainName()
-		if strings.HasSuffix(domain, localDomainSuffix) {
-			domains = append(domains, strings.TrimSuffix(domain, "."+networkpkg.GetClusterDomainName())) // hello.default.svc
-			domains = append(domains, strings.TrimSuffix(domain, localDomainSuffix))                     // hello.default
-		}
+		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
 	}
 	return domains, err
 }
