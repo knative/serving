@@ -208,9 +208,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -339,9 +339,9 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -458,9 +458,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -591,9 +591,9 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -659,9 +659,9 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"test-revision-1-test-route.test.svc.cluster.local",
-				"test-revision-1-test-route.test.svc",
 				"test-revision-1-test-route.test",
+				"test-revision-1-test-route.test.svc",
+				"test-revision-1-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -705,9 +705,9 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"test-revision-2-test-route.test.svc.cluster.local",
-				"test-revision-2-test-route.test.svc",
 				"test-revision-2-test-route.test",
+				"test-revision-2-test-route.test.svc",
+				"test-revision-2-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -803,9 +803,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -871,9 +871,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"bar-test-route.test.svc.cluster.local",
-				"bar-test-route.test.svc",
 				"bar-test-route.test",
+				"bar-test-route.test.svc",
+				"bar-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -917,9 +917,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"foo-test-route.test.svc.cluster.local",
-				"foo-test-route.test.svc",
 				"foo-test-route.test",
+				"foo-test-route.test.svc",
+				"foo-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1024,9 +1024,9 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
-				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
 				"test-route.test",
+				"test-route.test.svc",
+				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1182,9 +1182,9 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"bar-test-route.test.svc.cluster.local",
-				"bar-test-route.test.svc",
 				"bar-test-route.test",
+				"bar-test-route.test.svc",
+				"bar-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
@@ -1234,9 +1234,9 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
-				"foo-test-route.test.svc.cluster.local",
-				"foo-test-route.test.svc",
 				"foo-test-route.test",
+				"foo-test-route.test.svc",
+				"foo-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
