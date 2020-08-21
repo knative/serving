@@ -58,7 +58,7 @@ func main() {
 	var err error
 	period, err = strconv.ParseUint(pstr, 10 /*base*/, 64 /*size*/)
 	if err != nil {
-		log.Fatal(`Error parsing "PERIOD" envvar as uint`, err)
+		log.Fatal(`Error parsing "PERIOD" envvar as uint: `, err)
 	} else if period < 1 {
 		log.Fatal("Period must be positive, got: 0")
 	}
