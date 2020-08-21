@@ -130,6 +130,8 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
+			"test-route." + ns,
+			"test-route." + ns + ".svc",
 			"test-route." + ns + ".svc.cluster.local",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -174,6 +176,8 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
 		Hosts: []string{
+			"v1-test-route." + ns,
+			"v1-test-route." + ns + ".svc",
 			"v1-test-route." + ns + ".svc.cluster.local",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -234,7 +238,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		route              *v1.Route
 		targets            map[string]traffic.RevisionTargets
 		serviceVisibility  map[string]netv1alpha1.IngressVisibility
-		expectedVisibility map[string]netv1alpha1.IngressVisibility
+		expectedVisibility map[netv1alpha1.IngressVisibility][]string
 	}{{
 		name:  "public route",
 		route: Route("default", "myroute", WithURL),
@@ -249,9 +253,9 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 				Active:      true,
 			}},
 		},
-		expectedVisibility: map[string]netv1alpha1.IngressVisibility{
-			"myroute.default.svc.cluster.local": netv1alpha1.IngressVisibilityClusterLocal,
-			"myroute.default.example.com":       netv1alpha1.IngressVisibilityExternalIP,
+		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}, {
 		name:  "private route",
@@ -270,8 +274,8 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		serviceVisibility: map[string]netv1alpha1.IngressVisibility{
 			traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
 		},
-		expectedVisibility: map[string]netv1alpha1.IngressVisibility{
-			"myroute.default.svc.cluster.local": netv1alpha1.IngressVisibilityClusterLocal,
+		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
 		},
 	}, {
 		name:  "unspecified route",
@@ -287,9 +291,9 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 				Active:      true,
 			}},
 		},
-		expectedVisibility: map[string]netv1alpha1.IngressVisibility{
-			"myroute.default.svc.cluster.local": netv1alpha1.IngressVisibilityClusterLocal,
-			"myroute.default.example.com":       netv1alpha1.IngressVisibilityExternalIP,
+		expectedVisibility: map[netv1alpha1.IngressVisibility][]string{
+			netv1alpha1.IngressVisibilityClusterLocal: {"myroute.default", "myroute.default.svc", "myroute.default.svc.cluster.local"},
+			netv1alpha1.IngressVisibilityExternalIP:   {"myroute.default.example.com"},
 		},
 	}}
 	for _, c := range cases {
@@ -302,10 +306,9 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 				t.Errorf("Unexpected %d rules, saw %d", len(c.expectedVisibility), len(ci.Rules))
 			}
 			for _, rule := range ci.Rules {
-				domain := rule.Hosts[0]
 				visibility := rule.Visibility
-				if c.expectedVisibility[domain] != visibility {
-					t.Errorf("Expected visibility %s for host %s, saw %s", c.expectedVisibility, domain, visibility)
+				if !cmp.Equal(c.expectedVisibility[visibility], rule.Hosts) {
+					t.Errorf("Expected hosts %s for visibility %s, saw %s", c.expectedVisibility, visibility, rule.Hosts)
 				}
 			}
 		})
@@ -338,6 +341,8 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
+			"test-route." + ns,
+			"test-route." + ns + ".svc",
 			"test-route." + ns + ".svc.cluster.local",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -426,6 +431,8 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
 		Hosts: []string{
+			"v1-test-route." + ns,
+			"v1-test-route." + ns + ".svc",
 			"v1-test-route." + ns + ".svc.cluster.local",
 		},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -980,6 +987,8 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
+			"test-route.test-ns",
+			"test-route.test-ns.svc",
 			"test-route.test-ns.svc.cluster.local",
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,

@@ -24,10 +24,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
 	defaults "knative.dev/serving/pkg/apis/config"
@@ -112,11 +114,11 @@ func MakeIngressSpec(
 			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
 		for _, visibility := range visibilities {
-			domain, err := routeDomain(ctx, name, r, visibility)
+			domains, err := routeDomain(ctx, name, r, visibility)
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(ctx, []string{domain}, r.Namespace, visibility, targets[name])
+			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, targets[name])
 			if networkConfig.TagHeaderBasedRouting {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
@@ -147,7 +149,7 @@ func MakeIngressSpec(
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
 				rule.HTTP.Paths = append(
-					makeACMEIngressPaths(challengeHosts, []string{domain}), rule.HTTP.Paths...)
+					makeACMEIngressPaths(challengeHosts, domains), rule.HTTP.Paths...)
 			}
 			rules = append(rules, rule)
 		}
@@ -169,17 +171,25 @@ func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv
 	return c
 }
 
-func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (string, error) {
+func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) ([]string, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
 	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
 	labels.SetVisibility(meta, isClusterLocal)
 
-	return domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	domain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	if err != nil {
+		return []string{}, err
+	}
+	domains := []string{domain}
+	if isClusterLocal {
+		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
+	}
+	return domains, err
 }
 
 func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, domains []string) []netv1alpha1.HTTPIngressPath {

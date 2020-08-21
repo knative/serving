@@ -67,6 +67,10 @@ type ObservabilityConfig struct {
 
 	// EnableRequestLog enables activator/queue-proxy to write request logs.
 	EnableRequestLog bool
+
+	// MetricsCollectorAddress specifies the metrics collector address. This is only used
+	// when the metrics backend is opencensus.
+	MetricsCollectorAddress string
 }
 
 func defaultConfig() *ObservabilityConfig {
@@ -88,6 +92,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
 		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
 		cm.AsBool("profiling.enable", &oc.EnableProfiling),
+		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
 	); err != nil {
 		return nil, err
 	}

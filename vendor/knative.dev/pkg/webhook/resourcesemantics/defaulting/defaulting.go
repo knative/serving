@@ -279,7 +279,7 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1.AdmissionRequ
 
 		s, ok := oldObj.(apis.HasSpec)
 		if ok {
-			SetUserInfoAnnotations(s, ctx, req.Resource.Group)
+			setUserInfoAnnotations(ctx, s, req.Resource.Group)
 		}
 
 		if req.SubResource == "" {
@@ -323,7 +323,7 @@ func (ac *reconciler) setUserInfoAnnotations(ctx context.Context, patches duck.J
 
 	b, a := new.DeepCopyObject().(apis.HasSpec), nh
 
-	SetUserInfoAnnotations(nh, ctx, groupName)
+	setUserInfoAnnotations(ctx, nh, groupName)
 
 	patch, err := duck.CreatePatch(b, a)
 	if err != nil {
