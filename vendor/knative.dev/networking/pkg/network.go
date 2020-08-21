@@ -53,6 +53,10 @@ const (
 	// uses to find out which version of the networking config is deployed.
 	HashHeaderName = "K-Network-Hash"
 
+	// HashHeaderValue is the value that must appear in the HashHeaderName
+	// header in order for our network hash to be injected.
+	HashHeaderValue = "override"
+
 	// OriginalHostHeader is used to avoid Istio host based routing rules
 	// in Activator.
 	// The header contains the original Host value that can be rewritten
@@ -165,6 +169,12 @@ const (
 	// since the data won't be transferred in chunks less than 4kb, if the
 	// reverse proxy fails to detect streaming (gRPC, e.g.).
 	FlushInterval = 20 * time.Millisecond
+
+	// VisibilityLabelKey is the label to indicate visibility of Route
+	// and KServices.  It can be an annotation too but since users are
+	// already using labels for domain, it probably best to keep this
+	// consistent.
+	VisibilityLabelKey = "network.knative.dev/visibility"
 )
 
 // DomainTemplateValues are the available properties people can choose from
