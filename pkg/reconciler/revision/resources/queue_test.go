@@ -279,6 +279,20 @@ func TestMakeQueueContainer(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("789m"),
 			}
 		}),
+	}, {
+		name: "collector address as env var",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		oc: metrics.ObservabilityConfig{
+			RequestMetricsBackend: "opencensus",
+			MetricsCollectorAddress: "otel:55678",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"SERVING_REQUEST_METRICS_BACKEND": "opencensus",
+				"METRICS_COLLECTOR_ADDRESS": "otel:55678",
+			})
+		}),
 	}}
 
 	for _, test := range tests {
