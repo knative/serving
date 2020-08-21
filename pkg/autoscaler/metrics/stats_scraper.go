@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -206,7 +207,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	}()
 
 	if s.podsAddressable {
-		stat, err = s.scrapePods()
+		stat, err := s.scrapePods(window)
 		// Some pods were scraped, but not enough.
 		if err != errNoPodsScraped {
 			return stat, err
@@ -230,20 +231,39 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	return stat, err
 }
 
-func (s *serviceScraper) scrapePods() (Stat, error) {
-	pods, err := s.podAccessor.PodIPsByAge()
+func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
+	pods, youngPods, err := s.podAccessor.PodIPsSplitByAge(window, time.Now())
 	if err != nil {
 		s.logger.Info("Error querying pods by age: ", err)
 		return emptyStat, err
 	}
-	if len(pods) == 0 {
+	lp := len(pods)
+	lyp := len(youngPods)
+	s.logger.Debugf("|OldPods| = %d, |YoungPods| = %d", lp, lyp)
+	total := lp + lyp
+	if total == 0 {
 		return emptyStat, nil
 	}
 
-	frpc := float64(len(pods))
+	frpc := float64(total)
 	sampleSizeF := populationMeanSampleSize(frpc)
 	sampleSize := int(sampleSizeF)
 	results := make(chan Stat, sampleSize)
+
+	// 1. If not enough: shuffle young pods and expect to use N-lp of those
+	//		no need to shuffle old pods, since all of them are expected to be used.
+	// 2. If enough old pods: shuffle them and use first N, still append young pods
+	//		as backup in case of errors, but without shuffling.
+	if lp < sampleSize {
+		rand.Shuffle(lyp, func(i, j int) {
+			youngPods[i], youngPods[j] = youngPods[j], youngPods[i]
+		})
+	} else {
+		rand.Shuffle(lp, func(i, j int) {
+			pods[i], pods[j] = pods[j], pods[i]
+		})
+	}
+	pods = append(pods, youngPods...)
 
 	grp := errgroup.Group{}
 	idx := atomic.NewInt32(-1)
