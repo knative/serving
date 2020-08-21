@@ -19,11 +19,8 @@ function install_istio() {
     readonly ISTIO_VERSION="stable"
   fi
 
-  # Find out the commit of net-istio.yaml.
-  local NET_ISTIO_COMMIT=$(
-    grep 'serving.knative.dev/release:' third_party/net-istio.yaml \
-      | cut -f2 -d\: | cut -f2 -d- | sed "s/[^0-9a-f]//g" \
-      | head -n1)
+  # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
+  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
 
   # And checkout the setup script based on that commit.
   local NET_ISTIO_DIR=$(mktemp -d)
