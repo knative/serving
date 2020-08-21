@@ -550,9 +550,12 @@ func TestMixedPodShuffle(t *testing.T) {
 	})
 
 	tm := metav1.NewTime(time.Now().Add(-time.Hour))
-	const numPods = 25
-	makePods(ctx, "old-", 5, tm)
-	makePods(ctx, "new-", numPods-5, metav1.Now())
+	const (
+		numPods = 25
+		oldPods = 5
+	)
+	makePods(ctx, "old-", oldPods, tm)
+	makePods(ctx, "new-", numPods-oldPods, metav1.Now())
 	wantScrapes := int(populationMeanSampleSize(numPods))
 	t.Log("WantScrapes", wantScrapes)
 
@@ -567,7 +570,7 @@ func TestMixedPodShuffle(t *testing.T) {
 		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if got, want := len(client.urls), wantScrapes; got != want {
-		t.Errorf("Got = %d unique URLS, want: %d", got, want)
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
 	}
 
 	// Ensure all the old pods are there.
@@ -578,7 +581,7 @@ func TestMixedPodShuffle(t *testing.T) {
 			cnt++
 		}
 	}
-	if got, want := cnt, 5; got != want {
+	if got, want := cnt, oldPods; got != want {
 		t.Errorf("Number of scraped old pods = %d, want: %d", got, want)
 	}
 }
@@ -613,7 +616,7 @@ func TestOldPodShuffle(t *testing.T) {
 		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if got, want := len(client.urls), wantScrapes; got != want {
-		t.Errorf("Got = %d unique URLS, want: %d", got, want)
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
 	}
 	// Store and reset.
 	firstRun := client.urls
@@ -624,7 +627,7 @@ func TestOldPodShuffle(t *testing.T) {
 		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if got, want := len(client.urls), wantScrapes; got != want {
-		t.Errorf("Got = %d unique URLS, want: %d", got, want)
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
 	}
 
 	// Verify we shuffled.
@@ -690,7 +693,7 @@ func TestOldPodsFallback(t *testing.T) {
 		t.Fatal("scraper.Scrape() returned error:", err)
 	}
 	if got, want := len(client.urls), wantScrapes*2; got != want {
-		t.Errorf("Got = %d unique URLS, want: %d", got, want)
+		t.Fatalf("Got = %d unique URLS, want: %d", got, want)
 	}
 
 	// Ensure all the old pods are there.
@@ -703,7 +706,7 @@ func TestOldPodsFallback(t *testing.T) {
 		}
 	}
 	if got, want := ocnt, wantScrapes; got != want {
-		t.Errorf("Number of scraped old pods = %d, want: %d", got, want)
+		t.Fatalf("Number of scraped old pods = %d, want: %d", got, want)
 	}
 	if got, want := ycnt, wantScrapes; got != want {
 		t.Errorf("Number of scraped young pods = %d, want: %d", got, want)
