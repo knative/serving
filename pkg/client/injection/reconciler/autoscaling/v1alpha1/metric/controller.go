@@ -64,7 +64,6 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
-				logger.Infof("Metrics: promote bucket %s", bkt.Name())
 				all, err := lister.List(labels.Everything())
 				if err != nil {
 					return err
@@ -77,9 +76,6 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 					})
 				}
 				return nil
-			},
-			DemoteFunc: func(bkt reconciler.Bucket) {
-				logger.Infof("Metrics: demote bucket %s", bkt.Name())
 			},
 		},
 		Client:        client.Get(ctx),
