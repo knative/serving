@@ -208,6 +208,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
@@ -337,6 +339,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -454,6 +458,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -585,6 +591,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -651,6 +659,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-1-test-route.test",
+				"test-revision-1-test-route.test.svc",
 				"test-revision-1-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -695,6 +705,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"test-revision-2-test-route.test",
+				"test-revision-2-test-route.test.svc",
 				"test-revision-2-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -791,6 +803,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -857,6 +871,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"bar-test-route.test",
+				"bar-test-route.test.svc",
 				"bar-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -901,6 +917,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"foo-test-route.test",
+				"foo-test-route.test.svc",
 				"foo-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -1006,6 +1024,8 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 		TLS: []v1alpha1.IngressTLS{},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts: []string{
+				"test-route.test",
+				"test-route.test.svc",
 				"test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -1162,6 +1182,8 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"bar-test-route.test",
+				"bar-test-route.test.svc",
 				"bar-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -1212,6 +1234,8 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		}, {
 			Hosts: []string{
+				"foo-test-route.test",
+				"foo-test-route.test.svc",
 				"foo-test-route.test.svc.cluster.local",
 			},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -1301,7 +1325,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				"mytestdomain.com": "selector:\n  app: prod",
 			}
 			watcher.OnChange(&templateCM)
-			r.Labels = make(map[string]string)
+			r.Labels = nil
 		},
 	}, {
 		// When no domain with an open selector is specified, we fallback
@@ -1312,7 +1336,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				"mytestdomain.com": "selector:\n  app: prod",
 			}
 			watcher.OnChange(&templateCM)
-			r.Labels = make(map[string]string)
+			r.Labels = nil
 		},
 	}}
 
@@ -1327,9 +1351,8 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				cf()
 				waitInformers()
 			}()
-			route := Route(testNamespace, "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
-			route.Name = uuid.New().String()
-			route.Labels = map[string]string{"app": "prod"}
+			route := Route(testNamespace, uuid.New().String(), WithRouteGeneration(1982),
+				WithRouteLabel(map[string]string{"app": "prod"}))
 			routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 
 			// Create a route.
@@ -1341,9 +1364,9 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			addRouteToInformers(ctx, t, route)
 
 			// Wait initial reconcile to finish.
-			rl := fakerouteinformer.Get(ctx).Lister()
+			rl := fakerouteinformer.Get(ctx).Lister().Routes(route.Namespace)
 			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-				r, err := rl.Routes(route.Namespace).Get(route.Name)
+				r, err := rl.Get(route.Name)
 				if err != nil {
 					return false, err
 				}
@@ -1356,14 +1379,25 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			// generates an actual diff. Otherwise the value in the
 			// fake cache is going to be changed. Now, this update sometimes races with
 			// the CM update and since the update below is a noop (the same object
-			// is applied), noting happens and the test fails.
+			// is applied), nothing happens and the test fails (for one of the tests).
 			route = route.DeepCopy()
+			route.Generation++
 			tc.apply(route, watcher)
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			if _, err := routeClient.Update(route); err != nil {
 				t.Fatal("Route.Update() =", err)
 			}
 
+			// Ensure we have the proper version in the informers.
+			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+				r, err := rl.Get(route.Name)
+				return r != nil && r.Generation == route.Generation, err
+			}); err != nil {
+				t.Error("Failed to see informers get the new Route version:", err)
+			}
+
+			// Now that we know the exact version the reconciler is going to see in the
+			// informers, let's reconcile.
 			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
 				t.Fatal("Reconcile() =", err)
 			}
@@ -1375,8 +1409,8 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				if err != nil {
 					return false, err
 				}
-				// Wait for the domain to propagate.
-				if r.Status.URL == nil {
+				// Wait for the object to reconcile and the domain to propagate.
+				if r.Status.ObservedGeneration != route.Generation && r.Status.URL == nil {
 					return false, nil
 				}
 				gotDomain = r.Status.URL.Host
