@@ -57,10 +57,6 @@ type ObservabilityConfig struct {
 	// Stackdriver. "None" disables all backends.
 	RequestMetricsBackend string
 
-	// MetricsCollectorAddress specifies the metrics collector address. This is only used
-	// when the metrics backend is opencensus.
-	MetricsCollectorAddress string
-
 	// EnableProfiling indicates whether it is allowed to retrieve runtime profiling data from
 	// the pods via an HTTP server in the format expected by the pprof visualization tool.
 	EnableProfiling bool
@@ -90,7 +86,6 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 		cm.AsString("logging.request-log-template", &oc.RequestLogTemplate),
 		cm.AsBool("logging.enable-probe-request-log", &oc.EnableProbeRequestLog),
 		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
-		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
 		cm.AsBool("profiling.enable", &oc.EnableProfiling),
 		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
 	); err != nil {
