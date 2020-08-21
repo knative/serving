@@ -594,7 +594,7 @@ func TestMakePodSpec(t *testing.T) {
 			}}),
 		),
 		oc: metrics.ObservabilityConfig{
-			RequestMetricsBackend: "opencensus",
+			RequestMetricsBackend:   "opencensus",
 			MetricsCollectorAddress: "otel:55678",
 		},
 		want: podSpec(

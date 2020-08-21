@@ -284,13 +284,13 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		oc: metrics.ObservabilityConfig{
-			RequestMetricsBackend: "opencensus",
+			RequestMetricsBackend:   "opencensus",
 			MetricsCollectorAddress: "otel:55678",
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
 				"SERVING_REQUEST_METRICS_BACKEND": "opencensus",
-				"METRICS_COLLECTOR_ADDRESS": "otel:55678",
+				"METRICS_COLLECTOR_ADDRESS":       "otel:55678",
 			})
 		}),
 	}}
