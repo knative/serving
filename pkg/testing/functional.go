@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -264,6 +265,11 @@ func WithClusterIP(ip string) K8sServiceOption {
 func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
+		svc.Spec.Ports = []corev1.ServicePort{{
+			Name:       networking.ServicePortNameH2C,
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(80),
+		}}
 	}
 }
 
