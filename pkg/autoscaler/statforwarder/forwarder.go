@@ -91,27 +91,32 @@ type Forwarder struct {
 	// accept is the function to process a StatMessage if it doesn't need
 	// to be forwarded.
 	accept statProcessor
-	// Lock for b2IP.
-	lock  sync.RWMutex
-	b2IP  map[string]string
-	wsMap map[string]*websocket.ManagedConnection
+	// Lock for leaseHolders.
+	leaselock     sync.RWMutex
+	leaseHolders  map[string]string
+	wsLock        sync.RWMutex
+	wsMap         map[string]*websocket.ManagedConnection
+	endpointsLock sync.RWMutex
+	endpointsIP   map[string]string
 }
 
 func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
 	ns := system.Namespace()
+	bkts := bs.Buckets()
+	endpointsInformer := endpointsinformer.Get(ctx)
 	f := Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
 		serviceLister:   serviceinformer.Get(ctx).Lister(),
-		endpointsLister: endpointsinformer.Get(ctx).Lister(),
+		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
 		accept:          accept,
-		b2IP:            make(map[string]string),
+		leaseHolders:    make(map[string]string, len(bkts)),
+		endpointsIP:     make(map[string]string, len(bkts)),
+		wsMap:           make(map[string]*websocket.ManagedConnection, len(bkts)),
 	}
 
-	bkts := bs.Buckets()
-	f.wsMap = make(map[string]*websocket.ManagedConnection, len(bkts))
 	for _, b := range bkts {
 		dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", b.Name(), ns, network.GetClusterDomainName(), autoscalerPort)
 		logger.Info("Connecting to Autoscaler bucket at ", dns)
@@ -126,6 +131,14 @@ func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.B
 			AddFunc:    f.leaseUpdated,
 			UpdateFunc: controller.PassNew(f.leaseUpdated),
 			DeleteFunc: f.leaseDeleted,
+		},
+	})
+
+	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.NamespaceFilterFunc(ns),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    f.endpointsUpdated,
+			UpdateFunc: controller.PassNew(f.endpointsUpdated),
 		},
 	})
 	return &f
@@ -296,13 +309,13 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	owner := f.bs.Owner(sm.Key.String())
 	arr := f.getIP(owner)
 	if arr[0] == f.selfIP {
-		l.Infof("## accept rev %s\n", sm.Key.String())
+		l.Infof("## accept rev %s: %+v", sm.Key.String(), sm)
 		f.accept(sm)
 		return
 	}
 
-	if ws, ok := f.wsMap[owner]; ok {
-		l.Infof("## forward rev %s to %s, owned by %s", sm.Key.String(), owner, arr[1])
+	if ws, ok := f.getWS(owner); ok {
+		l.Infof("## forward rev %s to %s: %+v", sm.Key.String(), arr[1], sm)
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {
@@ -324,21 +337,81 @@ func (f *Forwarder) Cancel() {
 	}
 }
 
+func (f *Forwarder) getEIP(name string) string {
+	f.endpointsLock.RLock()
+	defer f.endpointsLock.RUnlock()
+	return f.endpointsIP[name]
+}
+
+func (f *Forwarder) setEIP(name, IP string) {
+	f.endpointsLock.Lock()
+	defer f.endpointsLock.Unlock()
+	f.endpointsIP[name] = IP
+}
+
 func (f *Forwarder) getIP(name string) []string {
-	f.lock.RLock()
-	defer f.lock.RUnlock()
-	return strings.Split(f.b2IP[name], "/")
+	f.leaselock.RLock()
+	defer f.leaselock.RUnlock()
+	return strings.Split(f.leaseHolders[name], "/")
 }
 
 func (f *Forwarder) setIP(name, IP string) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	f.b2IP[name] = IP
-	f.logger.Infof("B2IP mapping changed: %v %v %v", name, IP, f.b2IP)
+	f.leaselock.Lock()
+	defer f.leaselock.Unlock()
+	f.leaseHolders[name] = IP
+}
+
+func (f *Forwarder) getWS(name string) (*websocket.ManagedConnection, bool) {
+	f.wsLock.RLock()
+	defer f.wsLock.RUnlock()
+	ws, ok := f.wsMap[name]
+	return ws, ok
+}
+
+func (f *Forwarder) setWS(name string, ws *websocket.ManagedConnection) {
+	f.wsLock.Lock()
+	defer f.wsLock.Unlock()
+	f.wsMap[name] = ws
 }
 
 func (f *Forwarder) deleteIP(name string) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	delete(f.b2IP, name)
+	f.leaselock.Lock()
+	defer f.leaselock.Unlock()
+	delete(f.leaseHolders, name)
+}
+
+func (f *Forwarder) endpointsUpdated(obj interface{}) {
+	e := obj.(*v1.Endpoints)
+	n := e.Name
+
+	if !f.isBucketLease(n) {
+		f.logger.Debugf("Skip Endpoints %s, not a valid one", n)
+		return
+	}
+
+	if len(e.Subsets) == 0 {
+		return
+	}
+
+	newIP := e.Subsets[0].Addresses[0].IP
+	oldIP := f.getEIP(n)
+	holder := f.getIP(n)[0]
+
+	if newIP == oldIP {
+		// No IP change
+		return
+	}
+
+	if holder != newIP {
+		f.logger.Errorf("bkt %s holder doesn't match its endpoints IP: %s %s", n, holder, newIP)
+	}
+
+	f.setEIP(n, newIP)
+	if ws, ok := f.getWS(n); ok {
+		go ws.Shutdown()
+	}
+
+	dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", n, e.Namespace, network.GetClusterDomainName(), autoscalerPort)
+	statSink := websocket.NewDurableSendingConnection(dns, f.logger)
+	f.setWS(n, statSink)
 }
