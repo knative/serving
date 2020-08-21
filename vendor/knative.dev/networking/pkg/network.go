@@ -18,7 +18,6 @@ package pkg
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -31,7 +30,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
 )
 
 const (
@@ -66,12 +64,6 @@ const (
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
 	ConfigName = "config-network"
-
-	// IstioOutboundIPRangesKey is the name of the configuration entry
-	// that specifies Istio outbound ip ranges.
-	//
-	// DEPRECATED: This will be completely removed in the future release.
-	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
 	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
 	DeprecatedDefaultIngressClassKey = "clusteringress.class"
@@ -272,12 +264,6 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // NewConfigFromMap creates a Config from the supplied data.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
-	if _, ok := data[IstioOutboundIPRangesKey]; ok {
-		// TODO(0.15): Until the next version is released, the validation check is
-		// enabled to notify users who configure this value.
-		logger := logging.FromContext(context.Background()).Named("config-network")
-		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
-	}
 
 	if err := cm.Parse(data,
 		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),

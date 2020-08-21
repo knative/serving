@@ -1802,8 +1802,8 @@ knative.dev/caching v0.0.0-20200820161315-4cd021a72a18 h1:PhTB/DEr/Ms5QNoGNqX9Ry
 knative.dev/caching v0.0.0-20200820161315-4cd021a72a18/go.mod h1:4HR5VudOBe8UTaU5qoMbErBoiKlFSEM9VZ7C64PWPg4=
 knative.dev/eventing-contrib v0.6.1-0.20190723221543-5ce18048c08b/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
 knative.dev/eventing-contrib v0.11.2/go.mod h1:SnXZgSGgMSMLNFTwTnpaOH7hXDzTFtw0J8OmHflNx3g=
-knative.dev/networking v0.0.0-20200820164014-acfd663203ae h1:gI3H/w23kWFBeST3xImbV0ndDTQTGLPwbq9JDhrnI+0=
-knative.dev/networking v0.0.0-20200820164014-acfd663203ae/go.mod h1:35o/+HeiOoaAC6Hch+MJWzR1TnMmzW6LzBeR9sCyGJY=
+knative.dev/networking v0.0.0-20200821053246-5d17299a5d78 h1:nFPxbzO960sUTKwXS+2caDBZUoxnV4ZHYnNwhQbYOLg=
+knative.dev/networking v0.0.0-20200821053246-5d17299a5d78/go.mod h1:35o/+HeiOoaAC6Hch+MJWzR1TnMmzW6LzBeR9sCyGJY=
 knative.dev/pkg v0.0.0-20191101194912-56c2594e4f11/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20191111150521-6d806b998379/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
 knative.dev/pkg v0.0.0-20200207155214-fef852970f43/go.mod h1:pgODObA1dTyhNoFxPZTTjNWfx6F0aKsKzn+vaT9XO/Q=
@@ -1823,6 +1823,8 @@ knative.dev/test-infra v0.0.0-20200707183444-aed09e56ddc7/go.mod h1:RjYAhXnZqeHw
 knative.dev/test-infra v0.0.0-20200817225313-c0ea00ce480c/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 knative.dev/test-infra v0.0.0-20200819210814-f578ab25945b h1:1iSavTEBQtZOWAnTE/4i5E0uGOWn+WgpYDqx++AoiLU=
 knative.dev/test-infra v0.0.0-20200819210814-f578ab25945b/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
+knative.dev/test-infra v0.0.0-20200820231346-543fe3e80c03 h1:tBz8QL+H4chihsWHGDJ8/1xwHiFMDqRWHHid/qlfSoo=
+knative.dev/test-infra v0.0.0-20200820231346-543fe3e80c03/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
