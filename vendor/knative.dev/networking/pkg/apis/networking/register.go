@@ -84,11 +84,6 @@ const (
 	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
 	// domain for which it was issued.
 	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
-
-	// KnativeIngressGateway is the name of the ingress gateway
-	KnativeIngressGateway = "knative-ingress-gateway"
-	// ClusterLocalGateway is the name of the local gateway
-	ClusterLocalGateway = "cluster-local-gateway"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services
