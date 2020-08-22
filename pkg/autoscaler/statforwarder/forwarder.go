@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -411,7 +412,10 @@ func (f *Forwarder) endpointsUpdated(obj interface{}) {
 		go ws.Shutdown()
 	}
 
+	f.logger.Infof("bkt %s IP changed: %s, %s", n, oldIP, newIP)
+	time.Sleep(5 * time.Second)
 	dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", n, e.Namespace, network.GetClusterDomainName(), autoscalerPort)
+	f.logger.Infof("Connecting to %s", dns)
 	statSink := websocket.NewDurableSendingConnection(dns, f.logger)
 	f.setWS(n, statSink)
 }
