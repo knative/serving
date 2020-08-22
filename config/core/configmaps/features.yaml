@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "dd011edb"
+    knative.dev/example-checksum: "983ddf13"
 data:
   _example: |
     ################################
@@ -92,3 +92,8 @@ data:
     # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
     # should be used for testing purposes only.
     responsive-revision-gc: "disabled"
+
+    # Controls whether tag header based routing feature are enabled or not.
+    # 1. Enabled: enabling tag header based routing
+    # 2. Disabled: disabling tag header based routing
+    tag-header-based-routing: "disabled"

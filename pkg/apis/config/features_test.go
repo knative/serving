@@ -66,6 +66,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecSecurityContext: Enabled,
 			PodSpecTolerations:     Enabled,
 			ResponsiveRevisionGC:   Enabled,
+			TagHeaderBasedRouting:  Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":                    "Enabled",
@@ -75,6 +76,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-securitycontext": "Enabled",
 			"kubernetes.podspec-tolerations":     "Enabled",
 			"responsive-revision-gc":             "Enabled",
+			"tag-header-based-routing":           "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -246,6 +248,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-securitycontext": "Disabled",
+		},
+	}, {
+		name:    "tag-header-based-routing Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			TagHeaderBasedRouting: Allowed,
+		}),
+		data: map[string]string{
+			"tag-header-based-routing": "Allowed",
+		},
+	}, {
+		name:    "tag-header-based-routing Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			TagHeaderBasedRouting: Enabled,
+		}),
+		data: map[string]string{
+			"tag-header-based-routing": "Enabled",
 		},
 	}}
 

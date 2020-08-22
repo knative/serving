@@ -484,7 +484,7 @@ func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
 	}}
 
 	ctx := testContext()
-	config.FromContext(ctx).Network.TagHeaderBasedRouting = true
+	config.FromContext(ctx).Features.TagHeaderBasedRouting = apiConfig.Enabled
 
 	ci, err := MakeIngressSpec(ctx, r, nil, targets, nil /* visibility */)
 	if err != nil {

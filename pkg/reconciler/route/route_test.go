@@ -52,6 +52,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
@@ -113,6 +114,11 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.FeaturesConfigName,
 			Namespace: system.Namespace(),
 		},
 	}} {
@@ -975,11 +981,11 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
+			Name:      cfgmap.FeaturesConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			network.TagHeaderBasedRoutingKey: "enabled",
+			"tag-header-based-routing": "enabled",
 		},
 	})
 	// A standalone revision
@@ -1015,7 +1021,6 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-
 	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)

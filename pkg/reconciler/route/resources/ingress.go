@@ -32,7 +32,7 @@ import (
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
-	defaults "knative.dev/serving/pkg/apis/config"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -105,7 +105,7 @@ func MakeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
-	networkConfig := config.FromContext(ctx).Network
+	featuresConfig := config.FromContextOrDefaults(ctx).Features
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -119,7 +119,7 @@ func MakeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, targets[name])
-			if networkConfig.TagHeaderBasedRouting {
+			if featuresConfig.TagHeaderBasedRouting == apiConfig.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
 				}
@@ -295,9 +295,9 @@ func ingressTimeout(ctx context.Context) time.Duration {
 	longTimeout := time.Hour * 48
 
 	// However, if the MaxRevisionTimeout is longer, we should still honor that.
-	if defaults.FromContext(ctx) != nil && defaults.FromContext(ctx).Defaults != nil {
+	if apiConfig.FromContext(ctx) != nil && apiConfig.FromContext(ctx).Defaults != nil {
 		maxRevisionTimeout := time.Duration(
-			defaults.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
+			apiConfig.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
 		if maxRevisionTimeout > longTimeout {
 			return maxRevisionTimeout
 		}
