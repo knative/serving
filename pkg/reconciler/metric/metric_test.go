@@ -185,12 +185,12 @@ func TestReconcile(t *testing.T) {
 func TestReconcileWithCollector(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	collector := &testCollector{}
-	collector.createOrUpdateCalls = make(chan struct{}, 1)
-	collector.deleteCalls = make(chan struct{}, 1)
+	collector := &testCollector{
+		createOrUpdateCalls: make(chan struct{}, 1),
+		deleteCalls:         make(chan struct{}, 1),
+	}
 
 	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
-
 	wf, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		cancel()
@@ -199,17 +199,18 @@ func TestReconcileWithCollector(t *testing.T) {
 
 	barrier := make(chan struct{})
 	var eg errgroup.Group
-	eg.Go(func() error {
-		close(barrier)
-		return ctl.Run(1, ctx.Done())
-	})
-	defer func() {
+	t.Cleanup(func() {
 		cancel()
 		wf()
 		eg.Wait()
-	}()
+	})
 
-	m := metric("new", "metric")
+	eg.Go(func() error {
+		close(barrier)
+		return ctl.RunContext(ctx, 1)
+	})
+
+	m := metric("a-new", "test-metric")
 	scs := servingclient.Get(ctx)
 
 	// Ensure the controller is running.
@@ -217,6 +218,7 @@ func TestReconcileWithCollector(t *testing.T) {
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
 	select {
 	case <-collector.createOrUpdateCalls:
+		t.Log("Create or Update was invoked")
 	case <-time.After(2 * time.Second):
 		t.Fatal("CreateOrUpdate() called 0 times, want non-zero times")
 	}
@@ -224,6 +226,7 @@ func TestReconcileWithCollector(t *testing.T) {
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
 	select {
 	case <-collector.deleteCalls:
+		t.Log("Delete was invoked")
 	case <-time.After(2 * time.Second):
 		t.Error("Delete() called 0 times, want non-zero times")
 	}
@@ -266,10 +269,9 @@ func metric(namespace, name string, opts ...metricOption) *av1alpha1.Metric {
 }
 
 type testCollector struct {
+	metrics.Collector
 	createOrUpdateCalls chan struct{}
 	createOrUpdateError error
-
-	recordCalls chan struct{}
 
 	deleteCalls chan struct{}
 	deleteError error
@@ -280,12 +282,6 @@ func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		c.createOrUpdateCalls <- struct{}{}
 	}
 	return c.createOrUpdateError
-}
-
-func (c *testCollector) Record(key types.NamespacedName, now time.Time, stat metrics.Stat) {
-	if c.recordCalls != nil {
-		c.recordCalls <- struct{}{}
-	}
 }
 
 func (c *testCollector) Delete(namespace, name string) error {
