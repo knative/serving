@@ -41,8 +41,6 @@ func ComputeHash(ing *v1alpha1.Ingress) ([sha256.Size]byte, error) {
 
 // InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
 // the version of the Ingress currently deployed on the Gateway.
-// TODO: move this to github.com/knative/networking — currently it is used by downstream
-// consumers, see: https://github.com/knative/serving/issues/7482.
 func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 	bytes, err := ComputeHash(ing)
 	if err != nil {
@@ -54,12 +52,20 @@ func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 		if rule.HTTP == nil {
 			return "", fmt.Errorf("rule is missing HTTP block: %+v", rule)
 		}
+		probePaths := make([]v1alpha1.HTTPIngressPath, 0, len(rule.HTTP.Paths))
 		for i := range rule.HTTP.Paths {
-			if rule.HTTP.Paths[i].AppendHeaders == nil {
-				rule.HTTP.Paths[i].AppendHeaders = make(map[string]string, 1)
+			elt := rule.HTTP.Paths[i].DeepCopy()
+			if elt.AppendHeaders == nil {
+				elt.AppendHeaders = make(map[string]string, 1)
 			}
-			rule.HTTP.Paths[i].AppendHeaders[net.HashHeaderName] = hash
+			if elt.Headers == nil {
+				elt.Headers = make(map[string]v1alpha1.HeaderMatch, 1)
+			}
+			elt.Headers[net.HashHeaderName] = v1alpha1.HeaderMatch{Exact: net.HashHeaderValue}
+			elt.AppendHeaders[net.HashHeaderName] = hash
+			probePaths = append(probePaths, *elt)
 		}
+		rule.HTTP.Paths = append(probePaths, rule.HTTP.Paths...)
 	}
 
 	return hash, nil

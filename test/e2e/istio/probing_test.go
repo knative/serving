@@ -44,7 +44,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -53,25 +52,29 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// TODO(nak3,#9002): once those tests are moved to net-istio
+// use the generic constant there.
+const knativeIngressGateway = "knative-ingress-gateway"
+
 func TestIstioProbing(t *testing.T) {
 	clients := e2e.Setup(t)
 	namespace := system.Namespace()
 
 	// Save the current Gateway to restore it after the test
-	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(knativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
+		t.Fatalf("Failed to get Gateway %s/%s", namespace, knativeIngressGateway)
 	}
 
 	// After the test ends, restore the old gateway
 	test.EnsureCleanup(t, func() {
-		curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+		curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(knativeIngressGateway, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
+			t.Fatalf("Failed to get Gateway %s/%s", namespace, knativeIngressGateway)
 		}
 		curGateway.Spec.Servers = oldGateway.Spec.Servers
 		if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
-			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
+			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, knativeIngressGateway, err)
 		}
 	})
 
@@ -306,9 +309,9 @@ func hasHTTPS(servers []*istiov1alpha3.Server) bool {
 func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string,
 	namespace string, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
-	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(knativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
+		t.Fatalf("Failed to get Gateway %s/%s: %v", namespace, knativeIngressGateway, err)
 	}
 
 	// Update its Spec
@@ -318,7 +321,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 	// Update the Gateway
 	gw, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(newGateway)
 	if err != nil {
-		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
+		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, knativeIngressGateway, err)
 	}
 
 	selector := labels.SelectorFromSet(gw.Spec.Selector).String()
