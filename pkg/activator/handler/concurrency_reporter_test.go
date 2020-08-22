@@ -471,12 +471,14 @@ func TestMetricsReported(t *testing.T) {
 		close(reportCh)
 	}()
 
-	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
-	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
-	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
-	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn})
+	now := time.Now().Truncate(time.Second)
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 
-	reportCh <- time.Now()
+	now = now.Add(time.Second)
+	reportCh <- now
 	<-cr.statCh
 	<-cr.statCh
 
@@ -496,7 +498,8 @@ func TestMetricsReported(t *testing.T) {
 
 	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
 	metricstest.AssertMetric(t, wantMetric)
-	reportCh <- time.Now()
+	now = now.Add(time.Second)
+	reportCh <- now
 	<-cr.statCh
 	*wantMetric.Values[0].Float64++
 	metricstest.AssertMetric(t, wantMetric)

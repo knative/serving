@@ -38,13 +38,6 @@ data:
     # this example block and unindented to be in the data block
     # to actually change the configuration.
 
-    # DEPRECATED:
-    # istio.sidecar.includeOutboundIPRanges is obsolete.
-    # The current versions have outbound network access enabled by default.
-    # If you need this option for some reason, please use global.proxy.includeIPRanges in Istio.
-    #
-    # istio.sidecar.includeOutboundIPRanges: "*"
-
     # ingress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
