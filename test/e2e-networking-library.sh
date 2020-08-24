@@ -19,29 +19,32 @@ function install_istio() {
     readonly ISTIO_VERSION="stable"
   fi
 
-  # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
+#  # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
+#  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
+#
+#  # And checkout the setup script based on that commit.
+#  local NET_ISTIO_DIR=$(mktemp -d)
+#  (
+#    cd $NET_ISTIO_DIR \
+#      && git init \
+#      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
+#      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
+#      && git checkout FETCH_HEAD
+#  )
+#
+#  if (( MESH )); then
+#    ISTIO_PROFILE="istio-ci-mesh.yaml"
+#  else
+#    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
+#  fi
 
-  # And checkout the setup script based on that commit.
-  local NET_ISTIO_DIR=$(mktemp -d)
-  (
-    cd $NET_ISTIO_DIR \
-      && git init \
-      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
-      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
-      && git checkout FETCH_HEAD
-  )
+#  echo ">> Installing Istio"
+#  echo "Istio version: ${ISTIO_VERSION}"
+#  echo "Istio profile: ${ISTIO_PROFILE}"
+#  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
-  if (( MESH )); then
-    ISTIO_PROFILE="istio-ci-mesh.yaml"
-  else
-    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
-  fi
-
-  echo ">> Installing Istio"
-  echo "Istio version: ${ISTIO_VERSION}"
-  echo "Istio profile: ${ISTIO_PROFILE}"
-  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  ISTIO_PROFILE="istio-ci-no-mesh.yaml"
+  ./third_party/istio-stable/install-istio.sh ${ISTIO_PROFILE}
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
