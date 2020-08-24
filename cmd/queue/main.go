@@ -65,8 +65,6 @@ const (
 )
 
 var (
-	logger *zap.SugaredLogger
-
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
 )
 
@@ -152,7 +150,7 @@ func proxyHandler(breaker *queue.Breaker, stats *network.RequestStats, tracingEn
 	}
 }
 
-func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
+func knativeProbeHandler(logger *zap.SugaredLogger, healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 
@@ -208,7 +206,7 @@ func main() {
 	}
 
 	// Setup the logger.
-	logger, _ = pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
@@ -249,11 +247,11 @@ func main() {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(env.ServingReadinessProbe)
+	probe := buildProbe(logger, env.ServingReadinessProbe)
 	healthState := &health.State{}
 
 	server := buildServer(env, healthState, probe, stats, logger)
-	adminServer := buildAdminServer(healthState, logger)
+	adminServer := buildAdminServer(logger, healthState)
 	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
 
 	servers := map[string]*http.Server{
@@ -311,7 +309,7 @@ func main() {
 	}
 }
 
-func buildProbe(probeJSON string) *readiness.Probe {
+func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
@@ -338,8 +336,8 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	httpProxy.FlushInterval = network.FlushInterval
 	activatorutil.SetupHeaderPruning(httpProxy)
 
-	breaker := buildBreaker(env)
-	metricsSupported := supportsMetrics(env, logger)
+	breaker := buildBreaker(logger, env)
+	metricsSupported := supportsMetrics(logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
@@ -347,22 +345,22 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
-		composedHandler = requestAppMetricsHandler(composedHandler, breaker, env)
+		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
 	composedHandler = proxyHandler(breaker, stats, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeToFirstByteTimeoutHandler(composedHandler, "request timeout", handler.StaticTimeoutFunc(timeout))
 
 	if metricsSupported {
-		composedHandler = requestMetricsHandler(composedHandler, env)
+		composedHandler = requestMetricsHandler(logger, composedHandler, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
-	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, logger)
+	composedHandler = knativeProbeHandler(logger, healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 	// We might want sometimes capture the probes/healthchecks in the request
 	// logs. Hence we need to have RequestLogHandler to be the first one.
-	composedHandler = pushRequestLogHandler(composedHandler, env)
+	composedHandler = pushRequestLogHandler(logger, composedHandler, env)
 
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 }
@@ -390,7 +388,7 @@ func buildTransport(env config, logger *zap.SugaredLogger, maxConns int) http.Ro
 	}
 }
 
-func buildBreaker(env config) *queue.Breaker {
+func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	if env.ContainerConcurrency < 1 {
 		return nil
 	}
@@ -404,13 +402,13 @@ func buildBreaker(env config) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
+func supportsMetrics(logger *zap.SugaredLogger, env config) bool {
 	// Setup request metrics reporting for end-user metrics.
 	if env.ServingRequestMetricsBackend == "" {
 		return false
 	}
 
-	if err := setupMetricsExporter(env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
+	if err := setupMetricsExporter(logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
 		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
 		return false
 	}
@@ -418,7 +416,7 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 	return true
 }
 
-func buildAdminServer(healthState *health.State, logger *zap.SugaredLogger) *http.Server {
+func buildAdminServer(logger *zap.SugaredLogger, healthState *health.State) *http.Server {
 	adminMux := http.NewServeMux()
 	drainHandler := healthState.DrainHandlerFunc()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
@@ -441,7 +439,7 @@ func buildMetricsServer(promStatReporter *queue.PrometheusStatsReporter, protobu
 	}
 }
 
-func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler {
+func pushRequestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	if !env.ServingEnableRequestLog {
 		return currentHandler
 	}
@@ -463,7 +461,7 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 	return handler
 }
 
-func requestMetricsHandler(currentHandler http.Handler, env config) http.Handler {
+func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
@@ -473,7 +471,7 @@ func requestMetricsHandler(currentHandler http.Handler, env config) http.Handler
 	return h
 }
 
-func requestAppMetricsHandler(currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
+func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
 	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
 		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
@@ -483,7 +481,7 @@ func requestAppMetricsHandler(currentHandler http.Handler, breaker *queue.Breake
 	return h
 }
 
-func setupMetricsExporter(backend string, collectorAddress string) error {
+func setupMetricsExporter(logger *zap.SugaredLogger, backend string, collectorAddress string) error {
 	// Set up OpenCensus exporter.
 	// NOTE: We use revision as the component instead of queue because queue is
 	// implementation specific. The current metrics are request relative. Using
