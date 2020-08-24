@@ -899,12 +899,12 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
-	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
 
 	r.MarkActive()
 	r.MarkSKSReady()
-	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
@@ -912,7 +912,7 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
@@ -922,13 +922,13 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	r.MarkSKSNotReady("something something private")
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionOngoing(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// Restore.
@@ -957,7 +957,7 @@ func TestTypicalFlow(t *testing.T) {
 		t.Error("Active was not set.")
 	}
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
-	apistest.CheckConditionSucceeded(r, PodAutoscalerSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }

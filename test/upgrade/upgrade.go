@@ -41,6 +41,7 @@ const (
 	scaleToZeroServiceName   = "scale-to-zero-upgrade-service"
 	byoServiceName           = "byo-revision-name-upgrade-test"
 	byoRevName               = byoServiceName + "-" + "rev1"
+	initialScaleServiceName  = "init-scale-service"
 )
 
 // Shamelessly cribbed from conformance/service_test.

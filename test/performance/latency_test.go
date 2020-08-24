@@ -44,6 +44,7 @@ const (
 	sleepReqTimeout = 2 * time.Minute
 	hwReqtimeout    = 30 * time.Second
 	baseQPS         = 10
+	duration        = 1 * time.Minute
 )
 
 func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
@@ -102,11 +103,12 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	}
 	metrics.Close()
 
-	var tc []junit.TestCase
-	// Add latency metrics
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", tName))
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", tName))
-	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
+	tc := []junit.TestCase{
+		// Add latency metrics
+		perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", tName),
+		perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", tName),
+		perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName),
+	}
 
 	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {
 		t.Fatal("Cannot create output xml:", err)
@@ -121,6 +123,6 @@ func TestTimeToServeLatency(t *testing.T) {
 // Performs perf testing on a long running app.
 // It uses the timeout app that sleeps for the specified amount of time.
 func TestTimeToServeLatencyLongRunning(t *testing.T) {
-	q := fmt.Sprintf("timeout=%d", sleepTime.Milliseconds())
+	q := fmt.Sprint("timeout=", sleepTime.Milliseconds())
 	timeToServe(t, "timeout", q, sleepReqTimeout)
 }

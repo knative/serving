@@ -14,12 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script is a workaround supporing running e2e-tests.sh and
-# e2e-auto-tls-test.sh for Prow jobs that run both of them as supported before.
-# This is introduced as test-infra doesn't support running multiple selected
-# test scripts yet. See https://github.com/knative/test-infra/issues/1746
+set -o errexit
+set -o nounset
+set -o pipefail
 
-cur_dir="$(dirname ${BASH_SOURCE})"
+export GO111MODULE=on
 
-"${cur_dir}/e2e-tests.sh" $@
-"${cur_dir}/e2e-auto-tls-tests.sh" $@
+if [ -z "${GOPATH:-}" ]; then
+  export GOPATH=$(go env GOPATH)
+fi
+
+source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
+
+go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml

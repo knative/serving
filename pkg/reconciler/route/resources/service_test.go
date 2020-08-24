@@ -26,11 +26,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
@@ -139,6 +142,11 @@ func TestNewMakeK8SService(t *testing.T) {
 		expectedSpec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: "domain.com",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 	}, {
 		name:  "ingress-with-domaininternal",
@@ -161,6 +169,11 @@ func TestNewMakeK8SService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 	}, {
 		name:  "ingress-with-only-mesh",
@@ -262,6 +275,11 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.example.com",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 		expectedLabels: map[string]string{
 			serving.RouteLabelKey: "test-route",
@@ -275,6 +293,11 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.example.com",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 		expectedLabels: map[string]string{
 			serving.RouteLabelKey: "test-route",
@@ -291,6 +314,11 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 		expectedLabels: map[string]string{
 			serving.RouteLabelKey: "test-route",
@@ -353,6 +381,16 @@ func testConfig() *config.Config {
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		},
+		Features: &apiConfig.Features{
+			MultiContainer:        apiConfig.Disabled,
+			PodSpecAffinity:       apiConfig.Disabled,
+			PodSpecFieldRef:       apiConfig.Disabled,
+			PodSpecDryRun:         apiConfig.Enabled,
+			PodSpecNodeSelector:   apiConfig.Disabled,
+			PodSpecTolerations:    apiConfig.Disabled,
+			ResponsiveRevisionGC:  apiConfig.Disabled,
+			TagHeaderBasedRouting: apiConfig.Disabled,
 		},
 	}
 }

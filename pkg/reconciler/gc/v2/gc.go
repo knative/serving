@@ -71,12 +71,15 @@ func Collect(
 		return a.Before(b)
 	})
 
-	// Delete stale revisions while more than min remain, swap nonstale revisions to the end
+	// Delete stale revisions while more than min remain, swap nonstale revisions to the end.
 	swap := len(revs)
+
+	// If we need `min` to remain, this is the max index i can reach.
+	maxIdx := len(revs) - min
 	for i := 0; i < swap; {
 		rev := revs[i]
 		switch {
-		case len(revs)-i <= min:
+		case i >= maxIdx:
 			return nil
 		case isRevisionStale(cfg, rev, logger):
 			i++
@@ -107,13 +110,13 @@ func Collect(
 	return nil
 }
 
-// nonactiveRevisions swaps active revisions to the end and reslices to omit them
+// nonactiveRevisions swaps keeps only non active revisions.
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
 	swap := len(revs)
 	for i := 0; i < swap; {
 		if isRevisionActive(revs[i], config) {
 			swap--
-			revs[swap], revs[i] = revs[i], revs[swap]
+			revs[i] = revs[swap]
 		} else {
 			i++
 		}
