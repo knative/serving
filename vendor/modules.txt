@@ -1128,6 +1128,8 @@ knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment
 knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake
 knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler
 knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake
+knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease
+knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/configmap
 knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints
