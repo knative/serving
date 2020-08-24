@@ -91,8 +91,10 @@ sleep 30
 
 # Run conformance and e2e tests.
 
+./test/dumper.sh &
+
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... \
+ ./test/conformance/api/... ./test/conformance/runtime/... \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 

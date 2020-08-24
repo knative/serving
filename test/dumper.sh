@@ -18,9 +18,6 @@ mkdir -p ${ARTIFACTS}/dump
 while true; do
   date  "+%FT%T.%N" >> ${ARTIFACTS}/dump/config
   kubectl exec $(kubectl -n istio-system get pods -lapp=istio-ingressgateway -oname) -n istio-system -- curl -s localhost:15000/config_dump >> ${ARTIFACTS}/dump/config
-  #kubectl exec $(kubectl -n istio-system get pods -lapp=istio-ingressgateway -oname) -n istio-system -- curl -s localhost:15000/config_dump > ${ARTIFACTS}/dump/config-$(date  "+%FT%T.%N")
   date  "+%FT%T.%N" >> ${ARTIFACTS}/dump/clusters
   kubectl exec $(kubectl -n istio-system get pods -lapp=istio-ingressgateway -oname) -n istio-system -- curl -s localhost:15000/clusters >> ${ARTIFACTS}/dump/clusters
-  #kubectl exec $(kubectl -n istio-system get pods -lapp=istio-ingressgateway -oname) -n istio-system -- curl -s localhost:15000/clusters > ${ARTIFACTS}/dump/clusters-$(date  "+%FT%T.%N")
-#  echo "dump done"
 done
