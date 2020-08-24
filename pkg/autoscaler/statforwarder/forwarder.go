@@ -52,7 +52,7 @@ const (
 //    Lease -> IP mapping.
 // 2. Creates/updates the corresponding K8S Service and Endpoints.
 // 3. Can be used to forward the metrics falling in a bucket based on
-//    the holder IP.
+//    the holder IP. (This is a TODO)
 type Forwarder struct {
 	selfIP          string
 	logger          *zap.SugaredLogger
