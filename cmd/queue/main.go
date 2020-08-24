@@ -93,6 +93,7 @@ type config struct {
 	ServingPod                   string `split_words:"true" required:"true"`
 	ServingService               string `split_words:"true"` // optional
 	ServingRequestMetricsBackend string `split_words:"true"` // optional
+	MetricsCollectorAddress      string `split_words:"true"` // optional
 
 	// Tracing configuration
 	TracingConfigDebug                bool                      `split_words:"true"` // optional
@@ -409,7 +410,7 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 		return false
 	}
 
-	if err := setupMetricsExporter(env.ServingRequestMetricsBackend); err != nil {
+	if err := setupMetricsExporter(env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
 		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
 		return false
 	}
@@ -482,7 +483,7 @@ func requestAppMetricsHandler(currentHandler http.Handler, breaker *queue.Breake
 	return h
 }
 
-func setupMetricsExporter(backend string) error {
+func setupMetricsExporter(backend string, collectorAddress string) error {
 	// Set up OpenCensus exporter.
 	// NOTE: We use revision as the component instead of queue because queue is
 	// implementation specific. The current metrics are request relative. Using
@@ -495,6 +496,7 @@ func setupMetricsExporter(backend string) error {
 		PrometheusPort: networking.UserQueueMetricsPort,
 		ConfigMap: map[string]string{
 			metrics.BackendDestinationKey: backend,
+			"metrics.opencensus-address":  collectorAddress,
 		},
 	}
 	return metrics.UpdateExporter(ops, logger)

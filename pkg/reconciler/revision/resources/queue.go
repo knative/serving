@@ -350,6 +350,9 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
 			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
+		}, {
+			Name:  "METRICS_COLLECTOR_ADDRESS",
+			Value: observabilityConfig.MetricsCollectorAddress,
 		}},
 	}, nil
 }
