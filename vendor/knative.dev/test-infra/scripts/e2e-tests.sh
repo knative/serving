@@ -129,15 +129,15 @@ function fail_test() {
 
 SKIP_TEARDOWNS=0
 SKIP_ISTIO_ADDON=0
+E2E_SCRIPT=""
 
 # Parse flags and initialize the test cluster.
 function initialize() {
   local run_tests=0
   local extra_kubetest2_flags=()
   local extra_cluster_creation_flags=()
-  local e2e_script
-  e2e_script="$(get_canonical_path "$0")"
-  local e2e_script_command=( "${e2e_script}" "--run-tests" )
+  E2E_SCRIPT="$(get_canonical_path "$0")"
+  local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
   cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do

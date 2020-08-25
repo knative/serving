@@ -82,7 +82,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 		if err != nil {
 			t.Fatal("Error parsing example observability config:", err)
 		}
-		if cmp.Equal(got, want) {
+		if !cmp.Equal(got, want) {
 			t.Error("Example Observability Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
 	})

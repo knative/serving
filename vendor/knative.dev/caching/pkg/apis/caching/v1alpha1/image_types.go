@@ -155,7 +155,9 @@ func (rs *ImageStatus) SetCondition(new *ImageCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
+	new.LastTransitionTime = apis.VolatileTime{
+		Inner: metav1.NewTime(time.Now()),
+	}
 	conditions = append(conditions, *new)
 	// Deterministically order the conditions
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
