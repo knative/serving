@@ -275,10 +275,20 @@ func main() {
 	}
 
 	errCh := make(chan error, len(servers)+1)
+	listeners := make(map[string]net.Listener)
+	for name, server := range servers {
+		l, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			logger.Fatalw("listen failed", zap.Error(err))
+		}
+
+		listeners[name] = l
+	}
+
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := s.Serve(listeners[name]); err != nil && err != http.ErrServerClosed {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
