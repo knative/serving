@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +56,22 @@ func GetPods(kubeClientset *kubernetes.Clientset, app, namespace string) (*v1.Po
 // Cleanup will clean the background process used for port forwarding
 func Cleanup(pid int) error {
 	ps := os.Process{Pid: pid}
-	return ps.Kill()
+	if err := ps.Kill(); err != nil {
+		return err
+	}
+
+	errCh := make(chan error)
+	go func() {
+		_, err := ps.Wait()
+		errCh <- err
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-time.After(30 * time.Second):
+		return fmt.Errorf("timed out waiting for process %d to exit", pid)
+	}
 }
 
 // PortForward sets up local port forward to the pod specified by the "app" label in the given namespace
