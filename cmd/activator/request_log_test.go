@@ -75,6 +75,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		body: "test",
 		data: map[string]string{
 			"logging.request-log-template": "{{.Request.URL}}\n",
+			"logging.enable-request-log":   "true",
 		},
 		want: "http://example.com/testpage\n",
 	}, {
@@ -91,6 +92,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		body: "test",
 		data: map[string]string{
 			"logging.request-log-template": "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+			"logging.enable-request-log":   "true",
 		},
 		want: "testRevision, testNs, testSvc, testConfig, , \n",
 	}, {
@@ -115,7 +117,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		url:  "http://example.com/testpage",
 		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "disable_request_log",
+			"logging.request-log-template": "{{.Request.URL}}\n",
 			"logging.enable-request-log":   "false",
 		},
 		want: "",
