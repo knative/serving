@@ -14,11 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-
-Package statforwarder provides a forwarder which can be used to forward autoscaler
-statistics to the right Autoscaler pod if Autoscaler is set up with multiple
-pods and running in Leader Election mode.
-
-*/
+// Package statforwarder provides a forwarder which can be used to forward autoscaler
+// statistics to the right Autoscaler pod if Autoscaler is set up with multiple
+// pods and running in Leader Election mode.
 package statforwarder
