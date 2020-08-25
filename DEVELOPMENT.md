@@ -291,7 +291,7 @@ Once the codegen and dependency information is correct, redeploying the
 controller is simply:
 
 ```shell
-ko apply -f config/controller.yaml
+ko apply -f config/core/deployments/controller.yaml
 ```
 
 Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
