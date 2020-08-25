@@ -71,14 +71,6 @@ func TestForwarderReconcile(t *testing.T) {
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
 
-	created := make(chan struct{})
-	kubeClient.PrependReactor("create", "services",
-		func(action ktesting.Action) (bool, runtime.Object, error) {
-			created <- struct{}{}
-			return false, nil, nil
-		},
-	)
-
 	ns := system.Namespace()
 	holder := testIP1
 	l := &coordinationv1.Lease{
@@ -92,13 +84,6 @@ func TestForwarderReconcile(t *testing.T) {
 	}
 	kubeClient.CoordinationV1().Leases(ns).Create(l)
 	lease.Informer().GetIndexer().Add(l)
-
-	// Wait Serice to be created.
-	select {
-	case <-created:
-	case <-time.After(time.Second):
-		t.Fatal("Timed out waiting for Service creation.")
-	}
 
 	var lastErr error
 	// Wait for the resources to be created.
@@ -139,17 +124,10 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
 	}
 
-	// Update
+	// Lease holder gets changed.
 	holder = testIP2
 	l.Spec.HolderIdentity = &holder
 	kubeClient.CoordinationV1().Leases(ns).Update(l)
-
-	// Should not create a Service as there's already one.
-	select {
-	case <-created:
-		t.Error("Got Service created, want no actions.")
-	case <-time.After(time.Second):
-	}
 
 	// Check the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2

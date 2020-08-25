@@ -135,26 +135,9 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) checkService(ns, n string) error {
-	return retry.OnError(retry.DefaultRetry, exceptNotFound, func() error {
-		_, err := f.serviceLister.Services(ns).Get(n)
-		return err
-	})
-}
-
 func (f *Forwarder) createService(ns, n string) error {
-	err := f.checkService(ns, n)
-	if err == nil {
-		// Already created.
-		return nil
-	}
-
-	if !apierrs.IsNotFound(err) {
-		return err
-	}
-
 	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
-		_, err = f.kc.CoreV1().Services(ns).Create(&v1.Service{
+		_, err := f.kc.CoreV1().Services(ns).Create(&v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -167,18 +150,13 @@ func (f *Forwarder) createService(ns, n string) error {
 				}},
 			},
 		})
+
+		if apierrs.IsAlreadyExists(err) {
+			return true, nil
+		}
+
 		return err == nil, err
 	})
-}
-
-func (f *Forwarder) getEndpoints(ns, n string) (*v1.Endpoints, error) {
-	var e *v1.Endpoints
-	err := retry.OnError(retry.DefaultRetry, exceptNotFound, func() error {
-		localE, err := f.endpointsLister.Endpoints(ns).Get(n)
-		e = localE
-		return err
-	})
-	return e, err
 }
 
 func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
@@ -193,38 +171,40 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		}}},
 	}
 
-	e, err := f.getEndpoints(ns, n)
-	// Update existing Endpoints.
-	if err == nil {
-		return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-			if attempts > 0 {
-				e, err = f.endpointsLister.Endpoints(ns).Get(n)
-				if err != nil {
-					return err
-				}
-			}
+	created := true
+	if err := wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+		e, err := f.endpointsLister.Endpoints(ns).Get(n)
 
-			if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
-				return nil
-			}
+		if apierrs.IsNotFound(err) {
+			created = false
+			return true, nil
+		}
 
-			want := e.DeepCopy()
-			want.Subsets = wantSubsets
-			if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
-				return err
-			}
+		if err != nil {
+			return false, err
+		}
 
-			f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
-			return nil
-		})
-	}
+		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+			return true, nil
+		}
 
-	if !apierrs.IsNotFound(err) {
+		want := e.DeepCopy()
+		want.Subsets = wantSubsets
+		if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
+			return false, err
+		}
+
+		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
+		return true, nil
+	}); err != nil {
 		return err
 	}
 
+	if created {
+		return nil
+	}
 	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
-		_, err = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+		_, err := f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -246,8 +226,4 @@ func (f *Forwarder) setHolder(name, holder string) {
 	f.leaseLock.Lock()
 	defer f.leaseLock.Unlock()
 	f.leaseHolders[name] = holder
-}
-
-func exceptNotFound(err error) bool {
-	return !apierrs.IsNotFound(err)
 }
