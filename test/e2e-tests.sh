@@ -93,6 +93,8 @@ sleep 30
 
 #./test/dumper.sh &
 
+kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"enable-scale-to-zero":"false"}}' || fail_test
+
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... ./test/conformance/runtime/... \
  ./test/e2e \
