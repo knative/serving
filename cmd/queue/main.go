@@ -275,7 +275,7 @@ func main() {
 	}
 
 	errCh := make(chan error, len(servers)+1)
-	listeners := make(map[string]net.Listener)
+	listeners := make(map[string]net.Listener, len(servers))
 	for name, server := range servers {
 		l, err := net.Listen("tcp", server.Addr)
 		if err != nil {
@@ -294,7 +294,7 @@ func main() {
 		}(name, server)
 	}
 
-	// listen on a unix socket so that the exec probe can avoid having to go
+	// Listen on a unix socket so that the exec probe can avoid having to go
 	// through the full tcp network stack.
 	go func() {
 		l, err := net.Listen("unix", unixSocketPath)
