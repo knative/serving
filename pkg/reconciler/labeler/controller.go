@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/cache"
 
-	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -30,6 +29,7 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
 	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 
@@ -62,7 +62,7 @@ func newControllerWithClock(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	logger.Info("Setting up ConfigMap receivers")
-	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{}
