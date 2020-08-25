@@ -30,8 +30,8 @@ spec:
         targetAverageUtilization: 60
     gateways:
       istio-ingressgateway:
-        autoscaleMin: 1
-        autoscaleMax: 1
+        autoscaleMin: 15
+        autoscaleMax: 15
 
   addonComponents:
     pilot:
@@ -46,8 +46,8 @@ spec:
         k8s:
           resources:
             limits:
-              cpu: 10000m
-              memory: 20480Mi
+              cpu: 3000m
+              memory: 2048Mi
             requests:
               cpu: 1000m
               memory: 1024Mi
