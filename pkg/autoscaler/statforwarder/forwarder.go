@@ -96,6 +96,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 }
 
 func (f *Forwarder) leaseUpdated(obj interface{}) {
+
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 

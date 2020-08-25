@@ -120,8 +120,8 @@ func TestForwarderReconcile(t *testing.T) {
 		}}},
 	}
 
+	// Check the endpoints got updated.
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		// Check the endpoints get updated.
 		got, err := endpoints.Lister().Endpoints(ns).Get(bucket1)
 		if err != nil {
 			lastErr = err
@@ -138,6 +138,9 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
 	}
 
+	// Set up another forwarder with another IP so it will update existing
+	// resources when Lease changes with its IP.
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
 	holder = testIP2
 	l.Spec.HolderIdentity = &holder
 	kubeClient.CoordinationV1().Leases(ns).Update(l)
@@ -149,6 +152,8 @@ func TestForwarderReconcile(t *testing.T) {
 	case <-time.After(time.Second):
 	}
 
+	// Check the endpoints got updated.
+	wantSubsets[0].Addresses[0].IP = testIP2
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 		// Check the endpoints get updated.
 		got, err := endpoints.Lister().Endpoints(ns).Get(bucket1)
