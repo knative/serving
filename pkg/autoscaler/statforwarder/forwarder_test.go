@@ -69,6 +69,7 @@ func TestForwarderReconcile(t *testing.T) {
 	})
 
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
 
 	created := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -138,9 +139,7 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
 	}
 
-	// Set up another forwarder with another IP so it will update existing
-	// resources when Lease changes with its IP.
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
+	// Update
 	holder = testIP2
 	l.Spec.HolderIdentity = &holder
 	kubeClient.CoordinationV1().Leases(ns).Update(l)
@@ -241,9 +240,11 @@ func TestForwarderSkipReconciling(t *testing.T) {
 					Name:      tc.name,
 					Namespace: tc.namespace,
 				},
-				Spec: coordinationv1.LeaseSpec{
+			}
+			if tc.holder != "" {
+				l.Spec = coordinationv1.LeaseSpec{
 					HolderIdentity: &tc.holder,
-				},
+				}
 			}
 			kubeClient.CoordinationV1().Leases(ns).Create(l)
 			lease.Informer().GetIndexer().Add(l)

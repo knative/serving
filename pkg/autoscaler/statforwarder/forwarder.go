@@ -47,7 +47,7 @@ const (
 	autoscalerPortName = "http"
 )
 
-// Forwarder dose the following things:
+// Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
 //    Lease -> IP mapping.
 // 2. Creates/updates the corresponding K8S Service and Endpoints.
@@ -62,7 +62,7 @@ type Forwarder struct {
 	// bs is the BucketSet including all Autoscaler buckets.
 	bs *hash.BucketSet
 	// Lock for leaseHolders.
-	leaselock sync.RWMutex
+	leaseLock sync.RWMutex
 	// leaseHolders stores the Lease -> IP relationships.
 	leaseHolders map[string]string
 }
@@ -96,7 +96,6 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 }
 
 func (f *Forwarder) leaseUpdated(obj interface{}) {
-
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 
@@ -105,17 +104,15 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	identity := *l.Spec.HolderIdentity
-	if identity == "" {
+	if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
 		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
 		return
 	}
 
-	if h, ok := f.getHolder(n); ok {
-		if h == identity {
-			// Already up-to-date.
-			return
-		}
+	identity := *l.Spec.HolderIdentity
+	if h, ok := f.getHolder(n); ok && h == identity {
+		// Already up-to-date.
+		return
 	}
 
 	f.setHolder(n, identity)
@@ -127,18 +124,18 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 
 	if err := f.createService(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
-	} else {
-		f.logger.Infof("Created Service for Lease %s/%s", ns, n)
+		return
 	}
+	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
 	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
-	} else {
-		f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
+		return
 	}
+	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) getService(ns, n string) error {
+func (f *Forwarder) checkService(ns, n string) error {
 	return retry.OnError(retry.DefaultRetry, exceptNotFound, func() error {
 		_, err := f.serviceLister.Services(ns).Get(n)
 		return err
@@ -146,7 +143,7 @@ func (f *Forwarder) getService(ns, n string) error {
 }
 
 func (f *Forwarder) createService(ns, n string) error {
-	err := f.getService(ns, n)
+	err := f.checkService(ns, n)
 	if err == nil {
 		// Already created.
 		return nil
@@ -239,15 +236,15 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 }
 
 func (f *Forwarder) getHolder(name string) (string, bool) {
-	f.leaselock.RLock()
-	defer f.leaselock.RUnlock()
+	f.leaseLock.RLock()
+	defer f.leaseLock.RUnlock()
 	result, ok := f.leaseHolders[name]
 	return result, ok
 }
 
 func (f *Forwarder) setHolder(name, holder string) {
-	f.leaselock.Lock()
-	defer f.leaselock.Unlock()
+	f.leaseLock.Lock()
+	defer f.leaseLock.Unlock()
 	f.leaseHolders[name] = holder
 }
 
