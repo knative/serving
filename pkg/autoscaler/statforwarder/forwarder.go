@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/reconciler"
@@ -57,7 +56,6 @@ type Forwarder struct {
 	selfIP          string
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
-	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 	// bs is the BucketSet including all Autoscaler buckets.
 	bs *hash.BucketSet
@@ -76,7 +74,6 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
-		serviceLister:   serviceinformer.Get(ctx).Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
 		leaseHolders:    make(map[string]string, len(bkts)),
@@ -159,6 +156,9 @@ func (f *Forwarder) createService(ns, n string) error {
 	})
 }
 
+// createOrUpdateEndpoints creates a Endpoints object with the given namespace and
+// name, and the Forwarder.selfIP. If the Endpoints object already
+// exists, it will update the Endpoints with the Forwarder.selfIP.
 func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	wantSubsets := []v1.EndpointSubset{{
 		Addresses: []v1.EndpointAddress{{
@@ -171,12 +171,12 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		}}},
 	}
 
-	created := true
+	exists := true
 	if err := wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
 		e, err := f.endpointsLister.Endpoints(ns).Get(n)
 
 		if apierrs.IsNotFound(err) {
-			created = false
+			exists = false
 			return true, nil
 		}
 
@@ -200,7 +200,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		return err
 	}
 
-	if created {
+	if exists {
 		return nil
 	}
 	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
