@@ -84,6 +84,10 @@ const (
 	// a wildcard certificate should be not created for it.
 	DisableWildcardCertLabelKey = "networking.knative.dev/disableWildcardCert"
 
+	// DisableAutoTLSLabelKey is the label key attached to a namespace to indicate that
+	// AutoTLS should not be enabled for it.
+	DisableAutoTLSLabelKey = "networking.knative.dev/disableAutoTLS"
+
 	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
 	// domain for which it was issued.
 	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
