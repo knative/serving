@@ -289,11 +289,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"allow-zero-initial-scale": "invalid",
 		},
-		want: func() *Config {
-			c := defaultConfig()
-			c.AllowZeroInitialScale = false
-			return c
-		}(),
+		wantErr: true,
 	}, {
 		name: "with negative default max scale",
 		input: map[string]string{
