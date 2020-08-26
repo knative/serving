@@ -15,7 +15,6 @@ providers, including [Istio](https://github.com/knative-sandbox/net-istio),
 [Contour](https://github.com/knative-sandbox/net-contour) and
 [Kourier](https://github.com/knative-sandbox/net-kourier).
 
-
 ## Components
 
 There are four primary components to the Knative Serving system. The first is
@@ -36,9 +35,9 @@ To see only objects of a specific type, for example to see the webhook and
 controller deployments inside Knative Serving, you can run
 `kubectl -n knative-serving get deployments`.
 
-The Knative Serving controller creates Kubernetes resources when Knative
-Serving resources are created and updated. These sub-resources will be created
-in the same namespace as their parent Knative Serving resource, _not_ the
+The Knative Serving controller creates Kubernetes resources when Knative Serving
+resources are created and updated. These sub-resources will be created in the
+same namespace as their parent Knative Serving resource, _not_ the
 `knative-serving` namespace. For example, if you create a Knative Serivce in
 namespace 'foo' the corresponding Deployment and ReplicaSet resources will also
 be in namespace 'foo'.
