@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -1617,6 +1618,56 @@ func TestRouteDomain(t *testing.T) {
 			}
 			if got, want := res, test.Expected; got != want {
 				t.Errorf("DomainNameFromTemplate = %q, want: %q", res, test.Expected)
+			}
+		})
+	}
+}
+
+func TestAutoTLSEnabled(t *testing.T) {
+	tests := []struct {
+		Name                  string
+		ConfigAutoTLSEnabled  bool
+		TLSDisabledAnnotation string
+		WantAutoTLSEnabled    bool
+	}{
+		{
+			Name:                 "AutoTLS enabled by config, not disabled by annotation",
+			ConfigAutoTLSEnabled: true,
+			WantAutoTLSEnabled:   true,
+		},
+		{
+			Name:                  "AutoTLS enabled by config, disabled by annotation",
+			ConfigAutoTLSEnabled:  true,
+			TLSDisabledAnnotation: "true",
+			WantAutoTLSEnabled:    false,
+		},
+		{
+			Name:                 "AutoTLS disabled by config, not disabled by annotation",
+			ConfigAutoTLSEnabled: false,
+			WantAutoTLSEnabled:   false,
+		},
+		{
+			Name:                  "AutoTLS disabled by config, disabled by annotation",
+			ConfigAutoTLSEnabled:  false,
+			TLSDisabledAnnotation: "true",
+			WantAutoTLSEnabled:    false,
+		}}
+
+	r := Route("test-ns", "test-route")
+	r.Annotations = map[string]string{}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			ctx := config.ToContext(context.Background(), &config.Config{
+				Network: &network.Config{
+					AutoTLS: test.ConfigAutoTLSEnabled,
+				},
+			})
+
+			r.Annotations[networking.DisableAutoTLSLabelKey] = test.TLSDisabledAnnotation
+
+			if got := autoTLSEnabled(ctx, r); got != test.WantAutoTLSEnabled {
+				t.Errorf("autoTLSEnabled = %t, want %t", got, test.WantAutoTLSEnabled)
 			}
 		})
 	}

@@ -180,7 +180,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
-	if !config.FromContext(ctx).Network.AutoTLS || strings.EqualFold(r.Annotations[networking.DisableAutoTLSLabelKey], "true") {
+	if !autoTLSEnabled(ctx, r) {
 		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return tls, nil, nil
 	}
@@ -414,6 +414,10 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 			}
 		}
 	}
+}
+
+func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
+	return config.FromContext(ctx).Network.AutoTLS && !strings.EqualFold(r.Annotations[networking.DisableAutoTLSLabelKey], "true")
 }
 
 func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
