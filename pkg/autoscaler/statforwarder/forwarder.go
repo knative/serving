@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	
+
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,12 +33,11 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
-	
+
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
-	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 )
 
@@ -72,7 +71,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
-	f := Forwarder{
+	f := &Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
@@ -83,7 +82,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.NamespaceFilterFunc(ns),
+		FilterFunc: f.filterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    f.leaseUpdated,
 			UpdateFunc: controller.PassNew(f.leaseUpdated),
@@ -91,32 +90,51 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		},
 	})
 
-	return &f
+	return f
+}
+
+func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		l := obj.(*coordinationv1.Lease)
+
+		if l.Namespace != namespace {
+			return false
+		}
+
+		if !f.bs.HasBucket(l.Name) {
+			// Not for Autoscaler.
+			return false
+		}
+
+		if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
+			// No holder yet.
+			return false
+		}
+
+		if h, ok := f.getHolder(l.Name); ok && h == *l.Spec.HolderIdentity {
+			// Already up-to-date.
+			return false
+		}
+
+		return true
+	}
 }
 
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 
-	if !f.bs.HasBucket(n) {
-		// Skip this Lease as it is not for Autoscaler.
+	if l.Spec.HolderIdentity == nil {
+		// This shouldn't happen as we filter it out when queueing.
+		// Add a nil point check for safety.
+		f.logger.Warnf("Lease %s/%s with nil HolderIdentity got enqueued", ns, n)
 		return
 	}
 
-	if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
-		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
-		return
-	}
+	holder := *l.Spec.HolderIdentity
+	f.setHolder(n, holder)
 
-	identity := *l.Spec.HolderIdentity
-	if h, ok := f.getHolder(n); ok && h == identity {
-		// Already up-to-date.
-		return
-	}
-
-	f.setHolder(n, identity)
-
-	if identity != f.selfIP {
+	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints as not the holder.
 		return
 	}
@@ -154,7 +172,8 @@ func (f *Forwarder) createService(ns, n string) error {
 			return true, nil
 		}
 
-		return err == nil, err
+		// Do no return the error to make a retry.
+		return err == nil, nil
 	})
 }
 
@@ -183,7 +202,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		}
 
 		if err != nil {
-			return false, err
+			// Do no return the error to trigger retries.
+			return false, nil
 		}
 
 		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
@@ -193,7 +213,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
 		if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
-			return false, err
+			// Do no return the error to trigger retries.
+			return false, nil
 		}
 
 		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
@@ -213,7 +234,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 			},
 			Subsets: wantSubsets,
 		})
-		return err == nil, err
+		// Do no return the error to trigger retries.
+		return err == nil, nil
 	})
 }
 

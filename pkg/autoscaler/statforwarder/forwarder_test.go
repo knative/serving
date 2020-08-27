@@ -17,6 +17,7 @@ limitations under the License.
 package statforwarder
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -42,13 +43,25 @@ import (
 )
 
 const (
-	testIP1 = "1.23.456.789"
-	testIP2 = "0.23.456.789"
 	bucket1 = "as-bucket-00-of-02"
 	bucket2 = "as-bucket-01-of-02"
 )
 
-var testBs = hash.NewBucketSet(sets.NewString(bucket1))
+var (
+	testIP1   = "1.23.456.789"
+	testIP2   = "0.23.456.789"
+	testNs    = system.Namespace()
+	testBs    = hash.NewBucketSet(sets.NewString(bucket1))
+	testLease = &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bucket1,
+			Namespace: testNs,
+		},
+		Spec: coordinationv1.LeaseSpec{
+			HolderIdentity: &testIP1,
+		},
+	}
+)
 
 func TestForwarderReconcile(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -71,24 +84,13 @@ func TestForwarderReconcile(t *testing.T) {
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
 
-	ns := system.Namespace()
-	holder := testIP1
-	l := &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      bucket1,
-			Namespace: ns,
-		},
-		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity: &holder,
-		},
-	}
-	kubeClient.CoordinationV1().Leases(ns).Create(l)
-	lease.Informer().GetIndexer().Add(l)
+	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	lease.Informer().GetIndexer().Add(testLease)
 
 	var lastErr error
 	// Wait for the resources to be created.
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		_, err := service.Lister().Services(ns).Get(bucket1)
+		_, err := service.Lister().Services(testNs).Get(bucket1)
 		lastErr = err
 		return err == nil, nil
 	}); err != nil {
@@ -108,7 +110,7 @@ func TestForwarderReconcile(t *testing.T) {
 
 	// Check the endpoints got updated.
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, err := endpoints.Lister().Endpoints(ns).Get(bucket1)
+		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
 		if err != nil {
 			lastErr = err
 			return false, nil
@@ -125,15 +127,15 @@ func TestForwarderReconcile(t *testing.T) {
 	}
 
 	// Lease holder gets changed.
-	holder = testIP2
-	l.Spec.HolderIdentity = &holder
-	kubeClient.CoordinationV1().Leases(ns).Update(l)
+	l := testLease.DeepCopy()
+	l.Spec.HolderIdentity = &testIP2
+	kubeClient.CoordinationV1().Leases(testNs).Update(l)
 
 	// Check the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 		// Check the endpoints get updated.
-		got, err := endpoints.Lister().Endpoints(ns).Get(bucket1)
+		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
 		if err != nil {
 			lastErr = err
 			return false, nil
@@ -147,6 +149,138 @@ func TestForwarderReconcile(t *testing.T) {
 		return false, nil
 	}); err != nil {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
+	}
+}
+
+func TestForwarderRetryOnCreationFailure(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	kubeClient := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	service := fakeserviceinformer.Get(ctx)
+	lease := fakeleaseinformer.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(
+		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+
+	svcCreation := 0
+	svcCreationRetried := make(chan struct{})
+	kubeClient.PrependReactor("create", "services",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			svcCreation++
+			if svcCreation == 2 {
+				svcCreationRetried <- struct{}{}
+			}
+			return true, nil, errors.New("Failed to create")
+		},
+	)
+	endpointsCreation := 0
+	endpointsCreationRetried := make(chan struct{})
+	kubeClient.PrependReactor("create", "endpoints",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			endpointsCreation++
+			if endpointsCreation == 2 {
+				endpointsCreationRetried <- struct{}{}
+			}
+			return true, nil, errors.New("Failed to create")
+		},
+	)
+	endpointsUpdate := 0
+	endpointsUpdateRetried := make(chan struct{})
+	kubeClient.PrependReactor("update", "endpoints",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			endpointsUpdate++
+			if endpointsUpdate == 2 {
+				endpointsUpdateRetried <- struct{}{}
+			}
+			return true, nil, errors.New("Failed to update")
+		},
+	)
+
+	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	lease.Informer().GetIndexer().Add(testLease)
+
+	select {
+	case <-svcCreationRetried:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for SVC retry")
+	}
+
+	kubeClient.PrependReactor("create", "services",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, nil
+		},
+	)
+
+	select {
+	case <-endpointsCreationRetried:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for Endpoints retry")
+	}
+
+	kubeClient.PrependReactor("create", "endpoints",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, nil
+		},
+	)
+}
+
+func TestForwarderRetryOnUpdateFailure(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	kubeClient := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	service := fakeserviceinformer.Get(ctx)
+	lease := fakeleaseinformer.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(
+		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+
+	endpointsUpdate := 0
+	endpointsUpdateRetried := make(chan struct{})
+	kubeClient.PrependReactor("update", "endpoints",
+		func(action ktesting.Action) (bool, runtime.Object, error) {
+			endpointsUpdate++
+			if endpointsUpdate == 2 {
+				endpointsUpdateRetried <- struct{}{}
+			}
+			return true, nil, errors.New("Failed to update")
+		},
+	)
+
+	e := &v1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bucket1,
+			Namespace: testNs,
+		},
+	}
+	kubeClient.CoreV1().Endpoints(testNs).Create(e)
+	endpoints.Informer().GetIndexer().Add(e)
+	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	lease.Informer().GetIndexer().Add(testLease)
+
+	select {
+	case <-endpointsUpdateRetried:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for Endpoints retry")
 	}
 }
 
