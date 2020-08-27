@@ -19,6 +19,7 @@ package statforwarder
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -32,7 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
@@ -45,6 +45,8 @@ const (
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort     = 8080
 	autoscalerPortName = "http"
+	retryTimeout       = 3 * time.Second
+	retryInterval      = 100 * time.Millisecond
 )
 
 // Forwarder does the following things:
@@ -154,7 +156,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 }
 
 func (f *Forwarder) createService(ns, n string) error {
-	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		_, err := f.kc.CoreV1().Services(ns).Create(&v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
@@ -194,7 +196,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	exists := true
-	if err := wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		e, err := f.endpointsLister.Endpoints(ns).Get(n)
 
 		if apierrs.IsNotFound(err) {
@@ -227,7 +229,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	if exists {
 		return nil
 	}
-	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		_, err := f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
