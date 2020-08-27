@@ -42,8 +42,8 @@ same namespace as their parent Knative Serving resource, _not_ the
 namespace 'foo' the corresponding Deployment and ReplicaSet resources will also
 be in namespace 'foo'.
 
-All of these components are run as a non-root user (uid: 1337) and disallow
-privilege escalation.
+All of these components are run as a non-root user and disallow privilege
+escalation.
 
 ## Kubernetes Resource Configs
 
@@ -55,9 +55,6 @@ config/core/...
 
 # Third-party resources, such as the net-istio ingress provider yaml.
 third_party/...
-
-# Knative Serving Monitoring configs (Optional)
-config/monitoring/...
 ```
 
 ## Viewing resources after deploying Knative Serving
