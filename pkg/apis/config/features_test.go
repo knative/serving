@@ -59,24 +59,26 @@ func TestFeaturesConfiguration(t *testing.T) {
 		name:    "features Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			MultiContainer:         Enabled,
-			PodSpecAffinity:        Enabled,
-			PodSpecDryRun:          Enabled,
-			PodSpecNodeSelector:    Enabled,
-			PodSpecSecurityContext: Enabled,
-			PodSpecTolerations:     Enabled,
-			ResponsiveRevisionGC:   Enabled,
-			TagHeaderBasedRouting:  Enabled,
+			MultiContainer:          Enabled,
+			PodSpecAffinity:         Enabled,
+			PodSpecDryRun:           Enabled,
+			PodSpecNodeSelector:     Enabled,
+			PodSpecRuntimeClassName: Enabled,
+			PodSpecSecurityContext:  Enabled,
+			PodSpecTolerations:      Enabled,
+			ResponsiveRevisionGC:    Enabled,
+			TagHeaderBasedRouting:   Enabled,
 		}),
 		data: map[string]string{
-			"multi-container":                    "Enabled",
-			"kubernetes.podspec-affinity":        "Enabled",
-			"kubernetes.podspec-dryrun":          "Enabled",
-			"kubernetes.podspec-nodeselector":    "Enabled",
-			"kubernetes.podspec-securitycontext": "Enabled",
-			"kubernetes.podspec-tolerations":     "Enabled",
-			"responsive-revision-gc":             "Enabled",
-			"tag-header-based-routing":           "Enabled",
+			"multi-container":                     "Enabled",
+			"kubernetes.podspec-affinity":         "Enabled",
+			"kubernetes.podspec-dryrun":           "Enabled",
+			"kubernetes.podspec-nodeselector":     "Enabled",
+			"kubernetes.podspec-runtimeclassname": "Enabled",
+			"kubernetes.podspec-securitycontext":  "Enabled",
+			"kubernetes.podspec-tolerations":      "Enabled",
+			"responsive-revision-gc":              "Enabled",
+			"tag-header-based-routing":            "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -185,6 +187,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-nodeselector": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-runtimeclassname Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecRuntimeClassName: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-runtimeclassname": "Allowed",
+		},
+	}, {
+		name:    "kubernetes.podspec-runtimeclassname Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecRuntimeClassName: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-runtimeclassname": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-runtimeclassname Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecRuntimeClassName: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-runtimeclassname": "Disabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-tolerations Allowed",
