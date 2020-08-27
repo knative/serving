@@ -152,7 +152,7 @@ func TestForwarderReconcile(t *testing.T) {
 	}
 }
 
-func TestForwarderRetryOnCreationFailure(t *testing.T) {
+func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -173,36 +173,14 @@ func TestForwarderRetryOnCreationFailure(t *testing.T) {
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
 
 	svcCreation := 0
-	svcCreationRetried := make(chan struct{})
+	retried := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
 			svcCreation++
 			if svcCreation == 2 {
-				svcCreationRetried <- struct{}{}
+				retried <- struct{}{}
 			}
 			return true, nil, errors.New("Failed to create")
-		},
-	)
-	endpointsCreation := 0
-	endpointsCreationRetried := make(chan struct{})
-	kubeClient.PrependReactor("create", "endpoints",
-		func(action ktesting.Action) (bool, runtime.Object, error) {
-			endpointsCreation++
-			if endpointsCreation == 2 {
-				endpointsCreationRetried <- struct{}{}
-			}
-			return true, nil, errors.New("Failed to create")
-		},
-	)
-	endpointsUpdate := 0
-	endpointsUpdateRetried := make(chan struct{})
-	kubeClient.PrependReactor("update", "endpoints",
-		func(action ktesting.Action) (bool, runtime.Object, error) {
-			endpointsUpdate++
-			if endpointsUpdate == 2 {
-				endpointsUpdateRetried <- struct{}{}
-			}
-			return true, nil, errors.New("Failed to update")
 		},
 	)
 
@@ -210,31 +188,55 @@ func TestForwarderRetryOnCreationFailure(t *testing.T) {
 	lease.Informer().GetIndexer().Add(testLease)
 
 	select {
-	case <-svcCreationRetried:
+	case <-retried:
 	case <-time.After(time.Second):
 		t.Error("Timeout waiting for SVC retry")
 	}
+}
 
-	kubeClient.PrependReactor("create", "services",
+func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	kubeClient := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	service := fakeserviceinformer.Get(ctx)
+	lease := fakeleaseinformer.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(
+		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+
+	endpointsCreation := 0
+	retried := make(chan struct{})
+	kubeClient.PrependReactor("create", "endpoints",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
-			return true, nil, nil
+			endpointsCreation++
+			if endpointsCreation == 2 {
+				retried <- struct{}{}
+			}
+			return true, nil, errors.New("Failed to create")
 		},
 	)
 
+	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	lease.Informer().GetIndexer().Add(testLease)
+
 	select {
-	case <-endpointsCreationRetried:
+	case <-retried:
 	case <-time.After(time.Second):
 		t.Error("Timeout waiting for Endpoints retry")
 	}
-
-	kubeClient.PrependReactor("create", "endpoints",
-		func(action ktesting.Action) (bool, runtime.Object, error) {
-			return true, nil, nil
-		},
-	)
 }
 
-func TestForwarderRetryOnUpdateFailure(t *testing.T) {
+func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -255,12 +257,12 @@ func TestForwarderRetryOnUpdateFailure(t *testing.T) {
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
 
 	endpointsUpdate := 0
-	endpointsUpdateRetried := make(chan struct{})
+	retried := make(chan struct{})
 	kubeClient.PrependReactor("update", "endpoints",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
 			endpointsUpdate++
 			if endpointsUpdate == 2 {
-				endpointsUpdateRetried <- struct{}{}
+				retried <- struct{}{}
 			}
 			return true, nil, errors.New("Failed to update")
 		},
@@ -278,7 +280,7 @@ func TestForwarderRetryOnUpdateFailure(t *testing.T) {
 	lease.Informer().GetIndexer().Add(testLease)
 
 	select {
-	case <-endpointsUpdateRetried:
+	case <-retried:
 	case <-time.After(time.Second):
 		t.Error("Timeout waiting for Endpoints retry")
 	}
