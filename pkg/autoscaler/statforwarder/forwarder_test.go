@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ktesting "k8s.io/client-go/testing"
@@ -39,6 +40,7 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -48,7 +50,17 @@ const (
 	bucket2 = "as-bucket-01-of-02"
 )
 
-var testBs = hash.NewBucketSet(sets.NewString(bucket1))
+var (
+	testBs   = hash.NewBucketSet(sets.NewString(bucket1))
+	testStat = asmetrics.StatMessage{
+		Key: types.NamespacedName{
+			Namespace: "ns",
+			Name:      "n",
+		},
+	}
+	// A statProcessor doing nothing.
+	noOp = func(sm asmetrics.StatMessage) {}
+)
 
 func TestForwarderReconcile(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -68,8 +80,8 @@ func TestForwarderReconcile(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
 
 	ns := system.Namespace()
 	holder := testIP1
@@ -169,7 +181,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 
 	svcCreated := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -239,4 +251,12 @@ func TestForwarderSkipReconciling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProcess(t *testing.T) {
+	ctx, _ := rtesting.SetupFakeContext(t)
+	kubeClient := fakekubeclient.Get(ctx)
+
+	f := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	f.Process(testStat)
 }

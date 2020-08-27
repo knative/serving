@@ -18,8 +18,10 @@ package statforwarder
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
+	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
@@ -38,6 +40,8 @@ import (
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/websocket"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -45,6 +49,20 @@ const (
 	autoscalerPort     = 8080
 	autoscalerPortName = "http"
 )
+
+// statProcessor is a function to process a single StatMessage.
+type statProcessor func(sm asmetrics.StatMessage)
+
+// bucketProcessor includes the inforamtion about how to process
+// the StatMessage owned by a bucket.
+type bucketProcessor struct {
+	// holder is the HolderIdentity for a bucket from the Lease
+	holder string
+	// conn is the WebSocket connection to the holder pod.
+	conn *websocket.ManagedConnection
+	// proc is the function to process the StatMessage owned by the bucket.
+	proc statProcessor
+}
 
 // Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
@@ -57,16 +75,18 @@ type Forwarder struct {
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
+	// accept is the function to process a StatMessage which doesn't need
+	// to be forwarded.
+	accept statProcessor
 	// bs is the BucketSet including all Autoscaler buckets.
 	bs *hash.BucketSet
-	// Lock for leaseHolders.
-	leaseLock sync.RWMutex
-	// leaseHolders stores the Lease -> IP relationships.
-	leaseHolders map[string]string
+	// processorsLock is the lock for processors.
+	processorsLock sync.RWMutex
+	processors     map[string]*bucketProcessor
 }
 
 // New creates a new Forwarder.
-func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet) *Forwarder {
+func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor) *Forwarder {
 	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -76,7 +96,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		kc:              kc,
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
-		leaseHolders:    make(map[string]string, len(bkts)),
+		processors:      make(map[string]*bucketProcessor, len(bkts)),
 	}
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -106,15 +126,19 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	identity := *l.Spec.HolderIdentity
-	if h, ok := f.getHolder(n); ok && h == identity {
+	holder := *l.Spec.HolderIdentity
+	p, ok := f.getProcessor(n)
+	if ok && p.holder == holder {
 		// Already up-to-date.
 		return
 	}
 
-	f.setHolder(n, identity)
+	if ok && p.conn != nil {
+		go p.conn.Shutdown()
+	}
+	f.setProcessor(n, f.createProcessor(n, holder))
 
-	if identity != f.selfIP {
+	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints as not the holder.
 		return
 	}
@@ -215,15 +239,72 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	})
 }
 
-func (f *Forwarder) getHolder(name string) (string, bool) {
-	f.leaseLock.RLock()
-	defer f.leaseLock.RUnlock()
-	result, ok := f.leaseHolders[name]
+func (f *Forwarder) getProcessor(bkt string) (*bucketProcessor, bool) {
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+	result, ok := f.processors[bkt]
 	return result, ok
 }
 
-func (f *Forwarder) setHolder(name, holder string) {
-	f.leaseLock.Lock()
-	defer f.leaseLock.Unlock()
-	f.leaseHolders[name] = holder
+func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
+	f.processorsLock.Lock()
+	defer f.processorsLock.Unlock()
+	f.processors[bkt] = p
+}
+
+func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
+	if holder == f.selfIP {
+		return &bucketProcessor{
+			holder: holder,
+			proc: func(sm asmetrics.StatMessage) {
+				rev := sm.Key.String()
+				l := f.logger.With(zap.String("revision", rev))
+				l.Debugf("Accept stat of Rev %s as owner of bucket %s", rev, bkt)
+				f.accept(sm)
+			},
+		}
+	}
+
+	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
+	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
+	c := websocket.NewDurableSendingConnection(dns, f.logger)
+	return &bucketProcessor{
+		holder: holder,
+		conn:   c,
+		proc:   forwarder(c, f.logger),
+	}
+}
+
+// Process calls Forwarder.accept if the pod where this Forwarder running is the owner
+// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
+// owner pod. If it can't find the owner, it drops the StatMessage.
+func (f *Forwarder) Process(sm asmetrics.StatMessage) {
+	rev := sm.Key.String()
+	l := f.logger.With(zap.String("revision", rev))
+	bkt := f.bs.Owner(rev)
+
+	p, ok := f.getProcessor(bkt)
+	if !ok {
+		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
+		return
+	}
+
+	p.proc(sm)
+}
+
+func forwarder(c *websocket.ManagedConnection, logger *zap.SugaredLogger) statProcessor {
+	return func(sm asmetrics.StatMessage) {
+		rev := sm.Key.String()
+		l := logger.With(zap.String("revision", rev))
+		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
+		b, err := wsms.Marshal()
+		if err != nil {
+			l.Errorw("Error while marshaling stats", zap.Error(err))
+			return
+		}
+
+		if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+			l.Errorw("Error while sending stats", zap.Error(err))
+		}
+	}
 }
