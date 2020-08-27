@@ -135,10 +135,11 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	f.setHolder(n, holder)
 
 	if holder != f.selfIP {
-		// Skip creating/updating Service and Endpoints as not the holder.
+		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
 
+	// TODO(yanweiguo): Better handling these errors instead of just logging.
 	if err := f.createService(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
