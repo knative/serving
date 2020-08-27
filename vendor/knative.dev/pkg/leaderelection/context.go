@@ -109,9 +109,13 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 	queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
-	id, err := UniqueID()
-	if err != nil {
-		return nil, err
+	id := b.lec.Identity
+	if id == "" {
+		uid, err := UniqueID()
+		if err != nil {
+			return nil, err
+		}
+		id = uid
 	}
 
 	bkts := newStandardBuckets(queueName, b.lec)
@@ -120,7 +124,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 		// Use a local var which won't change across the for loop since it is
 		// used in a callback asynchronously.
 		bkt := bkt
-		rl, err := resourcelock.New(KnativeResourceLock,
+		rl, err := resourcelock.New(knativeResourceLock,
 			system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),
@@ -169,9 +173,15 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 }
 
 func newStandardBuckets(queueName string, cc ComponentConfig) []reconciler.Bucket {
+	ln := cc.LeaseName
+	if ln == nil {
+		ln = func(i uint32) string {
+			return standardBucketName(i, queueName, cc)
+		}
+	}
 	names := make(sets.String, cc.Buckets)
 	for i := uint32(0); i < cc.Buckets; i++ {
-		names.Insert(standardBucketName(i, queueName, cc))
+		names.Insert(ln(i))
 	}
 
 	return hash.NewBucketSet(names).Buckets()
