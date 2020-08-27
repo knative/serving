@@ -75,6 +75,25 @@ func TestRouteValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid annotation",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"networking.knative.dev/disableAutoTLS": "true",
+				},
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName: "foo",
+						Percent:      ptr.Int64(100),
+					},
+				}},
+			},
+		},
+		want: nil,
+	}, {
 		name: "invalid traffic entry",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{
@@ -155,6 +174,27 @@ func TestRouteValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "not a DNS 1035 label: [must be no more than 63 characters]",
 			Paths:   []string{"metadata.name"},
+		}}, {
+		name: "invalid annotation",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"networking.knative.dev/disableAutoTLS": "foo",
+				},
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName: "foo",
+						Percent:      ptr.Int64(100),
+					},
+				}},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "invalid value: foo",
+			Paths:   []string{"networking.knative.dev/disableAutoTLS"},
 		},
 	}}
 

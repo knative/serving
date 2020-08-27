@@ -19,15 +19,18 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")).
+		Also(validateAnnotations(r.GetAnnotations()))
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Route)
@@ -104,4 +107,16 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		})
 	}
 	return errs
+}
+
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+	disableAutoTLS := annotations[networking.DisableAutoTLSLabelKey]
+
+	if len(disableAutoTLS) > 0 &&
+		!strings.EqualFold(disableAutoTLS, "true") &&
+		!strings.EqualFold(disableAutoTLS, "false") {
+		return apis.ErrInvalidValue(disableAutoTLS, networking.DisableAutoTLSLabelKey)
+	}
+
+	return nil
 }
