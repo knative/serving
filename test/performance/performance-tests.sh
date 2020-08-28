@@ -28,6 +28,7 @@ source $(dirname $0)/../e2e-networking-library.sh
 # Install Istio no-mesh.
 export MESH=0
 export KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+export SYSTEM_NAMESPACE="knative-serving"
 export ISTIO_VERSION="stable"
 export UNINSTALL_LIST=()
 export TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
@@ -54,7 +55,7 @@ function update_knative() {
   local n=0
   until [ $n -ge 3 ]
   do
-    ko apply -Rf serving/config/core/ && kubectl apply -f serving/third_party/net-istio.yaml && break
+    ko apply -Rf config/core/ && break
     n=$[$n+1]
   done
   if [ $n == 3 ]; then
