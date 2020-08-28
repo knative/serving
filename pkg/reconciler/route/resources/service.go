@@ -152,7 +152,7 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
 	// and domain (since it would change less than IP).
 	switch {
-	case len(balancer.DomainInternal) != 0:
+	case balancer.DomainInternal != "":
 		return &corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    balancer.DomainInternal,
@@ -163,7 +163,7 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 				TargetPort: intstr.FromInt(80),
 			}},
 		}, nil
-	case len(balancer.Domain) != 0:
+	case balancer.Domain != "":
 		return &corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: balancer.Domain,
@@ -187,7 +187,7 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 				Port: networking.ServiceHTTPPort,
 			}},
 		}, nil
-	case len(balancer.IP) != 0:
+	case balancer.IP != "":
 		// TODO(lichuqiang): deal with LoadBalancer IP.
 		// We'll also need ports info to make it take effect.
 	}

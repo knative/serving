@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
@@ -287,13 +286,13 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 }
 
 func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
-	rev := sm.Key.String()
-	l := f.logger.With(zap.String("revision", rev))
 
 	if holder == f.selfIP {
 		return &bucketProcessor{
 			holder: holder,
 			proc: func(sm asmetrics.StatMessage) {
+				rev := sm.Key.String()
+				l := f.logger.With(zap.String("revision", rev))
 				l.Debugf("## Accept stat of Rev %s as owner of bucket %s", rev, bkt)
 				if f.accept != nil {
 					f.accept(sm)
@@ -309,8 +308,11 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 		holder: holder,
 		conn:   c,
 		proc: func(sm asmetrics.StatMessage) {
+			rev := sm.Key.String()
+			l := f.logger.With(zap.String("revision", rev))
 			l.Debugf("## Forward stat of Rev %s of bucket %s to holder", rev, bkt, holder)
-			b, err := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm}).Marshal()
+			wsm := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
+			b, err := wsm.Marshal()
 			if err != nil {
 				l.Errorw("Error while marshaling stats", zap.Error(err))
 				return

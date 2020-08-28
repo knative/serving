@@ -144,7 +144,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 			return err
 		}
 	}
-
 	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
 		logging.FromContext(ctx).Info("Revision became ready")

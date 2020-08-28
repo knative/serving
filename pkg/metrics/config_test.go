@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/metrics"
@@ -48,10 +47,9 @@ func TestOurObservability(t *testing.T) {
 	if exCfg == nil {
 		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
 	}
-	// TODO(#8644): remove this.
-	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "RequestLogTemplate")
-	if !cmp.Equal(realCfg, exCfg, co) {
-		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg, co))
+
+	if !cmp.Equal(realCfg, exCfg) {
+		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg))
 	}
 }
 
@@ -64,11 +62,11 @@ func TestObservabilityConfiguration(t *testing.T) {
 	}{{
 		name: "observability configuration with all inputs",
 		wantConfig: &metrics.ObservabilityConfig{
-			LoggingURLTemplate:     "https://logging.io",
-			EnableVarLogCollection: true,
-			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
-			EnableRequestLog:       true,
 			EnableProbeRequestLog:  true,
+			EnableRequestLog:       true,
+			EnableVarLogCollection: true,
+			LoggingURLTemplate:     "https://logging.io",
+			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
 			RequestMetricsBackend:  "stackdriver",
 		},
 		config: &corev1.ConfigMap{
@@ -77,11 +75,35 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
+				"logging.enable-probe-request-log":            "true",
+				"logging.enable-request-log":                  "true",
+				"logging.enable-var-log-collection":           "true",
+				"logging.request-log-template":                `{"requestMethod": "{{.Request.Method}}"}`,
+				"logging.revision-url-template":               "https://logging.io",
+				"logging.write-request-logs":                  "true",
+				"metrics.request-metrics-backend-destination": "stackdriver",
+			},
+		},
+	}, {
+		name: "observability configuration with default template but request logging isn't on",
+		wantConfig: &metrics.ObservabilityConfig{
+			EnableProbeRequestLog:  true,
+			EnableVarLogCollection: true,
+			LoggingURLTemplate:     "https://logging.io",
+			RequestLogTemplate:     metrics.DefaultRequestLogTemplate,
+			RequestMetricsBackend:  "stackdriver",
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      metrics.ConfigMapName(),
+			},
+			Data: map[string]string{
+				"logging.enable-probe-request-log":            "true",
+				"logging.enable-request-log":                  "false",
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",
-				"logging.enable-probe-request-log":            "true",
 				"logging.write-request-logs":                  "true",
-				"logging.request-log-template":                `{"requestMethod": "{{.Request.Method}}"}`,
 				"metrics.request-metrics-backend-destination": "stackdriver",
 			},
 		},
@@ -89,7 +111,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 		name: "observability config with no map",
 		wantConfig: &metrics.ObservabilityConfig{
 			LoggingURLTemplate:    metrics.DefaultLogURLTemplate,
-			RequestLogTemplate:    "",
+			RequestLogTemplate:    metrics.DefaultRequestLogTemplate,
 			RequestMetricsBackend: "prometheus",
 		},
 		config: &corev1.ConfigMap{

@@ -61,8 +61,7 @@ type autoscaler struct {
 
 // New creates a new instance of default autoscaler implementation.
 func New(
-	namespace string,
-	revision string,
+	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter resources.EndpointsCounter,
 	deciderSpec *DeciderSpec,
@@ -78,8 +77,7 @@ func New(
 }
 
 func newAutoscaler(
-	namespace string,
-	revision string,
+	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter podCounter,
 	deciderSpec *DeciderSpec,
