@@ -99,7 +99,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 
 // HostnameFromTemplate generates domain name base on the template specified in the `config-network` ConfigMap.
 // name is the "subdomain" which will be referred as the "name" in the template
-func HostnameFromTemplate(ctx context.Context, name string, tag string) (string, error) {
+func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error) {
 	if tag == "" {
 		return name, nil
 	}

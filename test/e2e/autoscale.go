@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -244,7 +245,8 @@ func assertScaleDown(ctx *testContext) {
 	if err := pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *corev1.PodList) (bool, error) {
-			for _, pod := range p.Items {
+			for i := range p.Items {
+				pod := &p.Items[i]
 				if strings.Contains(pod.Name, deploymentName) &&
 					!strings.Contains(pod.Status.Reason, "Evicted") {
 					return false, nil
@@ -304,7 +306,7 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 			ctx.t.Log(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
-				return fmt.Errorf("interim scale didn't fulfill constraints: %s", mes)
+				return errors.New("interim scale didn't fulfill constraints: " + mes)
 			}
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, for sanity check, no more than `maxPods`).
@@ -328,7 +330,7 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
 			ctx.t.Log(mes)
 			if got < targetPods-1 || got > maxPods {
-				return fmt.Errorf("final scale didn't fulfill constraints: %s", mes)
+				return errors.New("final scale didn't fulfill constraints: " + mes)
 			}
 			return nil
 		}

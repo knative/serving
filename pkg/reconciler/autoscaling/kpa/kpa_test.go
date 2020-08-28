@@ -1113,7 +1113,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey{},
 			decider(testNamespace, testRevision, -1, /* desiredScale */
 				-42 /* ebc */, scaling.MinActivators)),
-		Objects: append([]runtime.Object{
+		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 				WithPASKSReady,
@@ -1123,7 +1123,7 @@ func TestReconcile(t *testing.T) {
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(2)
 			}),
-		}),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				WithPASKSReady, markScaleTargetInitialized,

@@ -40,9 +40,7 @@ var (
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1.Revision) map[string]string {
-	labels := kmeta.FilterMap(revision.GetLabels(), func(k string) bool {
-		return excludeLabels.Has(k)
-	})
+	labels := kmeta.FilterMap(revision.GetLabels(), excludeLabels.Has)
 	labels = kmeta.UnionMaps(labels, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
@@ -58,9 +56,7 @@ func makeLabels(revision *v1.Revision) map[string]string {
 }
 
 func makeAnnotations(revision *v1.Revision) map[string]string {
-	return kmeta.FilterMap(revision.GetAnnotations(), func(k string) bool {
-		return excludeAnnotations.Has(k)
-	})
+	return kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.

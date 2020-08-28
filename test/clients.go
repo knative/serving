@@ -82,7 +82,7 @@ type NetworkingClients struct {
 // NewClients instantiates and returns several clientsets required for making request to the
 // Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
-func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
+func NewClients(configPath, clusterName, namespace string) (*Clients, error) {
 	cfg, err := BuildClientConfig(configPath, clusterName)
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 
 // Delete will delete all Routes and Configs with the named routes and configs, if clients
 // have been successfully initialized.
-func (clients *ServingClients) Delete(routes []string, configs []string, services []string) []error {
+func (clients *ServingClients) Delete(routes, configs, services []string) []error {
 	deletions := []struct {
 		client interface {
 			Delete(name string, options *v1.DeleteOptions) error
@@ -240,7 +240,7 @@ func (clients *ServingClients) Delete(routes []string, configs []string, service
 }
 
 // BuildClientConfig builds client config for testing.
-func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+func BuildClientConfig(kubeConfigPath, clusterName string) (*rest.Config, error) {
 	overrides := clientcmd.ConfigOverrides{}
 	// Override the cluster name if provided.
 	if clusterName != "" {

@@ -188,7 +188,7 @@ func (m *manager) Stop() error {
 }
 
 // SLI implements Prober
-func (m *manager) SLI() (total int64, failures int64) {
+func (m *manager) SLI() (total, failures int64) {
 	m.m.RLock()
 	defer m.m.RUnlock()
 	for _, prober := range m.probes {

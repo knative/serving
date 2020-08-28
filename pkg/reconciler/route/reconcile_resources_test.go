@@ -191,7 +191,7 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 	}
 }
 
-func newTestRevision(namespace string, name string) *v1.Revision {
+func newTestRevision(namespace, name string) *v1.Revision {
 	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
