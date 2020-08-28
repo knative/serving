@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
+
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,12 +35,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
+
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
-	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
@@ -48,6 +49,8 @@ const (
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort     = 8080
 	autoscalerPortName = "http"
+	retryTimeout       = 3 * time.Second
+	retryInterval      = 100 * time.Millisecond
 )
 
 // statProcessor is a function to process a single StatMessage.
@@ -90,7 +93,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
-	f := Forwarder{
+	f := &Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
@@ -101,7 +104,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.NamespaceFilterFunc(ns),
+		FilterFunc: f.filterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    f.leaseUpdated,
 			UpdateFunc: controller.PassNew(f.leaseUpdated),
@@ -109,40 +112,56 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		},
 	})
 
-	return &f
+	return f
+}
+
+func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		l := obj.(*coordinationv1.Lease)
+
+		if l.Namespace != namespace {
+			return false
+		}
+
+		if !f.bs.HasBucket(l.Name) {
+			// Not for Autoscaler.
+			return false
+		}
+
+		if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
+			// No holder yet.
+			return false
+		}
+
+		if p, ok := f.getProcessor(l.Name); ok && p.holder == *l.Spec.HolderIdentity {
+			// Already up-to-date.
+			return false
+		}
+
+		return true
+	}
 }
 
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 
-	if !f.bs.HasBucket(n) {
-		// Skip this Lease as it is not for Autoscaler.
-		return
-	}
-
-	if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
-		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
+	if l.Spec.HolderIdentity == nil {
+		// This shouldn't happen as we filter it out when queueing.
+		// Add a nil point check for safety.
+		f.logger.Warnf("Lease %s/%s with nil HolderIdentity got enqueued", ns, n)
 		return
 	}
 
 	holder := *l.Spec.HolderIdentity
-	p, ok := f.getProcessor(n)
-	if ok && p.holder == holder {
-		// Already up-to-date.
-		return
-	}
-
-	if ok && p.conn != nil {
-		go p.conn.Shutdown()
-	}
 	f.setProcessor(n, f.createProcessor(n, holder))
 
 	if holder != f.selfIP {
-		// Skip creating/updating Service and Endpoints as not the holder.
+		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
 
+	// TODO(yanweiguo): Better handling these errors instead of just logging.
 	if err := f.createService(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
@@ -157,7 +176,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 }
 
 func (f *Forwarder) createService(ns, n string) error {
-	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		_, err := f.kc.CoreV1().Services(ns).Create(&v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
@@ -176,7 +195,8 @@ func (f *Forwarder) createService(ns, n string) error {
 			return true, nil
 		}
 
-		return err == nil, err
+		// Do no return the error to make a retry.
+		return err == nil, nil
 	})
 }
 
@@ -196,7 +216,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	exists := true
-	if err := wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		e, err := f.endpointsLister.Endpoints(ns).Get(n)
 
 		if apierrs.IsNotFound(err) {
@@ -205,7 +225,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		}
 
 		if err != nil {
-			return false, err
+			// Do no return the error to trigger retries.
+			return false, nil
 		}
 
 		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
@@ -215,7 +236,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
 		if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
-			return false, err
+			// Do no return the error to trigger retries.
+			return false, nil
 		}
 
 		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
@@ -227,7 +249,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	if exists {
 		return nil
 	}
-	return wait.ExponentialBackoff(retry.DefaultRetry, func() (bool, error) {
+	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		_, err := f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
@@ -235,7 +257,8 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 			},
 			Subsets: wantSubsets,
 		})
-		return err == nil, err
+		// Do no return the error to trigger retries.
+		return err == nil, nil
 	})
 }
 
