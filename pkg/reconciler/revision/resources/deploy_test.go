@@ -175,6 +175,9 @@ var (
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
 			Value: "false",
+		}, {
+			Name:  "METRICS_COLLECTOR_ADDRESS",
+			Value: "",
 		}},
 	}
 
@@ -576,6 +579,32 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+				),
+			}),
+	}, {
+		name: "metrics collector address",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatuses{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		oc: metrics.ObservabilityConfig{
+			RequestMetricsBackend:   "opencensus",
+			MetricsCollectorAddress: "otel:55678",
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withEnvVar("METRICS_COLLECTOR_ADDRESS", "otel:55678"),
+					withEnvVar("SERVING_REQUEST_METRICS_BACKEND", "opencensus"),
 				),
 			}),
 	}, {

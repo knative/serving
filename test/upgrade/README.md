@@ -6,7 +6,7 @@ Running these tests on every commit will ensure that we don’t introduce any
 non-upgradeable changes, so every commit should be releasable.
 
 This is inspired by kubernetes
-[upgrade testing](https://github.com/kubernetes/community/blob/master/contributors/devel/e2e-tests.md#version-skewed-and-upgrade-testing).
+[upgrade testing](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-testing/e2e-tests.md#version-skewed-and-upgrade-testing).
 
 These tests are a pretty big hammer in that they cover more than just version
 changes, but it’s one of the only ways to make sure we don’t accidentally make
@@ -29,7 +29,7 @@ To achieve that, we just have three separate build tags:
 
 1. Install the latest release from GitHub.
 1. Run the `preupgrade` tests in this directory.
-1. Install at HEAD (`ko apply -f config/`).
+1. Install at HEAD (`ko apply -Rf config/core/`).
 1. Run the `postupgrade` tests in this directory.
 1. Install the latest release from GitHub.
 1. Run the `postdowngrade` tests in this directory.
