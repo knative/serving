@@ -146,6 +146,7 @@ while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.co
   echo "Waiting on Istio CRDs"; sleep 1
 done
 kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
+kubectl apply -f ./third_party/net-istio.yaml
 ```
 
 Follow the
@@ -200,12 +201,13 @@ off-machine registry.
 Run:
 
 ```shell
-ko apply --selector knative.dev/crd-install=true -f config/
+ko apply --selector knative.dev/crd-install=true -Rf config/core/
 while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Knative CRDs"; sleep 1
 done
 
-ko apply -f config/
+ko apply -Rf config/core/
+kubectl apply -f ./third_party/net-istio.yaml
 
 # Optional steps
 
@@ -289,7 +291,7 @@ Once the codegen and dependency information is correct, redeploying the
 controller is simply:
 
 ```shell
-ko apply -f config/controller.yaml
+ko apply -f config/core/deployments/controller.yaml
 ```
 
 Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
@@ -310,7 +312,8 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/ \
+  -Rf config/core/ \
+  -f ./third_party/net-istio.yaml \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
   -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \

@@ -92,7 +92,7 @@ func TestHandlerReqEvent(t *testing.T) {
 }
 
 func TestProbeHandler(t *testing.T) {
-	logger = TestLogger(t)
+	logger := TestLogger(t)
 
 	testcases := []struct {
 		name          string
@@ -132,7 +132,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
+			h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -147,7 +147,7 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestQueueTraceSpans(t *testing.T) {
-	logger = TestLogger(t)
+	logger := TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -260,7 +260,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
+				h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

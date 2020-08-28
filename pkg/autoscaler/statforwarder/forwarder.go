@@ -19,7 +19,6 @@ package statforwarder
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,195 +30,185 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	coordinationinformerv1 "k8s.io/client-go/informers/coordination/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
-	"knative.dev/pkg/client/injection/kube/informers/factory"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
-	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
-func init() {
-	injection.Default.RegisterInformer(withInformer)
-}
-
-// Key is used for associating the Informer inside the context.Context.
-type Key struct{}
-
-func withInformer(ctx context.Context) (context.Context, controller.Informer) {
-	f := factory.Get(ctx)
-	inf := f.Coordination().V1().Leases()
-	return context.WithValue(ctx, Key{}, inf), inf.Informer()
-}
-
-// Get extracts the typed informer from the context.
-func get(ctx context.Context) coordinationinformerv1.LeaseInformer {
-	untyped := ctx.Value(Key{})
-	if untyped == nil {
-		logging.FromContext(ctx).Panic(
-			"Unable to fetch k8s.io/client-go/informers/coordination/v1.LeaseInformer from context.")
-	}
-	return untyped.(coordinationinformerv1.LeaseInformer)
-}
-
 const (
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort     = 8080
 	autoscalerPortName = "http"
+	retryTimeout       = 3 * time.Second
+	retryInterval      = 100 * time.Millisecond
 )
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
 
-// Forwarder is
+// bucketProcessor includes the inforamtion about how to process
+// the StatMessage owned by a bucket.
+type bucketProcessor struct {
+	// holder is the HolderIdentity for a bucket from the Lease
+	holder string
+	// conn is the WebSocket connection to the holder pod.
+	conn *websocket.ManagedConnection
+	// proc is the function to process the StatMessage owned by the bucket.
+	proc statProcessor
+}
+
+// Forwarder does the following things:
+// 1. Watches the change of Leases for Autoscaler buckets. Stores the
+//    Lease -> IP mapping.
+// 2. Creates/updates the corresponding K8S Service and Endpoints.
+// 3. Can be used to forward the metrics falling in a bucket based on
+//    the holder IP. (This is a TODO)
 type Forwarder struct {
 	selfIP          string
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
-	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
-	bs              *hash.BucketSet
-	// accept is the function to process a StatMessage if it doesn't need
+	// accept is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
-	// Lock for leaseHolders.
-	leaselock     sync.RWMutex
-	leaseHolders  map[string]string
-	wsLock        sync.RWMutex
-	wsMap         map[string]*websocket.ManagedConnection
-	endpointsLock sync.RWMutex
-	endpointsIP   map[string]string
+	// bs is the BucketSet including all Autoscaler buckets.
+	bs *hash.BucketSet
+	// processorsLock is the lock for processors.
+	processorsLock sync.RWMutex
+	processors     map[string]*bucketProcessor
 }
 
-func New(ctx context.Context, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor, logger *zap.SugaredLogger) *Forwarder {
+// New creates a new Forwarder.
+func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor) *Forwarder {
 	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
-	f := Forwarder{
+	f := &Forwarder{
 		selfIP:          selfIP,
 		logger:          logger,
 		kc:              kc,
-		serviceLister:   serviceinformer.Get(ctx).Lister(),
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
+		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
-		leaseHolders:    make(map[string]string, len(bkts)),
-		endpointsIP:     make(map[string]string, len(bkts)),
-		wsMap:           make(map[string]*websocket.ManagedConnection, len(bkts)),
 	}
 
-	for _, b := range bkts {
-		dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", b.Name(), ns, network.GetClusterDomainName(), autoscalerPort)
-		logger.Info("Connecting to Autoscaler bucket at ", dns)
-		statSink := websocket.NewDurableSendingConnection(dns, logger)
-		f.wsMap[b.Name()] = statSink
-	}
-
-	leaseInformer := get(ctx)
+	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.NamespaceFilterFunc(ns),
+		FilterFunc: f.filterFunc(ns),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    f.leaseUpdated,
 			UpdateFunc: controller.PassNew(f.leaseUpdated),
-			DeleteFunc: f.leaseDeleted,
+			// TODO(yanweiguo): Set up DeleteFunc.
 		},
 	})
 
-	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.NamespaceFilterFunc(ns),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    f.endpointsUpdated,
-			UpdateFunc: controller.PassNew(f.endpointsUpdated),
-		},
-	})
-	return &f
+	return f
+}
+
+func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
+	return func(obj interface{}) bool {
+		l := obj.(*coordinationv1.Lease)
+
+		if l.Namespace != namespace {
+			return false
+		}
+
+		if !f.bs.HasBucket(l.Name) {
+			// Not for Autoscaler.
+			return false
+		}
+
+		if l.Spec.HolderIdentity == nil || *l.Spec.HolderIdentity == "" {
+			// No holder yet.
+			return false
+		}
+
+		if p, ok := f.getProcessor(l.Name); ok && p.holder == *l.Spec.HolderIdentity {
+			// Already up-to-date.
+			return false
+		}
+
+		return true
+	}
 }
 
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
 
-	if !f.isBucketLease(n) {
-		// f.logger.Debugf("Skip Lease %s, not a valid one", n)
+	if l.Spec.HolderIdentity == nil {
+		// This shouldn't happen as we filter it out when queueing.
+		// Add a nil point check for safety.
+		f.logger.Warnf("Lease %s/%s with nil HolderIdentity got enqueued", ns, n)
 		return
 	}
 
-	identity := *l.Spec.HolderIdentity
-	if identity == "" {
-		f.logger.Debugf("HolderIdentity not found for Lease %s/%s", ns, n)
-		return
-	}
-	arr := strings.Split(identity, "/")
-	leader := arr[0]
-	if f.getIP(l.Name)[0] == leader {
-		// Already up-to-date.
+	holder := *l.Spec.HolderIdentity
+	f.setProcessor(n, f.createProcessor(n, holder))
+
+	if holder != f.selfIP {
+		// Skip creating/updating Service and Endpoints if not the leader.
 		return
 	}
 
-	f.setIP(l.Name, identity)
-
-	if leader != f.selfIP {
-		f.logger.Debugf("Skip updating Endpoints %s, not the leader", n)
-		return
-	}
-
+	// TODO(yanweiguo): Better handling these errors instead of just logging.
 	if err := f.createService(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
+		return
 	}
+	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
 	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
 		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
+		return
 	}
+	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) isBucketLease(n string) bool {
-	for _, bn := range f.bs.BucketList() {
-		if bn == n {
-			return true
+func (f *Forwarder) createService(ns, n string) error {
+	var lastErr error
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      n,
+				Namespace: ns,
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{{
+					Name:       autoscalerPortName,
+					Port:       autoscalerPort,
+					TargetPort: intstr.FromInt(autoscalerPort),
+				}},
+			},
+		})
+
+		if apierrs.IsAlreadyExists(lastErr) {
+			return true, nil
 		}
+
+		// Do not return the error to cause a retry.
+		return lastErr == nil, nil
+	}); err != nil {
+		return lastErr
 	}
-	return false
+
+	return nil
 }
 
-func (f *Forwarder) createService(ns, name string) error {
-	_, err := f.serviceLister.Services(ns).Get(name)
-	if err == nil {
-		// Already created.
-		return nil
-	}
-
-	if !apierrs.IsNotFound(err) {
-		return err
-	}
-
-	_, err = f.kc.CoreV1().Services(ns).Create(&v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{{
-				Name:       autoscalerPortName,
-				Port:       autoscalerPort,
-				TargetPort: intstr.FromInt(autoscalerPort),
-			}},
-		},
-	})
-
-	return err
-}
-
-func (f *Forwarder) createOrUpdateEndpoints(ns, name string) error {
+// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
+// name, and the Forwarder.selfIP. If the Endpoints object already
+// exists, it will update the Endpoints with the Forwarder.selfIP.
+func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	wantSubsets := []v1.EndpointSubset{{
 		Addresses: []v1.EndpointAddress{{
 			IP: f.selfIP,
@@ -231,92 +220,118 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, name string) error {
 		}}},
 	}
 
-	e, err := f.endpointsLister.Endpoints(ns).Get(name)
-	if err == nil {
-		reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-			if attempts > 0 {
-				e, err = f.endpointsLister.Endpoints(ns).Get(name)
-				if err != nil {
-					return err
-				}
-			}
+	exists := true
+	var lastErr error
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		e, err := f.endpointsLister.Endpoints(ns).Get(n)
+		if apierrs.IsNotFound(err) {
+			exists = false
+			return true, nil
+		}
 
-			if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
-				return nil
-			}
+		if err != nil {
+			lastErr = err
+			// Do not return the error to cause a retry.
+			return false, nil
+		}
 
-			want := e.DeepCopy()
-			want.Subsets = wantSubsets
-			if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
-				return err
-			}
+		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+			return true, nil
+		}
 
-			f.logger.Infof("Bucket Endpoints %s updated with IP %s", name, f.selfIP)
-			return nil
-		})
+		want := e.DeepCopy()
+		want.Subsets = wantSubsets
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(want); lastErr != nil {
+			// Do not return the error to cause a retry.
+			return false, nil
+		}
+
+		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
+		return true, nil
+	}); err != nil {
+		return lastErr
+	}
+
+	if exists {
 		return nil
 	}
 
-	if !apierrs.IsNotFound(err) {
-		return err
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      n,
+				Namespace: ns,
+			},
+			Subsets: wantSubsets,
+		})
+		// Do not return the error to cause a retry.
+		return lastErr == nil, nil
+	}); err != nil {
+		return lastErr
 	}
 
-	_, err = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Subsets: wantSubsets,
-	})
-
-	return err
+	return nil
 }
 
-func (f *Forwarder) leaseDeleted(obj interface{}) {
-	l := obj.(*coordinationv1.Lease)
-	ns, n := l.Namespace, l.Name
-
-	if !f.isBucketLease(l.Name) {
-		f.logger.Debugf("Skip Lease %s/%s, not a valid one", ns, n)
-		return
-	}
-
-	f.deleteIP(n)
-	if *l.Spec.HolderIdentity != f.selfIP {
-		f.logger.Debugf("Skip updating Lease %s/%s, not the leader", ns, n)
-		return
-	}
-
-	if err := f.deleteService(ns, n); err != nil {
-		f.logger.Errorf("Failed to delete Service for Endpoints %s: %v", n, err)
-	}
+func (f *Forwarder) getProcessor(bkt string) (*bucketProcessor, bool) {
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+	result, ok := f.processors[bkt]
+	return result, ok
 }
 
-func (f *Forwarder) deleteService(ns, name string) error {
-	if _, err := f.serviceLister.Services(ns).Get(name); err != nil {
-		if apierrs.IsNotFound(err) {
-			// Not exist.
-			return nil
+func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
+	f.processorsLock.Lock()
+	defer f.processorsLock.Unlock()
+	f.processors[bkt] = p
+}
+
+func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
+	if holder == f.selfIP {
+		return &bucketProcessor{
+			holder: holder,
+			proc: func(sm asmetrics.StatMessage) {
+				rev := sm.Key.String()
+				l := f.logger.With(zap.String("revision", rev))
+				l.Debugf("Accept stat of Rev %s as owner of bucket %s", rev, bkt)
+				if f.accept != nil {
+					f.accept(sm)
+				}
+			},
 		}
-
-		return err
 	}
 
-	return f.kc.CoreV1().Services(ns).Delete(name, &metav1.DeleteOptions{})
+	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
+	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
+	c := websocket.NewDurableSendingConnection(dns, f.logger)
+	return &bucketProcessor{
+		holder: holder,
+		conn:   c,
+		proc:   forwarder(c, f.logger),
+	}
 }
 
+// Process calls Forwarder.accept if the pod where this Forwarder running is the owner
+// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
+// owner pod. If it can't find the owner, it drops the StatMessage.
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
-	l := f.logger.With(zap.String("rev", sm.Key.String()))
-	owner := f.bs.Owner(sm.Key.String())
-	arr := f.getIP(owner)
-	if arr[0] == f.selfIP {
-		l.Infof("## accept rev %s as owner of bkt %s: %+v", sm.Key.String(), owner, sm)
-		f.accept(sm)
+	rev := sm.Key.String()
+	l := f.logger.With(zap.String("revision", rev))
+	bkt := f.bs.Owner(rev)
+
+	p, ok := f.getProcessor(bkt)
+	if !ok {
+		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
 		return
 	}
 
-	if ws, ok := f.getWS(owner); ok {
-		l.Infof("## forward rev %s (bkt %s) to %s: %+v", sm.Key.String(), owner, arr[1], sm)
+	p.proc(sm)
+}
+
+func forwarder(c *websocket.ManagedConnection, logger *zap.SugaredLogger) statProcessor {
+	return func(sm asmetrics.StatMessage) {
+		rev := sm.Key.String()
+		l := logger.With(zap.String("revision", rev))
 		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 		b, err := wsms.Marshal()
 		if err != nil {
@@ -324,98 +339,8 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 			return
 		}
 
-		if err := ws.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+		if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
 			l.Errorw("Error while sending stats", zap.Error(err))
 		}
-	} else {
-		l.Warnf("Can't find the owner of key %s, dropping the stat.", sm.Key.String())
 	}
-}
-
-func (f *Forwarder) Cancel() {
-	for _, ws := range f.wsMap {
-		ws.Shutdown()
-	}
-}
-
-func (f *Forwarder) getEIP(name string) string {
-	f.endpointsLock.RLock()
-	defer f.endpointsLock.RUnlock()
-	return f.endpointsIP[name]
-}
-
-func (f *Forwarder) setEIP(name, IP string) {
-	f.endpointsLock.Lock()
-	defer f.endpointsLock.Unlock()
-	f.endpointsIP[name] = IP
-}
-
-func (f *Forwarder) getIP(name string) []string {
-	f.leaselock.RLock()
-	defer f.leaselock.RUnlock()
-	return strings.Split(f.leaseHolders[name], "/")
-}
-
-func (f *Forwarder) setIP(name, IP string) {
-	f.leaselock.Lock()
-	defer f.leaselock.Unlock()
-	f.leaseHolders[name] = IP
-}
-
-func (f *Forwarder) getWS(name string) (*websocket.ManagedConnection, bool) {
-	f.wsLock.RLock()
-	defer f.wsLock.RUnlock()
-	ws, ok := f.wsMap[name]
-	return ws, ok
-}
-
-func (f *Forwarder) setWS(name string, ws *websocket.ManagedConnection) {
-	f.wsLock.Lock()
-	defer f.wsLock.Unlock()
-	f.wsMap[name] = ws
-}
-
-func (f *Forwarder) deleteIP(name string) {
-	f.leaselock.Lock()
-	defer f.leaselock.Unlock()
-	delete(f.leaseHolders, name)
-}
-
-func (f *Forwarder) endpointsUpdated(obj interface{}) {
-	e := obj.(*v1.Endpoints)
-	n := e.Name
-
-	if !f.isBucketLease(n) {
-		f.logger.Debugf("Skip Endpoints %s, not a valid one", n)
-		return
-	}
-
-	if len(e.Subsets) == 0 {
-		return
-	}
-
-	newIP := e.Subsets[0].Addresses[0].IP
-	oldIP := f.getEIP(n)
-	holder := f.getIP(n)[0]
-
-	if newIP == oldIP {
-		// No IP change
-		return
-	}
-
-	if holder != newIP {
-		f.logger.Errorf("bkt %s holder doesn't match its endpoints IP: %s %s", n, holder, newIP)
-	}
-
-	f.setEIP(n, newIP)
-	if ws, ok := f.getWS(n); ok {
-		go ws.Shutdown()
-	}
-
-	f.logger.Infof("bkt %s IP changed: %s, %s", n, oldIP, newIP)
-	time.Sleep(20 * time.Second)
-	dns := fmt.Sprintf("ws://%s.%s.svc.%s:%d", n, e.Namespace, network.GetClusterDomainName(), autoscalerPort)
-	f.logger.Infof("Connecting to %s", dns)
-	statSink := websocket.NewDurableSendingConnection(dns, f.logger)
-	f.setWS(n, statSink)
 }

@@ -187,7 +187,7 @@ func main() {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
-	f := statforwarder.New(ctx, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept, logger)
+	f := statforwarder.New(ctx, logger, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept)
 	defer f.Cancel()
 
 	go controller.StartAll(ctx, controllers...)

@@ -106,6 +106,7 @@ function dump_cluster_state() {
 }
 
 # On a Prow job, save some metadata about the test for Testgrid.
+# Parameters: $1 - cluster provider name
 function save_metadata() {
   (( ! IS_PROW )) && return
   local geo_key="Region"
@@ -116,6 +117,7 @@ function save_metadata() {
   fi
   local cluster_version
   cluster_version="$(kubectl version --short=true)"
+  run_kntest metadata set --key="E2E:Provider" --value="$1"
   run_kntest metadata set --key="E2E:${geo_key}" --value="${geo_value}"
   run_kntest metadata set --key="E2E:Machine" --value="${E2E_GKE_CLUSTER_MACHINE}"
   run_kntest metadata set --key="E2E:Version" --value="${cluster_version}"
@@ -123,21 +125,66 @@ function save_metadata() {
   run_kntest metadata set --key="E2E:MaxNodes" --value="${E2E_MAX_CLUSTER_NODES}"
 }
 
-# Create a GKE test cluster with kubetest2 and call the current script again.
-# Parameters: $1 - extra kubetest2 flags
-#             $2 - extra cluster creation flags
-#             $3 - test command to run by the kubetest2 tester
-function create_gke_test_cluster() {
+# Sets the current user as cluster admin for the given cluster.
+# Parameters: $1 - cluster context name
+function acquire_cluster_admin_role() {
+  if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
+    if [[ "$1" =~ ^gke_.* ]]; then
+      kubectl create clusterrolebinding cluster-admin-binding \
+        --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
+    else
+      kubectl create clusterrolebinding cluster-admin-binding-"${USER}" \
+        --clusterrole=cluster-admin --user="${USER}"
+    fi
+  fi
+}
+
+# Create a test cluster and run the tests if provided.
+# Parameters: $1 - cluster provider name, e.g. gke
+#             $2 - extra kubetest2 flags
+#             $3 - extra cluster creation flags
+#             $4 - test command to run by the kubetest2 tester
+function create_test_cluster() {
   # Fail fast during setup.
   set -o errexit
   set -o pipefail
-  local -n _extra_kubetest2_flags=$1
-  local -n _extra_cluster_creation_flags=$2
-  local -n _tester_command=$3
 
   if function_exists cluster_setup; then
     cluster_setup || fail_test "cluster setup failed"
   fi
+
+  case "$1" in
+    gke) create_gke_test_cluster "$2" "$3" "$4" ;;
+    kind) create_kind_test_cluster "$2" "$3" "$4" ;;
+    *) echo "unsupported provider: $1"; exit 1 ;;
+  esac
+
+  local result="$?"
+  # Ignore any errors below, this is a best-effort cleanup and shouldn't affect the test result.
+  set +o errexit
+  set +o pipefail
+  function_exists cluster_teardown && cluster_teardown
+  echo "Artifacts were written to ${ARTIFACTS}"
+  echo "Test result code is ${result}"
+  exit "${result}"
+}
+
+# Create a KIND test cluster with kubetest2 and run the test command.
+# Parameters: $1 - extra kubetest2 flags
+#             $2 - extra cluster creation flags
+#             $3 - test command to run by the kubetest2 tester
+function create_kind_test_cluster() {
+  # TODO(chizhg): implement with kubetest2
+  return 0
+}
+
+# Create a GKE test cluster with kubetest2 and run the test command.
+# Parameters: $1 - extra kubetest2 flags
+#             $2 - extra cluster creation flags
+#             $3 - test command to run by the kubetest2 tester after the cluster is created (optional)
+function create_gke_test_cluster() {
+  local -n _extra_kubetest2_flags=$1
+  local -n _extra_cluster_creation_flags=$2
 
   echo "Cluster will have a minimum of ${E2E_MIN_CLUSTER_NODES} and a maximum of ${E2E_MAX_CLUSTER_NODES} nodes."
   local _kubetest2_flags=(
@@ -145,8 +192,7 @@ function create_gke_test_cluster() {
     "--create-command=${E2E_GKE_COMMAND_GROUP} container clusters create --quiet --enable-autoscaling
       --min-nodes=${E2E_MIN_CLUSTER_NODES} --max-nodes=${E2E_MAX_CLUSTER_NODES}
       --cluster-version=${E2E_CLUSTER_VERSION}
-      --scopes=${E2E_GKE_SCOPES} --enable-basic-auth --no-issue-client-certificate
-      --no-enable-ip-alias --no-enable-autoupgrade
+      --scopes=${E2E_GKE_SCOPES} --no-enable-autoupgrade
       ${_extra_cluster_creation_flags[@]}"
     "--environment=${E2E_GKE_ENVIRONMENT}"
     "--cluster-name=${E2E_CLUSTER_NAME}"
@@ -163,7 +209,7 @@ function create_gke_test_cluster() {
     _kubetest2_flags+=("--project=${gcloud_project}")
     echo "gcloud project is ${gcloud_project}"
   else
-    echo "Using boskos for the test cluster"
+    echo "Using boskos for provisioning the GCP project to create the test cluster"
   fi
 
   if (( IS_BOSKOS )); then
@@ -176,24 +222,19 @@ function create_gke_test_cluster() {
   fi
 
   # Create cluster and run the tests
-  create_gke_test_cluster_with_retries _kubetest2_flags _tester_command
-  local result="$?"
-  # Ignore any errors below, this is a best-effort cleanup and shouldn't affect the test result.
-  set +o errexit
-  set +o pipefail
-  function_exists cluster_teardown && cluster_teardown
-  echo "Artifacts were written to ${ARTIFACTS}"
-  echo "Test result code is ${result}"
-  exit "${result}"
+  create_gke_test_cluster_with_retries _kubetest2_flags "$3"
 }
 
 # TODO(chizhg): move this to kubetest2 gke deployer.
 # Retry backup regions/zones if cluster creations failed due to stockout.
 # Parameters: $1 - kubetest2 flags other than geo flag
-#             $2 - test command to run by the kubetest2 tester
+#             $2 - test command to run by the kubetest2 tester after the cluster is created (optional)
 function create_gke_test_cluster_with_retries() {
   local -n kubetest2_flags=$1
-  local -n tester_command=$2
+  local -n command=$2
+  if (( ${#command[@]} )); then
+    tester_command=("--test=exec" "--" "${command[@]}")
+  fi
   local cluster_creation_log=/tmp/${REPO_NAME}-cluster_creation-log
   # zone_not_provided is a placeholder for e2e_cluster_zone to make for loop below work
   local zone_not_provided="zone_not_provided"
@@ -220,19 +261,16 @@ function create_gke_test_cluster_with_retries() {
 
       header "Creating test cluster ${E2E_CLUSTER_VERSION} in ${cluster_creation_zone}"
       if run_go_tool k8s-sigs.io/kubetest2 \
-        kubetest2 "${kubetest2_flags[@]}" --region="${cluster_creation_zone}" \
-          --test=exec -- "${tester_command[@]}" 2>&1 \
+        kubetest2 "${kubetest2_flags[@]}" --region="${cluster_creation_zone}" "${tester_command[@]}" 2>&1 \
          | tee "${cluster_creation_log}"; then
         # Save some metadata about cluster creation for using in prow and testgrid
-        save_metadata
+        save_metadata "gke"
         return 0
       fi
-      # Retry if cluster creation failed because of:
-      # - stockout (https://github.com/knative/test-infra/issues/592)
-      # - latest GKE not available in this region/zone yet (https://github.com/knative/test-infra/issues/694)
+      # Retry if cluster creation failed because of stockout (https://github.com/knative/test-infra/issues/592)
+      # or Nodes failing to start correctly.
+      # shellcheck disable=SC2143
       [[ -z "$(grep -Fo 'does not have enough resources available to fulfill' "${cluster_creation_log}")" \
-          && -z "$(grep -Fo 'ResponseError: code=400, message=No valid versions with the prefix' "${cluster_creation_log}")" \
-          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' "${cluster_creation_log}")"  \
           && -z "$(grep -Po 'only \d+ nodes out of \d+ have registered; this is likely due to Nodes failing to start correctly' "${cluster_creation_log}")" ]] \
           && return 1
     done

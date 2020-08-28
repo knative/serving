@@ -14,10 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-
-Package statserver provides a WebSocket server which receives autoscaler statistics, typically from queue proxy sidecar
-containers, and sends them to a channel.
-
-*/
+// Package statserver provides a WebSocket server which receives autoscaler statistics, typically from queue proxy sidecar
+// containers, and sends them to a channel.
 package statserver

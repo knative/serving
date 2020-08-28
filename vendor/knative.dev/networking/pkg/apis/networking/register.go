@@ -35,6 +35,9 @@ const (
 	// Istio-based Ingress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 
+	// DisableAutoTLSAnnotationKey is the label key attached to a namespace to indicate that
+	// AutoTLS should not be enabled for it.
+	DisableAutoTLSAnnotationKey = "networking.knative.dev/disableAutoTLS"
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.
 	IngressLabelKey = GroupName + "/ingress"
