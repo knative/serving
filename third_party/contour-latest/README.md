@@ -1,4 +1,4 @@
-### Contour 1.1
+### Contour 1.8
 
 This directory contains release files required to install Contour and the
 Contour KIngress controller. These files are from a nightly release of
