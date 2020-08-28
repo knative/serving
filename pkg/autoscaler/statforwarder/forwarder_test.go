@@ -85,8 +85,8 @@ func TestForwarderReconcile(t *testing.T) {
 		waitInformers()
 	})
 
-	f1 := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
-	f2 := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
@@ -130,13 +130,6 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
 	}
 
-	if p, ok := f1.processors[bucket1]; !ok || p.holder != testIP1 {
-		t.Errorf("holder not found or not equal to %s", testIP1)
-	}
-	if p, ok := f2.processors[bucket1]; !ok || p.holder != testIP1 {
-		t.Errorf("holder not found or not equal to %s", testIP1)
-	}
-
 	// Lease holder gets changed.
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
@@ -160,13 +153,6 @@ func TestForwarderReconcile(t *testing.T) {
 		return false, nil
 	}); err != nil {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
-	}
-
-	if p, ok := f1.processors[bucket1]; !ok || p.holder != testIP2 {
-		t.Errorf("holder not found or not equal to %s", testIP2)
-	}
-	if p, ok := f2.processors[bucket1]; !ok || p.holder != testIP2 {
-		t.Errorf("holder not found or not equal to %s", testIP2)
 	}
 }
 
@@ -443,7 +429,7 @@ func TestProcess(t *testing.T) {
 			Namespace: testNs,
 		},
 		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity: &testIP1,
+			HolderIdentity: &testIP2,
 		},
 	}
 	kubeClient.CoordinationV1().Leases(testNs).Create(anotherLease)
@@ -451,9 +437,9 @@ func TestProcess(t *testing.T) {
 
 	// Wait for the forwarder to become the leader for bucket1.
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		_, ok1 := f.processors[bucket1]
-		_, ok2 := f.processors[bucket2]
-		return ok1 && ok2, nil
+		p1, ok1 := f.getProcessor(bucket1)
+		p2, ok2 := f.getProcessor(bucket2)
+		return ok1 && ok2 && p1.holder == testIP1 && p2.holder == testIP2, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
@@ -474,4 +460,7 @@ func TestProcess(t *testing.T) {
 	if got, want := forwardCount, 2; got != want {
 		t.Errorf("forwardCount = %d, want = %d", got, want)
 	}
+
+	// Check Cancel is called without error.
+	f.Cancel()
 }

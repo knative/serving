@@ -292,9 +292,8 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 		return &bucketProcessor{
 			holder: holder,
 			proc: func(sm asmetrics.StatMessage) {
-				rev := sm.Key.String()
-				l := f.logger.With(zap.String("revision", rev))
-				l.Debugf("Accept stat of Rev %s as owner of bucket %s", rev, bkt)
+				l := f.logger.With(zap.String("revision", sm.Key.String()))
+				l.Debugf("Accept stat as owner of bucket %s", bkt)
 				if f.accept != nil {
 					f.accept(sm)
 				}
@@ -302,13 +301,28 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 		}
 	}
 
+	// TODO(yanweiguo): Currently we use IP directly. This won't work if there
+	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
 	c := websocket.NewDurableSendingConnection(dns, f.logger)
 	return &bucketProcessor{
 		holder: holder,
 		conn:   c,
-		proc:   forwarder(c, f.logger),
+		proc: func(sm asmetrics.StatMessage) {
+			l := f.logger.With(zap.String("revision", sm.Key.String()))
+			l.Debugf("Forward stat of bucket %s to the holder %s", bkt, holder)
+			wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
+			b, err := wsms.Marshal()
+			if err != nil {
+				l.Errorw("Error while marshaling stats", zap.Error(err))
+				return
+			}
+
+			if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+				l.Errorw("Error while sending stats", zap.Error(err))
+			}
+		},
 	}
 }
 
@@ -329,19 +343,11 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	p.proc(sm)
 }
 
-func forwarder(c *websocket.ManagedConnection, logger *zap.SugaredLogger) statProcessor {
-	return func(sm asmetrics.StatMessage) {
-		rev := sm.Key.String()
-		l := logger.With(zap.String("revision", rev))
-		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-		b, err := wsms.Marshal()
-		if err != nil {
-			l.Errorw("Error while marshaling stats", zap.Error(err))
-			return
-		}
-
-		if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-			l.Errorw("Error while sending stats", zap.Error(err))
+// Cancel is the function to call when terminating a Forwarder.
+func (f *Forwarder) Cancel() {
+	for _, p := range f.processors {
+		if p.conn != nil {
+			p.conn.Shutdown()
 		}
 	}
 }
