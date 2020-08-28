@@ -413,51 +413,62 @@ func TestProcess(t *testing.T) {
 		waitInformers()
 	})
 
+	acceptCount := 0
+	accept := func(sm asmetrics.StatMessage) {
+		acceptCount++
+	}
+	f := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
+
 	stat1 := asmetrics.StatMessage{
 		Key: types.NamespacedName{
 			Namespace: testNs,
-			Name:      "n",
+			Name:      "succulent", // Mapped to bucket1
 		},
 	}
 	stat2 := asmetrics.StatMessage{
 		Key: types.NamespacedName{
 			Namespace: testNs,
-			Name:      "n",
+			Name:      "plant", // Mapped to bucket2
 		},
 	}
 
-	acceptCount := 0
-	accept := func(sm asmetrics.StatMessage) {
-		acceptCount++
-	}
-	f := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, accept)
 	// A Forward without any leadership information should process without error.
-	f.Process(testStat)
+	f.Process(stat1)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
+	anotherLease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bucket2,
+			Namespace: testNs,
+		},
+		Spec: coordinationv1.LeaseSpec{
+			HolderIdentity: &testIP1,
+		},
+	}
+	kubeClient.CoordinationV1().Leases(testNs).Create(anotherLease)
+	lease.Informer().GetIndexer().Add(anotherLease)
 
+	// Wait for the forwarder to become the leader for bucket1.
 	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if len(f.processors) == 1 {
-			return true, nil
-		}
-		return false, nil
+		_, ok1 := f.processors[bucket1]
+		_, ok2 := f.processors[bucket2]
+		return ok1 && ok2, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
 
 	forwardCount := 0
-	f.processors[bucket2] = &bucketProcessor{
-		proc: func(sm asmetrics.StatMessage) {
-			forwardCount++
-		},
+	// Override the proc so we do not actually send via WebSocket.
+	f.processors[bucket2].proc = func(sm asmetrics.StatMessage) {
+		forwardCount++
 	}
 
 	f.Process(stat1)
-	f.Process(stat1)
+	f.Process(stat2)
 	f.Process(stat2)
 
-	if got, want := acceptCount, 2; got != want {
+	if got, want := acceptCount, 1; got != want {
 		t.Errorf("accpetCount = %d, want = %d", got, want)
 	}
 	if got, want := forwardCount, 2; got != want {

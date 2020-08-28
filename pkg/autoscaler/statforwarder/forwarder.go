@@ -100,6 +100,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
+		accept:          accept,
 	}
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -294,7 +295,9 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 				rev := sm.Key.String()
 				l := f.logger.With(zap.String("revision", rev))
 				l.Debugf("Accept stat of Rev %s as owner of bucket %s", rev, bkt)
-				f.accept(sm)
+				if f.accept != nil {
+					f.accept(sm)
+				}
 			},
 		}
 	}
