@@ -166,7 +166,7 @@ const (
 	// and KServices.  It can be an annotation too but since users are
 	// already using labels for domain, it probably best to keep this
 	// consistent.
-	VisibilityLabelKey = "network.knative.dev/visibility"
+	VisibilityLabelKey = "networking.knative.dev/visibility"
 )
 
 // DomainTemplateValues are the available properties people can choose from
