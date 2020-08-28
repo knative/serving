@@ -156,8 +156,9 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 }
 
 func (f *Forwarder) createService(ns, n string) error {
-	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, err := f.kc.CoreV1().Services(ns).Create(&v1.Service{
+	var lastErr error
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(&v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -171,16 +172,20 @@ func (f *Forwarder) createService(ns, n string) error {
 			},
 		})
 
-		if apierrs.IsAlreadyExists(err) {
+		if apierrs.IsAlreadyExists(lastErr) {
 			return true, nil
 		}
 
-		// Do no return the error to make a retry.
-		return err == nil, nil
-	})
+		// Do not return the error to cause a retry.
+		return lastErr == nil, nil
+	}); err != nil {
+		return lastErr
+	}
+
+	return nil
 }
 
-// createOrUpdateEndpoints creates a Endpoints object with the given namespace and
+// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
 func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
@@ -196,16 +201,17 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	exists := true
+	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
 		e, err := f.endpointsLister.Endpoints(ns).Get(n)
-
 		if apierrs.IsNotFound(err) {
 			exists = false
 			return true, nil
 		}
 
 		if err != nil {
-			// Do no return the error to trigger retries.
+			lastErr = err
+			// Do not return the error to cause a retry.
 			return false, nil
 		}
 
@@ -215,31 +221,36 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
-		if _, err := f.kc.CoreV1().Endpoints(ns).Update(want); err != nil {
-			// Do no return the error to trigger retries.
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(want); lastErr != nil {
+			// Do not return the error to cause a retry.
 			return false, nil
 		}
 
 		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
 		return true, nil
 	}); err != nil {
-		return err
+		return lastErr
 	}
 
 	if exists {
 		return nil
 	}
-	return wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, err := f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+
+	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
 			},
 			Subsets: wantSubsets,
 		})
-		// Do no return the error to trigger retries.
-		return err == nil, nil
-	})
+		// Do not return the error to cause a retry.
+		return lastErr == nil, nil
+	}); err != nil {
+		return lastErr
+	}
+
+	return nil
 }
 
 func (f *Forwarder) getHolder(name string) (string, bool) {
