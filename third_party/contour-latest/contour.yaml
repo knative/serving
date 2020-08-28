@@ -13,6 +13,20 @@ subjects:
   name: contour
   namespace: contour-external
 ---
+# This file is generated from the individual YAML files by generate-deployment.sh. Do not
+# edit this file directly but instead edit the source files and re-render.
+#
+# Generated from:
+#       examples/contour/00-common.yaml
+#       examples/contour/01-contour-config.yaml
+#       examples/contour/01-crds.yaml
+#       examples/contour/02-job-certgen.yaml
+#       examples/contour/02-rbac.yaml
+#       examples/contour/02-service-contour.yaml
+#       examples/contour/02-service-envoy.yaml
+#       examples/contour/03-contour.yaml
+#       examples/contour/03-envoy.yaml
+#
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1432,8 +1446,8 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:latest
+        imagePullPolicy: IfNotPresent
         command:
         - contour
         - certgen
@@ -1672,8 +1686,8 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         name: contour
         ports:
         - containerPort: 8001
@@ -1764,8 +1778,8 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
             httpGet:
@@ -1840,8 +1854,8 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
         - name: envoy-config
@@ -1886,6 +1900,20 @@ subjects:
   name: contour
   namespace: contour-internal
 ---
+# This file is generated from the individual YAML files by generate-deployment.sh. Do not
+# edit this file directly but instead edit the source files and re-render.
+#
+# Generated from:
+#       examples/contour/00-common.yaml
+#       examples/contour/01-contour-config.yaml
+#       examples/contour/01-crds.yaml
+#       examples/contour/02-job-certgen.yaml
+#       examples/contour/02-rbac.yaml
+#       examples/contour/02-service-contour.yaml
+#       examples/contour/02-service-envoy.yaml
+#       examples/contour/03-contour.yaml
+#       examples/contour/03-envoy.yaml
+#
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -3305,8 +3333,8 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:latest
+        imagePullPolicy: IfNotPresent
         command:
         - contour
         - certgen
@@ -3545,8 +3573,8 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         name: contour
         ports:
         - containerPort: 8001
@@ -3637,8 +3665,8 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
             httpGet:
@@ -3713,8 +3741,8 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: gcr.io/knative-nightly/github.com/projectcontour/contour/cmd/contour@sha256:4cbd9afeb467115b89d341838a52fda369e7f991077611473479603e6bfc11b1
-        imagePullPolicy: Always
+        image: docker.io/projectcontour/contour:v1.4.0
+        imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
         - name: envoy-config
