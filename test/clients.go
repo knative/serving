@@ -209,9 +209,11 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 		}
 		items []string
 	}{
+		// Delete services first, since we otherwise might delete a route/configuration
+		// out from under the ksvc
+		{clients.Services, services},
 		{clients.Routes, routes},
 		{clients.Configs, configs},
-		{clients.Services, services},
 	}
 
 	propPolicy := v1.DeletePropagationForeground
