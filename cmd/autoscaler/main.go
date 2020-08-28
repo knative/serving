@@ -165,10 +165,8 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	// DO NOT SUBMIT
 	// TODO: Add IP validation.
 	selfIP := os.Getenv("POD_IP")
-	selfPod := os.Getenv("POD_NAME")
 	// TODO: Read config from configmap.
 	cc := leaderelection.ComponentConfig{
 		Component:     "autoscaler",
@@ -179,7 +177,7 @@ func main() {
 		LeaseName: func(i uint32) string {
 			return endpointsBucketName(i, 10)
 		},
-		Identity: selfIP + "/" + selfPod,
+		Identity: selfIP,
 	}
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 	// accept is the func to call when this pod owns the given StatMessage.

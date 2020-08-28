@@ -287,13 +287,14 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 }
 
 func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
+	rev := sm.Key.String()
+	l := f.logger.With(zap.String("revision", rev))
+
 	if holder == f.selfIP {
 		return &bucketProcessor{
 			holder: holder,
 			proc: func(sm asmetrics.StatMessage) {
-				rev := sm.Key.String()
-				l := f.logger.With(zap.String("revision", rev))
-				l.Debugf("Accept stat of Rev %s as owner of bucket %s", rev, bkt)
+				l.Debugf("## Accept stat of Rev %s as owner of bucket %s", rev, bkt)
 				if f.accept != nil {
 					f.accept(sm)
 				}
@@ -307,7 +308,18 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	return &bucketProcessor{
 		holder: holder,
 		conn:   c,
-		proc:   forwarder(c, f.logger),
+		proc: func(sm asmetrics.StatMessage) {
+			l.Debugf("## Forward stat of Rev %s of bucket %s to holder", rev, bkt, holder)
+			b, err := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm}).Marshal()
+			if err != nil {
+				l.Errorw("Error while marshaling stats", zap.Error(err))
+				return
+			}
+
+			if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+				l.Errorw("Error while sending stats", zap.Error(err))
+			}
+		},
 	}
 }
 
@@ -328,19 +340,10 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	p.proc(sm)
 }
 
-func forwarder(c *websocket.ManagedConnection, logger *zap.SugaredLogger) statProcessor {
-	return func(sm asmetrics.StatMessage) {
-		rev := sm.Key.String()
-		l := logger.With(zap.String("revision", rev))
-		wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-		b, err := wsms.Marshal()
-		if err != nil {
-			l.Errorw("Error while marshaling stats", zap.Error(err))
-			return
-		}
-
-		if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-			l.Errorw("Error while sending stats", zap.Error(err))
+func (f *Forwarder) Cancel() {
+	for _, p := range f.processors {
+		if p.conn != nil {
+			p.conn.Shutdown()
 		}
 	}
 }
