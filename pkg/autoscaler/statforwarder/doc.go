@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package statserver provides a WebSocket server which receives autoscaler statistics, typically from queue proxy sidecar
-// containers, and sends them to a channel.
-package statserver
+// Package statforwarder provides a forwarder which can be used to forward autoscaler
+// statistics to the right Autoscaler pod if Autoscaler is set up with multiple
+// pods and running in Leader Election mode.
+package statforwarder
