@@ -246,7 +246,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 
 // RevisionContainerMissingMessage constructs the status message if a given image
 // cannot be pulled correctly.
-func RevisionContainerMissingMessage(image string, message string) string {
+func RevisionContainerMissingMessage(image, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
 }
 

@@ -211,7 +211,7 @@ func PatchServiceImage(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
-func PatchService(t pkgTest.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+func PatchService(t pkgTest.T, clients *test.Clients, curSvc, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
 	patchBytes, err := duck.CreateBytePatch(curSvc, desiredSvc)
 	if err != nil {
