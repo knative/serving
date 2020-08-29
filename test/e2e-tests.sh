@@ -121,14 +121,6 @@ toggle_feature responsive-revision-gc Disabled
 # Run scale tests.
 go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
 
-# Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  kubectl apply -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml || return 1
-  add_trap "kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/istio "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-  kubectl delete -f ${TMP_DIR}/test/config/security/authorization_ingress.yaml
-fi
-
 # Run HA tests separately as they're stopping core Knative Serving pods
 # Define short -spoofinterval to ensure frequent probing while stopping pods
 go_test_e2e -timeout=15m -failfast -parallel=1 ./test/ha \
