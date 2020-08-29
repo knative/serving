@@ -119,7 +119,10 @@ kubectl patch cm "config-gc" -n ${SYSTEM_NAMESPACE} -p ${GC_CONFIG}
 toggle_feature responsive-revision-gc Disabled
 
 # Run scale tests.
-go_test_e2e -timeout=10m ${parallelism} ./test/scale || failed=1
+# Note that we use a very high -parallel because each ksvc is run as its own
+# sub-test.  If this is not larger than the maximum scale tested then the test
+# simply cannot pass.
+go_test_e2e -timeout=10m -parallel=200 ./test/scale || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
