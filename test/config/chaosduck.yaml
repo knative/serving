@@ -84,6 +84,8 @@ spec:
         # Disable chaos on webhooks until https://github.com/knative/pkg/issues/1509 is
         # sorted out.
         - "-disable=webhook"
+        # TODO(mattmoor): DO NOT SUBMIT
+        - "-disable=contour-ingress-controller"
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

@@ -1499,7 +1499,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/projectcontour/contour:latest
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: Always
         command:
         - contour
@@ -1704,7 +1704,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1790,7 +1790,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -1866,7 +1866,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -3393,7 +3393,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/projectcontour/contour:latest
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: Always
         command:
         - contour
@@ -3598,7 +3598,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -3684,7 +3684,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3760,7 +3760,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.8.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:a56756a28b5c221159d4ba4fb9904b2ff8c078910662708d388dc5bd03f90494
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
