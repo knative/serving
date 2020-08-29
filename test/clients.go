@@ -33,7 +33,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
@@ -44,7 +43,6 @@ type Clients struct {
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
-	IstioClient        istioclientset.Interface
 }
 
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
@@ -121,11 +119,6 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	}
 
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	clients.IstioClient, err = istioclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

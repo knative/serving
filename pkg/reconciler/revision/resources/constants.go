@@ -20,10 +20,6 @@ const (
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
-	// IstioOutboundIPRangeAnnotation defines the outbound ip ranges istio allows.
-	// TODO(mattmoor): Make this private once we remove revision_test.go
-	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
-
 	// AppLabelKey is the label defining the application's name.
 	AppLabelKey = "app"
 )
