@@ -74,11 +74,17 @@ data:
     # Note that this is the timeout for the whole request,
     # not an idle timeout.
     # request-timeout: 0s
-    # disable ingressroute permitInsecure field
+    # disable HTTPProxy permitInsecure field
     disablePermitInsecure: false
     tls:
-    #   minimum TLS version that Contour will negotiate
-    #   minimum-protocol-version: "1.1"
+    # minimum TLS version that Contour will negotiate
+    # minimum-protocol-version: "1.1"
+    # Defines the Kubernetes name/namespace matching a secret to use
+    # as the fallback certificate when requests which don't match the
+    # SNI defined for a vhost.
+      fallback-certificate:
+    #   name: fallback-secret-name
+    #   namespace: contour-external
     # The following config shows the defaults for the leader election.
     # leaderelection:
     #   configmap-name: leader-elect
@@ -114,461 +120,16 @@ data:
     #   - "upstream_service_time"
     #   - "user_agent"
     #   - "x_forwarded_for"
+    #
+    # default-http-versions:
+    # - "HTTP/2"
+    # - "HTTP/1.1"
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
-  name: ingressroutes.contour.heptio.com
-  labels:
-    networking.knative.dev/ingress-provider: contour
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.virtualhost.fqdn
-    description: Fully qualified domain name
-    name: FQDN
-    type: string
-  - JSONPath: .spec.virtualhost.tls.secretName
-    description: Secret with TLS credentials
-    name: TLS Secret
-    type: string
-  - JSONPath: .spec.routes[0].match
-    description: First routes defined
-    name: First route
-    type: string
-  - JSONPath: .status.currentStatus
-    description: The current status of the HTTPProxy
-    name: Status
-    type: string
-  - JSONPath: .status.description
-    description: Description of the current status
-    name: Status Description
-    type: string
-  group: contour.heptio.com
-  names:
-    kind: IngressRoute
-    listKind: IngressRouteList
-    plural: ingressroutes
-    singular: ingressroute
-  scope: Namespaced
-  subresources: {}
-  validation:
-    openAPIV3Schema:
-      description: IngressRoute is an Ingress CRD specificiation
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: IngressRouteSpec defines the spec of the CRD
-          properties:
-            routes:
-              description: Routes are the ingress routes. If TCPProxy is present,
-                Routes is ignored.
-              items:
-                description: Route contains the set of routes for a virtual host
-                properties:
-                  delegate:
-                    description: Delegate specifies that this route should be delegated
-                      to another IngressRoute
-                    properties:
-                      name:
-                        description: Name of the IngressRoute
-                        type: string
-                      namespace:
-                        description: Namespace of the IngressRoute. Defaults to the
-                          current namespace if not supplied.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  enableWebsockets:
-                    description: Enables websocket support for the route
-                    type: boolean
-                  match:
-                    description: Match defines the prefix match
-                    type: string
-                  permitInsecure:
-                    description: Allow this path to respond to insecure requests over
-                      HTTP which are normally not permitted when a `virtualhost.tls`
-                      block is present.
-                    type: boolean
-                  prefixRewrite:
-                    description: Indicates that during forwarding, the matched prefix
-                      (or path) should be swapped with this value
-                    type: string
-                  retryPolicy:
-                    description: The retry policy for this route
-                    properties:
-                      count:
-                        description: NumRetries is maximum allowed number of retries.
-                          If not supplied, the number of retries is one.
-                        format: int64
-                        minimum: 0
-                        type: integer
-                      perTryTimeout:
-                        description: PerTryTimeout specifies the timeout per retry
-                          attempt. Ignored if NumRetries is not supplied.
-                        type: string
-                    type: object
-                  services:
-                    description: Services are the services to proxy traffic
-                    items:
-                      description: Service defines an upstream to proxy traffic to
-                      properties:
-                        healthCheck:
-                          description: HealthCheck defines optional healthchecks on
-                            the upstream service
-                          properties:
-                            healthyThresholdCount:
-                              description: The number of healthy health checks required
-                                before a host is marked healthy
-                              format: int64
-                              minimum: 0
-                              type: integer
-                            host:
-                              description: The value of the host header in the HTTP
-                                health check request. If left empty (default value),
-                                the name "contour-envoy-healthcheck" will be used.
-                              type: string
-                            intervalSeconds:
-                              description: The interval (seconds) between health checks
-                              format: int64
-                              type: integer
-                            path:
-                              description: HTTP endpoint used to perform health checks
-                                on upstream service
-                              type: string
-                            timeoutSeconds:
-                              description: The time to wait (seconds) for a health
-                                check response
-                              format: int64
-                              type: integer
-                            unhealthyThresholdCount:
-                              description: The number of unhealthy health checks required
-                                before a host is marked unhealthy
-                              format: int64
-                              minimum: 0
-                              type: integer
-                          required:
-                          - path
-                          type: object
-                        name:
-                          description: Name is the name of Kubernetes service to proxy
-                            traffic. Names defined here will be used to look up corresponding
-                            endpoints which contain the ips to route.
-                          type: string
-                        port:
-                          description: Port (defined as Integer) to proxy traffic
-                            to since a service can have multiple defined
-                          type: integer
-                        strategy:
-                          description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
-                          type: string
-                        validation:
-                          description: UpstreamValidation defines how to verify the
-                            backend service's certificate
-                          properties:
-                            caSecret:
-                              description: Name of the Kubernetes secret be used to
-                                validate the certificate presented by the backend
-                              type: string
-                            subjectName:
-                              description: Key which is expected to be present in
-                                the 'subjectAltName' of the presented certificate
-                              type: string
-                          required:
-                          - caSecret
-                          - subjectName
-                          type: object
-                        weight:
-                          description: Weight defines percentage of traffic to balance
-                            traffic
-                          format: int64
-                          minimum: 0
-                          type: integer
-                      required:
-                      - name
-                      - port
-                      type: object
-                    type: array
-                  timeoutPolicy:
-                    description: The timeout policy for this route
-                    properties:
-                      request:
-                        description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
-                          the timeout duration is undefined.
-                        type: string
-                    type: object
-                required:
-                - match
-                type: object
-              type: array
-            tcpproxy:
-              description: TCPProxy holds TCP proxy information.
-              properties:
-                delegate:
-                  description: Delegate specifies that this tcpproxy should be delegated
-                    to another IngressRoute
-                  properties:
-                    name:
-                      description: Name of the IngressRoute
-                      type: string
-                    namespace:
-                      description: Namespace of the IngressRoute. Defaults to the
-                        current namespace if not supplied.
-                      type: string
-                  required:
-                  - name
-                  type: object
-                services:
-                  description: Services are the services to proxy traffic
-                  items:
-                    description: Service defines an upstream to proxy traffic to
-                    properties:
-                      healthCheck:
-                        description: HealthCheck defines optional healthchecks on
-                          the upstream service
-                        properties:
-                          healthyThresholdCount:
-                            description: The number of healthy health checks required
-                              before a host is marked healthy
-                            format: int64
-                            minimum: 0
-                            type: integer
-                          host:
-                            description: The value of the host header in the HTTP
-                              health check request. If left empty (default value),
-                              the name "contour-envoy-healthcheck" will be used.
-                            type: string
-                          intervalSeconds:
-                            description: The interval (seconds) between health checks
-                            format: int64
-                            type: integer
-                          path:
-                            description: HTTP endpoint used to perform health checks
-                              on upstream service
-                            type: string
-                          timeoutSeconds:
-                            description: The time to wait (seconds) for a health check
-                              response
-                            format: int64
-                            type: integer
-                          unhealthyThresholdCount:
-                            description: The number of unhealthy health checks required
-                              before a host is marked unhealthy
-                            format: int64
-                            minimum: 0
-                            type: integer
-                        required:
-                        - path
-                        type: object
-                      name:
-                        description: Name is the name of Kubernetes service to proxy
-                          traffic. Names defined here will be used to look up corresponding
-                          endpoints which contain the ips to route.
-                        type: string
-                      port:
-                        description: Port (defined as Integer) to proxy traffic to
-                          since a service can have multiple defined
-                        type: integer
-                      strategy:
-                        description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
-                        type: string
-                      validation:
-                        description: UpstreamValidation defines how to verify the
-                          backend service's certificate
-                        properties:
-                          caSecret:
-                            description: Name of the Kubernetes secret be used to
-                              validate the certificate presented by the backend
-                            type: string
-                          subjectName:
-                            description: Key which is expected to be present in the
-                              'subjectAltName' of the presented certificate
-                            type: string
-                        required:
-                        - caSecret
-                        - subjectName
-                        type: object
-                      weight:
-                        description: Weight defines percentage of traffic to balance
-                          traffic
-                        format: int64
-                        minimum: 0
-                        type: integer
-                    required:
-                    - name
-                    - port
-                    type: object
-                  type: array
-              type: object
-            virtualhost:
-              description: Virtualhost appears at most once. If it is present, the
-                object is considered to be a "root".
-              properties:
-                fqdn:
-                  description: The fully qualified domain name of the root of the
-                    ingress tree all leaves of the DAG rooted at this object relate
-                    to the fqdn
-                  type: string
-                tls:
-                  description: If present describes tls properties. The SNI names
-                    that will be matched on are described in fqdn, the tls.secretName
-                    secret must contain a matching certificate
-                  properties:
-                    clientValidation:
-                      description: 'ClientValidation defines how to verify the client
-                        certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
-                        validation. 2. Requires clients to present a TLS certificate
-                        (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
-                      properties:
-                        caSecret:
-                          description: Name of a Kubernetes secret that contains a
-                            CA certificate bundle. The client certificate must validate
-                            against the certificates in the bundle.
-                          minLength: 1
-                          type: string
-                      required:
-                      - caSecret
-                      type: object
-                    minimumProtocolVersion:
-                      description: Minimum TLS version this vhost should negotiate
-                      type: string
-                    passthrough:
-                      description: If Passthrough is set to true, the SecretName will
-                        be ignored and the encrypted handshake will be passed through
-                        to the backing cluster.
-                      type: boolean
-                    secretName:
-                      description: required, the name of a secret in the current namespace
-                      type: string
-                  type: object
-              required:
-              - fqdn
-              type: object
-          type: object
-        status:
-          description: Status reports the current state of the HTTPProxy.
-          properties:
-            currentStatus:
-              type: string
-            description:
-              type: string
-          type: object
-      required:
-      - metadata
-      - spec
-      type: object
-  version: v1beta1
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
-  name: tlscertificatedelegations.contour.heptio.com
-  labels:
-    networking.knative.dev/ingress-provider: contour
-spec:
-  group: contour.heptio.com
-  names:
-    kind: TLSCertificateDelegation
-    listKind: TLSCertificateDelegationList
-    plural: tlscertificatedelegations
-    singular: tlscertificatedelegation
-  scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation.
-        See design/tls-certificate-delegation.md for details.
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: TLSCertificateDelegationSpec defines the spec of the CRD
-          properties:
-            delegations:
-              items:
-                description: CertificateDelegation maps the authority to reference
-                  a secret in the current namespace to a set of namespaces.
-                properties:
-                  secretName:
-                    description: required, the name of a secret in the current namespace.
-                    type: string
-                  targetNamespaces:
-                    description: required, the namespaces the authority to reference
-                      the the secret will be delegated to. If TargetNamespaces is
-                      nil or empty, the CertificateDelegation' is ignored. If the
-                      TargetNamespace list contains the character, "*" the secret
-                      will be delegated to all namespaces.
-                    items:
-                      type: string
-                    type: array
-                required:
-                - secretName
-                - targetNamespaces
-                type: object
-              type: array
-          required:
-          - delegations
-          type: object
-      required:
-      - metadata
-      - spec
-      type: object
-  version: v1beta1
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -601,7 +162,8 @@ spec:
     - proxies
     singular: httpproxy
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: HTTPProxy is an Ingress CRD specification
@@ -829,13 +391,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -860,13 +424,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -918,6 +484,9 @@ spec:
                         port:
                           description: Port (defined as Integer) to proxy traffic
                             to since a service can have multiple defined.
+                          exclusiveMaximum: true
+                          maximum: 65536
+                          minimum: 1
                           type: integer
                         protocol:
                           description: Protocol may be used to specify (or override)
@@ -935,13 +504,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -967,13 +538,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -1025,15 +598,17 @@ spec:
                     description: The timeout policy for this route.
                     properties:
                       idle:
-                        description: Timeout after which if there are no active requests
+                        description: Timeout after which, if there are no active requests
                           for this route, the connection between Envoy and the backend
-                          will be closed. If not specified, there is no per-route
-                          idle timeout.
+                          or Envoy and the external client will be closed. If not
+                          specified, there is no per-route idle timeout, though a
+                          connection manager-wide stream_idle_timeout default of 5m
+                          still applies.
                         type: string
                       response:
                         description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
-                          the timeout duration is undefined.
+                          after processing a request from client. If not supplied,
+                          Envoy's default value of 15s applies.
                         type: string
                     type: object
                 required:
@@ -1124,6 +699,9 @@ spec:
                       port:
                         description: Port (defined as Integer) to proxy traffic to
                           since a service can have multiple defined.
+                        exclusiveMaximum: true
+                        maximum: 65536
+                        minimum: 1
                         type: integer
                       protocol:
                         description: Protocol may be used to specify (or override)
@@ -1141,13 +719,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -1173,13 +753,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -1245,12 +827,12 @@ spec:
                     secret must contain a matching certificate
                   properties:
                     clientValidation:
-                      description: 'ClientValidation defines how to verify the client
+                      description: "ClientValidation defines how to verify the client
                         certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
+                        to Envoy. \n This setting: \n 1. Enables TLS client certificate
                         validation. 2. Requires clients to present a TLS certificate
                         (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
+                        certificate will be validated."
                       properties:
                         caSecret:
                           description: Name of a Kubernetes secret that contains a
@@ -1261,6 +843,11 @@ spec:
                       required:
                       - caSecret
                       type: object
+                    enableFallbackCertificate:
+                      description: EnableFallbackCertificate defines if the vhost
+                        should allow a default certificate to be applied which handles
+                        all requests which don't match the SNI defined in this vhost.
+                      type: boolean
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -1284,6 +871,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -1305,7 +915,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -1418,18 +1028,13 @@ rules:
   resources:
   - secrets
   verbs:
-  - list
-  - watch
   - create
-  - get
-  - put
-  - post
-  - patch
+  - update
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen
+  name: contour-certgen-v1.5.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1447,12 +1052,14 @@ spec:
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
         image: docker.io/projectcontour/contour:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --incluster
         - --kube
+        - --incluster
+        - --overwrite
+        - --secrets-format=compact
         - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
@@ -1538,6 +1145,12 @@ rules:
   - put
   - post
   - patch
+- apiGroups:
+  - "projectcontour.io"
+  resources:
+  - "httpproxies/status"
+  verbs:
+  - update
 - apiGroups: ["networking.x.k8s.io"]
   resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
@@ -1681,12 +1294,12 @@ spec:
         - --xds-port=8001
         - --envoy-service-http-port=80
         - --envoy-service-https-port=443
-        - --contour-cafile=/ca/cacert.pem
+        - --contour-cafile=/certs/ca.crt
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1708,9 +1321,6 @@ spec:
         volumeMounts:
         - name: contourcert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         - name: contour-config
           mountPath: /config
@@ -1736,9 +1346,6 @@ spec:
       - name: contourcert
         secret:
           secretName: contourcert
-      - name: cacert
-        secret:
-          secretName: cacert
       - name: contour-config
         configMap:
           name: contour
@@ -1778,7 +1385,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -1801,7 +1408,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.14.1
+        image: docker.io/envoyproxy/envoy:v1.14.2
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -1835,8 +1442,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-        - name: cacert
-          mountPath: /ca
         lifecycle:
           preStop:
             httpGet:
@@ -1849,12 +1454,13 @@ spec:
         - /config/envoy.json
         - --xds-address=contour
         - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
+        - --resources-dir=/config/resources
+        - --envoy-cafile=/certs/ca.crt
         - --envoy-cert-file=/certs/tls.crt
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -1863,14 +1469,12 @@ spec:
         - name: envoycert
           mountPath: /certs
           readOnly: true
-        - name: cacert
-          mountPath: /ca
-          readOnly: true
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+      automountServiceAccountToken: false
       serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
@@ -1879,9 +1483,6 @@ spec:
       - name: envoycert
         secret:
           secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
       restartPolicy: Always
 
 ---
@@ -1961,11 +1562,17 @@ data:
     # Note that this is the timeout for the whole request,
     # not an idle timeout.
     # request-timeout: 0s
-    # disable ingressroute permitInsecure field
+    # disable HTTPProxy permitInsecure field
     disablePermitInsecure: false
     tls:
-    #   minimum TLS version that Contour will negotiate
-    #   minimum-protocol-version: "1.1"
+    # minimum TLS version that Contour will negotiate
+    # minimum-protocol-version: "1.1"
+    # Defines the Kubernetes name/namespace matching a secret to use
+    # as the fallback certificate when requests which don't match the
+    # SNI defined for a vhost.
+      fallback-certificate:
+    #   name: fallback-secret-name
+    #   namespace: contour-internal
     # The following config shows the defaults for the leader election.
     # leaderelection:
     #   configmap-name: leader-elect
@@ -2001,461 +1608,16 @@ data:
     #   - "upstream_service_time"
     #   - "user_agent"
     #   - "x_forwarded_for"
+    #
+    # default-http-versions:
+    # - "HTTP/2"
+    # - "HTTP/1.1"
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
-  name: ingressroutes.contour.heptio.com
-  labels:
-    networking.knative.dev/ingress-provider: contour
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.virtualhost.fqdn
-    description: Fully qualified domain name
-    name: FQDN
-    type: string
-  - JSONPath: .spec.virtualhost.tls.secretName
-    description: Secret with TLS credentials
-    name: TLS Secret
-    type: string
-  - JSONPath: .spec.routes[0].match
-    description: First routes defined
-    name: First route
-    type: string
-  - JSONPath: .status.currentStatus
-    description: The current status of the HTTPProxy
-    name: Status
-    type: string
-  - JSONPath: .status.description
-    description: Description of the current status
-    name: Status Description
-    type: string
-  group: contour.heptio.com
-  names:
-    kind: IngressRoute
-    listKind: IngressRouteList
-    plural: ingressroutes
-    singular: ingressroute
-  scope: Namespaced
-  subresources: {}
-  validation:
-    openAPIV3Schema:
-      description: IngressRoute is an Ingress CRD specificiation
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: IngressRouteSpec defines the spec of the CRD
-          properties:
-            routes:
-              description: Routes are the ingress routes. If TCPProxy is present,
-                Routes is ignored.
-              items:
-                description: Route contains the set of routes for a virtual host
-                properties:
-                  delegate:
-                    description: Delegate specifies that this route should be delegated
-                      to another IngressRoute
-                    properties:
-                      name:
-                        description: Name of the IngressRoute
-                        type: string
-                      namespace:
-                        description: Namespace of the IngressRoute. Defaults to the
-                          current namespace if not supplied.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  enableWebsockets:
-                    description: Enables websocket support for the route
-                    type: boolean
-                  match:
-                    description: Match defines the prefix match
-                    type: string
-                  permitInsecure:
-                    description: Allow this path to respond to insecure requests over
-                      HTTP which are normally not permitted when a `virtualhost.tls`
-                      block is present.
-                    type: boolean
-                  prefixRewrite:
-                    description: Indicates that during forwarding, the matched prefix
-                      (or path) should be swapped with this value
-                    type: string
-                  retryPolicy:
-                    description: The retry policy for this route
-                    properties:
-                      count:
-                        description: NumRetries is maximum allowed number of retries.
-                          If not supplied, the number of retries is one.
-                        format: int64
-                        minimum: 0
-                        type: integer
-                      perTryTimeout:
-                        description: PerTryTimeout specifies the timeout per retry
-                          attempt. Ignored if NumRetries is not supplied.
-                        type: string
-                    type: object
-                  services:
-                    description: Services are the services to proxy traffic
-                    items:
-                      description: Service defines an upstream to proxy traffic to
-                      properties:
-                        healthCheck:
-                          description: HealthCheck defines optional healthchecks on
-                            the upstream service
-                          properties:
-                            healthyThresholdCount:
-                              description: The number of healthy health checks required
-                                before a host is marked healthy
-                              format: int64
-                              minimum: 0
-                              type: integer
-                            host:
-                              description: The value of the host header in the HTTP
-                                health check request. If left empty (default value),
-                                the name "contour-envoy-healthcheck" will be used.
-                              type: string
-                            intervalSeconds:
-                              description: The interval (seconds) between health checks
-                              format: int64
-                              type: integer
-                            path:
-                              description: HTTP endpoint used to perform health checks
-                                on upstream service
-                              type: string
-                            timeoutSeconds:
-                              description: The time to wait (seconds) for a health
-                                check response
-                              format: int64
-                              type: integer
-                            unhealthyThresholdCount:
-                              description: The number of unhealthy health checks required
-                                before a host is marked unhealthy
-                              format: int64
-                              minimum: 0
-                              type: integer
-                          required:
-                          - path
-                          type: object
-                        name:
-                          description: Name is the name of Kubernetes service to proxy
-                            traffic. Names defined here will be used to look up corresponding
-                            endpoints which contain the ips to route.
-                          type: string
-                        port:
-                          description: Port (defined as Integer) to proxy traffic
-                            to since a service can have multiple defined
-                          type: integer
-                        strategy:
-                          description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
-                          type: string
-                        validation:
-                          description: UpstreamValidation defines how to verify the
-                            backend service's certificate
-                          properties:
-                            caSecret:
-                              description: Name of the Kubernetes secret be used to
-                                validate the certificate presented by the backend
-                              type: string
-                            subjectName:
-                              description: Key which is expected to be present in
-                                the 'subjectAltName' of the presented certificate
-                              type: string
-                          required:
-                          - caSecret
-                          - subjectName
-                          type: object
-                        weight:
-                          description: Weight defines percentage of traffic to balance
-                            traffic
-                          format: int64
-                          minimum: 0
-                          type: integer
-                      required:
-                      - name
-                      - port
-                      type: object
-                    type: array
-                  timeoutPolicy:
-                    description: The timeout policy for this route
-                    properties:
-                      request:
-                        description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
-                          the timeout duration is undefined.
-                        type: string
-                    type: object
-                required:
-                - match
-                type: object
-              type: array
-            tcpproxy:
-              description: TCPProxy holds TCP proxy information.
-              properties:
-                delegate:
-                  description: Delegate specifies that this tcpproxy should be delegated
-                    to another IngressRoute
-                  properties:
-                    name:
-                      description: Name of the IngressRoute
-                      type: string
-                    namespace:
-                      description: Namespace of the IngressRoute. Defaults to the
-                        current namespace if not supplied.
-                      type: string
-                  required:
-                  - name
-                  type: object
-                services:
-                  description: Services are the services to proxy traffic
-                  items:
-                    description: Service defines an upstream to proxy traffic to
-                    properties:
-                      healthCheck:
-                        description: HealthCheck defines optional healthchecks on
-                          the upstream service
-                        properties:
-                          healthyThresholdCount:
-                            description: The number of healthy health checks required
-                              before a host is marked healthy
-                            format: int64
-                            minimum: 0
-                            type: integer
-                          host:
-                            description: The value of the host header in the HTTP
-                              health check request. If left empty (default value),
-                              the name "contour-envoy-healthcheck" will be used.
-                            type: string
-                          intervalSeconds:
-                            description: The interval (seconds) between health checks
-                            format: int64
-                            type: integer
-                          path:
-                            description: HTTP endpoint used to perform health checks
-                              on upstream service
-                            type: string
-                          timeoutSeconds:
-                            description: The time to wait (seconds) for a health check
-                              response
-                            format: int64
-                            type: integer
-                          unhealthyThresholdCount:
-                            description: The number of unhealthy health checks required
-                              before a host is marked unhealthy
-                            format: int64
-                            minimum: 0
-                            type: integer
-                        required:
-                        - path
-                        type: object
-                      name:
-                        description: Name is the name of Kubernetes service to proxy
-                          traffic. Names defined here will be used to look up corresponding
-                          endpoints which contain the ips to route.
-                        type: string
-                      port:
-                        description: Port (defined as Integer) to proxy traffic to
-                          since a service can have multiple defined
-                        type: integer
-                      strategy:
-                        description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
-                        type: string
-                      validation:
-                        description: UpstreamValidation defines how to verify the
-                          backend service's certificate
-                        properties:
-                          caSecret:
-                            description: Name of the Kubernetes secret be used to
-                              validate the certificate presented by the backend
-                            type: string
-                          subjectName:
-                            description: Key which is expected to be present in the
-                              'subjectAltName' of the presented certificate
-                            type: string
-                        required:
-                        - caSecret
-                        - subjectName
-                        type: object
-                      weight:
-                        description: Weight defines percentage of traffic to balance
-                          traffic
-                        format: int64
-                        minimum: 0
-                        type: integer
-                    required:
-                    - name
-                    - port
-                    type: object
-                  type: array
-              type: object
-            virtualhost:
-              description: Virtualhost appears at most once. If it is present, the
-                object is considered to be a "root".
-              properties:
-                fqdn:
-                  description: The fully qualified domain name of the root of the
-                    ingress tree all leaves of the DAG rooted at this object relate
-                    to the fqdn
-                  type: string
-                tls:
-                  description: If present describes tls properties. The SNI names
-                    that will be matched on are described in fqdn, the tls.secretName
-                    secret must contain a matching certificate
-                  properties:
-                    clientValidation:
-                      description: 'ClientValidation defines how to verify the client
-                        certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
-                        validation. 2. Requires clients to present a TLS certificate
-                        (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
-                      properties:
-                        caSecret:
-                          description: Name of a Kubernetes secret that contains a
-                            CA certificate bundle. The client certificate must validate
-                            against the certificates in the bundle.
-                          minLength: 1
-                          type: string
-                      required:
-                      - caSecret
-                      type: object
-                    minimumProtocolVersion:
-                      description: Minimum TLS version this vhost should negotiate
-                      type: string
-                    passthrough:
-                      description: If Passthrough is set to true, the SecretName will
-                        be ignored and the encrypted handshake will be passed through
-                        to the backing cluster.
-                      type: boolean
-                    secretName:
-                      description: required, the name of a secret in the current namespace
-                      type: string
-                  type: object
-              required:
-              - fqdn
-              type: object
-          type: object
-        status:
-          description: Status reports the current state of the HTTPProxy.
-          properties:
-            currentStatus:
-              type: string
-            description:
-              type: string
-          type: object
-      required:
-      - metadata
-      - spec
-      type: object
-  version: v1beta1
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
-  name: tlscertificatedelegations.contour.heptio.com
-  labels:
-    networking.knative.dev/ingress-provider: contour
-spec:
-  group: contour.heptio.com
-  names:
-    kind: TLSCertificateDelegation
-    listKind: TLSCertificateDelegationList
-    plural: tlscertificatedelegations
-    singular: tlscertificatedelegation
-  scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation.
-        See design/tls-certificate-delegation.md for details.
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: TLSCertificateDelegationSpec defines the spec of the CRD
-          properties:
-            delegations:
-              items:
-                description: CertificateDelegation maps the authority to reference
-                  a secret in the current namespace to a set of namespaces.
-                properties:
-                  secretName:
-                    description: required, the name of a secret in the current namespace.
-                    type: string
-                  targetNamespaces:
-                    description: required, the namespaces the authority to reference
-                      the the secret will be delegated to. If TargetNamespaces is
-                      nil or empty, the CertificateDelegation' is ignored. If the
-                      TargetNamespace list contains the character, "*" the secret
-                      will be delegated to all namespaces.
-                    items:
-                      type: string
-                    type: array
-                required:
-                - secretName
-                - targetNamespaces
-                type: object
-              type: array
-          required:
-          - delegations
-          type: object
-      required:
-      - metadata
-      - spec
-      type: object
-  version: v1beta1
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -2488,7 +1650,8 @@ spec:
     - proxies
     singular: httpproxy
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: HTTPProxy is an Ingress CRD specification
@@ -2716,13 +1879,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -2747,13 +1912,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -2805,6 +1972,9 @@ spec:
                         port:
                           description: Port (defined as Integer) to proxy traffic
                             to since a service can have multiple defined.
+                          exclusiveMaximum: true
+                          maximum: 65536
+                          minimum: 1
                           type: integer
                         protocol:
                           description: Protocol may be used to specify (or override)
@@ -2822,13 +1992,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -2854,13 +2026,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -2912,15 +2086,17 @@ spec:
                     description: The timeout policy for this route.
                     properties:
                       idle:
-                        description: Timeout after which if there are no active requests
+                        description: Timeout after which, if there are no active requests
                           for this route, the connection between Envoy and the backend
-                          will be closed. If not specified, there is no per-route
-                          idle timeout.
+                          or Envoy and the external client will be closed. If not
+                          specified, there is no per-route idle timeout, though a
+                          connection manager-wide stream_idle_timeout default of 5m
+                          still applies.
                         type: string
                       response:
                         description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
-                          the timeout duration is undefined.
+                          after processing a request from client. If not supplied,
+                          Envoy's default value of 15s applies.
                         type: string
                     type: object
                 required:
@@ -3011,6 +2187,9 @@ spec:
                       port:
                         description: Port (defined as Integer) to proxy traffic to
                           since a service can have multiple defined.
+                        exclusiveMaximum: true
+                        maximum: 65536
+                        minimum: 1
                         type: integer
                       protocol:
                         description: Protocol may be used to specify (or override)
@@ -3028,13 +2207,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -3060,13 +2241,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -3132,12 +2315,12 @@ spec:
                     secret must contain a matching certificate
                   properties:
                     clientValidation:
-                      description: 'ClientValidation defines how to verify the client
+                      description: "ClientValidation defines how to verify the client
                         certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
+                        to Envoy. \n This setting: \n 1. Enables TLS client certificate
                         validation. 2. Requires clients to present a TLS certificate
                         (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
+                        certificate will be validated."
                       properties:
                         caSecret:
                           description: Name of a Kubernetes secret that contains a
@@ -3148,6 +2331,11 @@ spec:
                       required:
                       - caSecret
                       type: object
+                    enableFallbackCertificate:
+                      description: EnableFallbackCertificate defines if the vhost
+                        should allow a default certificate to be applied which handles
+                        all requests which don't match the SNI defined in this vhost.
+                      type: boolean
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -3171,6 +2359,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -3192,7 +2403,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -3305,18 +2516,13 @@ rules:
   resources:
   - secrets
   verbs:
-  - list
-  - watch
   - create
-  - get
-  - put
-  - post
-  - patch
+  - update
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen
+  name: contour-certgen-v1.5.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -3334,12 +2540,14 @@ spec:
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
         image: docker.io/projectcontour/contour:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --incluster
         - --kube
+        - --incluster
+        - --overwrite
+        - --secrets-format=compact
         - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
@@ -3425,6 +2633,12 @@ rules:
   - put
   - post
   - patch
+- apiGroups:
+  - "projectcontour.io"
+  resources:
+  - "httpproxies/status"
+  verbs:
+  - update
 - apiGroups: ["networking.x.k8s.io"]
   resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
@@ -3568,12 +2782,12 @@ spec:
         - --xds-port=8001
         - --envoy-service-http-port=80
         - --envoy-service-https-port=443
-        - --contour-cafile=/ca/cacert.pem
+        - --contour-cafile=/certs/ca.crt
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -3595,9 +2809,6 @@ spec:
         volumeMounts:
         - name: contourcert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         - name: contour-config
           mountPath: /config
@@ -3623,9 +2834,6 @@ spec:
       - name: contourcert
         secret:
           secretName: contourcert
-      - name: cacert
-        secret:
-          secretName: cacert
       - name: contour-config
         configMap:
           name: contour
@@ -3665,7 +2873,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3688,7 +2896,7 @@ spec:
         - --log-level info
         command:
         - envoy
-        image: docker.io/envoyproxy/envoy:v1.14.1
+        image: docker.io/envoyproxy/envoy:v1.14.2
         imagePullPolicy: IfNotPresent
         name: envoy
         env:
@@ -3722,8 +2930,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-        - name: cacert
-          mountPath: /ca
         lifecycle:
           preStop:
             httpGet:
@@ -3736,12 +2942,13 @@ spec:
         - /config/envoy.json
         - --xds-address=contour
         - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
+        - --resources-dir=/config/resources
+        - --envoy-cafile=/certs/ca.crt
         - --envoy-cert-file=/certs/tls.crt
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/projectcontour/contour:v1.6.0
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -3750,14 +2957,12 @@ spec:
         - name: envoycert
           mountPath: /certs
           readOnly: true
-        - name: cacert
-          mountPath: /ca
-          readOnly: true
         env:
         - name: CONTOUR_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+      automountServiceAccountToken: false
       serviceAccountName: envoy
       terminationGracePeriodSeconds: 300
       volumes:
@@ -3766,9 +2971,6 @@ spec:
       - name: envoycert
         secret:
           secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
       restartPolicy: Always
 
 ---
