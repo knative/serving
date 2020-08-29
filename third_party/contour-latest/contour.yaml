@@ -77,8 +77,14 @@ data:
     # disable ingressroute permitInsecure field
     disablePermitInsecure: false
     tls:
-    #   minimum TLS version that Contour will negotiate
-    #   minimum-protocol-version: "1.1"
+    # minimum TLS version that Contour will negotiate
+    # minimum-protocol-version: "1.1"
+    # Defines the Kubernetes name/namespace matching a secret to use
+    # as the fallback certificate when requests which don't match the
+    # SNI defined for a vhost.
+      fallback-certificate:
+    #   name: fallback-secret-name
+    #   namespace: contour-external
     # The following config shows the defaults for the leader election.
     # leaderelection:
     #   configmap-name: leader-elect
@@ -119,7 +125,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
   labels:
@@ -429,23 +435,6 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
-                    clientValidation:
-                      description: 'ClientValidation defines how to verify the client
-                        certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
-                        validation. 2. Requires clients to present a TLS certificate
-                        (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
-                      properties:
-                        caSecret:
-                          description: Name of a Kubernetes secret that contains a
-                            CA certificate bundle. The client certificate must validate
-                            against the certificates in the bundle.
-                          minLength: 1
-                          type: string
-                      required:
-                      - caSecret
-                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -469,6 +458,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -490,7 +502,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
   labels:
@@ -568,7 +580,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -601,7 +613,8 @@ spec:
     - proxies
     singular: httpproxy
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: HTTPProxy is an Ingress CRD specification
@@ -829,13 +842,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -860,13 +875,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -935,13 +952,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -967,13 +986,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -1025,14 +1046,14 @@ spec:
                     description: The timeout policy for this route.
                     properties:
                       idle:
-                        description: Timeout after which if there are no active requests
+                        description: Timeout after which, if there are no active requests
                           for this route, the connection between Envoy and the backend
-                          will be closed. If not specified, there is no per-route
-                          idle timeout.
+                          or Envoy and the external client will be closed. If not
+                          specified, there is no per-route idle timeout.
                         type: string
                       response:
                         description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
+                          after processing a request from client. If not supplied,
                           the timeout duration is undefined.
                         type: string
                     type: object
@@ -1141,13 +1162,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -1173,13 +1196,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -1245,12 +1270,12 @@ spec:
                     secret must contain a matching certificate
                   properties:
                     clientValidation:
-                      description: 'ClientValidation defines how to verify the client
+                      description: "ClientValidation defines how to verify the client
                         certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
+                        to Envoy. \n This setting: \n 1. Enables TLS client certificate
                         validation. 2. Requires clients to present a TLS certificate
                         (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
+                        certificate will be validated."
                       properties:
                         caSecret:
                           description: Name of a Kubernetes secret that contains a
@@ -1261,6 +1286,11 @@ spec:
                       required:
                       - caSecret
                       type: object
+                    enableFallbackCertificate:
+                      description: EnableFallbackCertificate defines if the vhost
+                        should allow a default certificate to be applied which handles
+                        all requests which don't match the SNI defined in this vhost.
+                      type: boolean
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -1284,6 +1314,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -1305,7 +1358,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -1418,18 +1471,13 @@ rules:
   resources:
   - secrets
   verbs:
-  - list
-  - watch
   - create
-  - get
-  - put
-  - post
-  - patch
+  - update
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen
+  name: contour-certgen-v1.5.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -1446,13 +1494,15 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/projectcontour/contour:latest
-        imagePullPolicy: IfNotPresent
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
+        imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --incluster
         - --kube
+        - --incluster
+        - --overwrite
+        - --secrets-format=compact
         - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
@@ -1538,6 +1588,12 @@ rules:
   - put
   - post
   - patch
+- apiGroups:
+  - "projectcontour.io"
+  resources:
+  - "httpproxies/status"
+  verbs:
+  - update
 - apiGroups: ["networking.x.k8s.io"]
   resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
@@ -1645,7 +1701,7 @@ metadata:
   name: contour
   namespace: contour-external
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -1681,12 +1737,12 @@ spec:
         - --xds-port=8001
         - --envoy-service-http-port=80
         - --envoy-service-https-port=443
-        - --contour-cafile=/ca/cacert.pem
+        - --contour-cafile=/certs/ca.crt
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1708,9 +1764,6 @@ spec:
         volumeMounts:
         - name: contourcert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         - name: contour-config
           mountPath: /config
@@ -1736,9 +1789,6 @@ spec:
       - name: contourcert
         secret:
           secretName: contourcert
-      - name: cacert
-        secret:
-          secretName: cacert
       - name: contour-config
         configMap:
           name: contour
@@ -1778,7 +1828,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -1835,8 +1885,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-        - name: cacert
-          mountPath: /ca
         lifecycle:
           preStop:
             httpGet:
@@ -1849,12 +1897,13 @@ spec:
         - /config/envoy.json
         - --xds-address=contour
         - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
+        - --resources-dir=/config/resources
+        - --envoy-cafile=/certs/ca.crt
         - --envoy-cert-file=/certs/tls.crt
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -1862,9 +1911,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         env:
         - name: CONTOUR_NAMESPACE
@@ -1879,9 +1925,6 @@ spec:
       - name: envoycert
         secret:
           secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
       restartPolicy: Always
 
 ---
@@ -1964,8 +2007,14 @@ data:
     # disable ingressroute permitInsecure field
     disablePermitInsecure: false
     tls:
-    #   minimum TLS version that Contour will negotiate
-    #   minimum-protocol-version: "1.1"
+    # minimum TLS version that Contour will negotiate
+    # minimum-protocol-version: "1.1"
+    # Defines the Kubernetes name/namespace matching a secret to use
+    # as the fallback certificate when requests which don't match the
+    # SNI defined for a vhost.
+      fallback-certificate:
+    #   name: fallback-secret-name
+    #   namespace: contour-internal
     # The following config shows the defaults for the leader election.
     # leaderelection:
     #   configmap-name: leader-elect
@@ -2006,7 +2055,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: ingressroutes.contour.heptio.com
   labels:
@@ -2316,23 +2365,6 @@ spec:
                     that will be matched on are described in fqdn, the tls.secretName
                     secret must contain a matching certificate
                   properties:
-                    clientValidation:
-                      description: 'ClientValidation defines how to verify the client
-                        certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
-                        validation. 2. Requires clients to present a TLS certificate
-                        (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
-                      properties:
-                        caSecret:
-                          description: Name of a Kubernetes secret that contains a
-                            CA certificate bundle. The client certificate must validate
-                            against the certificates in the bundle.
-                          minLength: 1
-                          type: string
-                      required:
-                      - caSecret
-                      type: object
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -2356,6 +2388,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -2377,7 +2432,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.contour.heptio.com
   labels:
@@ -2455,7 +2510,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -2488,7 +2543,8 @@ spec:
     - proxies
     singular: httpproxy
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: HTTPProxy is an Ingress CRD specification
@@ -2716,13 +2772,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -2747,13 +2805,15 @@ spec:
                     properties:
                       remove:
                         description: Remove specifies a list of HTTP header names
-                          to remove
+                          to remove.
                         items:
                           type: string
                         type: array
                       set:
                         description: Set specifies a list of HTTP header values that
-                          will be set in the HTTP header
+                          will be set in the HTTP header. If the header does not exist
+                          it will be added, otherwise it will be overwritten with
+                          the new value.
                         items:
                           description: HeaderValue represents a header name/value
                             pair
@@ -2822,13 +2882,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -2854,13 +2916,15 @@ spec:
                           properties:
                             remove:
                               description: Remove specifies a list of HTTP header
-                                names to remove
+                                names to remove.
                               items:
                                 type: string
                               type: array
                             set:
                               description: Set specifies a list of HTTP header values
-                                that will be set in the HTTP header
+                                that will be set in the HTTP header. If the header
+                                does not exist it will be added, otherwise it will
+                                be overwritten with the new value.
                               items:
                                 description: HeaderValue represents a header name/value
                                   pair
@@ -2912,14 +2976,14 @@ spec:
                     description: The timeout policy for this route.
                     properties:
                       idle:
-                        description: Timeout after which if there are no active requests
+                        description: Timeout after which, if there are no active requests
                           for this route, the connection between Envoy and the backend
-                          will be closed. If not specified, there is no per-route
-                          idle timeout.
+                          or Envoy and the external client will be closed. If not
+                          specified, there is no per-route idle timeout.
                         type: string
                       response:
                         description: Timeout for receiving a response from the server
-                          after processing a request from client. If not supplied
+                          after processing a request from client. If not supplied,
                           the timeout duration is undefined.
                         type: string
                     type: object
@@ -3028,13 +3092,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -3060,13 +3126,15 @@ spec:
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names
-                              to remove
+                              to remove.
                             items:
                               type: string
                             type: array
                           set:
                             description: Set specifies a list of HTTP header values
-                              that will be set in the HTTP header
+                              that will be set in the HTTP header. If the header does
+                              not exist it will be added, otherwise it will be overwritten
+                              with the new value.
                             items:
                               description: HeaderValue represents a header name/value
                                 pair
@@ -3132,12 +3200,12 @@ spec:
                     secret must contain a matching certificate
                   properties:
                     clientValidation:
-                      description: 'ClientValidation defines how to verify the client
+                      description: "ClientValidation defines how to verify the client
                         certificate when an external client establishes a TLS connection
-                        to Envoy. This setting: 1. Enables TLS client certificate
+                        to Envoy. \n This setting: \n 1. Enables TLS client certificate
                         validation. 2. Requires clients to present a TLS certificate
                         (i.e. not optional validation). 3. Specifies how the client
-                        certificate will be validated.'
+                        certificate will be validated."
                       properties:
                         caSecret:
                           description: Name of a Kubernetes secret that contains a
@@ -3148,6 +3216,11 @@ spec:
                       required:
                       - caSecret
                       type: object
+                    enableFallbackCertificate:
+                      description: EnableFallbackCertificate defines if the vhost
+                        should allow a default certificate to be applied which handles
+                        all requests which don't match the SNI defined in this vhost.
+                      type: boolean
                     minimumProtocolVersion:
                       description: Minimum TLS version this vhost should negotiate
                       type: string
@@ -3171,6 +3244,29 @@ spec:
               type: string
             description:
               type: string
+            loadBalancer:
+              description: LoadBalancer contains the current status of the load balancer.
+              properties:
+                ingress:
+                  description: Ingress is a list containing ingress points for the
+                    load-balancer. Traffic intended for the service should be sent
+                    to these ingress points.
+                  items:
+                    description: 'LoadBalancerIngress represents the status of a load-balancer
+                      ingress point: traffic intended for the service should be sent
+                      to an ingress point.'
+                    properties:
+                      hostname:
+                        description: Hostname is set for load-balancer ingress points
+                          that are DNS based (typically AWS load-balancers)
+                        type: string
+                      ip:
+                        description: IP is set for load-balancer ingress points that
+                          are IP based (typically GCE or OpenStack load-balancers)
+                        type: string
+                    type: object
+                  type: array
+              type: object
           type: object
       required:
       - metadata
@@ -3192,7 +3288,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
+    controller-gen.kubebuilder.io/version: v0.2.9
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -3305,18 +3401,13 @@ rules:
   resources:
   - secrets
   verbs:
-  - list
-  - watch
   - create
-  - get
-  - put
-  - post
-  - patch
+  - update
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen
+  name: contour-certgen-v1.5.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -3333,13 +3424,15 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/projectcontour/contour:latest
-        imagePullPolicy: IfNotPresent
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
+        imagePullPolicy: Always
         command:
         - contour
         - certgen
-        - --incluster
         - --kube
+        - --incluster
+        - --overwrite
+        - --secrets-format=compact
         - --namespace=$(CONTOUR_NAMESPACE)
         env:
         - name: CONTOUR_NAMESPACE
@@ -3425,6 +3518,12 @@ rules:
   - put
   - post
   - patch
+- apiGroups:
+  - "projectcontour.io"
+  resources:
+  - "httpproxies/status"
+  verbs:
+  - update
 - apiGroups: ["networking.x.k8s.io"]
   resources: ["gatewayclasses", "gateways", "httproutes", "tcproutes"]
   verbs:
@@ -3532,7 +3631,7 @@ metadata:
   name: contour
   namespace: contour-internal
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -3568,12 +3667,12 @@ spec:
         - --xds-port=8001
         - --envoy-service-http-port=80
         - --envoy-service-https-port=443
-        - --contour-cafile=/ca/cacert.pem
+        - --contour-cafile=/certs/ca.crt
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -3595,9 +3694,6 @@ spec:
         volumeMounts:
         - name: contourcert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         - name: contour-config
           mountPath: /config
@@ -3623,9 +3719,6 @@ spec:
       - name: contourcert
         secret:
           secretName: contourcert
-      - name: cacert
-        secret:
-          secretName: cacert
       - name: contour-config
         configMap:
           name: contour
@@ -3665,7 +3758,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3722,8 +3815,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-        - name: cacert
-          mountPath: /ca
         lifecycle:
           preStop:
             httpGet:
@@ -3736,12 +3827,13 @@ spec:
         - /config/envoy.json
         - --xds-address=contour
         - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
+        - --resources-dir=/config/resources
+        - --envoy-cafile=/certs/ca.crt
         - --envoy-cert-file=/certs/tls.crt
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.4.0
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:2dd33e4199c0b5ac37b83cf64707c38d2e73ab21ad8f8705c682665fe3aa2228
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -3749,9 +3841,6 @@ spec:
           mountPath: /config
         - name: envoycert
           mountPath: /certs
-          readOnly: true
-        - name: cacert
-          mountPath: /ca
           readOnly: true
         env:
         - name: CONTOUR_NAMESPACE
@@ -3766,9 +3855,6 @@ spec:
       - name: envoycert
         secret:
           secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
       restartPolicy: Always
 
 ---
