@@ -137,7 +137,7 @@ function install_contour() {
   kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
 
   # Disable verbosity until https://github.com/golang/go/issues/40771 is fixed.
-  export GO_TEST_VERBOSITY=standard-quiet
+  # export GO_TEST_VERBOSITY=standard-quiet
 
   UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
 }
