@@ -63,7 +63,7 @@ const (
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
 
-	unixSocketPath = "queue.sock"
+	unixSocketPath = "/queue.sock"
 )
 
 var (
@@ -201,7 +201,7 @@ func main() {
 		// when we're actually in the same container.
 		transport := &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", unixSocketPath)
+				return net.Dial("unix", os.TempDir()+unixSocketPath)
 			},
 		}
 
@@ -297,7 +297,7 @@ func main() {
 	// Listen on a unix socket so that the exec probe can avoid having to go
 	// through the full tcp network stack.
 	go func() {
-		l, err := net.Listen("unix", unixSocketPath)
+		l, err := net.Listen("unix", os.TempDir()+unixSocketPath)
 		if err != nil {
 			errCh <- err
 			return
