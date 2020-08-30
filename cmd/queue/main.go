@@ -55,6 +55,7 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
+	"path/filepath"
 )
 
 const (
@@ -62,12 +63,11 @@ const (
 
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
-
-	unixSocketPath = "/queue.sock"
 )
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
 )
 
 type config struct {
@@ -201,7 +201,7 @@ func main() {
 		// when we're actually in the same container.
 		transport := &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", os.TempDir()+unixSocketPath)
+				return net.Dial("unix", unixSocketPath)
 			},
 		}
 
@@ -297,7 +297,7 @@ func main() {
 	// Listen on a unix socket so that the exec probe can avoid having to go
 	// through the full tcp network stack.
 	go func() {
-		l, err := net.Listen("unix", os.TempDir()+unixSocketPath)
+		l, err := net.Listen("unix", unixSocketPath)
 		if err != nil {
 			errCh <- err
 			return
