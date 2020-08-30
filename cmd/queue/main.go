@@ -55,6 +55,7 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
+	"path/filepath"
 )
 
 const (
@@ -62,12 +63,11 @@ const (
 
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
-
-	unixSocketPath = "queue.sock"
 )
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
 )
 
 type config struct {
