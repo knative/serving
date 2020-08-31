@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -322,8 +321,6 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	// Setup
 	clients := Setup(t)

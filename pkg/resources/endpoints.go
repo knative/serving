@@ -30,7 +30,7 @@ func ReadyAddressCount(endpoints *corev1.Endpoints) int {
 	return ready
 }
 
-// NotReadyAddressCount returns the total number of addresses ready for the given endpoint.
+// NotReadyAddressCount returns the total number of not ready addresses for the given endpoint.
 func NotReadyAddressCount(endpoints *corev1.Endpoints) int {
 	var notReady int
 	for _, subset := range endpoints.Subsets {

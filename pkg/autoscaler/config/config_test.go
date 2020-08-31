@@ -289,9 +289,21 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"allow-zero-initial-scale": "invalid",
 		},
+		wantErr: true,
+	}, {
+		name: "with negative default max scale",
+		input: map[string]string{
+			"max-scale": "-1",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default max scale",
+		input: map[string]string{
+			"max-scale": "10",
+		},
 		want: func() *Config {
 			c := defaultConfig()
-			c.AllowZeroInitialScale = false
+			c.MaxScale = 10
 			return c
 		}(),
 	}}

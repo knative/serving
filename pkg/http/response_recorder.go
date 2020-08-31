@@ -20,7 +20,8 @@ import (
 	"bufio"
 	"net"
 	"net/http"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"knative.dev/pkg/websocket"
 )
@@ -41,9 +42,7 @@ type ResponseRecorder struct {
 	// hijacked is whether this connection has been hijacked
 	// by a Handler with the Hijacker interface.
 	// This is guarded by a mutex in the default implementation.
-	// To emulate the same behavior, we will use an int32 and
-	// access to this field only through atomic calls.
-	hijacked int32
+	hijacked atomic.Bool
 }
 
 // NewResponseRecorder creates an http.ResponseWriter that captures the response code and size.
@@ -65,7 +64,7 @@ func (rr *ResponseRecorder) Flush() {
 func (rr *ResponseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	c, rw, err := websocket.HijackIfPossible(rr.writer)
 	if err != nil {
-		atomic.StoreInt32(&rr.hijacked, 1)
+		rr.hijacked.Store(true)
 	}
 	return c, rw, err
 }
@@ -83,7 +82,7 @@ func (rr *ResponseRecorder) Write(p []byte) (int, error) {
 
 // WriteHeader sends an HTTP response header with the provided status code.
 func (rr *ResponseRecorder) WriteHeader(code int) {
-	if rr.wroteHeader || atomic.LoadInt32(&rr.hijacked) == 1 {
+	if rr.wroteHeader || rr.hijacked.Load() {
 		return
 	}
 

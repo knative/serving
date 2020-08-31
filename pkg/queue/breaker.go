@@ -22,7 +22,8 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 )
 
 var (
@@ -50,7 +51,7 @@ type BreakerParams struct {
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	inFlight   int64
+	inFlight   atomic.Int64
 	totalSlots int64
 	sem        *semaphore
 
@@ -103,11 +104,11 @@ func (b *Breaker) tryAcquirePending() bool {
 	// (it fails if we're raced to it) or if we don't fulfill the condition
 	// anymore.
 	for {
-		cur := atomic.LoadInt64(&b.inFlight)
+		cur := b.inFlight.Load()
 		if cur == b.totalSlots {
 			return false
 		}
-		if atomic.CompareAndSwapInt64(&b.inFlight, cur, cur+1) {
+		if b.inFlight.CAS(cur, cur+1) {
 			return true
 		}
 	}
@@ -115,7 +116,7 @@ func (b *Breaker) tryAcquirePending() bool {
 
 // releasePending releases a slot on the pending "queue".
 func (b *Breaker) releasePending() {
-	atomic.AddInt64(&b.inFlight, -1)
+	b.inFlight.Dec()
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
@@ -163,7 +164,7 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
 
 // InFlight returns the number of requests currently in flight in this breaker.
 func (b *Breaker) InFlight() int {
-	return int(atomic.LoadInt64(&b.inFlight))
+	return int(b.inFlight.Load())
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.

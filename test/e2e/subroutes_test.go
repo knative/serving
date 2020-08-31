@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -46,8 +45,6 @@ import (
 // to helloworld app when trying to communicate via local address only.
 func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descriptive name because routes will fail DNS checks. (Max 64 characters)
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -91,8 +88,6 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -206,8 +201,6 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 

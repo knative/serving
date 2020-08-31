@@ -36,7 +36,7 @@ func SetVisibility(meta *v1.ObjectMeta, isClusterLocal bool) {
 }
 
 // SetLabel sets/update the label of the an ObjectMeta
-func SetLabel(meta *v1.ObjectMeta, key string, value string) {
+func SetLabel(meta *v1.ObjectMeta, key, value string) {
 	if meta.Labels == nil {
 		meta.Labels = make(map[string]string, 1)
 	}

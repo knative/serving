@@ -106,7 +106,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 
 	config.Defaults.RevisionTimeoutSeconds = 1234
-	config.Features.MultiContainer = Enabled
+	config.Features.MultiContainer = Disabled
 	config.Autoscaler.TargetBurstCapacity = 99
 
 	newConfig := store.Load()
@@ -115,7 +115,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 		t.Error("Defaults config is not immutable")
 	}
 
-	if newConfig.Features.MultiContainer == Enabled {
+	if newConfig.Features.MultiContainer == Disabled {
 		t.Error("Features config is not immutable")
 	}
 

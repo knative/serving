@@ -41,12 +41,8 @@ If you're working on and changing `.proto` files:
 
 ### Create a cluster and a repo
 
-1. [Set up a kubernetes cluster](https://www.knative.dev/docs/install/)
-   - Follow an install guide up through "Creating a Kubernetes Cluster"
-   - You do _not_ need to install Istio or Knative using the instructions in the
-     guide. Simply create the cluster and come back here.
-   - If you _did_ install Istio/Knative following those instructions, that's
-     fine too, you'll just redeploy over them, below.
+1. [Set up a kubernetes cluster](https://kubernetes.io/docs/setup/)
+   - Follow the instructions in the Kubernetes doc.
 1. Set up a docker repository for pushing images. You can use any container
    image registry by adjusting the authentication methods and repository paths
    mentioned in the sections below.
@@ -140,11 +136,13 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-stable/istio-crds.yaml
+STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml"
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-stable/istio-minimal.yaml
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
+kubectl apply -f ./third_party/net-istio.yaml
 ```
 
 Follow the
@@ -159,12 +157,13 @@ installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-kubectl apply -f ./third_party/istio-stable/istio-knative-extras.yaml
+STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-knative-extras.yaml"
 ```
 
-> If you want to customize the `istio*.yaml` files you can refer to
-> `third_party/istio-<VERSION>-latest/download-istio.sh` how these templates
-> were generated.
+> If you want to customize the `istio*.yaml` files you can refer to the
+> [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md)
+> for more information.
 
 ### Deploy cert-manager
 
@@ -198,12 +197,13 @@ off-machine registry.
 Run:
 
 ```shell
-ko apply --selector knative.dev/crd-install=true -f config/
+ko apply --selector knative.dev/crd-install=true -Rf config/core/
 while [[ $(kubectl get crd images.caching.internal.knative.dev -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Knative CRDs"; sleep 1
 done
 
-ko apply -f config/
+ko apply -Rf config/core/
+kubectl apply -f ./third_party/net-istio.yaml
 
 # Optional steps
 
@@ -287,7 +287,7 @@ Once the codegen and dependency information is correct, redeploying the
 controller is simply:
 
 ```shell
-ko apply -f config/controller.yaml
+ko apply -f config/core/deployments/controller.yaml
 ```
 
 Or you can [clean it up completely](./DEVELOPMENT.md#clean-up) and
@@ -308,9 +308,10 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/ \
-  -f ./third_party/istio-stable/istio-minimal.yaml \
-  -f ./third_party/istio-stable/istio-crds.yaml \
+  -Rf config/core/ \
+  -f ./third_party/net-istio.yaml \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```

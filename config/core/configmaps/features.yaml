@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "ab930d35"
+    knative.dev/example-checksum: "c0b41539"
 data:
   _example: |
     ################################
@@ -39,7 +39,7 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
-    multi-container: "disabled"
+    multi-container: "enabled"
 
     # Indicates whether Kubernetes affinity support is enabled
     kubernetes.podspec-affinity: "disabled"
@@ -62,6 +62,33 @@ data:
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
     kubernetes.podspec-dryrun: "allowed"
 
+    # When set to "enabled" or "allowed" this feature allows end-users to set
+    # the Pod's RuntimeClassName.
+    kubernetes.podspec-runtimeclassname: "disabled"
+
+    # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
+    # in addition to expanding the allowable fields within a Container's SecurityContext.
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # PodSecurityContext properties:
+    # - FSGroup
+    # - RunAsGroup
+    # - RunAsNonRoot
+    # - SupplementalGroups
+    # - RunAsUser
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # Container SecurityContext properties:
+    # - RunAsNonRoot
+    # - RunAsGroup
+    # - RunAsUser (already allowed without this flag)
+    #
+    # This feature flag should be used with caution as the PodSecurityContext
+    # properties may have a side-effect on non-user sidecar containers that come
+    # from Knative or your service mesh
+    #
+    kubernetes.podspec-securitycontext: "disabled"
+
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after
@@ -69,3 +96,8 @@ data:
     # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
     # should be used for testing purposes only.
     responsive-revision-gc: "disabled"
+
+    # Controls whether tag header based routing feature are enabled or not.
+    # 1. Enabled: enabling tag header based routing
+    # 2. Disabled: disabling tag header based routing
+    tag-header-based-routing: "disabled"

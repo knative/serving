@@ -222,7 +222,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // that uses the image specified by names.Image.
 func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1.Service {
 	a := append([]rtesting.ServiceOption{
-		rtesting.WithConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
+		rtesting.WithConfigSpec(ConfigurationSpec(pkgTest.ImagePath(names.Image))),
 	}, fopt...)
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
 }

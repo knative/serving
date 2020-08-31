@@ -71,6 +71,10 @@ type Config struct {
 	// services. This can be set to 0 iff AllowZeroInitialScale is true.
 	InitialScale int32
 
+	// MaxScale is the default max scale for any revision created without an
+	// autoscaling.knative.dev/maxScale annotation
+	MaxScale int32
+
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
 	MaxScaleDownRate         float64
@@ -104,6 +108,7 @@ func defaultConfig() *Config {
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
+		MaxScale:                      0,
 	}
 }
 
@@ -128,6 +133,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsFloat64("panic-threshold-percentage", &lc.PanicThresholdPercentage),
 
 		cm.AsInt32("initial-scale", &lc.InitialScale),
+		cm.AsInt32("max-scale", &lc.MaxScale),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-to-zero-grace-period", &lc.ScaleToZeroGracePeriod),
@@ -205,6 +211,10 @@ func validate(lc *Config) (*Config, error) {
 
 	if lc.InitialScale < 0 || (lc.InitialScale == 0 && !lc.AllowZeroInitialScale) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
+	}
+
+	if lc.MaxScale < 0 {
+		return nil, fmt.Errorf("max-scale = %v, must be at least 0", lc.MaxScale)
 	}
 	return lc, nil
 }

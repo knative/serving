@@ -22,21 +22,27 @@
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
+source $(dirname $0)/../e2e-networking-library.sh
+
+# Env vars required for installing Istio.
+# Install Istio no-mesh.
+export MESH=0
+export KNATIVE_DEFAULT_NAMESPACE="knative-serving"
+export SYSTEM_NAMESPACE="knative-serving"
+export ISTIO_VERSION="stable"
+export UNINSTALL_LIST=()
+export TMP_DIR=$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)
 
 function update_knative() {
-  local istio_version="istio-1.4-latest"
   # Mako needs to escape '.' in tags. Use '_' instead.
-  local istio_version_escaped=${istio_version//./_}
+  local istio_version_escaped=${ISTIO_VERSION//./_}
 
-  pushd .
-  cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
   # Some istio pods occasionally get overloaded and die, delete all deployments
   # and services from istio before reintalling it, to get them freshly recreated
   kubectl delete deployments --all -n istio-system
   kubectl delete services --all -n istio-system
-  kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
-  kubectl apply -f serving/third_party/$istio_version/istio-ci-no-mesh.yaml || abort "Failed to apply istio-ci-no-mesh"
+  install_istio || abort "Failed to install Istio"
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
@@ -49,13 +55,12 @@ function update_knative() {
   local n=0
   until [ $n -ge 3 ]
   do
-    ko apply -f serving/config/ && break
+    ko apply -Rf config/core/ && break
     n=$[$n+1]
   done
   if [ $n == 3 ]; then
     abort "Failed to patch serving"
   fi
-  popd
 
   # Update the activator hpa minReplicas to 10
   kubectl patch hpa -n knative-serving activator \

@@ -54,8 +54,8 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 	}
 }
 
-func createConfiguration(containerName string) v1.ConfigurationSpec {
-	return v1.ConfigurationSpec{
+func createConfiguration(containerName string) *v1.ConfigurationSpec {
+	return &v1.ConfigurationSpec{
 		Template: v1.RevisionTemplateSpec{
 			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{

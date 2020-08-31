@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
@@ -71,6 +72,11 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 		Type:            corev1.ServiceTypeExternalName,
 		ExternalName:    fullName,
 		SessionAffinity: corev1.ServiceAffinityNone,
+		Ports: []corev1.ServicePort{{
+			Name:       networking.ServicePortNameH2C,
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(80),
+		}},
 	}
 
 	return service, nil
@@ -146,16 +152,26 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
 	// and domain (since it would change less than IP).
 	switch {
-	case len(balancer.DomainInternal) != 0:
+	case balancer.DomainInternal != "":
 		return &corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    balancer.DomainInternal,
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
-	case len(balancer.Domain) != 0:
+	case balancer.Domain != "":
 		return &corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: balancer.Domain,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
 	case balancer.MeshOnly:
 		// The Ingress is loadbalanced through a Service mesh.
@@ -171,7 +187,7 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 				Port: networking.ServiceHTTPPort,
 			}},
 		}, nil
-	case len(balancer.IP) != 0:
+	case balancer.IP != "":
 		// TODO(lichuqiang): deal with LoadBalancer IP.
 		// We'll also need ports info to make it take effect.
 	}

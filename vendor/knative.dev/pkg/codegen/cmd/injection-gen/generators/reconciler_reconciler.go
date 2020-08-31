@@ -147,6 +147,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "context",
 			Name:    "Context",
 		}),
+		"kmpSafeDiff": c.Universe.Function(types.Name{
+			Package: "knative.dev/pkg/kmp",
+			Name:    "SafeDiff",
+		}),
 		"fmtErrorf":           c.Universe.Package("fmt").Function("Errorf"),
 		"reflectDeepEqual":    c.Universe.Package("reflect").Function("DeepEqual"),
 		"equalitySemantic":    c.Universe.Package("k8s.io/apimachinery/pkg/api/equality").Variable("Semantic"),
@@ -350,7 +354,7 @@ var reconcilerImplFactory = `
 func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) error {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
-	// Initialize the reconciler state. This will convert the namespace/name 
+	// Initialize the reconciler state. This will convert the namespace/name
 	// string into a distinct namespace and name, determin if this instance of
 	// the reconciler is the leader, and any additional interfaces implemented
 	// by the reconciler. Returns an error is the resource key is invalid.
@@ -359,7 +363,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	
+
 	// If we are not the leader, and we don't implement either ReadOnly
 	// observer interfaces, then take a fast-path out.
 	if s.isNotLeaderNorObserver() {
@@ -417,7 +421,9 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 			return {{.fmtErrorf|raw}}("failed to set finalizers: %w", err)
 		}
 		{{if .isKRShaped}}
-		reconciler.PreProcessReconcile(ctx, resource)
+		if !r.skipStatusUpdates {
+			reconciler.PreProcessReconcile(ctx, resource)
+		}
 		{{end}}
 
 		// Reconcile this copy of the resource and then write back any status
@@ -425,7 +431,9 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		reconcileEvent = do(ctx, resource)
 
 		{{if .isKRShaped}}
-		reconciler.PostProcessReconcile(ctx, resource, original)
+		if !r.skipStatusUpdates {
+			reconciler.PostProcessReconcile(ctx, resource, original)
+		}
 		{{end}}
 
 	case {{.doFinalizeKind|raw}}:
@@ -458,7 +466,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
-		if err = r.updateStatus(original, resource); err != nil {
+		if err = r.updateStatus(ctx, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "UpdateFailed",
 				"Failed to update status for %q: %v", resource.Name, err)
@@ -490,7 +498,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 `
 
 var reconcilerStatusFactory = `
-func (r *reconcilerImpl) updateStatus(existing *{{.type|raw}}, desired *{{.type|raw}}) error {
+func (r *reconcilerImpl) updateStatus(ctx {{.contextContext|raw}}, existing *{{.type|raw}}, desired *{{.type|raw}}) error {
 	existing = existing.DeepCopy()
 	return {{.reconcilerRetryUpdateConflicts|raw}}(func(attempts int) (err error) {
 		// The first iteration tries to use the injectionInformer's state, subsequent attempts fetch the latest state via API.
@@ -509,6 +517,10 @@ func (r *reconcilerImpl) updateStatus(existing *{{.type|raw}}, desired *{{.type|
 		// If there's nothing to update, just return.
 		if {{.reflectDeepEqual|raw}}(existing.Status, desired.Status) {
 			return nil
+		}
+
+		if diff, err := {{.kmpSafeDiff|raw}}(existing.Status, desired.Status); err == nil && diff != "" {
+			{{.loggingFromContext|raw}}(ctx).Debugf("Updating status with: %s", diff)
 		}
 
 		existing.Status = desired.Status

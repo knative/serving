@@ -140,3 +140,17 @@ func TestCreateNewServicePostUpgrade(t *testing.T) {
 	t.Parallel()
 	createNewService(postUpgradeServiceName, t)
 }
+
+func TestInitialScalePostUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+
+	t.Logf("Getting service %q", initialScaleServiceName)
+	svc, err := clients.ServingClient.Services.Get(initialScaleServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to get Service:", err)
+	}
+	if !svc.IsReady() {
+		t.Fatalf("Post upgrade Service is not ready with reason %q", svc.Status.GetCondition(v1.ServiceConditionRoutesReady).Reason)
+	}
+}

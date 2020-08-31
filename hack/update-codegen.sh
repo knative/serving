@@ -58,10 +58,9 @@ if (( generate_protobufs )); then
 fi
 
 echo "Generating checksums for configmap _example keys"
-go run "${REPO_ROOT_DIR}/vendor/knative.dev/pkg/configmap/hash-gen" "${REPO_ROOT_DIR}"/config/core/configmaps/*.yaml
+${REPO_ROOT_DIR}/hack/update-checksums.sh
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
 chmod +x ${CODEGEN_PKG}/generate-groups.sh
@@ -80,18 +79,6 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
   "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1" \
-  --go-header-file "${boilerplate}"
-
-# Generate our own client for istio (otherwise injection won't work)
-${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
-  knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
-  "networking:v1alpha3" \
-  --go-header-file "${boilerplate}"
-
-# Knative Injection (for istio)
-${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
-  knative.dev/serving/pkg/client/istio istio.io/client-go/pkg/apis \
-  "networking:v1alpha3" \
   --go-header-file "${boilerplate}"
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen

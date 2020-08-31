@@ -32,6 +32,8 @@ function setup_auto_tls_env_variables() {
 
   export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${DOMAIN_NAME}"
 
+  export TLS_TEST_NAMESPACE="tls"
+
   local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE_OVERRIDE}
   if [[ -z "${GATEWAY_NAMESPACE_OVERRIDE}" ]]; then
     INGRESS_NAMESPACE="istio-system"
@@ -75,18 +77,18 @@ function cleanup_auto_tls_common() {
   cleanup_custom_domain
 
   toggle_feature autoTLS Disabled config-network
-  kubectl delete kcert --all -n serving-tests
+  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
 function setup_http01_auto_tls() {
-    # The name of the test.
-  export AUTO_TLS_TEST_NAME="HTTP01"
-  # The name of the Knative Service deployed in Auto TLS E2E test.
-  export TLS_SERVICE_NAME="http01"
+    # The name of the test, lowercase to avoid hyphenation of the test name.
+  export AUTO_TLS_TEST_NAME="http01"
+  # Rely on the built-in naming (for logstream)
+  unset TLS_SERVICE_NAME
   # The full host name of the Knative Service. This is used to configure the DNS record.
-  export FULL_HOST_NAME="*.serving-tests.${CUSTOM_DOMAIN_SUFFIX}"
+  export FULL_HOST_NAME="*.${TLS_TEST_NAMESPACE}.${CUSTOM_DOMAIN_SUFFIX}"
 
-  kubectl delete kcert --all -n serving-tests
+  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
@@ -105,7 +107,7 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   # The name of the Knative Service deployed in Auto TLS E2E test.
   export TLS_SERVICE_NAME="self-per-ksvc"
 
-  kubectl delete kcert --all -n serving-tests
+  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
 }
 
@@ -115,10 +117,10 @@ function setup_selfsigned_per_namespace_auto_tls() {
   # The name of the Knative Service deployed in Auto TLS E2E test.
   export TLS_SERVICE_NAME="self-per-namespace"
 
-  kubectl delete kcert --all -n serving-tests
+  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
-  # Enable namespace certificate only for serving-tests namespaces
-  export NAMESPACE_WITH_CERT="serving-tests"
+  # Enable namespace certificate only for "${TLS_TEST_NAMESPACE}" namespaces
+  export NAMESPACE_WITH_CERT=""${TLS_TEST_NAMESPACE}""
   go run ./test/e2e/autotls/config/disablenscert
 
   kubectl apply -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/
@@ -143,7 +145,7 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
   echo "Uninstall namespace cert controller"
   kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
 
-  kubectl delete kcert --all -n serving-tests
+  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
   kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 

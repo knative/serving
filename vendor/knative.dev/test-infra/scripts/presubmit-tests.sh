@@ -322,15 +322,6 @@ function main() {
       echo ">> docker version"
       docker version
     fi
-    # node/pod names are important for debugging purposes, but they are missing
-    # after migrating from bootstrap to podutil.
-    # Report it here with the same logic as in bootstrap until it is fixed.
-    # (https://github.com/kubernetes/test-infra/blob/09bd4c6709dc64308406443f8996f90cf3b40ed1/jenkins/bootstrap.py#L588)
-    # TODO(chaodaiG): follow up on https://github.com/kubernetes/test-infra/blob/0fabd2ea816daa8c15d410c77a0c93c0550b283f/prow/initupload/run.go#L49
-    echo ">> node name"
-    curl -H "Metadata-Flavor: Google" 'http://169.254.169.254/computeMetadata/v1/instance/name' 2> /dev/null
-    echo ">> pod name"
-    echo "${HOSTNAME}"
   fi
 
   [[ -z $1 ]] && set -- "--all-tests"

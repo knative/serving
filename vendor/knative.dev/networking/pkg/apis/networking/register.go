@@ -35,6 +35,9 @@ const (
 	// Istio-based Ingress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 
+	// DisableAutoTLSAnnotationKey is the label key attached to a namespace to indicate that
+	// AutoTLS should not be enabled for it.
+	DisableAutoTLSAnnotationKey = "networking.knative.dev/disableAutoTLS"
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.
 	IngressLabelKey = GroupName + "/ingress"
@@ -84,11 +87,6 @@ const (
 	// WildcardCertDomainLabelKey is the label key attached to a certificate to indicate the
 	// domain for which it was issued.
 	WildcardCertDomainLabelKey = "networking.knative.dev/wildcardDomain"
-
-	// KnativeIngressGateway is the name of the ingress gateway
-	KnativeIngressGateway = "knative-ingress-gateway"
-	// ClusterLocalGateway is the name of the local gateway
-	ClusterLocalGateway = "cluster-local-gateway"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services

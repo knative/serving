@@ -77,12 +77,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "configuration not yet ready",
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(2009)),
 			cfg("default", "not-ready", WithConfigGeneration(1), WithLatestCreated("not-ready-00001")),
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
+				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				// The first reconciliation initializes the conditions and reflects
 				// that the referenced configuration is not yet ready.
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
@@ -91,7 +92,8 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "configuration permanently failed",
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
+				WithRouteGeneration(2020)),
 			cfg("default", "permanently-failed",
 				WithConfigGeneration(1), WithLatestCreated("permanently-failed-00001"), MarkLatestCreatedFailed("blah")),
 			rev("default", "permanently-failed", 1,
@@ -100,6 +102,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithURL,
+				WithRouteGeneration(2020), WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
 		Key: "default/first-reconcile",
@@ -110,12 +113,14 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("not-ready"),
+				WithRouteGeneration(42)),
 			cfg("default", "not-ready", WithConfigGeneration(1), WithLatestCreated("not-ready-00001")),
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
+				WithRouteGeneration(42), WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		WantEvents: []string{
@@ -126,15 +131,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"),
+				WithRouteGeneration(1955)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
-				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
-					WithRouteUID("12-34"), WithRouteGeneration(1)),
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -157,7 +162,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
-				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
@@ -333,7 +338,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(1)),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(2009)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
@@ -363,7 +368,8 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+				WithRouteGeneration(2009), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
@@ -376,13 +382,14 @@ func TestReconcile(t *testing.T) {
 		Key: "default/becomes-ready",
 	}, {
 		Name: "failure creating k8s placeholder service",
-		// We induce a failure creating the placeholder service
+		// We induce a failure creating the placeholder service.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			Route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer, WithRouteGeneration(1)),
+			Route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer,
+				WithRouteGeneration(2007)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
@@ -395,6 +402,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteFinalizer,
 				// Populated by reconciliation when we've failed to create
 				// the K8s service.
+				WithRouteGeneration(2007), WithRouteObservedGeneration,
 				WithURL, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -499,7 +507,8 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config"))),
+			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
+				WithExternalName("private-istio-ingressgateway.istio-system.svc.cluster.local")),
 		},
 		Key: "default/steady-state",
 	}, {
@@ -1220,12 +1229,14 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "revision missing (direct)",
 		Objects: []runtime.Object{
-			Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithRouteGeneration(1)),
+			Route("default", "missing-revision-direct", WithRevTarget("not-found"),
+				WithRouteGeneration(1988)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithURL,
+				WithRouteGeneration(1988), WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
 		PostConditions: []func(*testing.T, *TableRow){
@@ -1235,12 +1246,14 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "revision missing (indirect)",
 		Objects: []runtime.Object{
-			Route("default", "missing-revision-indirect", WithConfigTarget("config"), WithRouteGeneration(1)),
+			Route("default", "missing-revision-indirect", WithConfigTarget("config"),
+				WithRouteGeneration(2006)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-indirect", WithConfigTarget("config"), WithURL,
+				WithRouteGeneration(2006), WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
 		Key: "default/missing-revision-indirect",
@@ -1539,7 +1552,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Route("default", "switch-configs", WithConfigTarget("green"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1984), WithRouteObservedGeneration,
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						Tag:          "blue",
@@ -1595,7 +1608,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "switch-configs", WithConfigTarget("green"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+				WithRouteGeneration(1984), MarkTrafficAssigned, MarkIngressReady,
+				WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "green-00001",
 						Percent:        ptr.Int64(100),
@@ -1917,12 +1931,13 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 	}))
 }
 
-func TestReconcile_EnableAutoTLS(t *testing.T) {
+func TestReconcileEnableAutoTLS(t *testing.T) {
 	table := TableTest{{
 		Name: "check that existing wildcard cert is used when creating a Route",
 		Objects: []runtime.Object{
 			wildcardCert("default", "example.com"),
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(1982),
+				WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
@@ -1958,7 +1973,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
-				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteUID("12-34"), WithRouteGeneration(1982), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
@@ -2785,6 +2800,16 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		},
+		Features: &cfgmap.Features{
+			MultiContainer:        cfgmap.Disabled,
+			PodSpecAffinity:       cfgmap.Disabled,
+			PodSpecFieldRef:       cfgmap.Disabled,
+			PodSpecDryRun:         cfgmap.Enabled,
+			PodSpecNodeSelector:   cfgmap.Disabled,
+			PodSpecTolerations:    cfgmap.Disabled,
+			ResponsiveRevisionGC:  cfgmap.Disabled,
+			TagHeaderBasedRouting: cfgmap.Disabled,
 		},
 	}
 }

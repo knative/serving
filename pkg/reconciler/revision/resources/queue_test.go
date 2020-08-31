@@ -85,7 +85,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		dc   deployment.Config
 		want corev1.Container
 	}{{
-		name: "no owner no autoscaler single",
+		name: "autoscaler single",
 		rev: revision("bar", "foo",
 			withContainers(containers),
 			withContainerConcurrency(1)),
@@ -104,8 +104,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					ContainerPort: 1955,
 					Name:          string(networking.ProtocolH2C),
 				}},
-			}}),
-			withContainerConcurrency(1)),
+			}})),
 		dc: deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -113,16 +112,14 @@ func TestMakeQueueContainer(t *testing.T) {
 			c.Image = "alpine"
 			c.Ports = append(queueNonServingPorts, queueHTTP2Port)
 			c.Env = env(map[string]string{
-				"USER_PORT":             "1955",
-				"QUEUE_SERVING_PORT":    "8013",
-				"CONTAINER_CONCURRENCY": "1",
+				"USER_PORT":          "1955",
+				"QUEUE_SERVING_PORT": "8013",
 			})
 		}),
 	}, {
 		name: "service name in labels",
 		rev: revision("bar", "foo",
 			withContainers(containers),
-			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Labels = map[string]string{
 					serving.ServiceLabelKey: "svc",
@@ -158,8 +155,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "logging configuration as env var",
 		rev: revision("this", "log",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		lc: logging.Config{
 			LoggingConfig: "The logging configuration goes here",
 			LoggingLevel: map[string]zapcore.Level{
@@ -187,8 +183,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		oc: metrics.ObservabilityConfig{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
@@ -200,10 +195,25 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "disabled request log configuration as env var",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		oc: metrics.ObservabilityConfig{
+			RequestLogTemplate:    "test template",
+			EnableProbeRequestLog: false,
+			EnableRequestLog:      false,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
+				"SERVING_ENABLE_REQUEST_LOG":       "false",
+				"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
+			})
+		}),
+	}, {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		oc: metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -215,8 +225,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		oc: metrics.ObservabilityConfig{EnableProfiling: true},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
@@ -228,17 +237,19 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "custom TimeoutSeconds",
 		rev: revision("bar", "foo",
 			withContainers(containers),
-			withContainerConcurrency(1)),
+			func(revision *v1.Revision) {
+				revision.Spec.TimeoutSeconds = ptr.Int64(99)
+			},
+		),
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"REVISION_TIMEOUT_SECONDS": "45",
+				"REVISION_TIMEOUT_SECONDS": "99",
 			})
 		}),
 	}, {
 		name: "default resource config",
 		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		dc: deployment.Config{
 			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
 		},
@@ -252,8 +263,7 @@ func TestMakeQueueContainer(t *testing.T) {
 	}, {
 		name: "overridden resources",
 		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
+			withContainers(containers)),
 		dc: deployment.Config{
 			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
 			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
@@ -268,6 +278,20 @@ func TestMakeQueueContainer(t *testing.T) {
 			c.Resources.Limits = corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("789m"),
 			}
+		}),
+	}, {
+		name: "collector address as env var",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		oc: metrics.ObservabilityConfig{
+			RequestMetricsBackend:   "opencensus",
+			MetricsCollectorAddress: "otel:55678",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"SERVING_REQUEST_METRICS_BACKEND": "opencensus",
+				"METRICS_COLLECTOR_ADDRESS":       "otel:55678",
+			})
 		}),
 	}}
 
@@ -292,8 +316,8 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-				t.Error("makeQueueContainer (-want, +got) =", diff)
+			if got, want := *got, test.want; !cmp.Equal(got, want, quantityComparer) {
+				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
 		})
 	}
@@ -308,7 +332,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	}{{
 		name: "resources percentage in annotations",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "20",
@@ -334,7 +357,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	}, {
 		name: "resources percentage in annotations smaller than min allowed",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "0.2",
@@ -360,7 +382,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	}, {
 		name: "invalid resources percentage in annotations uses defaults",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "foo",
@@ -388,7 +409,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 	}, {
 		name: "resources percentage in annotations bigger than than math.MaxInt64",
 		rev: revision("bar", "foo",
-			withContainerConcurrency(1),
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "100",
@@ -427,8 +447,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			})
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-				t.Error("makeQueueContainer (-want, +got) =", diff)
+			if got, want := *got, test.want; !cmp.Equal(got, want, quantityComparer) {
+				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
 		})
 	}
@@ -436,7 +456,6 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	rev := revision("bar", "foo",
-		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: servingContainerName,
@@ -494,8 +513,8 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-		t.Error("makeQueueContainer(-want, +got) =", diff)
+	if got, want := *got, want; !cmp.Equal(got, want, quantityComparer) {
+		t.Errorf("makeQueueContainer(-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 	}
 }
 
@@ -504,7 +523,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	const probePath = "/health"
 
 	rev := revision("bar", "foo",
-		withContainerConcurrency(1),
 		func(revision *v1.Revision) {
 			revision.Spec.PodSpec.Containers = []corev1.Container{{
 				Name: servingContainerName,
@@ -566,8 +584,8 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		t.Fatal("makeQueueContainer returned error")
 	}
 	sortEnv(got.Env)
-	if diff := cmp.Diff(want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-		t.Error("makeQueueContainer(-want, +got) =", diff)
+	if got, want := *got, want; !cmp.Equal(got, want, quantityComparer) {
+		t.Errorf("makeQueueContainer(-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 	}
 }
 
@@ -591,8 +609,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			SuccessThreshold: 3,
 		},
 		rev: v1.RevisionSpec{
-			ContainerConcurrency: ptr.Int64(1),
-			TimeoutSeconds:       ptr.Int64(45),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -624,8 +641,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}, {
 		name: "tcp defaults",
 		rev: v1.RevisionSpec{
-			ContainerConcurrency: ptr.Int64(1),
-			TimeoutSeconds:       ptr.Int64(45),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -676,8 +692,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			InitialDelaySeconds: 3,
 		},
 		rev: v1.RevisionSpec{
-			ContainerConcurrency: ptr.Int64(1),
-			TimeoutSeconds:       ptr.Int64(45),
+			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name: servingContainerName,
@@ -734,35 +749,37 @@ func TestTCPProbeGeneration(t *testing.T) {
 			}
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
-			if diff := cmp.Diff(test.want, *got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
-				t.Error("makeQueueContainer (-want, +got) =", diff)
+			if got, want := *got, test.want; !cmp.Equal(want, got, quantityComparer) {
+				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
 			}
 		})
 	}
 }
 
 var defaultEnv = map[string]string{
-	"SERVING_NAMESPACE":                     "foo",
-	"SERVING_SERVICE":                       "",
-	"SERVING_CONFIGURATION":                 "",
-	"SERVING_REVISION":                      "bar",
-	"CONTAINER_CONCURRENCY":                 "1",
+	"CONTAINER_CONCURRENCY":                 "0",
+	"ENABLE_PROFILING":                      "false",
+	"METRICS_DOMAIN":                        metrics.Domain(),
+	"METRICS_COLLECTOR_ADDRESS":             "",
+	"QUEUE_SERVING_PORT":                    "8012",
 	"REVISION_TIMEOUT_SECONDS":              "45",
+	"SERVING_CONFIGURATION":                 "",
+	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",
+	"SERVING_ENABLE_REQUEST_LOG":            "false",
 	"SERVING_LOGGING_CONFIG":                "",
 	"SERVING_LOGGING_LEVEL":                 "",
-	"TRACING_CONFIG_BACKEND":                "",
-	"TRACING_CONFIG_ZIPKIN_ENDPOINT":        "",
-	"TRACING_CONFIG_STACKDRIVER_PROJECT_ID": "",
-	"TRACING_CONFIG_SAMPLE_RATE":            "0",
-	"TRACING_CONFIG_DEBUG":                  "false",
+	"SERVING_NAMESPACE":                     "foo",
 	"SERVING_REQUEST_LOG_TEMPLATE":          "",
 	"SERVING_REQUEST_METRICS_BACKEND":       "",
-	"USER_PORT":                             strconv.Itoa(v1.DefaultUserPort),
+	"SERVING_REVISION":                      "bar",
+	"SERVING_SERVICE":                       "",
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
-	"METRICS_DOMAIN":                        metrics.Domain(),
-	"QUEUE_SERVING_PORT":                    "8012",
-	"ENABLE_PROFILING":                      "false",
-	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",
+	"TRACING_CONFIG_BACKEND":                "",
+	"TRACING_CONFIG_DEBUG":                  "false",
+	"TRACING_CONFIG_SAMPLE_RATE":            "0",
+	"TRACING_CONFIG_STACKDRIVER_PROJECT_ID": "",
+	"TRACING_CONFIG_ZIPKIN_ENDPOINT":        "",
+	"USER_PORT":                             strconv.Itoa(v1.DefaultUserPort),
 }
 
 func probeJSON(container *corev1.Container) string {

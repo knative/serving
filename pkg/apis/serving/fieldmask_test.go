@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func TestVolumeMask(t *testing.T) {
@@ -643,6 +644,79 @@ func TestResourceRequirementsMask(t *testing.T) {
 	}
 }
 
+func TestPodSecurityContextMask(t *testing.T) {
+	in := &corev1.PodSecurityContext{
+		SELinuxOptions:     &corev1.SELinuxOptions{},
+		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
+		SupplementalGroups: []int64{},
+		Sysctls:            []corev1.Sysctl{},
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+	}
+
+	want := &corev1.PodSecurityContext{}
+	ctx := context.Background()
+
+	got := PodSecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("PostSecurityContextMask (-want, +got): %s", diff)
+	}
+
+	if got = PodSecurityContextMask(ctx, nil); got != nil {
+		t.Errorf("PodSecurityContextMask(nil) = %v, want: nil", got)
+	}
+}
+
+func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
+	in := &corev1.PodSecurityContext{
+		SELinuxOptions:     &corev1.SELinuxOptions{},
+		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
+		SupplementalGroups: []int64{1},
+		Sysctls:            []corev1.Sysctl{},
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+	}
+
+	want := &corev1.PodSecurityContext{
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+		SupplementalGroups: []int64{1},
+	}
+
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				PodSpecSecurityContext: config.Enabled,
+			},
+		},
+	)
+
+	got := PodSecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("PostSecurityContextMask (-want, +got): %s", diff)
+	}
+}
+
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
@@ -660,7 +734,7 @@ func TestSecurityContextMask(t *testing.T) {
 		ProcMount:                &mtype,
 	}
 
-	got := SecurityContextMask(in)
+	got := SecurityContextMask(context.Background(), in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -672,7 +746,47 @@ func TestSecurityContextMask(t *testing.T) {
 		t.Errorf("SecurityContextMask (-want, +got): %s", diff)
 	}
 
-	if got = SecurityContextMask(nil); got != nil {
+	if got = SecurityContextMask(context.Background(), nil); got != nil {
 		t.Errorf("SecurityContextMask(nil) = %v, want: nil", got)
+	}
+}
+
+func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
+	mtype := corev1.UnmaskedProcMount
+	want := &corev1.SecurityContext{
+		RunAsGroup:   ptr.Int64(2),
+		RunAsNonRoot: ptr.Bool(true),
+		RunAsUser:    ptr.Int64(1),
+	}
+	in := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.Bool(true),
+		Capabilities:             &corev1.Capabilities{},
+		Privileged:               ptr.Bool(true),
+		ProcMount:                &mtype,
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		RunAsUser:                ptr.Int64(1),
+		SELinuxOptions:           &corev1.SELinuxOptions{},
+	}
+
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				PodSpecSecurityContext: config.Enabled,
+			},
+		},
+	)
+
+	got := SecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if diff != "" {
+		t.Errorf("SecurityContextMask (-want, +got): %s", diff)
 	}
 }

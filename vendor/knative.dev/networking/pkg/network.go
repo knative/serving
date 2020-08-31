@@ -18,7 +18,6 @@ package pkg
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -31,7 +30,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
 )
 
 const (
@@ -53,6 +51,10 @@ const (
 	// uses to find out which version of the networking config is deployed.
 	HashHeaderName = "K-Network-Hash"
 
+	// HashHeaderValue is the value that must appear in the HashHeaderName
+	// header in order for our network hash to be injected.
+	HashHeaderValue = "override"
+
 	// OriginalHostHeader is used to avoid Istio host based routing rules
 	// in Activator.
 	// The header contains the original Host value that can be rewritten
@@ -62,12 +64,6 @@ const (
 	// ConfigName is the name of the configmap containing all
 	// customizations for networking features.
 	ConfigName = "config-network"
-
-	// IstioOutboundIPRangesKey is the name of the configuration entry
-	// that specifies Istio outbound ip ranges.
-	//
-	// DEPRECATED: This will be completely removed in the future release.
-	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
 	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
 	DeprecatedDefaultIngressClassKey = "clusteringress.class"
@@ -165,6 +161,12 @@ const (
 	// since the data won't be transferred in chunks less than 4kb, if the
 	// reverse proxy fails to detect streaming (gRPC, e.g.).
 	FlushInterval = 20 * time.Millisecond
+
+	// VisibilityLabelKey is the label to indicate visibility of Route
+	// and KServices.  It can be an annotation too but since users are
+	// already using labels for domain, it probably best to keep this
+	// consistent.
+	VisibilityLabelKey = "networking.knative.dev/visibility"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -262,12 +264,6 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 // NewConfigFromMap creates a Config from the supplied data.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
-	if _, ok := data[IstioOutboundIPRangesKey]; ok {
-		// TODO(0.15): Until the next version is released, the validation check is
-		// enabled to notify users who configure this value.
-		logger := logging.FromContext(context.Background()).Named("config-network")
-		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
-	}
 
 	if err := cm.Parse(data,
 		cm.AsString(DeprecatedDefaultIngressClassKey, &nc.DefaultIngressClass),

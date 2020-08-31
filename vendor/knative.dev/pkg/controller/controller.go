@@ -205,20 +205,43 @@ type Impl struct {
 	statsReporter StatsReporter
 }
 
-// NewImpl instantiates an instance of our controller that will feed work to the
-// provided Reconciler as it is enqueued.
-func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
-	return NewImplWithStats(r, logger, workQueueName, MustNewStatsReporter(workQueueName, logger))
+// ControllerOptions encapsulates options for creating a new controller,
+// including throttling and stats behavior.
+type ControllerOptions struct {
+	WorkQueueName string
+	Logger        *zap.SugaredLogger
+	Reporter      StatsReporter
+	RateLimiter   workqueue.RateLimiter
 }
 
+// NewImpl instantiates an instance of our controller that will feed work to the
+// provided Reconciler as it is enqueued.
+// Deprecated: use NewImplFull.
+func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
+	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger})
+}
+
+// NewImplWithStats creates a controller.Impl with stats reporter.
+// Deprecated: use NewImplFull.
 func NewImplWithStats(r Reconciler, logger *zap.SugaredLogger, workQueueName string, reporter StatsReporter) *Impl {
-	logger = logger.Named(workQueueName)
+	return NewImplFull(r, ControllerOptions{WorkQueueName: workQueueName, Logger: logger, Reporter: reporter})
+}
+
+// NewImplFull accepts the full set of options available to all controllers.
+func NewImplFull(r Reconciler, options ControllerOptions) *Impl {
+	logger := options.Logger.Named(options.WorkQueueName)
+	if options.RateLimiter == nil {
+		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
+	}
+	if options.Reporter == nil {
+		options.Reporter = MustNewStatsReporter(options.WorkQueueName, options.Logger)
+	}
 	return &Impl{
-		Name:          workQueueName,
+		Name:          options.WorkQueueName,
 		Reconciler:    r,
-		workQueue:     newTwoLaneWorkQueue(workQueueName),
+		workQueue:     newTwoLaneWorkQueue(options.WorkQueueName, options.RateLimiter),
 		logger:        logger,
-		statsReporter: reporter,
+		statsReporter: options.Reporter,
 	}
 }
 
@@ -242,7 +265,9 @@ func (c *Impl) EnqueueAfter(obj interface{}, after time.Duration) {
 // and enqueues that key in the slow lane.
 func (c *Impl) EnqueueSlowKey(key types.NamespacedName) {
 	c.workQueue.SlowLane().Add(key)
-	c.logger.Debugf("Adding to the slow queue %s (depth(total/slow): %d/%d)", safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
+	c.logger.With(zap.String(logkey.Key, key.String())).
+		Debugf("Adding to the slow queue %s (depth(total/slow): %d/%d)",
+			safeKey(key), c.workQueue.Len(), c.workQueue.SlowLane().Len())
 }
 
 // EnqueueSlow extracts namesspeced name from the object and enqueues it on the slow
@@ -368,7 +393,8 @@ func (c *Impl) EnqueueNamespaceOf(obj interface{}) {
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
 func (c *Impl) EnqueueKey(key types.NamespacedName) {
 	c.workQueue.Add(key)
-	c.logger.Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
+	c.logger.With(zap.String(logkey.Key, key.String())).
+		Debugf("Adding to queue %s (depth: %d)", safeKey(key), c.workQueue.Len())
 }
 
 // MaybeEnqueueBucketKey takes a Bucket and namespace/name string and puts it onto
@@ -383,7 +409,8 @@ func (c *Impl) MaybeEnqueueBucketKey(bkt reconciler.Bucket, key types.Namespaced
 // the work queue after given delay.
 func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 	c.workQueue.AddAfter(key, delay)
-	c.logger.Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
+	c.logger.With(zap.String(logkey.Key, key.String())).
+		Debugf("Adding to queue %s (delay: %v, depth: %d)", safeKey(key), delay, c.workQueue.Len())
 }
 
 // RunContext starts the controller's worker threads, the number of which is threadiness.
@@ -392,15 +419,14 @@ func (c *Impl) EnqueueKeyAfter(key types.NamespacedName, delay time.Duration) {
 // internal work queue and waits for workers to finish processing their current
 // work items.
 func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
-	logger := c.logger
-	defer runtime.HandleCrash()
 	sg := sync.WaitGroup{}
-	defer sg.Wait()
 	defer func() {
 		c.workQueue.ShutDown()
 		for c.workQueue.Len() > 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
+		sg.Wait()
+		runtime.HandleCrash()
 	}()
 
 	if la, ok := c.Reconciler.(reconciler.LeaderAware); ok {
@@ -417,7 +443,7 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	}
 
 	// Launch workers to process resources that get enqueued to our workqueue.
-	logger.Info("Starting controller and workers")
+	c.logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
 		sg.Add(1)
 		go func() {
@@ -427,9 +453,9 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 		}()
 	}
 
-	logger.Info("Started workers")
+	c.logger.Info("Started workers")
 	<-ctx.Done()
-	logger.Info("Shutting down workers")
+	c.logger.Info("Shutting down workers")
 
 	return nil
 }
@@ -461,13 +487,6 @@ func (c *Impl) processNextWorkItem() bool {
 	// Send the metrics for the current queue depth
 	c.statsReporter.ReportQueueDepth(int64(c.workQueue.Len()))
 
-	// We call Done here so the workqueue knows we have finished
-	// processing this item. We also must remember to call Forget if
-	// reconcile succeeds. If a transient error occurs, we do not call
-	// Forget and put the item back to the queue with an increased
-	// delay.
-	defer c.workQueue.Done(key)
-
 	var err error
 	defer func() {
 		status := trueString
@@ -475,6 +494,13 @@ func (c *Impl) processNextWorkItem() bool {
 			status = falseString
 		}
 		c.statsReporter.ReportReconcile(time.Since(startTime), status)
+
+		// We call Done here so the workqueue knows we have finished
+		// processing this item. We also must remember to call Forget if
+		// reconcile succeeds. If a transient error occurs, we do not call
+		// Forget and put the item back to the queue with an increased
+		// delay.
+		c.workQueue.Done(key)
 	}()
 
 	// Embed the key into the logger and attach that to the context we pass
@@ -520,8 +546,8 @@ func (c *Impl) GlobalResync(si cache.SharedInformer) {
 	c.FilteredGlobalResync(alwaysTrue, si)
 }
 
-// FilteredGlobalResync enqueues (with a delay) all objects from the
-// SharedInformer that pass the filter function
+// FilteredGlobalResync enqueues all objects from the
+// SharedInformer that pass the filter function in to the slow queue.
 func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInformer) {
 	if c.workQueue.ShuttingDown() {
 		return

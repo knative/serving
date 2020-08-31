@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"time"
 
 	sd "contrib.go.opencensus.io/exporter/stackdriver"
 	"go.opencensus.io/resource"
@@ -49,6 +50,8 @@ const (
 	StackdriverSecretNameDefault = "stackdriver-service-account-key"
 	// secretDataFieldKey is the name of the k8s Secret field that contains the Secret's key.
 	secretDataFieldKey = "key.json"
+	// stackdriverApiTimeout is the timeout value of Stackdriver API service side.
+	stackdriverApiTimeout = 12 * time.Second
 )
 
 var (
@@ -186,6 +189,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		GetMetricPrefix:         mpf,
 		ReportingInterval:       config.reportingPeriod,
 		DefaultMonitoringLabels: &sd.Labels{},
+		Timeout:                 stackdriverApiTimeout,
 	})
 	if err != nil {
 		logger.Errorw("Failed to create the Stackdriver exporter: ", zap.Error(err))
