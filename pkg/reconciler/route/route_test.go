@@ -1662,7 +1662,7 @@ func TestAutoTLSEnabled(t *testing.T) {
 				},
 			})
 
-			r.Annotations[networking.DisableAutoTLSLabelKey] = test.TLSDisabledAnnotation
+			r.Annotations[networking.DisableAutoTLSAnnotationKey] = test.TLSDisabledAnnotation
 
 			if got := autoTLSEnabled(ctx, r); got != test.WantAutoTLSEnabled {
 				t.Errorf("autoTLSEnabled = %t, want %t", got, test.WantAutoTLSEnabled)
