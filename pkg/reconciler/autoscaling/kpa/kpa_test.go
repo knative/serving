@@ -1077,9 +1077,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, func(sks *nv1a1.ServerlessService) {
-				sks.Status.ServiceName = ""
-			}),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
