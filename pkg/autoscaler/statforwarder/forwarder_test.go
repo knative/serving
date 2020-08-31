@@ -68,6 +68,7 @@ var (
 )
 
 func TestForwarderReconcile(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -157,6 +158,7 @@ func TestForwarderReconcile(t *testing.T) {
 }
 
 func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -199,6 +201,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -241,6 +244,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -291,6 +295,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 }
 
 func TestForwarderSkipReconciling(t *testing.T) {
+	t.Parallel()
 	ns := system.Namespace()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
@@ -382,6 +387,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)

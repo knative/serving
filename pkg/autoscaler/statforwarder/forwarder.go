@@ -18,17 +18,11 @@ package statforwarder
 
 import (
 	"context"
-<<<<<<< HEAD
 	"fmt"
 	"sync"
 	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
-=======
-	"sync"
-	"time"
-
->>>>>>> master
 	"go.uber.org/zap"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
