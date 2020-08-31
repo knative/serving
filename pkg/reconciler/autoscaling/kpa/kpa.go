@@ -243,10 +243,8 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 	// In this case we'll be in the NoTraffic/inactive state.
 	// TODO(taragu): remove after 0.19
 	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason
-	if pc.ready >= minReady || alreadyScaledDownSuccessfully {
-		if pa.Status.ServiceName != "" {
-			pa.Status.MarkScaleTargetInitialized()
-		}
+	if (pc.ready >= minReady || alreadyScaledDownSuccessfully) && pa.Status.ServiceName != "" {
+		pa.Status.MarkScaleTargetInitialized()
 	}
 
 	switch {
