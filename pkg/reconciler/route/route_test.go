@@ -1638,18 +1638,16 @@ func TestAutoTLSEnabled(t *testing.T) {
 		ConfigAutoTLSEnabled:  true,
 		TLSDisabledAnnotation: "true",
 		WantAutoTLSEnabled:    false,
-	},
-		{
-			Name:                 "AutoTLS disabled by config, not disabled by annotation",
-			ConfigAutoTLSEnabled: false,
-			WantAutoTLSEnabled:   false,
-		},
-		{
-			Name:                  "AutoTLS disabled by config, disabled by annotation",
-			ConfigAutoTLSEnabled:  false,
-			TLSDisabledAnnotation: "true",
-			WantAutoTLSEnabled:    false,
-		}}
+	}, {
+		Name:                 "AutoTLS disabled by config, not disabled by annotation",
+		ConfigAutoTLSEnabled: false,
+		WantAutoTLSEnabled:   false,
+	}, {
+		Name:                  "AutoTLS disabled by config, disabled by annotation",
+		ConfigAutoTLSEnabled:  false,
+		TLSDisabledAnnotation: "true",
+		WantAutoTLSEnabled:    false,
+	}}
 
 	r := Route("test-ns", "test-route")
 	r.Annotations = map[string]string{}
