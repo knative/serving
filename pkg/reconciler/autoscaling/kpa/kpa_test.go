@@ -1048,9 +1048,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, func(sks *nv1a1.ServerlessService) {
-				sks.Status.ServiceName = testRevision
-			}),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, WithPubService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1061,10 +1059,7 @@ func TestReconcile(t *testing.T) {
 				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
-				WithPASKSNotReady(""),
-				func(pa *asv1a1.PodAutoscaler) {
-					pa.Status.ServiceName = testRevision
-				},
+				WithPASKSNotReady(""), WithPAStatusService(testRevision),
 			),
 		}},
 	}, {
