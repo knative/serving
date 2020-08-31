@@ -112,8 +112,10 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 func validateAnnotations(annotations map[string]string) *apis.FieldError {
 	disableAutoTLS := annotations[networking.DisableAutoTLSAnnotationKey]
 
-	if _, err := strconv.ParseBool(disableAutoTLS); err != nil {
-		return apis.ErrInvalidValue(disableAutoTLS, networking.DisableAutoTLSAnnotationKey)
+	if len(disableAutoTLS) > 0 {
+		if _, err := strconv.ParseBool(disableAutoTLS); err != nil {
+			return apis.ErrInvalidValue(disableAutoTLS, networking.DisableAutoTLSAnnotationKey)
+		}
 	}
 
 	return nil
