@@ -71,8 +71,8 @@ type bucketProcessor struct {
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
 //    Lease -> IP mapping.
 // 2. Creates/updates the corresponding K8S Service and Endpoints.
-// 3. Can be used to forward the metrics falling in a bucket based on
-//    the holder IP. (This is a TODO)
+// 3. Can be used to forward the metrics owned by a bucket based on
+//    the holder IP.
 type Forwarder struct {
 	selfIP          string
 	logger          *zap.SugaredLogger
