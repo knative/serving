@@ -24,8 +24,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 )
@@ -81,6 +83,33 @@ func IsOneOfStatusCodes(codes ...int) spoof.ResponseChecker {
 // IsStatusOK checks that the response code is a 200.
 func IsStatusOK(resp *spoof.Response) (bool, error) {
 	return IsOneOfStatusCodes(http.StatusOK)(resp)
+}
+
+// MatchesAllBodies checks that the *first* response body matches the "expected" body, otherwise failing.
+func MatchesAllBodies(all ...string) spoof.ResponseChecker {
+
+	var m sync.Mutex
+	seen := make(sets.String, len(all))
+
+	return func(resp *spoof.Response) (bool, error) {
+		for _, expected := range all {
+			if !strings.Contains(string(resp.Body), expected) {
+				// See if the next one matches.
+				continue
+			}
+
+			// Protect our set
+			m.Lock()
+			defer m.Unlock()
+			seen.Insert(expected)
+
+			// Stop once we've seen them all.
+			return seen.HasAll(all...), nil
+		}
+
+		// Returning (true, err) causes SpoofingClient.Poll to fail.
+		return true, fmt.Errorf("body = %s, want one of: %s", string(resp.Body), all)
+	}
 }
 
 // MatchesBody checks that the *first* response body matches the "expected" body, otherwise failing.

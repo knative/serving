@@ -33,7 +33,7 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponse string) error {
+func checkForExpectedResponses(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, expectedResponses ...string) error {
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func waitForExpectedResponse(t pkgTest.TLegacy, clients *test.Clients, url *url.
 	if err != nil {
 		return err
 	}
-	_, err = client.Poll(req, v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedResponse))))
+	_, err = client.Poll(req, v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesAllBodies(expectedResponses...))))
 	return err
 }
 
@@ -59,19 +59,15 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
 	// started returning at least one expected result to key that we should validate percentage splits.
 	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
-	for _, resp := range baseExpected {
-		// Check for each of the responses we expect from the base domain.
-		resp := resp
-		g.Go(func() error {
-			t.Log("Waiting for route to update", baseDomain)
-			return waitForExpectedResponse(t, clients, baseDomain, resp)
-		})
-	}
+	g.Go(func() error {
+		t.Log("Checking updated route", baseDomain)
+		return checkForExpectedResponses(t, clients, baseDomain, baseExpected...)
+	})
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
-			t.Log("Waiting for route to update", s)
-			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
+			t.Log("Checking updated route tags", s)
+			return checkForExpectedResponses(t, clients, s, targetsExpected[i])
 		})
 	}
 	if err := g.Wait(); err != nil {
