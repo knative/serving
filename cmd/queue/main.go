@@ -36,6 +36,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"path/filepath"
+
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
@@ -55,7 +57,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
-	"path/filepath"
 )
 
 const (
