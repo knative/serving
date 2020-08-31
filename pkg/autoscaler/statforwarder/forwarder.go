@@ -78,7 +78,7 @@ type Forwarder struct {
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
-	// accept is the function to process a StatMessage which doesn't need
+	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
 	// bs is the BucketSet including all Autoscaler buckets.
@@ -293,7 +293,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 			holder: holder,
 			proc: func(sm asmetrics.StatMessage) {
 				l := f.logger.With(zap.String("revision", sm.Key.String()))
-				l.Debugf("Accept stat as owner of bucket %s", bkt)
+				l.Debug("Accept stat as owner of bucket ", bkt)
 				if f.accept != nil {
 					f.accept(sm)
 				}
@@ -301,7 +301,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 		}
 	}
 
-	// TODO(yanweiguo): Currently we use IP directly. This won't work if there
+	// TODO(9235): Currently we use IP directly. This won't work if there
 	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
