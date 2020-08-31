@@ -33,11 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kflag"
-	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 )
 
@@ -118,13 +115,8 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 }
 
 func main() {
-	ctx := signals.NewContext()
+	ctx := sharedmain.EnableInjectionOrDie(nil, nil)
 
-	// We don't expect informers to be set up, but we do expect the client to get attached to ctx.
-	ctx, informers := injection.Default.SetupInformers(ctx, sharedmain.ParseAndGetConfigOrDie())
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		log.Fatalf("Failed to start informers %v", err)
-	}
 	kc := kubeclient.Get(ctx)
 
 	// Until we are shutdown, build up an index of components and kill
