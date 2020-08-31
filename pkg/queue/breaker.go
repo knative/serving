@@ -192,7 +192,7 @@ func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
 // operations, which can't be guaranteed on 2 individual values.
 // The channel is merely used as a vehicle to be able to "wake up" individual goroutines
 // if capacity becomes free. It's not consistently used in accordance to actual capacity
-// but is rather a communication vehicle to ensure waiting routines are properly worken
+// but is rather a communication vehicle to ensure waiting routines are properly woken
 // up.
 type semaphore struct {
 	state atomic.Uint64
@@ -251,7 +251,7 @@ func (s *semaphore) release() error {
 
 		in--
 		if s.state.CAS(old, pack(capacity, in)) {
-			if in <= capacity {
+			if in < capacity {
 				select {
 				case s.queue <- struct{}{}:
 				default:
@@ -298,14 +298,14 @@ func (s *semaphore) Capacity() int {
 	return int(capacity)
 }
 
-// unpack takes an int64 and returns two int32 comprised of the leftmost and the
-// rightmost bits respectively.
+// unpack takes an uint64 and returns two uint32 (as uint64) comprised of the leftmost
+// and the rightmost bits respectively.
 func unpack(in uint64) (uint64, uint64) {
 	return in >> 32, in & 0xffffffff
 }
 
-// pack takes two int32 and packs them into a single int64 at the leftmost and the
-// rightmost bits respectively.
+// pack takes two uint32 (as uint64 to avoid casting) and packs them into a single uint64
+// at the leftmost and the rightmost bits respectively.
 // It's up to the caller to ensure that left and right actually fit into 32 bit.
 func pack(left, right uint64) uint64 {
 	return left<<32 | right
