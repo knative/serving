@@ -185,10 +185,10 @@ func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
 }
 
 // semaphore is an implementation of a semaphore based on packed integers and a channel.
-// state is an int64 that has two int32s packed into it: capacity and inFlight. The
+// state is an uint64 that has two uint32s packed into it: capacity and inFlight. The
 // former specifies how many request are allowed at any given time into the semaphore
 // while the latter refers to the currently in-flight requests.
-// Packing them both into one int64 allows us to optimize access semantics using atomic
+// Packing them both into one uint64 allows us to optimize access semantics using atomic
 // operations, which can't be guaranteed on 2 individual values.
 // The channel is merely used as a vehicle to be able to "wake up" individual goroutines
 // if capacity becomes free. It's not consistently used in accordance to actual capacity
