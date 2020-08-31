@@ -111,8 +111,13 @@ type IngressSpec struct {
 	// +optional
 	Rules []IngressRule `json:"rules,omitempty"`
 
-	// Visibility setting.
-	Visibility IngressVisibility `json:"visibility,omitempty"`
+	// DeprecatedVisibility was used for the fallback when spec.rules.visibility
+	// isn't set.
+	//
+	// Now spec.rules.visibility is not optional and so we make this field deprecated.
+	//
+	// +optional
+	DeprecatedVisibility IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressVisibility describes whether the Ingress should be exposed to
@@ -176,7 +181,6 @@ type IngressRule struct {
 
 	// Visibility signifies whether this rule should `ClusterLocal`. If it's not
 	// specified then it defaults to `ExternalIP`.
-	// +optional
 	Visibility IngressVisibility `json:"visibility,omitempty"`
 
 	// HTTP represents a rule to apply against incoming requests. If the
