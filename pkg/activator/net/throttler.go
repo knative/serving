@@ -278,9 +278,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		assigned := rt.podTrackers
 		if rt.containerConcurrency != 0 {
 			rt.resetTrackers()
-			// TODO(vagababov): pull assign slice into RT.
-			assigned = assignSlice(rt.podTrackers,
-				ai, ac, rt.containerConcurrency)
+			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
 		}
 		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
 		// The actual write out of the assigned trackers has to be under lock.

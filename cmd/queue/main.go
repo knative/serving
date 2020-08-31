@@ -36,6 +36,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"path/filepath"
+
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
@@ -66,6 +68,7 @@ const (
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
 )
 
 type config struct {
@@ -195,7 +198,15 @@ func main() {
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		os.Exit(standaloneProbeMain(*readinessProbeTimeout))
+		// Use a unix socket rather than TCP to avoid going via entire TCP stack
+		// when we're actually in the same container.
+		transport := &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", unixSocketPath)
+			},
+		}
+
+		os.Exit(standaloneProbeMain(*readinessProbeTimeout, transport))
 	}
 
 	// Parse the environment.
@@ -264,15 +275,38 @@ func main() {
 		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
 
-	errCh := make(chan error, len(servers))
+	errCh := make(chan error, len(servers)+1)
+	listeners := make(map[string]net.Listener, len(servers))
+	for name, server := range servers {
+		l, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			logger.Fatalw("listen failed", zap.Error(err))
+		}
+
+		listeners[name] = l
+	}
+
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := s.Serve(listeners[name]); err != nil && err != http.ErrServerClosed {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
 	}
+
+	// Listen on a unix socket so that the exec probe can avoid having to go
+	// through the full tcp network stack.
+	go func() {
+		l, err := net.Listen("unix", unixSocketPath)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		if err := http.Serve(l, server.Handler); err != nil {
+			errCh <- err
+		}
+	}()
 
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exit unexpectedly. We fold both signals together because we only want

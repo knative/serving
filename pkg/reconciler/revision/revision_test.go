@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -483,30 +485,53 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	}
 	t.Log("Saw revision reconciliation")
 
-	// Re-get it and nillify the CC, to ensure defaulting
-	// happens as expected.
-	rev, _ = revL.Revisions(rev.Namespace).Get(rev.Name)
-	rev = rev.DeepCopy()
-	rev.Spec.ContainerConcurrency = nil
-	rev.Generation++
-	revClient.Update(rev)
-
-	watcher.OnChange(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
-			Name:      config.DefaultsConfigName,
-		},
-		Data: map[string]string{
-			"container-concurrency": "41",
-		},
-	})
-
+	// Ensure initial PA is in the informers.
 	paL := fakepainformer.Get(ctx).Lister().PodAutoscalers(rev.Namespace)
-	if ierr := wait.PollImmediate(50*time.Millisecond, 3*time.Second, func() (bool, error) {
-		pa, err := paL.Get(rev.Name)
-		return pa != nil && pa.Spec.ContainerConcurrency == 41, err
+	if ierr := wait.PollImmediate(50*time.Millisecond, 6*time.Second, func() (bool, error) {
+		_, err = paL.Get(rev.Name)
+		if apierrs.IsNotFound(err) {
+			return false, err
+		}
+		return err == nil, err
 	}); ierr != nil {
-		t.Fatal("Failed to see PA.Spec CC updated with new CM value:", ierr)
+		t.Fatal("Failed to see PA creation:", ierr)
+	}
+
+	// The code in the loop is racy. So we execute it a few times.
+	enough := time.After(time.Minute)
+	pos := int64(41)
+	for ; ; pos++ {
+		select {
+		case <-enough:
+			t.Fatal("No iteration succeeded to see the global resync")
+		default:
+		}
+		// Re-get it and nillify the CC, to ensure defaulting
+		// happens as expected.
+		rev, _ = revL.Revisions(rev.Namespace).Get(rev.Name)
+		rev = rev.DeepCopy()
+		rev.Spec.ContainerConcurrency = nil
+		rev.Generation++
+		revClient.Update(rev)
+
+		watcher.OnChange(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency": fmt.Sprint(pos),
+			},
+		})
+
+		pa, err := paL.Get(rev.Name)
+		t.Logf("Initial PA: %#v GetErr: %v", pa, err)
+		if ierr := wait.PollImmediate(50*time.Millisecond, 2*time.Second, func() (bool, error) {
+			pa, err = paL.Get(rev.Name)
+			return pa != nil && pa.Spec.ContainerConcurrency == pos, err
+		}); ierr == nil { // err==nil!
+			break
+		}
 	}
 }
 

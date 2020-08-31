@@ -33,7 +33,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
@@ -44,7 +43,6 @@ type Clients struct {
 	ServingClient      *ServingClients
 	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
-	IstioClient        istioclientset.Interface
 }
 
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
@@ -82,7 +80,7 @@ type NetworkingClients struct {
 // NewClients instantiates and returns several clientsets required for making request to the
 // Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
-func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
+func NewClients(configPath, clusterName, namespace string) (*Clients, error) {
 	cfg, err := BuildClientConfig(configPath, clusterName)
 	if err != nil {
 		return nil, err
@@ -121,11 +119,6 @@ func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) 
 	}
 
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	clients.IstioClient, err = istioclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -202,16 +195,18 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 
 // Delete will delete all Routes and Configs with the named routes and configs, if clients
 // have been successfully initialized.
-func (clients *ServingClients) Delete(routes []string, configs []string, services []string) []error {
+func (clients *ServingClients) Delete(routes, configs, services []string) []error {
 	deletions := []struct {
 		client interface {
 			Delete(name string, options *v1.DeleteOptions) error
 		}
 		items []string
 	}{
+		// Delete services first, since we otherwise might delete a route/configuration
+		// out from under the ksvc
+		{clients.Services, services},
 		{clients.Routes, routes},
 		{clients.Configs, configs},
-		{clients.Services, services},
 	}
 
 	propPolicy := v1.DeletePropagationForeground
@@ -240,7 +235,7 @@ func (clients *ServingClients) Delete(routes []string, configs []string, service
 }
 
 // BuildClientConfig builds client config for testing.
-func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+func BuildClientConfig(kubeConfigPath, clusterName string) (*rest.Config, error) {
 	overrides := clientcmd.ConfigOverrides{}
 	// Override the cluster name if provided.
 	if clusterName != "" {

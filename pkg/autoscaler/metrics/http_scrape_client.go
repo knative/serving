@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"sync"
 
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
 	network "knative.dev/networking/pkg"
 )
+
+var errUnsupportedMetricType = errors.New("unsupported metric type")
 
 type httpScrapeClient struct {
 	httpClient *http.Client
@@ -54,8 +54,7 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if err != nil {
 		return emptyStat, err
 	}
-	// Ask for protobuf by default. Note that during migration this will not trigger the proto format supported
-	// by Prometheus reporter as the latter uses `application/vnd.google.protobuf`.
+
 	req.Header.Add("Accept", network.ProtoAcceptContent)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -65,10 +64,10 @@ func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
-	if resp.Header.Get("Content-Type") == network.ProtoAcceptContent {
-		return statFromProto(resp.Body)
+	if resp.Header.Get("Content-Type") != network.ProtoAcceptContent {
+		return emptyStat, errUnsupportedMetricType
 	}
-	return statFromPrometheus(resp.Body)
+	return statFromProto(resp.Body)
 }
 
 func statFromProto(body io.Reader) (Stat, error) {
@@ -85,68 +84,4 @@ func statFromProto(body io.Reader) (Stat, error) {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}
 	return stat, nil
-}
-
-func statFromPrometheus(body io.Reader) (Stat, error) {
-	var parser expfmt.TextParser
-	metricFamilies, err := parser.TextToMetricFamilies(body)
-	if err != nil {
-		return emptyStat, fmt.Errorf("reading text format failed: %w", err)
-	}
-
-	stat := emptyStat
-	for m, pv := range map[string]*float64{
-		"queue_average_concurrent_requests":         &stat.AverageConcurrentRequests,
-		"queue_average_proxied_concurrent_requests": &stat.AverageProxiedConcurrentRequests,
-		"queue_requests_per_second":                 &stat.RequestCount,
-		"queue_proxied_operations_per_second":       &stat.ProxiedRequestCount,
-	} {
-		pm := prometheusMetric(metricFamilies, m)
-		if pm == nil {
-			return emptyStat, fmt.Errorf("could not find value for %s in response", m)
-		}
-		*pv = *pm.Gauge.Value
-
-		if stat.PodName == "" {
-			stat.PodName = prometheusLabel(pm.Label, "destination_pod")
-			if stat.PodName == "" {
-				return emptyStat, errors.New("could not find pod name in metric labels")
-			}
-		}
-	}
-	// Transitional metrics, which older pods won't report.
-	for m, pv := range map[string]*float64{
-		"process_uptime": &stat.ProcessUptime, // Can be removed after 0.15 cuts.
-	} {
-		pm := prometheusMetric(metricFamilies, m)
-		// Ignore if not found.
-		if pm == nil {
-			continue
-		}
-		*pv = *pm.Gauge.Value
-	}
-	return stat, nil
-}
-
-// prometheusMetric returns the point of the first Metric of the MetricFamily
-// with the given key from the given map. If there is no such MetricFamily or it
-// has no Metrics, then returns nil.
-func prometheusMetric(metricFamilies map[string]*dto.MetricFamily, key string) *dto.Metric {
-	if metric, ok := metricFamilies[key]; ok && len(metric.Metric) > 0 {
-		return metric.Metric[0]
-	}
-
-	return nil
-}
-
-// prometheusLabels returns the value of the label with the given key from the
-// given slice of labels. Returns an empty string if the label cannot be found.
-func prometheusLabel(labels []*dto.LabelPair, key string) string {
-	for _, label := range labels {
-		if *label.Name == key {
-			return *label.Value
-		}
-	}
-
-	return ""
 }

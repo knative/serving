@@ -28,7 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+<<<<<<< HEAD
 	"k8s.io/apimachinery/pkg/types"
+=======
+>>>>>>> master
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ktesting "k8s.io/client-go/testing"
@@ -41,7 +44,10 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+<<<<<<< HEAD
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+=======
+>>>>>>> master
 )
 
 const (
@@ -63,8 +69,11 @@ var (
 			HolderIdentity: &testIP1,
 		},
 	}
+<<<<<<< HEAD
 	// A statProcessor doing nothing.
 	noOp = func(sm asmetrics.StatMessage) {}
+=======
+>>>>>>> master
 )
 
 func TestForwarderReconcile(t *testing.T) {
@@ -85,8 +94,13 @@ func TestForwarderReconcile(t *testing.T) {
 		waitInformers()
 	})
 
+<<<<<<< HEAD
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
+=======
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
+>>>>>>> master
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
@@ -174,7 +188,11 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		waitInformers()
 	})
 
+<<<<<<< HEAD
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+=======
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+>>>>>>> master
 
 	svcCreation := 0
 	retried := make(chan struct{})
@@ -216,7 +234,11 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		waitInformers()
 	})
 
+<<<<<<< HEAD
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+=======
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+>>>>>>> master
 
 	endpointsCreation := 0
 	retried := make(chan struct{})
@@ -258,7 +280,11 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		waitInformers()
 	})
 
+<<<<<<< HEAD
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+=======
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+>>>>>>> master
 
 	endpointsUpdate := 0
 	retried := make(chan struct{})
@@ -309,7 +335,11 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		waitInformers()
 	})
 
+<<<<<<< HEAD
 	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+=======
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+>>>>>>> master
 
 	svcCreated := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -380,6 +410,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		})
 	}
 }
+<<<<<<< HEAD
 
 func TestProcess(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -464,3 +495,5 @@ func TestProcess(t *testing.T) {
 	// Check Cancel is called without error.
 	f.Cancel()
 }
+=======
+>>>>>>> master

@@ -71,12 +71,13 @@ function install_gloo() {
 
 function install_kourier() {
   local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
-  sed -i "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${INSTALL_KOURIER_YAML}
-  echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
+  local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
+  sed "s/${KNATIVE_DEFAULT_NAMESPACE}/${SYSTEM_NAMESPACE}/g" ${INSTALL_KOURIER_YAML} > ${YAML_NAME}
+  echo "Kourier YAML: ${YAML_NAME}"
   echo ">> Bringing up Kourier"
 
-  kubectl apply -f ${INSTALL_KOURIER_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_KOURIER_YAML}" )
+  kubectl apply -f ${YAML_NAME} || return 1
+  UNINSTALL_LIST+=( "${YAML_NAME}" )
 
   echo ">> Patching Kourier"
   # Scale replicas of the Kourier gateways to handle large qps

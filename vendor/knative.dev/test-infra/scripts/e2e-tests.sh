@@ -51,11 +51,8 @@ function setup_test_cluster() {
   set -o errexit
   set -o pipefail
 
-  header "Test cluster setup"
-  kubectl get nodes
-
   header "Setting up test cluster"
-
+  kubectl get nodes
   # Set the actual project the test cluster resides in
   # It will be a project assigned by Boskos if test is running on Prow,
   # otherwise will be ${E2E_GCP_PROJECT_ID} set up by user.
@@ -63,21 +60,17 @@ function setup_test_cluster() {
   export E2E_PROJECT_ID
   readonly E2E_PROJECT_ID
 
-  local k8s_user
-  k8s_user=$(gcloud config get-value core/account)
   local k8s_cluster
   k8s_cluster=$(kubectl config current-context)
 
   is_protected_cluster "${k8s_cluster}" && \
     abort "kubeconfig context set to ${k8s_cluster}, which is forbidden"
 
-  # If cluster admin role isn't set, this is a brand new cluster
-  # Setup the admin role and also KO_DOCKER_REPO if it is a GKE cluster
-  if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" && "${k8s_cluster}" =~ ^gke_.* ]]; then
-    acquire_cluster_admin_role "${k8s_user}" "${E2E_CLUSTER_NAME}" "${E2E_GKE_CLUSTER_REGION}" "${E2E_GKE_CLUSTER_ZONE}"
-    # Incorporate an element of randomness to ensure that each run properly publishes images.
-    export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${REPO_NAME}-e2e-img/${RANDOM}
-  fi
+  # Acquire cluster admin role for the current user.
+  acquire_cluster_admin_role "${k8s_cluster}"
+
+  # Setup KO_DOCKER_REPO if it is a GKE cluster. Incorporate an element of randomness to ensure that each run properly publishes images.
+  [[ "${k8s_cluster}" =~ ^gke_.* ]] && export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${REPO_NAME}-e2e-img/${RANDOM}
 
   # Safety checks
   is_protected_gcr "${KO_DOCKER_REPO}" && \
@@ -92,7 +85,7 @@ function setup_test_cluster() {
   export KO_DATA_PATH="${REPO_ROOT_DIR}/.git"
 
   # Do not run teardowns if we explicitly want to skip them.
-  (( ! SKIP_TEARDOWNS )) && trap teardown_test_resources EXIT
+  (( ! SKIP_TEARDOWNS )) && add_trap teardown_test_resources EXIT
 
   # Handle failures ourselves, so we can dump useful info.
   set +o errexit
@@ -129,15 +122,16 @@ function fail_test() {
 
 SKIP_TEARDOWNS=0
 SKIP_ISTIO_ADDON=0
+E2E_SCRIPT=""
+CLOUD_PROVIDER="gke"
 
 # Parse flags and initialize the test cluster.
 function initialize() {
   local run_tests=0
   local extra_kubetest2_flags=()
   local extra_cluster_creation_flags=()
-  local e2e_script
-  e2e_script="$(get_canonical_path "$0")"
-  local e2e_script_command=( "${e2e_script}" "--run-tests" )
+  E2E_SCRIPT="$(get_canonical_path "$0")"
+  local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
   cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do
@@ -166,6 +160,7 @@ function initialize() {
         [[ $# -ge 2 ]] || abort "missing parameter after $1"
         shift
         case ${parameter} in
+          --cloud-provider) CLOUD_PROVIDER="$1" ;;
           --kubetest2-flag) extra_kubetest2_flags+=("$1") ;;
           --cluster-creation-flag) extra_cluster_creation_flags+=("$1") ;;
           *) abort "unknown option ${parameter}" ;;
@@ -186,7 +181,7 @@ function initialize() {
   readonly SKIP_TEARDOWNS
 
   if (( ! run_tests )); then
-    create_gke_test_cluster extra_kubetest2_flags extra_cluster_creation_flags e2e_script_command
+    create_test_cluster "${CLOUD_PROVIDER}" extra_kubetest2_flags extra_cluster_creation_flags e2e_script_command
   else
     setup_test_cluster
   fi
