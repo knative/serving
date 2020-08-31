@@ -1048,7 +1048,9 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, func(sks *nv1a1.ServerlessService) {
+				sks.Status.ServiceName = testRevision
+			}),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1056,6 +1058,35 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized,
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
+				withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPASKSNotReady(""),
+				func(pa *asv1a1.PodAutoscaler) {
+					pa.Status.ServiceName = testRevision
+				},
+			),
+		}},
+	}, {
+		Name: "initial scale zero: sks ServiceName empty",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
+			decider(testNamespace, testRevision, -1, /* desiredScale */
+				0 /* ebc */, scaling.MinActivators)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
+			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, func(sks *nv1a1.ServerlessService) {
+				sks.Status.ServiceName = ""
+			}),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
