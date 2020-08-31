@@ -1633,8 +1633,7 @@ func TestAutoTLSEnabled(t *testing.T) {
 			Name:                 "AutoTLS enabled by config, not disabled by annotation",
 			ConfigAutoTLSEnabled: true,
 			WantAutoTLSEnabled:   true,
-		},
-		{
+		},{
 			Name:                  "AutoTLS enabled by config, disabled by annotation",
 			ConfigAutoTLSEnabled:  true,
 			TLSDisabledAnnotation: "true",
