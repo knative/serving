@@ -47,11 +47,8 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/system"
-<<<<<<< HEAD
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-=======
->>>>>>> master
 )
 
 const (
@@ -62,7 +59,6 @@ const (
 	retryInterval      = 100 * time.Millisecond
 )
 
-<<<<<<< HEAD
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
 
@@ -77,25 +73,17 @@ type bucketProcessor struct {
 	proc statProcessor
 }
 
-=======
->>>>>>> master
 // Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
 //    Lease -> IP mapping.
 // 2. Creates/updates the corresponding K8S Service and Endpoints.
-<<<<<<< HEAD
 // 3. Can be used to forward the metrics owned by a bucket based on
 //    the holder IP.
-=======
-// 3. Can be used to forward the metrics falling in a bucket based on
-//    the holder IP. (This is a TODO)
->>>>>>> master
 type Forwarder struct {
 	selfIP          string
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
-<<<<<<< HEAD
 	// accept is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
@@ -108,18 +96,6 @@ type Forwarder struct {
 
 // New creates a new Forwarder.
 func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet, accept statProcessor) *Forwarder {
-=======
-	// bs is the BucketSet including all Autoscaler buckets.
-	bs *hash.BucketSet
-	// Lock for leaseHolders.
-	leaseLock sync.RWMutex
-	// leaseHolders stores the Lease -> IP relationships.
-	leaseHolders map[string]string
-}
-
-// New creates a new Forwarder.
-func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface, selfIP string, bs *hash.BucketSet) *Forwarder {
->>>>>>> master
 	ns := system.Namespace()
 	bkts := bs.Buckets()
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -129,12 +105,8 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		kc:              kc,
 		endpointsLister: endpointsInformer.Lister(),
 		bs:              bs,
-<<<<<<< HEAD
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
-=======
-		leaseHolders:    make(map[string]string, len(bkts)),
->>>>>>> master
 	}
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -168,11 +140,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			return false
 		}
 
-<<<<<<< HEAD
 		if p, ok := f.getProcessor(l.Name); ok && p.holder == *l.Spec.HolderIdentity {
-=======
-		if h, ok := f.getHolder(l.Name); ok && h == *l.Spec.HolderIdentity {
->>>>>>> master
 			// Already up-to-date.
 			return false
 		}
@@ -193,11 +161,7 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	}
 
 	holder := *l.Spec.HolderIdentity
-<<<<<<< HEAD
 	f.setProcessor(n, f.createProcessor(n, holder))
-=======
-	f.setHolder(n, holder)
->>>>>>> master
 
 	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
@@ -316,7 +280,6 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	return nil
 }
 
-<<<<<<< HEAD
 func (f *Forwarder) getProcessor(bkt string) (*bucketProcessor, bool) {
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
@@ -393,17 +356,4 @@ func (f *Forwarder) Cancel() {
 			p.conn.Shutdown()
 		}
 	}
-=======
-func (f *Forwarder) getHolder(name string) (string, bool) {
-	f.leaseLock.RLock()
-	defer f.leaseLock.RUnlock()
-	result, ok := f.leaseHolders[name]
-	return result, ok
-}
-
-func (f *Forwarder) setHolder(name, holder string) {
-	f.leaseLock.Lock()
-	defer f.leaseLock.Unlock()
-	f.leaseHolders[name] = holder
->>>>>>> master
 }
