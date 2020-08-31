@@ -1630,15 +1630,15 @@ func TestAutoTLSEnabled(t *testing.T) {
 		TLSDisabledAnnotation string
 		WantAutoTLSEnabled    bool
 	}{{
-			Name:                 "AutoTLS enabled by config, not disabled by annotation",
-			ConfigAutoTLSEnabled: true,
-			WantAutoTLSEnabled:   true,
-		},{
-			Name:                  "AutoTLS enabled by config, disabled by annotation",
-			ConfigAutoTLSEnabled:  true,
-			TLSDisabledAnnotation: "true",
-			WantAutoTLSEnabled:    false,
-		},
+		Name:                 "AutoTLS enabled by config, not disabled by annotation",
+		ConfigAutoTLSEnabled: true,
+		WantAutoTLSEnabled:   true,
+	}, {
+		Name:                  "AutoTLS enabled by config, disabled by annotation",
+		ConfigAutoTLSEnabled:  true,
+		TLSDisabledAnnotation: "true",
+		WantAutoTLSEnabled:    false,
+	},
 		{
 			Name:                 "AutoTLS disabled by config, not disabled by annotation",
 			ConfigAutoTLSEnabled: false,
