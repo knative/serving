@@ -1499,7 +1499,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: Always
         command:
         - contour
@@ -1705,7 +1705,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1791,7 +1791,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -1867,7 +1867,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
@@ -3394,7 +3394,7 @@ spec:
         # if we change this on each version, you can no longer upgrade
         # just by applying the deployment YAML.
         # See #2423, #2395, #2150, and #2030 for earlier questions about this.
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: Always
         command:
         - contour
@@ -3600,7 +3600,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -3686,7 +3686,7 @@ spec:
         args:
         - envoy
         - shutdown-manager
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3762,7 +3762,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:9da2cc3a5421511b31e9db344f6a8daf091d557763fa1e651421c6d0865e47a5
+        image: docker.io/mattmoor/contour-ff924afcef2cd0177014d053ee4b167d@sha256:8bcb7e8b7b0ecf5cd99a890c2b93892a74bed135982c7a4ff4feeb08f6817b90
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
