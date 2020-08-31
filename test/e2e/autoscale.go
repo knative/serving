@@ -315,7 +315,7 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 					// A quick test succeeds when the number of pods scales up to `targetPods`
 					// (and, for sanity check, no more than `maxPods`).
 					if got >= targetPods && got <= maxPods {
-						ctx.t.Logf("Got %v replicas, reached target of %v, exiting early", got, targetPods)
+						ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
 						return nil
 					}
 				}
