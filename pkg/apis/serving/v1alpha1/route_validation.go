@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strings"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/networking/pkg/apis/networking"
@@ -112,9 +112,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 func validateAnnotations(annotations map[string]string) *apis.FieldError {
 	disableAutoTLS := annotations[networking.DisableAutoTLSAnnotationKey]
 
-	if len(disableAutoTLS) > 0 &&
-		!strings.EqualFold(disableAutoTLS, "true") &&
-		!strings.EqualFold(disableAutoTLS, "false") {
+	if _, err := strconv.ParseBool(disableAutoTLS); err != nil {
 		return apis.ErrInvalidValue(disableAutoTLS, networking.DisableAutoTLSAnnotationKey)
 	}
 
