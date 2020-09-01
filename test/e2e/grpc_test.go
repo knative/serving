@@ -100,7 +100,7 @@ func autoscaleTest(t *testing.T, resources *v1test.ResourceObjects, clients *tes
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
-	ctx := &testContext{
+	ctx := &TestContext{
 		t:                 t,
 		clients:           clients,
 		resources:         resources,
@@ -129,7 +129,7 @@ func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients 
 		timer       = time.Tick(1 * time.Second)
 	)
 
-	ctx := &testContext{
+	ctx := &TestContext{
 		t:                 t,
 		clients:           clients,
 		resources:         resources,
@@ -240,7 +240,7 @@ func pingGRPC(host, domain, message string) (string, error) {
 	return got.Msg, nil
 }
 
-func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, host, domain string) {
+func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float64, duration time.Duration, host, domain string) {
 	ctx.t.Helper()
 	// Test succeeds when the number of pods meets targetPods.
 
