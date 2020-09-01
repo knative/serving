@@ -160,6 +160,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 type validationFunc func(*testing.T, *test.Clients, test.ResourceNames) error
 
+// ValidateEndpoint validates the given URL in `names` returns 200.
 func ValidateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,

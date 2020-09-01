@@ -47,7 +47,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	stopCh := make(chan time.Time)
 	go func() {
 		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
-		// over, at which point we will finish the test and check the prober.
+		// over, at which point we will finish the test.
 		ioutil.ReadFile(pipe)
 		close(stopCh)
 	}()
@@ -69,7 +69,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	stopCh := make(chan time.Time)
 	go func() {
 		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
-		// over, at which point we will finish the test and check the prober.
+		// over, at which point we will finish the test.
 		ioutil.ReadFile(pipe)
 		close(stopCh)
 	}()

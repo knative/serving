@@ -22,7 +22,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"os"
 	"testing"
 
 	"knative.dev/serving/test"
@@ -48,12 +47,7 @@ func TestProbe(t *testing.T) {
 		Image:   test.PizzaPlanet1,
 	}
 
-	cleanup := func() {
-		test.TearDown(clients, &names)
-		os.Remove(pipe)
-	}
-	t.Cleanup(cleanup)
-	test.CleanupOnInterrupt(cleanup)
+	test.EnsureTearDown(t, clients, &names)
 
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {

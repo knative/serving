@@ -19,6 +19,7 @@ package upgrade
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"syscall"
 	"testing"
 
@@ -86,4 +87,8 @@ func createPipe(name string, t *testing.T) {
 			t.Fatal("Failed to create pipe:", err)
 		}
 	}
+
+	test.EnsureCleanup(t, func() {
+		os.Remove(name)
+	})
 }
