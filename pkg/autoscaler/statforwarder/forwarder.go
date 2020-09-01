@@ -134,7 +134,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 			return false
 		}
 
-		if p, ok := f.getProcessor(l.Name); ok && p.holder == *l.Spec.HolderIdentity {
+		if p := f.getProcessor(l.Name); p != nil && p.holder == *l.Spec.HolderIdentity {
 			// Already up-to-date.
 			return false
 		}
@@ -274,11 +274,10 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	return nil
 }
 
-func (f *Forwarder) getProcessor(bkt string) (*bucketProcessor, bool) {
+func (f *Forwarder) getProcessor(bkt string) *bucketProcessor {
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
-	result, ok := f.processors[bkt]
-	return result, ok
+	return f.processors[bkt]
 }
 
 func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
@@ -334,8 +333,8 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	l := f.logger.With(zap.String("revision", rev))
 	bkt := f.bs.Owner(rev)
 
-	p, ok := f.getProcessor(bkt)
-	if !ok {
+	p := f.getProcessor(bkt)
+	if p == nil {
 		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
 		return
 	}
