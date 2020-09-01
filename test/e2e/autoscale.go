@@ -288,9 +288,7 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 }
 
 func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration, quick bool) error {
-	// Short-circuit traffic generation once we exit from the check logic.
-	done := time.After(duration)
-	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done, quick)
+	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, time.After(duration), quick)
 }
 
 func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
@@ -348,16 +346,27 @@ func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float6
 	}
 }
 
+// assertAutoscaleUpToNumPods supports two test modes: quick, and not quick.
+// 1) Quick mode: succeeds when the number of pods meets targetPods.
+// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//    sustains there for the `duration`.
 func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, quick bool) {
+	assertAutoscaleUpToNumPodsWithDurationAndDone(ctx, curPods, targetPods, duration, time.After(duration), quick)
+}
+
+// AssertAutoscaleUpToNumPodsWithDone asserts the number of pods gets scaled to targetPods and
+// sustains there until the `done` channel sends a signal.
+func AssertAutoscaleUpToNumPodsWithDone(ctx *testContext, curPods, targetPods float64, done <-chan time.Time) {
+	// We use 10 hours here which should be suffient for the e2e tests.
+	assertAutoscaleUpToNumPodsWithDurationAndDone(ctx, curPods, targetPods, 10*time.Hour, done, false /* quick */)
+}
+
+// DO NOT USE this one directly. Use assertAutoscaleUpToNumPods or AssertAutoscaleUpToNumPodsWithDone instead.
+func assertAutoscaleUpToNumPodsWithDurationAndDone(ctx *testContext, curPods, targetPods float64, duration time.Duration, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
-	// There are two test modes: quick, and not quick.
-	// 1) Quick mode: succeeds when the number of pods meets targetPods.
-	// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
-	//    sustains there for the `duration`.
 
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
-
 	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
 	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
 
@@ -374,35 +383,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, duration, quick)
-	})
-
-	if err := grp.Wait(); err != nil {
-		ctx.t.Errorf("Error: %v", err)
-	}
-}
-
-func assertAutoscaleUpToNumPodsUntilDone(ctx *testContext, curPods, targetPods float64, done <-chan time.Time) {
-	ctx.t.Helper()
-
-	duration := 20 * time.Hour
-	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
-	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
-
-	stopChan := make(chan struct{})
-	var grp errgroup.Group
-	grp.Go(func() error {
-		switch ctx.metric {
-		case autoscaling.RPS:
-			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
-		default:
-			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
-		}
-	})
-
-	grp.Go(func() error {
-		defer close(stopChan)
-		return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done)
+		return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done, quick)
 	})
 
 	if err := grp.Wait(); err != nil {

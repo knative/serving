@@ -21,30 +21,58 @@ package upgrade
 import (
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test/e2e"
 )
 
 const (
-	containerConcurrency   = 6
+	target                 = 6
 	targetUtilization      = 0.7
 	autoscaleTestImageName = "autoscale"
 )
 
+// This test similar to TestAutoscaleSustaining in test/e2e/autoscale_test.go. It asserts
+// the pods number is sustained during the whole cluster upgrade/downgrade process.
 func TestAutoscaleSustaining(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
 	createPipe(pipe, t)
 
-	e2e.SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint)
+	ctx := e2e.SetupSvc(t, autoscaling.RPS, autoscaling.Concurrency, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint)
 
-	stopCh := make(chan struct{})
+	stopCh := make(chan time.Time)
 	go func() {
 		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 		// over, at which point we will finish the test and check the prober.
 		ioutil.ReadFile(pipe)
 		close(stopCh)
 	}()
+
+	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 10, stopCh)
+}
+
+func TestAutoscaleSustainingWithTBC(t *testing.T) {
+	t.Parallel()
+	// Create a named pipe and wait for the upgrade script to write to it
+	// to signal that we should stop testing.
+	createPipe(pipe, t)
+
+	ctx := e2e.SetupSvc(t, autoscaling.RPS, autoscaling.Concurrency, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
+		}))
+
+	stopCh := make(chan time.Time)
+	go func() {
+		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
+		// over, at which point we will finish the test and check the prober.
+		ioutil.ReadFile(pipe)
+		close(stopCh)
+	}()
+
+	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 10, stopCh)
 }
