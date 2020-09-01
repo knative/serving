@@ -1813,8 +1813,8 @@ knative.dev/pkg v0.0.0-20200528142800-1c6815d7e4c9/go.mod h1:QgNZTxnwpB/oSpNcfnL
 knative.dev/pkg v0.0.0-20200711004937-22502028e31a/go.mod h1:AqAJV6rYi8IGikDjJ/9ZQd9qKdkXVlesVnVjwx62YB8=
 knative.dev/pkg v0.0.0-20200831094608-e9da10bc8a18 h1:BJTbbN0/J0BY76tzHE6/oko4lw6GEeahMrZUfigySyc=
 knative.dev/pkg v0.0.0-20200831094608-e9da10bc8a18/go.mod h1:vOVUMtkIWK+hq1+KwlLYBSYVjz5SNIP1vMj3/5SNGZw=
-knative.dev/pkg v0.0.0-20200831210615-9c7506148742 h1:RZ/7XRzuh6h1SKv8ucQEUgEGIe3R9VjHe3eNw+LiBWc=
-knative.dev/pkg v0.0.0-20200831210615-9c7506148742/go.mod h1:vOVUMtkIWK+hq1+KwlLYBSYVjz5SNIP1vMj3/5SNGZw=
+knative.dev/pkg v0.0.0-20200831232415-383dd08a323b h1:EQv7fCQggjWO/kPc9OMOn4tHHhB12UfEpHkY+kSPasU=
+knative.dev/pkg v0.0.0-20200831232415-383dd08a323b/go.mod h1:q+4+Cm768P6vsAvsD9J+cZ1hoy4aHyHSfRTvaFyPd3g=
 knative.dev/test-infra v0.0.0-20200407185800-1b88cb3b45a5/go.mod h1:xcdUkMJrLlBswIZqL5zCuBFOC22WIPMQoVX1L35i0vQ=
 knative.dev/test-infra v0.0.0-20200505052144-5ea2f705bb55/go.mod h1:WqF1Azka+FxPZ20keR2zCNtiQA1MP9ZB4BH4HuI+SIU=
 knative.dev/test-infra v0.0.0-20200513011557-d03429a76034/go.mod h1:aMif0KXL4g19YCYwsy4Ocjjz5xgPlseYV+B95Oo4JGE=
@@ -1824,6 +1824,8 @@ knative.dev/test-infra v0.0.0-20200825022047-cb4bb218c5e5 h1:iqbpe5rccMW2r1Mu1Pr
 knative.dev/test-infra v0.0.0-20200825022047-cb4bb218c5e5/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 knative.dev/test-infra v0.0.0-20200828211307-9d4372c9b1c7 h1:yIzao6i9Hu51SCdpyqBEnhpt7G12FqFrxHK6ZnQnu8o=
 knative.dev/test-infra v0.0.0-20200828211307-9d4372c9b1c7/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
+knative.dev/test-infra v0.0.0-20200831235415-fac473dda98b h1:jafH61XDC6EkogEyR70h/sjYLx2Nf3qKVzPP2MCqEQ4=
+knative.dev/test-infra v0.0.0-20200831235415-fac473dda98b/go.mod h1:Pmg2c7Z7q7BGFUV/GOpU5BlrD3ePJft4MPqx8AYBplc=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
