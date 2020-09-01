@@ -1319,7 +1319,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		apply:                func(*v1.Route, *configmap.ManualWatcher) {},
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
-		apply: func(r *v1.Route, watcher *configmap.ManualWatcher) {
+		apply: func(_ *v1.Route, watcher *configmap.ManualWatcher) {
 			watcher.OnChange(&templateCM)
 		},
 	}, {
