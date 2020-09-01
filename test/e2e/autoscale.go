@@ -160,7 +160,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 type validationFunc func(*testing.T, *test.Clients, test.ResourceNames) error
 
-func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
+func ValidateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -177,12 +177,12 @@ func toPercentageString(f float64) string {
 	return strconv.FormatFloat(f*100, 'f', -1, 64)
 }
 
-// setup creates a new service, with given service options.
+// SetupSvc creates a new service, with given service options.
 // It returns a testContext that has resources, K8s clients and other needed
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -288,8 +288,12 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 }
 
 func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration) error {
-	// Short-circuit traffic generation once we exit from the check logic.
 	done := time.After(duration)
+	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done)
+}
+
+func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float64, done <-chan time.Time) error {
+	// Short-circuit traffic generation once we exit from the check logic.
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -371,6 +375,34 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	}
 }
 
+func assertAutoscaleUpToNumPodsUntilDone(ctx *testContext, curPods, targetPods float64, done <-chan time.Time) {
+	ctx.t.Helper()
+
+	duration := 20 * time.Hour
+	minPods := math.Floor(curPods/ctx.targetUtilization) - 1
+	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
+
+	stopChan := make(chan struct{})
+	var grp errgroup.Group
+	grp.Go(func() error {
+		switch ctx.metric {
+		case autoscaling.RPS:
+			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
+		default:
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
+		}
+	})
+
+	grp.Go(func() error {
+		defer close(stopChan)
+		return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done)
+	})
+
+	if err := grp.Wait(); err != nil {
+		ctx.t.Errorf("Error: %v", err)
+	}
+}
+
 // RunAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
 // metric tracks the given target.
 func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
@@ -379,7 +411,7 @@ func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = 10
 	}
 
-	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := SetupSvc(t, class, metric, target, targetUtilization, autoscaleTestImageName, ValidateEndpoint)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
