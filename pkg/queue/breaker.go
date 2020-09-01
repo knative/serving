@@ -199,7 +199,7 @@ type semaphore struct {
 	queue chan struct{}
 }
 
-// tryAcquire receives the token from the semaphore if there's one otherwise returns false.
+// tryAcquire receives a token from the semaphore if there is one otherwise returns false.
 func (s *semaphore) tryAcquire() bool {
 	for {
 		old := s.state.Load()
