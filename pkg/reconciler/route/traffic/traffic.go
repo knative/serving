@@ -116,7 +116,7 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]
 
 			labels.SetVisibility(meta, t.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
 
-			// http is currently the only supported scheme
+			// HTTP is currently the only supported scheme.
 			fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
 			if err != nil {
 				return nil, err
