@@ -255,6 +255,11 @@ func (s *semaphore) release() error {
 				select {
 				case s.queue <- struct{}{}:
 				default:
+					// We generate more wakeups than we might need as we don't know
+					// how many goroutines are waiting here. It is therefore okay
+					// to drop the poke on the floor here as this case would mean we
+					// have enough wakeups to wake up as many goroutines as this semaphore
+					// can take, which is guaranteed to be enough.
 				}
 			}
 			return nil
@@ -284,6 +289,7 @@ func (s *semaphore) updateCapacity(size int) error {
 					select {
 					case s.queue <- struct{}{}:
 					default:
+						// See comment in `release` for explanation of this case.
 					}
 				}
 			}
@@ -292,7 +298,7 @@ func (s *semaphore) updateCapacity(size int) error {
 	}
 }
 
-// Capacity is the effective capacity after taking reducers into account.
+// Capacity is the capacity of the semaphore.
 func (s *semaphore) Capacity() int {
 	capacity, _ := unpack(s.state.Load())
 	return int(capacity)
