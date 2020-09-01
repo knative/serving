@@ -1375,7 +1375,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				if err != nil {
 					return false, err
 				}
-				return !cmp.Equal(r.Status, route.Status), nil
+				return !cmp.Equal(r.Status, route.Status) && r.Generation == r.Status.ObservedGeneration, nil
 			}); err != nil {
 				t.Fatal("Failed to see route initial reconcile propagation:", err)
 			}
@@ -1385,43 +1385,56 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			// fake cache is going to be changed. Now, this update sometimes races with
 			// the CM update and since the update below is a noop (the same object
 			// is applied), nothing happens and the test fails (for one of the tests).
-			route = route.DeepCopy()
-			route.Generation++
-			tc.apply(route, watcher)
-			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-			if _, err := routeClient.Update(route); err != nil {
-				t.Fatal("Route.Update() =", err)
-			}
-
-			// Ensure we have the proper version in the informers.
-			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				r, err := rl.Get(route.Name)
-				return r != nil && r.Generation == route.Generation, err
-			}); err != nil {
-				t.Error("Failed to see informers get the new Route version:", err)
-			}
-
-			// Now that we know the exact version the reconciler is going to see in the
-			// informers, let's reconcile.
-			if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
-				t.Fatal("Reconcile() =", err)
-			}
-
+			// So we'll retry the operation several times.
+			timeout := time.After(10 * time.Second)
 			wantDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, tc.expectedDomainSuffix)
-			var gotDomain string
-			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-				r, err := routeClient.Get(route.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
+			for i := 1; ; i++ {
+				select {
+				case <-timeout:
+					t.Fatal("Timed out trying to see the propagation")
+				default:
+					t.Log("Starting iteration", i)
 				}
-				// Wait for the object to reconcile and the domain to propagate.
-				if r.Status.ObservedGeneration != route.Generation && r.Status.URL == nil {
-					return false, nil
+				route, _ := rl.Get(route.Name)
+				route = route.DeepCopy()
+				route.Generation++
+				tc.apply(route, watcher)
+				if _, err := routeClient.Update(route); err != nil {
+					t.Fatal("Route.Update() =", err)
 				}
-				gotDomain = r.Status.URL.Host
-				return gotDomain == wantDomain, nil
-			}); err != nil {
-				t.Fatalf("Failed to see route domain propagation, got %s, want %s: %v", gotDomain, wantDomain, err)
+
+				// Ensure we have the proper version in the informers.
+				if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+					r, err := rl.Get(route.Name)
+					return r != nil && r.Generation == route.Generation, err
+				}); err != nil {
+					t.Fatal("Failed to see informers get the new Route version:", err)
+				}
+
+				// Now that we know the exact version the reconciler is going to see in the
+				// informers, let's reconcile.
+				if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route)); err != nil {
+					t.Fatal("Reconcile() =", err)
+				}
+
+				var gotDomain string
+				if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+					r, err := routeClient.Get(route.Name, metav1.GetOptions{})
+					if err != nil {
+						return false, err
+					}
+					// Wait for the object to reconcile and the domain to propagate.
+					if r.Status.ObservedGeneration != route.Generation && r.Status.URL == nil {
+						return false, nil
+					}
+					gotDomain = r.Status.URL.Host
+					return gotDomain == wantDomain, nil
+				}); err != nil {
+					t.Logf("Failed to see route domain propagation, got %s, want %s: %v", gotDomain, wantDomain, err)
+				} else {
+					t.Log("Success")
+					break
+				}
 			}
 		})
 	}
