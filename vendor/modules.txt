@@ -1040,7 +1040,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20200828162208-ccf6aa330912
+# knative.dev/caching v0.0.0-20200831164016-8993b9e0e6f6
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1061,7 +1061,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20200828165907-5809e67909aa
+# knative.dev/networking v0.0.0-20200901153316-80398434dcd4
 ## explicit
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1088,7 +1088,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
-# knative.dev/pkg v0.0.0-20200831094608-e9da10bc8a18
+# knative.dev/pkg v0.0.0-20200901172015-edd1b5e0bebf
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1214,7 +1214,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200828211307-9d4372c9b1c7
+# knative.dev/test-infra v0.0.0-20200831235415-fac473dda98b
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/yaml v1.2.0

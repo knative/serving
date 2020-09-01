@@ -90,6 +90,32 @@ func Setup(org, repo, githubTokenPath string, dryrun bool) (*IssueHandler, error
 	return &IssueHandler{client: ghc, config: conf}, nil
 }
 
+// createNewIssue will create a new issue, and add perfLabel for it.
+func (gih *IssueHandler) createNewIssue(title, body string) (*github.Issue, error) {
+	var newIssue *github.Issue
+	if err := helpers.Run(
+		fmt.Sprintf("creating issue %q in %q", title, gih.config.repo),
+		func() error {
+			var err error
+			newIssue, err = gih.client.CreateIssue(gih.config.org, gih.config.repo, title, body)
+			return err
+		},
+		gih.config.dryrun,
+	); nil != err {
+		return nil, err
+	}
+	if err := helpers.Run(
+		fmt.Sprintf("adding perf label for issue %q in %q", title, gih.config.repo),
+		func() error {
+			return gih.client.AddLabelsToIssue(gih.config.org, gih.config.repo, *newIssue.Number, []string{perfLabel})
+		},
+		gih.config.dryrun,
+	); nil != err {
+		return nil, err
+	}
+	return newIssue, nil
+}
+
 // CreateIssueForTest will try to add an issue with the given testName and description.
 // If there is already an issue related to the test, it will try to update that issue.
 func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
@@ -138,32 +164,6 @@ func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
 		return fmt.Errorf("failed to edit the comment for issue %d: %w", issueNumber, err)
 	}
 	return nil
-}
-
-// createNewIssue will create a new issue, and add perfLabel for it.
-func (gih *IssueHandler) createNewIssue(title, body string) (*github.Issue, error) {
-	var newIssue *github.Issue
-	if err := helpers.Run(
-		fmt.Sprintf("creating issue %q in %q", title, gih.config.repo),
-		func() error {
-			var err error
-			newIssue, err = gih.client.CreateIssue(gih.config.org, gih.config.repo, title, body)
-			return err
-		},
-		gih.config.dryrun,
-	); nil != err {
-		return nil, err
-	}
-	if err := helpers.Run(
-		fmt.Sprintf("adding perf label for issue %q in %q", title, gih.config.repo),
-		func() error {
-			return gih.client.AddLabelsToIssue(gih.config.org, gih.config.repo, *newIssue.Number, []string{perfLabel})
-		},
-		gih.config.dryrun,
-	); nil != err {
-		return nil, err
-	}
-	return newIssue, nil
 }
 
 // CloseIssueForTest will try to close the issue for the given testName.

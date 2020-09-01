@@ -287,12 +287,13 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
-func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration) error {
+func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration, quick bool) error {
+	// Short-circuit traffic generation once we exit from the check logic.
 	done := time.After(duration)
-	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done)
+	return checkPodScaleWithDone(ctx, targetPods, minPods, maxPods, done, quick)
 }
 
-func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float64, done <-chan time.Time) error {
+func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float64, done <-chan time.Time, quick bool) error {
 	// Short-circuit traffic generation once we exit from the check logic.
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -315,8 +316,14 @@ func checkPodScaleWithDone(ctx *testContext, targetPods, minPods, maxPods float6
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, for sanity check, no more than `maxPods`).
 			if got >= targetPods && got <= maxPods {
-				ctx.t.Logf("Got %v replicas, reached target of %v, exiting early", got, targetPods)
-				return nil
+				if quick {
+					// A quick test succeeds when the number of pods scales up to `targetPods`
+					// (and, for sanity check, no more than `maxPods`).
+					if got >= targetPods && got <= maxPods {
+						ctx.t.Logf("Quick Mode: got %v >= %v", got, targetPods)
+						return nil
+					}
+				}
 			}
 			if minPods < targetPods-1 {
 				// Increase `minPods`, but leave room to reduce flakiness.
@@ -367,7 +374,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 
 	grp.Go(func() error {
 		defer close(stopChan)
-		return checkPodScale(ctx, targetPods, minPods, maxPods, duration)
+		return checkPodScale(ctx, targetPods, minPods, maxPods, duration, quick)
 	})
 
 	if err := grp.Wait(); err != nil {
