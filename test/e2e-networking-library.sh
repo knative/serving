@@ -19,29 +19,37 @@ function install_istio() {
     readonly ISTIO_VERSION="stable"
   fi
 
-  # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
-  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
+#  # TODO: Figure out the commit of net-istio.yaml from net-istio.yaml
+#  local NET_ISTIO_COMMIT=f64ed34d3776a444372483dddc15a330c6c1ac53
+#
+#  # And checkout the setup script based on that commit.
+#  local NET_ISTIO_DIR=$(mktemp -d)
+#  (
+#    cd $NET_ISTIO_DIR \
+#      && git init \
+#      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
+#      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
+#      && git checkout FETCH_HEAD
+#  )
+#
+#  if (( MESH )); then
+#    ISTIO_PROFILE="istio-ci-mesh.yaml"
+#  else
+#    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
+#  fi
+#
+#  echo ">> Installing Istio"
+#  echo "Istio version: ${ISTIO_VERSION}"
+#  echo "Istio profile: ${ISTIO_PROFILE}"
+#  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
 
-  # And checkout the setup script based on that commit.
-  local NET_ISTIO_DIR=$(mktemp -d)
-  (
-    cd $NET_ISTIO_DIR \
-      && git init \
-      && git remote add origin https://github.com/knative-sandbox/net-istio.git \
-      && git fetch --depth 1 origin $NET_ISTIO_COMMIT \
-      && git checkout FETCH_HEAD
-  )
-
-  if (( MESH )); then
-    ISTIO_PROFILE="istio-ci-mesh.yaml"
-  else
-    ISTIO_PROFILE="istio-ci-no-mesh.yaml"
-  fi
-
-  echo ">> Installing Istio"
-  echo "Istio version: ${ISTIO_VERSION}"
-  echo "Istio profile: ${ISTIO_PROFILE}"
-  ${NET_ISTIO_DIR}/third_party/istio-${ISTIO_VERSION}/install-istio.sh ${ISTIO_PROFILE}
+  # Install Istio with fixed image.
+#  ISTIO_PROFILE="istio-ci-no-mesh.yaml"
+#  ./third_party/istio-stable/install-istio.sh ${ISTIO_PROFILE}
+#  kubectl -n istio-system set image  deployment/istiod discovery=gcr.io/howardjohn-istio/pilot@sha256:6df41d5ba9e8bc19cfe46dbe13e437c11f52689a2341b47a78dd720f0c41e25e
+  kubectl create namespace istio-system -o yaml --dry-run | kubectl apply -f -
+  kubectl apply -f ./third_party/istio-stable/istio-ci-no-mesh-fix.yaml
+  kubectl wait --for=condition=Available deployment --all --timeout=120s -n istio-system
 
   if [[ -n "$1" ]]; then
     echo ">> Installing net-istio"
