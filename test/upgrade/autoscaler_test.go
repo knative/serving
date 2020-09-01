@@ -42,7 +42,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(pipe, t)
 
-	ctx := e2e.SetupSvc(t, autoscaling.RPS, autoscaling.Concurrency, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint)
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint)
 
 	stopCh := make(chan time.Time)
 	go func() {
@@ -61,7 +61,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(pipe, t)
 
-	ctx := e2e.SetupSvc(t, autoscaling.RPS, autoscaling.Concurrency, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint,
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 		}))
