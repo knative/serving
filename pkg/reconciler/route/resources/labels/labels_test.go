@@ -24,40 +24,76 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
+func TestIsObjectLocalVisibility(t *testing.T) {
+	tests := []struct {
+		name     string
+		meta     *v1.ObjectMeta
+		expected bool
+	}{{
+		name: "nil",
+		meta: &v1.ObjectMeta{},
+	}, {
+		name: "empty labels",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{},
+		},
+	}, {
+		name: "no matching labels",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{"frankie-goes": "to-hollywood"},
+		},
+	}, {
+		name: "false",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{serving.VisibilityLabelKey: ""},
+		},
+	}, {
+		name: "true",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{serving.VisibilityLabelKey: "set"},
+		},
+		expected: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got, want := IsObjectLocalVisibility(test.meta), test.expected; got != want {
+				t.Errorf("IsObjectLocalVisibility = %v, want: %v", got, want)
+			}
+		})
+	}
+}
+
 func TestDeleteLabel(t *testing.T) {
 	tests := []struct {
 		name     string
 		meta     *v1.ObjectMeta
 		key      string
 		expected v1.ObjectMeta
-	}{
-		{
-			name:     "No labels in object meta",
-			meta:     &v1.ObjectMeta{},
-			key:      "key",
-			expected: v1.ObjectMeta{},
+	}{{
+		name:     "No labels in object meta",
+		meta:     &v1.ObjectMeta{},
+		key:      "key",
+		expected: v1.ObjectMeta{},
+	}, {
+		name: "No matching key",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{"some label": "some value"},
 		},
-		{
-			name: "No matching key",
-			meta: &v1.ObjectMeta{
-				Labels: map[string]string{"some label": "some value"},
-			},
-			key: "unknown",
-			expected: v1.ObjectMeta{
-				Labels: map[string]string{"some label": "some value"},
-			},
+		key: "unknown",
+		expected: v1.ObjectMeta{
+			Labels: map[string]string{"some label": "some value"},
 		},
-		{
-			name: "Has matching key",
-			meta: &v1.ObjectMeta{
-				Labels: map[string]string{"some label": "some value"},
-			},
-			key: "some label",
-			expected: v1.ObjectMeta{
-				Labels: map[string]string{},
-			},
+	}, {
+		name: "Has matching key",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{"some label": "some value"},
 		},
-	}
+		key: "some label",
+		expected: v1.ObjectMeta{
+			Labels: map[string]string{},
+		},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			DeleteLabel(tt.meta, tt.key)
@@ -78,39 +114,35 @@ func TestSetLabel(t *testing.T) {
 		value string
 
 		expected v1.ObjectMeta
-	}{
-		{
-			name:  "No labels in object meta",
-			meta:  &v1.ObjectMeta{},
-			key:   "key",
-			value: "value",
-			expected: v1.ObjectMeta{
-				Labels: map[string]string{"key": "value"},
-			},
+	}{{
+		name:  "No labels in object meta",
+		meta:  &v1.ObjectMeta{},
+		key:   "key",
+		value: "value",
+		expected: v1.ObjectMeta{
+			Labels: map[string]string{"key": "value"},
 		},
-		{
-			name: "Empty labels",
-			meta: &v1.ObjectMeta{
-				Labels: map[string]string{},
-			},
-			key:   "key",
-			value: "value",
-			expected: v1.ObjectMeta{
-				Labels: map[string]string{"key": "value"},
-			},
+	}, {
+		name: "Empty labels",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{},
 		},
-		{
-			name: "Conflicting labels",
-			meta: &v1.ObjectMeta{
-				Labels: map[string]string{"key": "old value"},
-			},
-			key:   "key",
-			value: "new value",
-			expected: v1.ObjectMeta{
-				Labels: map[string]string{"key": "new value"},
-			},
+		key:   "key",
+		value: "value",
+		expected: v1.ObjectMeta{
+			Labels: map[string]string{"key": "value"},
 		},
-	}
+	}, {
+		name: "Conflicting labels",
+		meta: &v1.ObjectMeta{
+			Labels: map[string]string{"key": "old value"},
+		},
+		key:   "key",
+		value: "new value",
+		expected: v1.ObjectMeta{
+			Labels: map[string]string{"key": "new value"},
+		},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SetLabel(tt.meta, tt.key, tt.value)
