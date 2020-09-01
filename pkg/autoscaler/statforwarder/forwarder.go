@@ -56,10 +56,10 @@ const (
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
 
-// bucketProcessor includes the inforamtion about how to process
+// bucketProcessor includes the information about how to process
 // the StatMessage owned by a bucket.
 type bucketProcessor struct {
-	// holder is the HolderIdentity for a bucket from the Lease
+	// holder is the HolderIdentity for a bucket from the Lease.
 	holder string
 	// conn is the WebSocket connection to the holder pod.
 	conn *websocket.ManagedConnection
@@ -326,7 +326,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	}
 }
 
-// Process calls Forwarder.accept if the pod where this Forwarder running is the owner
+// Process calls Forwarder.accept if the pod where this Forwarder is running is the owner
 // of the given StatMessage. Otherwise it forwards the given StatMessage to the right
 // owner pod. If it can't find the owner, it drops the StatMessage.
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {

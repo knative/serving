@@ -461,12 +461,12 @@ func TestProcess(t *testing.T) {
 	f.Process(stat2)
 
 	if got, want := acceptCount, 1; got != want {
-		t.Errorf("accpetCount = %d, want = %d", got, want)
+		t.Errorf("acceptCount = %d, want = %d", got, want)
 	}
 	if got, want := forwardCount, 2; got != want {
 		t.Errorf("forwardCount = %d, want = %d", got, want)
 	}
 
-	// Check Cancel is called without error.
+	// Make sure Cancel can be called without crash.
 	f.Cancel()
 }
