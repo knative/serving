@@ -82,13 +82,19 @@ spec:
         - name: websocket
           containerPort: 8080
 
-        readinessProbe: &probe
+        readinessProbe:
           httpGet:
             port: 8080
             httpHeaders:
             - name: k-kubelet-probe
               value: "autoscaler"
-        livenessProbe: *probe
+        livenessProbe:
+          httpGet:
+            port: 8080
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "autoscaler"
+          failureThreshold: 6
 
 ---
 apiVersion: v1
