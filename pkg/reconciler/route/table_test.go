@@ -1750,7 +1750,6 @@ func TestReconcile(t *testing.T) {
 				Namespace: "default",
 				Verb:      "delete",
 				Resource: schema.GroupVersionResource{
-					Group:    "core",
 					Version:  "v1",
 					Resource: "services",
 				},
@@ -1789,7 +1788,6 @@ func TestReconcile(t *testing.T) {
 				Namespace: "default",
 				Verb:      "delete",
 				Resource: schema.GroupVersionResource{
-					Group:    "core",
 					Version:  "v1",
 					Resource: "services",
 				},
