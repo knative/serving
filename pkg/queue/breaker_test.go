@@ -94,7 +94,7 @@ func TestBreakerOverloadMixed(t *testing.T) {
 	// Bring breaker to capacity.
 	reqs.request()
 	// This happens in go-routine, so spin.
-	for len(b.sem.queue) > 0 {
+	for _, in := unpack(b.sem.state.Load()); in != 1; _, in = unpack(b.sem.state.Load()) {
 		time.Sleep(time.Millisecond * 2)
 	}
 	_, rr := b.Reserve(context.Background())
@@ -263,7 +263,7 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 
 	sem := newSemaphore(1, 0)
 	tryAcquire(sem, gotChan)
-	sem.release() // Allows 1 acquire
+	sem.updateCapacity(1) // Allows 1 acquire
 
 	for i := 0; i < want; i++ {
 		select {
@@ -293,30 +293,6 @@ func TestSemaphoreRelease(t *testing.T) {
 	}
 }
 
-func TestSemaphoreReleasesSeveralReducers(t *testing.T) {
-	const wantAfterFirstrelease = 1
-	const wantAfterSecondrelease = 0
-	sem := newSemaphore(2, 2)
-	sem.acquire(context.Background())
-	sem.acquire(context.Background())
-	sem.updateCapacity(0)
-	sem.release()
-	if got := sem.Capacity(); got != wantAfterSecondrelease {
-		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
-	}
-	if sem.reducers != wantAfterFirstrelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterFirstrelease)
-	}
-
-	sem.release()
-	if got := sem.Capacity(); got != wantAfterSecondrelease {
-		t.Errorf("Capacity = %d, want: %d", got, wantAfterSecondrelease)
-	}
-	if sem.reducers != wantAfterSecondrelease {
-		t.Errorf("sem.reducers = %d, want: %d", sem.reducers, wantAfterSecondrelease)
-	}
-}
-
 func TestSemaphoreUpdateCapacity(t *testing.T) {
 	const initialCapacity = 1
 	sem := newSemaphore(3, initialCapacity)
@@ -327,40 +303,6 @@ func TestSemaphoreUpdateCapacity(t *testing.T) {
 	sem.updateCapacity(initialCapacity + 2)
 	if got, want := sem.Capacity(), 3; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-}
-
-// Test the case when we add more capacity then the number of waiting reducers
-func TestSemaphoreUpdateCapacityLessThenReducers(t *testing.T) {
-	const initialCapacity = 2
-	sem := newSemaphore(2, initialCapacity)
-	sem.acquire(context.Background())
-	sem.acquire(context.Background())
-	sem.updateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, 2; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
-	}
-	sem.release()
-	sem.release()
-	sem.release()
-	if got, want := sem.reducers, 0; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
-	}
-}
-
-func TestSemaphoreUpdateCapacityConsumingReducers(t *testing.T) {
-	const initialCapacity = 2
-	sem := newSemaphore(2, initialCapacity)
-	sem.acquire(context.Background())
-	sem.acquire(context.Background())
-	sem.updateCapacity(initialCapacity - 2)
-	if got, want := sem.reducers, 2; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
-	}
-
-	sem.updateCapacity(initialCapacity)
-	if got, want := sem.reducers, 0; got != want {
-		t.Errorf("sem.reducers = %d, want: %d", got, want)
 	}
 }
 
@@ -379,18 +321,21 @@ func TestSemaphoreUpdateCapacityOutOfBound(t *testing.T) {
 	}
 }
 
-func TestSemaphoreUpdateCapacityBrokenState(t *testing.T) {
-	sem := newSemaphore(1, 0)
-	sem.release() // This Release is not paired with an acquire
-	if err := sem.updateCapacity(1); err != ErrUpdateCapacity {
-		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
-	}
-}
-
 func TestSemaphoreUpdateCapacityDoNothing(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	if err := sem.updateCapacity(1); err != nil {
 		t.Errorf("updateCapacity = %v, want: %v", err, nil)
+	}
+}
+
+func TestPackUnpack(t *testing.T) {
+	wantL := uint64(256)
+	wantR := uint64(513)
+
+	gotL, gotR := unpack(pack(wantL, wantR))
+
+	if gotL != wantL || gotR != wantR {
+		t.Fatalf("Got %d, %d want %d, %d", gotL, gotR, wantL, wantR)
 	}
 }
 
