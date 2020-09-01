@@ -36,7 +36,6 @@ import (
 // the revision level. This test runs after the cluster wide flag allow-zero-initial-scale
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
-	t.Skip("Enable once #9245 is fixed")
 	t.Parallel()
 
 	clients := Setup(t)

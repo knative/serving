@@ -319,7 +319,8 @@ func TestReconcile(t *testing.T) {
 				WithK8sServiceName("something-in-the-way"), WithLogURL,
 				WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive.")),
+				WithNoTraffic("NoTraffic", "This thing is inactive."),
+				WithPAStatusService("pa-inactive")),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
@@ -330,7 +331,26 @@ func TestReconcile(t *testing.T) {
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
 				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded,
-					"Initial scale was never achieved")),
+					"Initial scale was never achieved"), WithK8sServiceName("pa-inactive")),
+		}},
+		Key: "foo/pa-inactive",
+	}, {
+		Name: "pa is not ready with initial scale zero, but ServiceName still empty, so not marking resources available false",
+		Objects: []runtime.Object{
+			Revision("foo", "pa-inactive", allUnknownConditions,
+				WithK8sServiceName("something-in-the-way"), WithLogURL,
+				WithRevisionObservedGeneration(1)),
+			pa("foo", "pa-inactive",
+				WithNoTraffic("NoTraffic", "This thing is inactive."), WithPAStatusService("")),
+			readyDeploy(deploy(t, "foo", "pa-inactive")),
+			image("foo", "pa-inactive"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// We should not mark resources unavailable if ServiceName is empty
+			Object: Revision("foo", "pa-inactive",
+				WithLogURL, withDefaultContainerStatuses(), allUnknownConditions,
+				MarkInactive("NoTraffic", "This thing is inactive."),
+				WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/pa-inactive",
 	}, {
