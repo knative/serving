@@ -83,7 +83,7 @@ func createNewService(serviceName string, t *testing.T) {
 // already exist happens.
 func createPipe(name string, t *testing.T) {
 	if err := syscall.Mkfifo(name, 0666); err != nil {
-		if err.Error() != "file exists" {
+		if !err.Is(os.ErrExist) {
 			t.Fatal("Failed to create pipe:", err)
 		}
 	}
