@@ -106,6 +106,7 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
+## explicit
 github.com/dgrijalva/jwt-go
 # github.com/docker/cli v0.0.0-20200210162036-a4bedce16568
 github.com/docker/cli/cli/config
