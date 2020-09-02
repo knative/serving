@@ -418,6 +418,10 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 }
 
 func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
+	if !config.FromContext(ctx).Network.AutoTLS {
+		return false
+	}
+
 	logger := logging.FromContext(ctx)
 	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
 	
@@ -429,7 +433,7 @@ func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 			networking.DisableAutoTLSAnnotationKey, annotationValue)
 	}
 
-	return config.FromContext(ctx).Network.AutoTLS && !disabledByAnnotation
+	return !disabledByAnnotation
 }
 
 func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
