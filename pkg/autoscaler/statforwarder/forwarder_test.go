@@ -129,13 +129,6 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
 	}
 
-	if p, ok := f1.processors[bucket1]; !ok || p.holder != testIP1 {
-		t.Errorf("holder not found or not equal to %s", testIP1)
-	}
-	if p, ok := f2.processors[bucket1]; !ok || p.holder != testIP1 {
-		t.Errorf("holder not found or not equal to %s", testIP1)
-	}
-
 	// Lease holder gets changed.
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
@@ -160,13 +153,6 @@ func TestForwarderReconcile(t *testing.T) {
 		return false, nil
 	}); err != nil {
 		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
-	}
-
-	if p, ok := f1.processors[bucket1]; !ok || p.holder != testIP2 {
-		t.Errorf("holder not found or not equal to %s", testIP2)
-	}
-	if p, ok := f2.processors[bucket1]; !ok || p.holder != testIP2 {
-		t.Errorf("holder not found or not equal to %s", testIP2)
 	}
 }
 
