@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 5
+  replicas: 1
   selector:
     matchLabels:
       app: autoscaler
@@ -67,10 +67,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME

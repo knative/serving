@@ -184,7 +184,7 @@ func main() {
 
 	cc := leaderElectionConfig.GetComponentConfig(component)
 	cc.LeaseName = func(i uint32) string {
-		return endpointsBucketName(i, 10)
+		return endpointsBucketName(i, cc.Buckets)
 	}
 	cc.Identity = selfIP
 	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
