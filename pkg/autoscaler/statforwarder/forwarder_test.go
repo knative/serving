@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ktesting "k8s.io/client-go/testing"
@@ -40,6 +41,7 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -61,9 +63,12 @@ var (
 			HolderIdentity: &testIP1,
 		},
 	}
+	// A statProcessor doing nothing.
+	noOp = func(sm asmetrics.StatMessage) {}
 )
 
 func TestForwarderReconcile(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -81,8 +86,8 @@ func TestForwarderReconcile(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
@@ -153,6 +158,7 @@ func TestForwarderReconcile(t *testing.T) {
 }
 
 func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -170,7 +176,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 
 	svcCreation := 0
 	retried := make(chan struct{})
@@ -195,6 +201,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -212,7 +219,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 
 	endpointsCreation := 0
 	retried := make(chan struct{})
@@ -237,6 +244,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
+	t.Parallel()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -254,7 +262,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 
 	endpointsUpdate := 0
 	retried := make(chan struct{})
@@ -287,6 +295,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 }
 
 func TestForwarderSkipReconciling(t *testing.T) {
+	t.Parallel()
 	ns := system.Namespace()
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
@@ -305,7 +314,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		waitInformers()
 	})
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs)
+	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
 
 	svcCreated := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -375,4 +384,89 @@ func TestForwarderSkipReconciling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProcess(t *testing.T) {
+	t.Parallel()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	kubeClient := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	service := fakeserviceinformer.Get(ctx)
+	lease := fakeleaseinformer.Get(ctx)
+
+	waitInformers, err := controller.RunInformers(
+		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	acceptCount := 0
+	accept := func(sm asmetrics.StatMessage) {
+		acceptCount++
+	}
+	f := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
+
+	stat1 := asmetrics.StatMessage{
+		Key: types.NamespacedName{
+			Namespace: testNs,
+			Name:      "succulent", // Mapped to bucket1
+		},
+	}
+	stat2 := asmetrics.StatMessage{
+		Key: types.NamespacedName{
+			Namespace: testNs,
+			Name:      "plant", // Mapped to bucket2
+		},
+	}
+
+	// A Forward without any leadership information should process without error.
+	f.Process(stat1)
+
+	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	lease.Informer().GetIndexer().Add(testLease)
+	anotherLease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bucket2,
+			Namespace: testNs,
+		},
+		Spec: coordinationv1.LeaseSpec{
+			HolderIdentity: &testIP2,
+		},
+	}
+	kubeClient.CoordinationV1().Leases(testNs).Create(anotherLease)
+	lease.Informer().GetIndexer().Add(anotherLease)
+
+	// Wait for the forwarder to become the leader for bucket1.
+	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+		p1 := f.getProcessor(bucket1)
+		p2 := f.getProcessor(bucket2)
+		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 && p1.conn == nil && p2.conn != nil, nil
+	}); err != nil {
+		t.Fatalf("Timeout waiting f.processors got updated")
+	}
+
+	forwardCount := 0
+	// Override the proc so we do not actually send via WebSocket.
+	f.processors[bucket2].proc = func(sm asmetrics.StatMessage) {
+		forwardCount++
+	}
+
+	f.Process(stat1)
+	f.Process(stat2)
+	f.Process(stat2)
+
+	if got, want := acceptCount, 1; got != want {
+		t.Errorf("acceptCount = %d, want = %d", got, want)
+	}
+	if got, want := forwardCount, 2; got != want {
+		t.Errorf("forwardCount = %d, want = %d", got, want)
+	}
+
+	// Make sure Cancel can be called without crash.
+	f.Cancel()
 }
