@@ -109,6 +109,8 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
+// TODO: this should be moved to knative/networking as part of
+// https://github.com/knative/networking/issues/123
 func validateAnnotations(annotations map[string]string) *apis.FieldError {
 	disableAutoTLS := annotations[networking.DisableAutoTLSAnnotationKey]
 
