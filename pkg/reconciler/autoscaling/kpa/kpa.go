@@ -141,8 +141,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	if err != nil {
 		return fmt.Errorf("error getting pod counts %s: %w", sks.Status.PrivateServiceName, err)
 	}
+
 	// If SKS is not ready — ensure we're not becoming ready.
-	// TODO: see if we can perhaps propagate the SKS state to computing active status.
 	if sks.IsReady() {
 		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
@@ -243,7 +243,7 @@ func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, p
 	// In this case we'll be in the NoTraffic/inactive state.
 	// TODO(taragu): remove after 0.19
 	alreadyScaledDownSuccessfully := minReady > 0 && pa.Status.GetCondition(pav1alpha1.PodAutoscalerConditionActive).Reason == noTrafficReason
-	if pc.ready >= minReady || alreadyScaledDownSuccessfully {
+	if (pc.ready >= minReady || alreadyScaledDownSuccessfully) && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 

@@ -99,7 +99,7 @@ func (b *Resolver) GetVisibility(ctx context.Context, route *v1.Route) (map[stri
 		ttVisibility := netv1alpha1.IngressVisibilityExternalIP
 		// Is there a visibility setting on the placeholder Service?
 		if svc, ok := services[hostname]; ok {
-			if labels.IsObjectLocalVisibility(svc.ObjectMeta) {
+			if labels.IsObjectLocalVisibility(&svc.ObjectMeta) {
 				ttVisibility = netv1alpha1.IngressVisibilityClusterLocal
 			}
 		}

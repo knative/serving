@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,9 +37,9 @@ import (
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
+	"knative.dev/pkg/logging"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
@@ -68,32 +67,32 @@ var (
 )
 
 func TestForwarderReconcile(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
 	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
-	f1 := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
-	f2 := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP2, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP2, testBs, noOp)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
 
 	var lastErr error
 	// Wait for the resources to be created.
-	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		_, err := service.Lister().Services(testNs).Get(bucket1)
 		lastErr = err
 		return err == nil, nil
@@ -113,7 +112,7 @@ func TestForwarderReconcile(t *testing.T) {
 	}
 
 	// Check the endpoints got updated.
-	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
 		if err != nil {
 			lastErr = err
@@ -141,10 +140,11 @@ func TestForwarderReconcile(t *testing.T) {
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
 	kubeClient.CoordinationV1().Leases(testNs).Update(l)
+	lease.Informer().GetIndexer().Add(l)
 
 	// Check the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2
-	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		// Check the endpoints get updated.
 		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
 		if err != nil {
@@ -171,24 +171,22 @@ func TestForwarderReconcile(t *testing.T) {
 }
 
 func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
-	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
 	svcCreation := 0
 	retried := make(chan struct{})
@@ -197,6 +195,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 			svcCreation++
 			if svcCreation == 2 {
 				retried <- struct{}{}
+				return true, nil, nil
 			}
 			return true, nil, errors.New("Failed to create")
 		},
@@ -213,24 +212,22 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
-	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
 	endpointsCreation := 0
 	retried := make(chan struct{})
@@ -239,6 +236,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 			endpointsCreation++
 			if endpointsCreation == 2 {
 				retried <- struct{}{}
+				return true, nil, nil
 			}
 			return true, nil, errors.New("Failed to create")
 		},
@@ -255,24 +253,23 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 }
 
 func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
-	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
 	endpointsUpdate := 0
 	retried := make(chan struct{})
@@ -281,6 +278,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 			endpointsUpdate++
 			if endpointsUpdate == 2 {
 				retried <- struct{}{}
+				return true, nil, nil
 			}
 			return true, nil, errors.New("Failed to update")
 		},
@@ -305,25 +303,22 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 }
 
 func TestForwarderSkipReconciling(t *testing.T) {
-	ns := system.Namespace()
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
-	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
-	New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, testBs, noOp)
+	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
 	svcCreated := make(chan struct{})
 	kubeClient.PrependReactor("create", "services",
@@ -347,7 +342,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		holder      string
 	}{{
 		description: "not autoscaler bucket lease",
-		namespace:   ns,
+		namespace:   testNs,
 		name:        bucket2,
 		holder:      testIP1,
 	}, {
@@ -357,11 +352,11 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		holder:      testIP1,
 	}, {
 		description: "without holder",
-		namespace:   ns,
+		namespace:   testNs,
 		name:        bucket1,
 	}, {
 		description: "not the holder",
-		namespace:   ns,
+		namespace:   testNs,
 		name:        bucket1,
 		holder:      testIP2,
 	}}
@@ -378,46 +373,44 @@ func TestForwarderSkipReconciling(t *testing.T) {
 					HolderIdentity: &tc.holder,
 				}
 			}
-			kubeClient.CoordinationV1().Leases(ns).Create(l)
+			kubeClient.CoordinationV1().Leases(testNs).Create(l)
 			lease.Informer().GetIndexer().Add(l)
 
 			select {
 			case <-svcCreated:
 				t.Error("Got Service created, want no actions")
-			case <-time.After(time.Second):
+			case <-time.After(50 * time.Millisecond):
 			}
 			select {
 			case <-endpointsCreated:
 				t.Error("Got Endpoints created, want no actions")
-			case <-time.After(time.Second):
+			case <-time.After(50 * time.Millisecond):
 			}
 		})
 	}
 }
 
 func TestProcess(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	logger := logging.FromContext(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
-	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
-	waitInformers, err := controller.RunInformers(
-		ctx.Done(), endpoints.Informer(), service.Informer(), lease.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
 		acceptCount++
 	}
-	f := New(ctx, zap.NewNop().Sugar(), kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
+	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
 
 	stat1 := asmetrics.StatMessage{
 		Key: types.NamespacedName{
@@ -443,17 +436,17 @@ func TestProcess(t *testing.T) {
 			Namespace: testNs,
 		},
 		Spec: coordinationv1.LeaseSpec{
-			HolderIdentity: &testIP1,
+			HolderIdentity: &testIP2,
 		},
 	}
 	kubeClient.CoordinationV1().Leases(testNs).Create(anotherLease)
 	lease.Informer().GetIndexer().Add(anotherLease)
 
 	// Wait for the forwarder to become the leader for bucket1.
-	if err := wait.PollImmediate(100*time.Millisecond, 2*time.Second, func() (bool, error) {
-		_, ok1 := f.processors[bucket1]
-		_, ok2 := f.processors[bucket2]
-		return ok1 && ok2, nil
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		p1 := f.getProcessor(bucket1)
+		p2 := f.getProcessor(bucket2)
+		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 && p1.conn == nil && p2.conn != nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
@@ -469,9 +462,12 @@ func TestProcess(t *testing.T) {
 	f.Process(stat2)
 
 	if got, want := acceptCount, 1; got != want {
-		t.Errorf("accpetCount = %d, want = %d", got, want)
+		t.Errorf("acceptCount = %d, want = %d", got, want)
 	}
 	if got, want := forwardCount, 2; got != want {
 		t.Errorf("forwardCount = %d, want = %d", got, want)
 	}
+
+	// Make sure Cancel can be called without crash.
+	f.Cancel()
 }

@@ -1048,7 +1048,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
 			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService, WithPubService),
 			metric(testNamespace, testRevision),
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
@@ -1056,6 +1056,30 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized,
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
+				withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPASKSNotReady(""), WithPAStatusService(testRevision),
+			),
+		}},
+	}, {
+		Name: "initial scale zero: sks ServiceName empty",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
+			decider(testNamespace, testRevision, -1, /* desiredScale */
+				0 /* ebc */, scaling.MinActivators)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc), WithPASKSNotReady(noPrivateServiceName)),
+			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision,
 				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
 				withScales(0, -1), WithReachabilityReachable,
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
@@ -1235,13 +1259,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to start informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 		waitInformers()
-	})
+	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("failed to start configmap watcher:", err)
@@ -1306,11 +1330,11 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		wf()
 		eg.Wait()
-	})
+	}()
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1445,10 +1469,10 @@ func TestControllerCreateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1486,10 +1510,10 @@ func TestControllerUpdateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1527,10 +1551,10 @@ func TestControllerGetError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1567,10 +1591,10 @@ func TestScaleFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 

@@ -199,11 +199,11 @@ func TestReconcileWithCollector(t *testing.T) {
 
 	barrier := make(chan struct{})
 	var eg errgroup.Group
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		wf()
 		eg.Wait()
-	})
+	}()
 
 	eg.Go(func() error {
 		close(barrier)

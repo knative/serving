@@ -108,9 +108,6 @@ func (h HTTPIngressPath) Validate(ctx context.Context) *apis.FieldError {
 		}
 	}
 
-	if h.Retries != nil {
-		all = all.Also(h.Retries.Validate(ctx).ViaField("retries"))
-	}
 	return all
 }
 
@@ -151,15 +148,6 @@ func (b IngressBackend) Validate(ctx context.Context) *apis.FieldError {
 		all = all.Also(apis.ErrMissingField("servicePort"))
 	}
 	return all
-}
-
-// Validate inspects and validates HTTPRetry object.
-func (r *HTTPRetry) Validate(ctx context.Context) *apis.FieldError {
-	// Attempts must be greater than 0.
-	if r.Attempts < 0 {
-		return apis.ErrInvalidValue(r.Attempts, "attempts")
-	}
-	return nil
 }
 
 // Validate inspects and validates IngressTLS object.

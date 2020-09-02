@@ -165,7 +165,7 @@ function build_knative_from_source() {
   eval "${ENV_OUTPUT}"
 }
 
-# Installs Knative Serving in the current cluster, and waits for it to be ready.
+# Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
 # Parameters: $1 - Knative Serving version "HEAD" or "latest-release". Default is "HEAD".
@@ -186,7 +186,7 @@ function install_knative_serving() {
   done
 }
 
-# Installs Knative Serving in the current cluster, and waits for it to be ready.
+# Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build.
 # Parameters: $1 - Knative Serving version "HEAD" or "latest-release".
 #             $2 - Knative Monitoring YAML file (optional)

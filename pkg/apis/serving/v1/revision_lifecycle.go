@@ -194,8 +194,12 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 		// See #8922 for details. When we try to scale to 0, we force the Deployment's
 		// Progress status to become `true`, since successful scale down means
 		// progress has been achieved.
+		// There's the possibility of the revision reconciler reconciling PA before
+		// the ServiceName is populated, and therefore even though we will mark
+		// ScaleTargetInitialized down the road, we would have marked resources
+		// unavailable here, and have no way of recovering later.
 		// If the ResourcesAvailable is already false, don't override the message.
-		if !ps.IsScaleTargetInitialized() && resUnavailable {
+		if !ps.IsScaleTargetInitialized() && resUnavailable && ps.ServiceName != "" {
 			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
 				"Initial scale was never achieved")
 		}

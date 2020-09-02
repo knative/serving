@@ -118,7 +118,7 @@ type ComponentConfig struct {
 	// Autoscaler need to know the Lease names to filter out Leases which are not
 	// used for Autoscaler. Instead of exposing the names from leadelection package,
 	// we let Autoscaler to pass them in.
-	LeaseName func(i uint32) string
+	LeaseName func(i uint32) string `json:"-"`
 	// Identity is the unique string identifying a resource lock holder across
 	// all participants in an election. If not present, a new unique string will
 	// be generated to be used as identity for each BuildElector call.

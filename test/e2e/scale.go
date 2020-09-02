@@ -19,8 +19,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,7 +31,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -54,166 +53,154 @@ func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
 }
 
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
-	clients := Setup(t)
-
-	cleanupCh := make(chan test.ResourceNames, scale)
-	defer close(cleanupCh)
-
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
 	// 95 = 19/20, so allow one failure within the minimum number of probes, but expect
 	// us to have 3 9s overall.
 	const (
-		localSLO  = 0.95
-		globalSLO = 0.999
+		localSLO  = 1.0
 		minProbes = 20
 	)
-	pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
 
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
-	defer cancel()
-	width := int(math.Ceil(math.Log10(float64(scale))))
 
-	t.Log("Creating new Services")
-	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+	// wg tracks the number of ksvcs that we are still waiting to see become ready.
+	wg := sync.WaitGroup{}
+
+	// Note the number of times we expect Done() to be called.
+	wg.Add(scale)
+	eg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+
+	t.Cleanup(func() {
+		// Wait for the ksvcs to all become ready (or fail)
+		wg.Wait()
+		cancel()
+
+		// Wait for all of the service creations to complete (possibly in failure),
+		// and signal the done channel.
+		if err := eg.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+
+		// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
+	})
+
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
-		wg.Go(func() error {
+		t.Run(fmt.Sprintf("%03d-of-%03d", i, scale), func(t *testing.T) {
+			t.Parallel()
+
+			clients := Setup(t)
+			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+
 			names := test.ResourceNames{
-				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
+				Service: test.ObjectNameForTest(t),
 				Image:   "helloworld",
 			}
 
-			// Start the clock for various waypoints towards Service readiness.
-			start := time.Now()
-			// Record the overall completion time regardless of success/failure.
-			defer latencies.Add("time-to-done", start)
+			t.Cleanup(func() {
+				// Wait for all ksvcs to have been created before exitting the test.
+				t.Log("Waiting for all to become ready")
+				wg.Wait()
+				pm.Stop()
 
-			svc, err := v1test.CreateService(t, clients, names,
-				func(svc *v1.Service) {
-					svc.Spec.Template.Spec.EnableServiceLinks = ptr.Bool(false)
-				},
-				rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("50m"),
-						corev1.ResourceMemory: resource.MustParse("50Mi"),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("30m"),
-						corev1.ResourceMemory: resource.MustParse("20Mi"),
-					},
-				}),
-				rtesting.WithConfigAnnotations(map[string]string{
-					"autoscaling.knative.dev/maxScale": "1",
-				}),
-				rtesting.WithReadinessProbe(&corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-						},
-					},
-				}),
-				rtesting.WithRevisionTimeoutSeconds(10))
-			if err != nil {
-				t.Errorf("CreateLatestService() = %v", err)
-				return fmt.Errorf("CreateLatestService() failed: %w", err)
-			}
+				pm.Foreach(func(u *url.URL, p test.Prober) {
+					if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
+						t.Errorf("CheckSLO() = %v", err)
+					}
+				})
 
-			// Record the time it took to create the service.
-			latencies.Add("time-to-create", start)
-			names.Route = serviceresourcenames.Route(svc)
-			names.Config = serviceresourcenames.Configuration(svc)
-
-			// Send it to our cleanup logic (below)
-			cleanupCh <- names
-
-			t.Logf("Wait for %s to become ready.", names.Service)
-			var url *url.URL
-			err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
-				if ctx.Err() != nil {
-					return false, ctx.Err()
-				}
-				if s.Status.URL == nil {
-					return false, nil
-				}
-				url = s.Status.URL.URL()
-				return v1test.IsServiceReady(s)
-			}, "ServiceUpdatedWithURL")
-
-			if err != nil {
-				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
-			}
-
-			// Record the time it took to become ready.
-			latencies.Add("time-to-ready", start)
-
-			_, err = pkgTest.WaitForEndpointState(
-				clients.KubeClient,
-				t.Logf,
-				url,
-				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
-				"WaitForEndpointToServeText",
-				test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
-			}
-
-			// Record the time it took to get back a 200 with the expected text.
-			latencies.Add("time-to-200", start)
-
-			// Start probing the domain until the test is complete.
-			pm.Spawn(url)
-
-			t.Logf("%s is ready.", names.Service)
-			return nil
-		})
-	}
-
-	// Wait for all of the service creations to complete (possibly in failure),
-	// and signal the done channel.
-	doneCh := make(chan error)
-	go func() {
-		defer close(doneCh)
-		if err := wg.Wait(); err != nil {
-			doneCh <- err
-		}
-	}()
-
-	for {
-		// As services get created, add logic to clean them up.
-		// When all of the creations have finished, then stop all of the active probers
-		// and check our SLIs against our SLOs.
-		// All of this has to finish within the configured timeout.
-		select {
-		case names := <-cleanupCh:
-			t.Logf("Added %v to cleanup routine.", names)
-			test.EnsureTearDown(t, clients, &names)
-
-		case err := <-doneCh:
-			if err != nil {
-				// If we don't do this first, then we'll see tons of 503s from the ongoing probes
-				// as we tear down the things they are probing.
-				defer pm.Stop()
-				t.Fatal("Unexpected error:", err)
-			}
-
-			// This ProberManager implementation waits for minProbes before actually stopping.
-			if err := pm.Stop(); err != nil {
-				t.Fatal("Stop() =", err)
-			}
-			// Check each of the local SLOs
-			pm.Foreach(func(u *url.URL, p test.Prober) {
-				if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
-					t.Errorf("CheckSLO() = %v", err)
-				}
+				test.TearDown(clients, &names)
 			})
-			// Check the global SLO
-			if err := test.CheckSLO(globalSLO, "aggregate", pm); err != nil {
-				t.Errorf("CheckSLO() = %v", err)
-			}
-			return
-		}
+
+			eg.Go(func() error {
+				// This go routine runs until the ksvc is ready, at which point we should note that
+				// our part is done.
+				defer func() {
+					wg.Done()
+					t.Logf("Reporting done!")
+				}()
+
+				// Start the clock for various waypoints towards Service readiness.
+				start := time.Now()
+				// Record the overall completion time regardless of success/failure.
+				defer latencies.Add("time-to-done", start)
+
+				_, err := v1test.CreateService(t, clients, names,
+					func(svc *v1.Service) {
+						svc.Spec.Template.Spec.EnableServiceLinks = ptr.Bool(false)
+					},
+					rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("50Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("30m"),
+							corev1.ResourceMemory: resource.MustParse("20Mi"),
+						},
+					}),
+					rtesting.WithConfigAnnotations(map[string]string{
+						"autoscaling.knative.dev/maxScale": "1",
+					}),
+					rtesting.WithReadinessProbe(&corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+							},
+						},
+					}),
+					rtesting.WithRevisionTimeoutSeconds(10))
+				if err != nil {
+					t.Errorf("CreateLatestService() = %v", err)
+					return fmt.Errorf("CreateLatestService() failed: %w", err)
+				}
+
+				// Record the time it took to create the service.
+				latencies.Add("time-to-create", start)
+
+				t.Logf("Wait for %s to become ready.", names.Service)
+				var url *url.URL
+				err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(s *v1.Service) (bool, error) {
+					if ctx.Err() != nil {
+						return false, ctx.Err()
+					}
+					if s.Status.URL == nil {
+						return false, nil
+					}
+					url = s.Status.URL.URL()
+					return v1test.IsServiceReady(s)
+				}, "ServiceUpdatedWithURL")
+
+				if err != nil {
+					t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
+				}
+
+				// Record the time it took to become ready.
+				latencies.Add("time-to-ready", start)
+
+				_, err = pkgTest.WaitForEndpointState(
+					clients.KubeClient,
+					t.Logf,
+					url,
+					v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
+					"WaitForEndpointToServeText",
+					test.ServingFlags.ResolvableDomain)
+				if err != nil {
+					t.Errorf("WaitForEndpointState(expected text) = %v", err)
+					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
+				}
+
+				// Record the time it took to get back a 200 with the expected text.
+				latencies.Add("time-to-200", start)
+
+				// Start probing the domain until the test is complete.
+				pm.Spawn(url)
+
+				t.Logf("%s is ready.", names.Service)
+				return nil
+			})
+		})
 	}
 }

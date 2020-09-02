@@ -33,7 +33,14 @@ import (
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	clientgotesting "k8s.io/client-go/testing"
+
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
@@ -44,14 +51,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -184,34 +183,6 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-		}},
-	}, {
-		Name: "many-private-services",
-		Key:  "many/privates",
-		Objects: []runtime.Object{
-			SKS("many", "privates", markHappy, WithPubService, WithPrivateService,
-				WithDeployRef("bar")),
-			deploy("many", "bar"),
-			svcpub("many", "privates"),
-			svcpriv("many", "privates"),
-			svcpriv("many", "privates", svcWithName("privates-brutality-is-here")),
-			svcpriv("many", "privates", svcWithName("privates-uncharacteristically-pretty"),
-				WithK8sSvcOwnersRemoved), // unowned, should remain.
-			endpointspub("many", "privates", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("many", "privates", WithSubsets),
-			activatorEndpoints(WithSubsets),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "many",
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "core",
-					Version:  "v1",
-					Resource: "services",
-				},
-			},
-			Name: "privates-brutality-is-here",
 		}},
 	}, {
 		Name: "user changes public svc",
@@ -817,13 +788,6 @@ func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 		opt(s)
 	}
 	return s
-}
-
-func svcWithName(n string) K8sServiceOption {
-	return func(s *corev1.Service) {
-		s.GenerateName = ""
-		s.Name = n
-	}
 }
 
 func svcpriv(namespace, name string, so ...K8sServiceOption) *corev1.Service {

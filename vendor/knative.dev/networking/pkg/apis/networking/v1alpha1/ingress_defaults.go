@@ -65,4 +65,6 @@ func (p *HTTPIngressPath) SetDefaults(ctx context.Context) {
 	if len(p.Splits) == 1 && p.Splits[0].Percent == 0 {
 		p.Splits[0].Percent = 100
 	}
+	// Deprecated, do not use.
+	p.DeprecatedRetries = nil
 }

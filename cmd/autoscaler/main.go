@@ -165,27 +165,32 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	// TODO: Add IP validation.
-	selfIP := os.Getenv("POD_IP")
-	// TODO: Read config from configmap.
-	cc := leaderelection.ComponentConfig{
-		Component:     "autoscaler",
-		Buckets:       10,
-		LeaseDuration: 15 * time.Second,
-		RenewDeadline: 10 * time.Second,
-		RetryPeriod:   2 * time.Second,
-		LeaseName: func(i uint32) string {
-			return endpointsBucketName(i, 10)
-		},
-		Identity: selfIP,
-	}
-	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
 	// accept is the func to call when this pod owns the given StatMessage.
 	accept := func(sm asmetrics.StatMessage) {
 		collector.Record(sm.Key, time.Now(), sm.Stat)
 		multiScaler.Poke(sm.Key, sm.Stat)
 	}
+
+	selfIP := os.Getenv("POD_IP")
+	if selfIP == "" {
+		logger.Fatalf("POD_IP environment variable not set.")
+	}
+
+	// Set up leader election config
+	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
+	if err != nil {
+		logger.Fatalf("Error loading leader election configuration: %v", err)
+	}
+
+	cc := leaderElectionConfig.GetComponentConfig(component)
+	cc.LeaseName = func(i uint32) string {
+		return endpointsBucketName(i, 10)
+	}
+	cc.Identity = selfIP
+	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
+
 	f := statforwarder.New(ctx, logger, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept)
+	accept = f.Process
 	defer f.Cancel()
 
 	go controller.StartAll(ctx, controllers...)

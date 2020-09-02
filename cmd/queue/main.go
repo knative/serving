@@ -36,6 +36,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"path/filepath"
+
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	pkglogging "knative.dev/pkg/logging"
@@ -62,12 +64,11 @@ const (
 
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
 	reportingPeriod = 1 * time.Second
-
-	unixSocketPath = "queue.sock"
 )
 
 var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	unixSocketPath        = filepath.Join(os.TempDir(), "queue.sock")
 )
 
 type config struct {
