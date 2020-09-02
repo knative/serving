@@ -460,13 +460,13 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Error("Wait() = ", err)
 		}
 		waitInformers()
-	})
+	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("Failed to start watcher:", err)
@@ -547,13 +547,13 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Error("Wait() = ", err)
 		}
 		waitInformers()
-	})
+	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("Failed to start watcher:", err)
@@ -625,13 +625,13 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Error("Wait() = ", err)
 		}
 		waitInformers()
-	})
+	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("Failed to start configuration manager:", err)

@@ -1259,13 +1259,13 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to start informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
 		waitInformers()
-	})
+	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatal("failed to start configmap watcher:", err)
@@ -1330,11 +1330,11 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		wf()
 		eg.Wait()
-	})
+	}()
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
@@ -1469,10 +1469,10 @@ func TestControllerCreateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1510,10 +1510,10 @@ func TestControllerUpdateError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1551,10 +1551,10 @@ func TestControllerGetError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	want := apierrors.NewBadRequest("asdf")
 
@@ -1591,10 +1591,10 @@ func TestScaleFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error starting up informers:", err)
 	}
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 
