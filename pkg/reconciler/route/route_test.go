@@ -1647,6 +1647,16 @@ func TestAutoTLSEnabled(t *testing.T) {
 		ConfigAutoTLSEnabled:  false,
 		TLSDisabledAnnotation: "true",
 		WantAutoTLSEnabled:    false,
+	}, {
+		Name:                  "AutoTLS enabled by config, invalid annotation",
+		ConfigAutoTLSEnabled:  true,
+		TLSDisabledAnnotation: "foo",
+		WantAutoTLSEnabled:    true,
+	}, {
+		Name:                  "AutoTLS disabled by config, invalid annotation",
+		ConfigAutoTLSEnabled:  false,
+		TLSDisabledAnnotation: "foo",
+		WantAutoTLSEnabled:    false,
 	}}
 
 	r := Route("test-ns", "test-route")
