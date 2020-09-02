@@ -35,7 +35,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	parser := &jwt.Parser{}
-	_, _, err = parser.ParseUnverified(string(jwtToken), nil)
+	_, _, err = parser.ParseUnverified(string(jwtToken), jwt.MapClaims{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
