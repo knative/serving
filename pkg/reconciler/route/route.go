@@ -420,8 +420,8 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	logger := logging.FromContext(ctx)
 	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
+	
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
-
 	if err != nil {
 		// validation should've caught an invalid value here.
 		// if we have one anyways, assume not disabled and log a warning.
