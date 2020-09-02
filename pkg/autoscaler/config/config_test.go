@@ -27,6 +27,7 @@ import (
 )
 
 func TestNewConfig(t *testing.T) {
+	actual, example := ConfigMapsFromTestFile(t, ConfigName)
 	tests := []struct {
 		name    string
 		input   map[string]string
@@ -36,6 +37,46 @@ func TestNewConfig(t *testing.T) {
 		name:  "default",
 		input: map[string]string{},
 		want:  defaultConfig(),
+	}, {
+		name:  "actual",
+		input: actual.Data,
+		want:  defaultConfig(),
+	}, {
+		name:  "example",
+		input: example.Data,
+		want:  defaultConfig(),
+	}, {
+		name: "overridden",
+		input: map[string]string{
+			"enable-scale-to-zero":                    "true",
+			"max-scale-down-rate":                     "3.0",
+			"max-scale-up-rate":                       "1.01",
+			"container-concurrency-target-percentage": "0.71",
+			"container-concurrency-target-default":    "10.5",
+			"requests-per-second-target-default":      "10.11",
+			"target-burst-capacity":                   "12345",
+			"stable-window":                           "5m",
+			"tick-interval":                           "2s",
+			"panic-window-percentage":                 "10",
+			"panic-threshold-percentage":              "200",
+			"pod-autoscaler-class":                    "some.class",
+			"activator-capacity":                      "905",
+			"scale-to-zero-pod-retention-period":      "2m3s",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.TargetBurstCapacity = 12345
+			c.ContainerConcurrencyTargetDefault = 10.5
+			c.ContainerConcurrencyTargetFraction = 0.71
+			c.RPSTargetDefault = 10.11
+			c.MaxScaleDownRate = 3
+			c.MaxScaleUpRate = 1.01
+			c.StableWindow = 5 * time.Minute
+			c.ActivatorCapacity = 905
+			c.PodAutoscalerClass = "some.class"
+			c.ScaleToZeroPodRetentionPeriod = 2*time.Minute + 3*time.Second
+			return c
+		}(),
 	}, {
 		name: "minimum",
 		input: map[string]string{
@@ -77,38 +118,6 @@ func TestNewConfig(t *testing.T) {
 		want: func() *Config {
 			c := defaultConfig()
 			c.TargetBurstCapacity = -1
-			return c
-		}(),
-	}, {
-		name: "with default toggles set",
-		input: map[string]string{
-			"enable-scale-to-zero":                    "true",
-			"max-scale-down-rate":                     "3.0",
-			"max-scale-up-rate":                       "1.01",
-			"container-concurrency-target-percentage": "0.71",
-			"container-concurrency-target-default":    "10.5",
-			"requests-per-second-target-default":      "10.11",
-			"target-burst-capacity":                   "12345",
-			"stable-window":                           "5m",
-			"tick-interval":                           "2s",
-			"panic-window-percentage":                 "10",
-			"panic-threshold-percentage":              "200",
-			"pod-autoscaler-class":                    "some.class",
-			"activator-capacity":                      "905",
-			"scale-to-zero-pod-retention-period":      "2m3s",
-		},
-		want: func() *Config {
-			c := defaultConfig()
-			c.TargetBurstCapacity = 12345
-			c.ContainerConcurrencyTargetDefault = 10.5
-			c.ContainerConcurrencyTargetFraction = 0.71
-			c.RPSTargetDefault = 10.11
-			c.MaxScaleDownRate = 3
-			c.MaxScaleUpRate = 1.01
-			c.StableWindow = 5 * time.Minute
-			c.ActivatorCapacity = 905
-			c.PodAutoscalerClass = "some.class"
-			c.ScaleToZeroPodRetentionPeriod = 2*time.Minute + 3*time.Second
 			return c
 		}(),
 	}, {
@@ -330,18 +339,4 @@ func TestNewConfig(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
-	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
-	}
-	if cm, err := NewConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
-	} else if got, want := cm, defaultConfig(); !cmp.Equal(want, got) {
-		t.Errorf("ExampleConfig is not equal to defaults (-want, +got) = %s",
-			cmp.Diff(want, got))
-	}
-
 }
