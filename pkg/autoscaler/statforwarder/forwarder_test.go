@@ -79,10 +79,10 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 	New(ctx, logger, kubeClient, testIP2, testBs, noOp)
@@ -167,10 +167,10 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
@@ -208,10 +208,10 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
@@ -250,10 +250,10 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
@@ -299,10 +299,10 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
 
@@ -387,10 +387,10 @@ func TestProcess(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	t.Cleanup(func() {
+	defer func() {
 		cancel()
 		waitInformers()
-	})
+	}()
 
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
