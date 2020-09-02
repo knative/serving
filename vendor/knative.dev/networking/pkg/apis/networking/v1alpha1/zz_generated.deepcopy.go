@@ -291,8 +291,8 @@ func (in *HTTPIngressPath) DeepCopyInto(out *HTTPIngressPath) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.Retries != nil {
-		in, out := &in.Retries, &out.Retries
+	if in.DeprecatedRetries != nil {
+		in, out := &in.DeprecatedRetries, &out.DeprecatedRetries
 		*out = new(HTTPRetry)
 		(*in).DeepCopyInto(*out)
 	}

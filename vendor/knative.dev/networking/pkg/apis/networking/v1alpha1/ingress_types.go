@@ -245,11 +245,10 @@ type HTTPIngressPath struct {
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
-	// Retry policy for HTTP requests.
-	//
-	// NOTE: This differs from K8s Ingress which doesn't allow retry settings.
+	// DeprecatedRetries is DEPRECATED.
+	// Retry in Kingress is not used anymore. See https://github.com/knative/serving/issues/6549
 	// +optional
-	Retries *HTTPRetry `json:"retries,omitempty"`
+	DeprecatedRetries *HTTPRetry `json:"retries,omitempty"`
 }
 
 // IngressBackendSplit describes all endpoints for a given service and port.
@@ -285,7 +284,7 @@ type IngressBackend struct {
 	ServicePort intstr.IntOrString `json:"servicePort"`
 }
 
-// HTTPRetry describes the retry policy to use when a HTTP request fails.
+// HTTPRetry is DEPRECATED. Retry is not used in KIngress.
 type HTTPRetry struct {
 	// Number of retries for a given request.
 	Attempts int `json:"attempts"`
