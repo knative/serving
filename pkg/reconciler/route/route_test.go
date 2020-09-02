@@ -1625,37 +1625,37 @@ func TestRouteDomain(t *testing.T) {
 
 func TestAutoTLSEnabled(t *testing.T) {
 	tests := []struct {
-		Name                  string
-		ConfigAutoTLSEnabled  bool
-		TLSDisabledAnnotation string
+		name                  string
+		configAutoTLSEnabled  bool
+		tlsDisabledAnnotation string
 		WantAutoTLSEnabled    bool
 	}{{
-		Name:                 "AutoTLS enabled by config, not disabled by annotation",
-		ConfigAutoTLSEnabled: true,
+		name:                 "AutoTLS enabled by config, not disabled by annotation",
+		configAutoTLSEnabled: true,
 		WantAutoTLSEnabled:   true,
 	}, {
-		Name:                  "AutoTLS enabled by config, disabled by annotation",
-		ConfigAutoTLSEnabled:  true,
-		TLSDisabledAnnotation: "true",
+		name:                  "AutoTLS enabled by config, disabled by annotation",
+		configAutoTLSEnabled:  true,
+		tlsDisabledAnnotation: "true",
 		WantAutoTLSEnabled:    false,
 	}, {
-		Name:                 "AutoTLS disabled by config, not disabled by annotation",
-		ConfigAutoTLSEnabled: false,
+		name:                 "AutoTLS disabled by config, not disabled by annotation",
+		configAutoTLSEnabled: false,
 		WantAutoTLSEnabled:   false,
 	}, {
-		Name:                  "AutoTLS disabled by config, disabled by annotation",
-		ConfigAutoTLSEnabled:  false,
-		TLSDisabledAnnotation: "true",
+		name:                  "AutoTLS disabled by config, disabled by annotation",
+		configAutoTLSEnabled:  false,
+		tlsDisabledAnnotation: "true",
 		WantAutoTLSEnabled:    false,
 	}, {
-		Name:                  "AutoTLS enabled by config, invalid annotation",
-		ConfigAutoTLSEnabled:  true,
-		TLSDisabledAnnotation: "foo",
+		name:                  "AutoTLS enabled by config, invalid annotation",
+		configAutoTLSEnabled:  true,
+		tlsDisabledAnnotation: "foo",
 		WantAutoTLSEnabled:    true,
 	}, {
-		Name:                  "AutoTLS disabled by config, invalid annotation",
-		ConfigAutoTLSEnabled:  false,
-		TLSDisabledAnnotation: "foo",
+		name:                  "AutoTLS disabled by config, invalid annotation",
+		configAutoTLSEnabled:  false,
+		tlsDisabledAnnotation: "foo",
 		WantAutoTLSEnabled:    false,
 	}}
 
@@ -1663,14 +1663,14 @@ func TestAutoTLSEnabled(t *testing.T) {
 	r.Annotations = map[string]string{}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			ctx := config.ToContext(context.Background(), &config.Config{
 				Network: &network.Config{
-					AutoTLS: test.ConfigAutoTLSEnabled,
+					AutoTLS: test.configAutoTLSEnabled,
 				},
 			})
 
-			r.Annotations[networking.DisableAutoTLSAnnotationKey] = test.TLSDisabledAnnotation
+			r.Annotations[networking.DisableAutoTLSAnnotationKey] = test.tlsDisabledAnnotation
 
 			if got := autoTLSEnabled(ctx, r); got != test.WantAutoTLSEnabled {
 				t.Errorf("autoTLSEnabled = %t, want %t", got, test.WantAutoTLSEnabled)
