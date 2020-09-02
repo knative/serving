@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -417,7 +418,18 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 }
 
 func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
-	return config.FromContext(ctx).Network.AutoTLS && !strings.EqualFold(r.Annotations[networking.DisableAutoTLSAnnotationKey], "true")
+	logger := logging.FromContext(ctx)
+	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
+	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
+
+	if err != nil {
+		// validation should've caught an invalid value here.
+		// if we have one anyways, assume not disabled and log a warning.
+		logger.Warnf("Invalid annotation value for %q. Value: %q",
+			networking.DisableAutoTLSAnnotationKey, annotationValue)
+	}
+
+	return config.FromContext(ctx).Network.AutoTLS && !disabledByAnnotation
 }
 
 func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
