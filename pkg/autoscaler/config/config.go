@@ -82,8 +82,23 @@ type Config struct {
 	PanicWindowPercentage    float64
 	PanicThresholdPercentage float64
 
-	ScaleToZeroGracePeriod        time.Duration
+	// ScaleToZeroGracePeriod is the time we will wait for networking to
+	// propagate before scaling down. We may wait less than this if it is safe to
+	// do so, for example if the Activator has already been in the path for
+	// longer than the window.
+	ScaleToZeroGracePeriod time.Duration
+
+	// ScaleToZeroPodRetentionPeriod is the minimum amount of time we will wait
+	// before scaling down the last pod.
 	ScaleToZeroPodRetentionPeriod time.Duration
+
+	// ScaleDownDelay is the amount of time that must pass at reduced concurrency
+	// before a scale-down decision is applied. This can be useful for keeping
+	// scaled-up revisions "warm" for a certain period before scaling down. This
+	// applies to all scale-down decisions, not just the very last pod.
+	// It is independent of ScaleToZeroPodRetentionPeriod, which can be used to
+	// add an additional delay to the very last pod, if required.
+	ScaleDownDelay time.Duration
 
 	PodAutoscalerClass string
 }
@@ -105,6 +120,7 @@ func defaultConfig() *Config {
 		StableWindow:                  60 * time.Second,
 		ScaleToZeroGracePeriod:        30 * time.Second,
 		ScaleToZeroPodRetentionPeriod: 0 * time.Second,
+		ScaleDownDelay:                0 * time.Second,
 		PodAutoscalerClass:            autoscaling.KPA,
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
@@ -136,6 +152,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsInt32("max-scale", &lc.MaxScale),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
+		cm.AsDuration("scale-down-delay", &lc.ScaleDownDelay),
 		cm.AsDuration("scale-to-zero-grace-period", &lc.ScaleToZeroGracePeriod),
 		cm.AsDuration("scale-to-zero-pod-retention-period", &lc.ScaleToZeroPodRetentionPeriod),
 	); err != nil {
@@ -155,7 +172,15 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 func validate(lc *Config) (*Config, error) {
 	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
-		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, got %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, was: %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
+	}
+
+	if lc.ScaleDownDelay < 0 {
+		return nil, fmt.Errorf("scale-down-delay cannot be negative, was: %v", lc.ScaleDownDelay)
+	}
+
+	if lc.ScaleDownDelay.Round(time.Second) != lc.ScaleDownDelay {
+		return nil, fmt.Errorf("scale-down-delay = %v, must be specified with at most second precision", lc.ScaleDownDelay)
 	}
 
 	if lc.ScaleToZeroPodRetentionPeriod < 0 {
@@ -163,7 +188,7 @@ func validate(lc *Config) (*Config, error) {
 	}
 
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {
-		return nil, fmt.Errorf("target-burst-capacity must be either non-negative or -1 (for unlimited), got %f", lc.TargetBurstCapacity)
+		return nil, fmt.Errorf("target-burst-capacity must be either non-negative or -1 (for unlimited), was: %f", lc.TargetBurstCapacity)
 	}
 
 	if lc.ContainerConcurrencyTargetFraction <= 0 || lc.ContainerConcurrencyTargetFraction > 1 {
@@ -175,7 +200,7 @@ func validate(lc *Config) (*Config, error) {
 	}
 
 	if lc.RPSTargetDefault < autoscaling.TargetMin {
-		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, got %v", autoscaling.TargetMin, lc.RPSTargetDefault)
+		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, was: %v", autoscaling.TargetMin, lc.RPSTargetDefault)
 	}
 
 	if lc.ActivatorCapacity < 1 {
