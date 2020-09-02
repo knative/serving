@@ -55,6 +55,7 @@ func TestNewConfig(t *testing.T) {
 			"container-concurrency-target-default":    "10.5",
 			"requests-per-second-target-default":      "10.11",
 			"target-burst-capacity":                   "12345",
+			"scale-down-delay":                        "15m",
 			"stable-window":                           "5m",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
@@ -71,6 +72,7 @@ func TestNewConfig(t *testing.T) {
 			c.RPSTargetDefault = 10.11
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
+			c.ScaleDownDelay = 15 * time.Minute
 			c.StableWindow = 5 * time.Minute
 			c.ActivatorCapacity = 905
 			c.PodAutoscalerClass = "some.class"
@@ -152,6 +154,12 @@ func TestNewConfig(t *testing.T) {
 		name: "malformed float",
 		input: map[string]string{
 			"max-scale-up-rate": "not a float",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid scale-down-delay",
+		input: map[string]string{
+			"scale-down-delay": "-1m23s",
 		},
 		wantErr: true,
 	}, {
