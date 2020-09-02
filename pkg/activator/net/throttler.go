@@ -280,7 +280,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			rt.resetTrackers()
 			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
 		}
-		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
+		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 		// The actual write out of the assigned trackers has to be under lock.
 		rt.mux.Lock()
 		defer rt.mux.Unlock()

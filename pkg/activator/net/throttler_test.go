@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -333,7 +334,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.2:1234", "128.0.0.32:1212"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -371,10 +372,21 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1, 3),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
 		}},
 		requests:  3,
 		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name: "roundrobin test",
+		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			networking.ProtocolHTTP1, 5 /*cc >3*/),
+		initUpdates: []revisionDestsUpdate{{
+			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
+		}},
+		requests: 3,
+		// All three IP addresses should be used if cc>3.
+		wantDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
 		name:     "multiple ClusterIP requests",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
@@ -421,10 +433,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 				waitInformers()
 			}()
 
-			for _, update := range tc.initUpdates {
-				updateCh <- update
-			}
-
 			publicEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRevision,
@@ -448,16 +456,26 @@ func TestThrottlerSuccesses(t *testing.T) {
 				t.Fatal("RevisionThrottler can't be found:", err)
 			}
 
+			for _, update := range tc.initUpdates {
+				updateCh <- update
+			}
+
 			// Make sure our informer event has fired.
 			// We send multiple updates in some tests, so make sure the capacity is exact.
 			wantCapacity := 1
 			cc := tc.revision.Spec.ContainerConcurrency
-			if cc != nil && *cc != 0 {
-				dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			if *cc != 0 {
 				wantCapacity = dests * int(*cc)
 			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				if *cc != 0 {
+					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				}
+				// If CC=0 then verify number of backends, rather the capacity of breaker.
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers), nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
@@ -481,8 +499,12 @@ func TestThrottlerSuccesses(t *testing.T) {
 				gotDests.Insert(result.dest)
 			}
 
-			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
+			if got, want := gotDests.List(), tc.wantDests.List(); !cmp.Equal(want, got) {
 				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				t.Log("podTrackers:\n", spew.Sdump(rt.podTrackers))
+				t.Log("assignedTrackers:\n", spew.Sdump(rt.assignedTrackers))
 			}
 		})
 	}
