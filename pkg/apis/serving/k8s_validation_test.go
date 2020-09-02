@@ -1461,7 +1461,6 @@ func TestContainerValidation(t *testing.T) {
 }
 
 func TestVolumeValidation(t *testing.T) {
-	expirationSeconds := int64(3600)
 	tests := []struct {
 		name string
 		v    corev1.Volume
@@ -1690,11 +1689,11 @@ func TestVolumeValidation(t *testing.T) {
 					Sources: []corev1.VolumeProjection{{
 						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 							Audience:          "api",
-							ExpirationSeconds: &expirationSeconds,
+							ExpirationSeconds: ptr.Int64(3600),
 							Path:              "token",
 						},
-					},
 					}},
+				},
 			},
 		},
 		want: nil,
@@ -1707,10 +1706,10 @@ func TestVolumeValidation(t *testing.T) {
 					Sources: []corev1.VolumeProjection{{
 						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
 							Audience:          "api",
-							ExpirationSeconds: &expirationSeconds,
+							ExpirationSeconds: ptr.Int64(3600),
 						},
-					},
 					}},
+				},
 			},
 		},
 		want: apis.ErrMissingField("projected[0].serviceAccountToken.path"),
