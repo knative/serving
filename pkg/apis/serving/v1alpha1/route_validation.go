@@ -28,8 +28,8 @@ import (
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")).
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata").
+		Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")).
 		Also(validateAnnotations(r.GetAnnotations()))
 
 	if apis.IsInUpdate(ctx) {
