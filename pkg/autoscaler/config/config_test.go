@@ -235,6 +235,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "scale-down-delay not seconds",
+		input: map[string]string{
+			"scale-down-delay": "61984ms",
+		},
+		wantErr: true,
+	}, {
 		name: "activator-capacity invalid",
 		input: map[string]string{
 			"activator-capacity": "0.95",

@@ -179,6 +179,10 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("scale-down-delay cannot be negative, was: %v", lc.ScaleDownDelay)
 	}
 
+	if lc.ScaleDownDelay.Round(time.Second) != lc.ScaleDownDelay {
+		return nil, fmt.Errorf("scale-down-delay = %v, must be specified with at most second precision", lc.ScaleDownDelay)
+	}
+
 	if lc.ScaleToZeroPodRetentionPeriod < 0 {
 		return nil, fmt.Errorf("scale-to-zero-pod-retention-period cannot be negative, was: %v", lc.ScaleToZeroPodRetentionPeriod)
 	}
