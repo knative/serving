@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -1617,6 +1618,62 @@ func TestRouteDomain(t *testing.T) {
 			}
 			if got, want := res, test.Expected; got != want {
 				t.Errorf("DomainNameFromTemplate = %q, want: %q", res, test.Expected)
+			}
+		})
+	}
+}
+
+func TestAutoTLSEnabled(t *testing.T) {
+	tests := []struct {
+		name                  string
+		configAutoTLSEnabled  bool
+		tlsDisabledAnnotation string
+		wantAutoTLSEnabled    bool
+	}{{
+		name:                 "AutoTLS enabled by config, not disabled by annotation",
+		configAutoTLSEnabled: true,
+		wantAutoTLSEnabled:   true,
+	}, {
+		name:                  "AutoTLS enabled by config, disabled by annotation",
+		configAutoTLSEnabled:  true,
+		tlsDisabledAnnotation: "true",
+		wantAutoTLSEnabled:    false,
+	}, {
+		name:                 "AutoTLS disabled by config, not disabled by annotation",
+		configAutoTLSEnabled: false,
+		wantAutoTLSEnabled:   false,
+	}, {
+		name:                  "AutoTLS disabled by config, disabled by annotation",
+		configAutoTLSEnabled:  false,
+		tlsDisabledAnnotation: "true",
+		wantAutoTLSEnabled:    false,
+	}, {
+		name:                  "AutoTLS enabled by config, invalid annotation",
+		configAutoTLSEnabled:  true,
+		tlsDisabledAnnotation: "foo",
+		wantAutoTLSEnabled:    true,
+	}, {
+		name:                  "AutoTLS disabled by config, invalid annotation",
+		configAutoTLSEnabled:  false,
+		tlsDisabledAnnotation: "foo",
+		wantAutoTLSEnabled:    false,
+	}}
+
+	r := Route("test-ns", "test-route")
+	r.Annotations = map[string]string{}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := config.ToContext(context.Background(), &config.Config{
+				Network: &network.Config{
+					AutoTLS: test.configAutoTLSEnabled,
+				},
+			})
+
+			r.Annotations[networking.DisableAutoTLSAnnotationKey] = test.tlsDisabledAnnotation
+
+			if got := autoTLSEnabled(ctx, r); got != test.wantAutoTLSEnabled {
+				t.Errorf("autoTLSEnabled = %t, want %t", got, test.wantAutoTLSEnabled)
 			}
 		})
 	}
