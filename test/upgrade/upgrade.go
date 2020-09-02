@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -83,7 +84,7 @@ func createNewService(serviceName string, t *testing.T) {
 // already exist happens.
 func createPipe(name string, t *testing.T) {
 	if err := syscall.Mkfifo(name, 0666); err != nil {
-		if !err.Is(os.ErrExist) {
+		if !errors.Is(err, os.ErrExist) {
 			t.Fatal("Failed to create pipe:", err)
 		}
 	}
