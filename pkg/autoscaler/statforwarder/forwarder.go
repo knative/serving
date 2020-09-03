@@ -309,6 +309,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
 	c := websocket.NewDurableSendingConnection(dns, f.logger)
+	f.processingWg.Add(1)
 	return &bucketProcessor{
 		holder: holder,
 		conn:   c,
@@ -348,7 +349,6 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
 	if p != nil && p.conn != nil {
-		f.processingWg.Add(1)
 		go func() {
 			defer f.processingWg.Done()
 			p.conn.Shutdown()
@@ -358,6 +358,9 @@ func (f *Forwarder) shutdown(p *bucketProcessor) {
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+
 	for _, p := range f.processors {
 		f.shutdown(p)
 	}
