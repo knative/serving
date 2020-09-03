@@ -24,7 +24,6 @@ import (
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
-
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,7 +34,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
@@ -86,6 +84,9 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
+	// Used to capture asynchronous processes to be waited
+	// on when shutting the WebSocket connection down.
+	processingWg sync.WaitGroup
 }
 
 // New creates a new Forwarder.
@@ -154,6 +155,9 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
+	// Close existing connection if there's one. The target address won't
+	// be the same as the IP has changed.
+	f.shutdown(f.getProcessor(n))
 	holder := *l.Spec.HolderIdentity
 	f.setProcessor(n, f.createProcessor(n, holder))
 
@@ -305,6 +309,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
 	c := websocket.NewDurableSendingConnection(dns, f.logger)
+	f.processingWg.Add(1)
 	return &bucketProcessor{
 		holder: holder,
 		conn:   c,
@@ -342,11 +347,22 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	p.proc(sm)
 }
 
+func (f *Forwarder) shutdown(p *bucketProcessor) {
+	if p != nil && p.conn != nil {
+		go func() {
+			defer f.processingWg.Done()
+			p.conn.Shutdown()
+		}()
+	}
+}
+
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+
 	for _, p := range f.processors {
-		if p.conn != nil {
-			p.conn.Shutdown()
-		}
+		f.shutdown(p)
 	}
+	f.processingWg.Wait()
 }
