@@ -206,9 +206,6 @@ func TestServerWithOwnershipStatsReceived(t *testing.T) {
 func TestServerWithOwnershipConnectionClosed(t *testing.T) {
 	// Override the function to mock a bucket host.
 	isBucketHost = func(host string) bool { return true }
-	defer func() {
-		isBucketHost = bucket.IsBucketHost
-	}()
 
 	statsCh := make(chan metrics.StatMessage)
 	server := newTestServerWithOwnership(statsCh, &testOwnership{})
