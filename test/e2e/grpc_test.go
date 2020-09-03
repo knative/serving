@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +32,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+
 	corev1 "k8s.io/api/core/v1"
+
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -44,23 +47,27 @@ import (
 const (
 	grpcContainerConcurrency = 1
 	grpcMinScale             = 3
+	defaultPort              = "80"
 )
 
 type grpcTest func(*testContext, string, string)
 
 // hasPort checks if a URL contains a port number
 func hasPort(u string) bool {
-	parts := strings.Split(u, ":")
-	_, err := strconv.Atoi(parts[len(parts)-1])
+	_, port, err := net.SplitHostPort(u)
+	if err != nil {
+		return false
+	}
+	_, err = strconv.Atoi(port)
 	return err == nil
 }
 
 func dial(host, domain string) (*grpc.ClientConn, error) {
 	if !hasPort(host) {
-		host += ":80"
+		host = net.JoinHostPort(host, defaultPort)
 	}
 	if !hasPort(domain) {
-		domain += ":80"
+		domain = net.JoinHostPort(domain, defaultPort)
 	}
 
 	if host != domain {
