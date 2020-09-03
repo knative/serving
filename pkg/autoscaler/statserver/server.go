@@ -39,11 +39,7 @@ const closeCodeTryAgain = 1013
 // isBucketHost is the function deciding whether a host of a request is
 // of an Autoscaler bucket service. It is set to bucket.IsBucketHost
 // in production while can be overriden for testing.
-var isBucketHost func(host string) bool
-
-func init() {
-	isBucketHost = bucket.IsBucketHost
-}
+var isBucketHost = bucket.IsBucketHost
 
 // Server receives autoscaler statistics over WebSocket and sends them to a channel.
 type Server struct {
@@ -53,19 +49,19 @@ type Server struct {
 	stopCh      chan struct{}
 	statsCh     chan<- metrics.StatMessage
 	openClients sync.WaitGroup
-	ownership   bucket.Ownership
+	isBktOwner  func(bktName string) bool
 	logger      *zap.SugaredLogger
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, ownership bucket.Ownership) *Server {
+func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, f func(bktName string) bool) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
 		stopCh:      make(chan struct{}),
 		statsCh:     statsCh,
 		openClients: sync.WaitGroup{},
-		ownership:   ownership,
+		isBktOwner:  f,
 		logger:      logger.Named("stats-websocket-server").With("address", statsServerAddr),
 	}
 
@@ -135,11 +131,11 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.ownership != nil && isBucketHost(r.Host) {
+	if s.isBktOwner != nil && isBucketHost(r.Host) {
 		bkt := strings.Split(r.Host, ".")[0]
 		// It won't affect connections via Autoscaler service (used by Activator) or IP address.
-		if !s.ownership.IsOwner(bkt) {
-			s.logger.Warn("Close the connection because not the owner of the bucket ", bkt)
+		if !s.isBktOwner(bkt) {
+			s.logger.Warn("Closing websocket because not the owner of the bucket ", bkt)
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeTryAgain, "NotOwner"))
 			if err != nil {
 				s.logger.Errorf("Failed to send close message to client: %#v", err)

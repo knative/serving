@@ -22,13 +22,6 @@ import (
 
 const prefix = "autoscaler-bucket"
 
-// Ownership provides the ownership between an Autoscaler bucket and an Autoscaler pod.
-type Ownership interface {
-	// IsOwner returns true if the pod where this function is called is the owner
-	// of the given bucket.
-	IsOwner(bktName string) bool
-}
-
 // IsBucketHost returns true if the given host is a host of a K8S Service
 // of a bucket.
 func IsBucketHost(host string) bool {

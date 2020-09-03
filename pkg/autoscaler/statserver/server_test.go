@@ -32,7 +32,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
-	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -190,25 +189,41 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	}
 }
 
-func TestServerWithOwnershipStatsReceived(t *testing.T) {
+func TestServerNotBucketHost(t *testing.T) {
 	statsCh := make(chan metrics.StatMessage)
-	server := newTestServerWithOwnership(statsCh, &testOwnership{})
+	server := newTestServerWithOwnerFunc(statsCh, alwaysFalse)
 	defer server.Shutdown(0)
 
 	go server.listenAndServe()
 
-	// Verify the server behavior normally when the host is not a bucket host
+	// Verify the server behaves normally when the host is not a bucket host.
 	statSink := dialOK(t, server.listenAddr())
 	assertReceivedProto(t, both, statSink, statsCh)
 	closeSink(t, statSink)
 }
 
-func TestServerWithOwnershipConnectionClosed(t *testing.T) {
+func TestServerOwnerForBucketHost(t *testing.T) {
 	// Override the function to mock a bucket host.
-	isBucketHost = func(host string) bool { return true }
+	isBucketHost = alwaysTrue
 
 	statsCh := make(chan metrics.StatMessage)
-	server := newTestServerWithOwnership(statsCh, &testOwnership{})
+	server := newTestServerWithOwnerFunc(statsCh, alwaysTrue)
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	// Verify the server behaves normally when the host is a bucket host
+	// and the pod is the owner of the bucket.
+	statSink := dialOK(t, server.listenAddr())
+	assertReceivedProto(t, both, statSink, statsCh)
+	closeSink(t, statSink)
+}
+func TestServerNotOwnerForBucketHost(t *testing.T) {
+	// Override the function to mock a bucket host.
+	isBucketHost = alwaysTrue
+
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnerFunc(statsCh, alwaysFalse)
 	defer server.Shutdown(0)
 
 	go server.listenAndServe()
@@ -224,7 +239,7 @@ func TestServerWithOwnershipConnectionClosed(t *testing.T) {
 
 	select {
 	case <-received:
-		t.Error("Should not receive stat as the server should keep close the connection.")
+		t.Error("Should not receive stat as the server should keep closing the connection.")
 	case <-time.After(time.Second):
 	}
 }
@@ -372,12 +387,12 @@ type testServer struct {
 }
 
 func newTestServer(statsCh chan<- metrics.StatMessage) *testServer {
-	return newTestServerWithOwnership(statsCh, nil)
+	return newTestServerWithOwnerFunc(statsCh, nil)
 }
 
-func newTestServerWithOwnership(statsCh chan<- metrics.StatMessage, ownership bucket.Ownership) *testServer {
+func newTestServerWithOwnerFunc(statsCh chan<- metrics.StatMessage, f func(bkt string) bool) *testServer {
 	return &testServer{
-		Server:       New(testAddress, statsCh, zap.NewNop().Sugar(), ownership),
+		Server:       New(testAddress, statsCh, zap.NewNop().Sugar(), f),
 		listenAddrCh: make(chan string, 1),
 	}
 }
@@ -405,9 +420,10 @@ func (t *testListener) Accept() (net.Conn, error) {
 	return t.Listener.Accept()
 }
 
-// A test ownership always returns false for IsOwner.
-type testOwnership struct{}
+func alwaysTrue(bkt string) bool {
+	return true
+}
 
-func (t *testOwnership) IsOwner(bkt string) bool {
+func alwaysFalse(bkt string) bool {
 	return false
 }

@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package bucket provides help functions for Autoscaler buckets. The
+// Package bucket provides helper functions for Autoscaler buckets. The
 // buckets are used in Leader Election to support multiple Autoscaler pods.
 package bucket
