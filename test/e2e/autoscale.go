@@ -158,8 +158,6 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
-type validationFunc func(*testing.T, *test.Clients, test.ResourceNames) error
-
 func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -182,14 +180,14 @@ func toPercentageString(f float64) string {
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func setup(t *testing.T, class, metric string, target int, targetUtilization float64, image string, validate validationFunc, fopts ...rtesting.ServiceOption) *testContext {
+func setup(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
 
 	t.Log("Creating a new Route and Configuration")
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   image,
+		Image:   autoscaleTestImageName,
 	}
 	test.EnsureTearDown(t, clients, &names)
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
@@ -212,14 +210,11 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 			}),
 		}, fopts...)...)
 	if err != nil {
-		test.TearDown(clients, &names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if validate != nil {
-		if err := validate(t, clients, names); err != nil {
-			t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
-		}
+	if err := validateEndpoint(t, clients, names); err != nil {
+		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 
 	return &testContext{
@@ -385,7 +380,7 @@ func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = 10
 	}
 
-	ctx := setup(t, class, metric, target, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, class, metric, target, targetUtilization)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
 	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
