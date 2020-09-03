@@ -362,6 +362,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	f(&testContext{
 		t:         t,
 		clients:   clients,
+		names:     names,
 		resources: resources,
 	}, host, url.Hostname())
 }
