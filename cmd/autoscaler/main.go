@@ -147,8 +147,8 @@ func main() {
 	}
 
 	// Set up a statserver.
-	// TODO(yanweiguo): Populate the ownership from statfowarder.Forwarder.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* Ownership*/)
+	// TODO(yanweiguo): Populate the isBktOwner from statfowarder.Forwarder.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* isBktOwner*/)
 
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {

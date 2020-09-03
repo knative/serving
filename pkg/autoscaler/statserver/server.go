@@ -54,14 +54,14 @@ type Server struct {
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, f func(bktName string) bool) *Server {
+func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, isBktOwner func(bktName string) bool) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
 		stopCh:      make(chan struct{}),
 		statsCh:     statsCh,
 		openClients: sync.WaitGroup{},
-		isBktOwner:  f,
+		isBktOwner:  isBktOwner,
 		logger:      logger.Named("stats-websocket-server").With("address", statsServerAddr),
 	}
 
@@ -132,13 +132,13 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.isBktOwner != nil && isBucketHost(r.Host) {
-		bkt := strings.Split(r.Host, ".")[0]
+		bkt := strings.SplitN(r.Host, ".", 2)[0]
 		// It won't affect connections via Autoscaler service (used by Activator) or IP address.
 		if !s.isBktOwner(bkt) {
 			s.logger.Warn("Closing websocket because not the owner of the bucket ", bkt)
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeTryAgain, "NotOwner"))
 			if err != nil {
-				s.logger.Errorf("Failed to send close message to client: %#v", err)
+				s.logger.Warnw("Failed to send close message to client", zap.Error(err))
 			}
 			conn.Close()
 			return
@@ -156,7 +156,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			s.logger.Debug("Sending close message to client")
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeServiceRestart, "Restarting"))
 			if err != nil {
-				s.logger.Errorf("Failed to send close message to client: %#v", err)
+				s.logger.Warnw("Failed to send close message to client", zap.Error(err))
 			}
 			conn.Close()
 		case <-handlerCh:

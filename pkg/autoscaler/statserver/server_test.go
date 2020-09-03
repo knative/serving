@@ -420,10 +420,10 @@ func (t *testListener) Accept() (net.Conn, error) {
 	return t.Listener.Accept()
 }
 
-func alwaysTrue(bkt string) bool {
+func alwaysTrue(_ string) bool {
 	return true
 }
 
-func alwaysFalse(bkt string) bool {
+func alwaysFalse(_ string) bool {
 	return false
 }
