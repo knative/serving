@@ -38,11 +38,6 @@ func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")
 }
 
-// IsPublic returns whether the Ingress should be exposed publicly.
-func (i *Ingress) IsPublic() bool {
-	return i.Spec.Visibility == "" || i.Spec.Visibility == IngressVisibilityExternalIP
-}
-
 // GetCondition returns the current condition of a given condition type
 func (is *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return ingressCondSet.Manage(is).GetCondition(t)
