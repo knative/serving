@@ -155,6 +155,10 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	}
 
 	holder := *l.Spec.HolderIdentity
+	p := f.getProcessor(n)
+	if p != nil && p.conn != nil {
+		p.conn.Shutdown()
+	}
 	f.setProcessor(n, f.createProcessor(n, holder))
 
 	if holder != f.selfIP {
