@@ -402,7 +402,7 @@ func TestConcurrencyReporterRun(t *testing.T) {
 		},
 	}}
 
-	reportCh <- time.Now()
+	reportCh <- now.Add(2)
 
 	got := make([]asmetrics.StatMessage, 0, len(want))
 	got = append(got, <-cr.statCh...) // Scale from 0.
@@ -471,16 +471,16 @@ func TestMetricsReported(t *testing.T) {
 		close(reportCh)
 	}()
 
-	now := time.Now().Truncate(time.Second)
+	now := time.Time{}
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 
-	now = now.Add(time.Second)
-	reportCh <- now
-	<-cr.statCh
-	<-cr.statCh
+	// Report
+	reportCh <- now.Add(1)
+	<-cr.statCh // scale-from-0 event
+	<-cr.statCh // "proper" event
 
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -496,12 +496,16 @@ func TestMetricsReported(t *testing.T) {
 		metricskey.ContainerName: "activator",
 	}
 
+	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)
 	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
 	metricstest.AssertMetric(t, wantMetric)
-	now = now.Add(time.Second)
-	reportCh <- now
+
+	// Report again
+	reportCh <- now.Add(2)
 	<-cr.statCh
-	*wantMetric.Values[0].Float64++
+
+	// The next time round we should report the "real" concurrency
+	wantMetric = metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource)
 	metricstest.AssertMetric(t, wantMetric)
 }
 
@@ -600,15 +604,9 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 			defer cancel()
 
-			// Buffer equal to the activator.
-			statCh := make(chan []asmetrics.StatMessage)
+			// Different to the activator but doesn't matter as it isn't used in the test.
+			statCh := make(chan []asmetrics.StatMessage, revs)
 			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
-
-			// Just read and ignore all stat messages.
-			go func() {
-				for range <-statCh {
-				}
-			}()
 
 			fake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
