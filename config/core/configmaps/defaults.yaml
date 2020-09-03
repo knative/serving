@@ -55,12 +55,12 @@ data:
     # revision-cpu-request contains the cpu allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
-    revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
+    revision-cpu-request: ""  # By default, it is not set.
 
     # revision-memory-request contains the memory allocation to assign
     # to revisions by default.  If omitted, no value is specified
     # and the system default is used.
-    revision-memory-request: "100M"  # 100 megabytes of memory
+    revision-memory-request: ""  # By default, it is not set.
 
     # revision-ephemeral-storage-request contains the ephemeral storage
     # allocation to assign to revisions by default.  If omitted, no value is
@@ -70,12 +70,12 @@ data:
     # revision-cpu-limit contains the cpu allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
-    revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
+    revision-cpu-limit: ""  # By default, it is not set.
 
     # revision-memory-limit contains the memory allocation to limit
     # revisions to by default.  If omitted, no value is specified
     # and the system default is used.
-    revision-memory-limit: "200M"  # 200 megabytes of memory
+    revision-memory-limit: ""  # By default, it is not set.
 
     # revision-ephemeral-storage-limit contains the ephemeral storage
     # allocation to limit revisions to by default.  If omitted, no value is
