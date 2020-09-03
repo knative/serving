@@ -137,6 +137,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 
 	if s.ownership != nil && isBucketHost(r.Host) {
 		bkt := strings.Split(r.Host, ".")[0]
+		// It won't affect connections via Autoscaler service (used by Activator) or IP address.
 		if !s.ownership.IsOwner(bkt) {
 			s.logger.Warn("Close the connection because not the owner of the bucket ", bkt)
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeTryAgain, "NotOwner"))
