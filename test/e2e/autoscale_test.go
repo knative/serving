@@ -39,7 +39,7 @@ import (
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
@@ -64,9 +64,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// normal and panic.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, &ctx.names)
-
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
 
@@ -78,7 +76,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -143,7 +141,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -168,7 +166,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
