@@ -309,6 +309,15 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	}
 }
 
+func sortedTrackers(trk []*podTracker) bool {
+	for i := 1; i < len(trk); i++ {
+		if trk[i].dest < trk[i-1].dest {
+			return false
+		}
+	}
+	return true
+}
+
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -469,13 +478,15 @@ func TestThrottlerSuccesses(t *testing.T) {
 				wantCapacity = dests * int(*cc)
 			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				if *cc != 0 {
-					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity, nil
-				}
-				// If CC=0 then verify number of backends, rather the capacity of breaker.
 				rt.mux.RLock()
 				defer rt.mux.RUnlock()
-				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers), nil
+				if *cc != 0 {
+					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity &&
+						sortedTrackers(rt.assignedTrackers), nil
+				}
+				// If CC=0 then verify number of backends, rather the capacity of breaker.
+				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers) &&
+					sortedTrackers(rt.assignedTrackers), nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
