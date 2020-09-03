@@ -2,4 +2,3 @@
 defaultBaseImage: gcr.io/distroless/static:nonroot
 baseImageOverrides:
   knative.dev/serving/vendor/github.com/tsenart/vegeta: ubuntu:latest
-  knative.dev/serving/test/test_images/helloserviceaccount: ubuntu:latest

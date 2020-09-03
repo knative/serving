@@ -24,13 +24,17 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dgrijalva/jwt-go"
 	"knative.dev/pkg/ptr"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -403,20 +407,20 @@ func TestProjectedComplex(t *testing.T) {
 	}
 }
 
-// TestProjectedServiceAccountToken tests that validates the default service token mounted
+// TestProjectedServiceAccountToken tests that a valid JWT service account token can be mounted.
 func TestProjectedServiceAccountToken(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloserviceaccount",
+		Image:   "hellovolume",
 	}
 
 	const tokenPath = "token"
 	saPath := filepath.Join(filepath.Dir(test.HelloVolumePath), tokenPath)
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -432,8 +436,18 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 		vm.SubPath = filepath.Base(saPath)
 	}
 
+	withRunAsUser := func(svc *v1.Service) {
+		svc.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			// The token will be mounted owned by root, so we need the container to
+			// run as root to be able to read it.
+			RunAsUser: ptr.Int64(0),
+		}
+	}
+
+	serviceOpts := []ServiceOption{withVolume, withSubpath, withRunAsUser}
+
 	// Setup initial Service
-	if _, err := v1test.CreateServiceReady(t, clients, &names, withVolume, withSubpath); err != nil {
+	if _, err := v1test.CreateServiceReady(t, clients, &names, serviceOpts...); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -441,8 +455,25 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 	if err := validateControlPlane(t, clients, names, "1"); err != nil {
 		t.Error(err)
 	}
+	names.URL.Path = path.Join(names.URL.Path, tokenPath)
+	var parsesToken = func(resp *spoof.Response) (bool, error) {
+		jwtToken := string(resp.Body)
+		parser := &jwt.Parser{}
+		if _, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{}); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 
-	if err := validateDataPlane(t, clients, names, ""); err != nil {
+	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		names.URL,
+		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, parsesToken)),
+		"WaitForEndpointToServeTheToken",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
 		t.Error(err)
 	}
 }
