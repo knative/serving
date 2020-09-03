@@ -136,30 +136,31 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml"
-while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
-  echo "Waiting on Istio CRDs"; sleep 1
-done
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
-kubectl apply -f ./third_party/net-istio.yaml
+LATEST_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-latest)
+wget "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${LATEST_VERSION}/install-istio.sh"
+chmod +x install-istio.sh
+```
+
+If you want to install Istio without mesh, run the following command
+```shell
+wget "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${LATEST_VERSION}/istio-ci-no-mesh.yaml"
+./install-istio.sh istio-ci-no-mesh.yaml
+```
+
+If you want to install Istio with mesh, run the following command
+```shell
+wget "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${LATEST_VERSION}/istio-ci-mesh.yaml"
+./install-istio.sh istio-ci-mesh.yaml
+```
+
+Run the following command to do the cleanup.
+```shell
+rm install-istio.sh istio-ci-no-mesh.yaml istio-ci-mesh.yaml
 ```
 
 Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
-
-If you want to adopt preinstalled Istio, please check whether the
-`cluster-local-gateway` Service is deployed in namespace `istio-system` or not
-(you can check by running
-`kubectl get service cluster-local-gateway -n istio-system`). If it's not
-installed, please install it with following command. You could also adjust
-parameters if needed.
-
-```shell
-STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-knative-extras.yaml"
-```
 
 > If you want to customize the `istio*.yaml` files you can refer to the
 > [Istio installation doc](https://github.com/knative/docs/blob/master/docs/install/installing-istio.md)
