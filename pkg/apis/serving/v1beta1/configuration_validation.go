@@ -59,10 +59,8 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch key {
-		case serving.RouteLabelKey:
+		case serving.RouteLabelKey, serving.VisibilityLabelKeyObsolete:
 			// Known valid labels.
-		case serving.VisibilityLabelKey:
-			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 		default:

@@ -65,27 +65,28 @@ func mustRawManifest(t *testing.T, img v1.Image) []byte {
 
 func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
+	const basicAuth = "Basic "
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v2/":
 			// Issue a "Basic" auth challenge, so we can check the auth sent to the registry.
-			w.Header().Set("WWW-Authenticate", `Basic `)
+			w.Header().Set("WWW-Authenticate", basicAuth)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		case manifestPath:
 			// Check that we get an auth header with base64 encoded username:password
 			hdr := r.Header.Get("Authorization")
-			if !strings.HasPrefix(hdr, "Basic ") {
-				t.Errorf("Header.Get(Authorization); got %v, want Basic prefix", hdr)
+			if !strings.HasPrefix(hdr, basicAuth) {
+				t.Errorf("Header.Get(Authorization) = %q, want %q prefix", hdr, basicAuth)
 			}
 			if want := base64.StdEncoding.EncodeToString([]byte(username + ":" + password)); !strings.HasSuffix(hdr, want) {
-				t.Errorf("Header.Get(Authorization); got %v, want suffix %v", hdr, want)
+				t.Errorf("Header.Get(Authorization) = %q, want suffix %q", hdr, want)
 			}
 			if r.Method != http.MethodGet {
-				t.Errorf("Method; got %v, want %v", r.Method, http.MethodGet)
+				t.Errorf("Method = %v, want %v", r.Method, http.MethodGet)
 			}
 			w.Write(mustRawManifest(t, img))
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -96,7 +97,7 @@ func fakeRegistryPingFailure(t *testing.T) *httptest.Server {
 		case "/v2/":
 			http.Error(w, "Oops", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -112,7 +113,7 @@ func fakeRegistryManifestFailure(t *testing.T, repo string) *httptest.Server {
 		case manifestPath:
 			http.Error(w, "Boom", http.StatusInternalServerError)
 		default:
-			t.Fatalf("Unexpected path: %v", r.URL.Path)
+			t.Error("Unexpected path:", r.URL.Path)
 		}
 	}))
 }
@@ -150,7 +151,7 @@ func TestResolve(t *testing.T) {
 		t.Fatalf("random.Image() = %v", err)
 	}
 
-	// Stand up a fake registry
+	// Stand up a fake registry.
 	server := fakeRegistry(t, expectedRepo, username, password, img)
 	defer server.Close()
 	u, err := url.Parse(server.URL)
@@ -158,13 +159,13 @@ func TestResolve(t *testing.T) {
 		t.Fatal("url.Parse() =", err)
 	}
 
-	// Create a tag pointing to an image on our fake registry
+	// Create a tag pointing to an image on our fake registry.
 	tag, err := name.NewTag(fmt.Sprintf("%s/%s:latest", u.Host, expectedRepo), name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewTag() = %v", err)
+		t.Fatal("NewTag() =", err)
 	}
 
-	// Set up a fake service account with pull secrets for our fake registry
+	// Set up a fake service account with pull secrets for our fake registry.
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcacct,
@@ -187,7 +188,7 @@ func TestResolve(t *testing.T) {
 		},
 	})
 
-	// Resolve our tag on the fake registry to the digest of the random.Image()
+	// Resolve our tag on the fake registry to the digest of the random.Image().
 	dr := &digestResolver{client: client, transport: http.DefaultTransport}
 	opt := k8schain.Options{
 		Namespace:          ns,
@@ -195,13 +196,13 @@ func TestResolve(t *testing.T) {
 	}
 	resolvedDigest, err := dr.Resolve(context.Background(), tag.String(), opt, emptyRegistrySet)
 	if err != nil {
-		t.Fatalf("Resolve() = %v", err)
+		t.Fatal("Resolve() =", err)
 	}
 
 	// Make sure that we get back the appropriate digest.
 	digest, err := name.NewDigest(resolvedDigest, name.WeakValidation)
 	if err != nil {
-		t.Fatalf("NewDigest() = %v", err)
+		t.Fatal("NewDigest() =", err)
 	}
 	if got, want := digest.DigestStr(), mustDigest(t, img).String(); got != want {
 		t.Fatalf("Resolve() = %v, want %v", got, want)
@@ -231,15 +232,18 @@ func TestResolveWithDigest(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(originalDigest, resolvedDigest); diff != "" {
-		t.Errorf("Digest should not change (-want +got): %s", diff)
+		t.Errorf("Digest should not change (-want +got):\n%s", diff)
 	}
 }
 
 func TestResolveWithBadTag(t *testing.T) {
-	ns, svcacct := "foo", "default"
+	const (
+		ns      = "foo"
+		svcacct = "default"
+	)
 	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
+			Name:      svcacct,
 			Namespace: ns,
 		},
 	})
@@ -250,10 +254,10 @@ func TestResolveWithBadTag(t *testing.T) {
 		ServiceAccountName: svcacct,
 	}
 
-	// Invalid character
+	// Invalid character.
 	invalidImage := "ubuntu%latest"
 	if resolvedDigest, err := dr.Resolve(context.Background(), invalidImage, opt, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
+		t.Fatalf("Resolve() succeeded with %q, want error", resolvedDigest)
 	}
 }
 

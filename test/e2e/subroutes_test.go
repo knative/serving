@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
@@ -58,7 +59,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 	tag := "current"
 
-	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withInternalVisibility := rtesting.WithServiceLabel(netpkg.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{
 			{
@@ -215,7 +216,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"
 
-	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withInternalVisibility := rtesting.WithServiceLabel(netpkg.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{
 			{
