@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
@@ -120,7 +121,7 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
 				// Do not propagate the visibility label from Route as users may want to set the label
 				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
-				return key == serving.VisibilityLabelKey
+				return (key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete)
 			}), svcLabels),
 			Annotations: route.GetAnnotations(),
 		},

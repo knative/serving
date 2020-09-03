@@ -135,9 +135,9 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			if tt.local {
-				meta.Labels[serving.VisibilityLabelKey] = serving.VisibilityClusterLocal
+				meta.Labels[network.VisibilityLabelKey] = serving.VisibilityClusterLocal
 			} else {
-				delete(meta.Labels, serving.VisibilityLabelKey)
+				delete(meta.Labels, network.VisibilityLabelKey)
 			}
 
 			got, err := DomainNameFromTemplate(ctx, meta, tt.args.name)

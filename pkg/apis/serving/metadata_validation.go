@@ -115,9 +115,9 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 }
 
 // ValidateClusterVisibilityLabel function validates the visibility label on a Route
-func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+func ValidateClusterVisibilityLabel(label, key string) (errs *apis.FieldError) {
 	if label != VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, VisibilityLabelKey)
+		errs = apis.ErrInvalidValue(label, key)
 	}
 	return
 }
