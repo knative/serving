@@ -339,7 +339,7 @@ func (rt *revisionThrottler) updateThrottlerState(
 func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, remnants int) {
 	if numActivators > numTrackers {
 		// 1. We have fewer pods than than activators. Assign the pods in round robin fashion.
-		// NB: when we implement subsetting this will be less of a problem.
+		// With subsetting this is be less of a problem and should almost never happen.
 		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
 		beginIndex = selfIndex % numTrackers
 		endIndex = beginIndex + 1
