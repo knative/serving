@@ -54,6 +54,25 @@ func TestServicePostUpgrade(t *testing.T) {
 	updateService(serviceName, t)
 }
 
+/*
+TODO(6984): uncomment those.
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return configObj.Generation == int64(generation), nil
+}
+
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return routeObj.Generation == int64(generation), nil
+}
+*/
+
 func TestServicePostUpgradeFromScaleToZero(t *testing.T) {
 	t.Parallel()
 	updateService(scaleToZeroServiceName, t)
@@ -77,22 +96,6 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Failed to update Service:", err)
 	}
-}
-
-func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return configObj.Generation == int64(generation), nil
-}
-
-func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return routeObj.Generation == int64(generation), nil
 }
 
 func updateService(serviceName string, t *testing.T) {
