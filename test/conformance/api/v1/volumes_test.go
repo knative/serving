@@ -72,7 +72,7 @@ func TestConfigMapVolume(t *testing.T) {
 		}
 	})
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		ConfigMap: &corev1.ConfigMapVolumeSource{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: configMap.Name,
@@ -139,7 +139,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 		}
 	})
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				ConfigMap: &corev1.ConfigMapProjection{
@@ -208,7 +208,7 @@ func TestSecretVolume(t *testing.T) {
 		}
 	})
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
 			SecretName: secret.Name,
 			Optional:   ptr.Bool(false),
@@ -271,7 +271,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 		}
 	})
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				Secret: &corev1.SecretProjection{
@@ -355,7 +355,7 @@ func TestProjectedComplex(t *testing.T) {
 		}
 	})
 
-	withVolume := WithVolume("projectedV", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
+	withVolume := WithVolume("projectedv", filepath.Dir(test.HelloVolumePath), corev1.VolumeSource{
 		Projected: &corev1.ProjectedVolumeSource{
 			Sources: []corev1.VolumeProjection{{
 				ConfigMap: &corev1.ConfigMapProjection{
