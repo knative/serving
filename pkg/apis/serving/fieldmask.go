@@ -126,12 +126,12 @@ func ServiceAccountTokenProjectionMask(in *corev1.ServiceAccountTokenProjection)
 		return nil
 	}
 
-	out := new(corev1.ServiceAccountTokenProjection)
-
-	// Allowed fields
-	out.Audience = in.Audience
-	out.ExpirationSeconds = in.ExpirationSeconds
-	out.Path = in.Path
+	out := &corev1.ServiceAccountTokenProjection{
+		// Allowed fields
+		Audience:          in.Audience,
+		ExpirationSeconds: in.ExpirationSeconds,
+		Path:              in.Path,
+	}
 
 	return out
 }
