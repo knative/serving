@@ -76,10 +76,10 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *
 			// Check that we get an auth header with base64 encoded username:password
 			hdr := r.Header.Get("Authorization")
 			if !strings.HasPrefix(hdr, basicAuth) {
-				t.Errorf("Header.Get(Authorization) prefix = %q, want %q prefix", hdr, basicAuth)
+				t.Errorf("Header.Get(Authorization) = %q, want %q prefix", hdr, basicAuth)
 			}
 			if want := base64.StdEncoding.EncodeToString([]byte(username + ":" + password)); !strings.HasSuffix(hdr, want) {
-				t.Errorf("Header.Get(Authorization) suffix = %q, want suffix %q", hdr, want)
+				t.Errorf("Header.Get(Authorization) = %q, want suffix %q", hdr, want)
 			}
 			if r.Method != http.MethodGet {
 				t.Errorf("Method = %v, want %v", r.Method, http.MethodGet)
