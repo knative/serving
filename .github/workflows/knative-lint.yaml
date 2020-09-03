@@ -27,8 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v1
+        uses: golangci/golangci-lint-action@v2
         with:
           version: v1.30
-          args: --timeout 5m --disable errcheck --enable unconvert,prealloc --build-tags="e2e performance probe preupgrade postupgrade postdowngrade istio" --skip-files ".pb.go$"
-          only-new-issues: true
+          args: --timeout 5m --disable errcheck --enable unconvert,prealloc --build-tags="e2e performance probe preupgrade postupgrade postdowngrade istio" --skip-files ".pb.go$" --skip-dirs "pkg/client"
