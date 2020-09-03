@@ -18,14 +18,11 @@ package core
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -158,26 +155,18 @@ func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAcces
 	t.Cleanup(cancel)
 
 	fake := fakekubeclient.Get(ctx)
-	lister := fakesecretinformer.Get(ctx).Lister()
+	fakeinformer := fakesecretinformer.Get(ctx)
 	for _, secret := range secrets {
-		_, err := fake.CoreV1().Secrets(secret.Namespace).Create(secret)
-		if err != nil {
+		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(secret); err != nil {
 			t.Fatalf("Error creating secret: %v", err)
 		}
-
-		if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-			_, err := lister.Secrets(secret.Namespace).Get(secret.Name)
-			if apierrs.IsNotFound(err) {
-				return false, nil
-			}
-			return err == nil, err
-		}); err != nil {
-			t.Fatal("Failed to see secret propagation:", err)
+		if err := fakeinformer.Informer().GetIndexer().Add(secret); err != nil {
+			t.Fatalf("Error adding secret to index: %v", err)
 		}
 	}
 
 	return ctx, &FakeAccessor{
 		client:       fake,
-		secretLister: lister,
+		secretLister: fakeinformer.Lister(),
 	}
 }
