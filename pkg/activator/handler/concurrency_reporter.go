@@ -24,9 +24,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"k8s.io/apimachinery/pkg/types"
-
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
@@ -41,6 +39,16 @@ import (
 
 const reportInterval = time.Second
 
+// revisionStats is a type that wraps information needed to calculate stats per revision.
+//
+// stats is thread-safe in itself and thus needs no extra synchronization.
+// firstRequest is only read/mutated in `report` which is guaranteed to be single-threaded
+// as it is driven by the report channel.
+type revisionStats struct {
+	stats        *network.RequestStats
+	firstRequest float64
+}
+
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
 type ConcurrencyReporter struct {
 	logger  *zap.SugaredLogger
@@ -53,14 +61,7 @@ type ConcurrencyReporter struct {
 
 	mux sync.RWMutex
 	// This map holds the concurrency and request count accounting across revisions.
-	stats map[types.NamespacedName]*network.RequestStats
-	// This map holds whether during this reporting period we reported "first" request
-	// for the revision. Our reporting period is 1s, so there is a high chance that
-	// they will end up in the same metrics bucket and values in the same bucket are
-	// summed.
-	// This is important because for small concurrencies, e.g. 1, autoscaler might cause
-	// noticeable overprovisioning.
-	reportedFirstRequest map[types.NamespacedName]float64
+	stats map[types.NamespacedName]*revisionStats
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
@@ -72,25 +73,24 @@ func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []a
 		statCh:  statCh,
 		rl:      revisioninformer.Get(ctx).Lister(),
 
-		stats:                make(map[types.NamespacedName]*network.RequestStats),
-		reportedFirstRequest: make(map[types.NamespacedName]float64),
+		stats: make(map[types.NamespacedName]*revisionStats),
 	}
 }
 
 // handleEvent handles request events (in, out) and updates the respective stats.
 func (cr *ConcurrencyReporter) handleEvent(event network.ReqEvent) {
-	stats, msg := cr.getOrCreateStat(event)
+	stat, msg := cr.getOrCreateStat(event)
 	if msg != nil {
 		cr.statCh <- []asmetrics.StatMessage{*msg}
 	}
-	stats.HandleEvent(event)
+	stat.stats.HandleEvent(event)
 }
 
 // getOrCreateStat gets a stat from the state if present.
 // If absent it creates a new one and returns it, potentially returning a StatMessage too
 // to trigger an immediate scale-from-0.
-func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network.RequestStats, *asmetrics.StatMessage) {
-	stat := func() *network.RequestStats {
+func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*revisionStats, *asmetrics.StatMessage) {
+	stat := func() *revisionStats {
 		cr.mux.RLock()
 		defer cr.mux.RUnlock()
 		return cr.stats[event.Key]
@@ -108,10 +108,12 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network
 		return stat, nil
 	}
 
-	stat = network.NewRequestStats(event.Time)
+	stat = &revisionStats{
+		stats:        network.NewRequestStats(event.Time),
+		firstRequest: 1,
+	}
 	cr.stats[event.Key] = stat
 
-	cr.reportedFirstRequest[event.Key] = 1
 	return stat, &asmetrics.StatMessage{
 		Key: event.Key,
 		Stat: asmetrics.Stat{
@@ -129,18 +131,33 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event network.ReqEvent) (*network
 // report cuts a report from all collected statistics and sends the respective messages
 // via the statsCh and reports the concurrency metrics to prometheus.
 func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
-	cr.mux.Lock()
-	defer cr.mux.Unlock()
+	msgs, toDelete := cr.computeReport(now)
 
-	messages := make([]asmetrics.StatMessage, 0, len(cr.stats))
+	if len(toDelete) > 0 {
+		cr.mux.Lock()
+		defer cr.mux.Unlock()
+		for _, key := range toDelete {
+			delete(cr.stats, key)
+		}
+	}
+
+	return msgs
+}
+
+func (cr *ConcurrencyReporter) computeReport(now time.Time) (msgs []asmetrics.StatMessage, toDelete []types.NamespacedName) {
+	cr.mux.RLock()
+	defer cr.mux.RUnlock()
+	msgs = make([]asmetrics.StatMessage, 0, len(cr.stats))
 	for key, stat := range cr.stats {
-		report := stat.Report(now)
-		firstAdj := cr.reportedFirstRequest[key]
+		report := stat.stats.Report(now)
+
+		firstAdj := stat.firstRequest
+		stat.firstRequest = 0.
 
 		// This is only 0 if we have seen no activity for the entire reporting
 		// period at all.
 		if report.AverageConcurrency == 0 {
-			delete(cr.stats, key)
+			toDelete = append(toDelete, key)
 		}
 
 		// Subtract the request we already reported when first seeing the
@@ -149,7 +166,7 @@ func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 		// the reporting period might be < 1.
 		adjustedConcurrency := math.Max(report.AverageConcurrency-firstAdj, 0)
 		adjustedCount := report.RequestCount - firstAdj
-		messages = append(messages, asmetrics.StatMessage{
+		msgs = append(msgs, asmetrics.StatMessage{
 			Key: key,
 			Stat: asmetrics.Stat{
 				PodName:                   cr.podName,
@@ -159,14 +176,7 @@ func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
 		})
 	}
 
-	// We've now accounted for any cases where we immediately reported seeing the
-	// first request for a revision in handleEvent by subtracting them from this
-	// report.
-	for k := range cr.reportedFirstRequest {
-		delete(cr.reportedFirstRequest, k)
-	}
-
-	return messages
+	return msgs, toDelete
 }
 
 func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency float64) {
