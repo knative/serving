@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	network "knative.dev/networking/pkg"
+	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -189,6 +190,48 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	}
 }
 
+func TestServerWithOwnershipStatsReceived(t *testing.T) {
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnership(statsCh, &testOwnership{})
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	// Verify the server behavior normally when the host is not a bucket host
+	statSink := dialOK(t, server.listenAddr())
+	assertReceivedProto(t, both, statSink, statsCh)
+	closeSink(t, statSink)
+}
+
+func TestServerWithOwnershipConnectionClosed(t *testing.T) {
+	// Override the function to mock a bucket host.
+	isBucketHost = func(host string) bool { return true }
+	defer func() {
+		isBucketHost = bucket.IsBucketHost
+	}()
+
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnership(statsCh, &testOwnership{})
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	statSink := dialOK(t, server.listenAddr())
+	defer closeSink(t, statSink)
+
+	received := make(chan struct{})
+	go func() {
+		assertReceivedProto(t, both, statSink, statsCh)
+		close(received)
+	}()
+
+	select {
+	case <-received:
+		t.Error("Should not receive stat as the server should keep close the connection.")
+	case <-time.After(time.Second):
+	}
+}
+
 func BenchmarkStatServer(b *testing.B) {
 	statsCh := make(chan metrics.StatMessage, 100)
 	server := newTestServer(statsCh)
@@ -332,8 +375,12 @@ type testServer struct {
 }
 
 func newTestServer(statsCh chan<- metrics.StatMessage) *testServer {
+	return newTestServerWithOwnership(statsCh, nil)
+}
+
+func newTestServerWithOwnership(statsCh chan<- metrics.StatMessage, ownership bucket.Ownership) *testServer {
 	return &testServer{
-		Server:       New(testAddress, statsCh, zap.NewNop().Sugar()),
+		Server:       New(testAddress, statsCh, zap.NewNop().Sugar(), ownership),
 		listenAddrCh: make(chan string, 1),
 	}
 }
@@ -359,4 +406,11 @@ type testListener struct {
 func (t *testListener) Accept() (net.Conn, error) {
 	t.listenAddr <- "http://" + t.Listener.Addr().String()
 	return t.Listener.Accept()
+}
+
+// A test ownership always returns false for IsOwner.
+type testOwnership struct{}
+
+func (t *testOwnership) IsOwner(bkt string) bool {
+	return false
 }

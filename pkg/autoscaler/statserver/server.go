@@ -22,16 +22,28 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	network "knative.dev/networking/pkg"
+	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/websocket/websocket.xhtml
+const closeCodeTryAgain = 1013
+
+// isBucketHost is the function deciding whether a host of a request is
+// of an Autoscaler bucket service. It is set to bucket.IsBucketHost
+// in production while can be overriden for testing.
+var isBucketHost func(host string) bool
+
+func init() {
+	isBucketHost = bucket.IsBucketHost
+}
 
 // Server receives autoscaler statistics over WebSocket and sends them to a channel.
 type Server struct {
@@ -41,17 +53,19 @@ type Server struct {
 	stopCh      chan struct{}
 	statsCh     chan<- metrics.StatMessage
 	openClients sync.WaitGroup
+	ownership   bucket.Ownership
 	logger      *zap.SugaredLogger
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger) *Server {
+func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, ownership bucket.Ownership) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
 		stopCh:      make(chan struct{}),
 		statsCh:     statsCh,
 		openClients: sync.WaitGroup{},
+		ownership:   ownership,
 		logger:      logger.Named("stats-websocket-server").With("address", statsServerAddr),
 	}
 
@@ -113,11 +127,25 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	if handleHealthz(w, r) {
 		return
 	}
+
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
+	}
+
+	if s.ownership != nil && isBucketHost(r.Host) {
+		bkt := strings.Split(r.Host, ".")[0]
+		if !s.ownership.IsOwner(bkt) {
+			s.logger.Warn("Close the connection because not the owner of the bucket ", bkt)
+			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeTryAgain, "NotOwner"))
+			if err != nil {
+				s.logger.Errorf("Failed to send close message to client: %#v", err)
+			}
+			conn.Close()
+			return
+		}
 	}
 
 	handlerCh := make(chan struct{})
