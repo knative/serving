@@ -269,7 +269,8 @@ of:
   - API type definitions in [pkg/apis/serving/v1/](./pkg/apis/serving/v1/.).
   - Type definitions annotated with `// +k8s:deepcopy-gen=true`.
   - The `_example` value of config maps (to keep the
-    `knative.dev/example-checksum` label in sync).
+    `knative.dev/example-checksum` annotations in sync). These can also be
+    individually updated using `./hack/update-checksums.sh`.
   - `.proto` files. Run `./hack/update-codegen.sh` with the
     `--generate-protobufs` flag to enable protocol buffer generation.
 
