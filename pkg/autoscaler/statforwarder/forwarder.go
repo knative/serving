@@ -154,11 +154,13 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	holder := *l.Spec.HolderIdentity
+	// Close existing connection if there's one. The target address won't
+	// be the same as the IP has changed.
 	p := f.getProcessor(n)
 	if p != nil && p.conn != nil {
 		p.conn.Shutdown()
 	}
+	holder := *l.Spec.HolderIdentity
 	f.setProcessor(n, f.createProcessor(n, holder))
 
 	if holder != f.selfIP {
