@@ -46,7 +46,7 @@ const (
 	grpcMinScale             = 3
 )
 
-type grpcTest func(*testing.T, *v1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
+type grpcTest func(*testContext, string, string)
 
 // hasPort checks if a URL contains a port number
 func hasPort(u string) bool {
@@ -83,38 +83,32 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	)
 }
 
-func unaryTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-	t.Helper()
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+func unaryTest(ctx *testContext, host, domain string) {
+	ctx.t.Helper()
+	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	const want = "Hello!"
 	got, err := pingGRPC(host, domain, want)
 	if err != nil {
-		t.Fatal("gRPC ping =", err)
+		ctx.t.Fatal("gRPC ping =", err)
 	}
 	if got != want {
-		t.Fatalf("response = %q, want = %q", got, want)
+		ctx.t.Fatalf("Response = %q, want = %q", got, want)
 	}
 }
 
-func autoscaleTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-	t.Helper()
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+func autoscaleTest(ctx *testContext, host, domain string) {
+	ctx.t.Helper()
+	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
-	ctx := &testContext{
-		t:                 t,
-		clients:           clients,
-		resources:         resources,
-		names:             names,
-		targetUtilization: targetUtilization,
-	}
+	ctx.targetUtilization = targetUtilization
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
 	assertScaleDown(ctx)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
-func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-	t.Helper()
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+func loadBalancingTest(ctx *testContext, host, domain string) {
+	ctx.t.Helper()
+	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
 	const (
 		wantHosts  = grpcMinScale
@@ -129,13 +123,7 @@ func loadBalancingTest(t *testing.T, resources *v1test.ResourceObjects, clients 
 		timer       = time.Tick(1 * time.Second)
 	)
 
-	ctx := &testContext{
-		t:                 t,
-		clients:           clients,
-		resources:         resources,
-		names:             names,
-		targetUtilization: targetUtilization,
-	}
+	ctx.targetUtilization = targetUtilization
 
 	countKeys := func() int {
 		count := 0
@@ -267,46 +255,46 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 	}
 }
 
-func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-	t.Helper()
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
+func streamTest(tc *testContext, host, domain string) {
+	tc.t.Helper()
+	tc.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := dial(host, domain)
 	if err != nil {
-		t.Fatal("Fail to dial:", err)
+		tc.t.Fatal("Fail to dial:", err)
 	}
 	defer conn.Close()
 
 	pc := ping.NewPingServiceClient(conn)
-	t.Log("Testing streaming Ping")
+	tc.t.Log("Testing streaming Ping")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	stream, err := pc.PingStream(ctx)
 	if err != nil {
-		t.Fatal("Error creating stream:", err)
+		tc.t.Fatal("Error creating stream:", err)
 	}
 
-	count := 3
+	const count = 3
 	for i := 0; i < count; i++ {
-		t.Logf("Sending stream %d of %d", i+1, count)
+		tc.t.Logf("Sending stream %d of %d", i+1, count)
 
 		want := "This is a short message!"
 
 		err = stream.Send(&ping.Request{Msg: want})
 		if err != nil {
-			t.Fatal("Error sending request:", err)
+			tc.t.Fatal("Error sending request:", err)
 		}
 
 		resp, err := stream.Recv()
 		if err != nil {
-			t.Fatal("Error receiving response:", err)
+			tc.t.Fatal("Error receiving response:", err)
 		}
 
 		got := resp.Msg
 
 		if want != got {
-			t.Errorf("Stream %d: response = %q, want = %q", i, got, want)
+			tc.t.Errorf("Stream %d: response = %q, want = %q", i, got, want)
 		}
 	}
 
@@ -314,7 +302,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
 
 	_, err = stream.Recv()
 	if err != io.EOF {
-		t.Errorf("Expected EOF, got %v", err)
+		tc.t.Errorf("Expected EOF, got %v", err)
 	}
 }
 
@@ -364,7 +352,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(t, resources, clients, names, host, url.Hostname())
+	f(&testContext{
+		t:         t,
+		clients:   clients,
+		resources: resources,
+	}, host, url.Hostname())
 }
 
 func TestGRPCUnaryPing(t *testing.T) {
@@ -377,11 +369,11 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-			if err := waitForActivatorEndpoints(resources, clients); err != nil {
+		func(ctx *testContext, host, domain string) {
+			if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
-			unaryTest(t, resources, clients, names, host, domain)
+			unaryTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
@@ -391,11 +383,11 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-			if err := waitForActivatorEndpoints(resources, clients); err != nil {
+		func(ctx *testContext, host, domain string) {
+			if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
-			streamTest(t, resources, clients, names, host, domain)
+			streamTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
@@ -405,8 +397,9 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 
 func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-			autoscaleTest(t, resources, clients, names, host, domain)
+		func(ctx *testContext, host, domain string) {
+			autoscaleTest(ctx, host, domain)
+
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
@@ -423,8 +416,8 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 
 func TestGRPCLoadBalancing(t *testing.T) {
 	testGRPC(t,
-		func(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-			loadBalancingTest(t, resources, clients, names, host, domain)
+		func(ctx *testContext, host, domain string) {
+			loadBalancingTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
