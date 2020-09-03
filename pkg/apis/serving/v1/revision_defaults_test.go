@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
@@ -500,6 +501,30 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 			},
+		},
+	}, {
+		name: "no SetDefaults if update revision",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container-1",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container-1",
+					}},
+				},
+			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			ctx = apis.WithinUpdate(ctx, "fake")
+			return ctx
 		},
 	}}
 
