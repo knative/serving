@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -1749,10 +1748,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "default",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Version:  "v1",
-					Resource: "services",
-				},
+				Resource:  corev1.SchemeGroupVersion.WithResource("services"),
 			},
 			Name: "old-service-name",
 		}},
@@ -1787,10 +1783,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "default",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Version:  "v1",
-					Resource: "services",
-				},
+				Resource:  corev1.SchemeGroupVersion.WithResource("services"),
 			},
 			Name: "old-service-name",
 		}},
@@ -2299,7 +2292,6 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				Status: readyCertStatus(),
 			},
 		},
-		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{},
 		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)), ""),
 		},

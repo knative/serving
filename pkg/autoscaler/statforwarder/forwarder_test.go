@@ -79,13 +79,15 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
+	f1 := New(ctx, logger, kubeClient, testIP1, testBs, noOp)
+	f2 := New(ctx, logger, kubeClient, testIP2, testBs, noOp)
+
 	defer func() {
+		f1.Cancel()
+		f2.Cancel()
 		cancel()
 		waitInformers()
 	}()
-
-	New(ctx, logger, kubeClient, testIP1, testBs, noOp)
-	New(ctx, logger, kubeClient, testIP2, testBs, noOp)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
 	lease.Informer().GetIndexer().Add(testLease)
