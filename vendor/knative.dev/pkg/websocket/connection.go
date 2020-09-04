@@ -327,3 +327,11 @@ func (c *ManagedConnection) Shutdown() error {
 	c.processingWg.Wait()
 	return err
 }
+
+// IsEstablished returns true the websocket connection has been established.
+func (c *ManagedConnection) IsEstablished() bool {
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
+	return c.connection != nil
+}
