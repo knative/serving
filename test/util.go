@@ -42,8 +42,6 @@ const (
 
 	// HelloVolumePath is the path to the test volume.
 	HelloVolumePath = "/hello/world"
-	// HelloServiceTokenPath is the path to the servicetoken
-	HelloServiceTokenPath = "/hello/token"
 
 	caSecretNamespace = "cert-manager"
 	caSecretName      = "ca-key-pair"
