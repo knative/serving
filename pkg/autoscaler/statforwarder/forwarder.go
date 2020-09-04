@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
@@ -53,17 +52,6 @@ const (
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
-
-// bucketProcessor includes the information about how to process
-// the StatMessage owned by a bucket.
-type bucketProcessor struct {
-	// holder is the HolderIdentity for a bucket from the Lease.
-	holder string
-	// conn is the WebSocket connection to the holder pod.
-	conn *websocket.ManagedConnection
-	// proc is the function to process the StatMessage owned by the bucket.
-	proc statProcessor
-}
 
 // Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
@@ -293,14 +281,10 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	if holder == f.selfIP {
 		return &bucketProcessor{
+			bkt:    bkt,
+			logger: f.logger,
 			holder: holder,
-			proc: func(sm asmetrics.StatMessage) {
-				l := f.logger.With(zap.String("revision", sm.Key.String()))
-				l.Debug("Accept stat as owner of bucket ", bkt)
-				if f.accept != nil {
-					f.accept(sm)
-				}
-			},
+			accept: f.accept,
 		}
 	}
 
@@ -308,25 +292,12 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	c := websocket.NewDurableSendingConnection(dns, f.logger)
 	f.processingWg.Add(1)
 	return &bucketProcessor{
+		bkt:    bkt,
+		logger: f.logger,
 		holder: holder,
-		conn:   c,
-		proc: func(sm asmetrics.StatMessage) {
-			l := f.logger.With(zap.String("revision", sm.Key.String()))
-			l.Debugf("Forward stat of bucket %s to the holder %s", bkt, holder)
-			wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-			b, err := wsms.Marshal()
-			if err != nil {
-				l.Errorw("Error while marshaling stats", zap.Error(err))
-				return
-			}
-
-			if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-				l.Errorw("Error while sending stats", zap.Error(err))
-			}
-		},
+		conn:   websocket.NewDurableSendingConnection(dns, f.logger),
 	}
 }
 
@@ -344,7 +315,7 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 		return
 	}
 
-	p.proc(sm)
+	p.process(sm)
 }
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {

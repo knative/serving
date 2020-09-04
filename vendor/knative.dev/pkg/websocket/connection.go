@@ -327,3 +327,11 @@ func (c *ManagedConnection) Shutdown() error {
 	c.processingWg.Wait()
 	return err
 }
+
+// Shutdown closes the websocket connection.
+func (c *ManagedConnection) HasEstablished() bool {
+	c.connectionLock.RLock()
+	defer c.connectionLock.RUnlock()
+
+	return c.connection != nil
+}
