@@ -237,7 +237,11 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(resources, clients); err != nil {
+	if err := waitForActivatorEndpoints(&testContext{
+		t:         t,
+		resources: resources,
+		clients:   clients,
+	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
