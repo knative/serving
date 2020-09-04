@@ -8817,7 +8817,8 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: docker.io/istio/pilot:1.7.0
+#        image: docker.io/istio/pilot:1.7.0
+        image: gcr.io/howardjohn-istio/pilot@sha256:6df41d5ba9e8bc19cfe46dbe13e437c11f52689a2341b47a78dd720f0c41e25e
         name: discovery
         ports:
         - containerPort: 8080
