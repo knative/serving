@@ -8673,8 +8673,8 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 3000m
-            memory: 2048Mi
+            cpu: 10000m
+            memory: 4096Mi
           requests:
             cpu: 1000m
             memory: 1024Mi
@@ -8817,8 +8817,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-#        image: docker.io/istio/pilot:1.7.0
-        image: gcr.io/howardjohn-istio/pilot@sha256:6df41d5ba9e8bc19cfe46dbe13e437c11f52689a2341b47a78dd720f0c41e25e
+        image: docker.io/istio/pilot:1.7.0
         name: discovery
         ports:
         - containerPort: 8080
@@ -8833,6 +8832,9 @@ spec:
           periodSeconds: 3
           timeoutSeconds: 5
         resources:
+          limits:
+            cpu: 10000m
+            memory: 4096Mi
           requests:
             cpu: 500m
             memory: 2048Mi
@@ -9028,7 +9030,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 2
+  minReplicas: 5
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9077,7 +9079,7 @@ spec:
       name: cpu
       targetAverageUtilization: 60
     type: Resource
-  minReplicas: 3
+  minReplicas: 5
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
