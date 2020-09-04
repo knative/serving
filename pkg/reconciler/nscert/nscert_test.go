@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -273,11 +272,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "networking.internal.knative.dev",
-					Version:  "v1alpha1",
-					Resource: "certificates",
-				},
+				Resource:  v1alpha1.SchemeGroupVersion.WithResource("certificates"),
 			},
 			Name: "foo.example.com",
 		}},
