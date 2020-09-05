@@ -343,7 +343,7 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 }
 
 // CheckK8sClientMinimumVersionOrDie checks that the hosting Kubernetes cluster
-// is at least the minimum allowable version or dies by calling log.Fatalf.
+// is at least the minimum allowable version or dies by calling log.Fatalw.
 func CheckK8sClientMinimumVersionOrDie(ctx context.Context, logger *zap.SugaredLogger) {
 	kc := kubeclient.Get(ctx)
 	if err := version.CheckMinimumVersion(kc.Discovery()); err != nil {
@@ -352,7 +352,7 @@ func CheckK8sClientMinimumVersionOrDie(ctx context.Context, logger *zap.SugaredL
 }
 
 // SetupConfigMapWatchOrDie establishes a watch of the configmaps in the system
-// namespace that are labeled to be watched or dies by calling log.Fatalf.
+// namespace that are labeled to be watched or dies by calling log.Fatalw.
 func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *configmap.InformedWatcher {
 	kc := kubeclient.Get(ctx)
 	// Create ConfigMaps watcher with optional label-based filter.
@@ -370,7 +370,7 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 }
 
 // WatchLoggingConfigOrDie establishes a watch of the logging config or dies by
-// calling log.Fatalf. Note, if the config does not exist, it will be defaulted
+// calling log.Fatalw. Note, if the config does not exist, it will be defaulted
 // and this method will not die.
 func WatchLoggingConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher, logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, component string) {
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(),
@@ -381,8 +381,8 @@ func WatchLoggingConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher
 	}
 }
 
-// WatchObservabilityConfigOrDie establishes a watch of the logging config or
-// dies by calling log.Fatalf. Note, if the config does not exist, it will be
+// WatchObservabilityConfigOrDie establishes a watch of the observability config
+// or dies by calling log.Fatalw. Note, if the config does not exist, it will be
 // defaulted and this method will not die.
 func WatchObservabilityConfigOrDie(ctx context.Context, cmw *configmap.InformedWatcher, profilingHandler *profiling.Handler, logger *zap.SugaredLogger, component string) {
 	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(metrics.ConfigMapName(),
