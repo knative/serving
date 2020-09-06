@@ -8673,8 +8673,8 @@ spec:
           timeoutSeconds: 1
         resources:
           limits:
-            cpu: 10000m
-            memory: 4096Mi
+            cpu: 3000m
+            memory: 2048Mi
           requests:
             cpu: 1000m
             memory: 1024Mi
@@ -8833,9 +8833,6 @@ spec:
           periodSeconds: 3
           timeoutSeconds: 5
         resources:
-          limits:
-            cpu: 10000m
-            memory: 4096Mi
           requests:
             cpu: 500m
             memory: 2048Mi
@@ -9031,7 +9028,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 5
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9080,7 +9077,7 @@ spec:
       name: cpu
       targetAverageUtilization: 60
     type: Resource
-  minReplicas: 5
+  minReplicas: 3
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
