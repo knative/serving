@@ -8302,12 +8302,12 @@ webhooks:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: cluster-local-gateway
+  namespace: istio-system
   labels:
     app: cluster-local-gateway
     istio: cluster-local-gateway
     release: istio
-  name: cluster-local-gateway
-  namespace: istio-system
 spec:
   selector:
     matchLabels:
@@ -8319,204 +8319,205 @@ spec:
       maxUnavailable: 25%
   template:
     metadata:
-      annotations:
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15090"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/inject: "false"
       labels:
         app: cluster-local-gateway
-        chart: gateways
-        heritage: Tiller
         istio: cluster-local-gateway
+        heritage: Tiller
         release: istio
+        chart: gateways
         service.istio.io/canonical-name: cluster-local-gateway
         service.istio.io/canonical-revision: latest
+      annotations:
+        prometheus.io/port: "15090"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
+        sidecar.istio.io/inject: "false"
     spec:
-      affinity:
+      securityContext:
+        runAsUser: 1337
+        runAsGroup: 1337
+        runAsNonRoot: true
+        fsGroup: 1337
+      serviceAccountName: cluster-local-gateway-service-account
+      containers:
+        - name: istio-proxy
+          image: "docker.io/istio/proxyv2:1.7.0"
+          ports:
+            - containerPort: 15020
+            - containerPort: 8080
+            - containerPort: 8443
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+          - proxy
+          - router
+          - --domain
+          - $(POD_NAMESPACE).svc.cluster.local
+          - --proxyLogLevel=warning
+          - --proxyComponentLogLevel=misc:error
+          - --log_output_level=default:info
+          - --serviceCluster
+          - cluster-local-gateway
+          - --trust-domain=cluster.local
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15021
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          env:
+          - name: JWT_POLICY
+            value: first-party-jwt
+          - name: PILOT_CERT_PROVIDER
+            value: istiod
+          - name: CA_ADDR
+            value: istiod.istio-system.svc:15012
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: CANONICAL_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-name']
+          - name: CANONICAL_REVISION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['service.istio.io/canonical-revision']
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: cluster-local-gateway
+          - name: ISTIO_META_OWNER
+            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: ISTIO_META_ROUTER_MODE
+            value: sni-dnat
+          
+          - name: ISTIO_META_CLUSTER_ID
+            value: "Kubernetes"
+          volumeMounts:
+          - name: istio-envoy
+            mountPath: /etc/istio/proxy
+          - name: config-volume
+            mountPath: /etc/istio/config
+          - mountPath: /var/run/secrets/istio
+            name: istiod-ca-cert
+          - name: gatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          - name: podinfo
+            mountPath: /etc/istio/pod
+          - name: ingressgateway-certs
+            mountPath: "/etc/istio/ingressgateway-certs"
+            readOnly: true
+          - name: ingressgateway-ca-certs
+            mountPath: "/etc/istio/ingressgateway-ca-certs"
+            readOnly: true
+      volumes:
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      - name: podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
+      - name: istio-envoy
+        emptyDir: {}
+      - name: gatewaysdsudspath
+        emptyDir: {}
+      - name: config-volume
+        configMap:
+          name: istio
+          optional: true
+      - name: ingressgateway-certs
+        secret:
+          secretName: "istio-ingressgateway-certs"
+          optional: true
+      - name: ingressgateway-ca-certs
+        secret:
+          secretName: "istio-ingressgateway-ca-certs"
+          optional: true
+      affinity:      
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
               - key: kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - args:
-        - proxy
-        - router
-        - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
-        - --proxyLogLevel=warning
-        - --proxyComponentLogLevel=misc:error
-        - --log_output_level=default:info
-        - --serviceCluster
-        - cluster-local-gateway
-        - --trust-domain=cluster.local
-        env:
-        - name: JWT_POLICY
-          value: first-party-jwt
-        - name: PILOT_CERT_PROVIDER
-          value: istiod
-        - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: spec.nodeName
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.hostIP
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: CANONICAL_SERVICE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-name']
-        - name: CANONICAL_REVISION
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-revision']
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: cluster-local-gateway
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
-        - name: ISTIO_META_ROUTER_MODE
-          value: sni-dnat
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
-        image: docker.io/istio/proxyv2:1.7.0
-        name: istio-proxy
-        ports:
-        - containerPort: 15020
-        - containerPort: 8080
-        - containerPort: 8443
-        - containerPort: 15090
-          name: http-envoy-prom
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 30
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-            scheme: HTTP
-          initialDelaySeconds: 1
-          periodSeconds: 2
-          successThreshold: 1
-          timeoutSeconds: 1
-        resources:
-          limits:
-            cpu: 3000m
-            memory: 2048Mi
-          requests:
-            cpu: 1000m
-            memory: 1024Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-        volumeMounts:
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
-        - mountPath: /etc/istio/config
-          name: config-volume
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
-        - mountPath: /var/run/ingress_gateway
-          name: gatewaysdsudspath
-        - mountPath: /etc/istio/pod
-          name: podinfo
-        - mountPath: /etc/istio/ingressgateway-certs
-          name: ingressgateway-certs
-          readOnly: true
-        - mountPath: /etc/istio/ingressgateway-ca-certs
-          name: ingressgateway-ca-certs
-          readOnly: true
-      securityContext:
-        fsGroup: 1337
-        runAsGroup: 1337
-        runAsNonRoot: true
-        runAsUser: 1337
-      serviceAccountName: cluster-local-gateway-service-account
-      volumes:
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
-      - downwardAPI:
-          items:
-          - fieldRef:
-              fieldPath: metadata.labels
-            path: labels
-          - fieldRef:
-              fieldPath: metadata.annotations
-            path: annotations
-        name: podinfo
-      - emptyDir: {}
-        name: istio-envoy
-      - emptyDir: {}
-        name: gatewaysdsudspath
-      - configMap:
-          name: istio
-          optional: true
-        name: config-volume
-      - name: ingressgateway-certs
-        secret:
-          optional: true
-          secretName: istio-ingressgateway-certs
-      - name: ingressgateway-ca-certs
-        secret:
-          optional: true
-          secretName: istio-ingressgateway-ca-certs
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -8749,6 +8750,7 @@ metadata:
   name: istiod
   namespace: istio-system
 spec:
+  replicas: 7
   selector:
     matchLabels:
       istio: pilot
@@ -8817,7 +8819,6 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-#        image: docker.io/istio/pilot:1.7.0
         image: gcr.io/howardjohn-istio/pilot@sha256:6df41d5ba9e8bc19cfe46dbe13e437c11f52689a2341b47a78dd720f0c41e25e
         name: discovery
         ports:
@@ -9071,13 +9072,13 @@ metadata:
   name: istiod
   namespace: istio-system
 spec:
-  maxReplicas: 10
+  maxReplicas: 5
   metrics:
   - resource:
       name: cpu
-      targetAverageUtilization: 60
+      targetAverageUtilization: 80
     type: Resource
-  minReplicas: 3
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
