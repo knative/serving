@@ -50,7 +50,8 @@ If you're working on and changing `.proto` files:
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
    - If developing locally with Docker or Minikube, you can set
      `KO_DOCKER_REPO=ko.local` (preferred) or use the `-L` flag to `ko` to build
-     and push locally (in this case, authentication is not needed).
+     and push locally (in this case, authentication is not needed). If
+     developing with kind you can set `KO_DOCKER_REPO=kind.local`.
 
 **Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
 pushing images. Run `gcloud auth configure-docker` if you are using Google
@@ -191,8 +192,8 @@ This step includes building Knative Serving, creating and pushing developer
 images and deploying them to your Kubernetes cluster. If you're developing
 locally (for example, using
 [Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
-set `KO_DOCKER_REPO=ko.local` to avoid needing to push your images to an
-off-machine registry.
+set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively to
+avoid needing to push your images to an off-machine registry.
 
 Run:
 

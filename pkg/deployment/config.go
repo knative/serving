@@ -67,7 +67,7 @@ var (
 func defaultConfig() *Config {
 	return &Config{
 		ProgressDeadline:               ProgressDeadlineDefault,
-		RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 	}
 }
