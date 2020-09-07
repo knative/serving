@@ -94,7 +94,7 @@ sleep 30
 go_test_e2e -timeout=30m \
  ./test/conformance/api/... ./test/conformance/runtime/... \
  ./test/e2e \
-  -parallel 12 \
+  -parallel 6 \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 if (( HTTPS )); then
