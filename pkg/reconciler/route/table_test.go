@@ -82,7 +82,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
-				WithRouteGeneration(2009), WithRouteObservedGeneration,
+				WithRouteGeneration(2009), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// The first reconciliation initializes the conditions and reflects
 				// that the referenced configuration is not yet ready.
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
@@ -101,7 +101,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithURL,
-				WithRouteGeneration(2020), WithRouteObservedGeneration,
+				WithRouteGeneration(2020), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
 		Key: "default/first-reconcile",
@@ -119,7 +119,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
-				WithRouteGeneration(42), WithRouteObservedGeneration,
+				WithRouteGeneration(42), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		WantEvents: []string{
@@ -387,8 +387,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			Route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer,
-				WithRouteGeneration(2007)),
+			Route("default", "create-svc-failure",
+				WithConfigTarget("config"), WithRouteFinalizer,
+				WithRouteGeneration(2007), WithURL, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
@@ -397,18 +404,19 @@ func TestReconcile(t *testing.T) {
 			simplePlaceholderK8sService(getContext(), Route("default", "create-svc-failure", WithConfigTarget("config")), ""),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Route("default", "create-svc-failure", WithConfigTarget("config"),
-				WithRouteFinalizer,
-				// Populated by reconciliation when we've failed to create
-				// the K8s service.
-				WithRouteGeneration(2007), WithRouteObservedGeneration,
-				WithURL, WithAddress, WithInitRouteConditions,
+			Object: Route("default", "create-svc-failure",
+				WithConfigTarget("config"), WithRouteFinalizer,
+				WithRouteGeneration(2007), WithURL, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
-					})),
+					}),
+				// Despite the failure creating the placeholder service we see the
+				// Ready condition toggled to Unknown before the ObservedGeneration
+				// is bumped.
+				MarkIngressNotConfigured, WithRouteObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create placeholder service %q: %v",
@@ -457,7 +465,8 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "ingress-create-failure", WithConfigTarget("config"),
-				WithRouteFinalizer, WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithRouteGeneration(1),
+				MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// Populated by reconciliation when we fail to create the ingress.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, WithStatusTraffic(
@@ -1218,7 +1227,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "config-missing", WithConfigTarget("not-found"), WithURL,
-				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
 		PostConditions: []func(*testing.T, *TableRow){
@@ -1235,7 +1244,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithURL,
-				WithRouteGeneration(1988), WithRouteObservedGeneration,
+				WithRouteGeneration(1988), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
 		PostConditions: []func(*testing.T, *TableRow){
@@ -1252,7 +1261,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-indirect", WithConfigTarget("config"), WithURL,
-				WithRouteGeneration(2006), WithRouteObservedGeneration,
+				WithRouteGeneration(2006), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
 		Key: "default/missing-revision-indirect",
@@ -1651,8 +1660,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "split", WithURL, WithAddress,
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				MarkConfigurationNotReady("green"),
-				WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithSpecTraffic(
 					v1.TrafficTarget{
 						ConfigurationName: "blue",
@@ -2298,7 +2307,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
-				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithAddress, WithInitRouteConditions, WithURL,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
