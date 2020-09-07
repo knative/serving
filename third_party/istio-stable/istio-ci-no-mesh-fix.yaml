@@ -8750,7 +8750,7 @@ metadata:
   name: istiod
   namespace: istio-system
 spec:
-  replicas: 7
+  replicas: 1
   selector:
     matchLabels:
       istio: pilot
@@ -8819,6 +8819,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
+#        image: docker.io/istio/pilot:1.7.0
         image: gcr.io/howardjohn-istio/pilot@sha256:6df41d5ba9e8bc19cfe46dbe13e437c11f52689a2341b47a78dd720f0c41e25e
         name: discovery
         ports:
@@ -9065,24 +9066,24 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  labels:
-    app: istiod
-    istio.io/rev: default
-    release: istio
   name: istiod
   namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio.io/rev: default
 spec:
   maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 80
 ---
 apiVersion: v1
 kind: Service
