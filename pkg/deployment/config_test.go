@@ -81,7 +81,7 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", "dev.local"),
+			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               444 * time.Second,
@@ -105,7 +105,7 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration with custom queue sidecar resource request/limits",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving:      sets.NewString("ko.local", "dev.local"),
+			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
 			QueueSidecarImage:                   defaultSidecarImage,
 			ProgressDeadline:                    ProgressDeadlineDefault,
 			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
