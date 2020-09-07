@@ -547,8 +547,8 @@ func (in *IngressSpec) DeepCopy() *IngressSpec {
 func (in *IngressStatus) DeepCopyInto(out *IngressStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
-	if in.LoadBalancer != nil {
-		in, out := &in.LoadBalancer, &out.LoadBalancer
+	if in.DeprecatedLoadBalancer != nil {
+		in, out := &in.DeprecatedLoadBalancer, &out.DeprecatedLoadBalancer
 		*out = new(LoadBalancerStatus)
 		(*in).DeepCopyInto(*out)
 	}

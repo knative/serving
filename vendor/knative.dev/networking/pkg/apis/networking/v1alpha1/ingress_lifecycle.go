@@ -46,6 +46,9 @@ func (is *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 // InitializeConditions initializes conditions of an IngressStatus
 func (is *IngressStatus) InitializeConditions() {
 	ingressCondSet.Manage(is).InitializeConditions()
+
+	// Deprecatd, do not set.
+	is.DeprecatedLoadBalancer = nil
 }
 
 // MarkNetworkConfigured set IngressConditionNetworkConfigured in IngressStatus as true
@@ -62,8 +65,7 @@ func (is *IngressStatus) MarkResourceNotOwned(kind, name string) {
 
 // MarkLoadBalancerReady marks the Ingress with IngressConditionLoadBalancerReady,
 // and also populate the address of the load balancer.
-func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, publicLbs []LoadBalancerIngressStatus, privateLbs []LoadBalancerIngressStatus) {
-	is.LoadBalancer = &LoadBalancerStatus{Ingress: lbs}
+func (is *IngressStatus) MarkLoadBalancerReady(publicLbs []LoadBalancerIngressStatus, privateLbs []LoadBalancerIngressStatus) {
 	is.PublicLoadBalancer = &LoadBalancerStatus{Ingress: publicLbs}
 	is.PrivateLoadBalancer = &LoadBalancerStatus{Ingress: privateLbs}
 
