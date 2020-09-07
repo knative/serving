@@ -2,5 +2,3 @@
 defaultBaseImage: gcr.io/distroless/static:nonroot
 baseImageOverrides:
   knative.dev/serving/vendor/github.com/tsenart/vegeta: ubuntu:latest
-  # We need root to get access to the sa token for volume tests
-  knative.dev/serving/test/test_images/hellovolume: ubuntu:latest
