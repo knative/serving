@@ -2699,15 +2699,12 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady(
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-		},
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-		},
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
-		},
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
+		}},
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"),
+		}},
 	)
 
 	return status
@@ -2722,7 +2719,7 @@ func ingressWithStatus(r *v1.Route, tc *traffic.Config, status netv1alpha1.Ingre
 }
 
 func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
-	// Thor's Hammer
+	// Thor's Hammer.
 	ci.Spec = netv1alpha1.IngressSpec{}
 	return ci
 }

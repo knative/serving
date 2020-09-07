@@ -267,7 +267,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// Update ingress loadbalancer to trigger placeholder service creation.
 	ci.Status = v1alpha1.IngressStatus{
-		LoadBalancer: &v1alpha1.LoadBalancerStatus{
+		DeprecatedLoadBalancer: &v1alpha1.LoadBalancerStatus{
 			Ingress: []v1alpha1.LoadBalancerIngressStatus{{
 				DomainInternal: "test-domain",
 			}},
