@@ -218,6 +218,7 @@ func TestServerOwnerForBucketHost(t *testing.T) {
 	assertReceivedProto(t, both, statSink, statsCh)
 	closeSink(t, statSink)
 }
+
 func TestServerNotOwnerForBucketHost(t *testing.T) {
 	// Override the function to mock a bucket host.
 	isBucketHost = alwaysTrue
