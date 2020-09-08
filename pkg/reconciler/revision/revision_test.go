@@ -441,7 +441,7 @@ func TestRevWithImageDigests(t *testing.T) {
 			t.Error("Container statuses do not match the order of containers in spec")
 		}
 	}
-	rev.Status.ContainerStatuses = []v1.ContainerStatuses{}
+	rev.Status.ContainerStatuses = []v1.ContainerStatus{}
 	updateRevision(t, ctx, controller, rev)
 	if len(rev.Status.ContainerStatuses) != 0 {
 		t.Error("Failed to update revision")

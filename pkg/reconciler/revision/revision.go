@@ -68,14 +68,14 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	if rev.Status.ContainerStatuses == nil {
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0, len(rev.Spec.Containers))
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
 	}
 
 	if rev.Status.DeprecatedImageDigest != "" {
 		// Default old revisions to have ContainerStatuses filled in.
 		// This path should only be taken by "old" revisions that have exactly one container.
 		if len(rev.Status.ContainerStatuses) == 0 {
-			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatus{
 				Name:        rev.Spec.Containers[0].Name,
 				ImageDigest: rev.Status.DeprecatedImageDigest,
 			})
@@ -99,7 +99,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	var digestGrp errgroup.Group
-	containerStatuses := make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	containerStatuses := make([]v1.ContainerStatus, len(rev.Spec.Containers))
 	for i, container := range rev.Spec.Containers {
 		container := container // Standard Go concurrency pattern.
 		i := i
@@ -117,7 +117,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				rev.Status.DeprecatedImageDigest = digest
 			}
 
-			containerStatuses[i] = v1.ContainerStatuses{
+			containerStatuses[i] = v1.ContainerStatus{
 				Name:        container.Name,
 				ImageDigest: digest,
 			}
