@@ -87,14 +87,21 @@ spec:
         - name: h2c
           containerPort: 8013
 
-        readinessProbe: &probe
+        readinessProbe:
           httpGet:
             port: 8012
             httpHeaders:
             - name: k-kubelet-probe
               value: "activator"
           failureThreshold: 12
-        livenessProbe: *probe
+        livenessProbe:
+          httpGet:
+            port: 8012
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "activator"
+          failureThreshold: 12
+          initialDelaySeconds: 15
 
       # The activator (often) sits on the dataplane, and may proxy long (e.g.
       # streaming, websockets) requests.  We give a long grace period for the

@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -308,6 +309,15 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	}
 }
 
+func sortedTrackers(trk []*podTracker) bool {
+	for i := 1; i < len(trk); i++ {
+		if trk[i].dest < trk[i-1].dest {
+			return false
+		}
+	}
+	return true
+}
+
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -333,7 +343,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.2:1234", "128.0.0.32:1212"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -371,10 +381,21 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1, 3),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
 		}},
 		requests:  3,
 		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name: "roundrobin test",
+		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			networking.ProtocolHTTP1, 5 /*cc >3*/),
+		initUpdates: []revisionDestsUpdate{{
+			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
+		}},
+		requests: 3,
+		// All three IP addresses should be used if cc>3.
+		wantDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
 		name:     "multiple ClusterIP requests",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
@@ -421,10 +442,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 				waitInformers()
 			}()
 
-			for _, update := range tc.initUpdates {
-				updateCh <- update
-			}
-
 			publicEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRevision,
@@ -448,16 +465,28 @@ func TestThrottlerSuccesses(t *testing.T) {
 				t.Fatal("RevisionThrottler can't be found:", err)
 			}
 
+			for _, update := range tc.initUpdates {
+				updateCh <- update
+			}
+
 			// Make sure our informer event has fired.
 			// We send multiple updates in some tests, so make sure the capacity is exact.
 			wantCapacity := 1
 			cc := tc.revision.Spec.ContainerConcurrency
-			if cc != nil && *cc != 0 {
-				dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			if *cc != 0 {
 				wantCapacity = dests * int(*cc)
 			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				if *cc != 0 {
+					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity &&
+						sortedTrackers(rt.assignedTrackers), nil
+				}
+				// If CC=0 then verify number of backends, rather the capacity of breaker.
+				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers) &&
+					sortedTrackers(rt.assignedTrackers), nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
@@ -481,8 +510,12 @@ func TestThrottlerSuccesses(t *testing.T) {
 				gotDests.Insert(result.dest)
 			}
 
-			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
+			if got, want := gotDests.List(), tc.wantDests.List(); !cmp.Equal(want, got) {
 				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				t.Log("podTrackers:\n", spew.Sdump(rt.podTrackers))
+				t.Log("assignedTrackers:\n", spew.Sdump(rt.assignedTrackers))
 			}
 		})
 	}
@@ -1038,22 +1071,30 @@ func TestAssignSlice(t *testing.T) {
 	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
 	})
+	// assignSlice receives the pod trackers sorted.
 	trackers := []*podTracker{{
-		dest: "2",
-	}, {
 		dest: "1",
+	}, {
+		dest: "2",
 	}, {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 0 /*cc*/)
+		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 42 /*cc*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
+	t.Run("idx=1, na=1", func(t *testing.T) {
+		got := assignSlice(trackers, 1, 1, 1982)
+		if !cmp.Equal(got, trackers, opt) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
+				cmp.Diff(trackers, got, opt))
+		}
+	})
 	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1, 0)
+		got := assignSlice(trackers, -1, 1, 1982)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, opt))
@@ -1061,14 +1102,14 @@ func TestAssignSlice(t *testing.T) {
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], opt) {
+		got := assignSlice(cp, 1, 3, 1984)
+		if !cmp.Equal(got, trackers[1:2], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(trackers[1:2], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3, 0)
+		got := assignSlice(trackers[0:1], 1, 3, 1988)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
@@ -1077,10 +1118,10 @@ func TestAssignSlice(t *testing.T) {
 
 	t.Run("idx=1, cc=5", func(t *testing.T) {
 		trackers := []*podTracker{{
-			dest: "2",
+			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
 		}, {
-			dest: "1",
+			dest: "2",
 			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
@@ -1088,10 +1129,10 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 5)
-		want := append(trackers[0:1], trackers[2:]...)
+		want := trackers[1:3]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(want, got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
@@ -1099,10 +1140,10 @@ func TestAssignSlice(t *testing.T) {
 	})
 	t.Run("idx=1, cc=6", func(t *testing.T) {
 		trackers := []*podTracker{{
-			dest: "2",
+			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
 		}, {
-			dest: "1",
+			dest: "2",
 			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
@@ -1110,10 +1151,10 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 6)
-		want := append(trackers[0:1], trackers[2:]...)
+		want := trackers[1:]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(want, got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 3; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)

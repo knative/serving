@@ -111,8 +111,13 @@ type IngressSpec struct {
 	// +optional
 	Rules []IngressRule `json:"rules,omitempty"`
 
-	// Visibility setting.
-	Visibility IngressVisibility `json:"visibility,omitempty"`
+	// DeprecatedVisibility was used for the fallback when spec.rules.visibility
+	// isn't set.
+	//
+	// Now spec.rules.visibility is not optional and so we make this field deprecated.
+	//
+	// +optional
+	DeprecatedVisibility IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressVisibility describes whether the Ingress should be exposed to
@@ -176,7 +181,6 @@ type IngressRule struct {
 
 	// Visibility signifies whether this rule should `ClusterLocal`. If it's not
 	// specified then it defaults to `ExternalIP`.
-	// +optional
 	Visibility IngressVisibility `json:"visibility,omitempty"`
 
 	// HTTP represents a rule to apply against incoming requests. If the
@@ -245,11 +249,10 @@ type HTTPIngressPath struct {
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
-	// Retry policy for HTTP requests.
-	//
-	// NOTE: This differs from K8s Ingress which doesn't allow retry settings.
+	// DeprecatedRetries is DEPRECATED.
+	// Retry in Kingress is not used anymore. See https://github.com/knative/serving/issues/6549
 	// +optional
-	Retries *HTTPRetry `json:"retries,omitempty"`
+	DeprecatedRetries *HTTPRetry `json:"retries,omitempty"`
 }
 
 // IngressBackendSplit describes all endpoints for a given service and port.
@@ -285,7 +288,7 @@ type IngressBackend struct {
 	ServicePort intstr.IntOrString `json:"servicePort"`
 }
 
-// HTTPRetry describes the retry policy to use when a HTTP request fails.
+// HTTPRetry is DEPRECATED. Retry is not used in KIngress.
 type HTTPRetry struct {
 	// Number of retries for a given request.
 	Attempts int `json:"attempts"`
@@ -298,10 +301,10 @@ type HTTPRetry struct {
 type IngressStatus struct {
 	duckv1.Status `json:",inline"`
 
-	// LoadBalancer contains the current status of the load-balancer.
-	// This is to be superseded by the combination of `PublicLoadBalancer` and `PrivateLoadBalancer`
+	// DeprecatedLoadBalancer contains the current status of the load-balancer.
+	// DEPRECATED: Use `PublicLoadBalancer` and `PrivateLoadBalancer` instead.
 	// +optional
-	LoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
+	DeprecatedLoadBalancer *LoadBalancerStatus `json:"loadBalancer,omitempty"`
 
 	// PublicLoadBalancer contains the current status of the load-balancer.
 	// +optional

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This file is automagically synced here from github.com/knative-sandbox/.github
+# repo by knobots: https://github.com/mattmoor/knobots and will be overwritten.
+
 name: Code Style
 
 on:
@@ -28,14 +31,16 @@ jobs:
 
     steps:
 
-      - name: Set up Go 1.15.x
+      - name: Set up Go 1.14.x
         uses: actions/setup-go@v2
         with:
-          go-version: 1.15.x
+          go-version: 1.14.x
         id: go
 
       - name: Check out code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
 
       # TODO: add prettier step
       # TODO: add goimports step

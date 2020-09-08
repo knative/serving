@@ -790,13 +790,6 @@ func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	return s
 }
 
-func svcWithName(n string) K8sServiceOption {
-	return func(s *corev1.Service) {
-		s.GenerateName = ""
-		s.Name = n
-	}
-}
-
 func svcpriv(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	sks := SKS(namespace, name)
 	s := resources.MakePrivateService(sks, map[string]string{

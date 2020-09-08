@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	network "knative.dev/networking/pkg"
 )
 
 func TestIsClusterLocalService(t *testing.T) {
@@ -37,7 +38,7 @@ func TestIsClusterLocalService(t *testing.T) {
 		svc: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: "something-unknown",
+					network.VisibilityLabelKey: "something-unknown",
 				},
 			},
 		},
@@ -46,7 +47,7 @@ func TestIsClusterLocalService(t *testing.T) {
 		svc: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		},

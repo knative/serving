@@ -32,10 +32,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )
 
-const (
-	// DefaultTarget is the unnamed default target for the traffic.
-	DefaultTarget = ""
-)
+// DefaultTarget is the unnamed default target for the traffic.
+const DefaultTarget = ""
 
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
@@ -69,7 +67,7 @@ type Config struct {
 	Configurations map[string]*v1.Configuration
 	Revisions      map[string]*v1.Revision
 
-	// MissingTargets are references to Configuration's or Revision's
+	// MissingTargets are references to Configurations or Revisions
 	// that are missing
 	MissingTargets []corev1.ObjectReference
 }
@@ -81,7 +79,7 @@ type Config struct {
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	r *v1.Route) (*Config, error) {
-	builder := newBuilder(configLister, revLister, r.Namespace, len(r.Spec.Traffic))
+	builder := newBuilder(configLister, revLister, r, len(r.Spec.Traffic))
 	err := builder.applySpecTraffic(r.Spec.Traffic)
 	if err != nil {
 		return nil, err
@@ -90,9 +88,9 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
-	results := make([]v1.TrafficTarget, len(t.revisionTargets))
-	for i, tt := range t.revisionTargets {
+func (cfg *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
+	results := make([]v1.TrafficTarget, len(cfg.revisionTargets))
+	for i, tt := range cfg.revisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
 			pp = ptr.Int64(*tt.Percent)
@@ -114,7 +112,7 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]
 				return nil, err
 			}
 
-			labels.SetVisibility(meta, t.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
+			labels.SetVisibility(meta, cfg.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
 
 			// HTTP is currently the only supported scheme.
 			fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
@@ -128,9 +126,9 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]
 }
 
 type configBuilder struct {
-	configLister listers.ConfigurationLister
-	revLister    listers.RevisionLister
-	namespace    string
+	configLister listers.ConfigurationNamespaceLister
+	revLister    listers.RevisionNamespaceLister
+	route        *v1.Route
 
 	// targets is a grouping of traffic targets serving the same origin.
 	targets map[string]RevisionTargets
@@ -153,11 +151,11 @@ type configBuilder struct {
 
 func newBuilder(
 	configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	namespace string, trafficSize int) *configBuilder {
+	r *v1.Route, trafficSize int) *configBuilder {
 	return &configBuilder{
-		configLister:    configLister,
-		revLister:       revLister,
-		namespace:       namespace,
+		configLister:    configLister.Configurations(r.Namespace),
+		revLister:       revLister.Revisions(r.Namespace),
+		route:           r,
 		targets:         make(map[string]RevisionTargets),
 		revisionTargets: make(RevisionTargets, 0, trafficSize),
 
@@ -166,9 +164,9 @@ func newBuilder(
 	}
 }
 
-func (t *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
+func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
 	for _, tt := range traffic {
-		if err := t.addTrafficTarget(&tt); err != nil {
+		if err := cb.addTrafficTarget(&tt); err != nil {
 			// Other non-traffic target errors shouldn't be ignored.
 			return err
 		}
@@ -176,63 +174,67 @@ func (t *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
 	return nil
 }
 
-func (t *configBuilder) getConfiguration(name string) (*v1.Configuration, error) {
-	if _, ok := t.configurations[name]; !ok {
-		config, err := t.configLister.Configurations(t.namespace).Get(name)
+func (cb *configBuilder) getConfiguration(name string) (*v1.Configuration, error) {
+	config, ok := cb.configurations[name]
+	if !ok {
+		var err error
+		config, err = cb.configLister.Get(name)
 		if errors.IsNotFound(err) {
 			return nil, errMissingConfiguration(name)
 		} else if err != nil {
 			return nil, err
 		}
-		t.configurations[name] = config
+		cb.configurations[name] = config
 	}
-	return t.configurations[name], nil
+	return config, nil
 }
 
-func (t *configBuilder) getRevision(name string) (*v1.Revision, error) {
-	if _, ok := t.revisions[name]; !ok {
-		rev, err := t.revLister.Revisions(t.namespace).Get(name)
+func (cb *configBuilder) getRevision(name string) (*v1.Revision, error) {
+	rev, ok := cb.revisions[name]
+	if !ok {
+		var err error
+		rev, err = cb.revLister.Get(name)
 		if errors.IsNotFound(err) {
 			return nil, errMissingRevision(name)
 		} else if err != nil {
 			return nil, err
 		}
-		t.revisions[name] = rev
+		cb.revisions[name] = rev
 	}
-	return t.revisions[name], nil
+	return rev, nil
 }
 
 // deferTargetError will record a TargetError.  A TargetError with
 // IsFailure()=true will always overwrite a previous TargetError.
-func (t *configBuilder) deferTargetError(err TargetError) {
-	if t.deferredTargetErr == nil || err.IsFailure() {
-		t.deferredTargetErr = err
+func (cb *configBuilder) deferTargetError(err TargetError) {
+	if cb.deferredTargetErr == nil || err.IsFailure() {
+		cb.deferredTargetErr = err
 	}
 }
 
-func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
+func (cb *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	var err error
 	if tt.RevisionName != "" {
-		err = t.addRevisionTarget(tt)
+		err = cb.addRevisionTarget(tt)
 	} else if tt.ConfigurationName != "" {
-		err = t.addConfigurationTarget(tt)
+		err = cb.addConfigurationTarget(tt)
 	}
 	if err, ok := err.(*missingTargetError); err != nil && ok {
 		apiVersion, kind := v1.SchemeGroupVersion.
 			WithKind(err.kind).
 			ToAPIVersionAndKind()
 
-		t.missingTargets = append(t.missingTargets, corev1.ObjectReference{
+		cb.missingTargets = append(cb.missingTargets, corev1.ObjectReference{
 			APIVersion: apiVersion,
 			Kind:       kind,
 			Name:       err.name,
-			Namespace:  t.namespace,
+			Namespace:  cb.route.Namespace,
 		})
 	}
 	if err, ok := err.(TargetError); err != nil && ok {
 		// Defer target errors, as we still want to compile a list of
 		// all referred targets, including missing ones.
-		t.deferTargetError(err)
+		cb.deferTargetError(err)
 		return nil
 	}
 	return err
@@ -240,15 +242,15 @@ func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
 // on the referred Configuration.  It adds both to the lists of directly referred targets.
-func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
-	config, err := t.getConfiguration(tt.ConfigurationName)
+func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
+	config, err := cb.getConfiguration(tt.ConfigurationName)
 	if err != nil {
 		return err
 	}
 	if config.Status.LatestReadyRevisionName == "" {
 		return errUnreadyConfiguration(config)
 	}
-	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
+	rev, err := cb.getRevision(config.Status.LatestReadyRevisionName)
 	if err != nil {
 		return err
 	}
@@ -260,12 +262,12 @@ func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 		ServiceName:   rev.Status.ServiceName,
 	}
 	target.TrafficTarget.RevisionName = rev.Name
-	t.addFlattenedTarget(target)
+	cb.addFlattenedTarget(target)
 	return nil
 }
 
-func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
-	rev, err := t.getRevision(tt.RevisionName)
+func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
+	rev, err := cb.getRevision(tt.RevisionName)
 	if err != nil {
 		return err
 	}
@@ -281,21 +283,43 @@ func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	}
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
-		if _, err := t.getConfiguration(configName); err != nil {
+		if _, err := cb.getConfiguration(configName); err != nil {
 			return err
 		}
 	}
-	t.addFlattenedTarget(target)
+	cb.addFlattenedTarget(target)
 	return nil
 }
 
-func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
+func (cb *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Tag
-	t.revisionTargets = append(t.revisionTargets, target)
-	t.targets[DefaultTarget] = append(t.targets[DefaultTarget], target)
+	cb.revisionTargets = append(cb.revisionTargets, target)
+	cb.targets[DefaultTarget] = append(cb.targets[DefaultTarget], target)
 	if name != "" {
-		t.targets[name] = append(t.targets[name], target)
+		cb.targets[name] = append(cb.targets[name], target)
 	}
+}
+
+func (cfg *configBuilder) build() (*Config, error) {
+	if cfg.deferredTargetErr != nil {
+		cfg.targets = nil
+		cfg.revisionTargets = nil
+	}
+	return &Config{
+		Targets:         consolidateAll(cfg.targets),
+		revisionTargets: cfg.revisionTargets,
+		Configurations:  cfg.configurations,
+		Revisions:       cfg.revisions,
+		MissingTargets:  cfg.missingTargets,
+	}, cfg.deferredTargetErr
+}
+
+func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTargets {
+	consolidated := make(map[string]RevisionTargets, len(targets))
+	for name, tts := range targets {
+		consolidated[name] = consolidate(tts)
+	}
+	return consolidated
 }
 
 func consolidate(targets RevisionTargets) RevisionTargets {
@@ -307,17 +331,17 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 		if !ok {
 			byName[name] = tt
 			names = append(names, name)
-		} else {
-			if tt.TrafficTarget.Percent != nil {
-				current := int64(0)
-				if cur.TrafficTarget.Percent != nil {
-					current += *cur.TrafficTarget.Percent
-				}
-				current += *tt.TrafficTarget.Percent
-				cur.TrafficTarget.Percent = ptr.Int64(current)
-			}
-			byName[name] = cur
+			continue
 		}
+		if tt.TrafficTarget.Percent != nil {
+			current := int64(0)
+			if cur.TrafficTarget.Percent != nil {
+				current += *cur.TrafficTarget.Percent
+			}
+			current += *tt.TrafficTarget.Percent
+			cur.TrafficTarget.Percent = ptr.Int64(current)
+		}
+		byName[name] = cur
 	}
 	consolidated := make([]RevisionTarget, len(names))
 	for i, name := range names {
@@ -327,26 +351,4 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 		consolidated[0].TrafficTarget.Percent = ptr.Int64(100)
 	}
 	return consolidated
-}
-
-func consolidateAll(targets map[string]RevisionTargets) map[string]RevisionTargets {
-	consolidated := make(map[string]RevisionTargets)
-	for name, tts := range targets {
-		consolidated[name] = consolidate(tts)
-	}
-	return consolidated
-}
-
-func (t *configBuilder) build() (*Config, error) {
-	if t.deferredTargetErr != nil {
-		t.targets = nil
-		t.revisionTargets = nil
-	}
-	return &Config{
-		Targets:         consolidateAll(t.targets),
-		revisionTargets: t.revisionTargets,
-		Configurations:  t.configurations,
-		Revisions:       t.revisions,
-		MissingTargets:  t.missingTargets,
-	}, t.deferredTargetErr
 }

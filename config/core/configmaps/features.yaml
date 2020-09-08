@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "c0b41539"
+    knative.dev/example-checksum: "7f1b7e2d"
 data:
   _example: |
     ################################
@@ -39,31 +39,33 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     multi-container: "enabled"
 
     # Indicates whether Kubernetes affinity support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-affinity: "disabled"
 
     # Indicates whether Kubernetes nodeSelector support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-nodeselector: "disabled"
 
     # Indicates whether Kubernetes tolerations support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled
     kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-fieldref: "disabled"
 
-    # This feature validates PodSpecs from the validating webhook
-    # against the K8s API Server.
+    # Indicates whether Kubernetes RuntimeClassName support is enabled
     #
-    # When "enabled", the server will always run the extra validation.
-    # When "allowed", the server will not run the dry-run validation by default.
-    #   However, clients may enable the behavior on an individual Service by
-    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
-    kubernetes.podspec-dryrun: "allowed"
-
-    # When set to "enabled" or "allowed" this feature allows end-users to set
-    # the Pod's RuntimeClassName.
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-runtimeclassname: "disabled"
 
     # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
@@ -87,12 +89,23 @@ data:
     # properties may have a side-effect on non-user sidecar containers that come
     # from Knative or your service mesh
     #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-securitycontext: "disabled"
+
+    # This feature validates PodSpecs from the validating webhook
+    # against the K8s API Server.
+    #
+    # When "enabled", the server will always run the extra validation.
+    # When "allowed", the server will not run the dry-run validation by default.
+    #   However, clients may enable the behavior on an individual Service by
+    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
+    kubernetes.podspec-dryrun: "allowed"
 
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after
     # they are no longer active.
+    #
     # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
     # should be used for testing purposes only.
     responsive-revision-gc: "disabled"

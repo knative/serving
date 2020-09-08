@@ -268,29 +268,17 @@ func TestConfigurationLabelValidation(t *testing.T) {
 		c    *Configuration
 		want *apis.FieldError
 	}{{
-		name: "valid visibility name",
+		name: "valid obsolete visibility name",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKeyObsolete: "cluster-local",
 				},
 			},
 			Spec: validConfigSpec,
 		},
 		want: nil,
-	}, {
-		name: "invalid visibility name",
-		c: &Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-				Labels: map[string]string{
-					serving.VisibilityLabelKey: "bad-value",
-				},
-			},
-			Spec: validConfigSpec,
-		},
-		want: apis.ErrInvalidValue("bad-value", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid route name",
 		c: &Configuration{

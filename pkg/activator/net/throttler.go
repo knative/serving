@@ -275,12 +275,16 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			return 0
 		}
 
+		// Sort, so we get more or less stable results.
+		sort.Slice(rt.podTrackers, func(i, j int) bool {
+			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
+		})
 		assigned := rt.podTrackers
-		if rt.containerConcurrency != 0 {
+		if rt.containerConcurrency > 0 {
 			rt.resetTrackers()
 			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
 		}
-		rt.logger.Debugf("Trackers %d/%d:  %v", ai, ac, rt.assignedTrackers)
+		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 		// The actual write out of the assigned trackers has to be under lock.
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
@@ -334,8 +338,8 @@ func (rt *revisionThrottler) updateThrottlerState(
 // pickIndices picks the indices for the slicing.
 func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, remnants int) {
 	if numActivators > numTrackers {
-		// 1. We have fewer pods than than activators. Assign the pod in round robin fashion.
-		// NB: when we implement subsetting this will be less of a problem.
+		// 1. We have fewer pods than than activators. Assign the pods in round robin fashion.
+		// With subsetting this is less of a problem and should almost never happen.
 		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
 		beginIndex = selfIndex % numTrackers
 		endIndex = beginIndex + 1
@@ -354,16 +358,19 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
+// assignSlice should receive podTrackers sorted by address.
 func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
 		return trackers
 	}
-	// Sort, so we get more or less stable results.
-	sort.Slice(trackers, func(i, j int) bool {
-		return trackers[i].dest < trackers[j].dest
-	})
+
+	// If there's just a single activator. Take all the trackers.
+	if numActivators == 1 {
+		return trackers
+	}
+
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
 	if remnants > 0 {
@@ -374,8 +381,8 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		rand.Shuffle(remnants, func(i, j int) {
 			tail[i], tail[j] = tail[j], tail[i]
 		})
-		// We need minOneOrValue in order for cc==0 to work.
-		dcc := minOneOrValue(int(math.Ceil(float64(cc) / float64(numActivators))))
+		// assignSlice is not called for CC=0 case.
+		dcc := int(math.Ceil(float64(cc) / float64(numActivators)))
 		// This is basically: x = append(x, trackers[len(trackers)-remnants:]...)
 		// But we need to update the capacity.
 		for _, t := range tail {
@@ -386,7 +393,7 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 	return x
 }
 
-// This function will never be called in parallel but try can be called in parallel to this so we need
+// This function will never be called in parallel but `try` can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
 	rt.logger.Debugw("Handling update",

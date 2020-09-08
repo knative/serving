@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -107,6 +108,16 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	logger := logging.FromContext(ctx)
 	logger.Debugf("Reconciling route: %#v", r.Spec)
 
+	// When a new generation is observed for the first time, we need to make sure that we
+	// do not report ourselves as being ready prematurely due to an error during
+	// reconciliation.  For instance, if we were to hit an error creating new placeholder
+	// service, we might report "Ready: True" with a bumped ObservedGeneration without
+	// having updated the kingress at all!
+	// We hit this in: https://github.com/knative-sandbox/net-contour/issues/238
+	if r.GetObjectMeta().GetGeneration() != r.Status.ObservedGeneration {
+		r.Status.MarkIngressNotConfigured()
+	}
+
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
@@ -180,10 +191,11 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
-	if !config.FromContext(ctx).Network.AutoTLS {
+	if !autoTLSEnabled(ctx, r) {
 		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
 		return tls, nil, nil
 	}
+
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
 	if err != nil {
 		return nil, nil, err
@@ -413,6 +425,25 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 			}
 		}
 	}
+}
+
+func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
+	if !config.FromContext(ctx).Network.AutoTLS {
+		return false
+	}
+
+	logger := logging.FromContext(ctx)
+	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
+
+	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
+	if err != nil {
+		// validation should've caught an invalid value here.
+		// if we have one anyways, assume not disabled and log a warning.
+		logger.Warnf("Invalid annotation value for %q. Value: %q",
+			networking.DisableAutoTLSAnnotationKey, annotationValue)
+	}
+
+	return !disabledByAnnotation
 }
 
 func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {

@@ -19,15 +19,18 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta()).ViaField("metadata").
+		Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")).
+		Also(validateAnnotations(r.GetAnnotations()))
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Route)
@@ -104,4 +107,18 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 		})
 	}
 	return errs
+}
+
+// TODO: this should be moved to knative/networking as part of
+// https://github.com/knative/networking/issues/123
+func validateAnnotations(annotations map[string]string) *apis.FieldError {
+	disableAutoTLS := annotations[networking.DisableAutoTLSAnnotationKey]
+
+	if disableAutoTLS != "" {
+		if _, err := strconv.ParseBool(disableAutoTLS); err != nil {
+			return apis.ErrInvalidValue(disableAutoTLS, networking.DisableAutoTLSAnnotationKey)
+		}
+	}
+
+	return nil
 }

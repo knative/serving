@@ -79,7 +79,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -97,7 +97,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
 						Domain: "domain.com",
 					}, {
@@ -127,7 +127,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -153,7 +153,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -180,7 +180,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -205,7 +205,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		targetName: "my-target-name",
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -309,7 +309,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:  "cluster local route",
-		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",

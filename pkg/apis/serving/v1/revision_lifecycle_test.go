@@ -611,6 +611,7 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 
 	// PodAutoscaler is not ready and initial scale was never attained.
 	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		ServiceName: "testRevision",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
 				Type:   av1alpha1.PodAutoscalerConditionReady,

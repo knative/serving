@@ -42,6 +42,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/queue"
 
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -749,7 +750,7 @@ func TestMakePodSpec(t *testing.T) {
 							Port: intstr.FromInt(networking.BackendHTTPPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
 								Name:  network.KubeletProbeHeaderName,
-								Value: "queue",
+								Value: queue.Name,
 							}},
 						},
 					}),

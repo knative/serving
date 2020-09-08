@@ -39,7 +39,7 @@ import (
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, ValidateEndpoint)
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
@@ -64,8 +64,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// normal and panic.
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, ValidateEndpoint)
-
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
 
@@ -77,7 +76,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, ValidateEndpoint,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -102,7 +101,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
@@ -142,7 +141,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, ValidateEndpoint,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -159,7 +158,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Log("Activator endpoints:", aeps)
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 }
@@ -167,7 +166,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, ValidateEndpoint,
+	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),

@@ -77,7 +77,7 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		},
@@ -96,7 +96,7 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -104,7 +104,7 @@ func TestVisibility(t *testing.T) {
 				Name: "irrelevance",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "bar",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -126,7 +126,7 @@ func TestVisibility(t *testing.T) {
 				Name: "blue-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -268,7 +268,7 @@ func TestVisibility(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 			Spec: v1.RouteSpec{
@@ -323,7 +323,7 @@ func TestVisibility(t *testing.T) {
 				Name: "blue-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -350,7 +350,7 @@ func TestVisibility(t *testing.T) {
 				Name: "blue-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -358,7 +358,7 @@ func TestVisibility(t *testing.T) {
 				Name: "green-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
@@ -385,7 +385,7 @@ func TestVisibility(t *testing.T) {
 				Name: "blue-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -393,7 +393,7 @@ func TestVisibility(t *testing.T) {
 				Name: "green-foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}, {
@@ -401,7 +401,7 @@ func TestVisibility(t *testing.T) {
 				Name: "foo",
 				Labels: map[string]string{
 					serving.RouteLabelKey:      "foo",
-					serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
+					network.VisibilityLabelKey: serving.VisibilityClusterLocal,
 				},
 			},
 		}},
