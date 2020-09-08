@@ -47,7 +47,7 @@ func (is *IngressStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 func (is *IngressStatus) InitializeConditions() {
 	ingressCondSet.Manage(is).InitializeConditions()
 
-	// Deprecatd, do not set.
+	// Deprecated, do not set.
 	is.DeprecatedLoadBalancer = nil
 }
 
