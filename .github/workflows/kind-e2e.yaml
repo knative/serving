@@ -1,0 +1,132 @@
+name: KinD e2e tests
+
+on:
+  push:
+    branches: [ 'master', 'release-*' ]
+  pull_request:
+    branches: [ 'master', 'release-*' ]
+
+jobs:
+
+  ko-resolve:
+    name: e2e tests
+    runs-on: ubuntu-latest
+    env:
+      GOPATH: ${{ github.workspace }}
+      GO111MODULE: off
+      KO_DOCKER_REPO: kind.local
+
+    steps:
+    - name: Set up Go 1.14.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.14.x
+
+    - name: Install Dependencies
+      run: |
+        GO111MODULE=on go get github.com/google/ko/cmd/ko@master
+
+    - name: Check out code onto GOPATH
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        path: ./src/knative.dev/serving
+
+    - name: Install KinD
+      working-directory: ./src/knative.dev/serving
+      env:
+        KIND_VERSION: v0.8.1
+      run: |
+        set -x
+
+        curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-$(uname)-amd64
+        chmod +x ./kind
+        sudo mv kind /usr/local/bin
+
+    - name: Create KinD Cluster
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
+        # KinD configuration.
+        cat > kind.yaml <<EOF
+        apiVersion: kind.x-k8s.io/v1alpha4
+        kind: Cluster
+        nodes:
+        - role: control-plane
+        - role: worker
+        EOF
+
+        # Create a cluster!
+        kind create cluster --config kind.yaml
+
+    - name: Install Knative Serving
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -o pipefail
+
+        kubectl create namespace knative-serving
+        kubectl apply -f config/core/300-imagecache.yaml
+
+        # Build and Publish our containers to the docker daemon (including test assets)
+        export GO111MODULE=on
+        export GOFLAGS=-mod=vendor
+        ko apply -Pf test/config/
+        ko apply -PRf config/core
+
+        # We need the webhook to be up
+        kubectl wait pod --for=condition=Ready -n knative-serving  --all
+
+    - name: Wait for Serving ready
+      working-directory: ./src/knative.dev/serving
+      run: |
+        kubectl wait pod --for=condition=Ready -n knative-serving  --all
+
+    - name: Install kingress provider
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -o pipefail
+
+        # Apply a kingress option.
+        ko resolve -f third_party/contour-latest | \
+          sed 's/LoadBalancer/NodePort/g' | \
+          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
+          kubectl apply -f -
+
+        # Have Serving use the kingress option.
+        kubectl patch configmap/config-network \
+          --namespace knative-serving \
+          --type merge \
+          --patch '{"data":{"ingress.class":"contour.ingress.networking.knative.dev"}}'
+
+    - name: Upload Test Images
+      working-directory: ./src/knative.dev/serving
+      run: |
+        # Build and Publish our test images to the docker daemon.
+        ./test/upload-test-images.sh
+
+    - name: Wait for kingress ready
+      working-directory: ./src/knative.dev/serving
+      run: |
+        kubectl wait pod --for=condition=Ready -n contour-external -lapp=contour
+        kubectl wait pod --for=condition=Ready -n contour-external -lapp=envoy
+        kubectl wait pod --for=condition=Ready -n contour-internal -lapp=contour
+        kubectl wait pod --for=condition=Ready -n contour-internal -lapp=envoy
+        kubectl wait pod --for=condition=Ready -n knative-serving  --all
+
+    - name: Run e2e Tests
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
+        # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
+        IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
+
+        # This tells the tests what namespace to look in for our kingress LB.
+        export GATEWAY_OVERRIDE=envoy
+        export GATEWAY_NAMESPACE_OVERRIDE=contour-external
+
+        # Run the tests tagged as e2e on the KinD cluster.
+        go test -race -v -count=1 -timeout=4m -tags=e2e ./test/conformance/api/v1/... -run=TestServiceCreateAndUpdate \
+           --ingressendpoint="${IPS[0]}" \
+           --ingressClass=contour.ingress.networking.knative.dev
