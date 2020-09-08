@@ -31,6 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Whitelist
+// This should be
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	_, err := pkgTest.WaitForEndpointState(
 		context.Background(),

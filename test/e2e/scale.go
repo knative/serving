@@ -52,6 +52,8 @@ func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
 	}
 }
 
+// Slave
+// This too!
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
 	// 95 = 19/20, so allow one failure within the minimum number of probes, but expect
