@@ -138,7 +138,7 @@ func TestPodIPsSortedByAge(t *testing.T) {
 	}, {
 		name: "one pod",
 		pods: []*corev1.Pod{
-			pod("master-of-puppets", makeReady, withStartTime(aTime), withIP("1.1.1.1")),
+			pod("foo", makeReady, withStartTime(aTime), withIP("1.1.1.1")),
 		},
 		want: []string{"1.1.1.1"},
 	}, {
