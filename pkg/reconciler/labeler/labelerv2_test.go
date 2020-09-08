@@ -46,6 +46,7 @@ import (
 	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
 	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -534,7 +535,7 @@ func TestNew(t *testing.T) {
 }
 
 func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	c := cfgmap.FromContextOrDefaults(ctx)
+	c := config.FromContextOrDefaults(ctx)
 	c.Features.ResponsiveRevisionGC = flag
-	return cfgmap.ToContext(ctx, c)
+	return config.ToContext(ctx, c)
 }
