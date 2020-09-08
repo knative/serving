@@ -115,6 +115,8 @@ Once you've [setup your development environment](#prerequisites), stand up
 redeploying the new version should work fine, but if you run into trouble, you
 can easily [clean your cluster up](#clean-up) and try again.
 
+Enter the `serving` directory to install the following components.
+
 ### Setup cluster admin
 
 Your user must be a cluster admin to perform the setup needed for Knative. This
