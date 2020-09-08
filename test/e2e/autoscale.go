@@ -182,7 +182,7 @@ func toPercentageString(f float64) string {
 // data points.
 // It sets up EnsureTearDown to ensure that resources are cleaned up when the
 // test terminates.
-func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
+func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *TestContext {
 	t.Helper()
 	clients := Setup(t)
 
@@ -215,7 +215,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if err := validateEndpoint(t, clients, names); err != nil {
+	if err := ValidateEndpoint(t, clients, names); err != nil {
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 

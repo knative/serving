@@ -50,7 +50,7 @@ const (
 	defaultPort              = "80"
 )
 
-type grpcTest func(*testContext, string, string)
+type grpcTest func(*TestContext, string, string)
 
 // hasPort checks if a URL contains a port number
 func hasPort(u string) bool {
@@ -90,7 +90,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	)
 }
 
-func unaryTest(ctx *testContext, host, domain string) {
+func unaryTest(ctx *TestContext, host, domain string) {
 	ctx.t.Helper()
 	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	const want = "Hello!"
@@ -103,31 +103,17 @@ func unaryTest(ctx *testContext, host, domain string) {
 	}
 }
 
-<<<<<<< HEAD
-func autoscaleTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
-	t.Helper()
-	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-
-	ctx := &TestContext{
-		t:                 t,
-		clients:           clients,
-		resources:         resources,
-		names:             names,
-		targetUtilization: targetUtilization,
-	}
-=======
-func autoscaleTest(ctx *testContext, host, domain string) {
+func autoscaleTest(ctx *TestContext, host, domain string) {
 	ctx.t.Helper()
 	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
 	ctx.targetUtilization = targetUtilization
->>>>>>> master
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
 	assertScaleDown(ctx)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
-func loadBalancingTest(ctx *testContext, host, domain string) {
+func loadBalancingTest(ctx *TestContext, host, domain string) {
 	ctx.t.Helper()
 	ctx.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
@@ -144,17 +130,7 @@ func loadBalancingTest(ctx *testContext, host, domain string) {
 		timer       = time.Tick(1 * time.Second)
 	)
 
-<<<<<<< HEAD
-	ctx := &TestContext{
-		t:                 t,
-		clients:           clients,
-		resources:         resources,
-		names:             names,
-		targetUtilization: targetUtilization,
-	}
-=======
 	ctx.targetUtilization = targetUtilization
->>>>>>> master
 
 	countKeys := func() int {
 		count := 0
@@ -286,7 +262,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *TestContext, curPods, targetPods float6
 	}
 }
 
-func streamTest(tc *testContext, host, domain string) {
+func streamTest(tc *TestContext, host, domain string) {
 	tc.t.Helper()
 	tc.t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	conn, err := dial(host, domain)
@@ -383,7 +359,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(&testContext{
+	f(&TestContext{
 		t:         t,
 		clients:   clients,
 		names:     names,
@@ -401,7 +377,7 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(ctx *testContext, host, domain string) {
+		func(ctx *TestContext, host, domain string) {
 			if err := waitForActivatorEndpoints(ctx); err != nil {
 				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
@@ -415,7 +391,7 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
-		func(ctx *testContext, host, domain string) {
+		func(ctx *TestContext, host, domain string) {
 			if err := waitForActivatorEndpoints(ctx); err != nil {
 				t.Fatal("Never got Activator endpoints in the service:", err)
 			}
@@ -429,7 +405,7 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 
 func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 	testGRPC(t,
-		func(ctx *testContext, host, domain string) {
+		func(ctx *TestContext, host, domain string) {
 			autoscaleTest(ctx, host, domain)
 
 		},
@@ -448,7 +424,7 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 
 func TestGRPCLoadBalancing(t *testing.T) {
 	testGRPC(t,
-		func(ctx *testContext, host, domain string) {
+		func(ctx *TestContext, host, domain string) {
 			loadBalancingTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
