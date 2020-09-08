@@ -159,8 +159,7 @@ func generateTrafficAtFixedRPS(ctx *TestContext, rps int, duration time.Duration
 	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
-// ValidateEndpoint validates the given URL in `names` returns 200.
-func ValidateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
+func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -215,7 +214,7 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if err := ValidateEndpoint(t, clients, names); err != nil {
+	if err := validateEndpoint(t, clients, names); err != nil {
 		t.Fatalf("Error probing %s: %v", names.URL.Hostname(), err)
 	}
 

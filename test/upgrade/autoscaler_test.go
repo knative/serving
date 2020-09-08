@@ -29,9 +29,8 @@ import (
 )
 
 const (
-	target                 = 6
-	targetUtilization      = 0.7
-	autoscaleTestImageName = "autoscale"
+	target            = 6
+	targetUtilization = 0.7
 )
 
 // This test similar to TestAutoscaleSustaining in test/e2e/autoscale_test.go. It asserts
@@ -42,7 +41,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(pipe, t)
 
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint)
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization)
 
 	stopCh := make(chan time.Time)
 	go func() {
@@ -61,7 +60,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(pipe, t)
 
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization, autoscaleTestImageName, e2e.ValidateEndpoint,
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1", // Put Activator always in the path.
 		}))
