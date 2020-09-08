@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "7f1b7e2d"
+    knative.dev/example-checksum: "6a69cdef"
 data:
   _example: |
     ################################
@@ -105,10 +105,7 @@ data:
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after
     # they are no longer active.
-    #
-    # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
-    # should be used for testing purposes only.
-    responsive-revision-gc: "disabled"
+    responsive-revision-gc: "allowed"
 
     # Controls whether tag header based routing feature are enabled or not.
     # 1. Enabled: enabling tag header based routing
