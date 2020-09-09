@@ -14,14 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness. These env vars are consumed
-# in the test-infra/scripts/e2e-tests.sh. Use the existing value, if provided
-# with the job config.
-E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
-E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
-E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
-
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 source $(dirname $0)/e2e-networking-library.sh

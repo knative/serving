@@ -128,14 +128,14 @@ CLOUD_PROVIDER="gke"
 # Parse flags and initialize the test cluster.
 function initialize() {
   local run_tests=0
-  local extra_kubetest2_flags=()
-  local extra_cluster_creation_flags=()
+  local custom_flags=()
   E2E_SCRIPT="$(get_canonical_path "$0")"
   local e2e_script_command=( "${E2E_SCRIPT}" "--run-tests" )
 
   cd "${REPO_ROOT_DIR}"
   while [[ $# -ne 0 ]]; do
     local parameter=$1
+    # TODO(chizhg): remove parse_flags logic if no repos are using it.
     # Try parsing flag as a custom one.
     if function_exists parse_flags; then
       parse_flags "$@"
@@ -157,13 +157,9 @@ function initialize() {
       # TODO(chizhg): remove this flag once the addons is defined as an env var.
       --skip-istio-addon) SKIP_ISTIO_ADDON=1 ;;
       *)
-        [[ $# -ge 2 ]] || abort "missing parameter after $1"
-        shift
         case ${parameter} in
-          --cloud-provider) CLOUD_PROVIDER="$1" ;;
-          --kubetest2-flag) extra_kubetest2_flags+=("$1") ;;
-          --cluster-creation-flag) extra_cluster_creation_flags+=("$1") ;;
-          *) abort "unknown option ${parameter}" ;;
+          --cloud-provider) shift; CLOUD_PROVIDER="$1" ;;
+          *) custom_flags+=("$parameter") ;;
         esac
     esac
     shift
@@ -172,16 +168,16 @@ function initialize() {
   (( IS_PROW )) && [[ -z "${GCP_PROJECT_ID:-}" ]] && IS_BOSKOS=1
 
   if (( SKIP_ISTIO_ADDON )); then
-    extra_cluster_creation_flags+=("--addons=NodeLocalDNS")
+    custom_flags+=("--addons=NodeLocalDNS")
   else
-    extra_cluster_creation_flags+=("--addons=Istio,NodeLocalDNS")
+    custom_flags+=("--addons=Istio,NodeLocalDNS")
   fi
 
   readonly IS_BOSKOS
   readonly SKIP_TEARDOWNS
 
   if (( ! run_tests )); then
-    create_test_cluster "${CLOUD_PROVIDER}" extra_kubetest2_flags extra_cluster_creation_flags e2e_script_command
+    create_test_cluster "${CLOUD_PROVIDER}" custom_flags e2e_script_command
   else
     setup_test_cluster
   fi
