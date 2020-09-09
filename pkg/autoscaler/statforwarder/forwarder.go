@@ -295,7 +295,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	f.processingWg.Add(1)
 	return &bucketProcessor{
 		bkt:    bkt,
-		logger: f.logger.With(zap.String("buckjet", bkt)),
+		logger: f.logger.With(zap.String("bucket", bkt)),
 		holder: holder,
 		conn:   websocket.NewDurableSendingConnection(dns, f.logger),
 	}
