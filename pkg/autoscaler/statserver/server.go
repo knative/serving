@@ -22,16 +22,23 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	network "knative.dev/networking/pkg"
+	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/websocket/websocket.xhtml
+
+// isBucketHost is the function deciding whether a host of a request is
+// of an Autoscaler bucket service. It is set to bucket.IsBucketHost
+// in production while can be overriden for testing.
+var isBucketHost = bucket.IsBucketHost
 
 // Server receives autoscaler statistics over WebSocket and sends them to a channel.
 type Server struct {
@@ -41,17 +48,19 @@ type Server struct {
 	stopCh      chan struct{}
 	statsCh     chan<- metrics.StatMessage
 	openClients sync.WaitGroup
+	isBktOwner  func(bktName string) bool
 	logger      *zap.SugaredLogger
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger) *Server {
+func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap.SugaredLogger, isBktOwner func(bktName string) bool) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
 		stopCh:      make(chan struct{}),
 		statsCh:     statsCh,
 		openClients: sync.WaitGroup{},
+		isBktOwner:  isBktOwner,
 		logger:      logger.Named("stats-websocket-server").With("address", statsServerAddr),
 	}
 
@@ -113,6 +122,16 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	if handleHealthz(w, r) {
 		return
 	}
+
+	if s.isBktOwner != nil && isBucketHost(r.Host) {
+		bkt := strings.SplitN(r.Host, ".", 2)[0]
+		// It won't affect connections via Autoscaler service (used by Activator) or IP address.
+		if !s.isBktOwner(bkt) {
+			s.logger.Warn("Closing websocket because not the owner of the bucket ", bkt)
+			return
+		}
+	}
+
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -131,7 +150,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			s.logger.Debug("Sending close message to client")
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeServiceRestart, "Restarting"))
 			if err != nil {
-				s.logger.Errorf("Failed to send close message to client: %#v", err)
+				s.logger.Warnw("Failed to send close message to client", zap.Error(err))
 			}
 			conn.Close()
 		case <-handlerCh:
