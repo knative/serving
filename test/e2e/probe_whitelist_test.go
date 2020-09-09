@@ -34,7 +34,7 @@ import (
 //istio policy check enabled.
 //policy is present in test/config/security/policy.yaml
 //apply policy before running this test
-func TestProbeWhitelist(t *testing.T) {
+func TestAllowedProbes(t *testing.T) {
 	t.Parallel()
 
 	clients := SetupServingNamespaceforSecurityTesting(t)

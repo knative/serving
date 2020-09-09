@@ -25,6 +25,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -35,8 +36,6 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
-
-	"path/filepath"
 
 	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"

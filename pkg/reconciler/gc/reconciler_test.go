@@ -24,9 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -110,11 +110,7 @@ func TestGCReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},
@@ -184,11 +180,7 @@ func TestGCReconcileV2(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},

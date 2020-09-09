@@ -83,7 +83,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 		// between probes and real requests.
 		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
 			Name:  network.KubeletProbeHeaderName,
-			Value: "queue",
+			Value: queue.Name,
 		})
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)

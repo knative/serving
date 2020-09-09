@@ -1,0 +1,24 @@
+run:
+  timeout: 5m
+
+  build-tags:
+    - e2e
+    - performance
+    - probe
+    - preupgrade
+    - postupgrade
+    - postdowngrade
+    - istio
+
+  skip-dirs:
+    - pkg/client
+
+  skip-files:
+    - ".pb.go$"
+
+linters:
+  enable:
+    - unconvert
+    - prealloc
+  disable:
+    - errcheck

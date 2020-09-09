@@ -48,22 +48,22 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create clients: ", err)
 	}
-	whiteLists := sets.String{}
+	keepCerts := sets.String{}
 	if env.NamespaceWithCert != "" {
-		whiteLists.Insert(env.NamespaceWithCert)
+		keepCerts.Insert(env.NamespaceWithCert)
 	}
-	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
+	if err := disableNamespaceCertWithExclusions(clients, keepCerts); err != nil {
 		log.Fatal("Failed to disable namespace cert: ", err)
 	}
 }
 
-func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.String) error {
+func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.String) error {
 	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 	for _, ns := range namespaces.Items {
-		if whiteLists.Has(ns.Name) {
+		if keepCerts.Has(ns.Name) {
 			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
 			delete(ns.Labels, networking.DeprecatedDisableWildcardCertLabelKey)
 		} else {

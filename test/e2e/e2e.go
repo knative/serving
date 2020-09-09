@@ -36,9 +36,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	presources "knative.dev/serving/pkg/resources"
 	"knative.dev/serving/test"
-	v1test "knative.dev/serving/test/v1"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -112,47 +110,59 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 }
 
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
-func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.Clients) error {
-	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+func waitForActivatorEndpoints(ctx *testContext) error {
+	var (
+		aset, svcSet sets.String
+		wantAct      int
+	)
+
+	if rerr := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
-		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+		actEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
 			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
-		sks, err := clients.NetworkingClient.ServerlessServices.Get(resources.Revision.Name, metav1.GetOptions{})
+		sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(ctx.resources.Revision.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		// The subset is set. But in theory it might be revision pods,
-		// so verify below that at least 1 address is an activator pod.
-		wantAct := int(sks.Spec.NumActivators)
-		if numAct := presources.ReadyAddressCount(aeps); wantAct > numAct {
-			wantAct = numAct
-		}
-		if presources.ReadyAddressCount(svcEps) != wantAct {
-			return false, nil
-		}
-		aset := make(sets.String, wantAct)
-		for _, ss := range svcEps.Subsets {
+		wantAct = int(sks.Spec.NumActivators)
+		aset = make(sets.String, wantAct)
+		for _, ss := range actEps.Subsets {
 			for i := 0; i < len(ss.Addresses); i++ {
 				aset.Insert(ss.Addresses[i].IP)
 			}
 		}
-		for _, ss := range aeps.Subsets {
+		svcSet = make(sets.String, wantAct)
+		for _, ss := range svcEps.Subsets {
 			for i := 0; i < len(ss.Addresses); i++ {
-				if aset.Has(ss.Addresses[i].IP) {
-					return true, nil
-				}
+				svcSet.Insert(ss.Addresses[i].IP)
 			}
 		}
-		return false, nil
-	})
+		// Subset wants this many activators, but there might not be as many,
+		// so reduce the expectation.
+		if aset.Len() < wantAct {
+			wantAct = aset.Len()
+		}
+		// If public endpoints have not yet been updated with the new values.
+		if svcSet.Len() < wantAct {
+			return false, nil
+		}
+		return svcSet.Intersection(aset).Len() > 0, nil
+	}); rerr != nil {
+		ctx.t.Logf("Did not see activator endpoints in public service for %s."+
+			"Last received values: Activator:%v"+
+			"PubSvc: %v, WantActivators %d",
+			ctx.resources.Revision.Name, aset.List(), svcSet.List(), wantAct)
+		return rerr
+	}
+	return nil
 }

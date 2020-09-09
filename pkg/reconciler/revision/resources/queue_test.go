@@ -45,6 +45,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/queue"
 )
 
 var (
@@ -480,7 +481,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  network.KubeletProbeHeaderName,
-					Value: "queue",
+					Value: queue.Name,
 				}},
 			},
 		},
@@ -551,7 +552,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Scheme: corev1.URISchemeHTTPS,
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  network.KubeletProbeHeaderName,
-					Value: "queue",
+					Value: queue.Name,
 				}},
 			},
 		},

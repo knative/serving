@@ -328,8 +328,8 @@ func (c *ManagedConnection) Shutdown() error {
 	return err
 }
 
-// Shutdown closes the websocket connection.
-func (c *ManagedConnection) HasEstablished() bool {
+// IsEstablished returns true the websocket connection has been established.
+func (c *ManagedConnection) IsEstablished() bool {
 	c.connectionLock.RLock()
 	defer c.connectionLock.RUnlock()
 

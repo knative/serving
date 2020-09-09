@@ -26,9 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 
 	"knative.dev/pkg/ptr"
-	cfgMap "knative.dev/serving/pkg/apis/config"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 var fakeCurTime = time.Unix(1e9, 0)
@@ -322,9 +323,7 @@ func TestMakeRevisions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			if test.responsiveGC {
-				ctx = enableResponsiveGC(ctx)
-			}
+			ctx = enableResponsiveGC(ctx, test.responsiveGC)
 
 			got := MakeRevision(ctx, test.configuration, clock)
 			if diff := cmp.Diff(test.want, got); diff != "" {
@@ -334,13 +333,18 @@ func TestMakeRevisions(t *testing.T) {
 	}
 }
 
-func enableResponsiveGC(ctx context.Context) context.Context {
-	defaultDefaults, _ := cfgMap.NewDefaultsConfigFromMap(map[string]string{})
-	c := &cfgMap.Config{
-		Features: &cfgMap.Features{
-			ResponsiveRevisionGC: cfgMap.Enabled,
+func enableResponsiveGC(ctx context.Context, enabled bool) context.Context {
+	flag := cfgmap.Disabled
+	if enabled {
+		flag = cfgmap.Enabled
+	}
+
+	defaultDefaults, _ := cfgmap.NewDefaultsConfigFromMap(map[string]string{})
+	c := &config.Config{
+		Features: &cfgmap.Features{
+			ResponsiveRevisionGC: flag,
 		},
 		Defaults: defaultDefaults,
 	}
-	return cfgMap.ToContext(ctx, c)
+	return config.ToContext(ctx, c)
 }
