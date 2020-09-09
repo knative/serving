@@ -76,9 +76,9 @@ func TestObservabilityConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"logging.enable-probe-request-log":            "true",
-				"logging.enable-request-log":                  "true",
+				metrics.EnableReqLogKey:                       "true",
 				"logging.enable-var-log-collection":           "true",
-				"logging.request-log-template":                `{"requestMethod": "{{.Request.Method}}"}`,
+				metrics.ReqLogTemplateKey:                     `{"requestMethod": "{{.Request.Method}}"}`,
 				"logging.revision-url-template":               "https://logging.io",
 				"logging.write-request-logs":                  "true",
 				"metrics.request-metrics-backend-destination": "stackdriver",
@@ -100,7 +100,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			},
 			Data: map[string]string{
 				"logging.enable-probe-request-log":            "true",
-				"logging.enable-request-log":                  "false",
+				metrics.EnableReqLogKey:                       "false",
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",
 				"logging.write-request-logs":                  "true",
@@ -129,7 +129,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
-				"logging.request-log-template": `{{ something }}`,
+				metrics.ReqLogTemplateKey: `{{ something }}`,
 			},
 		},
 	}}
@@ -139,7 +139,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			actual, err := metrics.NewObservabilityConfigFromConfigMap(tt.config)
 
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewObservabilityFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+				t.Fatalf("NewObservabilityFromConfigMap() error = %v, WantErr %v", err, tt.wantErr)
 			}
 
 			if got, want := actual, tt.wantConfig; !cmp.Equal(want, got) {
