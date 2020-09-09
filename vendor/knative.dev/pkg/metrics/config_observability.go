@@ -35,9 +35,13 @@ const (
 	defaultRequestMetricsBackend = "prometheus"
 
 	// The env var name for config-observability
-	configMapNameEnv  = "CONFIG_OBSERVABILITY_NAME"
-	reqLogTemplateKey = "logging.request-log-template"
-	enableReqLogKey   = "logging.enable-request-log"
+	configMapNameEnv = "CONFIG_OBSERVABILITY_NAME"
+
+	// ReqLogTemplateKey is the CM key for the request log template.
+	ReqLogTemplateKey = "logging.request-log-template"
+
+	// EnableReqLogKey is the CM key to enable request log.
+	EnableReqLogKey = "logging.enable-request-log"
 )
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
@@ -88,8 +92,8 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 	if err := cm.Parse(configMap.Data,
 		cm.AsBool("logging.enable-var-log-collection", &oc.EnableVarLogCollection),
 		cm.AsString("logging.revision-url-template", &oc.LoggingURLTemplate),
-		cm.AsString(reqLogTemplateKey, &oc.RequestLogTemplate),
-		cm.AsBool(enableReqLogKey, &oc.EnableRequestLog),
+		cm.AsString(ReqLogTemplateKey, &oc.RequestLogTemplate),
+		cm.AsBool(EnableReqLogKey, &oc.EnableRequestLog),
 		cm.AsBool("logging.enable-probe-request-log", &oc.EnableProbeRequestLog),
 		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
 		cm.AsBool("profiling.enable", &oc.EnableProfiling),
@@ -99,7 +103,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 	}
 
 	if oc.RequestLogTemplate == "" && oc.EnableRequestLog {
-		return nil, fmt.Errorf("%q was set to true, but no %q was specified", enableReqLogKey, reqLogTemplateKey)
+		return nil, fmt.Errorf("%q was set to true, but no %q was specified", EnableReqLogKey, ReqLogTemplateKey)
 	}
 
 	if oc.RequestLogTemplate != "" {
