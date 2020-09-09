@@ -442,9 +442,14 @@ func TestProcess(t *testing.T) {
 	// Stat1 should be accepted and stat2 should be forwarded.
 	f.Process(stat1)
 	f.Process(stat2)
-	f.Process(stat2)
 
 	if got, want := acceptCount, 1; got != want {
+		t.Errorf("acceptCount = %d, want = %d", got, want)
+	}
+
+	// One more accept.
+	f.Process(stat1)
+	if got, want := acceptCount, 2; got != want {
 		t.Errorf("acceptCount = %d, want = %d", got, want)
 	}
 

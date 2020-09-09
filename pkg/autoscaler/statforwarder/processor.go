@@ -19,6 +19,7 @@ package statforwarder
 import (
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
+
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )

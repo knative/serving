@@ -25,6 +25,7 @@ import (
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/websocket"
 )
@@ -57,7 +58,7 @@ func TestProcessorForwarding(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
 		return conn.IsEstablished(), nil
 	}); err != nil {
-		t.Fatalf("Timeout waiting f.processors got updated")
+		t.Fatal("Timeout waiting f.processors got updated")
 	}
 
 	p := bucketProcessor{
