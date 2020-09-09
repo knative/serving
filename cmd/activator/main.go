@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -72,12 +70,6 @@ const (
 	autoscalerPort = ":8080"
 )
 
-var (
-	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
-		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-)
-
 func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
 	logger *zap.SugaredLogger) {
 	for sms := range statChan {
@@ -107,23 +99,14 @@ type config struct {
 }
 
 func main() {
-	flag.Parse()
-
 	// Set up a context that we can cancel to tell informers and other subprocesses to stop.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatal("Error exporting go memstats view: ", err)
-	}
+	sharedmain.MemStatsOrDie(ctx)
 
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatal("Error building kubeconfig: ", err)
-	}
+	cfg := sharedmain.ParseAndGetConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
@@ -139,6 +122,7 @@ func main() {
 	kubeClient := kubeclient.Get(ctx)
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	var err error
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
