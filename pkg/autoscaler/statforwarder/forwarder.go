@@ -282,7 +282,7 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	if holder == f.selfIP {
 		return &bucketProcessor{
 			bkt:    bkt,
-			logger: f.logger.With(zap.String("buckjet", bkt)),
+			logger: f.logger.With(zap.String("bucket", bkt)),
 			holder: holder,
 			accept: f.accept,
 		}
