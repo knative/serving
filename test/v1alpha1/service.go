@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -306,8 +307,10 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 
 	var lastState *v1alpha1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Services.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Services.Get(name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -324,7 +327,11 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForServiceState.
 func CheckServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
-	s, err := client.Services.Get(name, metav1.GetOptions{})
+	var s *v1alpha1.Service
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		s, err = client.Services.Get(name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

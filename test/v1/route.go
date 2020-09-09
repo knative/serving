@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
@@ -72,8 +73,10 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 
 	var lastState *v1.Route
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Routes.Get(name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -90,7 +93,11 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRouteState
 func CheckRouteState(client *test.ServingClients, name string, inState func(r *v1.Route) (bool, error)) error {
-	r, err := client.Routes.Get(name, metav1.GetOptions{})
+	var r *v1.Route
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		r, err = client.Routes.Get(name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

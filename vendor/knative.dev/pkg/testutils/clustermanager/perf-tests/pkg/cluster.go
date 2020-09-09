@@ -38,7 +38,6 @@ const (
 	// known cluster status
 	// TODO(chizhg): move these status constants to gke package
 	statusProvisioning = "PROVISIONING"
-	statusRunning      = "RUNNING"
 	statusStopping     = "STOPPING"
 )
 

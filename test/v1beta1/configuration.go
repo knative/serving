@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -142,8 +143,10 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 
 	var lastState *v1beta1.Configuration
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Configs.Get(name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -160,7 +163,11 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForConfigurationState
 func CheckConfigurationState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Configuration) (bool, error)) error {
-	c, err := client.Configs.Get(name, metav1.GetOptions{})
+	var c *v1beta1.Configuration
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		c, err = client.Configs.Get(name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

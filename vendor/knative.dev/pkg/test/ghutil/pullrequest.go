@@ -37,7 +37,7 @@ const (
 type PullRequestState string
 
 // ListPullRequests lists pull requests within given repo, filters by head user and branch name if
-// provided as "user:ref-name", and by base name if provided, i.e. "master"
+// provided as "user:ref-name", and by base name if provided, i.e. "release-0.19"
 func (gc *GithubClient) ListPullRequests(org, repo, head, base string) ([]*github.PullRequest, error) {
 	PRsListOptions := github.PullRequestListOptions{
 		State: string(PullRequestAllState),
@@ -184,7 +184,7 @@ func (gc *GithubClient) EditPullRequest(org, repo string, ID int, title, body st
 	return res, err
 }
 
-// CreatePullRequest creates PullRequest, passing head user and branch name "user:ref-name", and base branch name like "master"
+// CreatePullRequest creates PullRequest, passing head user and branch name "user:ref-name", and base branch name like "release-0.19"
 func (gc *GithubClient) CreatePullRequest(org, repo, head, base, title, body string) (*github.PullRequest, error) {
 	b := true
 	PR := &github.NewPullRequest{
