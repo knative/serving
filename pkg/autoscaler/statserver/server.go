@@ -34,7 +34,6 @@ import (
 )
 
 const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/websocket/websocket.xhtml
-const closeCodeTryAgain = 1013
 
 // isBucketHost is the function deciding whether a host of a request is
 // of an Autoscaler bucket service. It is set to bucket.IsBucketHost
@@ -124,25 +123,20 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var upgrader websocket.Upgrader
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		s.logger.Errorw("error upgrading websocket", zap.Error(err))
-		return
-	}
-
 	if s.isBktOwner != nil && isBucketHost(r.Host) {
 		bkt := strings.SplitN(r.Host, ".", 2)[0]
 		// It won't affect connections via Autoscaler service (used by Activator) or IP address.
 		if !s.isBktOwner(bkt) {
 			s.logger.Warn("Closing websocket because not the owner of the bucket ", bkt)
-			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeTryAgain, "NotOwner"))
-			if err != nil {
-				s.logger.Warnw("Failed to send close message to client", zap.Error(err))
-			}
-			conn.Close()
 			return
 		}
+	}
+
+	var upgrader websocket.Upgrader
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		s.logger.Errorw("error upgrading websocket", zap.Error(err))
+		return
 	}
 
 	handlerCh := make(chan struct{})

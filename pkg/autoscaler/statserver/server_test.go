@@ -218,6 +218,7 @@ func TestServerOwnerForBucketHost(t *testing.T) {
 	assertReceivedProto(t, both, statSink, statsCh)
 	closeSink(t, statSink)
 }
+
 func TestServerNotOwnerForBucketHost(t *testing.T) {
 	// Override the function to mock a bucket host.
 	isBucketHost = alwaysTrue
@@ -228,19 +229,9 @@ func TestServerNotOwnerForBucketHost(t *testing.T) {
 
 	go server.listenAndServe()
 
-	statSink := dialOK(t, server.listenAddr())
-	defer closeSink(t, statSink)
-
-	received := make(chan struct{})
-	go func() {
-		assertReceivedProto(t, both, statSink, statsCh)
-		close(received)
-	}()
-
-	select {
-	case <-received:
-		t.Error("Should not receive stat as the server should keep closing the connection.")
-	case <-time.After(time.Second):
+	_, err := dial(server.listenAddr())
+	if err == nil {
+		t.Error("Want error from Dial but got none")
 	}
 }
 
