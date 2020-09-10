@@ -67,7 +67,6 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 
 	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -203,7 +202,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 	ns := rev.Namespace
 
-	paName := resourcenames.PA(rev)
+	paName := names.PA(rev)
 	pa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("PodAutoscalers.Get(%v) = %v", paName, err)
@@ -211,7 +210,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 
 	for _, v := range rev.Spec.Containers {
-		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+v.Name)
+		imageName := kmeta.ChildName(names.ImageCache(rev), "-"+v.Name)
 		image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Caching.Images.Get(%v) = %v", imageName, err)
@@ -219,7 +218,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
 	}
 
-	deploymentName := resourcenames.Deployment(rev)
+	deploymentName := names.Deployment(rev)
 	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Deployments.Get(%v) = %v", deploymentName, err)

@@ -43,11 +43,6 @@ import (
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
-const (
-	// ReconcilerName is the name of the reconciler
-	ReconcilerName = "Services"
-)
-
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	client clientset.Interface
