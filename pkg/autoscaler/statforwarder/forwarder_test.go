@@ -62,6 +62,18 @@ var (
 			HolderIdentity: &testIP1,
 		},
 	}
+	stat1 = asmetrics.StatMessage{
+		Key: types.NamespacedName{
+			Namespace: testNs,
+			Name:      "succulent", // Mapped to bucket1
+		},
+	}
+	stat2 = asmetrics.StatMessage{
+		Key: types.NamespacedName{
+			Namespace: testNs,
+			Name:      "plant", // Mapped to bucket2
+		},
+	}
 	// A statProcessor doing nothing.
 	noOp = func(sm asmetrics.StatMessage) {}
 )
@@ -400,19 +412,6 @@ func TestProcess(t *testing.T) {
 	}
 	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
 
-	stat1 := asmetrics.StatMessage{
-		Key: types.NamespacedName{
-			Namespace: testNs,
-			Name:      "succulent", // Mapped to bucket1
-		},
-	}
-	stat2 := asmetrics.StatMessage{
-		Key: types.NamespacedName{
-			Namespace: testNs,
-			Name:      "plant", // Mapped to bucket2
-		},
-	}
-
 	// A Forward without any leadership information should process without error.
 	f.Process(stat1)
 
@@ -440,21 +439,18 @@ func TestProcess(t *testing.T) {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
 
-	forwardCount := 0
-	// Override the proc so we do not actually send via WebSocket.
-	f.processors[bucket2].proc = func(sm asmetrics.StatMessage) {
-		forwardCount++
-	}
-
+	// Stat1 should be accepted and stat2 should be forwarded.
 	f.Process(stat1)
-	f.Process(stat2)
 	f.Process(stat2)
 
 	if got, want := acceptCount, 1; got != want {
 		t.Errorf("acceptCount = %d, want = %d", got, want)
 	}
-	if got, want := forwardCount, 2; got != want {
-		t.Errorf("forwardCount = %d, want = %d", got, want)
+
+	// One more accept.
+	f.Process(stat1)
+	if got, want := acceptCount, 2; got != want {
+		t.Errorf("acceptCount = %d, want = %d", got, want)
 	}
 
 	// Make sure Cancel can be called without crash.
