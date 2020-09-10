@@ -24,7 +24,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	testing2 "knative.dev/pkg/logging/testing"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
+
+	ltesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/metrics"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
@@ -33,8 +38,6 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -58,78 +61,65 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
-		body string
 		data map[string]string
 		want string
 	}{{
 		name: "empty template",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "",
+			metrics.ReqLogTemplateKey: "",
 		},
-		want: "",
 	}, {
 		name: "template with new line",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "{{.Request.URL}}\n",
-			"logging.enable-request-log":   "true",
+			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
+			metrics.EnableReqLogKey:   "true",
 		},
 		want: "http://example.com/testpage\n",
 	}, {
 		name: "invalid template",
 		url:  "http://example.com",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "{{}}",
+			metrics.ReqLogTemplateKey: "{{}}",
 		},
 		want: "http://example.com\n",
 	}, {
 		name: "revision info",
 		url:  "http://example.com",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
-			"logging.enable-request-log":   "true",
+			metrics.ReqLogTemplateKey: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+			metrics.EnableReqLogKey:   "true",
 		},
 		want: "testRevision, testNs, testSvc, testConfig, , \n",
 	}, {
 		name: "empty template 2",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "",
+			metrics.ReqLogTemplateKey: "",
 		},
-		want: "",
 	}, {
 		name: "explicitly enable request logging",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "{{.Request.URL}}\n",
-			"logging.enable-request-log":   "true",
+			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
+			metrics.EnableReqLogKey:   "true",
 		},
 		want: "http://example.com/testpage\n",
 	}, {
 		name: "explicitly disable request logging",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "{{.Request.URL}}\n",
-			"logging.enable-request-log":   "false",
+			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
+			metrics.EnableReqLogKey:   "false",
 		},
-		want: "",
 	}, {
 		name: "explicitly enable request logging with empty template",
 		url:  "http://example.com/testpage",
-		body: "test",
 		data: map[string]string{
-			"logging.request-log-template": "",
-			"logging.enable-request-log":   "true",
+			metrics.ReqLogTemplateKey: "",
+			metrics.EnableReqLogKey:   "true",
 		},
-		want: "",
 	}}
 
 	for _, test := range tests {
@@ -137,9 +127,10 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 			buf.Reset()
 			cm := &corev1.ConfigMap{}
 			cm.Data = test.data
-			(updateRequestLogFromConfigMap(testing2.TestLogger(t), handler))(cm)
+			(updateRequestLogFromConfigMap(ltesting.TestLogger(t), handler))(cm)
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(test.body))
+			rs := string(uuid.NewUUID())
+			req := httptest.NewRequest(http.MethodPost, test.url, bytes.NewBufferString(rs))
 			req.Header = map[string][]string{
 				activator.RevisionHeaderName:      {testRevisionName},
 				activator.RevisionHeaderNamespace: {testNamespaceName},
@@ -204,7 +195,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.getter(test.request, test.response)
 			if !cmp.Equal(*got.Revision, test.want) {
-				t.Errorf("Got = %v, want: %v, diff: %s", got.Revision, test.want, cmp.Diff(got.Revision, test.want))
+				t.Errorf("Got = %v, want: %v, diff:\n%s", got.Revision, test.want, cmp.Diff(got.Revision, test.want))
 			}
 			if got.Request != test.request {
 				t.Errorf("Got = %v, want: %v", got.Request, test.request)
@@ -217,9 +208,12 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 }
 
 func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister {
-	rev := &v1.Revision{}
-	rev.Name = testRevisionName
-	rev.Namespace = testNamespaceName
+	rev := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testRevisionName,
+			Namespace: testNamespaceName,
+		},
+	}
 	if addLabels {
 		rev.Labels = map[string]string{
 			serving.ConfigurationLabelKey: testConfigName,

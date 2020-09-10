@@ -33,8 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -52,7 +53,7 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
 	}
 
-	if got, want := cm.Data["logging.request-log-template"], template; got != want {
+	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
 		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
 
@@ -74,11 +75,11 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	_, err = pkgTest.WaitForEndpointState(
+	_, err = pkgtest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(pkgtest.IsStatusOK, pkgtest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
