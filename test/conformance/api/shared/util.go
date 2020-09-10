@@ -118,17 +118,18 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 	//   WHERE body IN $expectedResponses
 	//   GROUP BY body
 	// )
-	for _, ar := range actualResponses {
+	for i, ar := range actualResponses {
 		if er := substrInList(ar, expectedResponses); er != "" {
 			counts[er]++
 		} else {
 			badCounts[ar]++
+			t.Logf("For domain %s: got unexpected response for request %d", domain, i)
 		}
 	}
 
-	// Verify that the total expected responses match the number of requests made.
+	// Print unexpected responses for debugging purposes
 	for badResponse, count := range badCounts {
-		t.Logf("Saw unexpected response %q %d times.", badResponse, count)
+		t.Logf("For domain %s: saw unexpected response %q %d times.", domain, badResponse, count)
 	}
 
 	// Verify that we saw each entry in "expectedResponses" at least "min" times.
@@ -146,6 +147,7 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 		t.Logf("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
 		totalMatches += count
 	}
+	// Verify that the total expected responses match the number of requests made.
 	if totalMatches < num {
 		errMsg = append(errMsg,
 			fmt.Sprintf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num))
