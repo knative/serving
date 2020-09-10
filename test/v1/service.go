@@ -155,29 +155,35 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	return createService(t, clients, svc)
 }
 
-func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (*v1.Service, error) {
+func createService(t pkgTest.T, clients *test.Clients, service *v1.Service) (svc *v1.Service, err error) {
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Create(service)
+		return err
+	})
 }
 
 // PatchService patches the existing service passed in with the applied mutations.
 // Returns the latest service object
-func PatchService(t pkgTest.T, clients *test.Clients, svc *v1.Service, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
-	newSvc := svc.DeepCopy()
+func PatchService(t pkgTest.T, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
+	newSvc := service.DeepCopy()
 	for _, opt := range fopt {
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(service.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1.Service, error) {
+func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -187,7 +193,10 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.

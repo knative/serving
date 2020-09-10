@@ -39,38 +39,48 @@ import (
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
+func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (cfg *v1alpha1.Configuration, err error) {
 	config := Configuration(names, fopt...)
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
-	return clients.ServingAlphaClient.Configs.Create(config)
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingAlphaClient.Configs.Create(config)
+		return err
+	})
 }
 
 // PatchConfig patches the existing config with the provided options. Returns the latest Configuration object
-func PatchConfig(clients *test.Clients, cfg *v1alpha1.Configuration, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
-	newCfg := cfg.DeepCopy()
+func PatchConfig(clients *test.Clients, config *v1alpha1.Configuration, fopt ...v1alpha1testing.ConfigOption) (cfg *v1alpha1.Configuration, err error) {
+	newConfig := config.DeepCopy()
 
 	for _, opt := range fopt {
-		opt(newCfg)
+		opt(newConfig)
 	}
 
-	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
+	patchBytes, err := duck.CreateBytePatch(config, newConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingAlphaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // PatchConfigImage patches the existing config passed in with a new imagePath. Returns the latest Configuration object
-func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
-	newCfg := cfg.DeepCopy()
-	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
-	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
+func PatchConfigImage(clients *test.Clients, config *v1alpha1.Configuration, imagePath string) (cfg *v1alpha1.Configuration, err error) {
+	newConfig := config.DeepCopy()
+	newConfig.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
+	patchBytes, err := duck.CreateBytePatch(config, newConfig)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingAlphaClient.Configs.Patch(cfg.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingAlphaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.

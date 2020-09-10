@@ -38,26 +38,33 @@ import (
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
+func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (cfg *v1beta1.Configuration, err error) {
 	config := Configuration(names, fopt...)
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
-	return clients.ServingBetaClient.Configs.Create(config)
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingBetaClient.Configs.Create(config)
+		return err
+	})
 }
 
 // PatchConfig patches the existing configuration passed in with the applied mutations.
 // Returns the latest configuration object
-func PatchConfig(t pkgTest.T, clients *test.Clients, svc *v1beta1.Configuration, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
-	newSvc := svc.DeepCopy()
+func PatchConfig(t pkgTest.T, clients *test.Clients, config *v1beta1.Configuration, fopt ...rtesting.ConfigOption) (cfg *v1beta1.Configuration, err error) {
+	newConfig := config.DeepCopy()
 	for _, opt := range fopt {
-		opt(newSvc)
+		opt(newConfig)
 	}
-	LogResourceObject(t, ResourceObjects{Config: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	LogResourceObject(t, ResourceObjects{Config: newConfig})
+	patchBytes, err := duck.CreateBytePatch(config, newConfig)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingBetaClient.Configs.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingBetaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.

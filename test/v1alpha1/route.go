@@ -37,7 +37,7 @@ import (
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (rt *v1alpha1.Route, err error) {
 	fopt = append(fopt, v1alpha1testing.WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1.TrafficTarget{
 			Tag:               names.TrafficTarget,
@@ -48,7 +48,10 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
 	test.AddTestAnnotation(t, route.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Route: route})
-	return clients.ServingAlphaClient.Routes.Create(route)
+	return rt, reconciler.RetryTestErrors(func(int) (err error) {
+		rt, err = clients.ServingAlphaClient.Routes.Create(route)
+		return err
+	})
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
