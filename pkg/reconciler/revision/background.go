@@ -134,7 +134,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 // the resolver already has the digest in cache it is returned immediately, if
 // it does not and no resolution is already in flight a resolution is triggered
 // in the background.
-// If this method returns nil, nil this implies a resolve was triggered or is
+// If this method returns `nil, nil` this implies a resolve was triggered or is
 // already in progress, so the reconciler should exit and wait for the revision
 // to be re-enqueued when the result is ready.
 func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) ([]v1.ContainerStatus, error) {
@@ -148,7 +148,7 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 
 	result, inFlight := r.results[name]
 	if !inFlight {
-		r.addWorkItems(rev, opt, registriesToSkip, timeout)
+		r.addWorkItems(rev, name, opt, registriesToSkip, timeout)
 		return nil, nil
 	}
 
@@ -156,17 +156,13 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 		return nil, nil
 	}
 
-	return r.results[name].statuses, r.results[name].err
+	ret := r.results[name]
+	return ret.statuses, ret.err
 }
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
 // This is expected to be called with the mutex locked.
-func (r *backgroundResolver) addWorkItems(rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
-	name := types.NamespacedName{
-		Name:      rev.Name,
-		Namespace: rev.Namespace,
-	}
-
+func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
 	r.results[name] = &resolveResult{
 		statuses:  make([]v1.ContainerStatus, len(rev.Spec.Containers)),
 		remaining: len(rev.Spec.Containers),
