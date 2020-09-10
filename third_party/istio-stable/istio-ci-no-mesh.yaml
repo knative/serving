@@ -24,12 +24,18 @@ spec:
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
     pilot:
-      replicaCount: 10
+      autoscaleMin: 3
+      autoscaleMax: 10
+      cpu:
+        targetAverageUtilization: 60
     gateways:
       istio-ingressgateway:
-        replicaCount: 10
+        autoscaleMin: 2
+        autoscaleMax: 5
 
   addonComponents:
+    pilot:
+      enabled: true
     prometheus:
       enabled: false
 
@@ -51,14 +57,19 @@ spec:
           istio: cluster-local-gateway
           app: cluster-local-gateway
         k8s:
+          resources:
+            limits:
+              cpu: 3000m
+              memory: 2048Mi
+            requests:
+              cpu: 1000m
+              memory: 1024Mi
           service:
             type: ClusterIP
             ports:
             - port: 15020
               name: status-port
             - port: 80
-              targetPort: 8080
               name: http2
             - port: 443
-              targetPort: 8443
               name: https
