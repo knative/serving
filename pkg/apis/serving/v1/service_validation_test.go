@@ -224,6 +224,36 @@ func TestServiceValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue(
 			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.template.spec.containerConcurrency"),
+	}, {
+		name: "invalid autoscaling.knative.dev annotation",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "autoscaling-annotation",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/foo": "bar",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: ConfigurationSpec{
+					Template: RevisionTemplateSpec{
+						Spec: RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "hellworld",
+								}},
+							},
+						},
+					},
+				},
+				RouteSpec: RouteSpec{
+					Traffic: []TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		want: apis.ErrGeneric("annotations in group 'autoscaling.knative.dev' won't work here, they must be put under 'spec.template.metadata.annotations' instead", "metadata.annotations"),
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.

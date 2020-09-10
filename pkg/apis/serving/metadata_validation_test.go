@@ -212,6 +212,43 @@ func TestValidateObjectMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateHasNoAutoscalingAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annotation map[string]string
+		expectErr  *apis.FieldError
+	}{{
+		name:       "nil",
+		annotation: nil,
+	}, {
+		name:       "empty",
+		annotation: map[string]string{},
+	}, {
+		name:       "no offender",
+		annotation: map[string]string{"foo": "bar"},
+	}, {
+		name:       "only offender",
+		annotation: map[string]string{"autoscaling.knative.dev/foo": "bar"},
+		expectErr:  apis.ErrGeneric(noAutoscalingMsg),
+	}, {
+		name: "offender and non-offender",
+		annotation: map[string]string{
+			"autoscaling.knative.dev/foo": "bar",
+			"foo":                         "bar",
+		},
+		expectErr: apis.ErrGeneric(noAutoscalingMsg),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateHasNoAutoscalingAnnotation(c.annotation)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("\nGot:  %q\nwant: %q", got, want)
+			}
+		})
+	}
+}
+
 func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
