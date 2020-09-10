@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -106,8 +105,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 
 				rrItem, ok := item.(*workItem)
 				if !ok {
-					r.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n",
-						reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(item).Name())
+					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T\n", &workItem{}, item)
 				}
 
 				r.processWorkItem(rrItem)
