@@ -25,6 +25,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -57,7 +58,21 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Creating configuration")
-	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
+	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
+		// Pass low resource requirements to avoid Pod scheduling problems
+		// on busy clusters.  This is adapted from ./test/e2e/scale.go
+		func(svc *v1.Configuration) {
+			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		})
 	if err != nil {
 		t.Fatal("Failed to create Configuration:", err)
 	}
