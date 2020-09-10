@@ -69,7 +69,8 @@ func validateKnativeAnnotations(annotations map[string]string) (errs *apis.Field
 func ValidateHasNoAutoscalingAnnotation(annotations map[string]string) (errs *apis.FieldError) {
 	for key := range annotations {
 		if strings.HasPrefix(key, autoscaling.GroupName) {
-			return apis.ErrInvalidKeyName(key, apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`)
+			errs = errs.Also(
+				apis.ErrInvalidKeyName(key, apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`))
 		}
 	}
 	return errs
