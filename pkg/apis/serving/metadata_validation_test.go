@@ -229,14 +229,14 @@ func TestValidateHasNoAutoscalingAnnotation(t *testing.T) {
 	}, {
 		name:       "only offender",
 		annotation: map[string]string{"autoscaling.knative.dev/foo": "bar"},
-		expectErr:  apis.ErrGeneric(noAutoscalingMsg),
+		expectErr:  apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}, {
 		name: "offender and non-offender",
 		annotation: map[string]string{
 			"autoscaling.knative.dev/foo": "bar",
 			"foo":                         "bar",
 		},
-		expectErr: apis.ErrGeneric(noAutoscalingMsg),
+		expectErr: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", apis.CurrentField, `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}}
 
 	for _, c := range cases {

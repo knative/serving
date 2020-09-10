@@ -254,7 +254,7 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrGeneric("annotations in group 'autoscaling.knative.dev' won't work here, they must be put under 'spec.template.metadata.annotations' instead", "metadata.annotations"),
+		want: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
