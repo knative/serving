@@ -37,7 +37,7 @@ const closeCodeServiceRestart = 1012 // See https://www.iana.org/assignments/web
 
 // isBucketHost is the function deciding whether a host of a request is
 // of an Autoscaler bucket service. It is set to bucket.IsBucketHost
-// in production while can be overriden for testing.
+// in production while can be overridden for testing.
 var isBucketHost = bucket.IsBucketHost
 
 // Server receives autoscaler statistics over WebSocket and sends them to a channel.
