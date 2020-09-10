@@ -35,6 +35,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kflag"
+	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 )
 
@@ -115,7 +116,8 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 }
 
 func main() {
-	ctx := sharedmain.EnableInjectionOrDie(nil, nil)
+	ctx := signals.NewContext()
+	ctx = sharedmain.EnableInjectionOrDie(ctx, nil)
 
 	kc := kubeclient.Get(ctx)
 
