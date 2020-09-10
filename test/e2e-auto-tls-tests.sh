@@ -160,7 +160,7 @@ function delete_dns_record() {
 # Script entry point.
 
 # Skip installing istio as an add-on
-initialize $@ --skip-istio-addon
+initialize "$@" --skip-istio-addon
 
 header "Enabling high-availability"
 

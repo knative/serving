@@ -65,22 +65,6 @@ function abort() {
   exit 1
 }
 
-# Build a resource name based on $REPO_NAME, a suffix and $BUILD_NUMBER.
-# Restricts the name length to 40 chars (the limit for resource names in GCP).
-# Name will have the form $REPO_NAME-<PREFIX>$BUILD_NUMBER.
-# Parameters: $1 - name suffix
-function build_resource_name() {
-  local prefix=${REPO_NAME}-$1
-  local suffix=${BUILD_NUMBER}
-  # Restrict suffix length to 20 chars
-  if [[ -n "${suffix}" ]]; then
-    suffix=${suffix:${#suffix}<20?0:-20}
-  fi
-  local name="${prefix:0:20}${suffix}"
-  # Ensure name doesn't end with "-"
-  echo "${name%-}"
-}
-
 # Display a box banner.
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.

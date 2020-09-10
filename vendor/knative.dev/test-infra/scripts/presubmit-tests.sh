@@ -272,7 +272,7 @@ function run_integration_tests() {
 # Default integration test runner that runs all `test/e2e-*tests.sh`.
 function default_integration_test_runner() {
   local failed=0
-  find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" > tmp
+  find test/ ! -name "$(printf "*\n*")" -name "e2e-*tests.sh" -maxdepth 1 > tmp
   while IFS= read -r e2e_test
   do
     echo "Running integration test ${e2e_test}"
