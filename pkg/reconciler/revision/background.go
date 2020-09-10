@@ -209,7 +209,7 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 
 	if err != nil {
 		item.result.statuses = nil
-		item.result.err = ContainerMissingError{image: item.image, cause: err}
+		item.result.err = containerMissingError{image: item.image, cause: err}
 	} else {
 		item.result.remaining--
 		item.result.statuses[item.index] = v1.ContainerStatus{
@@ -240,17 +240,17 @@ func (r *resolveResult) ready() bool {
 	return r.remaining == 0 || r.err != nil
 }
 
-// ContainerMissingError converts an error in to the expected format for the
+// containerMissingError converts an error in to the expected format for the
 // RevisionContainerMissing condition.
-type ContainerMissingError struct {
+type containerMissingError struct {
 	image string
 	cause error
 }
 
-func (e ContainerMissingError) Error() string {
+func (e containerMissingError) Error() string {
 	return v1.RevisionContainerMissingMessage(e.image, fmt.Sprintf("failed to resolve image to digest: %v", e.cause))
 }
 
-func (e ContainerMissingError) Unwrap() error {
+func (e containerMissingError) Unwrap() error {
 	return e.cause
 }

@@ -448,7 +448,6 @@ func TestStatusUnknownWhenDigestsNotResolvedYet(t *testing.T) {
 			t.Errorf("Unexpected revision conditions diff for condition %q (-want +got):\n%s", ct, diff)
 		}
 	}
-
 }
 
 func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
