@@ -51,14 +51,16 @@ type backgroundResolver struct {
 // resolveResult is the overall result for a particular revision. We create a
 // workItem for each container we need to resolve for the overall result.
 type resolveResult struct {
+	// these fields are immutable afer creation, so can be accessed without a lock.
+	opt                k8schain.Options
+	registriesToSkip   sets.String
+	completionCallback func()
+
+	// these fields can be written concurrently, so should only be accessed while
+	// holding the backgroundResolver mutex.
 	statuses  []v1.ContainerStatus
 	err       error
 	remaining int
-
-	opt              k8schain.Options
-	registriesToSkip sets.String
-
-	completionCallback func()
 }
 
 // workItem is a single task submitted to the queue, to resolve a single image
