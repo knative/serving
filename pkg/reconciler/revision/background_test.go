@@ -76,6 +76,18 @@ func TestResolveInBackground(t *testing.T) {
 			ImageDigest: "second-image-digest",
 		}},
 	}, {
+		name: "passing params",
+		resolver: func(_ context.Context, img string, opt k8schain.Options, skip sets.String) (string, error) {
+			return fmt.Sprintf("%s-%s-%s", img, opt.ServiceAccountName, skip.List()[0]), nil
+		},
+		wantStatuses: []v1.ContainerStatus{{
+			Name:        "first",
+			ImageDigest: "first-image-san-skip",
+		}, {
+			Name:        "second",
+			ImageDigest: "second-image-san-skip",
+		}},
+	}, {
 		name: "one slow resolve",
 		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
 			if img == "first-image" {
@@ -146,7 +158,7 @@ func TestResolveInBackground(t *testing.T) {
 
 			for i := 0; i < 2; i++ {
 				t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-					statuses, err := subject.Resolve(fakeRevision, k8schain.Options{}, nil, timeout)
+					statuses, err := subject.Resolve(fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
 					if err != nil || statuses != nil {
 						// Initial result should be nil, nil since we have nothing in cache.
 						t.Errorf("Resolve() = %v, %v, wanted nil, nil", statuses, err)

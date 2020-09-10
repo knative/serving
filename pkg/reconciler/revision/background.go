@@ -166,8 +166,10 @@ func (r *backgroundResolver) Resolve(rev *v1.Revision, opt k8schain.Options, reg
 // This is expected to be called with the mutex locked.
 func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
 	r.results[name] = &resolveResult{
-		statuses:  make([]v1.ContainerStatus, len(rev.Spec.Containers)),
-		remaining: len(rev.Spec.Containers),
+		opt:              opt,
+		registriesToSkip: registriesToSkip,
+		statuses:         make([]v1.ContainerStatus, len(rev.Spec.Containers)),
+		remaining:        len(rev.Spec.Containers),
 		completionCallback: func() {
 			r.enqueue(name)
 		},
