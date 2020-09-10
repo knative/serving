@@ -24,13 +24,14 @@ spec:
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
     pilot:
-      replicaCount: 20
-      cpu:
-        targetAverageUtilization: 80
+      replicaCount: 10
     gateways:
       istio-ingressgateway:
-        autoscaleMin: 2
-        autoscaleMax: 5
+        replicaCount: 10
+
+  addonComponents:
+    prometheus:
+      enabled: false
 
   components:
     ingressGateways:
