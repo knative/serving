@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -69,7 +70,7 @@ func TestInitScalePositive(t *testing.T) {
 	t.Logf("Waiting for Configuration %q to scale back below initialScale", names.Config)
 	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(s *v1.Configuration) (b bool, e error) {
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
-		podList, err := pods.List(metav1.ListOptions{
+		podList, err := pods.List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Config),
 			FieldSelector: "status.phase!=Terminating",
 		})
@@ -96,7 +97,7 @@ func createAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Client
 	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Config)
 	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(s *v1.Configuration) (b bool, e error) {
 		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
-		podList, err := pods.List(metav1.ListOptions{
+		podList, err := pods.List(context.Background(), metav1.ListOptions{
 			LabelSelector: selector,
 			// Include both running and terminating pods, because we will scale down from
 			// initial scale immediately if there's no traffic coming in.

@@ -91,7 +91,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Parallel()
 
 			clients := Setup(t)
-			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+			pm := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
@@ -181,6 +181,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				latencies.Add("time-to-ready", start)
 
 				_, err = pkgTest.WaitForEndpointState(
+					context.Background(),
 					clients.KubeClient,
 					t.Logf,
 					url,

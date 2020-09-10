@@ -17,6 +17,7 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -44,8 +45,8 @@ func CheckPortAvailability(port int) error {
 
 // GetPods retrieves the current existing podlist for the app in monitoring namespace
 // This uses app=<app> as labelselector for selecting pods
-func GetPods(kubeClientset *kubernetes.Clientset, app, namespace string) (*v1.PodList, error) {
-	pods, err := kubeClientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", app)})
+func GetPods(ctx context.Context, kubeClientset *kubernetes.Clientset, app, namespace string) (*v1.PodList, error) {
+	pods, err := kubeClientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", app)})
 	if err == nil && len(pods.Items) == 0 {
 		err = fmt.Errorf("no %s Pod found on the cluster. Ensure monitoring is switched on for your Knative Setup", app)
 	}

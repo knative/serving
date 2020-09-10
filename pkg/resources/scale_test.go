@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -91,7 +92,7 @@ func TestScaleResource(t *testing.T) {
 func TestGetScaleResource(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	deployment := newDeployment(t, fakedynamicclient.Get(ctx), "testdeployment", 5)
+	deployment := newDeployment(ctx, t, fakedynamicclient.Get(ctx), "testdeployment", 5)
 
 	psInformerFactory := podscalable.Get(ctx)
 	objectRef := corev1.ObjectReference{
@@ -99,7 +100,7 @@ func TestGetScaleResource(t *testing.T) {
 		Kind:       "deployment",
 		APIVersion: "apps/v1",
 	}
-	scale, err := GetScaleResource(testNamespace, objectRef, psInformerFactory)
+	scale, err := GetScaleResource(ctx, testNamespace, objectRef, psInformerFactory)
 	if err != nil {
 		t.Fatal("GetScaleResource() got error =", err)
 	}
@@ -111,7 +112,7 @@ func TestGetScaleResource(t *testing.T) {
 	}
 }
 
-func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
+func newDeployment(ctx context.Context, t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
 	t.Helper()
 
 	uns := &unstructured.Unstructured{
@@ -141,7 +142,7 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Group:    "apps",
 		Version:  "v1",
 		Resource: "deployments",
-	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
+	}).Namespace(testNamespace).Create(ctx, uns, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Create() =", err)
 	}

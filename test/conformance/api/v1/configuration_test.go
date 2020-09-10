@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -60,7 +61,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 	// Copy over new labels.
 	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
-	cfg, err := clients.ServingClient.Configs.Update(cfg)
+	cfg, err := clients.ServingClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)
 	}
@@ -92,7 +93,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"annotationB": "456",
 	}
 	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
-	cfg, err = clients.ServingClient.Configs.Update(cfg)
+	cfg, err = clients.ServingClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update annotations for Configuration %s: %v", names.Config, err)
 	}
@@ -119,7 +120,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 }
 
 func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1.Configuration {
-	cfg, err := clients.ServingClient.Configs.Get(name, metav1.GetOptions{})
+	cfg, err := clients.ServingClient.Configs.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get configuration %s: %v", name, err)
 	}

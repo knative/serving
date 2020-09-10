@@ -194,6 +194,7 @@ func knativeProbeHandler(logger *zap.SugaredLogger, healthState *health.State, p
 
 func main() {
 	flag.Parse()
+	ctx := signals.NewContext()
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
@@ -260,7 +261,7 @@ func main() {
 	probe := buildProbe(logger, env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(env, healthState, probe, stats, logger)
+	server := buildServer(ctx, env, healthState, probe, stats, logger)
 	adminServer := buildAdminServer(logger, healthState)
 	metricsServer := buildMetricsServer(promStatReporter, protoStatReporter)
 
@@ -316,7 +317,7 @@ func main() {
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		flush(logger)
 		os.Exit(1)
-	case <-signals.SetupSignalHandler():
+	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
 			logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", pkgnet.DefaultDrainTimeout)
@@ -350,7 +351,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
+func buildServer(ctx context.Context, env config, healthState *health.State, rp *readiness.Probe, stats *network.RequestStats,
 	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
@@ -370,7 +371,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, sta
 	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(logger, env)
-	metricsSupported := supportsMetrics(logger, env)
+	metricsSupported := supportsMetrics(ctx, logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 
@@ -435,13 +436,13 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(logger *zap.SugaredLogger, env config) bool {
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config) bool {
 	// Setup request metrics reporting for end-user metrics.
 	if env.ServingRequestMetricsBackend == "" {
 		return false
 	}
 
-	if err := setupMetricsExporter(logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
+	if err := setupMetricsExporter(ctx, logger, env.ServingRequestMetricsBackend, env.MetricsCollectorAddress); err != nil {
 		logger.Errorw("Error setting up request metrics exporter. Request metrics will be unavailable.", zap.Error(err))
 		return false
 	}
@@ -514,7 +515,7 @@ func requestAppMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Han
 	return h
 }
 
-func setupMetricsExporter(logger *zap.SugaredLogger, backend string, collectorAddress string) error {
+func setupMetricsExporter(ctx context.Context, logger *zap.SugaredLogger, backend string, collectorAddress string) error {
 	// Set up OpenCensus exporter.
 	// NOTE: We use revision as the component instead of queue because queue is
 	// implementation specific. The current metrics are request relative. Using
@@ -530,7 +531,7 @@ func setupMetricsExporter(logger *zap.SugaredLogger, backend string, collectorAd
 			"metrics.opencensus-address":  collectorAddress,
 		},
 	}
-	return metrics.UpdateExporter(ops, logger)
+	return metrics.UpdateExporter(ctx, ops, logger)
 }
 
 func flush(logger *zap.SugaredLogger) {

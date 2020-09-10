@@ -48,7 +48,7 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 	}
 	cert, err := certAccessor.GetCertificateLister().Certificates(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		cert, err = certAccessor.GetNetworkingClient().NetworkingV1alpha1().Certificates(desired.Namespace).Create(desired)
+		cert, err = certAccessor.GetNetworkingClient().NetworkingV1alpha1().Certificates(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
@@ -67,7 +67,7 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
 		existing.Spec = desired.Spec
-		cert, err = certAccessor.GetNetworkingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+		cert, err = certAccessor.GetNetworkingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)

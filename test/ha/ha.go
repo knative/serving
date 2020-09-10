@@ -17,6 +17,7 @@ limitations under the License.
 package ha
 
 import (
+	"context"
 	"net/url"
 	"testing"
 
@@ -59,6 +60,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 	}
 	// Wait for the Service to serve the expected text.
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
@@ -73,7 +75,7 @@ func waitForEndpointsState(client *pkgTest.KubeClient, svcName, svcNamespace str
 	endpointsService := client.Kube.CoreV1().Endpoints(svcNamespace)
 
 	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		endpoint, err := endpointsService.Get(svcName, metav1.GetOptions{})
+		endpoint, err := endpointsService.Get(context.Background(), svcName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

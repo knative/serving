@@ -115,7 +115,7 @@ func main() {
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
 	cmw.Watch(metrics.ConfigMapName(),
-		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
+		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
 	podLister := podinformer.Get(ctx).Lister()

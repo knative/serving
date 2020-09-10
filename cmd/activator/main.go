@@ -220,7 +220,7 @@ func main() {
 
 	// Watch the observability config map
 	configMapWatcher.Watch(metrics.ConfigMapName(),
-		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
+		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
 

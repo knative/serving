@@ -118,12 +118,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		waitInformers()
 	}()
 
-	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating revision:", err)
 	}
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
+	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating route:", err)
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)

@@ -101,6 +101,7 @@ type TransportOption func(transport *http.Transport) *http.Transport
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
 func New(
+	ctx context.Context,
 	kubeClientset *kubernetes.Clientset,
 	logf logging.FormatLogger,
 	domain string,
@@ -109,7 +110,7 @@ func New(
 	requestInterval time.Duration,
 	requestTimeout time.Duration,
 	opts ...TransportOption) (*SpoofingClient, error) {
-	endpoint, err := ResolveEndpoint(kubeClientset, domain, resolvable, endpointOverride)
+	endpoint, err := ResolveEndpoint(ctx, kubeClientset, domain, resolvable, endpointOverride)
 	if err != nil {
 		return nil, fmt.Errorf("failed get the cluster endpoint: %w", err)
 	}
@@ -149,7 +150,7 @@ func New(
 
 // ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
 // account whether the user overrode the endpoint address externally
-func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, error) {
+func ResolveEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, error) {
 	// If the domain is resolvable, it can be used directly
 	if resolvable {
 		return domain, nil
@@ -159,7 +160,7 @@ func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolva
 		return endpointOverride, nil
 	}
 	// Otherwise, use the actual cluster endpoint
-	return ingress.GetIngressEndpoint(kubeClientset)
+	return ingress.GetIngressEndpoint(ctx, kubeClientset)
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed

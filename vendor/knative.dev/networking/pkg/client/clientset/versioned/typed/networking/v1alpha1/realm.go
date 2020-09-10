@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,15 +38,15 @@ type RealmsGetter interface {
 
 // RealmInterface has methods to work with Realm resources.
 type RealmInterface interface {
-	Create(*v1alpha1.Realm) (*v1alpha1.Realm, error)
-	Update(*v1alpha1.Realm) (*v1alpha1.Realm, error)
-	UpdateStatus(*v1alpha1.Realm) (*v1alpha1.Realm, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.Realm, error)
-	List(opts v1.ListOptions) (*v1alpha1.RealmList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Realm, err error)
+	Create(ctx context.Context, realm *v1alpha1.Realm, opts v1.CreateOptions) (*v1alpha1.Realm, error)
+	Update(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (*v1alpha1.Realm, error)
+	UpdateStatus(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (*v1alpha1.Realm, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Realm, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.RealmList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Realm, err error)
 	RealmExpansion
 }
 
@@ -62,19 +63,19 @@ func newRealms(c *NetworkingV1alpha1Client) *realms {
 }
 
 // Get takes name of the realm, and returns the corresponding realm object, and an error if there is any.
-func (c *realms) Get(name string, options v1.GetOptions) (result *v1alpha1.Realm, err error) {
+func (c *realms) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Realm, err error) {
 	result = &v1alpha1.Realm{}
 	err = c.client.Get().
 		Resource("realms").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of Realms that match those selectors.
-func (c *realms) List(opts v1.ListOptions) (result *v1alpha1.RealmList, err error) {
+func (c *realms) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RealmList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -84,13 +85,13 @@ func (c *realms) List(opts v1.ListOptions) (result *v1alpha1.RealmList, err erro
 		Resource("realms").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested realms.
-func (c *realms) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *realms) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -100,81 +101,84 @@ func (c *realms) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("realms").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a realm and creates it.  Returns the server's representation of the realm, and an error, if there is any.
-func (c *realms) Create(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err error) {
+func (c *realms) Create(ctx context.Context, realm *v1alpha1.Realm, opts v1.CreateOptions) (result *v1alpha1.Realm, err error) {
 	result = &v1alpha1.Realm{}
 	err = c.client.Post().
 		Resource("realms").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(realm).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a realm and updates it. Returns the server's representation of the realm, and an error, if there is any.
-func (c *realms) Update(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err error) {
+func (c *realms) Update(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (result *v1alpha1.Realm, err error) {
 	result = &v1alpha1.Realm{}
 	err = c.client.Put().
 		Resource("realms").
 		Name(realm.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(realm).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *realms) UpdateStatus(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err error) {
+func (c *realms) UpdateStatus(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (result *v1alpha1.Realm, err error) {
 	result = &v1alpha1.Realm{}
 	err = c.client.Put().
 		Resource("realms").
 		Name(realm.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(realm).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the realm and deletes it. Returns an error if one occurs.
-func (c *realms) Delete(name string, options *v1.DeleteOptions) error {
+func (c *realms) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("realms").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *realms) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *realms) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("realms").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched realm.
-func (c *realms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Realm, err error) {
+func (c *realms) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Realm, err error) {
 	result = &v1alpha1.Realm{}
 	err = c.client.Patch(pt).
 		Resource("realms").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

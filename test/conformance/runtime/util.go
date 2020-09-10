@@ -17,6 +17,7 @@ limitations under the License.
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -60,13 +61,14 @@ func fetchRuntimeInfo(
 	}
 
 	resp, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		objects.Service.Status.URL.URL(),
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RuntimeInfo",
 		test.ServingFlags.ResolvableDomain,
-		append(reqOpts, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))...)
+		append(reqOpts, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))...)
 	if err != nil {
 		return nil, nil, err
 	}

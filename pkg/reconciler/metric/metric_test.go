@@ -215,7 +215,7 @@ func TestReconcileWithCollector(t *testing.T) {
 
 	// Ensure the controller is running.
 	<-barrier
-	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(ctx, m, metav1.CreateOptions{})
 	select {
 	case <-collector.createOrUpdateCalls:
 		t.Log("Create or Update was invoked")
@@ -223,7 +223,7 @@ func TestReconcileWithCollector(t *testing.T) {
 		t.Fatal("CreateOrUpdate() called 0 times, want non-zero times")
 	}
 
-	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
+	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(ctx, m.Name, metav1.DeleteOptions{})
 	select {
 	case <-collector.deleteCalls:
 		t.Log("Delete was invoked")

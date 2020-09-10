@@ -47,7 +47,7 @@ import (
 
 func getCertificateFromClient(ctx context.Context, t *testing.T, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
 	t.Helper()
-	created, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	created, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
 	}
@@ -132,7 +132,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 		},
 	})
 
-	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Get timestamp before reconciling, so that we can compare this to the last pinned timestamp
@@ -147,7 +147,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 	}
 
 	// Verify last pinned annotation is updated correctly
-	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
+	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(ctx, rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting revision:", err)
 	}
@@ -182,7 +182,7 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: time.Minute,
 		},
 	})
-	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Try reconciling target revisions for a revision that does not exist. No err should be returned

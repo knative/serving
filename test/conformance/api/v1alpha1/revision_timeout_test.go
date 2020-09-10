@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -37,7 +38,7 @@ import (
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
 	}
@@ -122,13 +123,14 @@ func TestRevisionTimeout(t *testing.T) {
 			} else {
 				t.Log("Probing to force at least one pod", serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(
+					context.Background(),
 					clients.KubeClient,
 					t.Logf,
 					serviceURL,
 					v1a1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
 					"WaitForSuccessfulResponse",
 					test.ServingFlags.ResolvableDomain,
-					test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
+					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
 					t.Fatalf("Error probing %s: %v", serviceURL, err)
 				}
 			}

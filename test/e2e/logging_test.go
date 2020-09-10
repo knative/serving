@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -48,7 +49,7 @@ func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get("config-observability", metav1.GetOptions{})
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(), "config-observability", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
 	}
@@ -76,13 +77,14 @@ func TestRequestLogs(t *testing.T) {
 	}
 
 	_, err = pkgtest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
 		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(pkgtest.IsStatusOK, pkgtest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("The endpoint didn't serve the expected text %q: %v", test.HelloWorldText, err)
 	}
@@ -116,7 +118,7 @@ func TestRequestLogs(t *testing.T) {
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(metav1.ListOptions{
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app": rev}.String(),
 	})
 
@@ -138,7 +140,7 @@ func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
 		})
-		podLogs, err := req.Stream()
+		podLogs, err := req.Stream(context.Background())
 		if err != nil {
 			return false, err
 		}

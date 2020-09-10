@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -78,8 +79,7 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 // test cluster.
 func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
-		autoscalerconfig.ConfigName,
-		metav1.GetOptions{})
+		context.Background(), autoscalerconfig.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +98,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	}
 
 	return pkgTest.WaitForDeploymentState(
+		context.Background(),
 		clients.KubeClient,
 		deploymentName,
 		func(d *appsv1.Deployment) (bool, error) {
@@ -119,17 +120,17 @@ func waitForActivatorEndpoints(ctx *testContext) error {
 	if rerr := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		actEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+			system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
-		sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(ctx.resources.Revision.Name, metav1.GetOptions{})
+		sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), ctx.resources.Revision.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

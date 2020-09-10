@@ -101,7 +101,7 @@ func TestForwarderReconcile(t *testing.T) {
 		waitInformers()
 	}()
 
-	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
 
 	var lastErr error
@@ -146,7 +146,7 @@ func TestForwarderReconcile(t *testing.T) {
 	// Lease holder gets changed.
 	l := testLease.DeepCopy()
 	l.Spec.HolderIdentity = &testIP2
-	kubeClient.CoordinationV1().Leases(testNs).Update(l)
+	kubeClient.CoordinationV1().Leases(testNs).Update(ctx, l, metav1.UpdateOptions{})
 	lease.Informer().GetIndexer().Add(l)
 
 	// Check the endpoints got updated.
@@ -201,7 +201,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		},
 	)
 
-	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
 
 	select {
@@ -242,7 +242,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		},
 	)
 
-	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
 
 	select {
@@ -290,9 +290,9 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 			Namespace: testNs,
 		},
 	}
-	kubeClient.CoreV1().Endpoints(testNs).Create(e)
+	kubeClient.CoreV1().Endpoints(testNs).Create(ctx, e, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(e)
-	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
 
 	select {
@@ -373,7 +373,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 					HolderIdentity: &tc.holder,
 				}
 			}
-			kubeClient.CoordinationV1().Leases(testNs).Create(l)
+			kubeClient.CoordinationV1().Leases(testNs).Create(ctx, l, metav1.CreateOptions{})
 			lease.Informer().GetIndexer().Add(l)
 
 			select {
@@ -415,7 +415,7 @@ func TestProcess(t *testing.T) {
 	// A Forward without any leadership information should process without error.
 	f.Process(stat1)
 
-	kubeClient.CoordinationV1().Leases(testNs).Create(testLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
 
 	anotherLease := &coordinationv1.Lease{
@@ -427,7 +427,7 @@ func TestProcess(t *testing.T) {
 			HolderIdentity: &testIP2,
 		},
 	}
-	kubeClient.CoordinationV1().Leases(testNs).Create(anotherLease)
+	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, anotherLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(anotherLease)
 
 	// Wait for the forwarder to become the leader for bucket1.

@@ -77,7 +77,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	}
 	name, namespace := parts[0], parts[1]
 
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Unable to retrieve Kubernetes service %s/%s: %v", namespace, name, err)
 	}

@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,15 +38,15 @@ type ServicesGetter interface {
 
 // ServiceInterface has methods to work with Service resources.
 type ServiceInterface interface {
-	Create(*v1beta1.Service) (*v1beta1.Service, error)
-	Update(*v1beta1.Service) (*v1beta1.Service, error)
-	UpdateStatus(*v1beta1.Service) (*v1beta1.Service, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1beta1.Service, error)
-	List(opts v1.ListOptions) (*v1beta1.ServiceList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.Service, err error)
+	Create(ctx context.Context, service *v1beta1.Service, opts v1.CreateOptions) (*v1beta1.Service, error)
+	Update(ctx context.Context, service *v1beta1.Service, opts v1.UpdateOptions) (*v1beta1.Service, error)
+	UpdateStatus(ctx context.Context, service *v1beta1.Service, opts v1.UpdateOptions) (*v1beta1.Service, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.Service, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.ServiceList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.Service, err error)
 	ServiceExpansion
 }
 
@@ -64,20 +65,20 @@ func newServices(c *ServingV1beta1Client, namespace string) *services {
 }
 
 // Get takes name of the service, and returns the corresponding service object, and an error if there is any.
-func (c *services) Get(name string, options v1.GetOptions) (result *v1beta1.Service, err error) {
+func (c *services) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.Service, err error) {
 	result = &v1beta1.Service{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("services").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of Services that match those selectors.
-func (c *services) List(opts v1.ListOptions) (result *v1beta1.ServiceList, err error) {
+func (c *services) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ServiceList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -88,13 +89,13 @@ func (c *services) List(opts v1.ListOptions) (result *v1beta1.ServiceList, err e
 		Resource("services").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested services.
-func (c *services) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *services) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -105,87 +106,90 @@ func (c *services) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("services").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a service and creates it.  Returns the server's representation of the service, and an error, if there is any.
-func (c *services) Create(service *v1beta1.Service) (result *v1beta1.Service, err error) {
+func (c *services) Create(ctx context.Context, service *v1beta1.Service, opts v1.CreateOptions) (result *v1beta1.Service, err error) {
 	result = &v1beta1.Service{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("services").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(service).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a service and updates it. Returns the server's representation of the service, and an error, if there is any.
-func (c *services) Update(service *v1beta1.Service) (result *v1beta1.Service, err error) {
+func (c *services) Update(ctx context.Context, service *v1beta1.Service, opts v1.UpdateOptions) (result *v1beta1.Service, err error) {
 	result = &v1beta1.Service{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("services").
 		Name(service.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(service).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *services) UpdateStatus(service *v1beta1.Service) (result *v1beta1.Service, err error) {
+func (c *services) UpdateStatus(ctx context.Context, service *v1beta1.Service, opts v1.UpdateOptions) (result *v1beta1.Service, err error) {
 	result = &v1beta1.Service{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("services").
 		Name(service.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(service).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the service and deletes it. Returns an error if one occurs.
-func (c *services) Delete(name string, options *v1.DeleteOptions) error {
+func (c *services) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("services").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *services) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *services) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("services").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched service.
-func (c *services) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.Service, err error) {
+func (c *services) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.Service, err error) {
 	result = &v1beta1.Service{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("services").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

@@ -471,8 +471,8 @@ func TestScaler(t *testing.T) {
 
 			dynamicClient := fakedynamicclient.Get(ctx)
 
-			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			revision := newRevision(ctx, t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
+			deployment := newDeployment(ctx, t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
 			revisionScaler := newScaler(ctx, podscalable.Get(ctx), func(interface{}, time.Duration) {
 				cbCount++
@@ -498,7 +498,7 @@ func TestScaler(t *testing.T) {
 					return true, nil, nil
 				})
 
-			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			pa := newKPA(ctx, t, fakeservingclient.Get(ctx), revision)
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
@@ -585,13 +585,13 @@ func TestDisableScaleToZero(t *testing.T) {
 					return true, nil, nil
 				})
 
-			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
-			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
+			revision := newRevision(ctx, t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
+			deployment := newDeployment(ctx, t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
 				psInformerFactory: podscalable.Get(ctx),
 			}
-			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			pa := newKPA(ctx, t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
 			WithReachabilityReachable(pa)
 
@@ -616,18 +616,18 @@ func TestDisableScaleToZero(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *pav1alpha1.PodAutoscaler {
+func newKPA(ctx context.Context, t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *pav1alpha1.PodAutoscaler {
 	t.Helper()
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
-	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
+	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, pa, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create PA:", err)
 	}
 	return pa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
+func newRevision(ctx context.Context, t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
 	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
@@ -643,7 +643,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Annotations: annotations,
 		},
 	}
-	rev, err := servingClient.ServingV1().Revisions(testNamespace).Create(rev)
+	rev, err := servingClient.ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create revision:", err)
 	}
@@ -651,7 +651,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	return rev
 }
 
-func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
+func newDeployment(ctx context.Context, t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
 	t.Helper()
 
 	uns := &unstructured.Unstructured{
@@ -681,7 +681,7 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Group:    "apps",
 		Version:  "v1",
 		Resource: "deployments",
-	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
+	}).Namespace(testNamespace).Create(ctx, uns, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Create() =", err)
 	}
