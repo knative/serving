@@ -58,11 +58,14 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1beta1.Rout
 }
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1beta1.Route, error) {
+func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (rt *v1beta1.Route, err error) {
 	route := Route(names, fopt...)
 	test.AddTestAnnotation(t, route.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Route: route})
-	return clients.ServingBetaClient.Routes.Create(route)
+	return rt, reconciler.RetryTestErrors(func(int) (err error) {
+		rt, err = clients.ServingBetaClient.Routes.Create(route)
+		return err
+	})
 }
 
 // WaitForRouteState polls the status of the Route called name from client every

@@ -131,31 +131,36 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 }
 
 // CreateService creates a service in namespace with the name names.Service and names.Image
-func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1beta1.Service, error) {
+func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (svc *v1beta1.Service, err error) {
 	service := Service(names, fopt...)
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingBetaClient.Services.Create(service)
-	return svc, err
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingBetaClient.Services.Create(service)
+		return err
+	})
 }
 
 // PatchService patches the existing service passed in with the applied mutations.
 // Returns the latest service object
-func PatchService(t pkgTest.T, clients *test.Clients, svc *v1beta1.Service, fopt ...rtesting.ServiceOption) (*v1beta1.Service, error) {
-	newSvc := svc.DeepCopy()
+func PatchService(t pkgTest.T, clients *test.Clients, service *v1beta1.Service, fopt ...rtesting.ServiceOption) (svc *v1beta1.Service, err error) {
+	newSvc := service.DeepCopy()
 	for _, opt := range fopt {
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingBetaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingBetaClient.Services.Patch(service.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1beta1.Service, error) {
+func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1beta1.Service, err error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -165,7 +170,10 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingBetaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingBetaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+		return err
+	})
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
