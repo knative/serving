@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestValidateScaleBoundAnnotations(t *testing.T) {
+func TestValidateAnnotations(t *testing.T) {
 	cases := []struct {
 		name               string
 		annotations        map[string]string
@@ -174,7 +174,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "annotation /window is invalid for class HPA and metric CPU",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
-		expectErr:   fmt.Sprintf(`invalid key name %q: %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
 	}, {
 		name:        "annotation /window is valid for class KPA",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
@@ -186,7 +186,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "value too short and invalid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
-		expectErr:   fmt.Sprintf(`invalid key name %q: %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+		expectErr:   fmt.Sprintf("invalid key name %q: \n%s for %s %s", WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
 	}, {
 		name:        "value too long and valid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},

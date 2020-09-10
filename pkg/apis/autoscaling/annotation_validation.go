@@ -123,7 +123,7 @@ func validateWindow(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if w, ok := annotations[WindowAnnotationKey]; ok {
 		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
-			return apis.ErrInvalidKeyName(WindowAnnotationKey, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
 		}
 		if d, err := time.ParseDuration(w); err != nil {
 			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
