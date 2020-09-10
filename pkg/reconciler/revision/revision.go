@@ -105,6 +105,14 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 	if len(statuses) > 0 {
 		rev.Status.ContainerStatuses = statuses
+
+		// For backwards-compatibility we need to continue to set the DeprecatedImageDigest field.
+		for i := range rev.Spec.Containers {
+			if len(rev.Spec.Containers) == 1 || len(rev.Spec.Containers[i].Ports) != 0 {
+				rev.Status.DeprecatedImageDigest = statuses[i].ImageDigest
+			}
+		}
+
 		return true, nil
 	}
 
