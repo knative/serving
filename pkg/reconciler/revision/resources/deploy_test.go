@@ -489,7 +489,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -521,7 +521,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
@@ -569,7 +569,7 @@ func TestMakePodSpec(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -590,7 +590,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -617,7 +617,7 @@ func TestMakePodSpec(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(121),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -640,7 +640,7 @@ func TestMakePodSpec(t *testing.T) {
 			}}),
 			withContainerConcurrency(42),
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -662,7 +662,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -683,7 +683,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -704,7 +704,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withExecReadinessProbe([]string{"echo", "hello"}),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -734,7 +734,7 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -769,7 +769,7 @@ func TestMakePodSpec(t *testing.T) {
 						TCPSocket: &corev1.TCPSocketAction{},
 					}}}},
 			),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -795,7 +795,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
@@ -836,7 +836,7 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  "sidecar-container-2",
 				Image: "alpine",
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -898,7 +898,7 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -1017,7 +1017,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -1033,7 +1033,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}})),
 		want: appsv1deployment(),
@@ -1045,7 +1045,7 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			withoutLabels, func(revision *v1.Revision) {
@@ -1070,7 +1070,7 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {

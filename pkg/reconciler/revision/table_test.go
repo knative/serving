@@ -709,7 +709,7 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 
 func withDefaultContainerStatuses() RevisionOption {
 	return func(r *v1.Revision) {
-		r.Status.ContainerStatuses = []v1.ContainerStatuses{{
+		r.Status.ContainerStatuses = []v1.ContainerStatus{{
 			Name:        r.Name,
 			ImageDigest: "",
 		}}
