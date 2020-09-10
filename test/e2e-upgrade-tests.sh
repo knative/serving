@@ -78,6 +78,9 @@ disable_chaosduck
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
+# Probe tests starts before postupgrade tests and ends after postdowngrade tests.
+# The timeout should be at least 10m + 10m.
+PROBE_TIMEOUT=20m
 
 header "Running preupgrade tests"
 
@@ -89,7 +92,7 @@ header "Starting prober test"
 # Remove this in case we failed to clean it up in an earlier test.
 rm -f /tmp/prober-signal
 
-go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
+go_test_e2e -tags=probe -timeout=${PROBE_TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) &
 PROBER_PID=$!
 echo "Prober PID is ${PROBER_PID}"
