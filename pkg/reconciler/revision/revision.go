@@ -130,7 +130,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	}
 	if !reconciled {
 		// Digest not resolved yet, wait for background resolution to re-enqueue the revision.
-		rev.Status.MarkContainerHealthyUnknown("ResolvingDigests", "")
+		rev.Status.MarkResourcesAvailableUnknown(v1.ReasonResolvingDigests, "")
 		return nil
 	}
 

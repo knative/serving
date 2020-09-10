@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	fakeError    = errors.New("digest error")
+	errDigest    = errors.New("digest error")
 	fakeRevision = &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rev",
@@ -106,19 +106,19 @@ func TestResolveInBackground(t *testing.T) {
 	}, {
 		name: "resolver entirely fails",
 		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
-			return img + "-digest", fakeError
+			return img + "-digest", errDigest
 		},
-		wantError: fakeError,
+		wantError: errDigest,
 	}, {
 		name: "resolver fails one image",
 		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
 			if img == "second-image" {
-				return "", fakeError
+				return "", errDigest
 			}
 
 			return img + "-digest", nil
 		},
-		wantError: fakeError,
+		wantError: errDigest,
 	}, {
 		name:    "timeout",
 		timeout: ptr.Duration(10 * time.Millisecond),

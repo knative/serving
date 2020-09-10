@@ -433,8 +433,8 @@ func TestStatusUnknownWhenDigestsNotResolvedYet(t *testing.T) {
 		t.Fatal("Couldn't get revision:", err)
 	}
 
-	// Status should be Unknown until the resolution.
-	for _, ct := range []apis.ConditionType{"ContainerHealthy", "Ready"} {
+	// Status should be Unknown until the digest resolution completes.
+	for _, ct := range []apis.ConditionType{"ResourcesAvailable", "Ready"} {
 		got := rev.Status.GetCondition(ct)
 		want := &apis.Condition{
 			Type:               ct,
