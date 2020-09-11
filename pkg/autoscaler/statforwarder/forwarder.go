@@ -135,6 +135,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
+	ctx := context.Background()
 
 	if l.Spec.HolderIdentity == nil {
 		// This shouldn't happen as we filter it out when queueing.
@@ -155,23 +156,23 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	}
 
 	// TODO(yanweiguo): Better handling these errors instead of just logging.
-	if err := f.createService(ns, n); err != nil {
+	if err := f.createService(ctx, ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
-	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
+	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
 		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) createService(ns, n string) error {
+func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Services(ns).Create(&v1.Service{
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -183,7 +184,7 @@ func (f *Forwarder) createService(ns, n string) error {
 					TargetPort: intstr.FromInt(autoscalerPort),
 				}},
 			},
-		})
+		}, metav1.CreateOptions{})
 
 		if apierrs.IsAlreadyExists(lastErr) {
 			return true, nil
@@ -201,7 +202,7 @@ func (f *Forwarder) createService(ns, n string) error {
 // createOrUpdateEndpoints creates an Endpoints object with the given namespace and
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
+func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	wantSubsets := []v1.EndpointSubset{{
 		Addresses: []v1.EndpointAddress{{
 			IP: f.selfIP,
@@ -234,7 +235,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
-		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(want); lastErr != nil {
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
 			// Do not return the error to cause a retry.
 			return false, nil
 		}
@@ -250,13 +251,13 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
 			},
 			Subsets: wantSubsets,
-		})
+		}, metav1.CreateOptions{})
 		// Do not return the error to cause a retry.
 		return lastErr == nil, nil
 	}); err != nil {

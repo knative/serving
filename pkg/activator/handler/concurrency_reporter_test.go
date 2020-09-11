@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/metrics/metricskey"
@@ -525,7 +526,7 @@ func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 	revisions := fakerevisioninformer.Get(ctx)
 
 	for _, rev := range revs {
-		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 }
@@ -571,7 +572,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 
 		// Create revisions in the fake clients to trigger report logic.
 		rev := revision(key.Namespace, key.Name)
-		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 	resp := httptest.NewRecorder()
@@ -618,7 +619,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 
 				// Create revisions in the fake clients to trigger report logic.
 				rev := revision(key.Namespace, key.Name)
-				fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+				fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 				revisions.Informer().GetIndexer().Add(rev)
 
 				// Send a dummy request for each revision to make sure it's reported.

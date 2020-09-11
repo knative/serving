@@ -53,7 +53,7 @@ func TestCreateWithOptions(t *testing.T) {
 	ctx, _ := fakekubeclient.With(context.Background())
 	client := kubeclient.Get(ctx)
 	pod := &corev1.Pod{}
-	client.CoreV1().Pods("namespace").Create(pod)
+	client.CoreV1().Pods("namespace").Create(ctx, pod, metav1.CreateOptions{})
 
 	newPods(client.CoreV1().RESTClient(), "namespace")
 }

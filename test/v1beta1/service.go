@@ -59,22 +59,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingBetaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingBetaClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingBetaClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingBetaClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingBetaClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingBetaClient.Configs.Get(context.Background(), names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingBetaClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingBetaClient.Revisions.Get(context.Background(), names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames,
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingBetaClient.Services.Create(service)
+		svc, err = clients.ServingBetaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
 		return err
 	})
 }
@@ -154,7 +154,7 @@ func PatchService(t pkgTest.T, clients *test.Clients, service *v1beta1.Service, 
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingBetaClient.Services.Patch(service.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingBetaClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -171,7 +171,7 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingBetaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingBetaClient.Services.Patch(context.Background(), names.Service, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -225,7 +225,7 @@ func WaitForServiceState(client *test.ServingBetaClients, name string, inState f
 	var lastState *v1beta1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
-			lastState, err = client.Services.Get(name, metav1.GetOptions{})
+			lastState, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
 			return err
 		})
 		if err != nil {
@@ -246,7 +246,7 @@ func WaitForServiceState(client *test.ServingBetaClients, name string, inState f
 func CheckServiceState(client *test.ServingBetaClients, name string, inState func(s *v1beta1.Service) (bool, error)) error {
 	var s *v1beta1.Service
 	err := reconciler.RetryTestErrors(func(int) (err error) {
-		s, err = client.Services.Get(name, metav1.GetOptions{})
+		s, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {

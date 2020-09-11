@@ -22,6 +22,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmeta"
@@ -50,7 +51,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 		return nil, fmt.Errorf("failed to make deployment: %w", err)
 	}
 
-	return c.kubeclient.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+	return c.kubeclient.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 }
 
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, error) {
@@ -90,7 +91,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// Carry over new labels.
 	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
 
-	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(desiredDeployment)
+	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +111,12 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	return d, nil
 }
 
-func (c *Reconciler) createImageCache(rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
 	image := resources.MakeImageCache(rev, containerName, imageDigest)
-	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(image)
+	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(ctx, image, metav1.CreateOptions{})
 }
 
 func (c *Reconciler) createPA(ctx context.Context, rev *v1.Revision) (*autoscaling.PodAutoscaler, error) {
 	pa := resources.MakePA(rev)
-	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
+	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(ctx, pa, metav1.CreateOptions{})
 }

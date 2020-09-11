@@ -17,6 +17,7 @@ limitations under the License.
 package ingress
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -32,7 +33,7 @@ const (
 )
 
 // GetIngressEndpoint gets the ingress public IP or hostname.
-func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (string, error) {
+func GetIngressEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset) (string, error) {
 	ingressName := istioIngressName
 	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
 		ingressName = gatewayOverride
@@ -42,7 +43,7 @@ func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (string, error) {
 		ingressNamespace = gatewayNsOverride
 	}
 
-	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
+	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ctx, ingressName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

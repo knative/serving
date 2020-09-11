@@ -79,7 +79,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
-		pods, err := c.kubeclient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
+		pods, err := c.kubeclient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
 		if err != nil {
 			logger.Errorw("Error getting pods", zap.Error(err))
 			return nil
@@ -124,7 +124,7 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	for _, container := range rev.Status.ContainerStatuses {
 		imageName := kmeta.ChildName(resourcenames.ImageCache(rev), "-"+container.Name)
 		if _, err := c.imageLister.Images(ns).Get(imageName); apierrs.IsNotFound(err) {
-			if _, err := c.createImageCache(rev, container.Name, container.ImageDigest); err != nil {
+			if _, err := c.createImageCache(ctx, rev, container.Name, container.ImageDigest); err != nil {
 				return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
 			}
 			logger.Infof("Created image cache %q", imageName)
@@ -167,7 +167,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(want); err != nil {
+		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
 	}

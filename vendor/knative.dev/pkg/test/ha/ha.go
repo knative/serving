@@ -50,8 +50,8 @@ func extractDeployment(pod string) string {
 
 // GetLeaders collects all of the leader pods from the specified deployment.
 // GetLeaders will return duplicate pods by design.
-func GetLeaders(t *testing.T, client *test.KubeClient, deploymentName, namespace string) ([]string, error) {
-	leases, err := client.Kube.CoordinationV1().Leases(namespace).List(metav1.ListOptions{})
+func GetLeaders(ctx context.Context, t *testing.T, client *test.KubeClient, deploymentName, namespace string) ([]string, error) {
+	leases, err := client.Kube.CoordinationV1().Leases(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting leases for deployment %q: %w", deploymentName, err)
 	}
@@ -73,13 +73,13 @@ func GetLeaders(t *testing.T, client *test.KubeClient, deploymentName, namespace
 
 // WaitForNewLeaders waits until the collection of current leaders consists of "n" leaders
 // which do not include the specified prior leaders.
-func WaitForNewLeaders(t *testing.T, client *test.KubeClient, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
-	span := logging.GetEmitableSpan(context.Background(), "WaitForNewLeaders/"+deploymentName)
+func WaitForNewLeaders(ctx context.Context, t *testing.T, client *test.KubeClient, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
+	span := logging.GetEmitableSpan(ctx, "WaitForNewLeaders/"+deploymentName)
 	defer span.End()
 
 	var leaders sets.String
 	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
-		currLeaders, err := GetLeaders(t, client, deploymentName, namespace)
+		currLeaders, err := GetLeaders(ctx, t, client, deploymentName, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -99,12 +99,12 @@ func WaitForNewLeaders(t *testing.T, client *test.KubeClient, deploymentName, na
 }
 
 // DEPRECATED WaitForNewLeader waits until the holder of the given lease is different from the previousLeader.
-func WaitForNewLeader(client *test.KubeClient, lease, namespace, previousLeader string) (string, error) {
-	span := logging.GetEmitableSpan(context.Background(), "WaitForNewLeader/"+lease)
+func WaitForNewLeader(ctx context.Context, client *test.KubeClient, lease, namespace, previousLeader string) (string, error) {
+	span := logging.GetEmitableSpan(ctx, "WaitForNewLeader/"+lease)
 	defer span.End()
 	var leader string
 	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
-		lease, err := client.Kube.CoordinationV1().Leases(namespace).Get(lease, metav1.GetOptions{})
+		lease, err := client.Kube.CoordinationV1().Leases(namespace).Get(ctx, lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
 		}

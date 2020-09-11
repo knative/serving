@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -209,7 +210,7 @@ func TestContainerExitingMsg(t *testing.T) {
 
 // Get revision name from configuration.
 func getRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
-	config, err := clients.ServingBetaClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingBetaClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

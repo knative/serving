@@ -19,9 +19,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
 	v1b1test "knative.dev/serving/test/v1beta1"
@@ -46,7 +48,7 @@ func TestServiceAccountValidation(t *testing.T) {
 	service := v1b1test.Service(names, WithServiceAccountName(invalidServiceAccountName))
 	v1b1test.LogResourceObject(t, v1b1test.ResourceObjects{Service: service})
 
-	_, err := clients.ServingBetaClient.Services.Create(service)
+	_, err := clients.ServingBetaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}

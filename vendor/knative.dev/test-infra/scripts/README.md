@@ -110,8 +110,9 @@ main "$@"
 
 This is a helper script for Knative E2E test scripts. To use it:
 
-1. [optional] Customize the test cluster. Pass the flags as described [here](../kntest/pkg/kubetest2/gke/README.md)
-   to the `initialize` function call if the default values don't fit your needs.
+1. [optional] Customize the test cluster. Pass the flags as described
+   [here](../kntest/pkg/kubetest2/gke/README.md) to the `initialize` function
+   call if the default values don't fit your needs.
 
 1. Source the script.
 
@@ -153,8 +154,8 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 **Notes:**
 
-1. Calling your script without arguments will create a new cluster in your current
-   GCP project and run the tests against it.
+1. Calling your script without arguments will create a new cluster in your
+   current GCP project and run the tests against it.
 
 1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
    will immediately start the tests against the cluster currently configured for

@@ -794,7 +794,7 @@ func makePods(ctx context.Context, prefix string, n int, startTime metav1.Time) 
 			},
 		}
 
-		fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(p)
+		fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, p, metav1.CreateOptions{})
 		fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(p)
 	}
 }

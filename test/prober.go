@@ -138,7 +138,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 	m.probes[url] = p
 
 	errGrp.Go(func() error {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
+		client, err := pkgTest.NewSpoofingClient(ctx, m.clients.KubeClient, m.logf, url.Hostname(), ServingFlags.ResolvableDomain, m.transportOptions...)
 		if err != nil {
 			return fmt.Errorf("failed to generate client: %w", err)
 		}

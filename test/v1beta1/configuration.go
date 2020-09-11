@@ -43,7 +43,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
-		cfg, err = clients.ServingBetaClient.Configs.Create(config)
+		cfg, err = clients.ServingBetaClient.Configs.Create(context.Background(), config, metav1.CreateOptions{})
 		return err
 	})
 }
@@ -62,7 +62,7 @@ func PatchConfig(t pkgTest.T, clients *test.Clients, config *v1beta1.Configurati
 	}
 
 	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
-		cfg, err = clients.ServingBetaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		cfg, err = clients.ServingBetaClient.Configs.Patch(context.Background(), config.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -151,7 +151,7 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 	var lastState *v1beta1.Configuration
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
-			lastState, err = client.Configs.Get(name, metav1.GetOptions{})
+			lastState, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
 			return err
 		})
 		if err != nil {
@@ -172,7 +172,7 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 func CheckConfigurationState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Configuration) (bool, error)) error {
 	var c *v1beta1.Configuration
 	err := reconciler.RetryTestErrors(func(int) (err error) {
-		c, err = client.Configs.Get(name, metav1.GetOptions{})
+		c, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {

@@ -56,7 +56,7 @@ func NewMigrator(d dynamic.Interface, a apixclient.Interface) *Migrator {
 func (m *Migrator) Migrate(ctx context.Context, gr schema.GroupResource) error {
 	crdClient := m.apixClient.ApiextensionsV1().CustomResourceDefinitions()
 
-	crd, err := crdClient.Get(gr.String(), metav1.GetOptions{})
+	crd, err := crdClient.Get(ctx, gr.String(), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to fetch crd %s - %w", gr, err)
 	}
@@ -72,7 +72,7 @@ func (m *Migrator) Migrate(ctx context.Context, gr schema.GroupResource) error {
 	}
 
 	patch := `{"status":{"storedVersions":["` + version + `"]}}`
-	_, err = crdClient.Patch(crd.Name, types.StrategicMergePatchType, []byte(patch), "status")
+	_, err = crdClient.Patch(ctx, crd.Name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{}, "status")
 	if err != nil {
 		return fmt.Errorf("unable to drop storage version definition %s - %w", gr, err)
 	}
@@ -84,14 +84,14 @@ func (m *Migrator) migrateResources(ctx context.Context, gvr schema.GroupVersion
 	client := m.dynamicClient.Resource(gvr)
 
 	listFunc := func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
-		return client.Namespace(metav1.NamespaceAll).List(opts)
+		return client.Namespace(metav1.NamespaceAll).List(ctx, opts)
 	}
 
 	onEach := func(obj runtime.Object) error {
 		item := obj.(metav1.Object)
 
 		_, err := client.Namespace(item.GetNamespace()).
-			Patch(item.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
+			Patch(ctx, item.GetName(), types.MergePatchType, []byte("{}"), metav1.PatchOptions{})
 
 		if err != nil {
 			return fmt.Errorf("unable to patch resource %s/%s (gvr: %s) - %w",

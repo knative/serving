@@ -62,22 +62,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingAlphaClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingAlphaClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingAlphaClient.Configs.Get(context.Background(), names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingAlphaClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingAlphaClient.Revisions.Get(context.Background(), names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.Resource
 	service := LatestService(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingAlphaClient.Services.Create(service)
+		svc, err = clients.ServingAlphaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
 		return err
 	})
 }
@@ -189,7 +189,7 @@ func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.Re
 	service := LatestServiceLegacy(names, fopt...)
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingAlphaClient.Services.Create(service)
+	svc, err := clients.ServingAlphaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
 	return svc, err
 }
 
@@ -211,7 +211,7 @@ func PatchServiceImage(t pkgTest.T, clients *test.Clients, service *v1alpha1.Ser
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingAlphaClient.Services.Patch(service.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -224,7 +224,7 @@ func PatchService(t pkgTest.T, clients *test.Clients, curSvc, desiredSvc *v1alph
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingAlphaClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -241,7 +241,7 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingAlphaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), names.Service, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -256,7 +256,7 @@ func PatchServiceTemplateMetadata(t pkgTest.T, clients *test.Clients, service *v
 		return nil, err
 	}
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingAlphaClient.Services.Patch(service.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -322,7 +322,7 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 	var lastState *v1alpha1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
-			lastState, err = client.Services.Get(name, metav1.GetOptions{})
+			lastState, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
 			return err
 		})
 		if err != nil {
@@ -343,7 +343,7 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 func CheckServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
 	var s *v1alpha1.Service
 	err := reconciler.RetryTestErrors(func(int) (err error) {
-		s, err = client.Services.Get(name, metav1.GetOptions{})
+		s, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {

@@ -61,7 +61,7 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 	test.AddTestAnnotation(t, route.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return rt, reconciler.RetryTestErrors(func(int) (err error) {
-		rt, err = clients.ServingClient.Routes.Create(route)
+		rt, err = clients.ServingClient.Routes.Create(context.Background(), route, metav1.CreateOptions{})
 		return err
 	})
 }
@@ -77,7 +77,7 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 	var lastState *v1.Route
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
-			lastState, err = client.Routes.Get(name, metav1.GetOptions{})
+			lastState, err = client.Routes.Get(context.Background(), name, metav1.GetOptions{})
 			return err
 		})
 		if err != nil {
@@ -98,7 +98,7 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 func CheckRouteState(client *test.ServingClients, name string, inState func(r *v1.Route) (bool, error)) error {
 	var r *v1.Route
 	err := reconciler.RetryTestErrors(func(int) (err error) {
-		r, err = client.Routes.Get(name, metav1.GetOptions{})
+		r, err = client.Routes.Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {

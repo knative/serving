@@ -21,6 +21,7 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -70,18 +71,19 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 
 	routeURL := objs.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", routeURL, err)
 	}
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(context.Background(), clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatal("Cannot resolve service endpoint:", err)

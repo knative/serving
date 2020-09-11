@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -54,13 +55,14 @@ func TestHelloWorld(t *testing.T) {
 
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
@@ -106,13 +108,14 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
@@ -155,13 +158,13 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 // Container returns container for given Pod and Container in the namespace
 func getContainer(client *pkgTest.KubeClient, podName, containerName, namespace string) (corev1.Container, error) {
 	pods := client.Kube.CoreV1().Pods(namespace)
-	podList, err := pods.List(metav1.ListOptions{})
+	podList, err := pods.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return corev1.Container{}, err
 	}
 	for _, pod := range podList.Items {
 		if strings.Contains(pod.Name, podName) {
-			result, err := pods.Get(pod.Name, metav1.GetOptions{})
+			result, err := pods.Get(context.Background(), pod.Name, metav1.GetOptions{})
 			if err != nil {
 				return corev1.Container{}, err
 			}

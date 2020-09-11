@@ -19,6 +19,8 @@ limitations under the License.
 package test
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -198,7 +200,7 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 func (clients *ServingClients) Delete(routes, configs, services []string) []error {
 	deletions := []struct {
 		client interface {
-			Delete(name string, options *v1.DeleteOptions) error
+			Delete(ctx context.Context, name string, options v1.DeleteOptions) error
 		}
 		items []string
 	}{
@@ -210,7 +212,7 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 	}
 
 	propPolicy := v1.DeletePropagationForeground
-	dopt := &v1.DeleteOptions{
+	dopt := v1.DeleteOptions{
 		PropagationPolicy: &propPolicy,
 	}
 
@@ -225,7 +227,7 @@ func (clients *ServingClients) Delete(routes, configs, services []string) []erro
 				continue
 			}
 
-			if err := deletion.client.Delete(item, dopt); err != nil {
+			if err := deletion.client.Delete(context.Background(), item, dopt); err != nil {
 				errs = append(errs, err)
 			}
 		}

@@ -19,6 +19,7 @@ limitations under the License.
 package ha
 
 import (
+	"context"
 	"testing"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -40,12 +41,12 @@ const autoscalerHPADeploymentName = "autoscaler-hpa"
 func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	clients := e2e.Setup(t)
 
-	if err := pkgTest.WaitForDeploymentScale(clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
+	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
 		t.Fatalf("Deployment %s not scaled to %d: %v", autoscalerHPADeploymentName, test.ServingFlags.Replicas, err)
 	}
 
 	// TODO(mattmoor): Once we switch to the new sharded leader election, we should use more than a single bucket here, but the test is still interesting.
-	leaders, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
+	leaders, err := pkgHa.WaitForNewLeaders(context.Background(), t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), sets.NewString(), test.ServingFlags.Buckets)
 	if err != nil {
 		t.Fatal("Failed to get leader:", err)
 	}
@@ -61,18 +62,18 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	for _, leader := range leaders.List() {
-		if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(leader,
-			&metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+		if err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).Delete(context.Background(), leader,
+			metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 			t.Fatalf("Failed to delete pod %s: %v", leader, err)
 		}
 
-		if err := pkgTest.WaitForPodDeleted(clients.KubeClient, leader, system.Namespace()); err != nil {
+		if err := pkgTest.WaitForPodDeleted(context.Background(), clients.KubeClient, leader, system.Namespace()); err != nil {
 			t.Fatalf("Did not observe %s to actually be deleted: %v", leader, err)
 		}
 	}
 
 	// Wait for all of the old leaders to go away, and then for the right number to be back.
-	if _, err := pkgHa.WaitForNewLeaders(t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
+	if _, err := pkgHa.WaitForNewLeaders(context.Background(), t, clients.KubeClient, autoscalerHPADeploymentName, system.Namespace(), leaders, test.ServingFlags.Buckets); err != nil {
 		t.Fatal("Failed to find new leader:", err)
 	}
 

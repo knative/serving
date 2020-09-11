@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -48,7 +49,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		address = domain
 	} else if pkgTest.Flags.IngressEndpoint != "" {
 		address = pkgTest.Flags.IngressEndpoint
-	} else if address, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
+	} else if address, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube); err != nil {
 		return nil, err
 	}
 

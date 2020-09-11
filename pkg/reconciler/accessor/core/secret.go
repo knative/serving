@@ -46,7 +46,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	}
 	secret, err := accessor.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(desired)
+		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
@@ -64,7 +64,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 		// Don't modify the informers copy
 		copy := secret.DeepCopy()
 		copy.Data = desired.Data
-		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(copy)
+		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, fmt.Errorf("failed to update Secret: %w", err)

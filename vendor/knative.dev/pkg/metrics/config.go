@@ -174,7 +174,7 @@ func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ro
 	return mc.recorder(ctx, mss, ros...)
 }
 
-func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
+func createMetricsConfig(ctx context.Context, ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
 	var mc metricsConfig
 
 	if ops.Domain == "" {
@@ -270,7 +270,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 		mc.recorder = sdCustomMetricsRecorder(mc, allowCustomMetrics)
 
 		if scc.UseSecret {
-			secret, err := getStackdriverSecret(ops.Secrets)
+			secret, err := getStackdriverSecret(ctx, ops.Secrets)
 			if err != nil {
 				return nil, err
 			}

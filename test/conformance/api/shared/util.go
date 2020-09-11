@@ -43,6 +43,7 @@ func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
 	return pkgTest.WaitForDeploymentState(
+		context.Background(),
 		clients.KubeClient,
 		deploymentName,
 		func(d *appsv1.Deployment) (bool, error) {
@@ -162,7 +163,8 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 // CheckDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func CheckDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	ctx := context.Background()
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return err
 	}

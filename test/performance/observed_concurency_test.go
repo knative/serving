@@ -19,6 +19,7 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -166,6 +167,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	// See https://github.com/knative/serving/issues/5573 for why we need this
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		baseURL,
@@ -175,7 +177,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Error probing %s: %v", baseURL, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatal("Error creating spoofing client:", err)
 	}

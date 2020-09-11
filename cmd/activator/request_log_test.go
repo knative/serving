@@ -222,7 +222,7 @@ func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister 
 	}
 
 	ctx, _ := rtesting.SetupFakeContext(t)
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespaceName).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespaceName).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 	return ri.Lister()

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/kelseyhightower/envconfig"
@@ -58,7 +59,7 @@ func main() {
 }
 
 func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.String) error {
-	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func disableNamespaceCertWithExclusions(clients *test.Clients, keepCerts sets.St
 			}
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}
-		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
+		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(context.Background(), &ns, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

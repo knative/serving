@@ -336,7 +336,7 @@ func getMetricPrefixFunc(metricTypePrefix, customMetricTypePrefix string) func(n
 // getStackdriverSecret returns the Kubernetes Secret specified in the given config.
 // SetStackdriverSecretLocation must have been called by calling package for this to work.
 // TODO(anniefu): Update exporter if Secret changes (https://github.com/knative/pkg/issues/842)
-func getStackdriverSecret(secretFetcher SecretFetcher) (*corev1.Secret, error) {
+func getStackdriverSecret(ctx context.Context, secretFetcher SecretFetcher) (*corev1.Secret, error) {
 	stackdriverMtx.RLock()
 	defer stackdriverMtx.RUnlock()
 
@@ -354,7 +354,7 @@ func getStackdriverSecret(secretFetcher SecretFetcher) (*corev1.Secret, error) {
 			return nil, err
 		}
 
-		sec, secErr = kubeclient.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
+		sec, secErr = kubeclient.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	}
 
 	if secErr != nil {

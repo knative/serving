@@ -44,7 +44,7 @@ func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.Resource
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
-		cfg, err = clients.ServingAlphaClient.Configs.Create(config)
+		cfg, err = clients.ServingAlphaClient.Configs.Create(context.Background(), config, metav1.CreateOptions{})
 		return err
 	})
 }
@@ -63,7 +63,7 @@ func PatchConfig(clients *test.Clients, config *v1alpha1.Configuration, fopt ...
 	}
 
 	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
-		cfg, err = clients.ServingAlphaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		cfg, err = clients.ServingAlphaClient.Configs.Patch(context.Background(), config.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -78,7 +78,7 @@ func PatchConfigImage(clients *test.Clients, config *v1alpha1.Configuration, ima
 	}
 
 	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
-		cfg, err = clients.ServingAlphaClient.Configs.Patch(config.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+		cfg, err = clients.ServingAlphaClient.Configs.Patch(context.Background(), config.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 }
@@ -184,7 +184,7 @@ func WaitForConfigurationState(client *test.ServingAlphaClients, name string, in
 	var lastState *v1alpha1.Configuration
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
-			lastState, err = client.Configs.Get(name, metav1.GetOptions{})
+			lastState, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
 			return err
 		})
 		if err != nil {
@@ -205,7 +205,7 @@ func WaitForConfigurationState(client *test.ServingAlphaClients, name string, in
 func CheckConfigurationState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Configuration) (bool, error)) error {
 	var c *v1alpha1.Configuration
 	err := reconciler.RetryTestErrors(func(int) (err error) {
-		c, err = client.Configs.Get(name, metav1.GetOptions{})
+		c, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	})
 	if err != nil {

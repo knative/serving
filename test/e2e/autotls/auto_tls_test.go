@@ -18,6 +18,7 @@ limitations under the License.
 package autotls
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
@@ -109,13 +110,13 @@ func testAutoTLS(t *testing.T) {
 			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
 		}
 
-		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get ingress:", err)
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
+			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(context.Background(), t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
@@ -124,7 +125,7 @@ func testAutoTLS(t *testing.T) {
 		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
 		defer test.AssertProberDefault(t, prober)
 
-		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		route, err := clients.ServingClient.Routes.Get(context.Background(), objects.Route.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get route:", err)
 		}
@@ -137,7 +138,7 @@ func testAutoTLS(t *testing.T) {
 
 func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
@@ -168,7 +169,7 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	t.Helper()
-	pemData := test.PemDataFromSecret(t.Logf, clients, ns, secretName)
+	pemData := test.PemDataFromSecret(context.Background(), t.Logf, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -185,7 +186,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 
 func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects, rootCAs *x509.CertPool) *http.Client {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}

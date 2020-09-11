@@ -225,7 +225,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
 	throttler := newTestThrottler(ctx)
@@ -246,7 +246,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
-	servfake.ServingV1().Revisions(revision.Namespace).Delete(revision.Name, nil)
+	servfake.ServingV1().Revisions(revision.Namespace).Delete(ctx, revision.Name, metav1.DeleteOptions{})
 	revisions.Informer().GetIndexer().Delete(revID)
 
 	// Eventually it should now fail.
@@ -276,7 +276,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
 	throttler := newTestThrottler(ctx)
@@ -425,7 +425,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}()
 
 			// Add the revision were testing.
-			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(tc.revision)
+			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(ctx, tc.revision, metav1.CreateOptions{})
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			updateCh := make(chan revisionDestsUpdate)
@@ -456,7 +456,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				},
 			}
 
-			fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+			fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 			endpoints.Informer().GetIndexer().Add(publicEp)
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -647,7 +647,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	rev := revisionCC1(revID, networking.ProtocolH2C)
 	// Add the revision we're testing.
-	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
+	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
@@ -684,7 +684,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 			*epSubset(8013, "http2", []string{"130.0.0.1", "130.0.0.2"}, nil),
 		},
 	}
-	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
@@ -715,7 +715,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		*epSubset(8013, "http2", []string{"130.0.0.2"}, nil),
 	}
 
-	fake.CoreV1().Endpoints(testNamespace).Update(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Update(ctx, publicEp, metav1.UpdateOptions{})
 	endpoints.Informer().GetIndexer().Update(publicEp)
 
 	// Verify the index was computed.
@@ -742,7 +742,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	// Add the revision we're testing.
-	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
+	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
@@ -780,7 +780,7 @@ func TestMultipleActivators(t *testing.T) {
 			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"},
 				nil)},
 	}
-	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)

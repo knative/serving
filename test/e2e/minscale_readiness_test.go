@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -128,7 +129,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Deleting route", names.Route)
-	if err := clients.ServingClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
+	if err := clients.ServingClient.Routes.Delete(context.Background(), names.Route, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
 	}
 
@@ -170,7 +171,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 		t.Fatalf("The Configuration %q has not updated LatestCreatedRevisionName from %q: %v", configName, oldRevName, err)
 	}
 
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
@@ -182,7 +183,7 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	var privateServiceName string
 
 	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
-		sks, err := clients.NetworkingClient.ServerlessServices.Get(revisionName, metav1.GetOptions{})
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revisionName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -201,7 +202,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
 	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -214,7 +215,7 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
 	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}

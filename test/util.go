@@ -67,7 +67,7 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 }
 
 // AddRootCAtoTransport returns TransportOption when HTTPS option is true. Otherwise it returns plain spoof.TransportOption.
-func AddRootCAtoTransport(logf logging.FormatLogger, clients *Clients, https bool) spoof.TransportOption {
+func AddRootCAtoTransport(ctx context.Context, logf logging.FormatLogger, clients *Clients, https bool) spoof.TransportOption {
 	if !https {
 		return func(transport *http.Transport) *http.Transport {
 			return transport
@@ -77,7 +77,7 @@ func AddRootCAtoTransport(logf logging.FormatLogger, clients *Clients, https boo
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(logf, clients, caSecretNamespace, caSecretName)) {
+	if !rootCAs.AppendCertsFromPEM(PemDataFromSecret(ctx, logf, clients, caSecretNamespace, caSecretName)) {
 		logf("Failed to add the certificate to the root CA")
 	}
 	return func(transport *http.Transport) *http.Transport {
@@ -87,9 +87,9 @@ func AddRootCAtoTransport(logf logging.FormatLogger, clients *Clients, https boo
 }
 
 // PemDataFromSecret gets pem data from secret.
-func PemDataFromSecret(logf logging.FormatLogger, clients *Clients, ns, secretName string) []byte {
+func PemDataFromSecret(ctx context.Context, logf logging.FormatLogger, clients *Clients, ns, secretName string) []byte {
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
-		secretName, metav1.GetOptions{})
+		ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		logf("Failed to get Secret %s: %v", secretName, err)
 		return []byte{}

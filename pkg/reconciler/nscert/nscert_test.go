@@ -312,7 +312,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	want := []string{fmt.Sprintf("*.%s.%s", namespace.Name, routecfg.DefaultDomain)}
@@ -404,7 +404,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	defer cancel()
 
 	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
 	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
 
 	// The certificate should be created with the default domain.
@@ -432,7 +432,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 
 	// Assert we have exactly one certificate.
-	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(metav1.ListOptions{})
+	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(ctx, metav1.ListOptions{})
 	if len(certs.Items) > 1 {
 		t.Errorf("Expected 1 certificate, got %d.", len(certs.Items))
 	}
@@ -505,7 +505,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			ctx = configStore.ToContext(ctx)
 			r.ReconcileKind(ctx, namespace)
 
-			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
+			cert, err := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(ctx, test.wantCertName, metav1.GetOptions{})
 			if err != nil {
 				t.Fatal("Could not get certificate:", err)
 			}
