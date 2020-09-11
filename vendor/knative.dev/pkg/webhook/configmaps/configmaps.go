@@ -200,8 +200,8 @@ func (ac *reconciler) validate(ctx context.Context, req *admissionv1.AdmissionRe
 		if hasExampleData && hasExampleChecksumAnnotation &&
 			exampleChecksum != configmap.Checksum(exampleData) {
 			return fmt.Errorf(
-				"%q modified, you likely wanted to create an unindented configuration",
-				configmap.ExampleKey)
+				"the update modifies a key in %q which is probably not what you want. Instead, copy the respective setting to the top-level of the ConfigMap, directly below %q",
+				configmap.ExampleKey, "data")
 		}
 
 		inputs := []reflect.Value{
