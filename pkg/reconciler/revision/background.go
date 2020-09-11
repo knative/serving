@@ -107,7 +107,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 
 				rrItem, ok := item.(*workItem)
 				if !ok {
-					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T\n", &workItem{}, item)
+					r.logger.Fatalf("Unexpected work item type: want: %T, got: %T", &workItem{}, item)
 				}
 
 				r.processWorkItem(rrItem)
@@ -212,12 +212,14 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 	if err != nil {
 		item.result.statuses = nil
 		item.result.err = containerMissingError{image: item.image, cause: err}
-	} else {
-		item.result.remaining--
-		item.result.statuses[item.index] = v1.ContainerStatus{
-			Name:        item.name,
-			ImageDigest: result,
-		}
+		item.result.completionCallback()
+		return
+	}
+
+	item.result.remaining--
+	item.result.statuses[item.index] = v1.ContainerStatus{
+		Name:        item.name,
+		ImageDigest: result,
 	}
 
 	if item.result.ready() {

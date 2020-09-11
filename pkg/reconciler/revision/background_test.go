@@ -92,7 +92,7 @@ func TestResolveInBackground(t *testing.T) {
 		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
 			if img == "first-image" {
 				// make the first resolve arrive after the second.
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 			}
 			return img + "-digest", nil
 		},
