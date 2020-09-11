@@ -70,8 +70,8 @@ rotation, feel free to send a PR to remove yourself.
 | 2020-08-24 | [ZhiminXiang](https://github.com/ZhiminXiang)       |
 | 2020-08-31 | [yanweiguo](https://github.com/yanweiguo)           |
 | 2020-09-07 | [markusthoemmes](https://github.com/markusthoemmes) |
-| 2020-09-14 | [tcnghia](https://github.com/tcnghia)               |
+| 2020-09-14 | [julz](https://github.com/julz)                     |
 | 2020-09-21 | [JRBANCEL](https://github.com/JRBANCEL)             |
 | 2020-09-28 | [nak3](https://github.com/nak3)                     |
-| 2020-10-05 | [julz](https://github.com/julz)                     |
+| 2020-10-05 | [tcnghia](https://github.com/tcnghia)               |
 | 2020-10-12 | [dprotaso](https://github.com/dprotaso)             |
