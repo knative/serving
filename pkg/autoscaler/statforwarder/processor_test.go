@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/websocket"
 )
 
 func TestProcessorForwarding(t *testing.T) {
@@ -54,17 +53,12 @@ func TestProcessorForwarding(t *testing.T) {
 	defer s.Close()
 
 	logger := TestLogger(t)
-	conn := websocket.NewDurableSendingConnection("ws"+strings.TrimPrefix(s.URL, "http"), logger)
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return conn.IsEstablished(), nil
-	}); err != nil {
-		t.Fatal("Timeout waiting f.processors got updated")
-	}
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws"+strings.TrimPrefix(s.URL, "http"), "ws"+strings.TrimPrefix(s.URL, "http"))
 
-	p := bucketProcessor{
-		logger: logger,
-		bkt:    bucket1,
-		conn:   conn,
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return p.podConn.Status() == nil, nil
+	}); err != nil {
+		t.Fatal("Timeout waiting for connection established")
 	}
 
 	p.process(stat1)
@@ -72,6 +66,6 @@ func TestProcessorForwarding(t *testing.T) {
 	select {
 	case <-received:
 	case <-time.After(time.Second):
-		t.Error("Timeout waiting for SVC retry")
+		t.Error("Timeout waiting for receiving stat")
 	}
 }
