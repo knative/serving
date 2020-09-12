@@ -195,7 +195,7 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
 
-	result, err := r.resolver.Resolve(ctx, item.image, item.result.opt, item.result.registriesToSkip)
+	resolvedDigest, resolveErr := r.resolver.Resolve(ctx, item.image, item.result.opt, item.result.registriesToSkip)
 
 	// lock after the resolve because we don't want to block parallel resolves,
 	// just storing the result.
@@ -209,9 +209,9 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 		return
 	}
 
-	if err != nil {
+	if resolveErr != nil {
 		item.result.statuses = nil
-		item.result.err = containerMissingError{image: item.image, cause: err}
+		item.result.err = containerMissingError{image: item.image, cause: resolveErr}
 		item.result.completionCallback()
 		return
 	}
@@ -219,7 +219,7 @@ func (r *backgroundResolver) processWorkItem(item *workItem) {
 	item.result.remaining--
 	item.result.statuses[item.index] = v1.ContainerStatus{
 		Name:        item.name,
-		ImageDigest: result,
+		ImageDigest: resolvedDigest,
 	}
 
 	if item.result.ready() {
