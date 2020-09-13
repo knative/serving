@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -121,7 +122,7 @@ func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.Reso
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service.
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string) error {
+func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string, imagesForMultipleContainers ...[]corev1.Container) error {
 	t.Log("Checking to ensure Revision is in desired state with", "generation", expectedGeneration)
 	err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
 		if ready, err := v1test.IsRevisionReady(r); !ready {
@@ -129,6 +130,23 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 		}
 		if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.DeprecatedImageDigest); !validDigest {
 			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
+		}
+		if names.Image == "" {
+			for _, value := range imagesForMultipleContainers {
+				for i := range value {
+					for _, v := range r.Status.ContainerStatuses {
+						if value[i].Name == v.Name {
+							if validDigest, err := shared.ValidateImageDigest(value[i].Image, v.ImageDigest, true); !validDigest {
+								return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, value[i].Image, err)
+							}
+						}
+					}
+				}
+			}
+		} else {
+			if validDigest, err := shared.ValidateImageDigest(names.Image, r.Status.DeprecatedImageDigest); !validDigest {
+				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
+			}
 		}
 		return true, nil
 	})
