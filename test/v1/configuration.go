@@ -112,6 +112,13 @@ func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: imagePath,
+						// Kubernetes default pull policy is IfNotPresent unless
+						// the :latest tag (== no tag) is used, in which case it
+						// is Always.  To support e2e testing on KinD, we want to
+						// explicitly disable image pulls when present because we
+						// side-load the test images onto all nodes and never push
+						// them to a registry.
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					}},
 				},
 			},
