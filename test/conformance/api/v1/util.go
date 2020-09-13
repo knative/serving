@@ -26,7 +26,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -131,14 +130,14 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 		if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.DeprecatedImageDigest); !validDigest {
 			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
 		}
+		// for multi containers there will be more than one container and names.Image is a string,
+		// so in order to validate imageDigest for each images validateControlPlane accepting optional field called imagesForMultipleContainers
 		if names.Image == "" {
 			for _, value := range imagesForMultipleContainers {
-				for i := range value {
-					for _, v := range r.Status.ContainerStatuses {
-						if value[i].Name == v.Name {
-							if validDigest, err := shared.ValidateImageDigest(value[i].Image, v.ImageDigest, true); !validDigest {
-								return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, value[i].Image, err)
-							}
+				for _, v := range r.Status.ContainerStatuses {
+					if image, ok := value[v.Name]; ok {
+						if validDigest, err := shared.ValidateImageDigest(image, v.ImageDigest); !validDigest {
+							return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, image, err)
 						}
 					}
 				}

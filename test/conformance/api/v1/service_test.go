@@ -583,13 +583,9 @@ func TestAnnotationPropagation(t *testing.T) {
 	}
 }
 
-// TestServiceCreateAndUpdateWithMultipleContainers tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
-// the service transitions as expected during each step.
-// Currently the test performs the following updates:
-// 1. Update Metadata
-//    a. Update Labels
-//    b. Update Annotations
-func TestServiceCreateAndUpdateWithMultipleContainers(t *testing.T) {
+// TestServiceCreateWithMultipleContainers tests both Creation paths for a service.
+// The test performs a series of Validate steps to ensure that the service transitions as expected during each step.
+func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -599,7 +595,11 @@ func TestServiceCreateAndUpdateWithMultipleContainers(t *testing.T) {
 
 	// Clean up on test failure or interrupt
 	test.EnsureTearDown(t, clients, &names)
-
+	// images are used to validate digest in validateControlPlane function
+	var images = map[string]string{
+		"serving-container": test.ServingContainer,
+		"sidecar-container": test.SidecarContainer,
+	}
 	containers := []corev1.Container{{
 		Name:  "serving-container",
 		Image: pkgTest.ImagePath(test.ServingContainer),
@@ -620,7 +620,7 @@ func TestServiceCreateAndUpdateWithMultipleContainers(t *testing.T) {
 	}
 
 	// Validate State after Creation
-	if err = validateControlPlane(t, clients, names, "1", containers); err != nil {
+	if err = validateControlPlane(t, clients, names, "1" /*1 is the expected generation value*/, images); err != nil {
 		t.Error(err)
 	}
 
@@ -633,58 +633,10 @@ func TestServiceCreateAndUpdateWithMultipleContainers(t *testing.T) {
 	}
 
 	if err := validateAnnotations(objects); err != nil {
-		t.Errorf("Service annotations are incorrect: %v", err)
+		t.Error("Service annotations are incorrect: ", err)
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
 	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
-
-	// Update Metadata (Labels)
-	t.Logf("Updating labels of the RevisionTemplateSpec for service %s.", names.Service)
-	metadata := metav1.ObjectMeta{
-		Labels: map[string]string{
-			"labelX": "abc",
-			"labelY": "def",
-		},
-	}
-	if objects.Service, err = v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceTemplateMeta(metadata)); err != nil {
-		t.Fatalf("Service %s was not updated with labels in its RevisionTemplateSpec: %v", names.Service, err)
-	}
-
-	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	if names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names); err != nil {
-		t.Fatalf("The Service %s was not updated with new revision %s after updating labels in its RevisionTemplateSpec: %v", names.Service, names.Revision, err)
-	}
-
-	// Update Metadata (Annotations)
-	t.Logf("Updating annotations of RevisionTemplateSpec for service %s", names.Service)
-	metadata = metav1.ObjectMeta{
-		Annotations: map[string]string{
-			"annotationA": "123",
-			"annotationB": "456",
-		},
-	}
-	if objects.Service, err = v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceTemplateMeta(metadata)); err != nil {
-		t.Fatalf("Service %s was not updated with annotation in its RevisionTemplateSpec: %v", names.Service, err)
-	}
-
-	t.Log("Waiting for the new revision to appear as LatestRevision.")
-	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
-	if err != nil {
-		t.Fatal("The new revision has not become ready in Service:", err)
-	}
-
-	t.Log("Waiting for Service to transition to Ready.")
-	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
-		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
-	}
-
-	// Validate the Service shape.
-	if err = validateControlPlane(t, clients, names, "3", containers); err != nil {
-		t.Error(err)
-	}
-	if err = validateDataPlane(t, clients, names, test.MultiContainerResponse); err != nil {
-		t.Error(err)
-	}
 }
