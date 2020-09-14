@@ -358,7 +358,7 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 }
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
-	if p != nil {
+	if p != nil && p.accept == nil {
 		go func() {
 			defer f.processingWg.Done()
 			p.shutdown()
