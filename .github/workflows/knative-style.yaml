@@ -83,7 +83,10 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/get-woke/woke/main/install.sh | sh -s -- -b "${TEMP_PATH}" "${WOKE_VERSION}" 2>&1
           echo '::endgroup::'
 
-          echo "vendor\nthird_party" > .wokeignore
+          # Create a minimal .wokeignore if none already exist.
+          if [ ! -f .wokeignore ]; then
+            echo "vendor\nthird_party" > .wokeignore
+          fi
 
           echo '::group:: Running woke with reviewdog 🐶 ...'
           woke --output simple \
