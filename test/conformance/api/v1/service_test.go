@@ -596,7 +596,7 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureTearDown(t, clients, &names)
 	// images are used to validate digest in validateControlPlane function
-	var images = map[string]string{
+	images := map[string]string{
 		"serving-container": test.ServingContainer,
 		"sidecar-container": test.SidecarContainer,
 	}
