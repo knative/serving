@@ -37,6 +37,7 @@ var successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of p
 const pipe = "/tmp/prober-signal"
 
 func TestProbe(t *testing.T) {
+	x
 	// We run the prober as a golang test because it fits in nicely with
 	// the rest of our integration tests, and AssertProberDefault needs
 	// a *testing.T. Unfortunately, "go test" intercepts signals, so we

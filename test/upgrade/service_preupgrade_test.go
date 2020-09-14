@@ -30,6 +30,7 @@ import (
 )
 
 func TestServicePreUpgrade(t *testing.T) {
+	x
 	t.Parallel()
 	clients := e2e.Setup(t)
 
