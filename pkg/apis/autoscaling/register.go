@@ -169,8 +169,4 @@ const (
 	// PanicThresholdPercentageMax is the counterpart to the PanicThresholdPercentageMin
 	// but bounding from above.
 	PanicThresholdPercentageMax = 1000.0
-
-	// KPALabelKey is the label key attached to a K8s Service to hint to the KPA
-	// which services/endpoints should trigger reconciles.
-	KPALabelKey = GroupName + "/kpa"
 )

@@ -23,35 +23,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
-	cfgMap "knative.dev/serving/pkg/apis/config"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 // MakeRevision creates a revision object from configuration.
-func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clock) *v1.Revision {
+func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock clock.Clock) *v1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1.Revision{
-		ObjectMeta: config.Spec.GetTemplate().ObjectMeta,
-		Spec:       config.Spec.GetTemplate().Spec,
+		ObjectMeta: configuration.Spec.GetTemplate().ObjectMeta,
+		Spec:       configuration.Spec.GetTemplate().Spec,
 	}
 	// Populate the Namespace and Name.
-	rev.Namespace = config.Namespace
+	rev.Namespace = configuration.Namespace
 
 	if rev.Name == "" {
-		rev.GenerateName = config.Name + "-"
+		rev.GenerateName = configuration.Name + "-"
 	}
 
 	// Pending tells the labeler that we have not processed this revision.
-	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgMap.Disabled {
+	if config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Disabled {
 		rev.SetRoutingState(v1.RoutingStatePending, clock)
 	}
 
-	updateRevisionLabels(rev, config)
-	updateRevisionAnnotations(rev, config)
+	updateRevisionLabels(rev, configuration)
+	updateRevisionAnnotations(rev, configuration)
 
 	// Populate OwnerReferences so that deletes cascade.
-	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(configuration))
 
 	return rev
 }

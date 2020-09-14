@@ -19,12 +19,14 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -57,7 +59,21 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Creating configuration")
-	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
+	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
+		// Pass low resource requirements to avoid Pod scheduling problems
+		// on busy clusters.  This is adapted from ./test/e2e/scale.go
+		func(svc *v1.Configuration) {
+			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		})
 	if err != nil {
 		t.Fatal("Failed to create Configuration:", err)
 	}
@@ -113,7 +129,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Deleting route", names.Route)
-	if err := clients.ServingClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
+	if err := clients.ServingClient.Routes.Delete(context.Background(), names.Route, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
 	}
 
@@ -155,7 +171,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 		t.Fatalf("The Configuration %q has not updated LatestCreatedRevisionName from %q: %v", configName, oldRevName, err)
 	}
 
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
@@ -167,7 +183,7 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	var privateServiceName string
 
 	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
-		sks, err := clients.NetworkingClient.ServerlessServices.Get(revisionName, metav1.GetOptions{})
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revisionName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -186,7 +202,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
 	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -199,7 +215,7 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
 	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}

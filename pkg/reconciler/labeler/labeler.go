@@ -23,6 +23,7 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
 	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 )
@@ -43,11 +44,11 @@ var _ routereconciler.Finalizer = (*Reconciler)(nil)
 // FinalizeKind removes all Route reference metadata from its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	newGC := cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
+	newGC := config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC
 
 	// v1 logic
 	if newGC == cfgmap.Disabled || newGC == cfgmap.Allowed {
-		if err := labelerv1.ClearLabels(r.Namespace, r.Name, rec.caccV1, rec.raccV1); err != nil {
+		if err := labelerv1.ClearLabels(ctx, r.Namespace, r.Name, rec.caccV1, rec.raccV1); err != nil {
 			return err
 		}
 	}
@@ -65,9 +66,9 @@ func (rec *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconci
 // ReconcileKind syncs the Route reference metadata to its traffic targets.
 // This does not modify or observe spec for the Route itself.
 func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
-	switch cfgmap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
+	switch config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC {
 	case cfgmap.Disabled:
-		if err := labelerv1.SyncLabels(r, rec.caccV1, rec.raccV1); err != nil {
+		if err := labelerv1.SyncLabels(ctx, r, rec.caccV1, rec.raccV1); err != nil {
 			return err
 		}
 		// Clear the new label for downgrade
@@ -75,7 +76,7 @@ func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconc
 			return err
 		}
 	case cfgmap.Allowed: // Both labelers on, down/upgrade don't lose data.
-		if err := labelerv1.SyncLabels(r, rec.caccV1, rec.raccV1); err != nil {
+		if err := labelerv1.SyncLabels(ctx, r, rec.caccV1, rec.raccV1); err != nil {
 			return err
 		}
 		if err := labelerv2.SyncRoutingMeta(ctx, r, rec.caccV2, rec.raccV2); err != nil {
@@ -86,7 +87,7 @@ func (rec *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconc
 			return err
 		}
 		// Clear the old label for upgrade
-		if err := labelerv1.ClearLabels(r.Namespace, r.Name, rec.caccV1, rec.raccV1); err != nil {
+		if err := labelerv1.ClearLabels(ctx, r.Namespace, r.Name, rec.caccV1, rec.raccV1); err != nil {
 			return err
 		}
 	}

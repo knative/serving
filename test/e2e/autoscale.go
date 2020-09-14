@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -79,7 +80,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 		// If the domain that the Route controller is configured to assign to Route.Status.Domain
 		// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
 		// the Host in our requests.
-		if endpoint, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
+		if endpoint, err = ingress.GetIngressEndpoint(context.Background(), kubeClientset); err != nil {
 			return vegeta.Target{}, err
 		}
 	}
@@ -160,14 +161,16 @@ func generateTrafficAtFixedRPS(ctx *TestContext, rps int, duration time.Duration
 }
 
 func validateEndpoint(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
+	ctx := context.Background()
 	_, err := pkgTest.WaitForEndpointState(
+		ctx,
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https),
 	)
 	return err
 }
@@ -239,6 +242,7 @@ func assertScaleDown(ctx *TestContext) {
 	ctx.t.Log("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
+		context.Background(),
 		ctx.clients.KubeClient,
 		func(p *corev1.PodList) (bool, error) {
 			for i := range p.Items {
@@ -265,7 +269,7 @@ func assertScaleDown(ctx *TestContext) {
 func numberOfReadyPods(ctx *TestContext) (float64, error) {
 	// SKS name matches that of revision.
 	n := ctx.resources.Revision.Name
-	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(n, metav1.GetOptions{})
+	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), n, metav1.GetOptions{})
 	if err != nil {
 		ctx.t.Logf("Error getting SKS %q: %v", n, err)
 		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
@@ -276,7 +280,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, error) {
 		return 0, nil
 	}
 	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-		sks.Status.PrivateServiceName, metav1.GetOptions{})
+		context.Background(), sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}

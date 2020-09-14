@@ -39,7 +39,7 @@ func WaitForRevisionState(client *test.ServingBetaClients, name string, inState 
 	var lastState *v1beta1.Revision
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
-		lastState, err = client.Revisions.Get(name, metav1.GetOptions{})
+		lastState, err = client.Revisions.Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -56,7 +56,7 @@ func WaitForRevisionState(client *test.ServingBetaClients, name string, inState 
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRevisionState
 func CheckRevisionState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Revision) (bool, error)) error {
-	r, err := client.Revisions.Get(name, metav1.GetOptions{})
+	r, err := client.Revisions.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

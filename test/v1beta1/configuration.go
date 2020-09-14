@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -37,26 +38,33 @@ import (
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
+func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (cfg *v1beta1.Configuration, err error) {
 	config := Configuration(names, fopt...)
 	test.AddTestAnnotation(t, config.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Config: config})
-	return clients.ServingBetaClient.Configs.Create(config)
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingBetaClient.Configs.Create(context.Background(), config, metav1.CreateOptions{})
+		return err
+	})
 }
 
 // PatchConfig patches the existing configuration passed in with the applied mutations.
 // Returns the latest configuration object
-func PatchConfig(t pkgTest.T, clients *test.Clients, svc *v1beta1.Configuration, fopt ...rtesting.ConfigOption) (*v1beta1.Configuration, error) {
-	newSvc := svc.DeepCopy()
+func PatchConfig(t pkgTest.T, clients *test.Clients, config *v1beta1.Configuration, fopt ...rtesting.ConfigOption) (cfg *v1beta1.Configuration, err error) {
+	newConfig := config.DeepCopy()
 	for _, opt := range fopt {
-		opt(newSvc)
+		opt(newConfig)
 	}
-	LogResourceObject(t, ResourceObjects{Config: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	LogResourceObject(t, ResourceObjects{Config: newConfig})
+	patchBytes, err := duck.CreateBytePatch(config, newConfig)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingBetaClient.Configs.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+
+	return cfg, reconciler.RetryTestErrors(func(int) (err error) {
+		cfg, err = clients.ServingBetaClient.Configs.Patch(context.Background(), config.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.
@@ -108,6 +116,13 @@ func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: imagePath,
+						// Kubernetes default pull policy is IfNotPresent unless
+						// the :latest tag (== no tag) is used, in which case it
+						// is Always.  To support e2e testing on KinD, we want to
+						// explicitly disable image pulls when present because we
+						// side-load the test images onto all nodes and never push
+						// them to a registry.
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					}},
 				},
 			},
@@ -142,8 +157,10 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 
 	var lastState *v1beta1.Configuration
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -160,7 +177,11 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForConfigurationState
 func CheckConfigurationState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Configuration) (bool, error)) error {
-	c, err := client.Configs.Get(name, metav1.GetOptions{})
+	var c *v1beta1.Configuration
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		c, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

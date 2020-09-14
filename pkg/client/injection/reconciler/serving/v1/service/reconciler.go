@@ -315,7 +315,7 @@ func (r *reconcilerImpl) updateStatus(ctx context.Context, existing *v1.Service,
 
 			getter := r.Client.ServingV1().Services(desired.Namespace)
 
-			existing, err = getter.Get(desired.Name, metav1.GetOptions{})
+			existing, err = getter.Get(ctx, desired.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -334,7 +334,7 @@ func (r *reconcilerImpl) updateStatus(ctx context.Context, existing *v1.Service,
 
 		updater := r.Client.ServingV1().Services(existing.Namespace)
 
-		_, err = updater.UpdateStatus(existing)
+		_, err = updater.UpdateStatus(ctx, existing, metav1.UpdateOptions{})
 		return err
 	})
 }
@@ -392,7 +392,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	patcher := r.Client.ServingV1().Services(resource.Namespace)
 
 	resourceName := resource.Name
-	resource, err = patcher.Patch(resourceName, types.MergePatchType, patch)
+	resource, err = patcher.Patch(ctx, resourceName, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		r.Recorder.Eventf(resource, corev1.EventTypeWarning, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resourceName, err)

@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -127,7 +128,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -151,7 +152,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting activator endpoints:", err)
 	}
@@ -177,7 +178,7 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
-	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
+	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
 			serving.RevisionLabelKey, ctx.resources.Revision.Name,
 			networking.ServiceTypeKey, networking.ServiceTypePrivate,
@@ -198,7 +199,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(epsN, metav1.GetOptions{})
+		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

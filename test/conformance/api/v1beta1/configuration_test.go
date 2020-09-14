@@ -19,10 +19,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
@@ -60,7 +61,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 	// Copy over new labels.
 	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
-	cfg, err := clients.ServingBetaClient.Configs.Update(cfg)
+	cfg, err := clients.ServingBetaClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)
 	}
@@ -92,7 +93,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"annotationB": "456",
 	}
 	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
-	cfg, err = clients.ServingBetaClient.Configs.Update(cfg)
+	cfg, err = clients.ServingBetaClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update annotations for Configuration %s: %v", names.Config, err)
 	}
@@ -119,7 +120,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 }
 
 func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1beta1.Configuration {
-	cfg, err := clients.ServingBetaClient.Configs.Get(name, v1.GetOptions{})
+	cfg, err := clients.ServingBetaClient.Configs.Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get configuration %s: %v", name, err)
 	}

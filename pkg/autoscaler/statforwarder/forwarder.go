@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
@@ -53,17 +52,6 @@ const (
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
-
-// bucketProcessor includes the information about how to process
-// the StatMessage owned by a bucket.
-type bucketProcessor struct {
-	// holder is the HolderIdentity for a bucket from the Lease.
-	holder string
-	// conn is the WebSocket connection to the holder pod.
-	conn *websocket.ManagedConnection
-	// proc is the function to process the StatMessage owned by the bucket.
-	proc statProcessor
-}
 
 // Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
@@ -147,6 +135,7 @@ func (f *Forwarder) filterFunc(namespace string) func(interface{}) bool {
 func (f *Forwarder) leaseUpdated(obj interface{}) {
 	l := obj.(*coordinationv1.Lease)
 	ns, n := l.Namespace, l.Name
+	ctx := context.Background()
 
 	if l.Spec.HolderIdentity == nil {
 		// This shouldn't happen as we filter it out when queueing.
@@ -167,23 +156,23 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 	}
 
 	// TODO(yanweiguo): Better handling these errors instead of just logging.
-	if err := f.createService(ns, n); err != nil {
+	if err := f.createService(ctx, ns, n); err != nil {
 		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
-	if err := f.createOrUpdateEndpoints(ns, n); err != nil {
+	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
 		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
 }
 
-func (f *Forwarder) createService(ns, n string) error {
+func (f *Forwarder) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Services(ns).Create(&v1.Service{
+		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
@@ -195,7 +184,7 @@ func (f *Forwarder) createService(ns, n string) error {
 					TargetPort: intstr.FromInt(autoscalerPort),
 				}},
 			},
-		})
+		}, metav1.CreateOptions{})
 
 		if apierrs.IsAlreadyExists(lastErr) {
 			return true, nil
@@ -213,7 +202,7 @@ func (f *Forwarder) createService(ns, n string) error {
 // createOrUpdateEndpoints creates an Endpoints object with the given namespace and
 // name, and the Forwarder.selfIP. If the Endpoints object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
+func (f *Forwarder) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	wantSubsets := []v1.EndpointSubset{{
 		Addresses: []v1.EndpointAddress{{
 			IP: f.selfIP,
@@ -246,7 +235,7 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 
 		want := e.DeepCopy()
 		want.Subsets = wantSubsets
-		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(want); lastErr != nil {
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
 			// Do not return the error to cause a retry.
 			return false, nil
 		}
@@ -262,13 +251,13 @@ func (f *Forwarder) createOrUpdateEndpoints(ns, n string) error {
 	}
 
 	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(&v1.Endpoints{
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
 				Namespace: ns,
 			},
 			Subsets: wantSubsets,
-		})
+		}, metav1.CreateOptions{})
 		// Do not return the error to cause a retry.
 		return lastErr == nil, nil
 	}); err != nil {
@@ -293,14 +282,10 @@ func (f *Forwarder) setProcessor(bkt string, p *bucketProcessor) {
 func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	if holder == f.selfIP {
 		return &bucketProcessor{
+			bkt:    bkt,
+			logger: f.logger.With(zap.String("bucket", bkt)),
 			holder: holder,
-			proc: func(sm asmetrics.StatMessage) {
-				l := f.logger.With(zap.String("revision", sm.Key.String()))
-				l.Debug("Accept stat as owner of bucket ", bkt)
-				if f.accept != nil {
-					f.accept(sm)
-				}
-			},
+			accept: f.accept,
 		}
 	}
 
@@ -308,25 +293,12 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	c := websocket.NewDurableSendingConnection(dns, f.logger)
 	f.processingWg.Add(1)
 	return &bucketProcessor{
+		bkt:    bkt,
+		logger: f.logger.With(zap.String("bucket", bkt)),
 		holder: holder,
-		conn:   c,
-		proc: func(sm asmetrics.StatMessage) {
-			l := f.logger.With(zap.String("revision", sm.Key.String()))
-			l.Debugf("Forward stat of bucket %s to the holder %s", bkt, holder)
-			wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-			b, err := wsms.Marshal()
-			if err != nil {
-				l.Errorw("Error while marshaling stats", zap.Error(err))
-				return
-			}
-
-			if err := c.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-				l.Errorw("Error while sending stats", zap.Error(err))
-			}
-		},
+		conn:   websocket.NewDurableSendingConnection(dns, f.logger),
 	}
 }
 
@@ -344,7 +316,7 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 		return
 	}
 
-	p.proc(sm)
+	p.process(sm)
 }
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {

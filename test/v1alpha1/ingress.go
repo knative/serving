@@ -38,7 +38,7 @@ func WaitForIngressState(client *test.NetworkingClients, name string, inState fu
 	var lastState *v1alpha1.Ingress
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
-		lastState, err = client.Ingresses.Get(name, metav1.GetOptions{})
+		lastState, err = client.Ingresses.Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}

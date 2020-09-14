@@ -57,7 +57,7 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ContainerStatuses: []v1.ContainerStatuses{{
+				ContainerStatuses: []v1.ContainerStatus{{
 					Name:        "user-container",
 					ImageDigest: "busybox@sha256:deadbeef",
 				}},
@@ -117,7 +117,7 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ContainerStatuses: []v1.ContainerStatuses{{
+				ContainerStatuses: []v1.ContainerStatus{{
 					Name:        "user-container1",
 					ImageDigest: "ubuntu@sha256:deadbeef1",
 				}, {
@@ -182,7 +182,7 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ContainerStatuses: []v1.ContainerStatuses{{}},
+				ContainerStatuses: []v1.ContainerStatus{{}},
 			},
 		},
 		containerName: "user-container",
@@ -231,7 +231,7 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ContainerStatuses: []v1.ContainerStatuses{{
+				ContainerStatuses: []v1.ContainerStatus{{
 					Name:        "user-container",
 					ImageDigest: "busybox@sha256:deadbeef",
 				}},

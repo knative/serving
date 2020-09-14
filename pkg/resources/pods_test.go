@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"sort"
 	"strconv"
 	"testing"
@@ -102,7 +103,7 @@ func TestPodReadyUnreadyCount(t *testing.T) {
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
-				kubeClient.CoreV1().Pods(testNamespace).Create(p)
+				kubeClient.CoreV1().Pods(testNamespace).Create(context.Background(), p, metav1.CreateOptions{})
 				podsClient.Informer().GetIndexer().Add(p)
 			}
 			podCounter := NewPodAccessor(podsClient.Lister(), testNamespace, testRevision)
@@ -138,7 +139,7 @@ func TestPodIPsSortedByAge(t *testing.T) {
 	}, {
 		name: "one pod",
 		pods: []*corev1.Pod{
-			pod("master-of-puppets", makeReady, withStartTime(aTime), withIP("1.1.1.1")),
+			pod("foo", makeReady, withStartTime(aTime), withIP("1.1.1.1")),
 		},
 		want: []string{"1.1.1.1"},
 	}, {
@@ -210,7 +211,7 @@ func TestPodIPsSortedByAge(t *testing.T) {
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
-				kubeClient.CoreV1().Pods(testNamespace).Create(p)
+				kubeClient.CoreV1().Pods(testNamespace).Create(context.Background(), p, metav1.CreateOptions{})
 				podsClient.Informer().GetIndexer().Add(p)
 			}
 			podCounter := NewPodAccessor(podsClient.Lister(), testNamespace, testRevision)
@@ -231,7 +232,7 @@ func TestPendingTerminatingCounts(t *testing.T) {
 	podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 	createPods := func(pods []*corev1.Pod) {
 		for _, p := range pods {
-			kubeClient.CoreV1().Pods(testNamespace).Create(p)
+			kubeClient.CoreV1().Pods(testNamespace).Create(context.Background(), p, metav1.CreateOptions{})
 			podsClient.Informer().GetIndexer().Add(p)
 		}
 	}
@@ -415,7 +416,7 @@ func TestPodIPsSplitByAge(t *testing.T) {
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
-				kubeClient.CoreV1().Pods(testNamespace).Create(p)
+				kubeClient.CoreV1().Pods(testNamespace).Create(context.Background(), p, metav1.CreateOptions{})
 				podsClient.Informer().GetIndexer().Add(p)
 			}
 			podCounter := NewPodAccessor(podsClient.Lister(), testNamespace, testRevision)

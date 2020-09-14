@@ -136,7 +136,7 @@ func main() {
 	sc := servingclient.Get(ctx)
 	cleanup := func() error {
 		return sc.ServingV1().Services(tmpl.Namespace).DeleteCollection(
-			&metav1.DeleteOptions{}, metav1.ListOptions{})
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 	}
 	defer cleanup()
 
@@ -163,28 +163,28 @@ func main() {
 
 	// TODO(mattmoor): We could maybe use a duckv1.KResource to eliminate this boilerplate.
 
-	serviceWI, err := sc.ServingV1().Services(tmpl.Namespace).Watch(lo)
+	serviceWI, err := sc.ServingV1().Services(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch services: %v", err)
 	}
 	defer serviceWI.Stop()
 	serviceSeen := sets.String{}
 
-	configurationWI, err := sc.ServingV1().Configurations(tmpl.Namespace).Watch(lo)
+	configurationWI, err := sc.ServingV1().Configurations(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch configurations: %v", err)
 	}
 	defer configurationWI.Stop()
 	configurationSeen := sets.String{}
 
-	routeWI, err := sc.ServingV1().Routes(tmpl.Namespace).Watch(lo)
+	routeWI, err := sc.ServingV1().Routes(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch routes: %v", err)
 	}
 	defer routeWI.Stop()
 	routeSeen := sets.String{}
 
-	revisionWI, err := sc.ServingV1().Revisions(tmpl.Namespace).Watch(lo)
+	revisionWI, err := sc.ServingV1().Revisions(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch revisions: %v", err)
 	}
@@ -192,21 +192,21 @@ func main() {
 	revisionSeen := sets.String{}
 
 	nc := networkingclient.Get(ctx)
-	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(lo)
+	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch ingresss: %v", err)
 	}
 	defer ingressWI.Stop()
 	ingressSeen := sets.String{}
 
-	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(lo)
+	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch skss: %v", err)
 	}
 	defer sksWI.Stop()
 	sksSeen := sets.String{}
 
-	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(tmpl.Namespace).Watch(lo)
+	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(tmpl.Namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch pas: %v", err)
 	}
@@ -223,7 +223,7 @@ func main() {
 				return
 
 			case ts := <-tick.C:
-				svc, err := sc.ServingV1().Services(tmpl.Namespace).Create(tmpl)
+				svc, err := sc.ServingV1().Services(tmpl.Namespace).Create(ctx, tmpl, metav1.CreateOptions{})
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
 					log.Println("Error creating service:", err)

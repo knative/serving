@@ -106,7 +106,7 @@ func TestReconcileSecretCreate(t *testing.T) {
 	}
 
 	fake := fakekubeclient.Get(ctx)
-	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to see secret creation:", err)
 	} else if !cmp.Equal(secret, desired) {
@@ -123,7 +123,7 @@ func TestReconcileSecretUpdate(t *testing.T) {
 	}
 
 	fake := fakekubeclient.Get(ctx)
-	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to see secret creation:", err)
 	} else if !cmp.Equal(secret, desired) {
@@ -157,7 +157,7 @@ func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAcces
 	fake := fakekubeclient.Get(ctx)
 	fakeinformer := fakesecretinformer.Get(ctx)
 	for _, secret := range secrets {
-		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(secret); err != nil {
+		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
 			t.Fatalf("Error creating secret: %v", err)
 		}
 		if err := fakeinformer.Informer().GetIndexer().Add(secret); err != nil {

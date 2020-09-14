@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"path"
 	"path/filepath"
 	"testing"
@@ -47,14 +48,14 @@ func TestConfigMapVolume(t *testing.T) {
 	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
 		Data: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
@@ -63,7 +64,7 @@ func TestConfigMapVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{}); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
 	})
@@ -115,14 +116,14 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	text := test.AppendRandomString("hello-volumes-")
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
 		Data: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
@@ -131,7 +132,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(configMap.Name, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{}); err != nil {
 			t.Errorf("ConfigMaps().Delete() = %v", err)
 		}
 	})
@@ -185,14 +186,14 @@ func TestSecretVolume(t *testing.T) {
 	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -201,7 +202,7 @@ func TestSecretVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
 	})
@@ -249,14 +250,14 @@ func TestProjectedSecretVolume(t *testing.T) {
 	text := test.ObjectNameForTest(t)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -265,7 +266,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
 	})
@@ -319,7 +320,7 @@ func TestProjectedComplex(t *testing.T) {
 	text3 := test.ObjectNameForTest(t)
 
 	// Create the ConfigMap with random text.
-	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(&corev1.ConfigMap{
+	configMap, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(test.ServingNamespace).Create(context.Background(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // Give it the same name as the service.
 		},
@@ -327,21 +328,21 @@ func TestProjectedComplex(t *testing.T) {
 			filepath.Base(test.HelloVolumePath): text1,
 			"other":                             text2,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create configmap:", err)
 	}
 	t.Log("Successfully created configMap:", configMap)
 
 	// Create the Secret with random text.
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(&corev1.Secret{
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Create(context.Background(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Service, // name the Secret the same as the Service.
 		},
 		StringData: map[string]string{
 			filepath.Base(test.HelloVolumePath): text3,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Failed to create secret:", err)
 	}
@@ -350,7 +351,7 @@ func TestProjectedComplex(t *testing.T) {
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secret.Name, nil); err != nil {
+		if err := clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{}); err != nil {
 			t.Errorf("Secrets().Delete() = %v", err)
 		}
 	})

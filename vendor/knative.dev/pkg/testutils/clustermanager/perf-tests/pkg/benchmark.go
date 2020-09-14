@@ -40,7 +40,7 @@ const (
 )
 
 // backupLocations are used in retrying cluster creation, if stockout happens in one location.
-// TODO(chizhg): it's currently not used, use it in the cluster creation retry logic.
+// nolint // TODO(chizhg): it's currently not used, use it in the cluster creation retry logic.
 var backupLocations = []string{"us-west1", "us-west2", "us-east1"}
 
 // GKECluster saves the config information for the GKE cluster

@@ -137,14 +137,14 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 		},
 	}
 
-	deployment, err := acw.KubeClient.ExtensionsV1beta1().Deployments(namespace).Get(acw.DeploymentName, metav1.GetOptions{})
+	deployment, err := acw.KubeClient.ExtensionsV1beta1().Deployments(namespace).Get(context.Background(), acw.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error retrieving Deployment Extension object: %w", err)
 	}
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
 
-	_, err = acw.KubeClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
+	_, err = acw.KubeClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("error creating ValidatingWebhookConfigurations object: %w", err)
 	}

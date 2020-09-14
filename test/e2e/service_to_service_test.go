@@ -18,6 +18,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -73,7 +74,7 @@ var testInjection = []struct {
 
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 	t.Logf("The domain of request is %s.", url.Hostname())
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +99,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		gatewayTarget := pkgTest.Flags.IngressEndpoint
 		if gatewayTarget == "" {
 			var err error
-			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
+			if gatewayTarget, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube); err != nil {
 				t.Fatal("Failed to get gateway IP:", err)
 			}
 		}
@@ -128,13 +129,14 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 
 	url := resources.Route.Status.URL.URL()
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(helloworldResponse))),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatal("Failed to start endpoint of httpproxy:", err)
 	}

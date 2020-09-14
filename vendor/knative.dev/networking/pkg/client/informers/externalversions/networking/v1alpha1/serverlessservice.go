@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,13 +62,13 @@ func NewFilteredServerlessServiceInformer(client versioned.Interface, namespace 
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().ServerlessServices(namespace).List(options)
+				return client.NetworkingV1alpha1().ServerlessServices(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().ServerlessServices(namespace).Watch(options)
+				return client.NetworkingV1alpha1().ServerlessServices(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&networkingv1alpha1.ServerlessService{},

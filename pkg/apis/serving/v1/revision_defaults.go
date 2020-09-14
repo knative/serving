@@ -31,6 +31,11 @@ import (
 
 // SetDefaults implements apis.Defaultable
 func (r *Revision) SetDefaults(ctx context.Context) {
+	// SetDefaults may update revision spec which is immutable.
+	// See: https://github.com/knative/serving/issues/8128 for details.
+	if apis.IsInUpdate(ctx) {
+		return
+	}
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 

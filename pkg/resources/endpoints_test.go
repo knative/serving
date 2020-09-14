@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()
 	createEndpoints := func(ep *corev1.Endpoints) {
-		kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+		kubeClient.CoreV1().Endpoints(testNamespace).Create(context.Background(), ep, metav1.CreateOptions{})
 		endpointsClient.Informer().GetIndexer().Add(ep)
 	}
 

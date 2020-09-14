@@ -54,7 +54,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 	if errors.IsNotFound(err) {
 		logger.Info("SKS does not exist; creating.")
 		sks = resources.MakeSKS(pa, mode, numActivators)
-		if _, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks); err != nil {
+		if _, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(ctx, sks, metav1.CreateOptions{}); err != nil {
 			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
 		logger.Info("Created SKS")
@@ -69,7 +69,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
-			if sks, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			if sks, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}
 		}
@@ -83,7 +83,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	desiredMetric := resources.MakeMetric(pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		_, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
+		_, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(ctx, desiredMetric, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("error creating metric: %w", err)
 		}
@@ -95,7 +95,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	} else if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
 		want := metric.DeepCopy()
 		want.Spec = desiredMetric.Spec
-		if _, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
+		if _, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("error updating metric: %w", err)
 		}
 	}

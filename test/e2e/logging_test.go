@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -33,8 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	network "knative.dev/networking/pkg"
+	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
-	pkgTest "knative.dev/pkg/test"
+	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -47,12 +49,12 @@ func TestRequestLogs(t *testing.T) {
 	t.Parallel()
 	clients := Setup(t)
 
-	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get("config-observability", metav1.GetOptions{})
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get(context.Background(), "config-observability", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Fail to get ConfigMap config-observability: %v", err)
 	}
 
-	if got, want := cm.Data["logging.request-log-template"], template; got != want {
+	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
 		t.Skipf("Skipping verifing request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
 
@@ -74,14 +76,15 @@ func TestRequestLogs(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	_, err = pkgTest.WaitForEndpointState(
+	_, err = pkgtest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
-		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		v1test.RetryingRouteInconsistency(pkgtest.MatchesAllOf(pkgtest.IsStatusOK, pkgtest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("The endpoint didn't serve the expected text %q: %v", test.HelloWorldText, err)
 	}
@@ -115,7 +118,7 @@ func TestRequestLogs(t *testing.T) {
 }
 
 func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(metav1.ListOptions{
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app": rev}.String(),
 	})
 
@@ -137,7 +140,7 @@ func waitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 		req := clients.KubeClient.Kube.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
 		})
-		podLogs, err := req.Stream()
+		podLogs, err := req.Stream(context.Background())
 		if err != nil {
 			return false, err
 		}

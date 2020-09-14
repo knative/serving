@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -51,13 +52,13 @@ func TestTranslation(t *testing.T) {
 	}
 
 	// Access the service over the v1beta1 endpoint.
-	v1b1, err := clients.ServingBetaClient.Services.Get(service.Name, metav1.GetOptions{})
+	v1b1, err := clients.ServingBetaClient.Services.Get(context.Background(), service.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get v1beta1.Service: %v: %v", names.Service, err)
 	}
 
 	// Access the service over the v1 endpoint.
-	v1, err := clients.ServingClient.Services.Get(service.Name, metav1.GetOptions{})
+	v1, err := clients.ServingClient.Services.Get(context.Background(), service.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get v1.Service: %v: %v", names.Service, err)
 	}
@@ -101,7 +102,7 @@ func TestV1beta1Rejection(t *testing.T) {
 	// Try to create the "run latest" service through v1beta1.
 	gvr := v1beta1.SchemeGroupVersion.WithResource("services")
 	svc, err := clients.Dynamic.Resource(gvr).Namespace(service.Namespace).
-		Create(u, metav1.CreateOptions{})
+		Create(context.Background(), u, metav1.CreateOptions{})
 	if err == nil {
 		t.Fatalf("Unexpected success creating %#v", svc)
 	}

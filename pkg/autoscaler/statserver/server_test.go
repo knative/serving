@@ -189,6 +189,52 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	}
 }
 
+func TestServerNotBucketHost(t *testing.T) {
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnerFunc(statsCh, alwaysFalse)
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	// Verify the server behaves normally when the host is not a bucket host.
+	statSink := dialOK(t, server.listenAddr())
+	assertReceivedProto(t, both, statSink, statsCh)
+	closeSink(t, statSink)
+}
+
+func TestServerOwnerForBucketHost(t *testing.T) {
+	// Override the function to mock a bucket host.
+	isBucketHost = alwaysTrue
+
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnerFunc(statsCh, alwaysTrue)
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	// Verify the server behaves normally when the host is a bucket host
+	// and the pod is the owner of the bucket.
+	statSink := dialOK(t, server.listenAddr())
+	assertReceivedProto(t, both, statSink, statsCh)
+	closeSink(t, statSink)
+}
+
+func TestServerNotOwnerForBucketHost(t *testing.T) {
+	// Override the function to mock a bucket host.
+	isBucketHost = alwaysTrue
+
+	statsCh := make(chan metrics.StatMessage)
+	server := newTestServerWithOwnerFunc(statsCh, alwaysFalse)
+	defer server.Shutdown(0)
+
+	go server.listenAndServe()
+
+	_, err := dial(server.listenAddr())
+	if err == nil {
+		t.Error("Want error from Dial but got none")
+	}
+}
+
 func BenchmarkStatServer(b *testing.B) {
 	statsCh := make(chan metrics.StatMessage, 100)
 	server := newTestServer(statsCh)
@@ -332,8 +378,12 @@ type testServer struct {
 }
 
 func newTestServer(statsCh chan<- metrics.StatMessage) *testServer {
+	return newTestServerWithOwnerFunc(statsCh, nil)
+}
+
+func newTestServerWithOwnerFunc(statsCh chan<- metrics.StatMessage, f func(bkt string) bool) *testServer {
 	return &testServer{
-		Server:       New(testAddress, statsCh, zap.NewNop().Sugar()),
+		Server:       New(testAddress, statsCh, zap.NewNop().Sugar(), f),
 		listenAddrCh: make(chan string, 1),
 	}
 }
@@ -359,4 +409,12 @@ type testListener struct {
 func (t *testListener) Accept() (net.Conn, error) {
 	t.listenAddr <- "http://" + t.Listener.Addr().String()
 	return t.Listener.Accept()
+}
+
+func alwaysTrue(_ string) bool {
+	return true
+}
+
+func alwaysFalse(_ string) bool {
+	return false
 }

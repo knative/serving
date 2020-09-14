@@ -43,11 +43,6 @@ import (
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
-const (
-	// ReconcilerName is the name of the reconciler
-	ReconcilerName = "Services"
-)
-
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	client clientset.Interface
@@ -143,7 +138,7 @@ func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, servi
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if apierrs.IsNotFound(err) {
-		route, err = c.createRoute(service)
+		route, err = c.createRoute(ctx, service)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return nil, fmt.Errorf("failed to create Route: %w", err)
@@ -194,7 +189,7 @@ func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Servic
 	if err != nil {
 		return nil, err
 	}
-	return c.client.ServingV1().Configurations(service.Namespace).Create(cfg)
+	return c.client.ServingV1().Configurations(service.Namespace).Create(ctx, cfg, metav1.CreateOptions{})
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
@@ -237,10 +232,10 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	existing.Spec = desiredConfig.Spec
 	existing.Labels = desiredConfig.Labels
 	existing.Annotations = desiredConfig.Annotations
-	return c.client.ServingV1().Configurations(service.Namespace).Update(existing)
+	return c.client.ServingV1().Configurations(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 }
 
-func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
+func (c *Reconciler) createRoute(ctx context.Context, service *v1.Service) (*v1.Route, error) {
 	route, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
@@ -248,7 +243,7 @@ func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-	return c.client.ServingV1().Routes(service.Namespace).Create(route)
+	return c.client.ServingV1().Routes(service.Namespace).Create(ctx, route, metav1.CreateOptions{})
 }
 
 func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bool, error) {
@@ -290,7 +285,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1.Service, ro
 	existing.Spec = desiredRoute.Spec
 	existing.Labels = desiredRoute.Labels
 	existing.Annotations = desiredRoute.Annotations
-	return c.client.ServingV1().Routes(service.Namespace).Update(existing)
+	return c.client.ServingV1().Routes(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

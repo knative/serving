@@ -400,7 +400,7 @@ func TestRevisionWatcher(t *testing.T) {
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			if tc.clusterIP != "" {
 				svc := privateSKSService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
-				fake.CoreV1().Services(svc.Namespace).Create(svc)
+				fake.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 				informer.Informer().GetIndexer().Add(svc)
 			}
 
@@ -696,12 +696,12 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			// Add the revision we're testing.
 			for _, rev := range tc.revisions {
-				fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
+				fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 				revisions.Informer().GetIndexer().Add(rev)
 			}
 
 			for _, svc := range tc.services {
-				fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+				fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 				serviceInformer.Informer().GetIndexer().Add(svc)
 			}
 
@@ -718,7 +718,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}()
 
 			for _, ep := range tc.endpointsArr {
-				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
+				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, ep, metav1.CreateOptions{})
 				endpointsInformer.Informer().GetIndexer().Add(ep)
 			}
 
@@ -764,7 +764,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
-	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
@@ -905,7 +905,7 @@ func TestCheckDests(t *testing.T) {
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
-	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
@@ -965,7 +965,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
 
-	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
@@ -1150,20 +1150,20 @@ func TestRevisionDeleted(t *testing.T) {
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
-	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 
 	ei := fakeendpointsinformer.Get(ctx)
 	ep := ep(testRevision, 1234, "http", "128.0.0.1")
-	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, ep, metav1.CreateOptions{})
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
@@ -1183,7 +1183,7 @@ func TestRevisionDeleted(t *testing.T) {
 		t.Error("Timedout waiting for initial response")
 	}
 	// Now delete the endpoints.
-	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ctx, ep.Name, metav1.DeleteOptions{})
 	select {
 	case r := <-rbm.updates():
 		t.Errorf("Unexpected update: %#v", r)
@@ -1198,14 +1198,14 @@ func TestServiceDoesNotExist(t *testing.T) {
 
 	ei := fakeendpointsinformer.Get(ctx)
 	eps := ep(testRevision, 1234, "http", "128.0.0.1")
-	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, eps, metav1.CreateOptions{})
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
@@ -1249,13 +1249,13 @@ func TestServiceMoreThanOne(t *testing.T) {
 
 	ei := fakeendpointsinformer.Get(ctx)
 	eps := ep(testRevision, 1234, "http", "128.0.0.1")
-	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ctx, eps, metav1.CreateOptions{})
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
@@ -1268,7 +1268,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		)
 		// Modify the name so both can be created.
 		svc.Name += num
-		fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+		fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
 		si := fakeserviceinformer.Get(ctx)
 		si.Informer().GetIndexer().Add(svc)
 	}

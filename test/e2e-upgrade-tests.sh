@@ -69,7 +69,7 @@ function knative_setup() {
 
 # Script entry point.
 
-initialize $@ --skip-istio-addon
+initialize "$@" --skip-istio-addon
 
 # We haven't configured these deployments for high-availability,
 # so disable the chaos duck.

@@ -265,7 +265,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 	logger := logging.FromContext(ctx)
 
 	rev := resources.MakeRevision(ctx, config, c.clock)
-	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(rev)
+	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

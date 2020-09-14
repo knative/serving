@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -54,6 +55,7 @@ func assertServiceResourcesUpdated(t pkgTest.TLegacy, clients *test.Clients, nam
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,

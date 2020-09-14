@@ -122,7 +122,7 @@ func setMetaForListed(ctx context.Context, route *v1.Route, acc Accessor, names 
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
 func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names sets.String) error {
-	oldList, err := acc.list(r.Namespace, r.Name, v1.RoutingStateActive)
+	oldList, err := acc.list(ctx, r.Namespace, r.Name, v1.RoutingStateActive)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc Accessor, names
 // A nil route name will cause the route to be de-referenced, and a non-nil route will cause
 // that route name to be attached to the element.
 func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string, remove bool) error {
-	if mergePatch, err := acc.makeMetadataPatch(r, name, remove); err != nil {
+	if mergePatch, err := acc.makeMetadataPatch(ctx, r, name, remove); err != nil {
 		return err
 	} else if mergePatch != nil {
 		patch, err := json.Marshal(mergePatch)
@@ -157,7 +157,7 @@ func setRoutingMeta(ctx context.Context, acc Accessor, r *v1.Route, name string,
 		}
 		logger := logging.FromContext(ctx)
 		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
-		return acc.patch(r.Namespace, name, types.MergePatchType, patch)
+		return acc.patch(ctx, r.Namespace, name, types.MergePatchType, patch)
 	}
 
 	return nil

@@ -227,7 +227,7 @@ func WithRevisionAnn(key, value string) RevisionOption {
 }
 
 // WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
-func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
+func WithContainerStatuses(containerStatus []v1.ContainerStatus) RevisionOption {
 	return func(r *v1.Revision) {
 		r.Status.ContainerStatuses = containerStatus
 	}
