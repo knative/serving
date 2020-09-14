@@ -47,11 +47,16 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Vet
-        run: go vet ./...
+      - name: build & vet
+        run: |
+          local tags="$(grep -I  -r '// +build' . | \
+                grep -v '^./vendor/' | \
+                grep -v '^./hack/' | \
+                cut -f3 -d' ' | \
+                sort | uniq | \
+                grep -v '^!' | \
+                tr '\n' ' ')"
 
-      - name: Build
-        run: go build -v ./...
+          go vet -tags ${tags} ./...
 
-      - name: Build Test
-        run: for d in $(go list -tags e2e -f '{{if .TestGoFiles}}{{.Dir}}{{end}}' ./... ); do (echo $d; cd $d && go test -tags e2e -c ); done
+
