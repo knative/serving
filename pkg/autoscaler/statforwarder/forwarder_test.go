@@ -412,7 +412,7 @@ func TestProcess(t *testing.T) {
 	}
 	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
 
-	// A Forward without any leadership information should process without error.
+	// A Forward without any leadership information should process with retry.
 	f.Process(stat1)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
@@ -439,18 +439,21 @@ func TestProcess(t *testing.T) {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
 
+	// Wait for the stat enqueued previously to be retried.
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return acceptCount == 1, nil
+	}); err != nil {
+		t.Fatalf("Timeout waiting acceptCount == 2")
+	}
+
 	// Stat1 should be accepted and stat2 should be forwarded.
 	f.Process(stat1)
 	f.Process(stat2)
 
-	if got, want := acceptCount, 1; got != want {
-		t.Errorf("acceptCount = %d, want = %d", got, want)
-	}
-
-	// One more accept.
-	f.Process(stat1)
-	if got, want := acceptCount, 2; got != want {
-		t.Errorf("acceptCount = %d, want = %d", got, want)
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return acceptCount == 2, nil
+	}); err != nil {
+		t.Fatalf("Timeout waiting acceptCount == 2")
 	}
 
 	// Make sure Cancel can be called without crash.

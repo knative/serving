@@ -39,23 +39,30 @@ type bucketProcessor struct {
 	accept statProcessor
 }
 
-func (p *bucketProcessor) process(sm asmetrics.StatMessage) {
+func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	l := p.logger.With(zap.String("revision", sm.Key.String()))
 	if p.accept != nil {
 		l.Debug("Accept stat as owner of bucket ", p.bkt)
 		p.accept(sm)
-		return
+		return nil
 	}
 
 	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.holder)
 	wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 	b, err := wsms.Marshal()
 	if err != nil {
-		l.Errorw("Error while marshaling stats", zap.Error(err))
-		return
+		return err
 	}
 
 	if err := p.conn.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-		l.Errorw("Error while sending stats", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (p *bucketProcessor) shutdown() {
+	if p.conn != nil {
+		p.conn.Shutdown()
 	}
 }
