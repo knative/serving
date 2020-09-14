@@ -62,7 +62,7 @@ func (r *Response) String() string {
 
 // Interface defines the actions that can be performed by the spoofing client.
 type Interface interface {
-	Do(*http.Request) (*Response, error)
+	Do(*http.Request, ...ErrorRetryChecker) (*Response, error)
 	Poll(*http.Request, ResponseChecker, ...ErrorRetryChecker) (*Response, error)
 }
 
@@ -166,61 +166,23 @@ func ResolveEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset, d
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
 // and transforming the http.Response into a spoof.Response.
 // Each response is augmented with "ZipkinTraceID" header that identifies the zipkin trace corresponding to the request.
-func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
-	// Starting span to capture zipkin trace.
-	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
-	defer span.End()
-
-	// Check to see if the call to this method is coming from a Poll call.
-	logZipkinTrace := true
-	if req.Header.Get(pollReqHeader) != "" {
-		req.Header.Del(pollReqHeader)
-		logZipkinTrace = false
-	}
-	resp, err := sc.Client.Do(req.WithContext(traceContext))
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	resp.Header.Add(zipkin.ZipkinTraceIDHeader, span.SpanContext().TraceID.String())
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	spoofResp := &Response{
-		Status:     resp.Status,
-		StatusCode: resp.StatusCode,
-		Header:     resp.Header,
-		Body:       body,
-	}
-
-	if logZipkinTrace {
-		sc.logZipkinTrace(spoofResp)
-	}
-
-	return spoofResp, nil
+func (sc *SpoofingClient) Do(req *http.Request, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
+	return sc.Poll(req, func(*Response) (bool, error) { return true, nil }, errorRetryCheckers...)
 }
 
 // Poll executes an http request until it satisfies the inState condition or encounters an error.
 func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
-	var (
-		resp *Response
-		err  error
-	)
+	if len(errorRetryCheckers) == 0 {
+		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker}
+	}
 
-	err = wait.PollImmediate(sc.RequestInterval, sc.RequestTimeout, func() (bool, error) {
-		// As we may do multiple Do calls as part of a single Poll we add this temporary header
-		// to the request to indicate to Do method not to log Zipkin trace, instead it is
-		// handled by this method itself.
-		req.Header.Add(pollReqHeader, "True")
-		resp, err = sc.Do(req)
+	var resp *Response
+	err := wait.PollImmediate(sc.RequestInterval, sc.RequestTimeout, func() (bool, error) {
+		// Starting span to capture zipkin trace.
+		traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
+		defer span.End()
+		rawResp, err := sc.Client.Do(req.WithContext(traceContext))
 		if err != nil {
-			if len(errorRetryCheckers) == 0 {
-				errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker}
-			}
 			for _, checker := range errorRetryCheckers {
 				retry, newErr := checker(err)
 				if retry {
@@ -228,9 +190,23 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, error
 					return false, nil
 				}
 			}
+			sc.Logf("NOT Retrying %s: %v", req.URL.String(), err)
 			return true, err
 		}
+		defer rawResp.Body.Close()
 
+		body, err := ioutil.ReadAll(rawResp.Body)
+		if err != nil {
+			return true, err
+		}
+		rawResp.Header.Add(zipkin.ZipkinTraceIDHeader, span.SpanContext().TraceID.String())
+
+		resp = &Response{
+			Status:     rawResp.Status,
+			StatusCode: rawResp.StatusCode,
+			Header:     rawResp.Header,
+			Body:       body,
+		}
 		return inState(resp)
 	})
 
