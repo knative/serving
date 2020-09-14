@@ -49,6 +49,9 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
+	// Retry as most 15 seconds to process a stat. NOTE: Retrying could
+	// cause high delay and inaccurate scaling decision so we use
+	// the timestamp on receiving.
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
 )
@@ -316,9 +319,10 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	}
 }
 
-// Process calls Forwarder.accept if the pod where this Forwarder is running is the owner
+// Process enqueues the given Stat for processing asynchronously.
+// It calls Forwarder.accept if the pod where this Forwarder is running is the owner
 // of the given StatMessage. Otherwise it forwards the given StatMessage to the right
-// owner pod. If it can't find the owner, it drops the StatMessage.
+// owner pod. It will retry if any error happens during the processing.
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 	f.statCh <- stat{sm: sm, retry: 0}
 }
