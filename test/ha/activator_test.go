@@ -45,7 +45,6 @@ const (
 )
 
 func TestActivatorHAGraceful(t *testing.T) {
-	t.Skip("TODO(8066): This was added too optimistically. Needs debugging and triaging.")
 	testActivatorHA(t, nil, 1)
 }
 
