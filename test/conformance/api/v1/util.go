@@ -143,8 +143,8 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 				}
 			}
 		} else {
-			if validDigest, err := shared.ValidateImageDigest(names.Image, r.Status.DeprecatedImageDigest); !validDigest {
-				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
+			if validDigest, err := shared.ValidateImageDigest(names.Image, r.Status.ContainerStatuses[0].ImageDigest); !validDigest {
+				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ContainerStatuses[0].ImageDigest, names.Image, err)
 			}
 		}
 		return true, nil
