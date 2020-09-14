@@ -52,3 +52,6 @@ jobs:
 
       - name: Build
         run: go build -v ./...
+
+      - name: Build Test
+        run: for d in $(go list -tags e2e -f '{{if .TestGoFiles}}{{.Dir}}{{end}}' ./... ); do (echo $d; cd $d && go test -tags e2e -c ); done
