@@ -71,7 +71,7 @@ func ValidateImageDigest(imageName string, imageDigest string) (bool, error) {
 }
 
 // sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, error) {
+func sendRequests(client *spoof.SpoofingClient, url *url.URL, num int) ([]string, error) {
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
