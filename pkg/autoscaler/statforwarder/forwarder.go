@@ -368,8 +368,6 @@ func (f *Forwarder) shutdown(p *bucketProcessor) {
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
-	close(f.statCh)
-
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
 
