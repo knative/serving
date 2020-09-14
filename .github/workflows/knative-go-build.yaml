@@ -49,7 +49,7 @@ jobs:
 
       - name: build & vet
         run: |
-          local tags="$(grep -I  -r '// +build' . | \
+          tags="$(grep -I  -r '// +build' . | \
                 grep -v '^./vendor/' | \
                 grep -v '^./hack/' | \
                 cut -f3 -d' ' | \
