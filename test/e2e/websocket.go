@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"testing"
@@ -45,15 +46,16 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 		address string
 	)
 
-	if test.ServingFlags.ResolvableDomain {
-		address = domain
-	} else if pkgTest.Flags.IngressEndpoint != "" {
-		address = pkgTest.Flags.IngressEndpoint
-	} else if address, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube); err != nil {
+	address, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+	if err != nil {
 		return nil, err
 	}
+	if test.ServingFlags.ResolvableDomain {
+		address = domain
+		mapper = func(in string) string { return in }
+	}
 
-	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
+	u := url.URL{Scheme: "ws", Host: net.JoinHostPort(address, mapper("80")), Path: "/"}
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)

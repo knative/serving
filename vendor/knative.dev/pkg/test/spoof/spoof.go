@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -110,7 +109,7 @@ func New(
 	requestInterval time.Duration,
 	requestTimeout time.Duration,
 	opts ...TransportOption) (*SpoofingClient, error) {
-	endpoint, err := ResolveEndpoint(ctx, kubeClientset, domain, resolvable, endpointOverride)
+	endpoint, mapper, err := ResolveEndpoint(ctx, kubeClientset, domain, resolvable, endpointOverride)
 	if err != nil {
 		return nil, fmt.Errorf("failed get the cluster endpoint: %w", err)
 	}
@@ -119,13 +118,13 @@ func New(
 	logf("Spoofing %s -> %s", domain, endpoint)
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
-			spoofed := addr
-			if i := strings.LastIndex(addr, ":"); i != -1 && domain == addr[:i] {
-				// The original hostname:port is spoofed by replacing the hostname by the value
-				// returned by ResolveEndpoint.
-				spoofed = endpoint + ":" + addr[i+1:]
+			_, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
 			}
-			return dialContext(ctx, network, spoofed)
+			// The original hostname:port is spoofed by replacing the hostname by the value
+			// returned by ResolveEndpoint.
+			return dialContext(ctx, network, net.JoinHostPort(endpoint, mapper(port)))
 		},
 	}
 
@@ -150,17 +149,14 @@ func New(
 
 // ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
 // account whether the user overrode the endpoint address externally
-func ResolveEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, error) {
+func ResolveEndpoint(ctx context.Context, kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, func(string) string, error) {
+	id := func(in string) string { return in }
 	// If the domain is resolvable, it can be used directly
 	if resolvable {
-		return domain, nil
-	}
-	// If an override is provided, use it
-	if endpointOverride != "" {
-		return endpointOverride, nil
+		return domain, id, nil
 	}
 	// Otherwise, use the actual cluster endpoint
-	return ingress.GetIngressEndpoint(ctx, kubeClientset)
+	return ingress.GetIngressEndpoint(ctx, kubeClientset, endpointOverride)
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
@@ -170,7 +166,9 @@ func (sc *SpoofingClient) Do(req *http.Request, errorRetryCheckers ...ErrorRetry
 	return sc.Poll(req, func(*Response) (bool, error) { return true, nil }, errorRetryCheckers...)
 }
 
-// Poll executes an http request until it satisfies the inState condition or encounters an error.
+// Poll executes an http request until it satisfies the inState condition or, if there's an error,
+// none of the error retry checkers permit a retry.
+// If no retry checkers are specified `DefaultErrorRetryChecker` will be used.
 func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, errorRetryCheckers ...ErrorRetryChecker) (*Response, error) {
 	if len(errorRetryCheckers) == 0 {
 		errorRetryCheckers = []ErrorRetryChecker{DefaultErrorRetryChecker}

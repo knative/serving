@@ -19,6 +19,7 @@ package e2e
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -96,16 +97,13 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
-		gatewayTarget := pkgTest.Flags.IngressEndpoint
-		if gatewayTarget == "" {
-			var err error
-			if gatewayTarget, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube); err != nil {
-				t.Fatal("Failed to get gateway IP:", err)
-			}
+		gatewayTarget, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+		if err != nil {
+			t.Fatal("Failed to get gateway IP:", err)
 		}
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  gatewayHostEnv,
-			Value: gatewayTarget,
+			Value: net.JoinHostPort(gatewayTarget, mapper("80")),
 		})
 	}
 

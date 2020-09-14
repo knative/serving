@@ -351,13 +351,11 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	host := url.Host
 	if !test.ServingFlags.ResolvableDomain {
-		host = pkgTest.Flags.IngressEndpoint
-		if pkgTest.Flags.IngressEndpoint == "" {
-			host, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube)
-			if err != nil {
-				t.Fatal("Could not get service endpoint:", err)
-			}
+		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+		if err != nil {
+			t.Fatal("Could not get service endpoint:", err)
 		}
+		host = net.JoinHostPort(addr, mapper("80"))
 	}
 
 	f(&testContext{
