@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 
+	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
@@ -75,7 +75,7 @@ func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, erro
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := errgroup.WithContext(context.Background())
+	g, _ := pool.NewWithContext(context.Background(), 5, num)
 	for i := 0; i < num; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
