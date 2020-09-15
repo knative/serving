@@ -121,14 +121,11 @@ func validateDataPlane(t pkgTest.TLegacy, clients *test.Clients, names test.Reso
 // Validates the state of Configuration, Revision, and Route objects for a runLatest Service.
 // The checks in this method should be able to be performed at any point in a
 // runLatest Service's lifecycle so long as the service is in a "Ready" state.
-func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string, imagesForMultipleContainers ...[]corev1.Container) error {
+func validateControlPlane(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedGeneration string, imagesForMultipleContainers ...map[string]string) error {
 	t.Log("Checking to ensure Revision is in desired state with", "generation", expectedGeneration)
 	err := v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
 		if ready, err := v1test.IsRevisionReady(r); !ready {
 			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
-		}
-		if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.DeprecatedImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.DeprecatedImageDigest, names.Image, err)
 		}
 		// for multi containers there will be more than one container and names.Image is a string,
 		// so in order to validate imageDigest for each images validateControlPlane accepting optional field called imagesForMultipleContainers
@@ -136,14 +133,14 @@ func validateControlPlane(t *testing.T, clients *test.Clients, names test.Resour
 			for _, value := range imagesForMultipleContainers {
 				for _, v := range r.Status.ContainerStatuses {
 					if image, ok := value[v.Name]; ok {
-						if validDigest, err := shared.ValidateImageDigest(image, v.ImageDigest); !validDigest {
+						if validDigest, err := shared.ValidateImageDigest(t, image, v.ImageDigest); !validDigest {
 							return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", v.ImageDigest, image, err)
 						}
 					}
 				}
 			}
 		} else {
-			if validDigest, err := shared.ValidateImageDigest(names.Image, r.Status.ContainerStatuses[0].ImageDigest); !validDigest {
+			if validDigest, err := shared.ValidateImageDigest(t, names.Image, r.Status.ContainerStatuses[0].ImageDigest); !validDigest {
 				return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ContainerStatuses[0].ImageDigest, names.Image, err)
 			}
 		}
