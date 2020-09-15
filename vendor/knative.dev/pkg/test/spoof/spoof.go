@@ -59,17 +59,8 @@ func (r *Response) String() string {
 	return fmt.Sprintf("status: %d, body: %s, headers: %v", r.StatusCode, string(r.Body), r.Header)
 }
 
-// Interface defines the actions that can be performed by the spoofing client.
-type Interface interface {
-	Do(*http.Request, ...ErrorRetryChecker) (*Response, error)
-	Poll(*http.Request, ResponseChecker, ...ErrorRetryChecker) (*Response, error)
-}
-
 // https://medium.com/stupid-gopher-tricks/ensuring-go-interface-satisfaction-at-compile-time-1ed158e8fa17
-var (
-	_           Interface = (*SpoofingClient)(nil)
-	dialContext           = (&net.Dialer{}).DialContext
-)
+var dialContext = (&net.Dialer{}).DialContext
 
 // ResponseChecker is used to determine when SpoofinClient.Poll is done polling.
 // This allows you to predicate wait.PollImmediate on the request's http.Response.
@@ -106,8 +97,7 @@ func New(
 	domain string,
 	resolvable bool,
 	endpointOverride string,
-	requestInterval time.Duration,
-	requestTimeout time.Duration,
+	requestInterval, requestTimeout time.Duration,
 	opts ...TransportOption) (*SpoofingClient, error) {
 	endpoint, mapper, err := ResolveEndpoint(ctx, kubeClientset, domain, resolvable, endpointOverride)
 	if err != nil {
@@ -138,13 +128,13 @@ func New(
 		Propagation: tracecontextb3.TraceContextB3Egress,
 	}
 
-	sc := SpoofingClient{
+	sc := &SpoofingClient{
 		Client:          &http.Client{Transport: roundTripper},
 		RequestInterval: requestInterval,
 		RequestTimeout:  requestTimeout,
 		Logf:            logf,
 	}
-	return &sc, nil
+	return sc, nil
 }
 
 // ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
