@@ -61,7 +61,7 @@ func TestTls(t *testing.T) {
 	t.Run(env.AutoTLSTestName, testAutoTLS)
 }
 
-func TestAutoTlsDisabledWithAnnotation(t *testing.T) {
+func TestTlsDisabledWithAnnotation(t *testing.T) {
 	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
@@ -75,13 +75,15 @@ func TestAutoTlsDisabledWithAnnotation(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTP, "RouteTrafficIsHTTP"); err != nil {
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTLSDisabled, "RouteTLSDisabled"); err != nil {
+		t.Fatalf("Traffic for route: %s does not have TLS disabled: %v", names.Route, err)
+	}
+
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeUrlHTTP, "RouteTrafficIsHTTP"); err != nil {
 		t.Fatalf("Traffic for route: %s is not HTTP: %v", names.Route, err)
 	}
 
-	for _, traffic := range objects.Route.Status.Traffic {
-		runtimeRequest(t, &http.Client{}, traffic.URL.String())
-	}
+	runtimeRequest(t, &http.Client{}, objects.Service.Status.URL.String())
 }
 
 func testAutoTLS(t *testing.T) {
@@ -120,6 +122,7 @@ func testAutoTLS(t *testing.T) {
 			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 			return transport
 		}
+
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
 				Tag:            "r",
@@ -175,20 +178,26 @@ func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.Res
 	return ing.Spec.TLS[0].SecretName
 }
 
-func routeTrafficHTTP(route *servingv1.Route) (bool, error) {
-	return checkRouteTrafficScheme(route, "http")
-}
 func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
-	return checkRouteTrafficScheme(route, "https")
-}
-
-func checkRouteTrafficScheme(route *servingv1.Route, scheme string) (bool, error) {
 	for _, tt := range route.Status.Traffic {
-		if tt.URL.URL().Scheme != scheme {
+		if tt.URL.URL().Scheme != "https" {
 			return false, nil
 		}
 	}
-	return route.Status.IsReady() && true, nil
+	return route.Status.IsReady(), nil
+}
+
+func routeUrlHTTP(route *servingv1.Route) (bool, error) {
+	return route.Status.URL.URL().Scheme == "http", nil
+}
+
+func routeTLSDisabled(route *servingv1.Route) (bool, error) {
+	for _, cond := range route.Status.Conditions {
+		if cond.Type == "CertificateProvisioned" {
+			return cond.Status == "True" && cond.Reason == "TLSNotEnabled", nil
+		}
+	}
+	return false, nil
 }
 
 func httpsReady(svc *servingv1.Service) (bool, error) {
