@@ -79,11 +79,12 @@ func TestTlsDisabledWithAnnotation(t *testing.T) {
 		t.Fatalf("Traffic for route: %s does not have TLS disabled: %v", names.Route, err)
 	}
 
-	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeUrlHTTP, "RouteTrafficIsHTTP"); err != nil {
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeUrlHTTP, "RouteURLIsHTTP"); err != nil {
 		t.Fatalf("Traffic for route: %s is not HTTP: %v", names.Route, err)
 	}
 
-	runtimeRequest(t, &http.Client{}, objects.Service.Status.URL.String())
+	httpClient := createHTTPClient(t, clients, objects)
+	runtimeRequest(t, httpClient, objects.Route.Status.URL.String())
 }
 
 func testAutoTLS(t *testing.T) {
@@ -243,5 +244,19 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		Transport: &http.Transport{
 			DialContext:     dialer,
 			TLSClientConfig: tlsConfig,
+		}}
+}
+
+func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) *http.Client {
+	t.Helper()
+	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
+	}
+	dialer := CreateDialContext(t, ing, clients)
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext:     dialer,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}}
 }
