@@ -89,7 +89,7 @@ go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
 
 header "Starting prober test"
 
-# Remove the following files in case we failed to clean it up in an earlier test.
+# Remove the following files in case we failed to clean them up in an earlier test.
 rm -f /tmp/prober-signal
 rm -f /tmp/autoscaling-signal
 rm -f /tmp/autoscaling-tbc-signal
