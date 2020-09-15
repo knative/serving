@@ -141,8 +141,8 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	t.Log("httpproxy is ready.")
 
 	resolvableDomain := test.ServingFlags.ResolvableDomain
-	// When accessibleExternal is false, ResolvableDomain option is not available
-	// as helloworldURL is cluster local domain. The host cannot be resolved from outside cluster.
+	// When we're testing with resolvable domains, we fail trying
+	// to resolve the cluster local domain.
 	if !accessibleExternal {
 		resolvableDomain = false
 	}
@@ -151,11 +151,6 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	// (or cannot) access the helloworld app externally.
 	response, err := sendRequest(t, clients, resolvableDomain, helloworldURL)
 	if err != nil {
-		if test.ServingFlags.ResolvableDomain {
-			// When we're testing with resolvable domains, we might fail earlier trying
-			// to resolve the shorter domain(s) off-cluster.
-			return
-		}
 		t.Fatal("Unexpected error when sending request to helloworld:", err)
 	}
 	expectedStatus := http.StatusNotFound
