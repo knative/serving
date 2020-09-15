@@ -449,12 +449,12 @@ func TestProcess(t *testing.T) {
 		t.Fatalf("Want acceptCount = 1, got %v", got)
 	}
 
-	// Once more acception.
+	// Accept once more.
 	f.Process(stat1)
 
 	got = <-acceptCh
 	if got != 2 {
-		t.Fatalf("Want acceptCount = 1, got %v", got)
+		t.Fatalf("Want acceptCount = 2, got %v", got)
 	}
 
 	// Make sure Cancel can be called without crash.
