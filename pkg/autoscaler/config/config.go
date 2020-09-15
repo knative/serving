@@ -75,7 +75,8 @@ type Config struct {
 	// autoscaling.knative.dev/maxScale annotation
 	MaxScale int32
 
-	// MaxMaxScale is the maximum allowed MaxScale and autoscaling.knative.dev/maxScale value.
+	// MaxMaxScale is the maximum allowed MaxScale and `autoscaling.knative.dev/maxScale`
+	// annotation value for a revision.
 	MaxMaxScale int32
 
 	// General autoscaler algorithm configuration.
