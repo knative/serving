@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/types"
 
@@ -48,11 +47,6 @@ func fetchRuntimeInfo(
 	if err != nil {
 		return nil, nil, err
 	}
-
-	serviceOpts = append(serviceOpts, func(svc *v1.Service) {
-		// Always fetch the latest runtime image.
-		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
-	})
 
 	objects, err := v1test.CreateServiceReady(t, clients, names,
 		serviceOpts...)

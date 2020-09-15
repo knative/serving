@@ -1037,7 +1037,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20200911160100-731bfc03416d
+# knative.dev/networking v0.0.0-20200914051501-42045bd09118
 ## explicit
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1064,7 +1064,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
-# knative.dev/pkg v0.0.0-20200911145400-2d4efecc6bc1
+# knative.dev/pkg v0.0.0-20200914134901-948ac9f2ce99
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1151,7 +1151,6 @@ knative.dev/pkg/test/gke
 knative.dev/pkg/test/ha
 knative.dev/pkg/test/helpers
 knative.dev/pkg/test/ingress
-knative.dev/pkg/test/junit
 knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
 knative.dev/pkg/test/mako
@@ -1160,11 +1159,9 @@ knative.dev/pkg/test/mako/alerter/github
 knative.dev/pkg/test/mako/alerter/slack
 knative.dev/pkg/test/mako/config
 knative.dev/pkg/test/monitoring
-knative.dev/pkg/test/performance
 knative.dev/pkg/test/prow
 knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
-knative.dev/pkg/test/testgrid
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/webhook-apicoverage/coveragecalculator
 knative.dev/pkg/test/webhook-apicoverage/resourcetree
@@ -1190,7 +1187,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200910231400-cfba2288403d
+# knative.dev/test-infra v0.0.0-20200911201000-3f90e7c8f2fa
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba

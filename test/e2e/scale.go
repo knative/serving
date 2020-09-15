@@ -61,8 +61,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		minProbes = 20
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
-
 	// wg tracks the number of ksvcs that we are still waiting to see become ready.
 	wg := sync.WaitGroup{}
 
@@ -73,7 +71,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	t.Cleanup(func() {
 		// Wait for the ksvcs to all become ready (or fail)
 		wg.Wait()
-		cancel()
 
 		// Wait for all of the service creations to complete (possibly in failure),
 		// and signal the done channel.
@@ -114,6 +111,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			})
 
 			eg.Go(func() error {
+				ctx, cancel := context.WithTimeout(context.Background(), duration)
+				t.Cleanup(cancel)
+
 				// This go routine runs until the ksvc is ready, at which point we should note that
 				// our part is done.
 				defer func() {

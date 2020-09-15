@@ -51,7 +51,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 		Namespace:    namespace,
 	}
 
-	// Create a dummy Revision from the template
+	// Create a sample Revision from the template
 	rev := &v1.Revision{
 		ObjectMeta: om,
 		Spec:       ps,
@@ -59,7 +59,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 	rev.SetDefaults(ctx)
 	podSpec := resources.BuildPodSpec(rev, resources.BuildUserContainers(rev))
 
-	// Make a dummy pod with the template Revisions & PodSpec and dryrun call to API-server
+	// Make a sample pod with the template Revisions & PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{
 		ObjectMeta: om,
 		Spec:       *podSpec,

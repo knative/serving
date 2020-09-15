@@ -21,7 +21,6 @@ import (
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
@@ -67,58 +66,52 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 	}
 }
 
-func (p *bucketProcessor) process(sm asmetrics.StatMessage) {
+func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	l := p.logger.With(zap.String("revision", sm.Key.String()))
 	if p.accept != nil {
 		l.Debug("Accept stat as owner of bucket ", p.bkt)
 		p.accept(sm)
-		return
+		return nil
 	}
 
 	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.holder)
 	wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
 	b, err := wsms.Marshal()
 	if err != nil {
-		l.Errorw("Error while marshaling stats", zap.Error(err))
-		return
+		return err
 	}
 
-	var lastErr error
-	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
-		if p.podsAddressable {
-			if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
-				// In this case, there's no mesh.
-				if p.svcConn != nil {
-					if err := p.svcConn.Shutdown(); err != nil {
-						p.svcConn = nil
-					}
-				}
-				return true, nil
-			}
-		}
-
-		if p.svcConn == nil {
-			p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
-			p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
-		}
-
-		err = p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b)
-		if err == nil {
-			// In this case, there's mesh.
-			p.podsAddressable = false
-			if p.podConn != nil {
-				if err := p.podConn.Shutdown(); err != nil {
-					p.podConn = nil
+	if p.podsAddressable {
+		if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
+			// In this case, there's no mesh.
+			if p.svcConn != nil {
+				if err := p.svcConn.Shutdown(); err != nil {
+					p.svcConn = nil
 				}
 			}
-			return true, nil
+			return nil
 		}
-
-		lastErr = err
-		return false, nil
-	}); err != nil {
-		p.logger.Warnf("Failed to foward stat within %v seconds: %v", forwardRetryTimeout.Seconds, lastErr)
 	}
+
+	if p.svcConn == nil {
+		p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
+		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
+	}
+
+	err = p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b)
+	if err == nil {
+		// In this case, there's mesh.
+		p.podsAddressable = false
+		if p.podConn != nil {
+			if err := p.podConn.Shutdown(); err != nil {
+				p.podConn = nil
+			}
+		}
+		return nil
+	}
+
+	// Sending via IP address and SVC both fail, return error for retrying.
+	return err
 }
 
 func (p *bucketProcessor) shutdown() {
