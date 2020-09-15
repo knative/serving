@@ -22,19 +22,24 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	"knative.dev/pkg/hash"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/leaderelection"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -48,6 +53,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
+	"knative.dev/serving/pkg/autoscaler/statforwarder"
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
@@ -147,12 +153,39 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
+	// accept is the func to call when this pod owns the given StatMessage.
+	accept := func(sm asmetrics.StatMessage) {
+		collector.Record(sm.Key, time.Now(), sm.Stat)
+		multiScaler.Poke(sm.Key, sm.Stat)
+	}
+
+	selfIP := os.Getenv("POD_IP")
+	if selfIP == "" {
+		logger.Fatalf("POD_IP environment variable not set.")
+	}
+
+	// Set up leader election config
+	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
+	if err != nil {
+		logger.Fatalf("Error loading leader election configuration: %v", err)
+	}
+
+	cc := leaderElectionConfig.GetComponentConfig(component)
+	cc.LeaseName = func(i uint32) string {
+		return endpointsBucketName(i, cc.Buckets)
+	}
+	cc.Identity = selfIP
+	ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeClient, cc)
+
+	f := statforwarder.New(ctx, logger, kubeClient, selfIP, newEndpointsBucketSet(cc.Buckets), accept)
+	accept = f.Process
+	defer f.Cancel()
+
 	go controller.StartAll(ctx, controllers...)
 
 	go func() {
 		for sm := range statsCh {
-			collector.Record(sm.Key, time.Now(), sm.Stat)
-			multiScaler.Poke(sm.Key, sm.Stat)
+			f.Process(sm)
 		}
 	}()
 
@@ -218,4 +251,16 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister) asmetrics.StatsS
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
+}
+
+func newEndpointsBucketSet(total uint32) *hash.BucketSet {
+	names := make(sets.String, total)
+	for i := uint32(0); i < total; i++ {
+		names.Insert(endpointsBucketName(i, total))
+	}
+	return hash.NewBucketSet(names)
+}
+
+func endpointsBucketName(ordinal, total uint32) string {
+	return strings.ToLower(fmt.Sprintf("%s-bucket-%02d-of-%02d", component, ordinal, total))
 }

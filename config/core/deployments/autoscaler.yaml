@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: autoscaler
@@ -28,6 +28,7 @@ spec:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        sidecar.istio.io: "true"
       labels:
         app: autoscaler
         serving.knative.dev/release: devel
@@ -63,6 +64,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
