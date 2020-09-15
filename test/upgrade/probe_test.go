@@ -30,6 +30,8 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+const probePipe = "/tmp/prober-signal"
+
 var successFraction = flag.Float64("probe.success_fraction", 1.0, "Fraction of probes required to pass during upgrade.")
 
 func TestProbe(t *testing.T) {
@@ -40,7 +42,7 @@ func TestProbe(t *testing.T) {
 	// can't coordinate with the test by just sending e.g. SIGCONT, so we
 	// create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop probing.
-	createPipe(pipe, t)
+	createPipe(probePipe, t)
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -66,5 +68,5 @@ func TestProbe(t *testing.T) {
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
-	ioutil.ReadFile(pipe)
+	ioutil.ReadFile(probePipe)
 }

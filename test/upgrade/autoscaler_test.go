@@ -31,6 +31,9 @@ import (
 const (
 	target            = 6
 	targetUtilization = 0.7
+
+	autoscalingPipe    = "/tmp/autoscaling-signal"
+	autoscalingTBCPipe = "/tmp/autoscaling-tbc-signal"
 )
 
 // This test similar to TestAutoscaleSustaining in test/e2e/autoscale_test.go. It asserts
@@ -39,7 +42,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
-	createPipe(pipe, t)
+	createPipe(autoscalingPipe, t)
 
 	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization)
 
@@ -47,7 +50,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	go func() {
 		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 		// over, at which point we will finish the test.
-		ioutil.ReadFile(pipe)
+		ioutil.ReadFile(autoscalingPipe)
 		close(stopCh)
 	}()
 
@@ -58,7 +61,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	t.Parallel()
 	// Create a named pipe and wait for the upgrade script to write to it
 	// to signal that we should stop testing.
-	createPipe(pipe, t)
+	createPipe(autoscalingTBCPipe, t)
 
 	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
@@ -69,7 +72,7 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 	go func() {
 		// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 		// over, at which point we will finish the test.
-		ioutil.ReadFile(pipe)
+		ioutil.ReadFile(autoscalingTBCPipe)
 		close(stopCh)
 	}()
 

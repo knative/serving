@@ -46,8 +46,6 @@ const (
 	byoServiceName           = "byo-revision-name-upgrade-test"
 	byoRevName               = byoServiceName + "-" + "rev1"
 	initialScaleServiceName  = "init-scale-service"
-
-	pipe = "/tmp/prober-signal"
 )
 
 // Shamelessly cribbed from conformance/service_test.

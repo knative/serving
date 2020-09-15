@@ -89,8 +89,10 @@ go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
 
 header "Starting prober test"
 
-# Remove this in case we failed to clean it up in an earlier test.
+# Remove the following files in case we failed to clean it up in an earlier test.
 rm -f /tmp/prober-signal
+rm -f /tmp/autoscaling-signal
+rm -f /tmp/autoscaling-tbc-signal
 
 go_test_e2e -tags=probe -timeout=${PROBE_TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) &
@@ -109,11 +111,13 @@ header "Running postdowngrade tests"
 go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
-# The prober is blocking on /tmp/prober-signal to know when it should exit.
+# The probe tests are blocking on the following files to know when it should exit.
 #
 # This is kind of gross. First attempt was to just send a signal to the go test,
 # but "go test" intercepts the signal and always exits with a non-zero code.
 echo "done" > /tmp/prober-signal
+echo "done" > /tmp/autoscaling-signal
+echo "done" > /tmp/autoscaling-tbc-signal
 
 header "Waiting for prober test"
 wait ${PROBER_PID} || fail_test "Prober failed"
