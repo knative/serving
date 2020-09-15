@@ -28,12 +28,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/networking/pkg/apis/networking"
 	ntest "knative.dev/networking/test"
 	"knative.dev/networking/test/conformance/ingress"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/spoof"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -57,6 +59,29 @@ func TestTls(t *testing.T) {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	t.Run(env.AutoTLSTestName, testAutoTLS)
+}
+
+func TestAutoTlsDisabledWithAnnotation(t *testing.T) {
+	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.EnsureTearDown(t, clients, &names)
+
+	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.DisableAutoTLSAnnotationKey: "true"}))
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTP, "RouteTrafficIsHTTP"); err != nil {
+		t.Fatalf("Traffic for route: %s is not HTTP: %v", names.Route, err)
+	}
+
+	for _, traffic := range objects.Route.Status.Traffic {
+		runtimeRequest(t, &http.Client{}, traffic.URL.String())
+	}
 }
 
 func testAutoTLS(t *testing.T) {
@@ -150,9 +175,16 @@ func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.Res
 	return ing.Spec.TLS[0].SecretName
 }
 
+func routeTrafficHTTP(route *servingv1.Route) (bool, error) {
+	return checkRouteTrafficScheme(route, "http")
+}
 func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
+	return checkRouteTrafficScheme(route, "https")
+}
+
+func checkRouteTrafficScheme(route *servingv1.Route, scheme string) (bool, error) {
 	for _, tt := range route.Status.Traffic {
-		if tt.URL.URL().Scheme != "https" {
+		if tt.URL.URL().Scheme != scheme {
 			return false, nil
 		}
 	}
