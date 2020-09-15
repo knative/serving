@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/clock"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -101,7 +102,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 		}
 
 	case rc.IsFalse():
-		logger.Infof("Revision %q of configuration has failed", revName)
+		logger.Infof("Revision %q of configuration has failed: Reason=%s Message=%q", revName, rc.Reason, rc.Message)
 		beforeReady := config.Status.GetCondition(v1.ConfigurationConditionReady)
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 
@@ -264,7 +265,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 	logger := logging.FromContext(ctx)
 
 	rev := resources.MakeRevision(ctx, config, c.clock)
-	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(rev)
+	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

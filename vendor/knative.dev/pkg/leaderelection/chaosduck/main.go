@@ -33,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/kflag"
 	"knative.dev/pkg/signals"
@@ -78,8 +76,8 @@ func extractDeployment(pod string) string {
 
 // buildComponents crawls the list of leases and builds a mapping from component names
 // to the set pod names that hold one or more leases.
-func buildComponents(kc kubernetes.Interface) (components, error) {
-	leases, err := kc.CoordinationV1().Leases(system.Namespace()).List(metav1.ListOptions{})
+func buildComponents(ctx context.Context, kc kubernetes.Interface) (components, error) {
+	leases, err := kc.CoordinationV1().Leases(system.Namespace()).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -114,23 +112,19 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 	}
 	log.Printf("Quacking at %q leader %q", component, tribute)
 
-	return kc.CoreV1().Pods(system.Namespace()).Delete(tribute, &metav1.DeleteOptions{})
+	return kc.CoreV1().Pods(system.Namespace()).Delete(ctx, tribute, metav1.DeleteOptions{})
 }
 
 func main() {
 	ctx := signals.NewContext()
+	ctx = sharedmain.EnableInjectionOrDie(ctx, nil)
 
-	// We don't expect informers to be set up, but we do expect the client to get attached to ctx.
-	ctx, informers := injection.Default.SetupInformers(ctx, sharedmain.ParseAndGetConfigOrDie())
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		log.Fatalf("Failed to start informers %v", err)
-	}
 	kc := kubeclient.Get(ctx)
 
 	// Until we are shutdown, build up an index of components and kill
 	// of a leader at the specified frequency.
 	wait.JitterUntilWithContext(ctx, func(ctx context.Context) {
-		components, err := buildComponents(kc)
+		components, err := buildComponents(ctx, kc)
 		if err != nil {
 			log.Printf("Error building components: %v", err)
 		}

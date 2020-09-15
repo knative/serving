@@ -25,7 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/network"
+	"go.uber.org/atomic"
+
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue/readiness"
 )
 
@@ -33,194 +35,142 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
 	for _, port := range []string{"-1", "0", "66000"} {
 		os.Setenv(queuePortEnvVar, port)
-		if rv := standaloneProbeMain(1); rv != 1 {
+		if rv := standaloneProbeMain(1, nil); rv != 1 {
 			t.Error("Unexpected return code", rv)
 		}
 	}
 }
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
-	if err := probeQueueHealthPath(1, 12345); err == nil {
+	if err := probeQueueHealthPath(1, 12345, nil); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed atomic.Bool
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		probed.Store(true)
 		w.WriteHeader(http.StatusBadRequest)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	err = probeQueueHealthPath(time.Second, port)
+	err := probeQueueHealthPath(time.Second, port, nil)
 
 	if err == nil || err.Error() != "probe returned not ready" {
 		t.Error("Unexpected not ready error:", err)
 	}
 
-	if queueProbed == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeShuttingDown(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed atomic.Bool
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		probed.Store(true)
 		w.WriteHeader(http.StatusGone)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
-	err = probeQueueHealthPath(time.Second, port)
+	err := probeQueueHealthPath(time.Second, port, nil)
 
 	if err == nil || err.Error() != "failed to probe: failing probe deliberately for shutdown" {
 		t.Error("Unexpected error:", err)
 	}
 
-	if queueProbed == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueShuttingDownFailsFast(t *testing.T) {
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
 		w.WriteHeader(http.StatusGone)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
-	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
-	}
-
 	start := time.Now()
-	if err = probeQueueHealthPath(1, port); err == nil {
+	if err := probeQueueHealthPath(1, port, nil); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
-	// if fails due to timeout and not cancelation, then it took too long
+	// if fails due to timeout and not cancelation, then it took too long.
 	if time.Since(start) >= 1*time.Second {
 		t.Error("took too long to fail")
 	}
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed atomic.Bool
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		probed.Store(true)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, u.Port())
+	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
-	if rv := standaloneProbeMain(0 /*use default*/); rv != 0 {
+	if rv := standaloneProbeMain(0 /*use default*/, nil); rv != 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	if queueProbed == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueTimeout(t *testing.T) {
-	queueProbed := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		queueProbed++
+	var probed atomic.Bool
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		probed.Store(true)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
-
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
-	}
-
 	t.Cleanup(func() { os.Unsetenv(queuePortEnvVar) })
-	os.Setenv(queuePortEnvVar, u.Port())
+	os.Setenv(queuePortEnvVar, strconv.Itoa(port))
 
 	const timeout = time.Second
-	if rv := standaloneProbeMain(timeout); rv == 0 {
+	if rv := standaloneProbeMain(timeout, nil); rv == 0 {
 		t.Error("Unexpected return value from standaloneProbeMain:", rv)
 	}
 
-	ts.Close()
-
-	if queueProbed == 0 {
+	if !probed.Load() {
 		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := 0
-	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		count++
-		if count < 9 {
+	var count atomic.Int64
+	port := newProbeTestServer(t, func(w http.ResponseWriter) {
+		if count.Inc() < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 	})
 
-	defer ts.Close()
+	if err := probeQueueHealthPath(readiness.PollTimeout, port, nil); err != nil {
+		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+}
+
+func newProbeTestServer(t *testing.T, f func(w http.ResponseWriter)) (port int) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
+			f(w)
+		}
+	}))
+	t.Cleanup(ts.Close)
 
 	u, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
 	}
 
-	port, err := strconv.Atoi(u.Port())
+	port, err = strconv.Atoi(u.Port())
 	if err != nil {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err := probeQueueHealthPath(readiness.PollTimeout, port); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
-	}
-}
-
-func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
-			f(w)
-		}
-	}))
+	return port
 }

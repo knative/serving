@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -29,7 +30,6 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -39,10 +39,8 @@ import (
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
@@ -51,16 +49,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
@@ -70,12 +64,8 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// as long as the traffic sustains, despite whether it is switching modes between
 	// normal and panic.
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint)
-	defer test.TearDown(ctx.clients, &ctx.names)
-
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
 
@@ -86,10 +76,8 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// getting spare capacity of 20-10=10, which should remove the
 	// Activator from the request path.
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -114,7 +102,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
@@ -140,7 +128,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// uniformness with one above.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
+			context.Background(), ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -153,10 +141,8 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -166,24 +152,22 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Error getting activator endpoints:", err)
 	}
 	t.Log("Activator endpoints:", aeps)
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 }
 
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization, autoscaleTestImageName, validateEndpoint,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
@@ -194,7 +178,7 @@ func TestFastScaleToZero(t *testing.T) {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
 
-	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(metav1.ListOptions{
+	epsL, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,%s=%s",
 			serving.RevisionLabelKey, ctx.resources.Revision.Name,
 			networking.ServiceTypeKey, networking.ServiceTypePrivate,
@@ -215,7 +199,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
-		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(epsN, metav1.GetOptions{})
+		eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

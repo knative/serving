@@ -537,38 +537,6 @@ func TestRevisionGetLastPinned(t *testing.T) {
 	}
 }
 
-func TestRevisionIsReachable(t *testing.T) {
-	tests := []struct {
-		name   string
-		labels map[string]string
-		want   bool
-	}{{
-		name:   "has route annotation",
-		labels: map[string]string{serving.RouteLabelKey: "the-route"},
-		want:   true,
-	}, {
-		name:   "empty route annotation",
-		labels: map[string]string{serving.RouteLabelKey: ""},
-		want:   false,
-	}, {
-		name:   "no route annotation",
-		labels: nil,
-		want:   false,
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rev := Revision{ObjectMeta: metav1.ObjectMeta{Labels: tt.labels}}
-
-			got := rev.IsReachable()
-
-			if got != tt.want {
-				t.Errorf("got: %t, want: %t", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestPropagateDeploymentStatus(t *testing.T) {
 	rev := &RevisionStatus{}
 	rev.InitializeConditions()

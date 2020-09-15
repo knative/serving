@@ -291,8 +291,8 @@ func (in *HTTPIngressPath) DeepCopyInto(out *HTTPIngressPath) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.Retries != nil {
-		in, out := &in.Retries, &out.Retries
+	if in.DeprecatedRetries != nil {
+		in, out := &in.DeprecatedRetries, &out.DeprecatedRetries
 		*out = new(HTTPRetry)
 		(*in).DeepCopyInto(*out)
 	}
@@ -547,8 +547,8 @@ func (in *IngressSpec) DeepCopy() *IngressSpec {
 func (in *IngressStatus) DeepCopyInto(out *IngressStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
-	if in.LoadBalancer != nil {
-		in, out := &in.LoadBalancer, &out.LoadBalancer
+	if in.DeprecatedLoadBalancer != nil {
+		in, out := &in.DeprecatedLoadBalancer, &out.DeprecatedLoadBalancer
 		*out = new(LoadBalancerStatus)
 		(*in).DeepCopyInto(*out)
 	}

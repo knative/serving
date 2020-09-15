@@ -25,8 +25,7 @@ import (
 func main() {
 	log.Println("Started...")
 
-	// Sleep for 10 seconds to force a race condition, where this
-	// container becomes ready if no readinessProbe is set.
+	// Sleep for 10 seconds and then crash.
 	time.Sleep(10 * time.Second)
 
 	log.Println("Crashed...")

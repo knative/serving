@@ -19,13 +19,14 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
@@ -72,6 +73,11 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, targetName 
 		Type:            corev1.ServiceTypeExternalName,
 		ExternalName:    fullName,
 		SessionAffinity: corev1.ServiceAffinityNone,
+		Ports: []corev1.ServicePort{{
+			Name:       networking.ServicePortNameH2C,
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(80),
+		}},
 	}
 
 	return service, nil
@@ -112,7 +118,12 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 				// This service is owned by the Route.
 				*kmeta.NewControllerRef(route),
 			},
-			Labels: svcLabels,
+			Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+				// Do not propagate the visibility label from Route as users may want to set the label
+				// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
+				return (key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete)
+			}), svcLabels),
+			Annotations: route.GetAnnotations(),
 		},
 	}, nil
 }
@@ -120,15 +131,12 @@ func makeK8sService(ctx context.Context, route *v1.Route, targetName string) (*c
 func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP string) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.Status
 
-	var lbStatus *netv1alpha1.LoadBalancerStatus
-
+	lbStatus := ingressStatus.PublicLoadBalancer
 	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
 		// Always use private load balancer if it exists,
 		// because k8s service is only useful for inter-cluster communication.
 		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
 		lbStatus = ingressStatus.PrivateLoadBalancer
-	} else {
-		lbStatus = ingressStatus.PublicLoadBalancer
 	}
 
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
@@ -136,7 +144,8 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 	}
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ingress.GetName())
+		return nil, errors.New(
+			"more than one ingress are specified in status(LoadBalancer) of Ingress " + ingress.GetName())
 	}
 	balancer := lbStatus.Ingress[0]
 
@@ -144,16 +153,26 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 	// DomainInternal > Domain > LoadBalancedIP to prioritize cluster-local,
 	// and domain (since it would change less than IP).
 	switch {
-	case len(balancer.DomainInternal) != 0:
+	case balancer.DomainInternal != "":
 		return &corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    balancer.DomainInternal,
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
-	case len(balancer.Domain) != 0:
+	case balancer.Domain != "":
 		return &corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: balancer.Domain,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		}, nil
 	case balancer.MeshOnly:
 		// The Ingress is loadbalanced through a Service mesh.
@@ -169,7 +188,7 @@ func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool, clusterIP str
 				Port: networking.ServiceHTTPPort,
 			}},
 		}, nil
-	case len(balancer.IP) != 0:
+	case balancer.IP != "":
 		// TODO(lichuqiang): deal with LoadBalancer IP.
 		// We'll also need ports info to make it take effect.
 	}

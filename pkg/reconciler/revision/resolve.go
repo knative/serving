@@ -89,7 +89,7 @@ func (r *digestResolver) Resolve(
 	image string,
 	opt k8schain.Options,
 	registriesToSkip sets.String) (string, error) {
-	kc, err := k8schain.New(r.client, opt)
+	kc, err := k8schain.New(ctx, r.client, opt)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)
 	}

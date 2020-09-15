@@ -21,21 +21,24 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	network "knative.dev/networking/pkg"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -46,9 +49,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
-	rev := getTestRevision("test-rev")
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady, WithK8sServiceName("test-rev"))
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+	route := Route(testNamespace, "test-route", WithSpecTraffic(
 		v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(100),
@@ -76,6 +79,11 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.FeaturesConfigName,
+			Namespace: system.Namespace(),
+		},
 	})
 
 	servingClient := fakeservingclient.Get(ctx)
@@ -110,12 +118,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		waitInformers()
 	}()
 
-	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating revision:", err)
 	}
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
+	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(ctx, route, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Unexpected error creating route:", err)
 	}
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)

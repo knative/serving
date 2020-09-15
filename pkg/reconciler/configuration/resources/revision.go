@@ -23,44 +23,45 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"knative.dev/pkg/kmeta"
-	cfgMap "knative.dev/serving/pkg/apis/config"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 // MakeRevision creates a revision object from configuration.
-func MakeRevision(ctx context.Context, config *v1.Configuration, clock clock.Clock) *v1.Revision {
+func MakeRevision(ctx context.Context, configuration *v1.Configuration, clock clock.Clock) *v1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1.Revision{
-		ObjectMeta: config.Spec.GetTemplate().ObjectMeta,
-		Spec:       config.Spec.GetTemplate().Spec,
+		ObjectMeta: configuration.Spec.GetTemplate().ObjectMeta,
+		Spec:       configuration.Spec.GetTemplate().Spec,
 	}
 	// Populate the Namespace and Name.
-	rev.Namespace = config.Namespace
+	rev.Namespace = configuration.Namespace
 
 	if rev.Name == "" {
-		rev.GenerateName = config.Name + "-"
+		rev.GenerateName = configuration.Name + "-"
 	}
 
-	UpdateRevisionLabels(rev, config)
-	UpdateRevisionAnnotations(rev, config)
-
 	// Pending tells the labeler that we have not processed this revision.
-	if cfgMap.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC == cfgMap.Enabled {
+	if config.FromContextOrDefaults(ctx).Features.ResponsiveRevisionGC != cfgmap.Disabled {
 		rev.SetRoutingState(v1.RoutingStatePending, clock)
 	}
 
+	updateRevisionLabels(rev, configuration)
+	updateRevisionAnnotations(rev, configuration)
+
 	// Populate OwnerReferences so that deletes cascade.
-	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *kmeta.NewControllerRef(configuration))
 
 	return rev
 }
 
-// UpdateRevisionLabels sets the revisions labels given a Configuration.
-func UpdateRevisionLabels(rev, config metav1.Object) {
+// updateRevisionLabels sets the revisions labels given a Configuration.
+func updateRevisionLabels(rev, config metav1.Object) {
 	labels := rev.GetLabels()
 	if labels == nil {
-		labels = make(map[string]string)
+		labels = make(map[string]string, 3)
 	}
 
 	for _, key := range []string{
@@ -74,17 +75,22 @@ func UpdateRevisionLabels(rev, config metav1.Object) {
 	rev.SetLabels(labels)
 }
 
-// UpdateRevisionAnnotations sets the revisions annotations given a Configuration's updater annotation.
-func UpdateRevisionAnnotations(rev, config metav1.Object) {
+// updateRevisionAnnotations sets the revision's annotation given a Configuration's updater annotation.
+func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
 	annotations := rev.GetAnnotations()
 	if annotations == nil {
-		annotations = make(map[string]string)
+		annotations = make(map[string]string, 1)
 	}
 
-	// Populate the CreatorAnnotation from configuration.
+	// Populate the CreatorAnnotation from configuration's Updater annotation.
 	cans := config.GetAnnotations()
 	if c, ok := cans[serving.UpdaterAnnotation]; ok {
 		annotations[serving.CreatorAnnotation] = c
+	}
+
+	if v, ok := cans[serving.RoutesAnnotationKey]; ok {
+		annotations[serving.RoutesAnnotationKey] = v
+		rev.SetRoutingState(v1.RoutingStateActive, clock.RealClock{})
 	}
 
 	rev.SetAnnotations(annotations)
@@ -98,8 +104,7 @@ func RevisionLabelValueForKey(key string, config metav1.Object) string {
 	case serving.ServiceLabelKey:
 		return config.GetLabels()[serving.ServiceLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
-		return fmt.Sprintf("%d", config.GetGeneration())
+		return fmt.Sprint(config.GetGeneration())
 	}
-
 	return ""
 }

@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -65,7 +65,7 @@ const (
 // until the HTTP endpoint responds with success. This allows us to get an
 // initial readiness result much faster than the effective upstream Kubernetes
 // minimum of 1 second.
-func standaloneProbeMain(timeout time.Duration) (exitCode int) {
+func standaloneProbeMain(timeout time.Duration, transport http.RoundTripper) (exitCode int) {
 	queueServingPort, err := strconv.ParseUint(os.Getenv(queuePortEnvVar), 10, 16 /*ports are 16 bit*/)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "parse queue port:", err)
@@ -80,7 +80,7 @@ func standaloneProbeMain(timeout time.Duration) (exitCode int) {
 		timeout = readiness.PollTimeout
 	}
 
-	if err := probeQueueHealthPath(timeout, int(queueServingPort)); err != nil {
+	if err := probeQueueHealthPath(timeout, int(queueServingPort), transport); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -88,8 +88,12 @@ func standaloneProbeMain(timeout time.Duration) (exitCode int) {
 	return 0
 }
 
-func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
+func probeQueueHealthPath(timeout time.Duration, queueServingPort int, transport http.RoundTripper) error {
 	url := healthURLPrefix + strconv.Itoa(queueServingPort)
+
+	if transport == nil {
+		transport = &http.Transport{}
+	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -101,8 +105,10 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 	req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
 
 	httpClient := &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: transport,
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -115,7 +121,7 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
 		res, lastErr = httpClient.Do(req)
 		if lastErr != nil {
-			// Return nil error for retrying
+			// Return nil error for retrying.
 			return false, nil
 		}
 
@@ -138,7 +144,7 @@ func probeQueueHealthPath(timeout time.Duration, queueServingPort int) error {
 		return fmt.Errorf("failed to probe: %w", lastErr)
 	}
 
-	// An http.StatusOK was never returned during probing
+	// An http.StatusOK was never returned during probing.
 	if timeoutErr != nil {
 		return errors.New("probe returned not ready")
 	}

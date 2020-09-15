@@ -114,6 +114,16 @@ func createOCTConfig(cfg *config.Config) *trace.Config {
 // WithExporter returns a ConfigOption for use with NewOpenCensusTracer that configures
 // it to export traces based on the configuration read from config-tracing.
 func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
+	return WithExporterFull(name, name, logger)
+}
+
+// WithExporterFull supports host argument for WithExporter.
+// The host arg is used for a value of tag ip="{IP}" so you can use an actual IP. Otherwise,
+// the host name must be able to be resolved.
+// e.g)
+//   "name" is a service name like activator-service.
+//   "host" is a endpoint IP like activator-service's endpint IP.
+func WithExporterFull(name, host string, logger *zap.SugaredLogger) ConfigOption {
 	return func(cfg *config.Config) error {
 		var (
 			exporter trace.Exporter
@@ -130,18 +140,20 @@ func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
 			}
 			exporter = exp
 		case config.Zipkin:
-			// If name isn't specified, then zipkin.NewEndpoint will return an error saying that it
+			// If host isn't specified, then zipkin.NewEndpoint will return an error saying that it
 			// can't find the host named ''. So, if not specified, default it to this machine's
 			// hostname.
-			if name == "" {
+			if host == "" {
 				n, err := os.Hostname()
 				if err != nil {
 					return fmt.Errorf("unable to get hostname: %w", err)
 				}
-				name = n
+				host = n
 			}
-			hostPort := name + ":80"
-			zipEP, err := zipkin.NewEndpoint(name, hostPort)
+			if name == "" {
+				name = host
+			}
+			zipEP, err := zipkin.NewEndpoint(name, host)
 			if err != nil {
 				logger.Errorw("error building zipkin endpoint", zap.Error(err))
 				return err

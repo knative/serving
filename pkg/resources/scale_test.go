@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -71,18 +72,18 @@ func TestScaleResource(t *testing.T) {
 			gvr, name, err := ScaleResourceArguments(tc.objectRef)
 
 			if !cmp.Equal(gvr, tc.wantGVR) {
-				t.Errorf("ScaleResource() = %v, want: %v, diff: %s", gvr, tc.wantGVR, cmp.Diff(gvr, tc.wantGVR))
+				t.Errorf("ScaleResourceArguments() = %v, want: %v, diff: %s", gvr, tc.wantGVR, cmp.Diff(gvr, tc.wantGVR))
 			}
 
 			if name != tc.wantName {
-				t.Errorf("ScaleResource() = %s, want %s", name, tc.wantName)
+				t.Errorf("ScaleResourceArguments() = %s, want %s", name, tc.wantName)
 			}
 
 			if err == nil && tc.wantErr {
-				t.Error("ScaleResource() didn't return an error")
+				t.Error("ScaleResourceArguments() didn't return an error")
 			}
 			if err != nil && !tc.wantErr {
-				t.Errorf("ScaleResource() = %v, want no error", err)
+				t.Errorf("ScaleResourceArguments() = %v, want no error", err)
 			}
 		})
 	}
@@ -91,7 +92,7 @@ func TestScaleResource(t *testing.T) {
 func TestGetScaleResource(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	deployment := newDeployment(t, fakedynamicclient.Get(ctx), "testdeployment", 5)
+	deployment := newDeployment(ctx, t, fakedynamicclient.Get(ctx), "testdeployment", 5)
 
 	psInformerFactory := podscalable.Get(ctx)
 	objectRef := corev1.ObjectReference{
@@ -99,19 +100,19 @@ func TestGetScaleResource(t *testing.T) {
 		Kind:       "deployment",
 		APIVersion: "apps/v1",
 	}
-	scale, err := GetScaleResource(testNamespace, objectRef, psInformerFactory)
+	scale, err := GetScaleResource(ctx, testNamespace, objectRef, psInformerFactory)
 	if err != nil {
-		t.Fatal("GetScale got error =", err)
+		t.Fatal("GetScaleResource() got error =", err)
 	}
 	if got, want := scale.Status.Replicas, int32(5); got != want {
-		t.Errorf("GetScale.Status.Replicas = %d, want: %d", got, want)
+		t.Errorf("GetScaleResource().Status.Replicas = %d, want: %d", got, want)
 	}
 	if got, want := scale.Spec.Selector.MatchLabels[serving.RevisionUID], "1982"; got != want {
-		t.Errorf("GetScale.Status.Selector = %q, want = %q", got, want)
+		t.Errorf("GetScaleResource().Status.Selector = %q, want = %q", got, want)
 	}
 }
 
-func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
+func newDeployment(ctx context.Context, t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
 	t.Helper()
 
 	uns := &unstructured.Unstructured{
@@ -141,7 +142,7 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		Group:    "apps",
 		Version:  "v1",
 		Resource: "deployments",
-	}).Namespace(testNamespace).Create(uns, metav1.CreateOptions{})
+	}).Namespace(testNamespace).Create(ctx, uns, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal("Create() =", err)
 	}

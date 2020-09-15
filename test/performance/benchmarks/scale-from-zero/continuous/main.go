@@ -187,7 +187,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 	})
 
 	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
-		metav1.ListOptions{LabelSelector: selector.String()})
+		context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)
 		log.Println(m)
@@ -203,6 +203,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 		log.Printf("%02d: waiting for endpoint to serve request", idx)
 		url := ro.Route.Status.URL.URL()
 		_, err := pkgTest.WaitForEndpointStateWithTimeout(
+			context.Background(),
 			clients.KubeClient,
 			log.Printf,
 			url,

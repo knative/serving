@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
@@ -30,7 +31,6 @@ import (
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/pkg/configmap/testing"
 )
@@ -82,7 +82,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 		if err != nil {
 			t.Fatal("Error parsing example observability config:", err)
 		}
-		if cmp.Equal(got, want) {
+		if !cmp.Equal(got, want) {
 			t.Error("Example Observability Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
 	})

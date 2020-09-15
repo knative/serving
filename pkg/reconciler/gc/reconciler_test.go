@@ -24,20 +24,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/clock"
 	clientgotesting "k8s.io/client-go/testing"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
-	cfgmap "knative.dev/serving/pkg/apis/config"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	"knative.dev/serving/pkg/gc"
-	gcconfig "knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 
@@ -69,7 +68,7 @@ func TestGCReconcile(t *testing.T) {
 	controllerOpts := controller.Options{
 		ConfigStore: &testConfigStore{
 			config: &config.Config{
-				RevisionGC: &gcconfig.Config{
+				RevisionGC: &gc.Config{
 					// v1 settings
 					StaleRevisionCreateDelay:        5 * time.Minute,
 					StaleRevisionTimeout:            5 * time.Minute,
@@ -81,46 +80,14 @@ func TestGCReconcile(t *testing.T) {
 					MinNonActiveRevisions:     1,
 					MaxNonActiveRevisions:     gc.Disabled,
 				},
+				Features: &apiconfig.Features{
+					ResponsiveRevisionGC: apiconfig.Disabled,
+				},
 			},
 		}}
 
 	table := TableTest{{
-		Name: "delete oldest, keep two V2",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Enabled),
-		Objects: []runtime.Object{
-			cfg("keep-two", "foo", 5556,
-				WithLatestCreated("5556"),
-				WithLatestReady("5556"),
-				WithConfigObservedGen),
-			rev("keep-two", "foo", 5554, MarkRevisionReady,
-				WithRevName("5554"),
-				WithRoutingState(v1.RoutingStateReserve),
-				WithRoutingStateModified(oldest)),
-			rev("keep-two", "foo", 5555, MarkRevisionReady,
-				WithRevName("5555"),
-				WithRoutingState(v1.RoutingStateReserve),
-				WithRoutingStateModified(older)),
-			rev("keep-two", "foo", 5556, MarkRevisionReady,
-				WithRevName("5556"),
-				WithRoutingState(v1.RoutingStateActive),
-				WithRoutingStateModified(old)),
-		},
-		WantDeletes: []clientgotesting.DeleteActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "foo",
-				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
-				},
-			},
-			Name: "5554",
-		}},
-		Key: "foo/keep-two",
-	}, {
 		Name: "delete oldest, keep two V1",
-		Ctx:  setResponsiveGCFeature(context.Background(), cfgmap.Disabled),
 		Objects: []runtime.Object{
 			cfg("keep-two", "foo", 5556,
 				WithLatestCreated("5556"),
@@ -143,11 +110,77 @@ func TestGCReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "foo",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "serving.knative.dev",
-					Version:  "v1",
-					Resource: "revisions",
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
+			},
+			Name: "5554",
+		}},
+		Key: "foo/keep-two",
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		r := &reconciler{
+			client:         servingclient.Get(ctx),
+			revisionLister: listers.GetRevisionLister(),
+		}
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r, controllerOpts)
+	}))
+}
+
+func TestGCReconcileV2(t *testing.T) {
+	now := time.Now()
+
+	old := now.Add(-11 * time.Minute)
+	older := now.Add(-12 * time.Minute)
+	oldest := now.Add(-13 * time.Minute)
+
+	controllerOpts := controller.Options{
+		ConfigStore: &testConfigStore{
+			config: &config.Config{
+				RevisionGC: &gc.Config{
+					// v1 settings
+					StaleRevisionCreateDelay:        5 * time.Minute,
+					StaleRevisionTimeout:            5 * time.Minute,
+					StaleRevisionMinimumGenerations: 2,
+
+					// v2 settings
+					RetainSinceCreateTime:     5 * time.Minute,
+					RetainSinceLastActiveTime: 5 * time.Minute,
+					MinNonActiveRevisions:     1,
+					MaxNonActiveRevisions:     gc.Disabled,
 				},
+				Features: &apiconfig.Features{
+					ResponsiveRevisionGC: apiconfig.Enabled,
+				},
+			},
+		}}
+
+	table := TableTest{{
+		Name: "delete oldest, keep two V2",
+		Objects: []runtime.Object{
+			cfg("keep-two", "foo", 5556,
+				WithLatestCreated("5556"),
+				WithLatestReady("5556"),
+				WithConfigObservedGen),
+			rev("keep-two", "foo", 5554, MarkRevisionReady,
+				WithRevName("5554"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(oldest)),
+			rev("keep-two", "foo", 5555, MarkRevisionReady,
+				WithRevName("5555"),
+				WithRoutingState(v1.RoutingStateReserve),
+				WithRoutingStateModified(older)),
+			rev("keep-two", "foo", 5556, MarkRevisionReady,
+				WithRevName("5556"),
+				WithRoutingState(v1.RoutingStateActive),
+				WithRoutingStateModified(old)),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource:  v1.SchemeGroupVersion.WithResource("revisions"),
 			},
 			Name: "5554",
 		}},
@@ -205,9 +238,3 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 }
 
 var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
-
-func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	c := cfgmap.FromContextOrDefaults(ctx)
-	c.Features.ResponsiveRevisionGC = flag
-	return cfgmap.ToContext(ctx, c)
-}

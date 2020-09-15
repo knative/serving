@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 func TestTCPProbe(t *testing.T) {

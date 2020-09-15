@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,7 +40,7 @@ var domainsResource = schema.GroupVersionResource{Group: "networking.internal.kn
 var domainsKind = schema.GroupVersionKind{Group: "networking.internal.knative.dev", Version: "v1alpha1", Kind: "Domain"}
 
 // Get takes name of the domain, and returns the corresponding domain object, and an error if there is any.
-func (c *FakeDomains) Get(name string, options v1.GetOptions) (result *v1alpha1.Domain, err error) {
+func (c *FakeDomains) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Domain, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(domainsResource, name), &v1alpha1.Domain{})
 	if obj == nil {
@@ -48,7 +50,7 @@ func (c *FakeDomains) Get(name string, options v1.GetOptions) (result *v1alpha1.
 }
 
 // List takes label and field selectors, and returns the list of Domains that match those selectors.
-func (c *FakeDomains) List(opts v1.ListOptions) (result *v1alpha1.DomainList, err error) {
+func (c *FakeDomains) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.DomainList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(domainsResource, domainsKind, opts), &v1alpha1.DomainList{})
 	if obj == nil {
@@ -69,13 +71,13 @@ func (c *FakeDomains) List(opts v1.ListOptions) (result *v1alpha1.DomainList, er
 }
 
 // Watch returns a watch.Interface that watches the requested domains.
-func (c *FakeDomains) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeDomains) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(domainsResource, opts))
 }
 
 // Create takes the representation of a domain and creates it.  Returns the server's representation of the domain, and an error, if there is any.
-func (c *FakeDomains) Create(domain *v1alpha1.Domain) (result *v1alpha1.Domain, err error) {
+func (c *FakeDomains) Create(ctx context.Context, domain *v1alpha1.Domain, opts v1.CreateOptions) (result *v1alpha1.Domain, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(domainsResource, domain), &v1alpha1.Domain{})
 	if obj == nil {
@@ -85,7 +87,7 @@ func (c *FakeDomains) Create(domain *v1alpha1.Domain) (result *v1alpha1.Domain, 
 }
 
 // Update takes the representation of a domain and updates it. Returns the server's representation of the domain, and an error, if there is any.
-func (c *FakeDomains) Update(domain *v1alpha1.Domain) (result *v1alpha1.Domain, err error) {
+func (c *FakeDomains) Update(ctx context.Context, domain *v1alpha1.Domain, opts v1.UpdateOptions) (result *v1alpha1.Domain, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(domainsResource, domain), &v1alpha1.Domain{})
 	if obj == nil {
@@ -96,7 +98,7 @@ func (c *FakeDomains) Update(domain *v1alpha1.Domain) (result *v1alpha1.Domain, 
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeDomains) UpdateStatus(domain *v1alpha1.Domain) (*v1alpha1.Domain, error) {
+func (c *FakeDomains) UpdateStatus(ctx context.Context, domain *v1alpha1.Domain, opts v1.UpdateOptions) (*v1alpha1.Domain, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(domainsResource, "status", domain), &v1alpha1.Domain{})
 	if obj == nil {
@@ -106,22 +108,22 @@ func (c *FakeDomains) UpdateStatus(domain *v1alpha1.Domain) (*v1alpha1.Domain, e
 }
 
 // Delete takes name of the domain and deletes it. Returns an error if one occurs.
-func (c *FakeDomains) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeDomains) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(domainsResource, name), &v1alpha1.Domain{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeDomains) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(domainsResource, listOptions)
+func (c *FakeDomains) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(domainsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.DomainList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched domain.
-func (c *FakeDomains) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Domain, err error) {
+func (c *FakeDomains) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Domain, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(domainsResource, name, pt, data, subresources...), &v1alpha1.Domain{})
 	if obj == nil {

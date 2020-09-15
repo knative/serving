@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -65,7 +66,7 @@ func TestProbe(t *testing.T) {
 
 	// Use log.Printf instead of t.Logf because we want to see failures
 	// inline with other logs instead of buffered until the end.
-	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	prober := test.RunRouteProber(log.Printf, clients, url, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	defer test.CheckSLO(*successFraction, t.Name(), prober)
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is

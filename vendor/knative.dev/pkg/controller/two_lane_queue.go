@@ -37,8 +37,7 @@ type twoLaneQueue struct {
 }
 
 // Creates a new twoLaneQueue.
-func newTwoLaneWorkQueue(name string) *twoLaneQueue {
-	rl := workqueue.DefaultControllerRateLimiter()
+func newTwoLaneWorkQueue(name string, rl workqueue.RateLimiter) *twoLaneQueue {
 	tlq := &twoLaneQueue{
 		RateLimitingInterface: workqueue.NewNamedRateLimitingQueue(
 			rl,

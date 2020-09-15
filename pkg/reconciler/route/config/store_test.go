@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	network "knative.dev/networking/pkg"
 	logtesting "knative.dev/pkg/logging/testing"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 
 	. "knative.dev/pkg/configmap/testing"
 )
@@ -36,10 +37,12 @@ func TestStoreLoadWithContext(t *testing.T) {
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
+	featureConfig := ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
 
 	store.OnConfigChanged(domainConfig)
 	store.OnConfigChanged(gcConfig)
 	store.OnConfigChanged(networkConfig)
+	store.OnConfigChanged(featureConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -74,11 +77,28 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 }
 
+func TestStoreLoadWithContextOrDefaults(t *testing.T) {
+	store := NewStore(logtesting.TestContextWithLogger(t))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
+
+	config := FromContextOrDefaults(store.ToContext(context.Background()))
+
+	t.Run("domain", func(t *testing.T) {
+		expected, _ := cfgmap.NewFeaturesConfigFromMap(map[string]string{})
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
+			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
+		}
+	})
+}
+
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName))
 
 	config := store.Load()
 

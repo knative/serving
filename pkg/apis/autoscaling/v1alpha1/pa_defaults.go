@@ -35,6 +35,7 @@ func defaultMetric(class string) string {
 	}
 }
 
+// SetDefaults sets the default values for the PodAutoscaler.
 func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 	config := config.FromContextOrDefaults(ctx)
@@ -51,4 +52,5 @@ func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
 	}
 }
 
+// SetDefaults sets the default values for the PodAutoscalerSpec.
 func (rs *PodAutoscalerSpec) SetDefaults(ctx context.Context) {}

@@ -28,7 +28,7 @@ import (
 	"time"
 	"unsafe"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 // RequestLogHandler implements an http.Handler that writes request logs

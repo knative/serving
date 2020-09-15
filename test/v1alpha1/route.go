@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
@@ -36,7 +37,7 @@ import (
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (rt *v1alpha1.Route, err error) {
 	fopt = append(fopt, v1alpha1testing.WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1.TrafficTarget{
 			Tag:               names.TrafficTarget,
@@ -47,7 +48,10 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
 	test.AddTestAnnotation(t, route.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Route: route})
-	return clients.ServingAlphaClient.Routes.Create(route)
+	return rt, reconciler.RetryTestErrors(func(int) (err error) {
+		rt, err = clients.ServingAlphaClient.Routes.Create(context.Background(), route, metav1.CreateOptions{})
+		return err
+	})
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
@@ -69,8 +73,10 @@ func WaitForRouteState(client *test.ServingAlphaClients, name string, inState fu
 
 	var lastState *v1alpha1.Route
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Routes.Get(context.Background(), name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -87,7 +93,11 @@ func WaitForRouteState(client *test.ServingAlphaClients, name string, inState fu
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRouteState
 func CheckRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
-	r, err := client.Routes.Get(name, metav1.GetOptions{})
+	var r *v1alpha1.Route
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		r, err = client.Routes.Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

@@ -18,14 +18,11 @@ package core
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -101,48 +98,41 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 }
 
 func TestReconcileSecretCreate(t *testing.T) {
-	ctx, accessor, done := setup([]*corev1.Secret{}, t)
-	defer done()
-	ReconcileSecret(ctx, ownerObj, desired, accessor)
+	ctx, accessor := setup(t)
 
-	secretInformer := fakesecretinformer.Get(ctx)
-	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-		secret, err := secretInformer.Lister().Secrets(desired.Namespace).Get(desired.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return cmp.Equal(secret, desired), nil
-	}); err != nil {
-		t.Fatal("Failed to see secret propagation:", err)
+	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
+	if err != nil {
+		t.Fatalf("ReconcileSecret() = %v", err)
+	}
+
+	fake := fakekubeclient.Get(ctx)
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to see secret creation:", err)
+	} else if !cmp.Equal(secret, desired) {
+		t.Fatal("ReconcileSecret():", cmp.Diff(desired, secret))
 	}
 }
 
 func TestReconcileSecretUpdate(t *testing.T) {
-	ctx, accessor, done := setup([]*corev1.Secret{origin}, t)
-	defer done()
+	ctx, accessor := setup(t, origin)
 
-	ReconcileSecret(ctx, ownerObj, desired, accessor)
-	secretInformer := fakesecretinformer.Get(ctx)
-	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-		secret, err := secretInformer.Lister().Secrets(desired.Namespace).Get(desired.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return cmp.Equal(secret, desired), nil
-	}); err != nil {
-		t.Fatal("Failed to see secret propagation:", err)
+	desired, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
+	if err != nil {
+		t.Fatalf("ReconcileSecret() = %v", err)
+	}
+
+	fake := fakekubeclient.Get(ctx)
+	secret, err := fake.CoreV1().Secrets(desired.Namespace).Get(ctx, desired.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to see secret creation:", err)
+	} else if !cmp.Equal(secret, desired) {
+		t.Fatal("ReconcileSecret():", cmp.Diff(desired, secret))
 	}
 }
 
 func TestNotOwnedFailure(t *testing.T) {
-	ctx, accessor, done := setup([]*corev1.Secret{notOwnedSecret}, t)
-	defer done()
+	ctx, accessor := setup(t, notOwnedSecret)
 
 	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err == nil {
@@ -153,26 +143,30 @@ func TestNotOwnedFailure(t *testing.T) {
 	}
 }
 
-func setup(secrets []*corev1.Secret, t *testing.T) (context.Context, *FakeAccessor, func()) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	secretInformer := fakesecretinformer.Get(ctx)
+func setup(t *testing.T, secrets ...*corev1.Secret) (context.Context, *FakeAccessor) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	fake := fakekubeclient.Get(ctx)
-	for _, secret := range secrets {
-		fake.CoreV1().Secrets(secret.Namespace).Create(secret)
-		secretInformer.Informer().GetIndexer().Add(secret)
-	}
-
-	waitInformers, err := controller.RunInformers(ctx.Done(), secretInformer.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatal("Failed to start secret informer:", err)
 	}
+	// Order matters
+	t.Cleanup(waitInformers)
+	t.Cleanup(cancel)
+
+	fake := fakekubeclient.Get(ctx)
+	fakeinformer := fakesecretinformer.Get(ctx)
+	for _, secret := range secrets {
+		if _, err := fake.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("Error creating secret: %v", err)
+		}
+		if err := fakeinformer.Informer().GetIndexer().Add(secret); err != nil {
+			t.Fatalf("Error adding secret to index: %v", err)
+		}
+	}
 
 	return ctx, &FakeAccessor{
-			client:       fake,
-			secretLister: secretInformer.Lister(),
-		}, func() {
-			cancel()
-			waitInformers()
-		}
+		client:       fake,
+		secretLister: fakeinformer.Lister(),
+	}
 }

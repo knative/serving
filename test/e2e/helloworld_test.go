@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -36,8 +36,6 @@ import (
 
 func TestHelloWorld(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -57,38 +55,29 @@ func TestHelloWorld(t *testing.T) {
 
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
 	revision := resources.Revision
-	if val, ok := revision.Labels["serving.knative.dev/configuration"]; ok {
-		if val != names.Config {
-			t.Fatalf("Expect configuration name in revision label %q but got %q ", names.Config, val)
-		}
-	} else {
-		t.Fatalf("Failed to get configuration name from Revision label")
+	if val := revision.Labels[serving.ConfigurationLabelKey]; val != names.Config {
+		t.Fatalf("Got revision label configuration=%q, want=%q ", names.Config, val)
 	}
-	if val, ok := revision.Labels["serving.knative.dev/service"]; ok {
-		if val != names.Service {
-			t.Fatalf("Expect Service name in revision label %q but got %q ", names.Service, val)
-		}
-	} else {
-		t.Fatalf("Failed to get Service name from Revision label")
+	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
+		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
 }
 
 func TestQueueSideCarResourceLimit(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -119,13 +108,14 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
@@ -168,13 +158,13 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 // Container returns container for given Pod and Container in the namespace
 func getContainer(client *pkgTest.KubeClient, podName, containerName, namespace string) (corev1.Container, error) {
 	pods := client.Kube.CoreV1().Pods(namespace)
-	podList, err := pods.List(metav1.ListOptions{})
+	podList, err := pods.List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return corev1.Container{}, err
 	}
 	for _, pod := range podList.Items {
 		if strings.Contains(pod.Name, podName) {
-			result, err := pods.Get(pod.Name, metav1.GetOptions{})
+			result, err := pods.Get(context.Background(), pod.Name, metav1.GetOptions{})
 			if err != nil {
 				return corev1.Container{}, err
 			}

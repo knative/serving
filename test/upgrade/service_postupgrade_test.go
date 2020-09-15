@@ -19,6 +19,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +55,25 @@ func TestServicePostUpgrade(t *testing.T) {
 	updateService(serviceName, t)
 }
 
+/*
+TODO(6984): uncomment those.
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return configObj.Generation == int64(generation), nil
+}
+
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return routeObj.Generation == int64(generation), nil
+}
+*/
+
 func TestServicePostUpgradeFromScaleToZero(t *testing.T) {
 	t.Parallel()
 	updateService(scaleToZeroServiceName, t)
@@ -79,22 +99,6 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}
 }
 
-func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	configObj, err := clients.ServingClient.Configs.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return configObj.Generation == int64(generation), nil
-}
-
-func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
-	routeObj, err := clients.ServingClient.Routes.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return routeObj.Generation == int64(generation), nil
-}
-
 func updateService(serviceName string, t *testing.T) {
 	t.Helper()
 	clients := e2e.Setup(t)
@@ -103,7 +107,7 @@ func updateService(serviceName string, t *testing.T) {
 	}
 
 	t.Logf("Getting service %q", names.Service)
-	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	svc, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Service:", err)
 	}
@@ -139,4 +143,18 @@ func updateService(serviceName string, t *testing.T) {
 func TestCreateNewServicePostUpgrade(t *testing.T) {
 	t.Parallel()
 	createNewService(postUpgradeServiceName, t)
+}
+
+func TestInitialScalePostUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+
+	t.Logf("Getting service %q", initialScaleServiceName)
+	svc, err := clients.ServingClient.Services.Get(context.Background(), initialScaleServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal("Failed to get Service:", err)
+	}
+	if !svc.IsReady() {
+		t.Fatalf("Post upgrade Service is not ready with reason %q", svc.Status.GetCondition(v1.ServiceConditionRoutesReady).Reason)
+	}
 }

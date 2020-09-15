@@ -20,9 +20,7 @@ package test
 
 import (
 	"net/url"
-	"strings"
 
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/helpers"
 )
 
@@ -43,16 +41,5 @@ type ResourceNames struct {
 // called for the first time.
 var AppendRandomString = helpers.AppendRandomString
 
-// MakeK8sNamePrefix will convert each chunk of non-alphanumeric character into a single dash
-// and also convert camelcase tokens into dash-delimited lowercase tokens.
-var MakeK8sNamePrefix = helpers.MakeK8sNamePrefix
-
 // ObjectNameForTest generates a random object name based on the test name.
 var ObjectNameForTest = helpers.ObjectNameForTest
-
-// SubServiceNameForTest generates a random service name based on the test name and
-// the given subservice name.
-func SubServiceNameForTest(t pkgTest.T, subsvc string) string {
-	fullPrefix := strings.TrimPrefix(t.Name(), "Test") + "-" + subsvc
-	return AppendRandomString(MakeK8sNamePrefix(fullPrefix))
-}

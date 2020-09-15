@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -84,6 +85,18 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+// WithPASKSReady marks PA status that all its deps are ready.
+func WithPASKSReady(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkSKSReady()
+}
+
+// WithPADepsReady marks PA status that at least one of its deps is not ready.
+func WithPASKSNotReady(m string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MarkSKSNotReady(m)
+	}
+}
+
 // WithScaleTargetInitialized updates the PA to reflect it having initialized its
 // ScaleTarget.
 func WithScaleTargetInitialized(pa *asv1a1.PodAutoscaler) {
@@ -106,10 +119,9 @@ func WithPAMetricsService(svc string) PodAutoscalerOption {
 
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
-func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MarkActivating(reason, message)
-	}
+func WithBufferedTraffic(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActivating("Queued",
+		"Requests to the target are being buffered as resources are provisioned.")
 }
 
 // WithNoTraffic updates the PA to reflect the fact that it is not
@@ -201,16 +213,6 @@ func WithObservedGeneration(gen int64) PodAutoscalerOption {
 	}
 }
 
-// WithObservedGenerationFailure marks the top level condition as unknown when the reconciler
-// does not set any condition during reconciliation of a new generation.
-func WithObservedGenerationFailure() PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		condSet := pa.GetConditionSet()
-		condSet.Manage(&pa.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
-			"NewObservedGenFailure", "unsuccessfully observed a new generation")
-	}
-}
-
 // WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.
 func WithMetricOwnersRemoved(m *asv1a1.Metric) {
 	m.OwnerReferences = nil
@@ -253,6 +255,11 @@ func WithClusterIP(ip string) K8sServiceOption {
 func WithExternalName(name string) K8sServiceOption {
 	return func(svc *corev1.Service) {
 		svc.Spec.ExternalName = name
+		svc.Spec.Ports = []corev1.ServicePort{{
+			Name:       networking.ServicePortNameH2C,
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(80),
+		}}
 	}
 }
 

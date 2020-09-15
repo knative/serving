@@ -43,7 +43,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 	recorder := controller.GetEventRecorder(ctx)
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
+		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
@@ -64,7 +64,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 		origin := ingress.DeepCopy()
 		origin.Spec = desired.Spec
 		origin.Annotations = desired.Annotations
-		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
+		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(ctx, origin, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update Ingress: %w", err)
 		}
@@ -74,9 +74,9 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired 
 	return ingress, err
 }
 
-func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
+func (c *Reconciler) deleteServices(ctx context.Context, namespace string, serviceNames sets.String) error {
 	for _, serviceName := range serviceNames.List() {
-		if err := c.kubeclient.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
+		if err := c.kubeclient.CoreV1().Services(namespace).Delete(ctx, serviceName, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("failed to delete Service: %w", err)
 		}
 	}
@@ -114,7 +114,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		service, err := c.serviceLister.Services(ns).Get(desiredService.Name)
 		if apierrs.IsNotFound(err) {
 			// Doesn't exist, create it.
-			service, err = c.kubeclient.CoreV1().Services(ns).Create(desiredService)
+			service, err = c.kubeclient.CoreV1().Services(ns).Create(ctx, desiredService, metav1.CreateOptions{})
 			if err != nil {
 				recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
@@ -135,7 +135,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	}
 
 	// Delete any current services that was no longer desired.
-	if err := c.deleteServices(ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
+	if err := c.deleteServices(ctx, ns, existingServiceNames.Difference(createdServiceNames)); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +164,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				// Don't modify the informers copy
 				existing := service.DeepCopy()
 				existing.Spec = desiredService.Spec
-				_, err = c.kubeclient.CoreV1().Services(ns).Update(existing)
+				_, err = c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{})
 				if err != nil {
 					return err
 				}
@@ -219,7 +219,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					return err
 				}
 
-				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
+				if _, err := c.client.ServingV1().Revisions(route.Namespace).Patch(ctx, rev.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
@@ -234,7 +234,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
-		cert, err = c.netclient.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		cert, err = c.netclient.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
 			return nil, fmt.Errorf("failed to create Certificate: %w", err)
@@ -252,7 +252,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desi
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
 		existing.Spec = desiredCert.Spec
-		cert, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+		cert, err := c.netclient.NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)

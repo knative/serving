@@ -34,9 +34,9 @@ import (
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	kubernetes "k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/listers/core/v1"
-	cache "k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
 	controller "knative.dev/pkg/controller"
+	kmp "knative.dev/pkg/kmp"
 	logging "knative.dev/pkg/logging"
 	reconciler "knative.dev/pkg/reconciler"
 )
@@ -82,6 +82,8 @@ type ReadOnlyFinalizer interface {
 	// This method should not write to the API.
 	ObserveFinalizeKind(ctx context.Context, o *v1.Namespace) reconciler.Event
 }
+
+type doReconcile func(ctx context.Context, o *v1.Namespace) reconciler.Event
 
 // reconcilerImpl implements controller.Reconciler for v1.Namespace resources.
 type reconcilerImpl struct {
@@ -175,22 +177,19 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client kubern
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
-	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	// Initialize the reconciler state. This will convert the namespace/name
+	// string into a distinct namespace and name, determin if this instance of
+	// the reconciler is the leader, and any additional interfaces implemented
+	// by the reconciler. Returns an error is the resource key is invalid.
+	s, err := newState(key, r)
 	if err != nil {
 		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	// Establish whether we are the leader for use below.
-	isLeader := r.IsLeaderFor(types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	})
-	roi, isROI := r.reconciler.(ReadOnlyInterface)
-	rof, isROF := r.reconciler.(ReadOnlyFinalizer)
-	if !isLeader && !isROI && !isROF {
-		// If we are not the leader, and we don't implement either ReadOnly
-		// interface, then take a fast-path out.
+
+	// If we are not the leader, and we don't implement either ReadOnly
+	// observer interfaces, then take a fast-path out.
+	if s.isNotLeaderNorObserver() {
 		return nil
 	}
 
@@ -206,7 +205,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	getter := r.Lister
 
-	original, err := getter.Get(name)
+	original, err := getter.Get(s.name)
 
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
@@ -220,44 +219,38 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	resource := original.DeepCopy()
 
 	var reconcileEvent reconciler.Event
-	if resource.GetDeletionTimestamp().IsZero() {
-		if isLeader {
-			// Append the target method to the logger.
-			logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
-			// Set and update the finalizer on resource if r.reconciler
-			// implements Finalizer.
-			if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
-				return fmt.Errorf("failed to set finalizers: %w", err)
-			}
-
-			// Reconcile this copy of the resource and then write back any status
-			// updates regardless of whether the reconciliation errored out.
-			reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
-
-		} else if isROI {
-			// Append the target method to the logger.
-			logger = logger.With(zap.String("targetMethod", "ObserveKind"))
-
-			// Observe any changes to this resource, since we are not the leader.
-			reconcileEvent = roi.ObserveKind(ctx, resource)
-		}
-	} else if fin, ok := r.reconciler.(Finalizer); isLeader && ok {
+	name, do := s.reconcileMethodFor(resource)
+	// Append the target method to the logger.
+	logger = logger.With(zap.String("targetMethod", name))
+	switch name {
+	case reconciler.DoReconcileKind:
 		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
+		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
 
+		// Set and update the finalizer on resource if r.reconciler
+		// implements Finalizer.
+		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
+			return fmt.Errorf("failed to set finalizers: %w", err)
+		}
+
+		// Reconcile this copy of the resource and then write back any status
+		// updates regardless of whether the reconciliation errored out.
+		reconcileEvent = do(ctx, resource)
+
+	case reconciler.DoFinalizeKind:
 		// For finalizing reconcilers, if this resource being marked for deletion
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
-		reconcileEvent = fin.FinalizeKind(ctx, resource)
+		reconcileEvent = do(ctx, resource)
+
 		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
 			return fmt.Errorf("failed to clear finalizers: %w", err)
 		}
-	} else if !isLeader && isROF {
-		// Append the target method to the logger.
-		logger = logger.With(zap.String("targetMethod", "ObserveFinalizeKind"))
 
-		// For finalizing reconcilers, just observe when we aren't the leader.
-		reconcileEvent = rof.ObserveFinalizeKind(ctx, resource)
+	case reconciler.DoObserveKind, reconciler.DoObserveFinalizeKind:
+		// Observe any changes to this resource, since we are not the leader.
+		reconcileEvent = do(ctx, resource)
+
 	}
 
 	// Synchronize the status.
@@ -270,12 +263,12 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the injectionInformer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	case !isLeader:
+	case !s.isLeader:
 		// High-availability reconcilers may have many replicas watching the resource, but only
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
-		if err = r.updateStatus(original, resource); err != nil {
+		if err = r.updateStatus(ctx, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, v1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for %q: %v", resource.Name, err)
@@ -305,7 +298,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	return nil
 }
 
-func (r *reconcilerImpl) updateStatus(existing *v1.Namespace, desired *v1.Namespace) error {
+func (r *reconcilerImpl) updateStatus(ctx context.Context, existing *v1.Namespace, desired *v1.Namespace) error {
 	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the injectionInformer's state, subsequent attempts fetch the latest state via API.
@@ -313,7 +306,7 @@ func (r *reconcilerImpl) updateStatus(existing *v1.Namespace, desired *v1.Namesp
 
 			getter := r.Client.CoreV1().Namespaces()
 
-			existing, err = getter.Get(desired.Name, metav1.GetOptions{})
+			existing, err = getter.Get(ctx, desired.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -324,11 +317,15 @@ func (r *reconcilerImpl) updateStatus(existing *v1.Namespace, desired *v1.Namesp
 			return nil
 		}
 
+		if diff, err := kmp.SafeDiff(existing.Status, desired.Status); err == nil && diff != "" {
+			logging.FromContext(ctx).Debugf("Updating status with: %s", diff)
+		}
+
 		existing.Status = desired.Status
 
 		updater := r.Client.CoreV1().Namespaces()
 
-		_, err = updater.UpdateStatus(existing)
+		_, err = updater.UpdateStatus(ctx, existing, metav1.UpdateOptions{})
 		return err
 	})
 }
@@ -386,7 +383,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	patcher := r.Client.CoreV1().Namespaces()
 
 	resourceName := resource.Name
-	resource, err = patcher.Patch(resourceName, types.MergePatchType, patch)
+	resource, err = patcher.Patch(ctx, resourceName, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resourceName, err)

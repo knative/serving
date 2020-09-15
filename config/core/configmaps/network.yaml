@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b22469ec"
+    knative.dev/example-checksum: "44560e65"
 data:
   _example: |
     ################################
@@ -37,13 +37,6 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
-
-    # DEPRECATED:
-    # istio.sidecar.includeOutboundIPRanges is obsolete.
-    # The current versions have outbound network access enabled by default.
-    # If you need this option for some reason, please use global.proxy.includeIPRanges in Istio.
-    #
-    # istio.sidecar.includeOutboundIPRanges: "*"
 
     # ingress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
@@ -111,8 +104,3 @@ data:
     # 3. Redirected: The Knative ingress will send a 302 redirect for all
     # http connections, asking the clients to use HTTPS
     httpProtocol: "Enabled"
-
-    # Controls whether tag header based routing feature are enabled or not.
-    # 1. Enabled: enabling tag header based routing
-    # 2. Disabled: disabling tag header based routing
-    tagHeaderBasedRouting: "Disabled"

@@ -51,15 +51,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	logger := logging.FromContext(ctx)
 	logger.Debug("PA exists")
 
-	// HPA-class PAs don't yet support scale-to-zero
-	pa.Status.MarkActive()
-
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
 	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
-		if hpa, err = c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
+		if hpa, err = c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(ctx, desiredHpa, metav1.CreateOptions{}); err != nil {
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
 			return fmt.Errorf("failed to create HPA: %w", err)
 		}
@@ -72,7 +69,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
-		if _, err := c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
+		if _, err := c.kubeClient.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(ctx, desiredHpa, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update HPA: %w", err)
 		}
 	}
@@ -89,11 +86,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	if !sks.IsReady() {
-		pa.Status.MarkInactive("ServicesNotReady", "SKS Services are not ready yet")
+		pa.Status.MarkSKSNotReady("SKS Services are not ready yet")
 	} else {
+		pa.Status.MarkSKSReady()
 		pa.Status.MarkScaleTargetInitialized()
-		pa.Status.MarkActive()
 	}
+	// HPA is always _active_.
+	pa.Status.MarkActive()
 
 	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
 	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)

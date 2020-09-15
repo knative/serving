@@ -105,14 +105,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 		},
 	}, {
 		name:    "invalid allow container concurrency zero flag value",
-		wantErr: false,
-		wantDefaults: &Defaults{
-			RevisionTimeoutSeconds:        DefaultRevisionTimeoutSeconds,
-			MaxRevisionTimeoutSeconds:     DefaultMaxRevisionTimeoutSeconds,
-			UserContainerNameTemplate:     DefaultUserContainerName,
-			ContainerConcurrencyMaxLimit:  DefaultMaxRevisionContainerConcurrency,
-			AllowContainerConcurrencyZero: false,
-		},
+		wantErr: true,
 		data: map[string]string{
 			"allow-container-concurrency-zero": "invalid",
 		},

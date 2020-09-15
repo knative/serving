@@ -34,9 +34,9 @@ import (
 
 type configOption func(*config.Config) *config.Config
 
-func withMultiContainerEnabled() configOption {
+func withMultiContainerDisabled() configOption {
 	return func(cfg *config.Config) *config.Config {
-		cfg.Features.MultiContainer = config.Enabled
+		cfg.Features.MultiContainer = config.Disabled
 		return cfg
 	}
 }
@@ -69,11 +69,26 @@ func withPodSpecTolerationsEnabled() configOption {
 	}
 }
 
+func withPodSpecRuntimeClassNameEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecRuntimeClassName = config.Enabled
+		return cfg
+	}
+}
+
+func withPodSpecSecurityContextEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecSecurityContext = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		ps   corev1.PodSpec
-		want *apis.FieldError
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "valid",
 		ps: corev1.PodSpec{
@@ -197,7 +212,8 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		cfgOpts: []configOption{withMultiContainerDisabled()},
+		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{
@@ -222,7 +238,15 @@ func TestPodSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidatePodSpec(context.Background(), test.ps)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+			got := ValidatePodSpec(ctx, test.ps)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -248,7 +272,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
+		cfgOpts: []configOption{withMultiContainerDisabled()},
+		want:    &apis.FieldError{Message: "multi-container is off, but found 2 containers"},
 	}, {
 		name: "flag enabled: more than one container with one container port",
 		ps: corev1.PodSpec{
@@ -261,8 +286,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    nil,
+		want: nil,
 	}, {
 		name: "flag enabled: probes are not allowed for non serving containers",
 		ps: corev1.PodSpec{
@@ -281,7 +305,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "must not set the field(s)",
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
@@ -295,8 +318,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    apis.ErrMissingField("containers.ports"),
+		want: apis.ErrMissingField("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple port",
 		ps: corev1.PodSpec{
@@ -312,8 +334,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    apis.ErrMultipleOneOf("containers.ports"),
+		want: apis.ErrMultipleOneOf("containers.ports"),
 	}, {
 		name: "flag enabled: multiple containers with multiple ports for each container",
 		ps: corev1.PodSpec{
@@ -331,7 +352,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -351,7 +371,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: apis.ErrMultipleOneOf("containers.ports").Also(&apis.FieldError{
 			Message: "More than one container port is set",
 			Paths:   []string{"containers[0].ports"},
@@ -376,7 +395,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: `"K_SERVICE" is a reserved environment variable`,
 			Paths:   []string{"containers[1].env[1].name"},
@@ -397,8 +415,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				}},
 			}},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
-		want:    nil,
+		want: nil,
 	}, {
 		name: "Volume mounts ok with single container",
 		ps: corev1.PodSpec{
@@ -477,7 +494,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 	}, {
 		name: "Volume not mounted when having multiple containers",
 		ps: corev1.PodSpec{
@@ -509,7 +525,6 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				{Image: "busybox"},
 			},
 		},
-		cfgOpts: []configOption{withMultiContainerEnabled()},
 		want: &apis.FieldError{
 			Message: "volume with name \"the-name2\" not mounted",
 			Paths:   []string{"volumes[1].name"},
@@ -535,6 +550,8 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 }
 
 func TestPodSpecFeatureValidation(t *testing.T) {
+	runtimeClassName := "test"
+
 	featureData := []struct {
 		name        string
 		featureSpec corev1.PodSpec
@@ -589,6 +606,26 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Paths:   []string{"tolerations"},
 		},
 		cfgOpts: []configOption{withPodSpecTolerationsEnabled()},
+	}, {
+		name: "RuntimeClassName",
+		featureSpec: corev1.PodSpec{
+			RuntimeClassName: &runtimeClassName,
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"runtimeClassName"},
+		},
+		cfgOpts: []configOption{withPodSpecRuntimeClassNameEnabled()},
+	}, {
+		name: "PodSpecSecurityContext",
+		featureSpec: corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{},
+		},
+		err: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"securityContext"},
+		},
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
 	}}
 
 	featureTests := []struct {
@@ -639,9 +676,10 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 					ctx = config.ToContext(ctx, cfg)
 				}
 				if test.includeFeatureSpec {
-					obj.Affinity = featureData.featureSpec.Affinity
-					obj.NodeSelector = featureData.featureSpec.NodeSelector
-					obj.Tolerations = featureData.featureSpec.Tolerations
+					obj = featureData.featureSpec
+					obj.Containers = []corev1.Container{{
+						Image: "busybox",
+					}}
 				}
 				got := ValidatePodSpec(ctx, obj)
 				if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
@@ -773,6 +811,7 @@ func TestContainerValidation(t *testing.T) {
 		c       corev1.Container
 		want    *apis.FieldError
 		volumes sets.String
+		cfgOpts []configOption
 	}{{
 		name: "empty container",
 		c:    corev1.Container{},
@@ -1245,6 +1284,26 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsUser"),
 	}, {
+		name:    "too large gid - feature enabled",
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "securityContext.runAsGroup"),
+	}, {
+		name:    "negative gid - feature enabled",
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+		c: corev1.Container{
+			Image: "foo",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsGroup: ptr.Int64(-10),
+			},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "securityContext.runAsGroup"),
+	}, {
 		name: "envFrom - None of",
 		c: corev1.Container{
 			Image:   "foo",
@@ -1384,7 +1443,16 @@ func TestContainerValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidateContainer(context.Background(), test.c, test.volumes)
+			ctx := context.Background()
+			if test.cfgOpts != nil {
+				cfg := config.FromContextOrDefaults(ctx)
+				for _, opt := range test.cfgOpts {
+					cfg = opt(cfg)
+				}
+				ctx = config.ToContext(ctx, cfg)
+			}
+
+			got := ValidateContainer(ctx, test.c, test.volumes)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
@@ -1464,7 +1532,7 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want: apis.ErrMultipleOneOf("configMap", "projected"),
 	}, {
-		name: "multiple project volume single source",
+		name: "multiple projected volumes single source",
 		v: corev1.Volume{
 			Name: "foo",
 			VolumeSource: corev1.VolumeSource{
@@ -1713,6 +1781,89 @@ func TestObjectReferenceValidation(t *testing.T) {
 			got := ValidateNamespacedObjectReference(test.r)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateNamespacedObjectReference (-want, +got): \n%s", diff)
+			}
+		})
+	}
+}
+
+func TestPodSpecSecurityContextValidation(t *testing.T) {
+	// Note the feature flag is always enabled on this test
+	tests := []struct {
+		name string
+		sc   *corev1.PodSecurityContext
+		want *apis.FieldError
+	}{{
+		name: "nil",
+	}, {
+		name: "disallowed fields",
+		sc: &corev1.PodSecurityContext{
+			SELinuxOptions: &corev1.SELinuxOptions{},
+			WindowsOptions: &corev1.WindowsSecurityContextOptions{},
+			Sysctls:        []corev1.Sysctl{},
+		},
+		want: apis.ErrDisallowedFields("seLinuxOptions", "sysctls", "windowsOptions"),
+	}, {
+		name: "too large uid",
+		sc: &corev1.PodSecurityContext{
+			RunAsUser: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "runAsUser"),
+	}, {
+		name: "negative uid",
+		sc: &corev1.PodSecurityContext{
+			RunAsUser: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "runAsUser"),
+	}, {
+		name: "too large gid",
+		sc: &corev1.PodSecurityContext{
+			RunAsGroup: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "runAsGroup"),
+	}, {
+		name: "negative gid",
+		sc: &corev1.PodSecurityContext{
+			RunAsGroup: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "runAsGroup"),
+	}, {
+		name: "too large fsGroup",
+		sc: &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(math.MaxInt32 + 1),
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "fsGroup"),
+	}, {
+		name: "negative fsGroup",
+		sc: &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(-10),
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "fsGroup"),
+	}, {
+		name: "too large supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{int64(math.MaxInt32 + 1)},
+		},
+		want: apis.ErrOutOfBoundsValue(int64(math.MaxInt32+1), 0, math.MaxInt32, "supplementalGroups[0]"),
+	}, {
+		name: "negative supplementalGroups",
+		sc: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{-10},
+		},
+		want: apis.ErrOutOfBoundsValue(-10, 0, math.MaxInt32, "supplementalGroups[0]"),
+	}}
+
+	for _, test := range tests {
+		ctx := config.ToContext(context.Background(),
+			&config.Config{
+				Features: &config.Features{
+					PodSpecSecurityContext: config.Enabled,
+				},
+			})
+
+		t.Run(test.name, func(t *testing.T) {
+			got := ValidatePodSecurityContext(ctx, test.sc)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("ValidatePodSecurityContext(-want, +got): \n%s", diff)
 			}
 		})
 	}

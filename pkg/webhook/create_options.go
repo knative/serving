@@ -51,6 +51,6 @@ func newPods(client rest.Interface, namespace string) podInterface {
 //Returns the server's representation of the pod, and an error, if there is any.
 func (c *pods) createWithOptions(ctx context.Context, pod *corev1.Pod, opts metav1.CreateOptions) (result *corev1.Pod, err error) {
 	result = &corev1.Pod{}
-	err = c.client.Post().Namespace(c.ns).Resource("pods").VersionedParams(&opts, scheme.ParameterCodec).Body(pod).Do().Into(result)
+	err = c.client.Post().Namespace(c.ns).Resource("pods").VersionedParams(&opts, scheme.ParameterCodec).Body(pod).Do(ctx).Into(result)
 	return
 }

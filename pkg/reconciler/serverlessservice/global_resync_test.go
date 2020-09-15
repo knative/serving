@@ -17,12 +17,14 @@ limitations under the License.
 package serverlessservice
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 
+	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
@@ -31,7 +33,7 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -63,18 +65,18 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 
 	// Create activator endpoints.
 	aEps := activatorEndpoints(WithSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(aEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Create(ctx, aEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	// Private endpoints are supposed to exist, since we're using selector mode for the service.
 	privEps := endpointspriv(ns1, sks1)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating private endpoints:", err)
 	}
 	// This is passive, so no endpoints.
 	privEps = endpointspriv(ns2, sks2, withOtherSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(privEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(privEps.Namespace).Create(ctx, privEps, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating private endpoints:", err)
 	}
 
@@ -94,34 +96,35 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		return ctrl.Run(1, ctx.Done())
 	})
 
+	networking := fakenetworkingclient.Get(ctx).NetworkingV1alpha1()
+
 	// Inactive, will reconcile.
 	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
+	sksObj1.Generation = 1
 	// Active, should not visibly reconcile.
 	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
+	sksObj2.Generation = 1
 
-	if _, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
+	if _, err := networking.ServerlessServices(ns1).Create(ctx, sksObj1, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating SKS1:", err)
 	}
-	if _, err := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
+	if _, err := networking.ServerlessServices(ns2).Create(ctx, sksObj2, metav1.CreateOptions{}); err != nil {
 		t.Fatal("Error creating SKS2:", err)
 	}
 
-	eps := fakeendpointsinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		l, err := eps.List(labels.Everything())
-		return len(l) >= 4, err
-	}); err != nil {
-		t.Fatal("Failed to see endpoint creation:", err)
-	}
-	t.Log("Updating the activator endpoints now...")
+	// Wait for the SKSs to be reconciled
+	waitForObservedGen(ctx, networking, ns1, sks1, 1)
+	waitForObservedGen(ctx, networking, ns2, sks2, 1)
 
+	t.Log("Updating the activator endpoints now...")
 	// Now that we have established the baseline, update the activator endpoints.
 	aEps = activatorEndpoints(withOtherSubsets)
-	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(aEps); err != nil {
+	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(ctx, aEps, metav1.UpdateOptions{}); err != nil {
 		t.Fatal("Error creating activator endpoints:", err)
 	}
 
 	// Actively wait for the endpoints to change their value.
+	eps := fakeendpointsinformer.Get(ctx).Lister()
 	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		ep, err := eps.Endpoints(ns1).Get(sks1)
 		if err != nil {
@@ -134,4 +137,14 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Failed to see Public Endpoints propagation:", err)
 	}
+}
+
+func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
+	return wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		sks, err := client.ServerlessServices(ns).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return sks.Status.ObservedGeneration == 1, nil
+	})
 }

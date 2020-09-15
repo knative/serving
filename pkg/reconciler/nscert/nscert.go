@@ -31,6 +31,7 @@ import (
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/networking/pkg/client/clientset/versioned"
@@ -38,7 +39,6 @@ import (
 	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources"
 )
@@ -111,7 +111,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	// need to be updated.
 	existingCert, err := findNamespaceCert(ns, existingCerts)
 	if apierrs.IsNotFound(err) {
-		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(desiredCert)
+		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
 			recorder.Eventf(ns, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Knative certificate %s/%s: %v", ns.Name, desiredCert.ObjectMeta.Name, err)
@@ -127,9 +127,9 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
 		copy := existingCert.DeepCopy()
 		copy.Spec = desiredCert.Spec
-		copy.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey]
+		copy.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.Labels[networking.WildcardCertDomainLabelKey]
 
-		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy); err != nil {
+		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{}); err != nil {
 			recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
 			return fmt.Errorf("failed to update namespace certificate: %w", err)
@@ -146,7 +146,7 @@ func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namesp
 	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range certs {
 		if metav1.IsControlledBy(cert, ns) {
-			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(cert.Name, &metav1.DeleteOptions{}); err != nil {
+			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
 				recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
 					"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
 				return err

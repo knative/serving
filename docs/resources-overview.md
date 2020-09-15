@@ -9,9 +9,11 @@ which they form.
 
 ## Dependencies
 
-Knative Serving depends on [Istio](https://istio.io/) in order to function.
-Istio is responsible for setting up the network routing both inside the cluster
-and ingress into the cluster.
+Knative Serving depends on an KIngress implementation in order to function.
+KIngress is pluggable, and implementations exist for a variety of ingress
+providers, including [Istio](https://github.com/knative-sandbox/net-istio),
+[Contour](https://github.com/knative-sandbox/net-contour) and
+[Kourier](https://github.com/knative-sandbox/net-kourier).
 
 ## Components
 
@@ -33,34 +35,26 @@ To see only objects of a specific type, for example to see the webhook and
 controller deployments inside Knative Serving, you can run
 `kubectl -n knative-serving get deployments`.
 
-The Knative Serving controller creates Kubernetes and Istio resources when
-Knative Serving resources are created and updated. It will also create Build
-resources when provided in the Configuration spec. These sub-resources will be
-created in the same namespace as their parent Knative Serving resource, _not_
-the `knative-serving` namespace. For example, if you create a Knative Serivce in
-namespace 'foo' the corresponding Istio resources will also be in namespace
-'foo'.
+The Knative Serving controller creates Kubernetes resources when Knative Serving
+resources are created and updated. These sub-resources will be created in the
+same namespace as their parent Knative Serving resource, _not_ the
+`knative-serving` namespace. For example, if you create a Knative Serivce in
+namespace 'foo' the corresponding Deployment and ReplicaSet resources will also
+be in namespace 'foo'.
 
-All of these components are run as a non-root user (uid: 1337) and disallow
-privilege escalation.
+All of these components are run as a non-root user and disallow privilege
+escalation.
 
 ## Kubernetes Resource Configs
 
 The various Kubernetes resource configurations are organized as follows:
 
 ```plain
-# Knative Serving resources
-config/*.yaml
+# Knative Serving core resources
+config/core/...
 
-# Istio release configuration
-third_party/istio-*/install/kubernetes/...
-
-# Knative Serving Monitoring configs (Optional)
-config/monitoring/...
-
-# Knative Build resources (Optional)
-third_party/config/build/release.yaml
-
+# Third-party resources, such as the net-istio ingress provider yaml.
+third_party/...
 ```
 
 ## Viewing resources after deploying Knative Serving

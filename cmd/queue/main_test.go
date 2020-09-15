@@ -28,13 +28,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
+	network "knative.dev/networking/pkg"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 
@@ -92,7 +92,7 @@ func TestHandlerReqEvent(t *testing.T) {
 }
 
 func TestProbeHandler(t *testing.T) {
-	logger = TestLogger(t)
+	logger := TestLogger(t)
 
 	testcases := []struct {
 		name          string
@@ -132,7 +132,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
+			h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -147,7 +147,7 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestQueueTraceSpans(t *testing.T) {
-	logger = TestLogger(t)
+	logger := TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -260,7 +260,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := proxyHandler(breaker, network.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, logger)
+				h := knativeProbeHandler(logger, healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
@@ -303,33 +303,48 @@ func TestQueueTraceSpans(t *testing.T) {
 func BenchmarkProxyHandler(b *testing.B) {
 	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	stats := network.NewRequestStats(time.Now())
-	reportTicker := time.NewTicker(reportingPeriod)
-	defer reportTicker.Stop()
+
 	promStatReporter, err := queue.NewPrometheusStatsReporter(
 		"ns", "testksvc", "testksvc",
 		"pod", reportingPeriod)
 	if err != nil {
 		b.Fatal("Failed to create stats reporter:", err)
 	}
-	go func() {
-		for now := range reportTicker.C {
-			promStatReporter.Report(stats.Report(now))
-		}
-	}()
+
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
 	tests := []struct {
-		label   string
-		breaker *queue.Breaker
+		label        string
+		breaker      *queue.Breaker
+		reportPeriod time.Duration
 	}{{
-		label:   "breaker-10",
-		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		label:        "breaker-10-no-reports",
+		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		reportPeriod: time.Hour,
 	}, {
-		label:   "breaker-infinite",
-		breaker: nil,
+		label:        "breaker-infinite-no-reports",
+		breaker:      nil,
+		reportPeriod: time.Hour,
+	}, {
+		label:        "breaker-10-many-reports",
+		breaker:      queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		reportPeriod: time.Microsecond,
+	}, {
+		label:        "breaker-infinite-many-reports",
+		breaker:      nil,
+		reportPeriod: time.Microsecond,
 	}}
+
 	for _, tc := range tests {
+		reportTicker := time.NewTicker(tc.reportPeriod)
+
+		go func() {
+			for now := range reportTicker.C {
+				promStatReporter.Report(stats.Report(now))
+			}
+		}()
+
 		h := proxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
@@ -345,5 +360,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 				}
 			})
 		})
+
+		reportTicker.Stop()
 	}
 }

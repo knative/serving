@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 	kubeClient := fakek8s.NewSimpleClientset()
 	endpointsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Endpoints()
 	createEndpoints := func(ep *corev1.Endpoints) {
-		kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
+		kubeClient.CoreV1().Endpoints(testNamespace).Create(context.Background(), ep, metav1.CreateOptions{})
 		endpointsClient.Informer().GetIndexer().Add(ep)
 	}
 
@@ -80,7 +81,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 				t.Errorf("ReadyCount() = %d, wantReady: %d", got, test.wantReady)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+				t.Errorf("ReadyCount() wantErr = %v, want: %v, err: %v", got, want, err)
 			}
 
 			got, err = addressCounter.NotReadyCount()
@@ -88,7 +89,7 @@ func TestScopedEndpointsCounter(t *testing.T) {
 				t.Errorf("NotReadyCount() = %d, wantNotReady: %d", got, test.wantNotReady)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+				t.Errorf("NotReadyCount() wantErr = %v, want: %v, err: %v", got, want, err)
 			}
 		})
 	}

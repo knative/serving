@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,7 +40,7 @@ var realmsResource = schema.GroupVersionResource{Group: "networking.internal.kna
 var realmsKind = schema.GroupVersionKind{Group: "networking.internal.knative.dev", Version: "v1alpha1", Kind: "Realm"}
 
 // Get takes name of the realm, and returns the corresponding realm object, and an error if there is any.
-func (c *FakeRealms) Get(name string, options v1.GetOptions) (result *v1alpha1.Realm, err error) {
+func (c *FakeRealms) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Realm, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(realmsResource, name), &v1alpha1.Realm{})
 	if obj == nil {
@@ -48,7 +50,7 @@ func (c *FakeRealms) Get(name string, options v1.GetOptions) (result *v1alpha1.R
 }
 
 // List takes label and field selectors, and returns the list of Realms that match those selectors.
-func (c *FakeRealms) List(opts v1.ListOptions) (result *v1alpha1.RealmList, err error) {
+func (c *FakeRealms) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RealmList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(realmsResource, realmsKind, opts), &v1alpha1.RealmList{})
 	if obj == nil {
@@ -69,13 +71,13 @@ func (c *FakeRealms) List(opts v1.ListOptions) (result *v1alpha1.RealmList, err 
 }
 
 // Watch returns a watch.Interface that watches the requested realms.
-func (c *FakeRealms) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeRealms) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(realmsResource, opts))
 }
 
 // Create takes the representation of a realm and creates it.  Returns the server's representation of the realm, and an error, if there is any.
-func (c *FakeRealms) Create(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err error) {
+func (c *FakeRealms) Create(ctx context.Context, realm *v1alpha1.Realm, opts v1.CreateOptions) (result *v1alpha1.Realm, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(realmsResource, realm), &v1alpha1.Realm{})
 	if obj == nil {
@@ -85,7 +87,7 @@ func (c *FakeRealms) Create(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err 
 }
 
 // Update takes the representation of a realm and updates it. Returns the server's representation of the realm, and an error, if there is any.
-func (c *FakeRealms) Update(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err error) {
+func (c *FakeRealms) Update(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (result *v1alpha1.Realm, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(realmsResource, realm), &v1alpha1.Realm{})
 	if obj == nil {
@@ -96,7 +98,7 @@ func (c *FakeRealms) Update(realm *v1alpha1.Realm) (result *v1alpha1.Realm, err 
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRealms) UpdateStatus(realm *v1alpha1.Realm) (*v1alpha1.Realm, error) {
+func (c *FakeRealms) UpdateStatus(ctx context.Context, realm *v1alpha1.Realm, opts v1.UpdateOptions) (*v1alpha1.Realm, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(realmsResource, "status", realm), &v1alpha1.Realm{})
 	if obj == nil {
@@ -106,22 +108,22 @@ func (c *FakeRealms) UpdateStatus(realm *v1alpha1.Realm) (*v1alpha1.Realm, error
 }
 
 // Delete takes name of the realm and deletes it. Returns an error if one occurs.
-func (c *FakeRealms) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeRealms) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(realmsResource, name), &v1alpha1.Realm{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeRealms) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(realmsResource, listOptions)
+func (c *FakeRealms) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(realmsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.RealmList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched realm.
-func (c *FakeRealms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Realm, err error) {
+func (c *FakeRealms) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Realm, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(realmsResource, name, pt, data, subresources...), &v1alpha1.Realm{})
 	if obj == nil {

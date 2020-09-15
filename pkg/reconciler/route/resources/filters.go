@@ -18,30 +18,12 @@ package resources
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
-// Filter is used for applying a function to a service
-type Filter func(service *corev1.Service) bool
-
-// FilterService applies a filter to the list of services and return the services that are accepted
-func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Service {
-	var filteredServices []*corev1.Service
-
-	for i := range services {
-		service := services[i]
-		if acceptFilter(service) {
-			filteredServices = append(filteredServices, service)
-		}
-	}
-
-	return filteredServices
-}
-
-// Filter functions
-
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
-	visibility, ok := svc.GetLabels()[serving.VisibilityLabelKey]
-	return ok && serving.VisibilityClusterLocal == visibility
+	return svc.GetLabels()[network.VisibilityLabelKey] == serving.VisibilityClusterLocal ||
+		svc.GetLabels()[serving.VisibilityLabelKeyObsolete] == serving.VisibilityClusterLocal
 }

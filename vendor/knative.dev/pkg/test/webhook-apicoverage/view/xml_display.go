@@ -27,7 +27,7 @@ import (
 // percentage values to junit xml file format.
 func GetCoveragePercentageXMLDisplay(
 	percentageCoverages *coveragecalculator.CoveragePercentages) (string, error) {
-	tmpl, err := template.New("JunitResult").Parse(JunitResultTmpl)
+	tmpl, err := template.New("JunitResult").Parse(junitResultTmpl)
 	if err != nil {
 		return "", err
 	}

@@ -22,7 +22,6 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
@@ -31,13 +30,10 @@ import (
 func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	return &av1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PA(rev),
-			Namespace: rev.Namespace,
-			Labels:    makeLabels(rev),
-			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
-				// Ignore last pinned annotation.
-				return k == serving.RevisionLastPinnedAnnotationKey
-			}),
+			Name:            names.PA(rev),
+			Namespace:       rev.Namespace,
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: av1alpha1.PodAutoscalerSpec{
@@ -51,8 +47,8 @@ func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 			Reachability: func() av1alpha1.ReachabilityType {
 				// If the Revision has failed to become Ready, then mark the PodAutoscaler as unreachable.
 				if rev.Status.GetCondition(v1.RevisionConditionReady).IsFalse() {
-					// As a sanity check, also make sure that we don't do this when a
-					// newly failing revision is marked reachable by outside forces.
+					// Make sure that we don't do this when a newly failing revision is
+					// marked reachable by outside forces.
 					if !rev.IsReachable() {
 						return av1alpha1.ReachabilityUnreachable
 					}

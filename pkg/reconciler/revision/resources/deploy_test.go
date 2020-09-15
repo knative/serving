@@ -29,7 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
@@ -40,7 +42,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -136,6 +138,9 @@ var (
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: "",
 		}, {
+			Name:  "SERVING_ENABLE_REQUEST_LOG",
+			Value: "false",
+		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: "",
 		}, {
@@ -171,6 +176,9 @@ var (
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
 			Value: "false",
+		}, {
+			Name:  "METRICS_COLLECTOR_ADDRESS",
+			Value: "",
 		}},
 	}
 
@@ -387,7 +395,7 @@ func withContainerConcurrency(cc int64) RevisionOption {
 }
 
 func withoutLabels(revision *v1.Revision) {
-	revision.ObjectMeta.Labels = map[string]string{}
+	revision.Labels = map[string]string{}
 }
 
 func withOwnerReference(name string) RevisionOption {
@@ -481,8 +489,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -496,7 +503,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("PORT", "8888"),
 				),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				)}),
@@ -515,8 +521,7 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
@@ -544,7 +549,6 @@ func TestMakePodSpec(t *testing.T) {
 					}),
 				),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
 				),
@@ -565,7 +569,7 @@ func TestMakePodSpec(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -579,15 +583,41 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "concurrency=1 no owner digest resolved",
+		name: "metrics collector address",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		oc: metrics.ObservabilityConfig{
+			RequestMetricsBackend:   "opencensus",
+			MetricsCollectorAddress: "otel:55678",
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(
+					withEnvVar("METRICS_COLLECTOR_ADDRESS", "otel:55678"),
+					withEnvVar("SERVING_REQUEST_METRICS_BACKEND", "opencensus"),
+				),
+			}),
+	}, {
+		name: "concurrency=121 no owner digest resolved",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			withContainerConcurrency(121),
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -597,7 +627,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("CONTAINER_CONCURRENCY", "121"),
 				),
 			}),
 	}, {
@@ -608,9 +638,9 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			withContainerConcurrency(1),
+			withContainerConcurrency(42),
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -621,7 +651,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("CONTAINER_CONCURRENCY", "42"),
 				),
 			}),
 	}, {
@@ -632,7 +662,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -642,7 +672,6 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}`),
 				),
 			}),
@@ -654,7 +683,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -664,7 +693,6 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
 				),
 			}),
@@ -676,7 +704,7 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withExecReadinessProbe([]string{"echo", "hello"}),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -688,12 +716,11 @@ func TestMakePodSpec(t *testing.T) {
 						container.ReadinessProbe = withExecReadinessProbe([]string{"echo", "hello"})
 					}),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
 				),
 			}),
 	}, {
-		name: "with http liveness probe",
+		name: "with HTTP liveness probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -707,7 +734,7 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				},
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -723,14 +750,12 @@ func TestMakePodSpec(t *testing.T) {
 							Port: intstr.FromInt(networking.BackendHTTPPort),
 							HTTPHeaders: []corev1.HTTPHeader{{
 								Name:  network.KubeletProbeHeaderName,
-								Value: "queue",
+								Value: queue.Name,
 							}},
 						},
 					}),
 				),
-				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-				),
+				queueContainer(),
 			}),
 	}, {
 		name: "with tcp liveness probe",
@@ -744,7 +769,7 @@ func TestMakePodSpec(t *testing.T) {
 						TCPSocket: &corev1.TCPSocketAction{},
 					}}}},
 			),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
@@ -760,9 +785,7 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "0"),
-				),
+				queueContainer(),
 			}),
 	}, {
 		name: "complex pod spec",
@@ -772,12 +795,11 @@ func TestMakePodSpec(t *testing.T) {
 				Image:          "busybox",
 				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -795,7 +817,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("K_SERVICE", "svc"),
 				),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", "svc"),
 				)}),
 	}, {
@@ -815,8 +836,7 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  "sidecar-container-2",
 				Image: "alpine",
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -824,7 +844,7 @@ func TestMakePodSpec(t *testing.T) {
 				ImageDigest: "alpine@sha256:deadbfff",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -861,7 +881,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("K_SERVICE", "svc"),
 				),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", "svc"),
 				),
 			}),
@@ -879,14 +898,13 @@ func TestMakePodSpec(t *testing.T) {
 				Name:  sidecarContainerName,
 				Image: "ubuntu",
 			}}),
-			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Labels = map[string]string{
+				revision.Labels = map[string]string{
 					serving.ConfigurationLabelKey: "cfg",
 					serving.ServiceLabelKey:       "svc",
 				}
@@ -915,7 +933,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("K_SERVICE", "svc"),
 				),
 				queueContainer(
-					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("SERVING_SERVICE", "svc"),
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
@@ -955,9 +972,6 @@ func TestMakePodSpec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-				return x.Cmp(y) == 0
-			})
 			got, err := makePodSpec(test.rev, &logConfig, &traceConfig, &test.oc, &deploymentConfig)
 			if err != nil {
 				t.Fatal("makePodSpec returned error:", err)
@@ -968,6 +982,10 @@ func TestMakePodSpec(t *testing.T) {
 		})
 	}
 }
+
+var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
+	return x.Cmp(y) == 0
+})
 
 func TestMissingProbeError(t *testing.T) {
 	if _, err := MakeDeployment(revision("bar", "foo"), &logConfig, &traceConfig,
@@ -999,7 +1017,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withContainerConcurrency(1),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
@@ -1015,7 +1033,7 @@ func TestMakeDeployment(t *testing.T) {
 			}}),
 			withoutLabels,
 			withOwnerReference("parent-config"),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}})),
 		want: appsv1deployment(),
@@ -1027,17 +1045,19 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 			withoutLabels, func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
+				revision.Annotations = map[string]string{
 					sidecarIstioInjectAnnotation: "false",
 				}
 			}),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
-			deploy.Annotations[sidecarIstioInjectAnnotation] = "false"
-			deploy.Spec.Template.Annotations[sidecarIstioInjectAnnotation] = "false"
+			deploy.Annotations = kmeta.UnionMaps(deploy.Annotations,
+				map[string]string{sidecarIstioInjectAnnotation: "false"})
+			deploy.Spec.Template.Annotations = kmeta.UnionMaps(deploy.Spec.Template.Annotations,
+				map[string]string{sidecarIstioInjectAnnotation: "false"})
 		}),
 	}, {
 		name: "with ProgressDeadline override",
@@ -1050,7 +1070,7 @@ func TestMakeDeployment(t *testing.T) {
 				Image:          "ubuntu",
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
-			WithContainerStatuses([]v1.ContainerStatuses{{
+			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
@@ -1085,13 +1105,13 @@ func TestMakeDeployment(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+				revision.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 			},
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
-			deploy.ObjectMeta.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Spec.Template.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
 		}),
 	}}
 
@@ -1116,9 +1136,9 @@ func TestMakeDeployment(t *testing.T) {
 			got, err := MakeDeployment(test.rev, &logConfig, &traceConfig,
 				&network.Config{}, &obsConfig, &test.dc, ac)
 			if err != nil {
-				t.Fatal("got unexpected error:", err)
+				t.Fatal("Got unexpected error:", err)
 			}
-			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(resource.Quantity{})); diff != "" {
+			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Error("MakeDeployment (-want, +got) =", diff)
 			}
 		})

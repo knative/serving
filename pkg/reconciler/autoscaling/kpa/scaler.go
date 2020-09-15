@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	pkgnet "knative.dev/pkg/network"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -61,7 +61,7 @@ const (
 	// the Revision to re-reconcile and diagnose pod failures. If we use the same timeout here, we will
 	// race the Revision reconciler and scale down the pods before it can actually surface the pod errors.
 	// We should instead do pod failure diagnostics here immediately before scaling down the Deployment.
-	activationTimeoutBuffer = 10 * time.Second
+	activationTimeoutBuffer = 30 * time.Second
 )
 
 var probeOptions = []interface{}{
@@ -234,7 +234,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// Most conservative check, if it passes we're good.
 			lastPodTimeout := lastPodRetention(pa, cfgAS)
 			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
-			if pa.Status.CanScaleToZero(now, lastPodMaxTimeout) {
+			// If we have been inactive for this long, we can scale to 0!
+			if pa.Status.InactiveFor(now) >= lastPodMaxTimeout {
 				return desiredScale, true
 			}
 
@@ -297,7 +298,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 		return err
 	}
 
-	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
+	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ctx, ps.Name, types.JSONPatchType,
 		patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to apply scale %d to scale target %s: %w", desiredScale, name, err)
@@ -309,6 +310,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 
 // scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
+	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
@@ -316,9 +318,10 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		return desiredScale, nil
 	}
 
-	min, max := pa.ScaleBounds()
-	initialScale := kparesources.GetInitialScale(config.FromContext(ctx).Autoscaler, pa)
-	if initialScale > 1 {
+	min, max := pa.ScaleBounds(asConfig)
+	initialScale := kparesources.GetInitialScale(asConfig, pa)
+	// If initial scale has been attained, ignore the initialScale altogether.
+	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.
 		if min < initialScale {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
@@ -335,7 +338,7 @@ func (ks *scaler) scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		return desiredScale, nil
 	}
 
-	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
+	ps, err := resources.GetScaleResource(ctx, pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
 	if err != nil {
 		return desiredScale, fmt.Errorf("failed to get scale target %v: %w", pa.Spec.ScaleTargetRef, err)
 	}

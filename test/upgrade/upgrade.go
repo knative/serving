@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"testing"
@@ -41,6 +42,7 @@ const (
 	scaleToZeroServiceName   = "scale-to-zero-upgrade-service"
 	byoServiceName           = "byo-revision-name-upgrade-test"
 	byoRevName               = byoServiceName + "-" + "rev1"
+	initialScaleServiceName  = "init-scale-service"
 )
 
 // Shamelessly cribbed from conformance/service_test.
@@ -48,6 +50,7 @@ func assertServiceResourcesUpdated(t pkgTest.TLegacy, clients *test.Clients, nam
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,

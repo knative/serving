@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -61,22 +62,22 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 
 // GetResourceObjects obtains the services resources from the k8s API server.
 func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*ResourceObjects, error) {
-	routeObject, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	routeObject, err := clients.ServingAlphaClient.Routes.Get(context.Background(), names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceObject, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	serviceObject, err := clients.ServingAlphaClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	configObject, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
+	configObject, err := clients.ServingAlphaClient.Configs.Get(context.Background(), names.Config, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	revisionObject, err := clients.ServingAlphaClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+	revisionObject, err := clients.ServingAlphaClient.Revisions.Get(context.Background(), names.Revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -174,11 +175,13 @@ func CreateRunLatestServiceLegacyReady(t pkgTest.T, clients *test.Clients, names
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
-func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (svc *v1alpha1.Service, err error) {
 	service := LatestService(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingAlphaClient.Services.Create(service)
-	return svc, err
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingAlphaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
+		return err
+	})
 }
 
 // CreateLatestServiceLegacy creates a service in namespace with the name names.Service and names.Image
@@ -186,42 +189,48 @@ func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.Re
 	service := LatestServiceLegacy(names, fopt...)
 	test.AddTestAnnotation(t, service.ObjectMeta)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingAlphaClient.Services.Create(service)
+	svc, err := clients.ServingAlphaClient.Services.Create(context.Background(), service, metav1.CreateOptions{})
 	return svc, err
 }
 
 // PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
-func PatchServiceImage(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
-	newSvc := svc.DeepCopy()
-	if svc.Spec.DeprecatedRunLatest != nil {
+func PatchServiceImage(t pkgTest.T, clients *test.Clients, service *v1alpha1.Service, imagePath string) (svc *v1alpha1.Service, err error) {
+	newSvc := service.DeepCopy()
+	if service.Spec.DeprecatedRunLatest != nil {
 		newSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
-	} else if svc.Spec.DeprecatedRelease != nil {
+	} else if service.Spec.DeprecatedRelease != nil {
 		newSvc.Spec.DeprecatedRelease.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
-	} else if svc.Spec.DeprecatedPinned != nil {
+	} else if service.Spec.DeprecatedPinned != nil {
 		newSvc.Spec.DeprecatedPinned.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
 	} else {
 		newSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Image = imagePath
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
-func PatchService(t pkgTest.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+func PatchService(t pkgTest.T, clients *test.Clients, curSvc, desiredSvc *v1alpha1.Service) (svc *v1alpha1.Service, err error) {
 	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
 	patchBytes, err := duck.CreateBytePatch(curSvc, desiredSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingAlphaClient.Services.Patch(curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), curSvc.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1alpha1.RouteSpec) (*v1alpha1.Service, error) {
+func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1alpha1.RouteSpec) (svc *v1alpha1.Service, err error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -231,19 +240,25 @@ func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.Resou
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingAlphaClient.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), names.Service, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // PatchServiceTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
-func PatchServiceTemplateMetadata(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
-	newSvc := svc.DeepCopy()
+func PatchServiceTemplateMetadata(t pkgTest.T, clients *test.Clients, service *v1alpha1.Service, metadata metav1.ObjectMeta) (svc *v1alpha1.Service, err error) {
+	newSvc := service.DeepCopy()
 	newSvc.Spec.ConfigurationSpec.Template.ObjectMeta = metadata
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
 	if err != nil {
 		return nil, err
 	}
-	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingAlphaClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
@@ -306,8 +321,10 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 
 	var lastState *v1alpha1.Service
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Services.Get(name, metav1.GetOptions{})
+		err := reconciler.RetryTestErrors(func(int) (err error) {
+			lastState, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+			return err
+		})
 		if err != nil {
 			return true, err
 		}
@@ -324,7 +341,11 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForServiceState.
 func CheckServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
-	s, err := client.Services.Get(name, metav1.GetOptions{})
+	var s *v1alpha1.Service
+	err := reconciler.RetryTestErrors(func(int) (err error) {
+		s, err = client.Services.Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	})
 	if err != nil {
 		return err
 	}

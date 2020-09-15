@@ -6,73 +6,6 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-logging
-  namespace: kourier-system
-  labels:
-    networking.knative.dev/ingress-provider: kourier
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-observability
-  namespace: kourier-system
-  labels:
-    networking.knative.dev/ingress-provider: kourier
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-leader-election
-  namespace: kourier-system
-  labels:
-    networking.knative.dev/ingress-provider: kourier
-data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-
-    # This block is not actually functional configuration,
-    # but serves to illustrate the available configuration
-    # options and document them in a way that is accessible
-    # to users that `kubectl edit` this config map.
-    #
-    # These sample configuration options may be copied out of
-    # this example block and unindented to be in the data block
-    # to actually change the configuration.
-
-    # resourceLock controls which API resource is used as the basis for the
-    # leader election lock. Valid values are:
-    #
-    # - leases -> use the coordination API
-    # - configmaps -> use configmaps
-    # - endpoints -> use endpoints
-    resourceLock: "leases"
-
-    # leaseDuration is how long non-leaders will wait to try to acquire the
-    # lock; 15 seconds is the value used by core kubernetes controllers.
-    leaseDuration: "15s"
-    # renewDeadline is how long a leader will try to renew the lease before
-    # giving up; 10 seconds is the value used by core kubernetes controllers.
-    renewDeadline: "10s"
-    # retryPeriod is how long the leader election client waits between tries of
-    # actions; 2 seconds is the value used by core kubernetes controllers.
-    retryPeriod: "2s"
-    # enabledComponents is a comma-delimited list of component names for which
-    # leader election is enabled. Valid values are:
-    # - controller
-    # - hpaautoscaler
-    # - certcontroller
-    # - istiocontroller
-    # - nscontroller
-    # - kourier
-  enabledComponents: kourier
----
-apiVersion: v1
 kind: Service
 metadata:
   name: kourier
@@ -111,13 +44,12 @@ spec:
     spec:
       containers:
       - args:
-        - --base-id
-        - "1"
-        - -c
-        - /tmp/config/envoy-bootstrap.yaml
+        - --base-id 1
+        - -c /tmp/config/envoy-bootstrap.yaml
+        - --log-level info
         command:
         - /usr/local/bin/envoy
-        image: docker.io/maistra/proxyv2-ubi8:1.1.3
+        image: docker.io/maistra/proxyv2-ubi8:1.1.5
         imagePullPolicy: Always
         name: kourier-gateway
         ports:
@@ -136,7 +68,8 @@ spec:
         lifecycle:
           preStop:
             exec:
-              command: ["curl", "-X", "POST", "--unix", "/tmp/envoy.admin", "http://localhost/healthcheck/fail"]
+              command: ["/bin/sh", "-c", "curl -X POST --unix /tmp/envoy.admin http://localhost/healthcheck/fail;
+                  sleep 15"]
         readinessProbe:
           httpGet:
             httpHeaders:
@@ -157,7 +90,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: 3scale-kourier-control
-  namespace: kourier-system
+  namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
@@ -171,7 +104,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f7b1e253137984b3696973cc783f98a9bb943ec8a6058bc1dd3e65b4099278b4
+      - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:1af376a80a14e06b4e29d5031b2ca4f45612553d4fe7e8a092e469455cdd203b
         imagePullPolicy: Always
         name: kourier-control
         env:
@@ -183,6 +116,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: KOURIER_GATEWAY_NAMESPACE
+          value: "kourier-system"
         ports:
         - name: http2-xds
           containerPort: 18000
@@ -194,13 +129,19 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: 3scale-kourier
-  namespace: kourier-system
+  namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
 rules:
 - apiGroups: [""]
-  resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
+  resources: ["events"]
+  verbs: ["create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods", "endpoints", "namespaces", "services", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "update", "create"]
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]
   verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
@@ -218,7 +159,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: 3scale-kourier
-  namespace: kourier-system
+  namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
 ---
@@ -235,7 +176,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: 3scale-kourier
-  namespace: kourier-system
+  namespace: knative-serving
 ---
 apiVersion: v1
 kind: Service
@@ -258,7 +199,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kourier-control
-  namespace: kourier-system
+  namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: kourier
 spec:
@@ -337,7 +278,7 @@ data:
           connect_timeout: 1s
           hosts:
             - socket_address:
-                address: "kourier-control"
+                address: "kourier-control.knative-serving"
                 port_value: 18000
           http2_protocol_options: {}
           type: STRICT_DNS

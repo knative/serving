@@ -18,6 +18,7 @@ limitations under the License.
 package autotls
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
@@ -32,7 +33,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
-	testingress "knative.dev/serving/test/conformance/ingress"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -48,7 +48,9 @@ type config struct {
 
 var env config
 
-func TestAutoTLS(t *testing.T) {
+// Technically TLS is proper Go casing for acronyms, but it makes our test naming
+// hyphenate between every character, and we hit length problems.
+func TestTls(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
@@ -56,7 +58,7 @@ func TestAutoTLS(t *testing.T) {
 }
 
 func testAutoTLS(t *testing.T) {
-	clients := e2e.Setup(t)
+	clients := e2e.SetupWithNamespace(t, test.TLSNamespace)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -83,7 +85,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+	runtimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Probe main URL while we update the route
@@ -93,11 +95,11 @@ func testAutoTLS(t *testing.T) {
 		}
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
-				Tag:            "tag1",
+				Tag:            "r",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}, {
-				Tag:            "tag2",
+				Tag:            "b",
 				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}},
@@ -108,13 +110,13 @@ func testAutoTLS(t *testing.T) {
 			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
 		}
 
-		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get ingress:", err)
 		}
 		for _, tls := range ing.Spec.TLS {
 			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
+			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(context.Background(), t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
 				t.Fatal("Failed to add the certificate to the root CA")
 			}
 		}
@@ -123,20 +125,20 @@ func testAutoTLS(t *testing.T) {
 		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
 		defer test.AssertProberDefault(t, prober)
 
-		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		route, err := clients.ServingClient.Routes.Get(context.Background(), objects.Route.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get route:", err)
 		}
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
-			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+			runtimeRequest(t, httpsClient, traffic.URL.String())
 		}
 	})
 }
 
 func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
@@ -167,7 +169,7 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	t.Helper()
-	pemData := test.PemDataFromSecret(t.Logf, clients, ns, secretName)
+	pemData := test.PemDataFromSecret(context.Background(), t.Logf, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -184,11 +186,11 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 
 func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects, rootCAs *x509.CertPool) *http.Client {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := testingress.CreateDialContext(t, ing, clients)
+	dialer := CreateDialContext(t, ing, clients)
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}

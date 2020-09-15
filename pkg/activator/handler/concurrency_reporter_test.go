@@ -18,21 +18,28 @@ package handler
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opencensus.io/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/activator/util"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -59,7 +66,7 @@ func TestStats(t *testing.T) {
 	tt := []struct {
 		name          string
 		ops           []reqOp
-		expectedStats []metrics.StatMessage
+		expectedStats []asmetrics.StatMessage
 	}{{
 		name: "scale-from-zero sends stat",
 		ops: []reqOp{{
@@ -69,16 +76,16 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: rev2,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev2,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
@@ -106,16 +113,16 @@ func TestStats(t *testing.T) {
 			op:   requestOpTick,
 			time: 2,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
@@ -138,23 +145,23 @@ func TestStats(t *testing.T) {
 			op:   requestOpTick,
 			time: 2,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1, // We subtract the one concurrent request we already reported.
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 2, // Next reporting period, report both requests in flight.
 				RequestCount:              0, // No new requests have appeared.
 				PodName:                   activatorPodName,
@@ -181,30 +188,30 @@ func TestStats(t *testing.T) {
 			key:  rev1,
 			time: 3,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1, // scale from 0 stat
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0, // first stat, discounted by 1
 				RequestCount:              0,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0, // nothing seen for the entire period
 				RequestCount:              0,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1, // scale from 0 again
 				RequestCount:              1,
 				PodName:                   activatorPodName,
@@ -224,44 +231,44 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev2,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev3,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev2,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev3,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              0,
 				PodName:                   activatorPodName,
@@ -288,16 +295,16 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []metrics.StatMessage{{
+		expectedStats: []asmetrics.StatMessage{{
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			},
 		}, {
 			Key: rev1,
-			Stat: metrics.Stat{
+			Stat: asmetrics.Stat{
 				AverageConcurrentRequests: 0.5,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
@@ -307,31 +314,30 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, cr, ctx, cancel := newTestStats(t)
+			cr, _, cancel := newTestReporter(t)
 			defer cancel()
-			go func() {
-				cr.run(ctx.Done(), s.reportBiChan)
-				close(s.reportBiChan)
-			}()
 
 			// Apply request operations
 			for _, op := range tc.ops {
 				time := time.Time{}.Add(time.Duration(op.time) * time.Millisecond)
 				switch op.op {
 				case requestOpStart:
-					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqIn, Time: time}
+					cr.handleEvent(network.ReqEvent{Key: op.key, Type: network.ReqIn, Time: time})
 				case requestOpEnd:
-					s.reqChan <- network.ReqEvent{Key: op.key, Type: network.ReqOut, Time: time}
+					cr.handleEvent(network.ReqEvent{Key: op.key, Type: network.ReqOut, Time: time})
 				case requestOpTick:
-					s.reportBiChan <- time
+					stats := cr.report(time)
+					if len(stats) > 0 {
+						cr.statCh <- stats
+					}
 				}
 			}
 
 			// Gather reported stats.
-			stats := make([]metrics.StatMessage, 0, len(tc.expectedStats))
+			stats := make([]asmetrics.StatMessage, 0, len(tc.expectedStats))
 			for len(stats) < len(tc.expectedStats) {
 				select {
-				case x := <-s.statChan:
+				case x := <-cr.statCh:
 					stats = append(stats, x...)
 				case <-time.After(time.Second):
 					t.Fatal("Timed out waiting for the event")
@@ -340,7 +346,7 @@ func TestStats(t *testing.T) {
 
 			// Verify we're not getting extra events.
 			select {
-			case x := <-s.statChan:
+			case x := <-cr.statCh:
 				t.Fatal("Extra events received:", x)
 			case <-time.After(5 * time.Millisecond):
 				// Lookin' good.
@@ -364,56 +370,155 @@ func TestStats(t *testing.T) {
 	}
 }
 
-func TestMetricsReported(t *testing.T) {
-	reset()
-	s, cr, ctx, cancel := newTestStats(t)
+func TestConcurrencyReporterRun(t *testing.T) {
+	cr, ctx, cancel := newTestReporter(t)
 	defer cancel()
+
+	reportCh := make(chan time.Time)
 	go func() {
-		cr.run(ctx.Done(), s.reportBiChan)
-		close(s.reportBiChan)
+		cr.run(ctx.Done(), reportCh)
+		close(reportCh)
 	}()
 
-	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
-	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
-	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
-	s.reqChan <- network.ReqEvent{Key: rev1, Type: network.ReqIn}
-	s.reportBiChan <- time.Time{}.Add(1 * time.Millisecond)
-	<-s.statChan // The scale from 0 quick-report
-	<-s.statChan // The actual report we want to see
+	now := time.Time{}
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
 
+	reportCh <- now.Add(1)
+
+	want := []asmetrics.StatMessage{{
+		Key: rev1,
+		Stat: asmetrics.Stat{
+			AverageConcurrentRequests: 1,
+			RequestCount:              1,
+			PodName:                   activatorPodName,
+		},
+	}, {
+		Key: rev1,
+		Stat: asmetrics.Stat{
+			AverageConcurrentRequests: 2, // Discounted via the from 0 stat.
+			RequestCount:              2, // Discounted via the from 0 stat.
+			PodName:                   activatorPodName,
+		},
+	}}
+
+	reportCh <- now.Add(2)
+
+	got := make([]asmetrics.StatMessage, 0, len(want))
+	got = append(got, <-cr.statCh...) // Scale from 0.
+	got = append(got, <-cr.statCh...) // Actual report.
+	if !cmp.Equal(got, want) {
+		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+	}
+}
+
+func TestConcurrencyReporterHandler(t *testing.T) {
+	cr, ctx, cancel := newTestReporter(t)
+	defer cancel()
+
+	reportCh := make(chan time.Time)
+	go func() {
+		cr.run(ctx.Done(), reportCh)
+		close(reportCh)
+	}()
+
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := cr.Handler(baseHandler)
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	rCtx := util.WithRevID(context.Background(), rev1)
+
+	// Send a few requests.
+	handler.ServeHTTP(resp, req.WithContext(rCtx))
+	handler.ServeHTTP(resp, req.WithContext(rCtx))
+	handler.ServeHTTP(resp, req.WithContext(rCtx))
+
+	want := []asmetrics.StatMessage{{
+		Key: rev1,
+		Stat: asmetrics.Stat{
+			AverageConcurrentRequests: 1,
+			RequestCount:              1,
+			PodName:                   activatorPodName,
+		},
+	}, {
+		Key: rev1,
+		Stat: asmetrics.Stat{
+			AverageConcurrentRequests: 0, // Discounted via the from 0 stat.
+			RequestCount:              2, // Discounted via the from 0 stat.
+			PodName:                   activatorPodName,
+		},
+	}}
+
+	reportCh <- time.Now()
+
+	got := make([]asmetrics.StatMessage, 0, len(want))
+	got = append(got, <-cr.statCh...) // Scale from 0.
+	got = append(got, <-cr.statCh...) // Actual report.
+	if !cmp.Equal(got, want) {
+		t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
+	}
+}
+
+func TestMetricsReported(t *testing.T) {
+	reset()
+	cr, ctx, cancel := newTestReporter(t)
+	defer cancel()
+
+	reportCh := make(chan time.Time)
+	go func() {
+		cr.run(ctx.Done(), reportCh)
+		close(reportCh)
+	}()
+
+	now := time.Time{}
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+	cr.handleEvent(network.ReqEvent{Key: rev1, Type: network.ReqIn, Time: now})
+
+	// Report
+	reportCh <- now.Add(1)
+	<-cr.statCh // scale-from-0 event
+	<-cr.statCh // "proper" event
+
+	wantResource := &resource.Resource{
+		Type: "knative_revision",
+		Labels: map[string]string{
+			metricskey.LabelRevisionName:      rev1.Name,
+			metricskey.LabelNamespaceName:     rev1.Namespace,
+			metricskey.LabelServiceName:       "service-" + rev1.Name,
+			metricskey.LabelConfigurationName: "config-" + rev1.Name,
+		},
+	}
 	wantTags := map[string]string{
-		metricskey.LabelRevisionName:      rev1.Name,
-		metricskey.LabelNamespaceName:     rev1.Namespace,
-		metricskey.LabelServiceName:       "service-" + rev1.Name,
-		metricskey.LabelConfigurationName: "config-" + rev1.Name,
-		metricskey.PodName:                "the-best-activator",
-		metricskey.ContainerName:          "activator",
+		metricskey.PodName:       "the-best-activator",
+		metricskey.ContainerName: "activator",
 	}
-	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
+
+	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)
+	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
+	metricstest.AssertMetric(t, wantMetric)
+
+	// Report again
+	reportCh <- now.Add(2)
+	<-cr.statCh
+
+	// The next time round we should report the "real" concurrency
+	wantMetric = metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource)
+	metricstest.AssertMetric(t, wantMetric)
 }
 
-// Test type to hold the bi-directional time channels
-type testStats struct {
-	reqChan      chan network.ReqEvent
-	statChan     chan []metrics.StatMessage
-	reportBiChan chan time.Time
-}
-
-func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
-	reportBiChan := make(chan time.Time)
-	ts := &testStats{
-		reqChan: make(chan network.ReqEvent),
-		// Buffered channel permits avoiding sending the test commands on the separate go routine
-		// simplifying main test process.
-		statChan:     make(chan []metrics.StatMessage, 10),
-		reportBiChan: reportBiChan,
-	}
+func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	revisionInformer(ctx, revision(rev1.Namespace, rev1.Name),
 		revision(rev2.Namespace, rev2.Name), revision(rev3.Namespace, rev3.Name))
 
-	return ts, NewConcurrencyReporter(ctx, activatorPodName,
-		ts.reqChan, ts.statChan), ctx, cancel
+	// Buffered channel permits avoiding sending the test commands on the separate go routine
+	// simplifying main test process.
+	statCh := make(chan []asmetrics.StatMessage, 10)
+	return NewConcurrencyReporter(ctx, activatorPodName, statCh), ctx, cancel
 }
 
 func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
@@ -421,7 +526,113 @@ func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 	revisions := fakerevisioninformer.Get(ctx)
 
 	for _, rev := range revs {
-		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
+	}
+}
+
+func BenchmarkConcurrencyReporterHandler(b *testing.B) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
+	defer cancel()
+
+	// Buffer equal to the activator.
+	statCh := make(chan []asmetrics.StatMessage)
+	cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go cr.Run(stopCh)
+
+	// Just read and ignore all stat messages.
+	go func() {
+		for {
+			select {
+			case <-statCh:
+			case <-stopCh:
+				return
+			}
+		}
+	}()
+
+	fake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := cr.Handler(baseHandler)
+
+	// Spread the load across 100 revisions.
+	reqs := make([]*http.Request, 0, 100)
+	for i := 0; i < cap(reqs); i++ {
+		key := types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      testRevName + strconv.Itoa(i),
+		}
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		reqs = append(reqs, req.WithContext(util.WithRevID(context.Background(), key)))
+
+		// Create revisions in the fake clients to trigger report logic.
+		rev := revision(key.Namespace, key.Name)
+		fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+		revisions.Informer().GetIndexer().Add(rev)
+	}
+	resp := httptest.NewRecorder()
+
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			req := reqs[j%len(reqs)]
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			var j int
+			for pb.Next() {
+				req := reqs[j%len(reqs)]
+				handler.ServeHTTP(resp, req)
+				j++
+			}
+		})
+	})
+}
+
+// BenchmarkConcurrencyReporterReport benchmarks the report function specifically
+// to get a feeling for how expensive it is as it'll lock the mutex and thus block
+// requests for the respective time too.
+func BenchmarkConcurrencyReporterReport(b *testing.B) {
+	for _, revs := range []int{1, 5, 10, 50, 100, 200} {
+		b.Run(fmt.Sprintf("revs-%d", revs), func(b *testing.B) {
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
+			defer cancel()
+
+			// Different to the activator but doesn't matter as it isn't used in the test.
+			statCh := make(chan []asmetrics.StatMessage, revs)
+			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+
+			fake := fakeservingclient.Get(ctx)
+			revisions := fakerevisioninformer.Get(ctx)
+			for i := 0; i < revs; i++ {
+				key := types.NamespacedName{
+					Namespace: testNamespace,
+					Name:      testRevName + strconv.Itoa(i),
+				}
+
+				// Create revisions in the fake clients to trigger report logic.
+				rev := revision(key.Namespace, key.Name)
+				fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+				revisions.Informer().GetIndexer().Add(rev)
+
+				// Send a sample request for each revision to make sure it's reported.
+				cr.handleEvent(network.ReqEvent{
+					Time: time.Now(),
+					Type: network.ReqIn,
+					Key:  key,
+				})
+			}
+
+			for j := 0; j < b.N; j++ {
+				cr.report(time.Now())
+			}
+		})
 	}
 }

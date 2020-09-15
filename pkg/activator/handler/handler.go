@@ -26,6 +26,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -33,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -52,12 +52,11 @@ type activationHandler struct {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t Throttler) http.Handler {
-	defaultTransport := pkgnet.AutoTransport
+func New(ctx context.Context, t Throttler, transport http.RoundTripper) http.Handler {
 	return &activationHandler{
-		transport: defaultTransport,
+		transport: transport,
 		tracingTransport: &ochttp.Transport{
-			Base:        defaultTransport,
+			Base:        transport,
 			Propagation: tracecontextb3.B3Egress,
 		},
 		throttler:  t,
@@ -89,7 +88,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
-		// Set error on our capacity waiting span and end it
+		// Set error on our capacity waiting span and end it.
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
@@ -108,14 +107,14 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	network.RewriteHostIn(r)
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
-	// Setup the reverse proxy.
+	// Set up the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
-	proxy.FlushInterval = -1
+	proxy.FlushInterval = network.FlushInterval
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 	util.SetupHeaderPruning(proxy)
 

@@ -36,13 +36,16 @@ aliases:
   - markusthoemmes  # Scaling/TOC
   - mattmoor        # API/TOC
   - mdemirhan       # Network
+  - nak3            # Network
   - tcnghia         # Network/TOC
+  - ZhiminXiang     # Network
   - vagababov       # Scaling
 
   autoscaling-approvers:
   - markusthoemmes
   - mdemirhan
   - vagababov
+  - julz
   autoscaling-reviewers:
   - julz
   - markusthoemmes

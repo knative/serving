@@ -31,7 +31,7 @@ import (
 // SetupWebhookServer builds the necessary webhook configuration, HTTPServer and starts the webhook.
 func SetupWebhookServer() {
 	namespace := common.WebhookNamespace
-	if len(namespace) == 0 {
+	if namespace != "" {
 		log.Fatal("Namespace value to used by the webhook is not set")
 	}
 

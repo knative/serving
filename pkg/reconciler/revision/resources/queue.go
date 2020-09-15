@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
@@ -36,7 +37,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
 )
@@ -312,6 +312,9 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
 			Value: observabilityConfig.RequestLogTemplate,
 		}, {
+			Name:  "SERVING_ENABLE_REQUEST_LOG",
+			Value: strconv.FormatBool(observabilityConfig.EnableRequestLog),
+		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
@@ -347,6 +350,9 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 		}, {
 			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
 			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
+		}, {
+			Name:  "METRICS_COLLECTOR_ADDRESS",
+			Value: observabilityConfig.MetricsCollectorAddress,
 		}},
 	}, nil
 }

@@ -14,16 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Temporarily increasing the cluster size for serving tests to rule out
-# resource/eviction as causes of flakiness. These env vars are consumed
-# in the test-infra/scripts/e2e-tests.sh. Use the existing value, if provided
-# with the job config.
-E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
-E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
-E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
-
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
+source $(dirname $0)/e2e-networking-library.sh
 
 CERT_MANAGER_VERSION="0.12.0"
 # Since default is istio, make default ingress as istio
@@ -61,7 +54,7 @@ HA_COMPONENTS=()
 function parse_flags() {
   case "$1" in
     --istio-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      [[ $2 =~ ^(stable|latest)$ ]] || abort "version format must be 'stable' or 'latest'"
       readonly ISTIO_VERSION=$2
       readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
@@ -128,6 +121,13 @@ function parse_flags() {
       readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
+    --kong-version)
+      # currently, the value of --kong-version is ignored
+      # latest version of Kong pinned in third_party will be installed
+      readonly KONG_VERSION=$2
+      readonly INGRESS_CLASS="kong"
+      return 2
+      ;;
     --system-namespace)
       [[ -z "$2" ]] || [[ $2 = --* ]] && fail_test "Missing argument to --system-namespace"
       export SYSTEM_NAMESPACE=$2
@@ -157,7 +157,7 @@ function build_knative_from_source() {
   eval "${ENV_OUTPUT}"
 }
 
-# Installs Knative Serving in the current cluster, and waits for it to be ready.
+# Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build, unless custom
 # YAML files were passed using the --custom-yamls flag.
 # Parameters: $1 - Knative Serving version "HEAD" or "latest-release". Default is "HEAD".
@@ -178,117 +178,7 @@ function install_knative_serving() {
   done
 }
 
-function install_istio() {
-  # If no gateway was set on command line, assume Istio
-  if [[ -z "${ISTIO_VERSION}" ]]; then
-    echo ">> No gateway set up on command line, using Istio"
-    readonly ISTIO_VERSION="1.4-latest"
-  fi
-
-  local istio_base="./third_party/istio-${ISTIO_VERSION}"
-  INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
-  if (( MESH )); then
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml"
-  else
-    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
-  fi
-
-  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
-  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
-
-  echo ">> Bringing up Istio"
-  echo ">> Running Istio CRD installer"
-  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
-  wait_until_batch_job_complete istio-system || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_CRD_YAML}" )
-
-  echo ">> Running Istio"
-  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
-  UNINSTALL_LIST+=( "${INSTALL_ISTIO_YAML}" )
-
-  # If the yaml for the Istio Ingress controller is passed, then install it.
-  if [[ -n "$1" ]]; then
-    echo ">> Installing Istio Ingress"
-    echo "Istio Ingress YAML: ${1}"
-    # Create temp copy in which we replace knative-serving by the test's system namespace.
-    local YAML_NAME=$(mktemp -p $TMP_DIR --suffix=.$(basename "$1"))
-    sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${1} > ${YAML_NAME}
-    echo "Istio Ingress YAML: $YAML_NAME"
-    ko apply -f "${YAML_NAME}" --selector=networking.knative.dev/ingress-provider=istio || return 1
-    UNINSTALL_LIST+=( "${YAML_NAME}" )
-  fi
-}
-
-function install_gloo() {
-  local INSTALL_GLOO_YAML="./third_party/gloo-latest/gloo.yaml"
-  echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
-  echo ">> Bringing up Gloo"
-
-  kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_GLOO_YAML}" )
-
-  echo ">> Patching Gloo"
-  # Scale replicas of the Gloo proxies to handle large qps
-  kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
-  kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
-}
-
-function install_kourier() {
-  local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
-  echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
-  echo ">> Bringing up Kourier"
-
-  kubectl apply -f ${INSTALL_KOURIER_YAML} || return 1
-  UNINSTALL_LIST+=( "${INSTALL_KOURIER_YAML}" )
-
-  echo ">> Patching Kourier"
-  # Scale replicas of the Kourier gateways to handle large qps
-  kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
-}
-
-function install_ambassador() {
-  local AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
-  echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
-
-  echo ">> Creating namespace 'ambassador'"
-  kubectl create namespace ambassador || return 1
-
-  echo ">> Installing Ambassador"
-  kubectl apply -n ambassador -f ${AMBASSADOR_MANIFESTS_PATH} || return 1
-  UNINSTALL_LIST+=( "${AMBASSADOR_MANIFESTS_PATH}" )
-
-#  echo ">> Fixing Ambassador's permissions"
-#  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
-
-#  echo ">> Enabling Knative support in Ambassador"
-#  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
-
-  echo ">> Patching Ambassador"
-  # Scale replicas of the Ambassador gateway to handle large qps
-  kubectl scale -n ambassador deployment ambassador --replicas=6
-}
-
-function install_contour() {
-  local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
-  local INSTALL_NET_CONTOUR_YAML="./third_party/contour-latest/net-contour.yaml"
-  echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
-  echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
-
-  echo ">> Bringing up Contour"
-  kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
-
-  UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
-  HA_COMPONENTS+=( "contour-ingress-controller" )
-
-  local NET_CONTOUR_YAML_NAME=${TMP_DIR}/${INSTALL_NET_CONTOUR_YAML##*/}
-  sed "s/namespace: ${KNATIVE_DEFAULT_NAMESPACE}/namespace: ${SYSTEM_NAMESPACE}/g" ${INSTALL_NET_CONTOUR_YAML} > ${NET_CONTOUR_YAML_NAME}
-  echo ">> Bringing up net-contour"
-  kubectl apply -f ${NET_CONTOUR_YAML_NAME} || return 1
-
-  UNINSTALL_LIST+=( "${NET_CONTOUR_YAML_NAME}" )
-}
-
-# Installs Knative Serving in the current cluster, and waits for it to be ready.
+# Installs Knative Serving in the current cluster.
 # If no parameters are passed, installs the current source-based build.
 # Parameters: $1 - Knative Serving version "HEAD" or "latest-release".
 #             $2 - Knative Monitoring YAML file (optional)
@@ -343,6 +233,8 @@ function install_knative_serving_standard() {
     install_ambassador || return 1
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
     install_contour || return 1
+  elif [[ -n "${KONG_VERSION}" ]]; then
+    install_kong || return 1
   else
     if [[ "$1" == "HEAD" ]]; then
       install_istio "./third_party/net-istio.yaml" || return 1
@@ -486,22 +378,6 @@ function knative_teardown() {
   fi
 }
 
-
-
-# Add function call to trap
-# Parameters: $1 - Function to call
-#             $2...$n - Signals for trap
-function add_trap() {
-  local cmd=$1
-  shift
-  for trap_signal in $@; do
-    local current_trap="$(trap -p $trap_signal | cut -d\' -f2)"
-    local new_cmd="($cmd)"
-    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
-    trap -- "${new_cmd}" $trap_signal
-  done
-}
-
 # Create test resources and images
 function test_setup() {
   echo ">> Replacing ${KNATIVE_DEFAULT_NAMESPACE} with the actual namespace for Knative Serving..."
@@ -543,43 +419,7 @@ function test_setup() {
   wait_until_pods_running cert-manager || return 1
 
   echo ">> Waiting for Ingress provider to be running..."
-  if [[ -n "${ISTIO_VERSION}" ]]; then
-    wait_until_pods_running istio-system || return 1
-    wait_until_service_has_external_http_address istio-system istio-ingressgateway
-  fi
-  if [[ -n "${GLOO_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Gloo
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=knative-external-proxy
-    export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
-    wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system knative-external-proxy
-  fi
-  if [[ -n "${KOURIER_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Kourier
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kourier
-    export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
-    wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_http_address kourier-system kourier
-  fi
-  if [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Ambassador
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=ambassador
-    export GATEWAY_NAMESPACE_OVERRIDE=ambassador
-    wait_until_pods_running ambassador || return 1
-    wait_until_service_has_external_http_address ambassador ambassador
-  fi
-  if [[ -n "${CONTOUR_VERSION}" ]]; then
-    # we must set these override values to allow the test spoofing client to work with Contour
-    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=envoy
-    export GATEWAY_NAMESPACE_OVERRIDE=contour-external
-    wait_until_pods_running contour-external || return 1
-    wait_until_pods_running contour-internal || return 1
-    wait_until_service_has_external_ip "${GATEWAY_NAMESPACE_OVERRIDE}" "${GATEWAY_OVERRIDE}"
-  fi
+  wait_until_ingress_running || return 1
 
   if (( INSTALL_MONITORING )); then
     echo ">> Waiting for Monitoring to be running..."
@@ -621,7 +461,7 @@ function dump_extra_cluster_state() {
 function wait_for_leader_controller() {
   echo -n "Waiting for a leader Controller"
   for i in {1..150}; do  # timeout after 5 minutes
-    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.items[*].spec.holderIdentity}'  | cut -d"_" -f1 | grep "^controller-" | head -1)
+    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{range .items[*].spec}{"\n"}{.holderIdentity}' | cut -d"_" -f1 | grep "^controller-" | head -1)
     # Make sure the leader pod exists.
     if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
       echo -e "\nNew leader Controller has been elected"
@@ -645,21 +485,34 @@ function toggle_feature() {
   sleep 30
 }
 
+function immediate_gc() {
+  echo -n "Setting config-gc to immediate garbage collection"
+  local DATA='{"data":{'`
+      `'"retain-since-create-time":"disabled",'`
+      `'"retain-since-last-active-time":"disabled",'`
+      `'"min-non-active-revisions":"0",'`
+      `'"max-non-active-revisions":"0"'`
+      `"}}"
+  kubectl patch cm "config-gc" -n "${SYSTEM_NAMESPACE}" -p "${DATA}"
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
+}
+
 function scale_controlplane() {
   for deployment in "$@"; do
     # Make sure all pods run in leader-elected mode.
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || fail_test
     # Give it time to kill the pods.
     sleep 5
     # Scale up components for HA tests
-    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || fail_test
   done
 }
 
 function disable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=0 || fail_test
 }
 
 function enable_chaosduck() {
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || failed=1
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "chaosduck" --replicas=1 || fail_test
 }

@@ -128,7 +128,97 @@ func TestExtraServiceValidation(t *testing.T) {
 			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.s)
 			unstruct.SetUnstructuredContent(content)
 
-			got := ValidateRevisionTemplate(ctx, unstruct)
+			got := ValidateService(ctx, unstruct)
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got='%v', want='%v'", got, test.want)
+				}
+			} else if test.want != got.Error() {
+				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
+			}
+		})
+
+	}
+}
+
+func TestConfigurationValidation(t *testing.T) {
+	goodConfigSpec := v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+	}
+
+	om := metav1.ObjectMeta{
+		Name:      "valid",
+		Namespace: "foo",
+		Annotations: map[string]string{
+			"features.knative.dev/podspec-dryrun": "enabled",
+		},
+	}
+
+	tests := []struct {
+		name          string
+		c             *v1.Configuration
+		want          string
+		modifyContext func(context.Context)
+		podInterface  func(client rest.Interface, namespace string) podInterface
+	}{{
+		name:         "valid run latest",
+		podInterface: newTestPods,
+		c: &v1.Configuration{
+			ObjectMeta: om,
+			Spec:       goodConfigSpec,
+		},
+		modifyContext: nil,
+	}, {
+		name:         "dryrun fail",
+		podInterface: newFailTestPods,
+		c: &v1.Configuration{
+			ObjectMeta: om,
+			Spec:       goodConfigSpec,
+		},
+		want:          "dry run failed with fail-reason: spec.template",
+		modifyContext: failKubeCalls,
+	}, {
+		name:         "skip service owned",
+		podInterface: newFailTestPods,
+		c: &v1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "valid",
+				Namespace: "foo",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "skip-me",
+				},
+				Annotations: map[string]string{
+					"features.knative.dev/podspec-dryrun": "enabled",
+				},
+			},
+			Spec: goodConfigSpec,
+		},
+		modifyContext: nil,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			newCreateWithOptions = test.podInterface
+			ctx, _ := fakekubeclient.With(context.Background())
+			if test.modifyContext != nil {
+				test.modifyContext(ctx)
+			}
+			logger := logtesting.TestLogger(t)
+			ctx = logging.WithLogger(apis.WithDryRun(ctx), logger)
+
+			unstruct := &unstructured.Unstructured{}
+			content, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(test.c)
+			unstruct.SetUnstructuredContent(content)
+
+			got := ValidateConfiguration(ctx, unstruct)
 			if got == nil {
 				if test.want != "" {
 					t.Errorf("Validate got='%v', want='%v'", got, test.want)

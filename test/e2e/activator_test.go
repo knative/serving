@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -26,7 +27,6 @@ import (
 
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
@@ -37,8 +37,6 @@ import (
 // We need to add a similar test for the User pod overload once the second part of overload handling is done.
 func TestActivatorOverload(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	const (
 		// The number of concurrent requests to hit the activator with.
@@ -69,13 +67,14 @@ func TestActivatorOverload(t *testing.T) {
 
 	// Make sure the service responds correctly before scaling to 0.
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		resources.Route.Status.URL.URL(),
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
 	}
@@ -86,7 +85,7 @@ func TestActivatorOverload(t *testing.T) {
 	}
 
 	domain := resources.Route.Status.URL.Host
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatal("Error creating the Spoofing client:", err)
 	}

@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "ba0dd46d"
+    knative.dev/example-checksum: "6a69cdef"
 data:
   _example: |
     ################################
@@ -39,19 +39,58 @@ data:
     # to actually change the configuration.
 
     # Indicates whether multi container support is enabled
-    multi-container: "disabled"
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    multi-container: "enabled"
 
     # Indicates whether Kubernetes affinity support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-affinity: "disabled"
 
     # Indicates whether Kubernetes nodeSelector support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-nodeselector: "disabled"
 
     # Indicates whether Kubernetes tolerations support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled
     kubernetes.podspec-tolerations: "disabled"
 
     # Indicates whether Kubernetes FieldRef support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
     kubernetes.podspec-fieldref: "disabled"
+
+    # Indicates whether Kubernetes RuntimeClassName support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    kubernetes.podspec-runtimeclassname: "disabled"
+
+    # This feature allows end-users to set a subset of fields on the Pod's SecurityContext
+    # in addition to expanding the allowable fields within a Container's SecurityContext.
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # PodSecurityContext properties:
+    # - FSGroup
+    # - RunAsGroup
+    # - RunAsNonRoot
+    # - SupplementalGroups
+    # - RunAsUser
+    #
+    # When set to "enabled" or "allowed" it allows the following
+    # Container SecurityContext properties:
+    # - RunAsNonRoot
+    # - RunAsGroup
+    # - RunAsUser (already allowed without this flag)
+    #
+    # This feature flag should be used with caution as the PodSecurityContext
+    # properties may have a side-effect on non-user sidecar containers that come
+    # from Knative or your service mesh
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    kubernetes.podspec-securitycontext: "disabled"
 
     # This feature validates PodSpecs from the validating webhook
     # against the K8s API Server.
@@ -60,12 +99,15 @@ data:
     # When "allowed", the server will not run the dry-run validation by default.
     #   However, clients may enable the behavior on an individual Service by
     #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
-    kubernetes.podspec-dryrun: "enabled"
+    kubernetes.podspec-dryrun: "allowed"
 
     # Indicates whether new responsive garbage collection is enabled. This
     # feature labels revisions in real-time as they become referenced and
     # dereferenced by Routes. This allows us to reap revisions shortly after
     # they are no longer active.
-    # ALPHA WARNING: This feature is not yet stable or complete. Enabling it
-    # should be used for testing purposes only.
-    responsive-revision-gc: "disabled"
+    responsive-revision-gc: "allowed"
+
+    # Controls whether tag header based routing feature are enabled or not.
+    # 1. Enabled: enabling tag header based routing
+    # 2. Disabled: disabling tag header based routing
+    tag-header-based-routing: "disabled"

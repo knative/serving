@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -143,6 +144,13 @@ func MarkActive(r *v1.Revision) {
 	r.Status.MarkActiveTrue()
 }
 
+// WithK8sServiceName applies sn to the revision status field.
+func WithK8sServiceName(sn string) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.ServiceName = sn
+	}
+}
+
 // MarkInactive calls .Status.MarkInactive on the Revision.
 func MarkInactive(reason, message string) RevisionOption {
 	return func(r *v1.Revision) {
@@ -201,21 +209,61 @@ func MarkRevisionReady(r *v1.Revision) {
 	MarkActive(r)
 	r.Status.MarkResourcesAvailableTrue()
 	r.Status.MarkContainerHealthyTrue()
+	r.Status.ObservedGeneration = r.Generation
 }
 
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1.Revision) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string, 1)
-		}
-		config.Labels[key] = value
+	return func(rev *v1.Revision) {
+		rev.Labels = kmeta.UnionMaps(rev.Labels, map[string]string{key: value})
+	}
+}
+
+// WithRevisionAnn attaches a particular label to the revision.
+func WithRevisionAnn(key, value string) RevisionOption {
+	return func(rev *v1.Revision) {
+		rev.Annotations = kmeta.UnionMaps(rev.Annotations, map[string]string{key: value})
 	}
 }
 
 // WithContainerStatuses sets the .Status.ContainerStatuses to the Revision.
-func WithContainerStatuses(containerStatus []v1.ContainerStatuses) RevisionOption {
+func WithContainerStatuses(containerStatus []v1.ContainerStatus) RevisionOption {
 	return func(r *v1.Revision) {
 		r.Status.ContainerStatuses = containerStatus
 	}
+}
+
+// WithRevisionObservedGeneration sets the observed generation on the
+// revision status.
+func WithRevisionObservedGeneration(gen int64) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.ObservedGeneration = gen
+	}
+}
+
+// Revision creates a revision object with given ns/name and options.
+func Revision(namespace, name string, ro ...RevisionOption) *v1.Revision {
+	r := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:   "/apis/serving/v1/namespaces/test/revisions/" + name,
+			Name:       name,
+			Namespace:  namespace,
+			UID:        "test-uid",
+			Generation: 1,
+		},
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  name,
+					Image: "busybox",
+				}},
+			},
+		},
+	}
+	r.SetDefaults(context.Background())
+
+	for _, opt := range ro {
+		opt(r)
+	}
+	return r
 }

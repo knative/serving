@@ -19,23 +19,40 @@ package config
 import (
 	"context"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 )
 
 type cfgKey struct{}
 
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Domain  *Domain
-	GC      *gc.Config
-	Network *network.Config
+	Domain   *Domain
+	GC       *gc.Config
+	Network  *network.Config
+	Features *cfgmap.Features
 }
 
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
+}
+
+// FromContextOrDefaults is like FromContext, but when no Config is attached it
+// returns a Config populated with the defaults for each of the Config fields.
+func FromContextOrDefaults(ctx context.Context) *Config {
+	cfg := FromContext(ctx)
+	if cfg == nil {
+		cfg = &Config{}
+	}
+
+	if cfg.Features == nil {
+		cfg.Features, _ = cfgmap.NewFeaturesConfigFromMap(map[string]string{})
+	}
+
+	return cfg
 }
 
 func ToContext(ctx context.Context, c *Config) context.Context {
@@ -67,9 +84,10 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			"route",
 			logger,
 			configmap.Constructors{
-				DomainConfigName:   NewDomainFromConfigMap,
-				gc.ConfigName:      gc.NewConfigFromConfigMapFunc(ctx),
-				network.ConfigName: network.NewConfigFromConfigMap,
+				DomainConfigName:          NewDomainFromConfigMap,
+				gc.ConfigName:             gc.NewConfigFromConfigMapFunc(ctx),
+				network.ConfigName:        network.NewConfigFromConfigMap,
+				cfgmap.FeaturesConfigName: cfgmap.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -83,9 +101,16 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 }
 
 func (s *Store) Load() *Config {
-	return &Config{
-		Domain:  s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
-		GC:      s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
-		Network: s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+	config := &Config{
+		Domain:   s.UntypedLoad(DomainConfigName).(*Domain).DeepCopy(),
+		GC:       s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
+		Network:  s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
+		Features: nil,
 	}
+
+	if featureConfig := s.UntypedLoad(cfgmap.FeaturesConfigName); featureConfig != nil {
+		config.Features = featureConfig.(*cfgmap.Features).DeepCopy()
+	}
+
+	return config
 }

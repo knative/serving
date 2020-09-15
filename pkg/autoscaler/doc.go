@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-Package autoscaler calculates the number of pods necessary for the desired
-level of concurrency per pod.
-*/
+// Package autoscaler calculates the number of pods necessary for the desired
+// level of concurrency per pod.
 package autoscaler

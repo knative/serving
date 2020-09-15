@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "0608517d"
+    knative.dev/example-checksum: "b4ce3a17"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -42,7 +42,7 @@ data:
     # to actually change the configuration.
 
     # List of repositories for which tag to digest resolving should be skipped
-    registriesSkippingTagResolving: "ko.local,dev.local"
+    registriesSkippingTagResolving: "kind.local,ko.local,dev.local"
 
     # ProgressDeadline is the duration we wait for the deployment to
     # be ready before considering it failed.
@@ -58,18 +58,18 @@ data:
 
     # queueSidecarMemoryRequest is the requests.memory to set for the queue proxy container.
     # If omitted, no value is specified and the system default is used.
-    queueSidecarMemoryRequest: "400m"
+    queueSidecarMemoryRequest: "400Mi"
 
     # queueSidecarMemoryLimit is the limits.memory to set for the queue proxy container.
     # If omitted, no value is specified and the system default is used.
-    queueSidecarMemoryLimit: "800m"
+    queueSidecarMemoryLimit: "800Mi"
 
     # queueSidecarEphemeralStorageRequest is the requests.ephemeral-storage to
     # set for the queue proxy sidecar container.
     # If omitted, no value is specified and the system default is used.
-    queueSidecarEphemeralStorageRequest: "512m"
+    queueSidecarEphemeralStorageRequest: "512Mi"
 
     # queueSidecarEphemeralStorageLimit is the limits.ephemeral-storage to set
     # for the queue proxy sidecar container.
     # If omitted, no value is specified and the system default is used.
-    queueSidecarEphemeralStorageLimit: "1024m"
+    queueSidecarEphemeralStorageLimit: "1024Mi"

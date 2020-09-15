@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 )
 
 // HealthHandler handles responding to kubelet probes with a provided health check.

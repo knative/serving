@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -41,6 +39,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -62,23 +61,13 @@ import (
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
-	"knative.dev/serving/pkg/network"
 )
 
 const (
 	component = "activator"
 
-	// Add enough buffer to not block request serving on stats collection
-	requestCountingQueueLength = 100
-
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
-)
-
-var (
-	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
-		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmetrics.StatMessage,
@@ -102,26 +91,22 @@ func statReporter(statSink *websocket.ManagedConnection, statChan <-chan []asmet
 type config struct {
 	PodName string `split_words:"true" required:"true"`
 	PodIP   string `split_words:"true" required:"true"`
+
+	// These are here to allow configuring higher values of keep-alive for larger environments.
+	// TODO: run loadtests using these flags to determine optimal default values.
+	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
+	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
 }
 
 func main() {
-	flag.Parse()
-
 	// Set up a context that we can cancel to tell informers and other subprocesses to stop.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatal("Error exporting go memstats view: ", err)
-	}
+	sharedmain.MemStatsOrDie(ctx)
 
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatal("Error building kubeconfig: ", err)
-	}
+	cfg := sharedmain.ParseAndGetConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
@@ -137,6 +122,7 @@ func main() {
 	kubeClient := kubeclient.Get(ctx)
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	var err error
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
@@ -168,14 +154,11 @@ func main() {
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
-	reqCh := make(chan network.ReqEvent, requestCountingQueueLength)
-	defer close(reqCh)
-
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx)
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
@@ -198,13 +181,16 @@ func main() {
 	go statReporter(statSink, statCh, logger)
 
 	// Create and run our concurrency reporter
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
-	go cr.Run(ctx.Done())
+	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh)
+	go concurrencyReporter.Run(ctx.Done())
+
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	proxyTransport := pkgnet.NewAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(ctx, throttler)
-	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
+	var ah http.Handler = activatorhandler.New(ctx, throttler, proxyTransport)
+	ah = concurrencyReporter.Handler(ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
@@ -234,7 +220,7 @@ func main() {
 
 	// Watch the observability config map
 	configMapWatcher.Watch(metrics.ConfigMapName(),
-		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
+		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
 

@@ -18,13 +18,13 @@ package logstream
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,7 +42,6 @@ type kubelogs struct {
 	once sync.Once
 	m    sync.RWMutex
 	keys map[string]logger
-	err  error
 }
 
 type logger func(string, ...interface{})
@@ -52,37 +51,45 @@ var _ streamer = (*kubelogs)(nil)
 // timeFormat defines a simple timestamp with millisecond granularity
 const timeFormat = "15:04:05.000"
 
-func (k *kubelogs) startForPod(eg *errgroup.Group, pod *corev1.Pod) {
+func (k *kubelogs) startForPod(pod *corev1.Pod) {
 	// Grab data from all containers in the pods.  We need this in case
 	// an envoy sidecar is injected for mesh installs.  This should be
 	// equivalent to --all-containers.
 	for _, container := range pod.Spec.Containers {
 		// Required for capture below.
 		psn, pn, cn := pod.Namespace, pod.Name, container.Name
-		eg.Go(func() error {
+
+		handleLine := k.handleLine
+		if cn == "chaosduck" {
+			// Specialcase logs from chaosduck to be able to easily see when pods
+			// have been killed throughout all tests.
+			handleLine = k.handleGenericLine
+		}
+
+		go func() {
 			options := &corev1.PodLogOptions{
 				Container: cn,
-				// Follow directs the api server to continuously stream logs back.
+				// Follow directs the API server to continuously stream logs back.
 				Follow: true,
 				// Only return new logs (this value is being used for "epsilon").
 				SinceSeconds: ptr.Int64(1),
 			}
 
 			req := k.kc.Kube.CoreV1().Pods(psn).GetLogs(pn, options)
-			stream, err := req.Stream()
+			stream, err := req.Stream(context.Background())
 			if err != nil {
-				return err
+				k.handleGenericLine([]byte(err.Error()), pn)
+				return
 			}
 			defer stream.Close()
 			// Read this container's stream.
 			scanner := bufio.NewScanner(stream)
 			for scanner.Scan() {
-				k.handleLine(scanner.Bytes())
+				handleLine(scanner.Bytes(), pn)
 			}
 			// Pods get killed with chaos duck, so logs might end
 			// before the test does. So don't report an error here.
-			return nil
-		})
+		}()
 	}
 }
 
@@ -98,13 +105,12 @@ func podIsReady(p *corev1.Pod) bool {
 }
 
 func (k *kubelogs) watchPods(t test.TLegacy) {
-	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(metav1.ListOptions{})
+	wi, err := k.kc.Kube.CoreV1().Pods(k.namespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		t.Error("Logstream knative pod watch failed, logs might be missing", "error", err)
 		return
 	}
-	eg := errgroup.Group{}
-	go func() {
+	go func() error {
 		watchedPods := sets.NewString()
 		for ev := range wi.ResultChan() {
 			p := ev.Object.(*corev1.Pod)
@@ -117,20 +123,12 @@ func (k *kubelogs) watchPods(t test.TLegacy) {
 				}
 				if podIsReady(p) {
 					watchedPods.Insert(p.Name)
-					k.startForPod(&eg, p)
+					k.startForPod(p)
 					continue
 				}
 			}
 		}
-	}()
-	// Monitor the error group in the background and surface an error on the kubelogs
-	// in case anything had an active stream open.
-	go func() {
-		if err := eg.Wait(); err != nil {
-			k.m.Lock()
-			defer k.m.Unlock()
-			k.err = err
-		}
+		return nil
 	}()
 }
 
@@ -148,7 +146,7 @@ func (k *kubelogs) init(t test.TLegacy) {
 	k.watchPods(t)
 }
 
-func (k *kubelogs) handleLine(l []byte) {
+func (k *kubelogs) handleLine(l []byte, pod string) {
 	// This holds the standard structure of our logs.
 	var line struct {
 		Level      string    `json:"level"`
@@ -174,7 +172,7 @@ func (k *kubelogs) handleLine(l []byte) {
 
 	for name, logf := range k.keys {
 		// TODO(mattmoor): Do a slightly smarter match.
-		if !strings.Contains(line.Key, name) {
+		if !strings.Contains(line.Key, "/"+name) {
 			continue
 		}
 
@@ -184,10 +182,11 @@ func (k *kubelogs) handleLine(l []byte) {
 		if site == "" {
 			site = line.Caller
 		}
-		// E 15:04:05.000 [route-controller] [default/testroute-xyz] this is my message
-		msg := fmt.Sprintf("%s %s [%s] [%s] %s",
+		// E 15:04:05.000 webhook-699b7b668d-9smk2 [route-controller] [default/testroute-xyz] this is my message
+		msg := fmt.Sprintf("%s %s %s [%s] [%s] %s",
 			strings.ToUpper(string(line.Level[0])),
 			line.Timestamp.Format(timeFormat),
+			pod,
 			site,
 			line.Key,
 			line.Message)
@@ -197,6 +196,18 @@ func (k *kubelogs) handleLine(l []byte) {
 		}
 
 		logf(msg)
+	}
+}
+
+// handleGenericLine prints the given logline to all active tests as it cannot be parsed
+// and/or doesn't contain any correlation data (like the chaosduck for example).
+func (k *kubelogs) handleGenericLine(l []byte, pod string) {
+	k.m.RLock()
+	defer k.m.RUnlock()
+
+	for _, logf := range k.keys {
+		// I 15:04:05.000 webhook-699b7b668d-9smk2 this is my message
+		logf("I %s %s %s", time.Now().Format(timeFormat), pod, string(l))
 	}
 }
 
@@ -216,9 +227,5 @@ func (k *kubelogs) Start(t test.TLegacy) Canceler {
 		k.m.Lock()
 		defer k.m.Unlock()
 		delete(k.keys, name)
-
-		if k.err != nil {
-			t.Error("Error during logstream", "error", k.err)
-		}
 	}
 }

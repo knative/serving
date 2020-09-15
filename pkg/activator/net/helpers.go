@@ -47,9 +47,9 @@ func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.String 
 
 // endpointsToDests takes an endpoints object and a port name and returns two sets of
 // ready and non-ready l4 dests in the endpoints object which have that port.
-func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String, sets.String) {
-	ready := sets.NewString()
-	notReady := sets.NewString()
+func endpointsToDests(endpoints *corev1.Endpoints, portName string) (ready, notReady sets.String) {
+	ready = sets.NewString()
+	notReady = sets.NewString()
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {

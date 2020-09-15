@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/logging"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
-	"knative.dev/serving/pkg/network"
+	network "knative.dev/networking/pkg"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 )

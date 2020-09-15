@@ -47,7 +47,7 @@ EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
   ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
     k8s.io/client-go \
     k8s.io/api \
-    "admissionregistration:v1beta1,v1 apps:v1 autoscaling:v1,v2beta1 batch:v1,v1beta1 core:v1 rbac:v1" \
+    "admissionregistration:v1beta1,v1 apps:v1 autoscaling:v1,v2beta1 batch:v1,v1beta1 core:v1 rbac:v1 coordination:v1" \
     --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
     --force-genreconciler-kinds "Namespace,Deployment"
 

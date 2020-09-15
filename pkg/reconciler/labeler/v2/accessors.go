@@ -17,11 +17,15 @@ limitations under the License.
 package v2
 
 import (
-	"fmt"
+	"context"
+	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/kube-openapi/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/pkg/tracker"
@@ -34,17 +38,18 @@ import (
 // Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type Accessor interface {
-	list(ns, name string) ([]kmeta.Accessor, error)
-	patch(ns, name string, pt types.PatchType, p []byte) error
-	makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error)
+	list(ctx context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error)
+	patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error
+	makeMetadataPatch(ctx context.Context, route *v1.Route, name string, remove bool) (map[string]interface{}, error)
 }
 
 // Revision is an implementation of Accessor for Revisions.
 type Revision struct {
-	client         clientset.Interface
-	tracker        tracker.Interface
-	revisionLister listers.RevisionLister
-	clock          clock.Clock
+	client  clientset.Interface
+	tracker tracker.Interface
+	lister  listers.RevisionLister
+	indexer cache.Indexer
+	clock   clock.Clock
 }
 
 // Revision implements Accessor
@@ -55,27 +60,28 @@ func NewRevisionAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.RevisionLister,
+	indexer cache.Indexer,
 	clock clock.Clock) *Revision {
 	return &Revision{
-		client:         client,
-		tracker:        tracker,
-		revisionLister: lister,
-		clock:          clock,
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
 	}
 }
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
-	acc kmeta.Accessor, routeName string, addRoutingState bool, clock clock.Clock) (map[string]interface{}, error) {
+	ctx context.Context,
+	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.Clock) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
-	if err := addRouteLabel(acc, routeName, labels); err != nil {
-		return nil, err
-	}
+	updateRouteAnnotation(ctx, acc, routeName, annotations, remove)
 
 	if addRoutingState {
-		markRoutingState(acc, routeName != "", clock, labels, annotations)
+		markRoutingState(ctx, acc, clock, labels, annotations)
 	}
 
 	meta := map[string]interface{}{}
@@ -93,8 +99,14 @@ func makeMetadataPatch(
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
 func markRoutingState(
-	acc kmeta.Accessor, hasRoute bool, clock clock.Clock,
-	diffLabels, diffAnn map[string]interface{}) {
+	ctx context.Context,
+	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
+
+	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
+	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
+		hasRoute = val != nil
+	}
+
 	wantState := string(v1.RoutingStateReserve)
 	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
@@ -106,62 +118,71 @@ func markRoutingState(
 	}
 }
 
-// addRouteLabel appends the route label to the list of labels if needed
-// or removes the label if routeName is nil.
-func addRouteLabel(acc kmeta.Accessor, routeName string, diffLabels map[string]interface{}) error {
-	if routeName == "" { // remove the label
-		if acc.GetLabels()[serving.RouteLabelKey] != "" {
-			diffLabels[serving.RouteLabelKey] = nil
+// updateRouteAnnotation appends the route annotation to the list of labels if needed
+// or removes the annotation if routeName is nil.
+// Returns true if the entire annotation is newly added or removed, which signifies a state change.
+func updateRouteAnnotation(ctx context.Context, acc kmeta.Accessor, routeName string, diffAnn map[string]interface{}, remove bool) {
+	valSet := GetListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey)
+	has := valSet.Has(routeName)
+	switch {
+	case has && remove:
+		if len(valSet) == 1 {
+			diffAnn[serving.RoutesAnnotationKey] = nil
+			return
 		}
-	} else { // add the label
-		if oldLabel := acc.GetLabels()[serving.RouteLabelKey]; oldLabel == "" {
-			diffLabels[serving.RouteLabelKey] = routeName
-		} else if oldLabel != routeName {
-			// TODO(whaught): this restricts us to only one route -> revision
-			// We can move this to a comma separated list annotation and use the new routingState label.
-			return fmt.Errorf("resource already has route label %q, and cannot be referenced by %q", oldLabel, routeName)
-		}
-	}
+		valSet.Delete(routeName)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
 
-	return nil
+	case !has && !remove:
+		if len(valSet) == 0 {
+			diffAnn[serving.RoutesAnnotationKey] = routeName
+			return
+		}
+		valSet.Insert(routeName)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
+	}
 }
 
 // list implements Accessor
-func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
-	if err != nil {
+func (r *Revision) list(ctx context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+	kl := make([]kmeta.Accessor, 0, 1)
+	filter := func(m interface{}) {
+		r := m.(*v1.Revision)
+		if GetListAnnValue(r.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+			kl = append(kl, r)
+		}
+	}
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.RoutingStateLabelKey: string(state),
+	})
+
+	if err := cache.ListAllByNamespace(r.indexer, ns, selector, filter); err != nil {
 		return nil, err
 	}
-	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
-	}
-	return kl, err
+	return kl, nil
 }
 
 // patch implements Accessor
-func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
+func (r *Revision) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+	_, err := r.client.ServingV1().Revisions(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }
 
-func (r *Revision) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
-	rev, err := r.revisionLister.Revisions(ns).Get(name)
+func (r *Revision) makeMetadataPatch(ctx context.Context, route *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	rev, err := r.lister.Revisions(route.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(rev, routeName, true /*addRoutingState*/, r.clock)
+	return makeMetadataPatch(ctx, rev, route.Name, true /*addRoutingState*/, remove, r.clock)
 }
 
 // Configuration is an implementation of Accessor for Configurations.
 type Configuration struct {
-	client              clientset.Interface
-	tracker             tracker.Interface
-	configurationLister listers.ConfigurationLister
-	clock               clock.Clock
+	client  clientset.Interface
+	tracker tracker.Interface
+	lister  listers.ConfigurationLister
+	indexer cache.Indexer
+	clock   clock.Clock
 }
 
 // Configuration implements Accessor
@@ -172,41 +193,53 @@ func NewConfigurationAccessor(
 	client clientset.Interface,
 	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
+	indexer cache.Indexer,
 	clock clock.Clock) *Configuration {
 	return &Configuration{
-		client:              client,
-		tracker:             tracker,
-		configurationLister: lister,
-		clock:               clock,
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
 	}
 }
 
 // list implements Accessor
-func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey: name,
-	}))
-	if err != nil {
+func (c *Configuration) list(ctx context.Context, ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+	kl := make([]kmeta.Accessor, 0, 1)
+	filter := func(m interface{}) {
+		c := m.(*v1.Configuration)
+		if GetListAnnValue(c.Annotations, serving.RoutesAnnotationKey).Has(routeName) {
+			kl = append(kl, c)
+		}
+	}
+
+	if err := cache.ListAllByNamespace(c.indexer, ns, labels.Everything(), filter); err != nil {
 		return nil, err
 	}
-	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	return kl, nil
+}
+
+// GetListAnnValue finds a given value in a comma-separated annotation.
+// returns the entire annotation value and true if found.
+func GetListAnnValue(annotations map[string]string, key string) sets.String {
+	l := annotations[key]
+	if l == "" {
+		return sets.String{}
 	}
-	return kl, err
+	return sets.NewString(strings.Split(l, ",")...)
 }
 
 // patch implements Accessor
-func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
+func (c *Configuration) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+	_, err := c.client.ServingV1().Configurations(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }
 
-func (c *Configuration) makeMetadataPatch(ns, name string, routeName string) (map[string]interface{}, error) {
-	config, err := c.configurationLister.Configurations(ns).Get(name)
+func (c *Configuration) makeMetadataPatch(ctx context.Context, r *v1.Route, name string, remove bool) (map[string]interface{}, error) {
+	config, err := c.lister.Configurations(r.Namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
-	return makeMetadataPatch(config, routeName, false /*addRoutingState*/, c.clock)
+	return makeMetadataPatch(ctx, config, r.Name, false /*addRoutingState*/, remove, c.clock)
 }

@@ -18,34 +18,29 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
-	"sync/atomic"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"knative.dev/serving/test"
 )
 
-var (
-	lockedFlag uint32
-)
+var lockedFlag = atomic.NewInt32(-1)
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	// Use an atomic int as a simple boolean flag we can check safely
-	if !atomic.CompareAndSwapUint32(&lockedFlag, 0, 1) {
+	v := lockedFlag.Inc() // Returns the new value.
+	defer lockedFlag.Dec()
+	if v > 0 {
 		// Return HTTP 500 if more than 1 request at a time gets in
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer atomic.StoreUint32(&lockedFlag, 0)
-
 	time.Sleep(500 * time.Millisecond)
 	fmt.Fprintf(w, "One at a time")
 }
 
 func main() {
-	flag.Parse()
-
 	test.ListenAndServeGracefully(":8080", handler)
 }

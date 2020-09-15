@@ -95,7 +95,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			// v2 settings
 			cm.AsString("retain-since-create-time", &retainCreate),
 			cm.AsString("retain-since-last-active-time", &retainActive),
-			cm.AsInt64("min-stale-revisions", &c.MinNonActiveRevisions),
+			cm.AsInt64("min-non-active-revisions", &c.MinNonActiveRevisions),
 			cm.AsString("max-non-active-revisions", &max),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
@@ -114,7 +114,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 
 		// validate V2 settings
 		if err := parseDisabledOrDuration(retainCreate, &c.RetainSinceCreateTime); err != nil {
-			return nil, fmt.Errorf("failed to parse min-stale-revisions: %w", err)
+			return nil, fmt.Errorf("failed to parse retain-since-create-time: %w", err)
 		}
 		if err := parseDisabledOrDuration(retainActive, &c.RetainSinceLastActiveTime); err != nil {
 			return nil, fmt.Errorf("failed to parse retain-since-last-active-time: %w", err)
@@ -123,10 +123,10 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 			return nil, fmt.Errorf("failed to parse max-stale-revisions: %w", err)
 		}
 		if c.MinNonActiveRevisions < 0 {
-			return nil, fmt.Errorf("min-stale-revisions must be non-negative, was: %d", c.MinNonActiveRevisions)
+			return nil, fmt.Errorf("min-non-active-revisions must be non-negative, was: %d", c.MinNonActiveRevisions)
 		}
 		if c.MaxNonActiveRevisions >= 0 && c.MinNonActiveRevisions > c.MaxNonActiveRevisions {
-			return nil, fmt.Errorf("min-stale-revisions(%d) must be <= max-stale-revisions(%d)", c.MinNonActiveRevisions, c.MaxNonActiveRevisions)
+			return nil, fmt.Errorf("min-non-active-revisions(%d) must be <= max-stale-revisions(%d)", c.MinNonActiveRevisions, c.MaxNonActiveRevisions)
 		}
 		return c, nil
 	}

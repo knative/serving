@@ -17,6 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"context"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmeta"
@@ -30,9 +33,9 @@ import (
 // Accessor defines an abstraction for manipulating labeled entity
 // (Configuration, Revision) with shared logic.
 type Accessor interface {
-	get(ns, name string) (kmeta.Accessor, error)
-	list(ns, name string) ([]kmeta.Accessor, error)
-	patch(ns, name string, pt types.PatchType, p []byte) error
+	get(ctx context.Context, ns, name string) (kmeta.Accessor, error)
+	list(ctx context.Context, ns, name string) ([]kmeta.Accessor, error)
+	patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error
 }
 
 // Revision is an implementation of Accessor for Revisions.
@@ -58,12 +61,12 @@ func NewRevisionAccessor(
 }
 
 // get implements Accessor
-func (r *Revision) get(ns, name string) (kmeta.Accessor, error) {
+func (r *Revision) get(ctx context.Context, ns, name string) (kmeta.Accessor, error) {
 	return r.revisionLister.Revisions(ns).Get(name)
 }
 
 // list implements Accessor
-func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
+func (r *Revision) list(ctx context.Context, ns, name string) ([]kmeta.Accessor, error) {
 	rl, err := r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
@@ -71,16 +74,16 @@ func (r *Revision) list(ns, name string) ([]kmeta.Accessor, error) {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(rl))
+	for i, r := range rl {
+		kl[i] = r
 	}
 	return kl, err
 }
 
 // patch implements Accessor
-func (r *Revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
+func (r *Revision) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+	_, err := r.client.ServingV1().Revisions(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }
 
@@ -107,28 +110,28 @@ func NewConfigurationAccessor(
 }
 
 // get implements Accessor
-func (c *Configuration) get(ns, name string) (kmeta.Accessor, error) {
+func (c *Configuration) get(ctx context.Context, ns, name string) (kmeta.Accessor, error) {
 	return c.configurationLister.Configurations(ns).Get(name)
 }
 
 // list implements Accessor
-func (c *Configuration) list(ns, name string) ([]kmeta.Accessor, error) {
-	rl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
+func (c *Configuration) list(ctx context.Context, ns, name string) ([]kmeta.Accessor, error) {
+	cl, err := c.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey: name,
 	}))
 	if err != nil {
 		return nil, err
 	}
 	// Need a copy to change types in Go
-	kl := make([]kmeta.Accessor, 0, len(rl))
-	for _, r := range rl {
-		kl = append(kl, r)
+	kl := make([]kmeta.Accessor, len(cl))
+	for i, c := range cl {
+		kl[i] = c
 	}
 	return kl, err
 }
 
 // patch implements Accessor
-func (c *Configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.client.ServingV1().Configurations(ns).Patch(name, pt, p)
+func (c *Configuration) patch(ctx context.Context, ns, name string, pt types.PatchType, p []byte) error {
+	_, err := c.client.ServingV1().Configurations(ns).Patch(ctx, name, pt, p, metav1.PatchOptions{})
 	return err
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	istiov1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,13 +31,11 @@ import (
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	networking "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
-	istiolisters "knative.dev/networking/pkg/client/istio/listers/networking/v1alpha3"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	fakeistioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned/fake"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
@@ -46,7 +43,6 @@ import (
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	autoscalingv2beta1.AddToScheme,
 	fakecachingclientset.AddToScheme,
-	fakeistioclientset.AddToScheme,
 	fakekubeclientset.AddToScheme,
 	fakenetworkingclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
@@ -102,10 +98,6 @@ func (l *Listers) GetNetworkingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakenetworkingclientset.AddToScheme)
 }
 
-func (l *Listers) GetIstioObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakeistioclientset.AddToScheme)
-}
-
 func (l *Listers) GetServiceLister() servinglisters.ServiceLister {
 	return servinglisters.NewServiceLister(l.IndexerFor(&v1.Service{}))
 }
@@ -151,15 +143,6 @@ func (l *Listers) GetCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
 }
 
-func (l *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
-	return istiolisters.NewVirtualServiceLister(l.IndexerFor(&istiov1alpha3.VirtualService{}))
-}
-
-// GetGatewayLister gets lister for Istio Gateway resource.
-func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
-	return istiolisters.NewGatewayLister(l.IndexerFor(&istiov1alpha3.Gateway{}))
-}
-
 // GetKnCertificateLister gets lister for Knative Certificate resource.
 func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))
@@ -184,14 +167,6 @@ func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 // GetPodsLister gets lister for pods.
 func (l *Listers) GetPodsLister() corev1listers.PodLister {
 	return corev1listers.NewPodLister(l.IndexerFor(&corev1.Pod{}))
-}
-
-func (l *Listers) GetSecretLister() corev1listers.SecretLister {
-	return corev1listers.NewSecretLister(l.IndexerFor(&corev1.Secret{}))
-}
-
-func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
-	return corev1listers.NewConfigMapLister(l.IndexerFor(&corev1.ConfigMap{}))
 }
 
 // GetNamespaceLister gets lister for Namespace resource.

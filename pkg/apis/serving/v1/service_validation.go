@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -68,7 +69,7 @@ func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
-		case key == serving.VisibilityLabelKey:
+		case key == network.VisibilityLabelKey || key == serving.VisibilityLabelKeyObsolete:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))

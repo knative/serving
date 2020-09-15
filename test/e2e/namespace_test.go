@@ -18,11 +18,11 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -33,13 +33,14 @@ import (
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	_, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	)
 	if err != nil {
 		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)
@@ -50,8 +51,6 @@ func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames
 
 func TestMultipleNamespace(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	defaultClients := Setup(t) // This one uses the default namespace `test.ServingNamespace`
 	altClients := SetupAlternativeNamespace(t)
@@ -88,8 +87,6 @@ func TestMultipleNamespace(t *testing.T) {
 // This test is to ensure we do not leak deletion of services in other namespaces when deleting a route.
 func TestConflictingRouteService(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	names := test.ResourceNames{
 		Service:       test.AppendRandomString("conflicting-route-service"),
@@ -113,9 +110,9 @@ func TestConflictingRouteService(t *testing.T) {
 	}
 
 	altClients := SetupAlternativeNamespace(t)
-	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
+	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
 	test.EnsureCleanup(t, func() {
-		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
 	})
 
 	clients := Setup(t)

@@ -18,6 +18,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -26,10 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	netpkg "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -46,8 +47,6 @@ import (
 // to helloworld app when trying to communicate via local address only.
 func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descriptive name because routes will fail DNS checks. (Max 64 characters)
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -61,7 +60,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 	tag := "current"
 
-	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withInternalVisibility := rtesting.WithServiceLabel(netpkg.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{
 			{
@@ -91,8 +90,6 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -130,7 +127,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 	// Update subroute1 to private.
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get k8s service to modify:", err)
 	}
@@ -143,7 +140,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatal("Failed to patch service:", err)
 	}
 
@@ -190,7 +187,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf("Route did not become cluster local: %s", err.Error())
 	}
 
-	clusterLocalRoute, err := clients.ServingClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
+	clusterLocalRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -206,8 +203,6 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -222,7 +217,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	subrouteTag1 := "my-tag"
 	subrouteTag2 := "my-tag2"
 
-	withInternalVisibility := rtesting.WithServiceLabel(serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
+	withInternalVisibility := rtesting.WithServiceLabel(netpkg.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	withTrafficSpec := rtesting.WithRouteSpec(v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{
 			{
@@ -254,7 +249,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	//Update subroute1 to private
 	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
 	}
@@ -267,7 +262,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -312,7 +307,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf("Route is not public: %s", err.Error())
 	}
 
-	publicRoute, err := clients.ServingClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
+	publicRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -333,7 +328,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	//Update and check subroute 1 to private.
 	serviceName1 := serviceNameForRoute(subrouteTag1, resources.Route.Name)
-	svc1, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName1, metav1.GetOptions{})
+	svc1, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(context.Background(), serviceName1, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get k8s service to modify:", err)
 	}
@@ -346,7 +341,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName1, types.JSONPatchType, svc1patchBytes); err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(context.Background(), serviceName1, types.JSONPatchType, svc1patchBytes, metav1.PatchOptions{}); err != nil {
 		t.Fatal("Failed to patch service:", err)
 	}
 

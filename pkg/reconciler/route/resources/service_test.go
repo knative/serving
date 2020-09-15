@@ -26,14 +26,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
@@ -76,7 +79,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -94,7 +97,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{
 						Domain: "domain.com",
 					}, {
@@ -124,7 +127,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -139,13 +142,18 @@ func TestNewMakeK8SService(t *testing.T) {
 		expectedSpec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: "domain.com",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 	}, {
 		name:  "ingress-with-domaininternal",
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{DomainInternal: "istio-ingressgateway.istio-system.svc.cluster.local"}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -161,13 +169,18 @@ func TestNewMakeK8SService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 	}, {
 		name:  "ingress-with-only-mesh",
 		route: r,
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -192,7 +205,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		targetName: "my-target-name",
 		ingress: &netv1alpha1.Ingress{
 			Status: netv1alpha1.IngressStatus{
-				LoadBalancer: &netv1alpha1.LoadBalancerStatus{
+				DeprecatedLoadBalancer: &netv1alpha1.LoadBalancerStatus{
 					Ingress: []netv1alpha1.LoadBalancerIngressStatus{{MeshOnly: true}},
 				},
 				PublicLoadBalancer: &netv1alpha1.LoadBalancerStatus{
@@ -252,6 +265,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		name           string
 		expectedSpec   corev1.ServiceSpec
 		expectedLabels map[string]string
+		expectedAnnos  map[string]string
 		wantErr        bool
 		route          *v1.Route
 	}{{
@@ -261,18 +275,50 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.example.com",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 		expectedLabels: map[string]string{
 			serving.RouteLabelKey: "test-route",
 		},
 		wantErr: false,
 	}, {
+		name: "labels and annotations are propagated from the route",
+		route: Route("test-ns", "test-route",
+			WithRouteLabel(map[string]string{"route-label": "foo"}), WithRouteAnnotation(map[string]string{"route-anno": "bar"})),
+		expectedSpec: corev1.ServiceSpec{
+			Type:            corev1.ServiceTypeExternalName,
+			ExternalName:    "foo-test-route.test-ns.example.com",
+			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
+		},
+		expectedLabels: map[string]string{
+			serving.RouteLabelKey: "test-route",
+			"route-label":         "foo",
+		},
+		expectedAnnos: map[string]string{
+			"route-anno": "bar",
+		},
+		wantErr: false,
+	}, {
 		name:  "cluster local route",
-		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",
 			SessionAffinity: corev1.ServiceAffinityNone,
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
+			}},
 		},
 		expectedLabels: map[string]string{
 			serving.RouteLabelKey: "test-route",
@@ -298,8 +344,11 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 				t.Fatal("Unexpected nil service")
 			}
 
-			if !cmp.Equal(tt.expectedLabels, got.ObjectMeta.Labels) {
-				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.ObjectMeta.Labels))
+			if !cmp.Equal(tt.expectedLabels, got.Labels) {
+				t.Errorf("Unexpected Labels (-want +got): %s", cmp.Diff(tt.expectedLabels, got.Labels))
+			}
+			if !cmp.Equal(tt.expectedAnnos, got.ObjectMeta.Annotations) {
+				t.Errorf("Unexpected Annotations (-want +got): %s", cmp.Diff(tt.expectedAnnos, got.ObjectMeta.Annotations))
 			}
 			if !cmp.Equal(tt.expectedSpec, got.Spec) {
 				t.Errorf("Unexpected ServiceSpec (-want +got): %s", cmp.Diff(tt.expectedSpec, got.Spec))
@@ -332,6 +381,16 @@ func testConfig() *config.Config {
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		},
+		Features: &apiConfig.Features{
+			MultiContainer:        apiConfig.Disabled,
+			PodSpecAffinity:       apiConfig.Disabled,
+			PodSpecFieldRef:       apiConfig.Disabled,
+			PodSpecDryRun:         apiConfig.Enabled,
+			PodSpecNodeSelector:   apiConfig.Disabled,
+			PodSpecTolerations:    apiConfig.Disabled,
+			ResponsiveRevisionGC:  apiConfig.Disabled,
+			TagHeaderBasedRouting: apiConfig.Disabled,
 		},
 	}
 }

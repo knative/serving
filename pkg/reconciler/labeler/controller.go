@@ -29,6 +29,9 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/configuration/config"
+	labelerv1 "knative.dev/serving/pkg/reconciler/labeler/v1"
+	labelerv2 "knative.dev/serving/pkg/reconciler/labeler/v2"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -58,14 +61,14 @@ func newControllerWithClock(
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
-	c := &Reconciler{
-		client:              servingclient.Get(ctx),
-		configurationLister: configInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-		clock:               clock,
-	}
+	logger.Info("Setting up ConfigMap receivers")
+	configStore := config.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
+
+	c := &Reconciler{}
 	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{
+			ConfigStore: configStore,
 			// The labeler shouldn't mutate the route's status.
 			SkipStatusUpdates: true,
 		}
@@ -74,26 +77,34 @@ func newControllerWithClock(
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 
 	// Make sure trackers are deleted once the observers are removed.
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.tracker.OnDeletedObserver,
+		DeleteFunc: tracker.OnDeletedObserver,
 	})
 
 	configInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
+			tracker.OnChanged,
 			v1.SchemeGroupVersion.WithKind("Configuration"),
 		),
 	))
 
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(
 		controller.EnsureTypeMeta(
-			c.tracker.OnChanged,
+			tracker.OnChanged,
 			v1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
+
+	client := servingclient.Get(ctx)
+
+	c.caccV1 = labelerv1.NewConfigurationAccessor(client, tracker, configInformer.Lister())
+	c.caccV2 = labelerv2.NewConfigurationAccessor(client, tracker, configInformer.Lister(), configInformer.Informer().GetIndexer(), clock)
+
+	c.raccV1 = labelerv1.NewRevisionAccessor(client, tracker, revisionInformer.Lister())
+	c.raccV2 = labelerv2.NewRevisionAccessor(client, tracker, revisionInformer.Lister(), revisionInformer.Informer().GetIndexer(), clock)
 
 	return impl
 }

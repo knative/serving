@@ -44,14 +44,14 @@ func WithSpecTraffic(traffic ...v1.TrafficTarget) RouteOption {
 // WithRouteUID sets the Route's UID
 func WithRouteUID(uid types.UID) RouteOption {
 	return func(r *v1.Route) {
-		r.ObjectMeta.UID = uid
+		r.UID = uid
 	}
 }
 
 // WithRouteGeneration sets the route's generation
 func WithRouteGeneration(generation int64) RouteOption {
 	return func(r *v1.Route) {
-		r.Status.ObservedGeneration = generation
+		r.Generation = generation
 	}
 }
 

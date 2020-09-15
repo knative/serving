@@ -19,12 +19,12 @@ limitations under the License.
 package multicontainer
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -33,8 +33,6 @@ import (
 
 func TestMultiContainer(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := e2e.Setup(t)
 
@@ -63,13 +61,14 @@ func TestMultiContainer(t *testing.T) {
 
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.MultiContainerResponse))),
 		"MulticontainerServesExpectedText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.MultiContainerResponse, err)
 	}

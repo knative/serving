@@ -89,14 +89,14 @@ export KO_DOCKER_REPO
 cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_YAML_FLAGS} -R -f config/300-imagecache.yaml -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
-ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
 
 # Create hpa-class autoscaling related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"

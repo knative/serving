@@ -54,7 +54,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		// The "-[tag digest]" is computed only if there's a tag
 		certName := names.Certificate(route)
 		if tag != "" {
-			certName += fmt.Sprintf("-%d", adler32.Checksum([]byte(tag)))
+			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 		}
 
 		certs = append(certs, &networkingv1alpha1.Certificate{
@@ -64,7 +64,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
-				}, route.ObjectMeta.Annotations), func(key string) bool {
+				}, route.Annotations), func(key string) bool {
 					return key == corev1.LastAppliedConfigAnnotation
 				}),
 				Labels: map[string]string{

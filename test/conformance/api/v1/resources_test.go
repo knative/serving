@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -62,20 +63,21 @@ func TestCustomResourcesLimits(t *testing.T) {
 	endpoint := objects.Route.Status.URL.URL()
 
 	_, err = pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		endpoint,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		t.Fatalf("Error probing %s: %v", endpoint, err)
 	}
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
 		t.Log("Request", url)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+		client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 		if err != nil {
 			return nil, err
 		}

@@ -60,22 +60,6 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 			serving.RevisionLabelKey: "bamba",
 		},
 		want: fmt.Sprintf("label %q not found or empty in Decider", serving.ConfigurationLabelKey),
-	}, {
-		name: "values not ascii",
-		labels: map[string]string{
-			serving.ServiceLabelKey:       "la",
-			serving.ConfigurationLabelKey: "verité",
-			serving.RevisionLabelKey:      "bamba",
-		},
-		want: "invalid value: only ASCII characters accepted",
-	}, {
-		name: "too long of a value",
-		labels: map[string]string{
-			serving.ServiceLabelKey:       "cat is ",
-			serving.RevisionLabelKey:      "bamba",
-			serving.ConfigurationLabelKey: "l" + strings.Repeat("o", 253) + "ng",
-		},
-		want: "max length must be 255 characters",
 	}}
 
 	uniScalerFactory := testUniScalerFactory()

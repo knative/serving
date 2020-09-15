@@ -25,10 +25,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
@@ -48,7 +48,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -77,12 +76,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "configuration not yet ready",
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(2009)),
 			cfg("default", "not-ready", WithConfigGeneration(1), WithLatestCreated("not-ready-00001")),
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
+				WithRouteGeneration(2009), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// The first reconciliation initializes the conditions and reflects
 				// that the referenced configuration is not yet ready.
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
@@ -91,7 +91,8 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "configuration permanently failed",
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("permanently-failed"),
+				WithRouteGeneration(2020)),
 			cfg("default", "permanently-failed",
 				WithConfigGeneration(1), WithLatestCreated("permanently-failed-00001"), MarkLatestCreatedFailed("blah")),
 			rev("default", "permanently-failed", 1,
@@ -100,6 +101,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("permanently-failed"), WithURL,
+				WithRouteGeneration(2020), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationFailed("permanently-failed")),
 		}},
 		Key: "default/first-reconcile",
@@ -110,12 +112,14 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithRouteGeneration(1)),
+			Route("default", "first-reconcile", WithConfigTarget("not-ready"),
+				WithRouteGeneration(42)),
 			cfg("default", "not-ready", WithConfigGeneration(1), WithLatestCreated("not-ready-00001")),
 			rev("default", "not-ready", 1, WithInitRevConditions, WithRevName("not-ready-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "first-reconcile", WithConfigTarget("not-ready"), WithURL,
+				WithRouteGeneration(42), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		WantEvents: []string{
@@ -126,15 +130,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"),
+				WithRouteGeneration(1955)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
 		WantCreates: []runtime.Object{
 			simpleIngress(
-				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
-					WithRouteUID("12-34"), WithRouteGeneration(1)),
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -157,7 +161,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
-				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
@@ -276,7 +280,7 @@ func TestReconcile(t *testing.T) {
 		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
-				WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23"), WithRouteGeneration(1)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
@@ -286,7 +290,7 @@ func TestReconcile(t *testing.T) {
 			simpleIngress(
 				Route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -307,7 +311,7 @@ func TestReconcile(t *testing.T) {
 			simplePlaceholderK8sService(
 				getContext(),
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithLocalDomain,
-					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 					WithRouteUID("65-23"), WithRouteGeneration(1)),
 				"",
 			),
@@ -317,7 +321,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -333,7 +337,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "simple route becomes ready",
 		Objects: []runtime.Object{
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(1)),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(2009)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
@@ -363,7 +367,8 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+				WithRouteGeneration(2009), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
@@ -376,13 +381,21 @@ func TestReconcile(t *testing.T) {
 		Key: "default/becomes-ready",
 	}, {
 		Name: "failure creating k8s placeholder service",
-		// We induce a failure creating the placeholder service
+		// We induce a failure creating the placeholder service.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
 		},
 		Objects: []runtime.Object{
-			Route("default", "create-svc-failure", WithConfigTarget("config"), WithRouteFinalizer, WithRouteGeneration(1)),
+			Route("default", "create-svc-failure",
+				WithConfigTarget("config"), WithRouteFinalizer,
+				WithRouteGeneration(2007), WithURL, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
@@ -391,17 +404,19 @@ func TestReconcile(t *testing.T) {
 			simplePlaceholderK8sService(getContext(), Route("default", "create-svc-failure", WithConfigTarget("config")), ""),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Route("default", "create-svc-failure", WithConfigTarget("config"),
-				WithRouteFinalizer,
-				// Populated by reconciliation when we've failed to create
-				// the K8s service.
-				WithURL, WithAddress, WithInitRouteConditions,
+			Object: Route("default", "create-svc-failure",
+				WithConfigTarget("config"), WithRouteFinalizer,
+				WithRouteGeneration(2007), WithURL, WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
-					})),
+					}),
+				// Despite the failure creating the placeholder service we see the
+				// Ready condition toggled to Unknown before the ObservedGeneration
+				// is bumped.
+				MarkIngressNotConfigured, WithRouteObservedGeneration),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create placeholder service %q: %v",
@@ -450,7 +465,8 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "ingress-create-failure", WithConfigTarget("config"),
-				WithRouteFinalizer, WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteFinalizer, WithRouteGeneration(1),
+				MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// Populated by reconciliation when we fail to create the ingress.
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
 				MarkTrafficAssigned, WithStatusTraffic(
@@ -499,7 +515,8 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config"))),
+			simpleK8sService(Route("default", "steady-state", WithConfigTarget("config")),
+				WithExternalName("private-istio-ingressgateway.istio-system.svc.cluster.local")),
 		},
 		Key: "default/steady-state",
 	}, {
@@ -712,13 +729,13 @@ func TestReconcile(t *testing.T) {
 		Name: "public becomes cluster local",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
-				WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
-				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -734,14 +751,14 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
 					WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -765,7 +782,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -784,7 +801,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -809,7 +826,7 @@ func TestReconcile(t *testing.T) {
 			Object: simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"),
 					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -1210,7 +1227,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "config-missing", WithConfigTarget("not-found"), WithURL,
-				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
 		PostConditions: []func(*testing.T, *TableRow){
@@ -1220,12 +1237,14 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "revision missing (direct)",
 		Objects: []runtime.Object{
-			Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithRouteGeneration(1)),
+			Route("default", "missing-revision-direct", WithRevTarget("not-found"),
+				WithRouteGeneration(1988)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithURL,
+				WithRouteGeneration(1988), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
 		PostConditions: []func(*testing.T, *TableRow){
@@ -1235,12 +1254,14 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "revision missing (indirect)",
 		Objects: []runtime.Object{
-			Route("default", "missing-revision-indirect", WithConfigTarget("config"), WithRouteGeneration(1)),
+			Route("default", "missing-revision-indirect", WithConfigTarget("config"),
+				WithRouteGeneration(2006)),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "missing-revision-indirect", WithConfigTarget("config"), WithURL,
+				WithRouteGeneration(2006), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "config-00001")),
 		}},
 		Key: "default/missing-revision-indirect",
@@ -1539,7 +1560,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Route("default", "switch-configs", WithConfigTarget("green"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
+				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1984), WithRouteObservedGeneration,
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						Tag:          "blue",
@@ -1595,7 +1616,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "switch-configs", WithConfigTarget("green"),
 				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
+				WithRouteGeneration(1984), MarkTrafficAssigned, MarkIngressReady,
+				WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "green-00001",
 						Percent:        ptr.Int64(100),
@@ -1638,8 +1660,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "split", WithURL, WithAddress,
 				WithInitRouteConditions, MarkTrafficAssigned, MarkIngressReady,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				MarkConfigurationNotReady("green"),
-				WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithSpecTraffic(
 					v1.TrafficTarget{
 						ConfigurationName: "blue",
@@ -1735,11 +1757,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "default",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "core",
-					Version:  "v1",
-					Resource: "services",
-				},
+				Resource:  corev1.SchemeGroupVersion.WithResource("services"),
 			},
 			Name: "old-service-name",
 		}},
@@ -1774,11 +1792,7 @@ func TestReconcile(t *testing.T) {
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "default",
 				Verb:      "delete",
-				Resource: schema.GroupVersionResource{
-					Group:    "core",
-					Version:  "v1",
-					Resource: "services",
-				},
+				Resource:  corev1.SchemeGroupVersion.WithResource("services"),
 			},
 			Name: "old-service-name",
 		}},
@@ -1917,12 +1931,13 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 	}))
 }
 
-func TestReconcile_EnableAutoTLS(t *testing.T) {
+func TestReconcileEnableAutoTLS(t *testing.T) {
 	table := TableTest{{
 		Name: "check that existing wildcard cert is used when creating a Route",
 		Objects: []runtime.Object{
 			wildcardCert("default", "example.com"),
-			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteGeneration(1982),
+				WithRouteUID("12-34")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
@@ -1958,7 +1973,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
-				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteUID("12-34"), WithRouteGeneration(1982), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
 				WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
@@ -2286,14 +2301,13 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				Status: readyCertStatus(),
 			},
 		},
-		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{},
 		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)), ""),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("12-34"),
-				WithRouteGeneration(1), WithRouteObservedGeneration,
+				WithRouteGeneration(1), MarkIngressNotConfigured, WithRouteObservedGeneration,
 				WithAddress, WithInitRouteConditions, WithURL,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -2389,13 +2403,13 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Name: "public becomes cluster local w/ autoTLS",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
-				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
-				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
+				Route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel(map[string]string{network.VisibilityLabelKey: "cluster-local"})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2411,14 +2425,14 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"),
 					WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
-					WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
+					WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2443,7 +2457,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
-				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{network.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -2694,15 +2708,12 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.InitializeConditions()
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady(
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-		},
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-		},
-		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
-		},
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
+		}},
+		[]netv1alpha1.LoadBalancerIngressStatus{{
+			DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system"),
+		}},
 	)
 
 	return status
@@ -2717,7 +2728,7 @@ func ingressWithStatus(r *v1.Route, tc *traffic.Config, status netv1alpha1.Ingre
 }
 
 func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
-	// Thor's Hammer
+	// Thor's Hammer.
 	ci.Spec = netv1alpha1.IngressSpec{}
 	return ci
 }
@@ -2785,6 +2796,16 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: 1 * time.Minute,
+		},
+		Features: &cfgmap.Features{
+			MultiContainer:        cfgmap.Disabled,
+			PodSpecAffinity:       cfgmap.Disabled,
+			PodSpecFieldRef:       cfgmap.Disabled,
+			PodSpecDryRun:         cfgmap.Enabled,
+			PodSpecNodeSelector:   cfgmap.Disabled,
+			PodSpecTolerations:    cfgmap.Disabled,
+			ResponsiveRevisionGC:  cfgmap.Disabled,
+			TagHeaderBasedRouting: cfgmap.Disabled,
 		},
 	}
 }

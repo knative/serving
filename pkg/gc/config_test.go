@@ -63,7 +63,7 @@ func TestOurConfig(t *testing.T) {
 			"stale-revision-lastpinned-debounce": "2h30m44s",
 			"retain-since-create-time":           "17h",
 			"retain-since-last-active-time":      "16h",
-			"min-stale-revisions":                "5",
+			"min-non-active-revisions":           "5",
 			"max-non-active-revisions":           "500",
 		},
 	}, {
@@ -88,7 +88,7 @@ func TestOurConfig(t *testing.T) {
 		name: "Invalid negative min stale",
 		fail: true,
 		data: map[string]string{
-			"min-stale-revisions": "-1",
+			"min-non-active-revisions": "-1",
 		},
 	}, {
 		name: "Invalid negative maximum generation",
@@ -100,7 +100,7 @@ func TestOurConfig(t *testing.T) {
 		name: "invalid max less than min",
 		fail: true,
 		data: map[string]string{
-			"min-stale-revisions":      "20",
+			"min-non-active-revisions": "20",
 			"max-non-active-revisions": "10",
 		},
 	}, {

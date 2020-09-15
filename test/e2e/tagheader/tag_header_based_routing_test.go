@@ -18,14 +18,14 @@ limitations under the License.
 package tagheader
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -42,8 +42,7 @@ import (
 // In order to run this test, the tag hearder based routing feature needs to be turned on:
 // https://github.com/knative/serving/blob/master/config/core/configmaps/network.yaml#L115
 func TestTagHeaderBasedRouting(t *testing.T) {
-	cancel := logstream.Start(t)
-	defer cancel()
+	t.Parallel()
 
 	clients := e2e.Setup(t)
 	names := test.ResourceNames{
@@ -112,13 +111,14 @@ func TestTagHeaderBasedRouting(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			if _, err := pkgTest.WaitForEndpointState(
+				context.Background(),
 				clients.KubeClient,
 				t.Logf,
 				objects.Service.Status.URL.URL(),
 				v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(tt.wantResponse))),
 				"WaitForSuccessfulResponse",
 				test.ServingFlags.ResolvableDomain,
-				test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+				test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 				addHeader(tt.header),
 			); err != nil {
 				t.Fatalf("Error probing %s: %v", objects.Service.Status.URL.URL(), err)

@@ -89,7 +89,7 @@ type RouteSpec struct {
 	// Tracking issue: https://github.com/knative/serving/issues/643
 	//
 	// +optional
-	DeprecatedGeneration int64 `json:"generation,omitempty"`
+	DeprecatedGeneration int64
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	// +optional

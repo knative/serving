@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -169,10 +170,7 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1alpha1.Revision) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string, 1)
-		}
-		config.Labels[key] = value
+	return func(rev *v1alpha1.Revision) {
+		rev.Labels = kmeta.UnionMaps(rev.Labels, map[string]string{key: value})
 	}
 }

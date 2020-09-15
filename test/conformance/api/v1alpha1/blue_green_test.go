@@ -33,6 +33,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -113,7 +114,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err = clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err = clients.ServingAlphaClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -138,13 +139,14 @@ func TestBlueGreenRoute(t *testing.T) {
 	// take effect so we probe the green domain.
 	t.Log("Probing", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
+		context.Background(),
 		clients.KubeClient,
 		t.Logf,
 		greenURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
@@ -152,15 +154,15 @@ func TestBlueGreenRoute(t *testing.T) {
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return checkDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return shared.CheckDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
+		return shared.CheckDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
+		return shared.CheckDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatal("Error sending requests:", err)

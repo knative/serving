@@ -1,0 +1,74 @@
+# Copyright 2020 The Knative Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file is automagically synced here from github.com/knative-sandbox/.github
+# repo by knobots: https://github.com/mattmoor/knobots and will be overwritten.
+
+name: Code Style
+
+on:
+  push:
+    branches: [ 'master', 'release-*' ]
+  pull_request:
+    branches: [ 'master', 'release-*' ]
+
+jobs:
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Set up Go 1.14.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14.x
+        id: go
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      # TODO: add prettier step
+      # TODO: add goimports step
+
+      - name: Go Format
+        shell: bash
+        run: |
+          gofmt -s -w $(find -path './vendor' -prune -o -path './third_party' -prune -o -type f -name '*.go' -print)
+
+      - name: Verify
+        shell: bash
+        run: |
+          if [[ $(git diff-index --name-only HEAD --) ]]; then
+              echo "Found diffs in:"
+              git diff-index --name-only HEAD --
+              echo "${{ github.repository }} is out of style. Please run go fmt."
+              exit 1
+          fi
+          echo "${{ github.repository }} is formatted correctly."
+
+      - id: golangci_configuration
+        uses: andstor/file-existence-action@v1
+        with:
+          files: .golangci.yaml
+
+      - name: Go Lint
+        if: steps.golangci_configuration.outputs.files_exists == 'true'
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.30
+          only-new-issues: true # for initial defensiveness

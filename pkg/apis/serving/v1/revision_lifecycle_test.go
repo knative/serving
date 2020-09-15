@@ -575,6 +575,82 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
 }
 
+func TestPAResAvailableNoOverride(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// Deployment determined that something's wrong, e.g. the only pod
+	// has crashed.
+	r.MarkResourcesAvailableFalse("somehow", "somewhere")
+
+	// PodAutoscaler achieved initial scale.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionUnknown,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	// Verify we did not override this.
+	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
+	cond := r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, notWant := cond.Reason, ReasonProgressDeadlineExceeded; got == notWant {
+		t.Error("PA Status propagation overrode the ResourcesAvailable status")
+	}
+}
+
+func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// PodAutoscaler is not ready and initial scale was never attained.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		ServiceName: "testRevision",
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
+	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
+	cond := r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got != want {
+		t.Errorf("Reason = %q, want: %q", got, want)
+	}
+
+	// Set a different reason/message
+	r.MarkResourcesAvailableFalse("another-one", "bit-the-dust")
+
+	// And apply the status.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}, {
+				Type:   av1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	// Verify it did not alter the reason/message.
+	cond = r.GetCondition(RevisionConditionResourcesAvailable)
+	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got == want {
+		t.Errorf("Reason = %q should have not overridden a different status", got)
+	}
+}
+
 func TestPropagateAutoscalerStatusRace(t *testing.T) {
 	r := &RevisionStatus{}
 	r.InitializeConditions()

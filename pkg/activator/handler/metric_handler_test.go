@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"testing"
 
+	"go.opencensus.io/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
@@ -94,18 +95,24 @@ func TestRequestMetricHandler(t *testing.T) {
 					labelCode = http.StatusInternalServerError
 				}
 
+				wantResource := &resource.Resource{
+					Type: "knative_revision",
+					Labels: map[string]string{
+						metricskey.LabelNamespaceName:     rev.Namespace,
+						metricskey.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
+						metricskey.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
+						metricskey.LabelRevisionName:      rev.Name,
+					},
+				}
 				wantTags := map[string]string{
 					metricskey.PodName:                testPod,
 					metricskey.ContainerName:          activator.Name,
-					metricskey.LabelNamespaceName:     rev.Namespace,
-					metricskey.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
-					metricskey.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
-					metricskey.LabelRevisionName:      rev.Name,
 					metricskey.LabelResponseCode:      strconv.Itoa(labelCode),
 					metricskey.LabelResponseCodeClass: strconv.Itoa(labelCode/100) + "xx",
 				}
-				metricstest.CheckCountData(t, requestCountM.Name(), wantTags, 1)
-				metricstest.CheckStatsReported(t, responseTimeInMsecM.Name())
+
+				metricstest.AssertMetric(t, metricstest.IntMetric(requestCountM.Name(), 1, wantTags).WithResource(wantResource))
+				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
 			}()
 
 			reqCtx := util.WithRevision(context.Background(), rev)

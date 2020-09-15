@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -60,7 +59,6 @@ type Reconciler struct {
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
-	serviceLister       corev1listers.ServiceLister
 
 	resolver resolver
 }
@@ -70,14 +68,14 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	if rev.Status.ContainerStatuses == nil {
-		rev.Status.ContainerStatuses = make([]v1.ContainerStatuses, 0, len(rev.Spec.Containers))
+		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
 	}
 
 	if rev.Status.DeprecatedImageDigest != "" {
 		// Default old revisions to have ContainerStatuses filled in.
 		// This path should only be taken by "old" revisions that have exactly one container.
 		if len(rev.Status.ContainerStatuses) == 0 {
-			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatuses{
+			rev.Status.ContainerStatuses = append(rev.Status.ContainerStatuses, v1.ContainerStatus{
 				Name:        rev.Spec.Containers[0].Name,
 				ImageDigest: rev.Status.DeprecatedImageDigest,
 			})
@@ -101,7 +99,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	}
 
 	var digestGrp errgroup.Group
-	containerStatuses := make([]v1.ContainerStatuses, len(rev.Spec.Containers))
+	containerStatuses := make([]v1.ContainerStatus, len(rev.Spec.Containers))
 	for i, container := range rev.Spec.Containers {
 		container := container // Standard Go concurrency pattern.
 		i := i
@@ -119,11 +117,10 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 				rev.Status.DeprecatedImageDigest = digest
 			}
 
-			containerStatuses[i] = v1.ContainerStatuses{
+			containerStatuses[i] = v1.ContainerStatus{
 				Name:        container.Name,
 				ImageDigest: digest,
 			}
-
 			return nil
 		})
 	}
@@ -139,29 +136,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	phases := []struct {
-		name string
-		f    func(context.Context, *v1.Revision) error
-	}{{
-		name: "image digest",
-		f:    c.reconcileDigest,
-	}, {
-		name: "user deployment",
-		f:    c.reconcileDeployment,
-	}, {
-		name: "image cache",
-		f:    c.reconcileImageCache,
-	}, {
-		name: "PA",
-		f:    c.reconcilePA,
-	}}
-
-	for _, phase := range phases {
-		if err := phase.f(ctx, rev); err != nil {
+	for _, phase := range []func(context.Context, *v1.Revision) error{
+		c.reconcileDigest, c.reconcileDeployment,
+		c.reconcileImageCache, c.reconcilePA,
+	} {
+		if err := phase(ctx, rev); err != nil {
 			return err
 		}
 	}
-
 	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
 		logging.FromContext(ctx).Info("Revision became ready")
@@ -179,9 +161,7 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 		return
 	}
 
-	uid := string(rev.UID)
-
-	rev.Status.LogURL = strings.Replace(
+	rev.Status.LogURL = strings.ReplaceAll(
 		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", uid, -1)
+		"${REVISION_UID}", string(rev.UID))
 }

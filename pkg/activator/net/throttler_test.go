@@ -22,10 +22,10 @@ import (
 	"math"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -50,11 +50,9 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
-const defaultMaxConcurrency = 1000
-
-var defaultParams = queue.BreakerParams{
+var testBreakerParams = queue.BreakerParams{
 	QueueDepth:      1,
-	MaxConcurrency:  defaultMaxConcurrency,
+	MaxConcurrency:  revisionMaxConcurrency,
 	InitialCapacity: 0,
 }
 
@@ -63,43 +61,36 @@ type tryResult struct {
 	err  error
 }
 
-func newTestThrottler(ctx context.Context) (*Throttler, func()) {
-	// Use different values for the test.
-	bp := breakerParams
-	breakerParams = defaultParams
-
-	throttler := NewThrottler(ctx, "10.10.10.10")
-	return throttler, func() {
-		breakerParams = bp
-	}
+func newTestThrottler(ctx context.Context) *Throttler {
+	return NewThrottler(ctx, "10.10.10.10")
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
 	rt := &revisionThrottler{
 		logger:               logger,
-		breaker:              queue.NewBreaker(defaultParams),
+		breaker:              queue.NewBreaker(testBreakerParams),
 		containerConcurrency: 10,
 	}
 
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
+	if got, want := rt.breaker.Capacity(), 1*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 100; got != want {
+	if got, want := rt.breaker.Capacity(), 10*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.updateCapacity(defaultMaxConcurrency) // So in theory should be 10x.
-	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+	rt.updateCapacity(100)
+	if got, want := rt.breaker.Capacity(), 100*10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 10
+	rt.numActivators.Store(5)
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
+	if got, want := rt.breaker.Capacity(), 10*10/5; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 200
+	rt.numActivators.Store(200)
 	rt.updateCapacity(10)
 	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -109,18 +100,28 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
+	// now test with CC=0.
+	// in the CC=0 cases we use the infinite breaker whose capacity can either be
+	// totally blocked (0) or totally open (1).
 	rt.containerConcurrency = 0
+	rt.breaker = newInfiniteBreaker(logger)
+
+	rt.updateCapacity(0)
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	rt.numActivators = 200
+
+	rt.numActivators.Store(200)
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	rt.updateCapacity(0)
@@ -128,12 +129,21 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
+	// shouldn't really happen since revisionMaxConcurrency is very, very large,
+	// but check that we behave reasonably if it's exceeded.
+	capacity := rt.calculateCapacity(revisionMaxConcurrency+5, 1)
+	if got, want := capacity, queue.MaxBreakerCapacity; got != want {
+		t.Errorf("calculateCapacity = %d, want: %d", got, want)
+	}
+
 	// Now test with podIP trackers in tow.
 	// Simple case.
-	rt.numActivators = 1
-	rt.activatorIndex = 0
+	rt.numActivators.Store(1)
+	rt.activatorIndex.Store(0)
 	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
+	rt.breaker = queue.NewBreaker(testBreakerParams)
+
 	rt.updateCapacity(0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -147,7 +157,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 2 activators.
-	rt.numActivators = 2
+	rt.numActivators.Store(2)
 	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -161,18 +171,21 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 3 pods, index 1.
-	rt.activatorIndex = 1
+	rt.activatorIndex.Store(1)
 	rt.updateCapacity(-1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
-	// Infinite capacity.
-	rt.activatorIndex = 1
+	// Infinite capacity with podIP trackers.
+	rt.activatorIndex.Store(1)
 	rt.containerConcurrency = 0
+	rt.breaker = newInfiniteBreaker(logger)
 	rt.podTrackers = makeTrackers(3, 0)
 	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+
+	// infinite breaker capacity is either 0 (blocked) or 1 (totally open)
+	if got, want := rt.breaker.Capacity(), 1; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {
@@ -212,11 +225,10 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
+	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
 		Dests: sets.NewString("128.0.0.1:1234"),
@@ -234,7 +246,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
-	servfake.ServingV1().Revisions(revision.Namespace).Delete(revision.Name, nil)
+	servfake.ServingV1().Revisions(revision.Namespace).Delete(ctx, revision.Name, metav1.DeleteOptions{})
 	revisions.Informer().GetIndexer().Delete(revID)
 
 	// Eventually it should now fail.
@@ -264,11 +276,10 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(ctx, revision, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(revision)
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
+	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:           revID,
 		ClusterIPDest: "129.0.0.1:1234",
@@ -298,6 +309,15 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	}
 }
 
+func sortedTrackers(trk []*podTracker) bool {
+	for i := 1; i < len(trk); i++ {
+		if trk[i].dest < trk[i-1].dest {
+			return false
+		}
+	}
+	return true
+}
+
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -323,7 +343,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.2:1234", "128.0.0.32:1212"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -361,10 +381,21 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1, 3),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
 		}},
 		requests:  3,
 		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name: "roundrobin test",
+		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			networking.ProtocolHTTP1, 5 /*cc >3*/),
+		initUpdates: []revisionDestsUpdate{{
+			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
+		}},
+		requests: 3,
+		// All three IP addresses should be used if cc>3.
+		wantDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
 		name:     "multiple ClusterIP requests",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
@@ -394,7 +425,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}()
 
 			// Add the revision were testing.
-			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(tc.revision)
+			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(ctx, tc.revision, metav1.CreateOptions{})
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			updateCh := make(chan revisionDestsUpdate)
@@ -411,10 +442,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 				waitInformers()
 			}()
 
-			for _, update := range tc.initUpdates {
-				updateCh <- update
-			}
-
 			publicEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testRevision,
@@ -429,7 +456,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				},
 			}
 
-			fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+			fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 			endpoints.Informer().GetIndexer().Add(publicEp)
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -438,16 +465,28 @@ func TestThrottlerSuccesses(t *testing.T) {
 				t.Fatal("RevisionThrottler can't be found:", err)
 			}
 
+			for _, update := range tc.initUpdates {
+				updateCh <- update
+			}
+
 			// Make sure our informer event has fired.
 			// We send multiple updates in some tests, so make sure the capacity is exact.
 			wantCapacity := 1
 			cc := tc.revision.Spec.ContainerConcurrency
-			if cc != nil && *cc != 0 {
-				dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
+			if *cc != 0 {
 				wantCapacity = dests * int(*cc)
 			}
 			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
-				return atomic.LoadInt32(&rt.activatorIndex) != -1 && rt.breaker.Capacity() == wantCapacity, nil
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				if *cc != 0 {
+					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity &&
+						sortedTrackers(rt.assignedTrackers), nil
+				}
+				// If CC=0 then verify number of backends, rather the capacity of breaker.
+				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers) &&
+					sortedTrackers(rt.assignedTrackers), nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
@@ -471,8 +510,12 @@ func TestThrottlerSuccesses(t *testing.T) {
 				gotDests.Insert(result.dest)
 			}
 
-			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
+			if got, want := gotDests.List(), tc.wantDests.List(); !cmp.Equal(want, got) {
 				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				t.Log("podTrackers:\n", spew.Sdump(rt.podTrackers))
+				t.Log("assignedTrackers:\n", spew.Sdump(rt.assignedTrackers))
 			}
 		})
 	}
@@ -495,11 +538,10 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
-	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
-	rt.numActivators = 4
-	rt.activatorIndex = 0
+	throttler := newTestThrottler(ctx)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt.numActivators.Store(4)
+	rt.activatorIndex.Store(0)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -550,9 +592,8 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler, cleanup := newTestThrottler(ctx)
-	defer cleanup()
-	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, defaultParams, logger)
+	throttler := newTestThrottler(ctx)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, networking.ServicePortNameHTTP1, testBreakerParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -606,7 +647,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	rev := revisionCC1(revID, networking.ProtocolH2C)
 	// Add the revision we're testing.
-	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
+	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
@@ -643,7 +684,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 			*epSubset(8013, "http2", []string{"130.0.0.1", "130.0.0.2"}, nil),
 		},
 	}
-	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
@@ -660,10 +701,10 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 
-	if got, want := atomic.LoadInt32(&rt.numActivators), int32(2); got != want {
+	if got, want := rt.numActivators.Load(), int32(2); got != want {
 		t.Fatalf("numActivators = %d, want %d", got, want)
 	}
-	if got, want := atomic.LoadInt32(&rt.activatorIndex), int32(1); got != want {
+	if got, want := rt.activatorIndex.Load(), int32(1); got != want {
 		t.Fatalf("activatorIndex = %d, want %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), 2; got != want {
@@ -674,13 +715,13 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		*epSubset(8013, "http2", []string{"130.0.0.2"}, nil),
 	}
 
-	fake.CoreV1().Endpoints(testNamespace).Update(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Update(ctx, publicEp, metav1.UpdateOptions{})
 	endpoints.Informer().GetIndexer().Update(publicEp)
 
 	// Verify the index was computed.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return atomic.LoadInt32(&rt.numActivators) == 1 &&
-			atomic.LoadInt32(&rt.activatorIndex) == 0, nil
+		return rt.numActivators.Load() == 1 &&
+			rt.activatorIndex.Load() == 0, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
 	}
@@ -701,7 +742,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	// Add the revision we're testing.
-	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
+	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 	revisions.Informer().GetIndexer().Add(rev)
 
 	updateCh := make(chan revisionDestsUpdate)
@@ -739,7 +780,7 @@ func TestMultipleActivators(t *testing.T) {
 			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"},
 				nil)},
 	}
-	fake.CoreV1().Endpoints(testNamespace).Create(publicEp)
+	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)
 
 	rt, err := throttler.getOrCreateRevisionThrottler(revID)
@@ -755,7 +796,7 @@ func TestMultipleActivators(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
-	t.Logf("This activator idx = %d", atomic.LoadInt32(&rt.activatorIndex))
+	t.Logf("This activator idx = %d", rt.activatorIndex.Load())
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
@@ -785,7 +826,7 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
 		networking.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
-		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
+		t.Errorf("The type of revisionBreaker = %T, want %T", tttl, (*infiniteBreaker)(nil))
 	}
 }
 
@@ -1027,25 +1068,33 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
-	opt := cmp.Comparer(func(a *podTracker, b *podTracker) bool {
+	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
 	})
+	// assignSlice receives the pod trackers sorted.
 	trackers := []*podTracker{{
-		dest: "2",
-	}, {
 		dest: "1",
+	}, {
+		dest: "2",
 	}, {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 0 /*cc*/)
+		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 42 /*cc*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
+	t.Run("idx=1, na=1", func(t *testing.T) {
+		got := assignSlice(trackers, 1, 1, 1982)
+		if !cmp.Equal(got, trackers, opt) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
+				cmp.Diff(trackers, got, opt))
+		}
+	})
 	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1, 0)
+		got := assignSlice(trackers, -1, 1, 1982)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, opt))
@@ -1053,14 +1102,14 @@ func TestAssignSlice(t *testing.T) {
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], opt) {
+		got := assignSlice(cp, 1, 3, 1984)
+		if !cmp.Equal(got, trackers[1:2], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(trackers[1:2], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3, 0)
+		got := assignSlice(trackers[0:1], 1, 3, 1988)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
@@ -1069,21 +1118,21 @@ func TestAssignSlice(t *testing.T) {
 
 	t.Run("idx=1, cc=5", func(t *testing.T) {
 		trackers := []*podTracker{{
-			dest: "2",
-			b:    queue.NewBreaker(defaultParams),
-		}, {
 			dest: "1",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
+		}, {
+			dest: "2",
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 5)
-		want := append(trackers[0:1], trackers[2:]...)
+		want := trackers[1:3]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(want, got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
@@ -1091,21 +1140,21 @@ func TestAssignSlice(t *testing.T) {
 	})
 	t.Run("idx=1, cc=6", func(t *testing.T) {
 		trackers := []*podTracker{{
-			dest: "2",
-			b:    queue.NewBreaker(defaultParams),
-		}, {
 			dest: "1",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
+		}, {
+			dest: "2",
+			b:    queue.NewBreaker(testBreakerParams),
 		}, {
 			dest: "3",
-			b:    queue.NewBreaker(defaultParams),
+			b:    queue.NewBreaker(testBreakerParams),
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 6)
-		want := append(trackers[0:1], trackers[2:]...)
+		want := trackers[1:]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(trackers[0:1], got, opt))
+				cmp.Diff(want, got, opt))
 		}
 		if got, want := got[1].b.Capacity(), 3; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)

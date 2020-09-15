@@ -20,14 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -81,7 +82,6 @@ func init() {
 			Description: "The time to scrape metrics in milliseconds",
 			Measure:     scrapeTimeM,
 			Aggregation: view.Distribution(pkgmetrics.Buckets125(1, 100000)...),
-			TagKeys:     metrics.CommonRevisionKeys,
 		},
 	); err != nil {
 		panic(err)
@@ -194,31 +194,34 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
-	readyPodsCount, err := s.podAccessor.ReadyCount()
-	if err != nil {
-		return emptyStat, ErrFailedGetEndpoints
-	}
-
-	if readyPodsCount == 0 {
-		return emptyStat, nil
-	}
-
+func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	startTime := time.Now()
 	defer func() {
+		// No errors and an empty stat? We didn't scrape at all because
+		// we're scaled to 0.
+		if stat == emptyStat && err == nil {
+			return
+		}
 		scrapeTime := time.Since(startTime)
 		pkgmetrics.RecordBatch(s.statsCtx, scrapeTimeM.M(float64(scrapeTime.Milliseconds())))
 	}()
 
 	if s.podsAddressable {
-		stat, err := s.scrapePods(readyPodsCount)
+		stat, err := s.scrapePods(window)
 		// Some pods were scraped, but not enough.
 		if err != errNoPodsScraped {
 			return stat, err
 		}
 		// Else fall back to service scrape.
 	}
-	stat, err := s.scrapeService(window, readyPodsCount)
+	readyPodsCount, err := s.podAccessor.ReadyCount()
+	if err != nil {
+		return emptyStat, ErrFailedGetEndpoints
+	}
+	if readyPodsCount == 0 {
+		return emptyStat, nil
+	}
+	stat, err = s.scrapeService(window, readyPodsCount)
 	if err == nil {
 		s.logger.Info("Direct pod scraping off, service scraping, on")
 		// If err == nil, this means that we failed to scrape all pods, but service worked
@@ -228,26 +231,42 @@ func (s *serviceScraper) Scrape(window time.Duration) (Stat, error) {
 	return stat, err
 }
 
-func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
-	pods, err := s.podAccessor.PodIPsByAge()
+func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
+	pods, youngPods, err := s.podAccessor.PodIPsSplitByAge(window, time.Now())
 	if err != nil {
 		s.logger.Info("Error querying pods by age: ", err)
 		return emptyStat, err
 	}
-	// Race condition when scaling to 0, where the check above
-	// for endpoint count worked, but here we had no ready pods.
-	if len(pods) == 0 {
-		s.logger.Infof("For %s ready pods found 0 pods, are we scaling to 0?", readyPods)
+	lp := len(pods)
+	lyp := len(youngPods)
+	s.logger.Debugf("|OldPods| = %d, |YoungPods| = %d", lp, lyp)
+	total := lp + lyp
+	if total == 0 {
 		return emptyStat, nil
 	}
 
-	frpc := float64(readyPods)
+	frpc := float64(total)
 	sampleSizeF := populationMeanSampleSize(frpc)
 	sampleSize := int(sampleSizeF)
 	results := make(chan Stat, sampleSize)
 
+	// 1. If not enough: shuffle young pods and expect to use N-lp of those
+	//		no need to shuffle old pods, since all of them are expected to be used.
+	// 2. If enough old pods: shuffle them and use first N, still append young pods
+	//		as backup in case of errors, but without shuffling.
+	if lp < sampleSize {
+		rand.Shuffle(lyp, func(i, j int) {
+			youngPods[i], youngPods[j] = youngPods[j], youngPods[i]
+		})
+	} else {
+		rand.Shuffle(lp, func(i, j int) {
+			pods[i], pods[j] = pods[j], pods[i]
+		})
+	}
+	pods = append(pods, youngPods...)
+
 	grp := errgroup.Group{}
-	idx := int32(-1)
+	idx := atomic.NewInt32(-1)
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
@@ -255,7 +274,7 @@ func (s *serviceScraper) scrapePods(readyPods int) (Stat, error) {
 			// scanning pods down the line.
 			for {
 				// Acquire next pod.
-				myIdx := int(atomic.AddInt32(&idx, 1))
+				myIdx := int(idx.Inc())
 				// All out?
 				if myIdx >= len(pods) {
 					return errPodsExhausted

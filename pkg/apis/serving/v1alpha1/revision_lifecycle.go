@@ -246,7 +246,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 
 // RevisionContainerMissingMessage constructs the status message if a given image
 // cannot be pulled correctly.
-func RevisionContainerMissingMessage(image string, message string) string {
+func RevisionContainerMissingMessage(image, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
 }
 
@@ -286,11 +286,11 @@ func RevisionLastPinnedString(t time.Time) string {
 }
 
 func (r *Revision) SetLastPinned(t time.Time) {
-	if r.ObjectMeta.Annotations == nil {
-		r.ObjectMeta.Annotations = make(map[string]string, 1)
+	if r.Annotations == nil {
+		r.Annotations = make(map[string]string, 1)
 	}
 
-	r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
+	r.Annotations[serving.RevisionLastPinnedAnnotationKey] = RevisionLastPinnedString(t)
 }
 
 func (r *Revision) GetLastPinned() (time.Time, error) {
@@ -300,7 +300,7 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 		}
 	}
 
-	str, ok := r.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	str, ok := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
 	if !ok {
 		// If a revision is past the create delay without an annotation it is stale
 		return time.Time{}, LastPinnedParseError{
@@ -318,11 +318,6 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	}
 
 	return time.Unix(secs, 0), nil
-}
-
-// IsReachable returns whether or not the revision can be reached by a route.
-func (r *Revision) IsReachable() bool {
-	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
 }
 
 // PropagateDeploymentStatus takes the Deployment status and applies its values

@@ -110,33 +110,17 @@ main "$@"
 
 This is a helper script for Knative E2E test scripts. To use it:
 
-1. [optional] Customize the test cluster. Set the following environment
-   variables if the default values don't fit your needs:
-
-   - `E2E_CLUSTER_REGION`: Cluster region, defaults to `us-central1`.
-   - `E2E_CLUSTER_BACKUP_REGIONS`: Space-separated list of regions to retry test
-     cluster creation in case of stockout. Defaults to `us-west1 us-east1`.
-   - `E2E_CLUSTER_ZONE`: Cluster zone (e.g., `a`), defaults to none (i.e. use a
-     regional cluster).
-   - `E2E_CLUSTER_BACKUP_ZONES`: Space-separated list of zones to retry test
-     cluster creation in case of stockout. If defined,
-     `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
-   - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to
-     `e2-standard-4}`.
-   - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when
-     autoscaling, defaults to 1.
-   - `E2E_MAX_CLUSTER_NODES`: Maximum number of nodes in the cluster when
-     autoscaling, defaults to 3.
+1. [optional] Customize the test cluster. Pass the flags as described
+   [here](../kntest/pkg/kubetest2/gke/README.md) to the `initialize` function
+   call if the default values don't fit your needs.
 
 1. Source the script.
 
 1. [optional] Write the `knative_setup()` function, which will set up your
-   system under test (e.g., Knative Serving). This function won't be called if
-   you use the `--skip-knative-setup` flag.
+   system under test (e.g., Knative Serving).
 
 1. [optional] Write the `knative_teardown()` function, which will tear down your
-   system under test (e.g., Knative Serving). This function won't be called if
-   you use the `--skip-knative-setup` flag.
+   system under test (e.g., Knative Serving).
 
 1. [optional] Write the `test_setup()` function, which will set up the test
    resources.
@@ -160,7 +144,7 @@ This is a helper script for Knative E2E test scripts. To use it:
    of items to skip in the command line if the flag was parsed successfully. For
    example, return 1 for a simple flag, and 2 for a flag with a parameter.
 
-1. Call the `initialize()` function passing `$@` (without quotes).
+1. Call the `initialize()` function passing `"$@"`.
 
 1. Write logic for the end-to-end tests. Run all go tests using `go_test_e2e()`
    (or `report_go_test()` if you need a more fine-grained control) and call
@@ -170,8 +154,8 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 **Notes:**
 
-1. Calling your script without arguments will create a new cluster in the GCP
-   project `$PROJECT_ID` and run the tests against it.
+1. Calling your script without arguments will create a new cluster in your
+   current GCP project and run the tests against it.
 
 1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
    will immediately start the tests against the cluster currently configured for
@@ -183,10 +167,6 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. By default Istio is installed on the cluster via Addon, use
    `--skip-istio-addon` if you choose not to have it preinstalled.
 
-1. You can force running the tests against a specific GKE cluster version by
-   using the `--cluster-version` flag and passing a full version as the flag
-   value.
-
 ### Sample end-to-end test script
 
 This script will test that the latest Knative Serving nightly release works. It
@@ -195,9 +175,6 @@ for Knative Serving to be up before running the tests. It also requires that the
 test cluster is created in a specific region, `us-west2`.
 
 ```bash
-
-# This test requires a cluster in LA
-E2E_CLUSTER_REGION=us-west2
 
 source vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
@@ -218,7 +195,8 @@ function parse_flags() {
 
 WAIT_FOR_KNATIVE=1
 
-initialize $@
+# This test requires a cluster in LA
+initialize $@ --region=us-west2
 
 # TODO: use go_test_e2e to run the tests.
 kubectl get pods || fail_test

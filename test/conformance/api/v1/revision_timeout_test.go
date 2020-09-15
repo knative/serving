@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/conformance/api/shared"
 	v1test "knative.dev/serving/test/v1"
 
 	. "knative.dev/serving/pkg/testing/v1"
@@ -36,7 +38,7 @@ import (
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	client, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
 	}
@@ -116,19 +118,20 @@ func TestRevisionTimeout(t *testing.T) {
 
 			if tc.shouldScaleTo0 {
 				t.Log("Waiting to scale down to 0")
-				if err := WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
+				if err := shared.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
 			} else {
 				t.Log("Probing to force at least one pod", serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(
+					context.Background(),
 					clients.KubeClient,
 					t.Logf,
 					serviceURL,
 					v1test.RetryingRouteInconsistency(pkgTest.IsOneOfStatusCodes(http.StatusOK, http.StatusGatewayTimeout)),
 					"WaitForSuccessfulResponse",
 					test.ServingFlags.ResolvableDomain,
-					test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https)); err != nil {
+					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https)); err != nil {
 					t.Fatalf("Error probing %s: %v", serviceURL, err)
 				}
 			}

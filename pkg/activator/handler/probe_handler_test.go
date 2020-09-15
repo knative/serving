@@ -21,8 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
 

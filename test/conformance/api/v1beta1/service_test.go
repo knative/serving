@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -34,14 +35,14 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
-// TestService tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
+// TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that
 // the service transitions as expected during each step.
 // Currently the test performs the following updates:
 // 1. Update Container Image
 // 2. Update Metadata
 //    a. Update Labels
 //    b. Update Annotations
-func TestService(t *testing.T) {
+func TestServiceCreateAndUpdate(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -78,7 +79,7 @@ func TestService(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -224,7 +225,7 @@ func TestServiceBYOName(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https))
+	prober := test.RunRouteProber(t.Logf, clients, names.URL, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https))
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image

@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -30,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -123,8 +123,6 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (4) verifies that we receive back the same message.
 func TestWebSocket(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -149,8 +147,6 @@ func TestWebSocket(t *testing.T) {
 // and with -1 as target burst capacity and then validates that we can still serve.
 func TestWebSocketViaActivator(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 
@@ -172,7 +168,11 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}
 
 	// Wait for the activator endpoints to equalize.
-	if err := waitForActivatorEndpoints(resources, clients); err != nil {
+	if err := waitForActivatorEndpoints(&testContext{
+		t:         t,
+		resources: resources,
+		clients:   clients,
+	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
@@ -243,7 +243,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}

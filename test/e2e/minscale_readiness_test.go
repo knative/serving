@@ -19,15 +19,16 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/resources"
@@ -38,8 +39,6 @@ import (
 
 func TestMinScale(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	const minScale = 4
 
@@ -60,7 +59,21 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Creating configuration")
-	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale))
+	cfg, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale),
+		// Pass low resource requirements to avoid Pod scheduling problems
+		// on busy clusters.  This is adapted from ./test/e2e/scale.go
+		func(svc *v1.Configuration) {
+			svc.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		})
 	if err != nil {
 		t.Fatal("Failed to create Configuration:", err)
 	}
@@ -69,8 +82,8 @@ func TestMinScale(t *testing.T) {
 	serviceName := privateServiceName(t, clients, revName)
 
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale >= %d before becoming ready: %v", revName, minScale, err)
+	if lr, err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d < %d before becoming ready: %v", revName, lr, minScale, err)
 	}
 
 	t.Log("Waiting for revision to become ready")
@@ -81,8 +94,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if !ensureDesiredScale(clients, serviceName, gte(minScale)) {
-		t.Fatalf("The revision %q did not stay at scale >= %d after becoming ready", revName, minScale)
+	if lr, ok := ensureDesiredScale(clients, t, serviceName, gte(minScale)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
 	t.Log("Updating configuration")
@@ -94,8 +107,8 @@ func TestMinScale(t *testing.T) {
 	newServiceName := privateServiceName(t, clients, newRevName)
 
 	t.Log("Waiting for new revision to scale to minScale after update")
-	if err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale >= %d after creating route: %v", newRevName, minScale, err)
+	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d < %d after creating route: %v", newRevName, lr, minScale, err)
 	}
 
 	t.Log("Waiting for new revision to become ready")
@@ -106,23 +119,23 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding new revision at minScale after becoming ready")
-	if !ensureDesiredScale(clients, newServiceName, gte(minScale)) {
-		t.Fatalf("The new revision %q did not stay at scale >= %d after becoming ready", newRevName, minScale)
+	if lr, ok := ensureDesiredScale(clients, t, newServiceName, gte(minScale)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", newRevName, lr, minScale)
 	}
 
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
-	if err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", revName, err)
+	if lr, err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", revName, lr, minScale, err)
 	}
 
-	t.Log("Deleting route")
-	if err := clients.ServingClient.Routes.Delete(names.Route, &metav1.DeleteOptions{}); err != nil {
+	t.Log("Deleting route", names.Route)
+	if err := clients.ServingClient.Routes.Delete(context.Background(), names.Route, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete route %q: %v", names.Route, err)
 	}
 
 	t.Log("Waiting for new revision to scale below minScale when there is no route")
-	if err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
-		t.Fatalf("The revision %q did not scale < minScale after being replaced: %v", newRevName, err)
+	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
+		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
 	}
 }
 
@@ -158,7 +171,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 		t.Fatalf("The Configuration %q has not updated LatestCreatedRevisionName from %q: %v", configName, oldRevName, err)
 	}
 
-	config, err := clients.ServingClient.Configs.Get(configName, metav1.GetOptions{})
+	config, err := clients.ServingClient.Configs.Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Failed to get Configuration after it was seen to be live:", err)
 	}
@@ -170,7 +183,7 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	var privateServiceName string
 
 	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
-		sks, err := clients.NetworkingClient.ServerlessServices.Get(revisionName, metav1.GetOptions{})
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revisionName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -183,31 +196,39 @@ func privateServiceName(t *testing.T, clients *test.Clients, revisionName string
 	return privateServiceName
 }
 
-func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) error {
+// waitForDesiredScale returns the last observed number of pods and/or error if the cond
+// callback is never satisfied.
+func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return wait.PollImmediate(250*time.Millisecond, 1*time.Minute, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+	return latestReady, wait.PollImmediate(250*time.Millisecond, time.Minute, func() (bool, error) {
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
-		return cond(resources.ReadyAddressCount(endpoint)), nil
+		latestReady = resources.ReadyAddressCount(endpoint)
+		return cond(latestReady), nil
 	})
 }
 
-func ensureDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) bool {
+func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return wait.PollImmediate(250*time.Millisecond, 5*time.Second, func() (bool, error) {
-		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
+	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
+		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		if scale := resources.ReadyAddressCount(endpoint); !cond(scale) {
-			return false, fmt.Errorf("scale %d didn't meet condition", scale)
+		if latestReady = resources.ReadyAddressCount(endpoint); !cond(latestReady) {
+			return false, fmt.Errorf("scale %d didn't meet condition", latestReady)
 		}
 
 		return false, nil
-	}) == wait.ErrWaitTimeout
+	})
+	if err != wait.ErrWaitTimeout {
+		t.Log("PollError =", err)
+	}
+
+	return latestReady, err == wait.ErrWaitTimeout
 }

@@ -25,10 +25,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -135,9 +135,9 @@ func TestDomainNameFromTemplate(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			if tt.local {
-				meta.Labels[serving.VisibilityLabelKey] = serving.VisibilityClusterLocal
+				meta.Labels[network.VisibilityLabelKey] = serving.VisibilityClusterLocal
 			} else {
-				delete(meta.Labels, serving.VisibilityLabelKey)
+				delete(meta.Labels, network.VisibilityLabelKey)
 			}
 
 			got, err := DomainNameFromTemplate(ctx, meta, tt.args.name)

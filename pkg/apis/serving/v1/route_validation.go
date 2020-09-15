@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -208,7 +209,7 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 
 func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 	if label != serving.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, serving.VisibilityLabelKey)
+		errs = apis.ErrInvalidValue(label, network.VisibilityLabelKey)
 	}
 	return
 }
@@ -216,13 +217,15 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 // validateLabels function validates route labels.
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
-		switch {
-		case key == serving.VisibilityLabelKey:
+		switch key {
+		case serving.VisibilityLabelKeyObsolete, network.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case key == serving.ServiceLabelKey:
+		case serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
-		case strings.HasPrefix(key, serving.GroupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		default:
+			if strings.HasPrefix(key, serving.GroupNamePrefix) {
+				errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+			}
 		}
 	}
 	return

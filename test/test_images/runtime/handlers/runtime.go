@@ -59,7 +59,7 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, k)
 }
 
-func excludeFilePaths(filePaths []string, excludedPaths []string) []string {
+func excludeFilePaths(filePaths, excludedPaths []string) []string {
 	var paths []string
 	for _, path := range filePaths {
 		excluded := false

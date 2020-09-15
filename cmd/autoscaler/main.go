@@ -19,13 +19,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -64,26 +62,14 @@ const (
 	controllerNum   = 2
 )
 
-var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-)
-
 func main() {
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
-	msp.Start(ctx, 30*time.Second)
-	if err := view.Register(msp.DefaultViews()...); err != nil {
-		log.Fatal("Error exporting go memstats view: ", err)
-	}
+	sharedmain.MemStatsOrDie(ctx)
 
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatal("Error building kubeconfig: ", err)
-	}
+	cfg := sharedmain.ParseAndGetConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
@@ -99,6 +85,7 @@ func main() {
 	kubeClient := kubeclient.Get(ctx)
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	var err error
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
@@ -128,7 +115,7 @@ func main() {
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
 	cmw.Watch(metrics.ConfigMapName(),
-		metrics.ConfigMapWatcher(component, nil /* SecretFetcher */, logger),
+		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		profilingHandler.UpdateFromConfigMap)
 
 	podLister := podinformer.Get(ctx).Lister()
@@ -147,7 +134,8 @@ func main() {
 	}
 
 	// Set up a statserver.
-	statsServer := statserver.New(statsServerAddr, statsCh, logger)
+	// TODO(yanweiguo): Populate the isBktOwner from statfowarder.Forwarder.
+	statsServer := statserver.New(statsServerAddr, statsCh, logger, nil /* isBktOwner*/)
 
 	// Start watching the configs.
 	if err := cmw.Start(ctx.Done()); err != nil {

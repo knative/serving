@@ -29,6 +29,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -69,102 +70,6 @@ func TestGeneration(t *testing.T) {
 		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
 	}
 
-}
-
-func TestCanScaleToZero(t *testing.T) {
-	now := time.Now()
-	cases := []struct {
-		name   string
-		status PodAutoscalerStatus
-		result bool
-		grace  time.Duration
-	}{{
-		name:   "empty status",
-		status: PodAutoscalerStatus{},
-		result: false,
-		grace:  10 * time.Second,
-	}, {
-		name: "active condition",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-		},
-		result: false,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (no LTT)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					// No LTT = beginning of time, so for sure we can.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT longer than grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
-					},
-					// LTT = 30 seconds ago.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT exact grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
-					// LTT = 10 seconds ago.
-				}},
-			},
-		},
-		result: true,
-		grace:  10 * time.Second,
-	}, {
-		name: "inactive condition (LTT less than grace period ago)",
-		status: PodAutoscalerStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   PodAutoscalerConditionActive,
-					Status: corev1.ConditionFalse,
-					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
-					},
-					// LTT = 10 seconds ago.
-				}},
-			},
-		},
-		result: false,
-		grace:  30 * time.Second,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanScaleToZero(now, tc.grace); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-			}
-		})
-	}
 }
 
 func TestInactiveFor(t *testing.T) {
@@ -251,6 +156,7 @@ func TestInactiveFor(t *testing.T) {
 		})
 	}
 }
+
 func TestActiveFor(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
@@ -624,6 +530,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -642,6 +549,21 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 0,
+	}, {
+		name:    "only min, overridden",
+		min:     "1",
+		wantMin: 1,
+		wantMax: 10,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
+	}, {
+		name:    "max and config",
+		max:     "5",
+		wantMax: 5,
+		config: autoscalerconfig.Config{
+			MaxScale: 10,
+		},
 	}, {
 		name:    "only max",
 		max:     "1",
@@ -680,7 +602,7 @@ func TestScaleBounds(t *testing.T) {
 			}
 			pa.Spec.Reachability = tc.reachability
 
-			min, max := pa.ScaleBounds()
+			min, max := pa.ScaleBounds(&tc.config)
 
 			if min != tc.wantMin {
 				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
@@ -977,20 +899,40 @@ func TestTypicalFlow(t *testing.T) {
 	r.InitializeConditions()
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionScaleTargetInitialized, t)
+
+	r.MarkActive()
+	r.MarkSKSReady()
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
+	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+
+	r.MarkSKSNotReady("something something private")
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionSKSReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
+
+	// Restore.
+	r.MarkSKSReady()
 
 	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
@@ -1014,9 +956,10 @@ func TestTypicalFlow(t *testing.T) {
 	if !r.IsActive() {
 		t.Error("Active was not set.")
 	}
-	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 }
 
 func TestTargetBC(t *testing.T) {

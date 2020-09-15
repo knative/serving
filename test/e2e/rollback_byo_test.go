@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -31,8 +30,6 @@ import (
 
 func TestRollbackBYOName(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
 	clients := Setup(t)
 

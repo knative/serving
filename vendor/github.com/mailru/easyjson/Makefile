@@ -18,10 +18,12 @@ generate: build
 		./tests/custom_map_key_type.go \
 		./tests/embedded_type.go \
 		./tests/reference_to_pointer.go \
+		./tests/html.go \
 
 	bin/easyjson -all ./tests/data.go
 	bin/easyjson -all ./tests/nothing.go
 	bin/easyjson -all ./tests/errors.go
+	bin/easyjson -all ./tests/html.go
 	bin/easyjson -snake_case ./tests/snake.go
 	bin/easyjson -omit_empty ./tests/omitempty.go
 	bin/easyjson -build_tags=use_easyjson ./benchmark/data.go

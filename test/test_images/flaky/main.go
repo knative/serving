@@ -22,15 +22,16 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync/atomic"
 
-	"knative.dev/serving/pkg/network"
+	"go.uber.org/atomic"
+
+	network "knative.dev/networking/pkg"
 	"knative.dev/serving/test"
 )
 
 var (
 	period uint64
-	count  uint64
+	count  = atomic.NewUint64(0)
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -41,22 +42,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Increment the request count per non-probe request.
-	val := atomic.AddUint64(&count, 1)
+	val := count.Inc()
 
 	if val%period > 0 {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	w.Write([]byte(fmt.Sprintf("count = %d", val)))
+	w.Write([]byte(fmt.Sprint("count = ", val)))
 }
 
 func main() {
-	p, err := strconv.Atoi(os.Getenv("PERIOD"))
-	if err != nil {
+	pstr, ok := os.LookupEnv("PERIOD")
+	if !ok {
 		log.Fatal("Must specify PERIOD environment variable.")
-	} else if p < 1 {
-		log.Fatalf("Period must be positive, got: %d", p)
 	}
-	period = uint64(p)
+	var err error
+	period, err = strconv.ParseUint(pstr, 10 /*base*/, 64 /*size*/)
+	if err != nil {
+		log.Fatal(`Error parsing "PERIOD" envvar as uint: `, err)
+	} else if period < 1 {
+		log.Fatal("Period must be positive, got: 0")
+	}
 	h := network.NewProbeHandler(http.HandlerFunc(handler))
 	test.ListenAndServeGracefully(":"+os.Getenv("PORT"), h.ServeHTTP)
 }

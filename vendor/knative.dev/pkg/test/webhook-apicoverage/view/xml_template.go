@@ -16,7 +16,7 @@ limitations under the License.
 
 package view
 
-var JunitResultTmpl = `<testsuites>
+var junitResultTmpl = `<testsuites>
   <testsuite name="" time="0" {{ if .IsFailedBuild }} failures="1" {{ else }} failures = "0" {{ end }} tests="0">
       <testcase name="Overall" time="0" classname="go_coverage">
 				{{ if .IsFailedBuild }}

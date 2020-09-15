@@ -138,12 +138,12 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with initial scale",
 		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
-			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			func(d *scaling.Decider) {
 				d.Spec.InitialScale = 2
-				d.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+				d.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 			}),
 	}}
 
@@ -173,13 +173,13 @@ func TestGetInitialScale(t *testing.T) {
 	}, {
 		name: "revision initial scale overrides cluster initial scale",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 		},
 		want: 2,
 	}, {
 		name: "cluster allows initial scale zero",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *autoscalerconfig.Config) {
 			c.AllowZeroInitialScale = true
@@ -188,7 +188,7 @@ func TestGetInitialScale(t *testing.T) {
 	}, {
 		name: "cluster does not allows initial scale zero",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *autoscalerconfig.Config) {
 			c.AllowZeroInitialScale = false

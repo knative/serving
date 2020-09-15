@@ -19,18 +19,22 @@ package resources
 import (
 	"context"
 	"sort"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	network "knative.dev/networking/pkg"
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
+	apiConfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -65,7 +69,7 @@ func MakeIngress(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
-			Labels: kmeta.UnionMaps(r.ObjectMeta.Labels, map[string]string{
+			Labels: kmeta.UnionMaps(r.Labels, map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			}),
@@ -101,7 +105,7 @@ func MakeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
-	networkConfig := config.FromContext(ctx).Network
+	featuresConfig := config.FromContextOrDefaults(ctx).Features
 
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
@@ -110,12 +114,12 @@ func MakeIngressSpec(
 			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
 		for _, visibility := range visibilities {
-			domain, err := routeDomain(ctx, name, r, visibility)
+			domains, err := routeDomain(ctx, name, r, visibility)
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
-			if networkConfig.TagHeaderBasedRouting {
+			rule := makeIngressRule(ctx, domains, r.Namespace, visibility, targets[name])
+			if featuresConfig.TagHeaderBasedRouting == apiConfig.Enabled {
 				if rule.HTTP.Paths[0].AppendHeaders == nil {
 					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
 				}
@@ -130,7 +134,7 @@ func MakeIngressSpec(
 					// If a request has one of the `names`(tag name) except the default path,
 					// the request will be routed via one of the ingress paths, corresponding to the tag name.
 					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
+						makeTagBasedRoutingIngressPaths(ctx, r.Namespace, targets, names), rule.HTTP.Paths...)
 				} else {
 					// If a request is routed by a tag-attached hostname instead of the tag header,
 					// the request may not have the tag header "Knative-Serving-Tag",
@@ -145,7 +149,7 @@ func MakeIngressSpec(
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
 				rule.HTTP.Paths = append(
-					makeACMEIngressPaths(challengeHosts, []string{domain}), rule.HTTP.Paths...)
+					makeACMEIngressPaths(challengeHosts, domains), rule.HTTP.Paths...)
 			}
 			rules = append(rules, rule)
 		}
@@ -167,17 +171,25 @@ func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv
 	return c
 }
 
-func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (string, error) {
+func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) ([]string, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
 	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
 	labels.SetVisibility(meta, isClusterLocal)
 
-	return domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	domain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
+	if err != nil {
+		return []string{}, err
+	}
+	domains := []string{domain}
+	if isClusterLocal {
+		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
+	}
+	return domains, err
 }
 
 func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, domains []string) []netv1alpha1.HTTPIngressPath {
@@ -203,25 +215,27 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string,
+func makeIngressRule(ctx context.Context,
+	domains []string, ns string,
 	visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      domains,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets),
+				*makeBaseIngressPath(ctx, ns, targets),
 			},
 		},
 	}
 }
 
-func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
+func makeTagBasedRoutingIngressPaths(
+	ctx context.Context, ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 
 	for _, name := range names {
 		if name != traffic.DefaultTarget {
-			path := makeBaseIngressPath(ns, targets[name])
+			path := makeBaseIngressPath(ctx, ns, targets[name])
 			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
 			paths = append(paths, *path)
 		}
@@ -230,7 +244,8 @@ func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.Revis
 	return paths
 }
 
-func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
+func makeBaseIngressPath(
+	ctx context.Context, ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -256,6 +271,36 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha
 
 	return &netv1alpha1.HTTPIngressPath{
 		Splits: splits,
-		// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
+		Timeout: &metav1.Duration{
+			Duration: ingressTimeout(ctx),
+		},
 	}
+}
+
+// Before https://github.com/knative/networking/pull/64 we used a
+// default value in the KIngress timeout settings. However, that
+// does not work well with gRPC streaming timeout, so we stop the
+// defaulting going forward.
+//
+// However, that is a breaking change for KIngress
+// implementations. It broke Contour, and breaks Gloo.
+//
+// In order to give the Ingress implementers to have time to
+// implement this `no timeout` behavior we will specify a high
+// timeout value in Route controller in the mean time.
+func ingressTimeout(ctx context.Context) time.Duration {
+	// We want to set the ingress timeout to a really long timeout to
+	// helps with issues like
+	// https://github.com/knative/serving/issues/7350#issuecomment-669278261
+	longTimeout := time.Hour * 48
+
+	// However, if the MaxRevisionTimeout is longer, we should still honor that.
+	if apiConfig.FromContext(ctx) != nil && apiConfig.FromContext(ctx).Defaults != nil {
+		maxRevisionTimeout := time.Duration(
+			apiConfig.FromContext(ctx).Defaults.MaxRevisionTimeoutSeconds) * time.Second
+		if maxRevisionTimeout > longTimeout {
+			return maxRevisionTimeout
+		}
+	}
+	return longTimeout
 }
