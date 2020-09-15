@@ -73,22 +73,20 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 		}, nil
 	}
 
-	endpoint := endpointOverride
-	if endpointOverride == "" {
-		var err error
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
-		// the Host in our requests.
-		if endpoint, err = ingress.GetIngressEndpoint(context.Background(), kubeClientset); err != nil {
-			return vegeta.Target{}, err
-		}
+	var err error
+	// If the domain that the Route controller is configured to assign to Route.Status.Domain
+	// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
+	// the Host in our requests.
+	endpoint, mapper, err := ingress.GetIngressEndpoint(context.Background(), kubeClientset, endpointOverride)
+	if err != nil {
+		return vegeta.Target{}, err
 	}
 
 	h := http.Header{}
 	h.Set("Host", domain)
 	return vegeta.Target{
 		Method: http.MethodGet,
-		URL:    fmt.Sprintf("http://%s?sleep=%d", endpoint, autoscaleSleep),
+		URL:    fmt.Sprintf("http://%s:%s?sleep=%d", endpoint, mapper("80"), autoscaleSleep),
 		Header: h,
 	}, nil
 }
