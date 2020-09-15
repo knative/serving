@@ -446,7 +446,7 @@ func TestProcess(t *testing.T) {
 	// Wait for the stat enqueued previously to be retried.
 	got := <-acceptCh
 	if got != 1 {
-		t.Fatalf("Want acceptCount = 1, got %v", got)
+		t.Fatalf("Got = %v, want: 1", got)
 	}
 
 	// Accept once more.
@@ -454,7 +454,7 @@ func TestProcess(t *testing.T) {
 
 	got = <-acceptCh
 	if got != 2 {
-		t.Fatalf("Want acceptCount = 2, got %v", got)
+		t.Fatalf("Got = %v, want: 2", got)
 	}
 
 	// Make sure Cancel can be called without crash.

@@ -54,11 +54,7 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
-	if err := p.conn.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
-		return err
-	}
-
-	return nil
+	return p.conn.SendRaw(gorillawebsocket.BinaryMessage, b)
 }
 
 func (p *bucketProcessor) shutdown() {
