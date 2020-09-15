@@ -22,14 +22,15 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/configmap"
@@ -185,10 +186,7 @@ func TestReconcile(t *testing.T) {
 func TestReconcileWithCollector(t *testing.T) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	collector := &testCollector{
-		createOrUpdateCalls: make(chan struct{}, 1),
-		deleteCalls:         make(chan struct{}, 1),
-	}
+	collector := &testCollector{}
 
 	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
 	wf, err := controller.RunInformers(ctx.Done(), informers...)
@@ -197,7 +195,6 @@ func TestReconcileWithCollector(t *testing.T) {
 		t.Fatal("StartInformers() =", err)
 	}
 
-	barrier := make(chan struct{})
 	var eg errgroup.Group
 	defer func() {
 		cancel()
@@ -206,29 +203,25 @@ func TestReconcileWithCollector(t *testing.T) {
 	}()
 
 	eg.Go(func() error {
-		close(barrier)
 		return ctl.RunContext(ctx, 1)
 	})
 
 	m := metric("a-new", "test-metric")
 	scs := servingclient.Get(ctx)
 
-	// Ensure the controller is running.
-	<-barrier
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(ctx, m, metav1.CreateOptions{})
-	select {
-	case <-collector.createOrUpdateCalls:
-		t.Log("Create or Update was invoked")
-	case <-time.After(2 * time.Second):
+
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return collector.createOrUpdateCalls.Load() > 0, nil
+	}); err != nil {
 		t.Fatal("CreateOrUpdate() called 0 times, want non-zero times")
 	}
 
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(ctx, m.Name, metav1.DeleteOptions{})
-	select {
-	case <-collector.deleteCalls:
-		t.Log("Delete was invoked")
-	case <-time.After(2 * time.Second):
-		t.Error("Delete() called 0 times, want non-zero times")
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return collector.deleteCalls.Load() > 0, nil
+	}); err != nil {
+		t.Fatal("Delete() called 0 times, want non-zero times")
 	}
 }
 
@@ -270,24 +263,20 @@ func metric(namespace, name string, opts ...metricOption) *av1alpha1.Metric {
 
 type testCollector struct {
 	metrics.Collector
-	createOrUpdateCalls chan struct{}
+	createOrUpdateCalls atomic.Int32
 	createOrUpdateError error
 
-	deleteCalls chan struct{}
+	deleteCalls atomic.Int32
 	deleteError error
 }
 
 func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	if c.createOrUpdateCalls != nil {
-		c.createOrUpdateCalls <- struct{}{}
-	}
+	c.createOrUpdateCalls.Inc()
 	return c.createOrUpdateError
 }
 
 func (c *testCollector) Delete(namespace, name string) error {
-	if c.deleteCalls != nil {
-		c.deleteCalls <- struct{}{}
-	}
+	c.deleteCalls.Inc()
 	return c.deleteError
 }
 
