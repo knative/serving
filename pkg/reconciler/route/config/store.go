@@ -37,7 +37,11 @@ type Config struct {
 }
 
 func FromContext(ctx context.Context) *Config {
-	return ctx.Value(cfgKey{}).(*Config)
+	val, ok := ctx.Value(cfgKey{}).(*Config)
+	if !ok {
+		return nil
+	}
+	return val
 }
 
 // FromContextOrDefaults is like FromContext, but when no Config is attached it

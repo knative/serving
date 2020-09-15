@@ -1888,9 +1888,7 @@ func TestReconcile_ResponsiveGC(t *testing.T) {
 				// The Route controller attaches our label to this Configuration.
 				WithConfigLabel("serving.knative.dev/route", "stale-lastpinned"),
 			),
-			rev("default", "config", 1, MarkRevisionReady,
-				WithRevName("config-00001"),
-				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			simpleReadyIngress(
 				Route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -2837,7 +2835,7 @@ func url(s string) *apis.URL {
 }
 
 func setResponsiveGCFeature(ctx context.Context, flag cfgmap.Flag) context.Context {
-	c := cfgmap.FromContextOrDefaults(ctx)
+	c := config.FromContextOrDefaults(ctx)
 	c.Features.ResponsiveRevisionGC = flag
-	return cfgmap.ToContext(ctx, c)
+	return config.ToContext(ctx, c)
 }
