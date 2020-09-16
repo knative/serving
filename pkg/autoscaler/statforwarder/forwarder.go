@@ -325,10 +325,8 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
 	if p != nil && p.conn != nil {
-		go func() {
-			defer f.processingWg.Done()
-			p.conn.Shutdown()
-		}()
+		defer f.processingWg.Done()
+		p.conn.Shutdown()
 	}
 }
 
