@@ -193,12 +193,8 @@ func routeUrlHTTP(route *servingv1.Route) (bool, error) {
 }
 
 func routeTLSDisabled(route *servingv1.Route) (bool, error) {
-	for _, cond := range route.Status.Conditions {
-		if cond.Type == "CertificateProvisioned" {
-			return cond.Status == "True" && cond.Reason == "TLSNotEnabled", nil
-		}
-	}
-	return false, nil
+	var cond = route.Status.GetCondition("CertificateProvisioned")
+	return cond.Status == "True" && cond.Reason == "TLSNotEnabled", nil
 }
 
 func httpsReady(svc *servingv1.Service) (bool, error) {
