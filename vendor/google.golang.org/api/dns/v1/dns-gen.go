@@ -233,18 +233,12 @@ type ResourceRecordSetsService struct {
 }
 
 // Change: A Change represents a set of ResourceRecordSet additions and
-// deletions
-// applied atomically to a ManagedZone. ResourceRecordSets within
-// a
-// ManagedZone are modified by creating a new Change element in the
-// Changes
-// collection. In turn the Changes collection also records the
-// past
-// modifications to the ResourceRecordSets in a ManagedZone. The
-// current
-// state of the ManagedZone is the sum effect of applying all
-// Change
-// elements in the Changes collection in sequence.
+// deletions applied atomically to a ManagedZone. ResourceRecordSets
+// within a ManagedZone are modified by creating a new Change element in
+// the Changes collection. In turn the Changes collection also records
+// the past modifications to the ResourceRecordSets in a ManagedZone.
+// The current state of the ManagedZone is the sum effect of applying
+// all Change elements in the Changes collection in sequence.
 type Change struct {
 	// Additions: Which ResourceRecordSets to add?
 	Additions []*ResourceRecordSet `json:"additions,omitempty"`
@@ -263,15 +257,12 @@ type Change struct {
 	Kind string `json:"kind,omitempty"`
 
 	// StartTime: The time that this operation was started by the server
-	// (output only). This
-	// is in RFC3339 text format.
+	// (output only). This is in RFC3339 text format.
 	StartTime string `json:"startTime,omitempty"`
 
 	// Status: Status of the operation (output only). A status of "done"
-	// means that the
-	// request to update the authoritative servers has been sent, but
-	// the
-	// servers might not be updated yet.
+	// means that the request to update the authoritative servers has been
+	// sent but the servers might not be updated yet.
 	//
 	// Possible values:
 	//   "pending"
@@ -306,8 +297,7 @@ func (s *Change) MarshalJSON() ([]byte, error) {
 }
 
 // ChangesListResponse: The response to a request to enumerate Changes
-// to a ResourceRecordSets
-// collection.
+// to a ResourceRecordSets collection.
 type ChangesListResponse struct {
 	// Changes: The requested changes.
 	Changes []*Change `json:"changes,omitempty"`
@@ -318,23 +308,14 @@ type ChangesListResponse struct {
 	Kind string `json:"kind,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your pagination
-	// token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a "snapshot" of collections larger than the
-	// maximum
-	// page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// pagination token. In this way you can retrieve the complete contents
+	// of even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// "snapshot" of collections larger than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -367,8 +348,7 @@ func (s *ChangesListResponse) MarshalJSON() ([]byte, error) {
 // DnsKey: A DNSSEC key pair.
 type DnsKey struct {
 	// Algorithm: String mnemonic specifying the DNSSEC algorithm of this
-	// key. Immutable
-	// after creation time.
+	// key. Immutable after creation time.
 	//
 	// Possible values:
 	//   "rsasha1"
@@ -379,20 +359,17 @@ type DnsKey struct {
 	Algorithm string `json:"algorithm,omitempty"`
 
 	// CreationTime: The time that this resource was created in the control
-	// plane. This is in
-	// RFC3339 text format. Output only.
+	// plane. This is in RFC3339 text format. Output only.
 	CreationTime string `json:"creationTime,omitempty"`
 
 	// Description: A mutable string of at most 1024 characters associated
-	// with this resource
-	// for the user's convenience. Has no effect on the resource's function.
+	// with this resource for the user's convenience. Has no effect on the
+	// resource's function.
 	Description string `json:"description,omitempty"`
 
 	// Digests: Cryptographic hashes of the DNSKEY resource record
-	// associated with this
-	// DnsKey. These digests are needed to construct a DS record that points
-	// at
-	// this DNS key. Output only.
+	// associated with this DnsKey. These digests are needed to construct a
+	// DS record that points at this DNS key. Output only.
 	Digests []*DnsKeyDigest `json:"digests,omitempty"`
 
 	// Id: Unique identifier for the resource; defined by the server (output
@@ -400,10 +377,8 @@ type DnsKey struct {
 	Id string `json:"id,omitempty"`
 
 	// IsActive: Active keys will be used to sign subsequent changes to the
-	// ManagedZone.
-	// Inactive keys will still be present as DNSKEY Resource Records for
-	// the use
-	// of resolvers validating existing signatures.
+	// ManagedZone. Inactive keys will still be present as DNSKEY Resource
+	// Records for the use of resolvers validating existing signatures.
 	IsActive bool `json:"isActive,omitempty"`
 
 	// KeyLength: Length of the key in bits. Specified at creation time then
@@ -411,17 +386,12 @@ type DnsKey struct {
 	KeyLength int64 `json:"keyLength,omitempty"`
 
 	// KeyTag: The key tag is a non-cryptographic hash of the a DNSKEY
-	// resource record
-	// associated with this DnsKey. The key tag can be used to identify a
-	// DNSKEY
-	// more quickly (but it is not a unique identifier). In particular, the
-	// key
-	// tag is used in a parent zone's DS record to point at the DNSKEY in
-	// this
-	// child ManagedZone. The key tag is a number in the range [0, 65535]
-	// and the
-	// algorithm to calculate it is specified in RFC4034 Appendix B. Output
-	// only.
+	// resource record associated with this DnsKey. The key tag can be used
+	// to identify a DNSKEY more quickly (but it is not a unique
+	// identifier). In particular, the key tag is used in a parent zone's DS
+	// record to point at the DNSKEY in this child ManagedZone. The key tag
+	// is a number in the range [0, 65535] and the algorithm to calculate it
+	// is specified in RFC4034 Appendix B. Output only.
 	KeyTag int64 `json:"keyTag,omitempty"`
 
 	Kind string `json:"kind,omitempty"`
@@ -430,14 +400,11 @@ type DnsKey struct {
 	PublicKey string `json:"publicKey,omitempty"`
 
 	// Type: One of "KEY_SIGNING" or "ZONE_SIGNING". Keys of type
-	// KEY_SIGNING have the
-	// Secure Entry Point flag set and, when active, will be used to sign
-	// only
-	// resource record sets of type DNSKEY. Otherwise, the Secure Entry
-	// Point
-	// flag will be cleared and this key will be used to sign only
-	// resource
-	// record sets of other types. Immutable after creation time.
+	// KEY_SIGNING have the Secure Entry Point flag set and, when active,
+	// will be used to sign only resource record sets of type DNSKEY.
+	// Otherwise, the Secure Entry Point flag will be cleared and this key
+	// will be used to sign only resource record sets of other types.
+	// Immutable after creation time.
 	//
 	// Possible values:
 	//   "keySigning"
@@ -473,8 +440,7 @@ func (s *DnsKey) MarshalJSON() ([]byte, error) {
 
 type DnsKeyDigest struct {
 	// Digest: The base-16 encoded bytes of this digest. Suitable for use in
-	// a DS
-	// resource record.
+	// a DS resource record.
 	Digest string `json:"digest,omitempty"`
 
 	// Type: Specifies the algorithm used to calculate this digest.
@@ -509,8 +475,8 @@ func (s *DnsKeyDigest) MarshalJSON() ([]byte, error) {
 }
 
 // DnsKeySpec: Parameters for DnsKey key generation. Used for generating
-// initial keys
-// for a new ManagedZone and as default when adding a new DnsKey.
+// initial keys for a new ManagedZone and as default when adding a new
+// DnsKey.
 type DnsKeySpec struct {
 	// Algorithm: String mnemonic specifying the DNSSEC algorithm of this
 	// key.
@@ -527,14 +493,11 @@ type DnsKeySpec struct {
 	KeyLength int64 `json:"keyLength,omitempty"`
 
 	// KeyType: Specifies whether this is a key signing key (KSK) or a zone
-	// signing key
-	// (ZSK). Key signing keys have the Secure Entry Point flag set and,
-	// when
-	// active, will only be used to sign resource record sets of type
-	// DNSKEY.
-	// Zone signing keys do not have the Secure Entry Point flag set and
-	// will be
-	// used to sign all other types of resource record sets.
+	// signing key (ZSK). Key signing keys have the Secure Entry Point flag
+	// set and, when active, will only be used to sign resource record sets
+	// of type DNSKEY. Zone signing keys do not have the Secure Entry Point
+	// flag set and will be used to sign all other types of resource record
+	// sets.
 	//
 	// Possible values:
 	//   "keySigning"
@@ -578,23 +541,14 @@ type DnsKeysListResponse struct {
 	Kind string `json:"kind,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your pagination
-	// token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a "snapshot" of collections larger than the
-	// maximum
-	// page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// pagination token. In this way you can retrieve the complete contents
+	// of even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// "snapshot" of collections larger than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -625,20 +579,16 @@ func (s *DnsKeysListResponse) MarshalJSON() ([]byte, error) {
 }
 
 // ManagedZone: A zone is a subtree of the DNS namespace under one
-// administrative
-// responsibility. A ManagedZone is a resource that represents a DNS
-// zone
-// hosted by the Cloud DNS service.
+// administrative responsibility. A ManagedZone is a resource that
+// represents a DNS zone hosted by the Cloud DNS service.
 type ManagedZone struct {
 	// CreationTime: The time that this resource was created on the server.
-	// This is in RFC3339
-	// text format. Output only.
+	// This is in RFC3339 text format. Output only.
 	CreationTime string `json:"creationTime,omitempty"`
 
 	// Description: A mutable string of at most 1024 characters associated
-	// with this resource
-	// for the user's convenience. Has no effect on the managed zone's
-	// function.
+	// with this resource for the user's convenience. Has no effect on the
+	// managed zone's function.
 	Description string `json:"description,omitempty"`
 
 	// DnsName: The DNS name of this managed zone, for instance
@@ -649,10 +599,8 @@ type ManagedZone struct {
 	DnssecConfig *ManagedZoneDnsSecConfig `json:"dnssecConfig,omitempty"`
 
 	// ForwardingConfig: The presence for this field indicates that outbound
-	// forwarding is enabled
-	// for this zone.  The value of this field contains the set of
-	// destinations
-	// to forward to.
+	// forwarding is enabled for this zone. The value of this field contains
+	// the set of destinations to forward to.
 	ForwardingConfig *ManagedZoneForwardingConfig `json:"forwardingConfig,omitempty"`
 
 	// Id: Unique identifier for the resource; defined by the server (output
@@ -665,47 +613,39 @@ type ManagedZone struct {
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Name: User assigned name for this resource. Must be unique within the
-	// project.
-	// The name must be 1-63 characters long, must begin with a letter, end
-	// with
-	// a letter or digit, and only contain lowercase letters, digits or
-	// dashes.
+	// project. The name must be 1-63 characters long, must begin with a
+	// letter, end with a letter or digit, and only contain lowercase
+	// letters, digits or dashes.
 	Name string `json:"name,omitempty"`
 
 	// NameServerSet: Optionally specifies the NameServerSet for this
-	// ManagedZone. A
-	// NameServerSet is a set of DNS name servers that all host the
-	// same
-	// ManagedZones. Most users will leave this field unset.
+	// ManagedZone. A NameServerSet is a set of DNS name servers that all
+	// host the same ManagedZones. Most users will leave this field unset.
 	NameServerSet string `json:"nameServerSet,omitempty"`
 
 	// NameServers: Delegate your managed_zone to these virtual name
-	// servers; defined by the
-	// server (output only)
+	// servers; defined by the server (output only)
 	NameServers []string `json:"nameServers,omitempty"`
 
 	// PeeringConfig: The presence of this field indicates that DNS Peering
-	// is enabled for this
-	// zone. The value of this field contains the network to peer with.
+	// is enabled for this zone. The value of this field contains the
+	// network to peer with.
 	PeeringConfig *ManagedZonePeeringConfig `json:"peeringConfig,omitempty"`
 
 	// PrivateVisibilityConfig: For privately visible zones, the set of
-	// Virtual Private Cloud resources
-	// that the zone is visible from.
+	// Virtual Private Cloud resources that the zone is visible from.
 	PrivateVisibilityConfig *ManagedZonePrivateVisibilityConfig `json:"privateVisibilityConfig,omitempty"`
 
 	// ReverseLookupConfig: The presence of this field indicates that this
-	// is a managed reverse
-	// lookup zone and Cloud DNS will resolve reverse lookup queries
-	// using
-	// automatically configured records for VPC resources. This only
-	// applies
-	// to networks listed under private_visibility_config.
+	// is a managed reverse lookup zone and Cloud DNS will resolve reverse
+	// lookup queries using automatically configured records for VPC
+	// resources. This only applies to networks listed under
+	// private_visibility_config.
 	ReverseLookupConfig *ManagedZoneReverseLookupConfig `json:"reverseLookupConfig,omitempty"`
 
 	// Visibility: The zone's visibility: public zones are exposed to the
-	// Internet, while
-	// private zones are visible only to Virtual Private Cloud resources.
+	// Internet, while private zones are visible only to Virtual Private
+	// Cloud resources.
 	//
 	// Possible values:
 	//   "public"
@@ -741,15 +681,14 @@ func (s *ManagedZone) MarshalJSON() ([]byte, error) {
 
 type ManagedZoneDnsSecConfig struct {
 	// DefaultKeySpecs: Specifies parameters for generating initial DnsKeys
-	// for this
-	// ManagedZone. Can only be changed while the state is OFF.
+	// for this ManagedZone. Can only be changed while the state is OFF.
 	DefaultKeySpecs []*DnsKeySpec `json:"defaultKeySpecs,omitempty"`
 
 	Kind string `json:"kind,omitempty"`
 
 	// NonExistence: Specifies the mechanism for authenticated
-	// denial-of-existence responses.
-	// Can only be changed while the state is OFF.
+	// denial-of-existence responses. Can only be changed while the state is
+	// OFF.
 	//
 	// Possible values:
 	//   "nsec"
@@ -791,9 +730,8 @@ func (s *ManagedZoneDnsSecConfig) MarshalJSON() ([]byte, error) {
 type ManagedZoneForwardingConfig struct {
 	Kind string `json:"kind,omitempty"`
 
-	// TargetNameServers: List of target name servers to forward to.
-	// Cloud DNS will select the best available name server if more than
-	// one
+	// TargetNameServers: List of target name servers to forward to. Cloud
+	// DNS will select the best available name server if more than one
 	// target is given.
 	TargetNameServers []*ManagedZoneForwardingConfigNameServerTarget `json:"targetNameServers,omitempty"`
 
@@ -821,22 +759,17 @@ func (s *ManagedZoneForwardingConfig) MarshalJSON() ([]byte, error) {
 }
 
 type ManagedZoneForwardingConfigNameServerTarget struct {
-	// ForwardingPath: Forwarding path for this NameServerTarget, if unset
-	// or set to DEFAULT,
-	// Cloud DNS will make forwarding decision based on address ranges,
-	// i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go to
-	// the
-	// Internet. When set to PRIVATE, Cloud DNS will always send
-	// queries
-	// through VPC for this target
+	// ForwardingPath: Forwarding path for this NameServerTarget. If unset
+	// or set to DEFAULT, Cloud DNS will make forwarding decision based on
+	// address ranges, i.e. RFC1918 addresses go to the VPC, non-RFC1918
+	// addresses go to the Internet. When set to PRIVATE, Cloud DNS will
+	// always send queries through VPC for this target.
 	//
 	// Possible values:
 	//   "default" - Cloud DNS will make forwarding decision based on
-	// address ranges,
-	// i.e. RFC1918 addresses forward to the target through the VPC
-	// and
-	// Non-RFC1918 addresses will forward to the target through the
-	// Internet
+	// address ranges, i.e. RFC1918 addresses forward to the target through
+	// the VPC and non-RFC1918 addresses will forward to the target through
+	// the Internet
 	//   "private" - Cloud DNS will always forward to this target through
 	// the VPC.
 	ForwardingPath string `json:"forwardingPath,omitempty"`
@@ -876,22 +809,15 @@ type ManagedZoneOperationsListResponse struct {
 	Kind string `json:"kind,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your page token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a consistent snapshot of a collection larger than
-	// the
-	// maximum page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// page token. In this way you can retrieve the complete contents of
+	// even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// consistent snapshot of a collection larger than the maximum page
+	// size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// Operations: The operation resources.
@@ -955,24 +881,17 @@ func (s *ManagedZonePeeringConfig) MarshalJSON() ([]byte, error) {
 
 type ManagedZonePeeringConfigTargetNetwork struct {
 	// DeactivateTime: The time at which the zone was deactivated, in RFC
-	// 3339 date-time
-	// format. An empty string indicates that the peering connection
-	// is
-	// active. The producer network can deactivate a zone. The zone
-	// is
-	// automatically deactivated if the producer network that the
-	// zone
-	// targeted is deleted. Output only.
+	// 3339 date-time format. An empty string indicates that the peering
+	// connection is active. The producer network can deactivate a zone. The
+	// zone is automatically deactivated if the producer network that the
+	// zone targeted is deleted. Output only.
 	DeactivateTime string `json:"deactivateTime,omitempty"`
 
 	Kind string `json:"kind,omitempty"`
 
 	// NetworkUrl: The fully qualified URL of the VPC network to forward
-	// queries to.
-	// This should be formatted
-	// like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/n
-	// etworks/{network}
+	// queries to. This should be formatted like
+	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
 	NetworkUrl string `json:"networkUrl,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "DeactivateTime") to
@@ -1031,12 +950,9 @@ func (s *ManagedZonePrivateVisibilityConfig) MarshalJSON() ([]byte, error) {
 type ManagedZonePrivateVisibilityConfigNetwork struct {
 	Kind string `json:"kind,omitempty"`
 
-	// NetworkUrl: The fully qualified URL of the VPC network to bind
-	// to.
-	// This should be formatted
-	// like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/n
-	// etworks/{network}
+	// NetworkUrl: The fully qualified URL of the VPC network to bind to.
+	// This should be formatted like
+	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
 	NetworkUrl string `json:"networkUrl,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Kind") to
@@ -1098,22 +1014,15 @@ type ManagedZonesListResponse struct {
 	ManagedZones []*ManagedZone `json:"managedZones,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your page token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a consistent snapshot of a collection larger than
-	// the
-	// maximum page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// page token. In this way you can retrieve the complete contents of
+	// even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// consistent snapshot of a collection larger than the maximum page
+	// size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1144,40 +1053,31 @@ func (s *ManagedZonesListResponse) MarshalJSON() ([]byte, error) {
 }
 
 // Operation: An operation represents a successful mutation performed on
-// a Cloud DNS
-// resource.
-// Operations provide:
-// - An audit log of server resource mutations.
-// - A way to recover/retry API calls in the case where the response is
-// never
-//   received by the caller. Use the caller specified
-// client_operation_id.
+// a Cloud DNS resource. Operations provide: - An audit log of server
+// resource mutations. - A way to recover/retry API calls in the case
+// where the response is never received by the caller. Use the caller
+// specified client_operation_id.
 type Operation struct {
 	// DnsKeyContext: Only populated if the operation targeted a DnsKey
 	// (output only).
 	DnsKeyContext *OperationDnsKeyContext `json:"dnsKeyContext,omitempty"`
 
 	// Id: Unique identifier for the resource. This is the
-	// client_operation_id if
-	// the client specified it when the mutation was initiated,
-	// otherwise,
-	// it is generated by the server. The name must be 1-63 characters
-	// long
-	// and match the regular expression [-a-z0-9]? (output only)
+	// client_operation_id if the client specified it when the mutation was
+	// initiated, otherwise, it is generated by the server. The name must be
+	// 1-63 characters long and match the regular expression [-a-z0-9]?
+	// (output only)
 	Id string `json:"id,omitempty"`
 
 	Kind string `json:"kind,omitempty"`
 
 	// StartTime: The time that this operation was started by the server.
-	// This is in RFC3339
-	// text format (output only).
+	// This is in RFC3339 text format (output only).
 	StartTime string `json:"startTime,omitempty"`
 
 	// Status: Status of the operation. Can be one of the following:
-	// "PENDING" or "DONE"
-	// (output only). A status of "DONE" means that the
-	// request to update the authoritative servers has been sent, but
-	// the
+	// "PENDING" or "DONE" (output only). A status of "DONE" means that the
+	// request to update the authoritative servers has been sent, but the
 	// servers might not be updated yet.
 	//
 	// Possible values:
@@ -1186,15 +1086,12 @@ type Operation struct {
 	Status string `json:"status,omitempty"`
 
 	// Type: Type of the operation. Operations include insert, update, and
-	// delete
-	// (output only).
+	// delete (output only).
 	Type string `json:"type,omitempty"`
 
 	// User: User who requested the operation, for example:
-	// user@example.com.
-	// cloud-dns-system for operations automatically done by the
-	// system.
-	// (output only)
+	// user@example.com. cloud-dns-system for operations automatically done
+	// by the system. (output only)
 	User string `json:"user,omitempty"`
 
 	// ZoneContext: Only populated if the operation targeted a ManagedZone
@@ -1295,22 +1192,15 @@ type PoliciesListResponse struct {
 	Kind string `json:"kind,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your page token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a consistent snapshot of a collection larger than
-	// the
-	// maximum page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// page token. In this way you can retrieve the complete contents of
+	// even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// consistent snapshot of a collection larger than the maximum page
+	// size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// Policies: The policy resources.
@@ -1408,34 +1298,27 @@ func (s *PoliciesUpdateResponse) MarshalJSON() ([]byte, error) {
 }
 
 // Policy: A policy is a collection of DNS rules applied to one or more
-// Virtual Private
-// Cloud resources.
+// Virtual Private Cloud resources.
 type Policy struct {
 	// AlternativeNameServerConfig: Sets an alternative name server for the
-	// associated networks. When
-	// specified, all DNS queries are forwarded to a name server that
-	// you
-	// choose. Names such as .internal are not available when an
-	// alternative
-	// name server is specified.
+	// associated networks. When specified, all DNS queries are forwarded to
+	// a name server that you choose. Names such as .internal are not
+	// available when an alternative name server is specified.
 	AlternativeNameServerConfig *PolicyAlternativeNameServerConfig `json:"alternativeNameServerConfig,omitempty"`
 
 	// Description: A mutable string of at most 1024 characters associated
-	// with this resource
-	// for the user's convenience. Has no effect on the policy's function.
+	// with this resource for the user's convenience. Has no effect on the
+	// policy's function.
 	Description string `json:"description,omitempty"`
 
 	// EnableInboundForwarding: Allows networks bound to this policy to
-	// receive DNS queries sent by VMs or
-	// applications over VPN connections. When enabled, a virtual IP address
-	// will
-	// be allocated from each of the sub-networks that are bound to this
-	// policy.
+	// receive DNS queries sent by VMs or applications over VPN connections.
+	// When enabled, a virtual IP address will be allocated from each of the
+	// sub-networks that are bound to this policy.
 	EnableInboundForwarding bool `json:"enableInboundForwarding,omitempty"`
 
 	// EnableLogging: Controls whether logging is enabled for the networks
-	// bound to this policy.
-	// Defaults to no logging if not set.
+	// bound to this policy. Defaults to no logging if not set.
 	EnableLogging bool `json:"enableLogging,omitempty"`
 
 	// Id: Unique identifier for the resource; defined by the server (output
@@ -1484,12 +1367,9 @@ type PolicyAlternativeNameServerConfig struct {
 	Kind string `json:"kind,omitempty"`
 
 	// TargetNameServers: Sets an alternative name server for the associated
-	// networks. When
-	// specified, all DNS queries are forwarded to a name server that
-	// you
-	// choose. Names such as .internal are not available when an
-	// alternative
-	// name server is specified.
+	// networks. When specified, all DNS queries are forwarded to a name
+	// server that you choose. Names such as .internal are not available
+	// when an alternative name server is specified.
 	TargetNameServers []*PolicyAlternativeNameServerConfigTargetNameServer `json:"targetNameServers,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Kind") to
@@ -1516,22 +1396,17 @@ func (s *PolicyAlternativeNameServerConfig) MarshalJSON() ([]byte, error) {
 }
 
 type PolicyAlternativeNameServerConfigTargetNameServer struct {
-	// ForwardingPath: Forwarding path for this TargetNameServer, if unset
-	// or set to DEFAULT,
-	// Cloud DNS will make forwarding decision based on address ranges,
-	// i.e. RFC1918 addresses go to the VPC, Non-RFC1918 addresses go to
-	// the
-	// Internet. When set to PRIVATE, Cloud DNS will always send
-	// queries
-	// through VPC for this target
+	// ForwardingPath: Forwarding path for this TargetNameServer. If unset
+	// or set to DEFAULT, Cloud DNS will make forwarding decision based on
+	// address ranges, i.e. RFC1918 addresses go to the VPC, non-RFC1918
+	// addresses go to the Internet. When set to PRIVATE, Cloud DNS will
+	// always send queries through VPC for this target.
 	//
 	// Possible values:
 	//   "default" - Cloud DNS will make forwarding decision based on
-	// address ranges,
-	// i.e. RFC1918 addresses forward to the target through the VPC
-	// and
-	// Non-RFC1918 addresses will forward to the target through the
-	// Internet
+	// address ranges, i.e. RFC1918 addresses forward to the target through
+	// the VPC and non-RFC1918 addresses will forward to the target through
+	// the Internet
 	//   "private" - Cloud DNS will always forward to this target through
 	// the VPC.
 	ForwardingPath string `json:"forwardingPath,omitempty"`
@@ -1568,12 +1443,9 @@ func (s *PolicyAlternativeNameServerConfigTargetNameServer) MarshalJSON() ([]byt
 type PolicyNetwork struct {
 	Kind string `json:"kind,omitempty"`
 
-	// NetworkUrl: The fully qualified URL of the VPC network to bind
-	// to.
-	// This should be formatted
-	// like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/n
-	// etworks/{network}
+	// NetworkUrl: The fully qualified URL of the VPC network to bind to.
+	// This should be formatted like
+	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
 	NetworkUrl string `json:"networkUrl,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Kind") to
@@ -1600,10 +1472,8 @@ func (s *PolicyNetwork) MarshalJSON() ([]byte, error) {
 }
 
 // Project: A project resource. The project is a top level container for
-// resources
-// including Cloud DNS ManagedZones. Projects can be created only in the
-// APIs
-// console.
+// resources including Cloud DNS ManagedZones. Projects can be created
+// only in the APIs console.
 type Project struct {
 	// Id: User assigned unique identifier for the resource (output only).
 	Id string `json:"id,omitempty"`
@@ -1611,8 +1481,7 @@ type Project struct {
 	Kind string `json:"kind,omitempty"`
 
 	// Number: Unique numeric identifier for the resource; defined by the
-	// server (output
-	// only).
+	// server (output only).
 	Number uint64 `json:"number,omitempty,string"`
 
 	// Quota: Quotas assigned to this project (output only).
@@ -1657,13 +1526,11 @@ type Quota struct {
 	ManagedZones int64 `json:"managedZones,omitempty"`
 
 	// ManagedZonesPerNetwork: Maximum allowed number of managed zones which
-	// can be attached to a
-	// network.
+	// can be attached to a network.
 	ManagedZonesPerNetwork int64 `json:"managedZonesPerNetwork,omitempty"`
 
 	// NetworksPerManagedZone: Maximum allowed number of networks to which a
-	// privately scoped zone can be
-	// attached.
+	// privately scoped zone can be attached.
 	NetworksPerManagedZone int64 `json:"networksPerManagedZone,omitempty"`
 
 	// NetworksPerPolicy: Maximum allowed number of networks per policy.
@@ -1677,13 +1544,11 @@ type Quota struct {
 	ResourceRecordsPerRrset int64 `json:"resourceRecordsPerRrset,omitempty"`
 
 	// RrsetAdditionsPerChange: Maximum allowed number of ResourceRecordSets
-	// to add per
-	// ChangesCreateRequest.
+	// to add per ChangesCreateRequest.
 	RrsetAdditionsPerChange int64 `json:"rrsetAdditionsPerChange,omitempty"`
 
 	// RrsetDeletionsPerChange: Maximum allowed number of ResourceRecordSets
-	// to delete per
-	// ChangesCreateRequest.
+	// to delete per ChangesCreateRequest.
 	RrsetDeletionsPerChange int64 `json:"rrsetDeletionsPerChange,omitempty"`
 
 	// RrsetsPerManagedZone: Maximum allowed number of ResourceRecordSets
@@ -1699,8 +1564,7 @@ type Quota struct {
 	TargetNameServersPerPolicy int64 `json:"targetNameServersPerPolicy,omitempty"`
 
 	// TotalRrdataSizePerChange: Maximum allowed size for total rrdata in
-	// one ChangesCreateRequest in
-	// bytes.
+	// one ChangesCreateRequest in bytes.
 	TotalRrdataSizePerChange int64 `json:"totalRrdataSizePerChange,omitempty"`
 
 	// WhitelistedKeySpecs: DNSSEC algorithm and key length types that can
@@ -1741,8 +1605,7 @@ type ResourceRecordSet struct {
 	Name string `json:"name,omitempty"`
 
 	// Rrdatas: As defined in RFC 1035 (section 5) and RFC 1034 (section
-	// 3.6.1) -- see
-	// <a href="/dns/records/json-record">examples</a>.
+	// 3.6.1) -- see examples.
 	Rrdatas []string `json:"rrdatas,omitempty"`
 
 	// SignatureRrdatas: As defined in RFC 4034 (section 3.2).
@@ -1753,8 +1616,7 @@ type ResourceRecordSet struct {
 	Ttl int64 `json:"ttl,omitempty"`
 
 	// Type: The identifier of a supported record type. See the list of
-	// <a href="/dns/docs/overview#supported_dns_record_types">Supported
-	// DNS record types</a>.
+	// Supported DNS record types.
 	Type string `json:"type,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Kind") to
@@ -1787,23 +1649,15 @@ type ResourceRecordSetsListResponse struct {
 	Kind string `json:"kind,omitempty"`
 
 	// NextPageToken: The presence of this field indicates that there exist
-	// more results
-	// following your last page of results in pagination order. To fetch
-	// them,
-	// make another list request using this value as your pagination
-	// token.
-	//
-	// In this way you can retrieve the complete contents of even very
-	// large
-	// collections one page at a time. However, if the contents of the
-	// collection
-	// change between the first and last paginated list request, the set of
-	// all
-	// elements returned will be an inconsistent view of the collection.
-	// There is
-	// no way to retrieve a consistent snapshot of a collection larger than
-	// the
-	// maximum page size.
+	// more results following your last page of results in pagination order.
+	// To fetch them, make another list request using this value as your
+	// pagination token. In this way you can retrieve the complete contents
+	// of even very large collections one page at a time. However, if the
+	// contents of the collection change between the first and last
+	// paginated list request, the set of all elements returned will be an
+	// inconsistent view of the collection. There is no way to retrieve a
+	// consistent snapshot of a collection larger than the maximum page
+	// size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// Rrsets: The resource record set resources.
@@ -1839,9 +1693,8 @@ func (s *ResourceRecordSetsListResponse) MarshalJSON() ([]byte, error) {
 // ResponseHeader: Elements common to every response.
 type ResponseHeader struct {
 	// OperationId: For mutating operation requests that completed
-	// successfully.
-	// This is the client_operation_id if the client specified it,
-	// otherwise it is generated by the server (output only).
+	// successfully. This is the client_operation_id if the client specified
+	// it, otherwise it is generated by the server (output only).
 	OperationId string `json:"operationId,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "OperationId") to
@@ -1889,11 +1742,9 @@ func (r *ChangesService) Create(project string, managedZone string, change *Chan
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ChangesCreateCall) ClientOperationId(clientOperationId string) *ChangesCreateCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -1926,7 +1777,7 @@ func (c *ChangesCreateCall) Header() http.Header {
 
 func (c *ChangesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2001,12 +1852,12 @@ func (c *ChangesCreateCall) Do(opts ...googleapi.CallOption) (*Change, error) {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -2056,11 +1907,9 @@ func (r *ChangesService) Get(project string, managedZone string, changeId string
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ChangesGetCall) ClientOperationId(clientOperationId string) *ChangesGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -2103,7 +1952,7 @@ func (c *ChangesGetCall) Header() http.Header {
 
 func (c *ChangesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2178,18 +2027,18 @@ func (c *ChangesGetCall) Do(opts ...googleapi.CallOption) (*Change, error) {
 	//   ],
 	//   "parameters": {
 	//     "changeId": {
-	//       "description": "The identifier of the requested change, from a previous\nResourceRecordSetsChangeResponse.",
+	//       "description": "The identifier of the requested change, from a previous ResourceRecordSetsChangeResponse.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -2236,16 +2085,16 @@ func (r *ChangesService) List(project string, managedZone string) *ChangesListCa
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *ChangesListCall) MaxResults(maxResults int64) *ChangesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *ChangesListCall) PageToken(pageToken string) *ChangesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -2305,7 +2154,7 @@ func (c *ChangesListCall) Header() http.Header {
 
 func (c *ChangesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2378,19 +2227,19 @@ func (c *ChangesListCall) Do(opts ...googleapi.CallOption) (*ChangesListResponse
 	//   ],
 	//   "parameters": {
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -2405,6 +2254,9 @@ func (c *ChangesListCall) Do(opts ...googleapi.CallOption) (*ChangesListResponse
 	//       "description": "Sorting criterion. The only supported value is change sequence.",
 	//       "enum": [
 	//         "changeSequence"
+	//       ],
+	//       "enumDescriptions": [
+	//         ""
 	//       ],
 	//       "location": "query",
 	//       "type": "string"
@@ -2473,20 +2325,17 @@ func (r *DnsKeysService) Get(project string, managedZone string, dnsKeyId string
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *DnsKeysGetCall) ClientOperationId(clientOperationId string) *DnsKeysGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
 }
 
 // DigestType sets the optional parameter "digestType": An optional
-// comma-separated list of digest types to compute and display
-// for key signing keys. If omitted, the recommended digest type will
-// be
+// comma-separated list of digest types to compute and display for key
+// signing keys. If omitted, the recommended digest type will be
 // computed and displayed.
 func (c *DnsKeysGetCall) DigestType(digestType string) *DnsKeysGetCall {
 	c.urlParams_.Set("digestType", digestType)
@@ -2530,7 +2379,7 @@ func (c *DnsKeysGetCall) Header() http.Header {
 
 func (c *DnsKeysGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2605,12 +2454,12 @@ func (c *DnsKeysGetCall) Do(opts ...googleapi.CallOption) (*DnsKey, error) {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "digestType": {
-	//       "description": "An optional comma-separated list of digest types to compute and display\nfor key signing keys. If omitted, the recommended digest type will be\ncomputed and displayed.",
+	//       "description": "An optional comma-separated list of digest types to compute and display for key signing keys. If omitted, the recommended digest type will be computed and displayed.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -2621,7 +2470,7 @@ func (c *DnsKeysGetCall) Do(opts ...googleapi.CallOption) (*DnsKey, error) {
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -2668,9 +2517,8 @@ func (r *DnsKeysService) List(project string, managedZone string) *DnsKeysListCa
 }
 
 // DigestType sets the optional parameter "digestType": An optional
-// comma-separated list of digest types to compute and display
-// for key signing keys. If omitted, the recommended digest type will
-// be
+// comma-separated list of digest types to compute and display for key
+// signing keys. If omitted, the recommended digest type will be
 // computed and displayed.
 func (c *DnsKeysListCall) DigestType(digestType string) *DnsKeysListCall {
 	c.urlParams_.Set("digestType", digestType)
@@ -2678,16 +2526,16 @@ func (c *DnsKeysListCall) DigestType(digestType string) *DnsKeysListCall {
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *DnsKeysListCall) MaxResults(maxResults int64) *DnsKeysListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *DnsKeysListCall) PageToken(pageToken string) *DnsKeysListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -2730,7 +2578,7 @@ func (c *DnsKeysListCall) Header() http.Header {
 
 func (c *DnsKeysListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -2803,24 +2651,24 @@ func (c *DnsKeysListCall) Do(opts ...googleapi.CallOption) (*DnsKeysListResponse
 	//   ],
 	//   "parameters": {
 	//     "digestType": {
-	//       "description": "An optional comma-separated list of digest types to compute and display\nfor key signing keys. If omitted, the recommended digest type will be\ncomputed and displayed.",
+	//       "description": "An optional comma-separated list of digest types to compute and display for key signing keys. If omitted, the recommended digest type will be computed and displayed.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -2889,11 +2737,9 @@ func (r *ManagedZoneOperationsService) Get(project string, managedZone string, o
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZoneOperationsGetCall) ClientOperationId(clientOperationId string) *ManagedZoneOperationsGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -2936,7 +2782,7 @@ func (c *ManagedZoneOperationsGetCall) Header() http.Header {
 
 func (c *ManagedZoneOperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3011,7 +2857,7 @@ func (c *ManagedZoneOperationsGetCall) Do(opts ...googleapi.CallOption) (*Operat
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -3069,16 +2915,16 @@ func (r *ManagedZoneOperationsService) List(project string, managedZone string) 
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *ManagedZoneOperationsListCall) MaxResults(maxResults int64) *ManagedZoneOperationsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *ManagedZoneOperationsListCall) PageToken(pageToken string) *ManagedZoneOperationsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -3132,7 +2978,7 @@ func (c *ManagedZoneOperationsListCall) Header() http.Header {
 
 func (c *ManagedZoneOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3212,13 +3058,13 @@ func (c *ManagedZoneOperationsListCall) Do(opts ...googleapi.CallOption) (*Manag
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -3234,6 +3080,10 @@ func (c *ManagedZoneOperationsListCall) Do(opts ...googleapi.CallOption) (*Manag
 	//       "enum": [
 	//         "startTime",
 	//         "id"
+	//       ],
+	//       "enumDescriptions": [
+	//         "",
+	//         ""
 	//       ],
 	//       "location": "query",
 	//       "type": "string"
@@ -3294,11 +3144,9 @@ func (r *ManagedZonesService) Create(project string, managedzone *ManagedZone) *
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZonesCreateCall) ClientOperationId(clientOperationId string) *ManagedZonesCreateCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -3331,7 +3179,7 @@ func (c *ManagedZonesCreateCall) Header() http.Header {
 
 func (c *ManagedZonesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3404,7 +3252,7 @@ func (c *ManagedZonesCreateCall) Do(opts ...googleapi.CallOption) (*ManagedZone,
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -3450,11 +3298,9 @@ func (r *ManagedZonesService) Delete(project string, managedZone string) *Manage
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZonesDeleteCall) ClientOperationId(clientOperationId string) *ManagedZonesDeleteCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -3487,7 +3333,7 @@ func (c *ManagedZonesDeleteCall) Header() http.Header {
 
 func (c *ManagedZonesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3532,12 +3378,12 @@ func (c *ManagedZonesDeleteCall) Do(opts ...googleapi.CallOption) error {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -3579,11 +3425,9 @@ func (r *ManagedZonesService) Get(project string, managedZone string) *ManagedZo
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZonesGetCall) ClientOperationId(clientOperationId string) *ManagedZonesGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -3626,7 +3470,7 @@ func (c *ManagedZonesGetCall) Header() http.Header {
 
 func (c *ManagedZonesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3699,12 +3543,12 @@ func (c *ManagedZonesGetCall) Do(opts ...googleapi.CallOption) (*ManagedZone, er
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -3757,16 +3601,16 @@ func (c *ManagedZonesListCall) DnsName(dnsName string) *ManagedZonesListCall {
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *ManagedZonesListCall) MaxResults(maxResults int64) *ManagedZonesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *ManagedZonesListCall) PageToken(pageToken string) *ManagedZonesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -3809,7 +3653,7 @@ func (c *ManagedZonesListCall) Header() http.Header {
 
 func (c *ManagedZonesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3885,13 +3729,13 @@ func (c *ManagedZonesListCall) Do(opts ...googleapi.CallOption) (*ManagedZonesLi
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -3959,11 +3803,9 @@ func (r *ManagedZonesService) Patch(project string, managedZone string, managedz
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZonesPatchCall) ClientOperationId(clientOperationId string) *ManagedZonesPatchCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -3996,7 +3838,7 @@ func (c *ManagedZonesPatchCall) Header() http.Header {
 
 func (c *ManagedZonesPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4071,12 +3913,12 @@ func (c *ManagedZonesPatchCall) Do(opts ...googleapi.CallOption) (*Operation, er
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -4125,11 +3967,9 @@ func (r *ManagedZonesService) Update(project string, managedZone string, managed
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ManagedZonesUpdateCall) ClientOperationId(clientOperationId string) *ManagedZonesUpdateCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -4162,7 +4002,7 @@ func (c *ManagedZonesUpdateCall) Header() http.Header {
 
 func (c *ManagedZonesUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4237,12 +4077,12 @@ func (c *ManagedZonesUpdateCall) Do(opts ...googleapi.CallOption) (*Operation, e
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
@@ -4289,11 +4129,9 @@ func (r *PoliciesService) Create(project string, policy *Policy) *PoliciesCreate
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *PoliciesCreateCall) ClientOperationId(clientOperationId string) *PoliciesCreateCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -4326,7 +4164,7 @@ func (c *PoliciesCreateCall) Header() http.Header {
 
 func (c *PoliciesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4399,7 +4237,7 @@ func (c *PoliciesCreateCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -4437,8 +4275,7 @@ type PoliciesDeleteCall struct {
 }
 
 // Delete: Delete a previously created Policy. Will fail if the policy
-// is still being
-// referenced by a network.
+// is still being referenced by a network.
 func (r *PoliciesService) Delete(project string, policy string) *PoliciesDeleteCall {
 	c := &PoliciesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
@@ -4447,11 +4284,9 @@ func (r *PoliciesService) Delete(project string, policy string) *PoliciesDeleteC
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *PoliciesDeleteCall) ClientOperationId(clientOperationId string) *PoliciesDeleteCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -4484,7 +4319,7 @@ func (c *PoliciesDeleteCall) Header() http.Header {
 
 func (c *PoliciesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4519,7 +4354,7 @@ func (c *PoliciesDeleteCall) Do(opts ...googleapi.CallOption) error {
 	}
 	return nil
 	// {
-	//   "description": "Delete a previously created Policy. Will fail if the policy is still being\nreferenced by a network.",
+	//   "description": "Delete a previously created Policy. Will fail if the policy is still being referenced by a network.",
 	//   "flatPath": "dns/v1/projects/{project}/policies/{policy}",
 	//   "httpMethod": "DELETE",
 	//   "id": "dns.policies.delete",
@@ -4529,7 +4364,7 @@ func (c *PoliciesDeleteCall) Do(opts ...googleapi.CallOption) error {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -4576,11 +4411,9 @@ func (r *PoliciesService) Get(project string, policy string) *PoliciesGetCall {
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *PoliciesGetCall) ClientOperationId(clientOperationId string) *PoliciesGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -4623,7 +4456,7 @@ func (c *PoliciesGetCall) Header() http.Header {
 
 func (c *PoliciesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4696,7 +4529,7 @@ func (c *PoliciesGetCall) Do(opts ...googleapi.CallOption) (*Policy, error) {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -4746,16 +4579,16 @@ func (r *PoliciesService) List(project string) *PoliciesListCall {
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *PoliciesListCall) MaxResults(maxResults int64) *PoliciesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *PoliciesListCall) PageToken(pageToken string) *PoliciesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
@@ -4798,7 +4631,7 @@ func (c *PoliciesListCall) Header() http.Header {
 
 func (c *PoliciesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4869,13 +4702,13 @@ func (c *PoliciesListCall) Do(opts ...googleapi.CallOption) (*PoliciesListRespon
 	//   ],
 	//   "parameters": {
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -4943,11 +4776,9 @@ func (r *PoliciesService) Patch(project string, policy string, policy2 *Policy) 
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *PoliciesPatchCall) ClientOperationId(clientOperationId string) *PoliciesPatchCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -4980,7 +4811,7 @@ func (c *PoliciesPatchCall) Header() http.Header {
 
 func (c *PoliciesPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5055,7 +4886,7 @@ func (c *PoliciesPatchCall) Do(opts ...googleapi.CallOption) (*PoliciesPatchResp
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -5109,11 +4940,9 @@ func (r *PoliciesService) Update(project string, policy string, policy2 *Policy)
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *PoliciesUpdateCall) ClientOperationId(clientOperationId string) *PoliciesUpdateCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -5146,7 +4975,7 @@ func (c *PoliciesUpdateCall) Header() http.Header {
 
 func (c *PoliciesUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5221,7 +5050,7 @@ func (c *PoliciesUpdateCall) Do(opts ...googleapi.CallOption) (*PoliciesUpdateRe
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -5272,11 +5101,9 @@ func (r *ProjectsService) Get(project string) *ProjectsGetCall {
 }
 
 // ClientOperationId sets the optional parameter "clientOperationId":
-// For mutating operation requests only. An optional
-// identifier
+// For mutating operation requests only. An optional identifier
 // specified by the client. Must be unique for operation resources in
-// the
-// Operations collection.
+// the Operations collection.
 func (c *ProjectsGetCall) ClientOperationId(clientOperationId string) *ProjectsGetCall {
 	c.urlParams_.Set("clientOperationId", clientOperationId)
 	return c
@@ -5319,7 +5146,7 @@ func (c *ProjectsGetCall) Header() http.Header {
 
 func (c *ProjectsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5390,7 +5217,7 @@ func (c *ProjectsGetCall) Do(opts ...googleapi.CallOption) (*Project, error) {
 	//   ],
 	//   "parameters": {
 	//     "clientOperationId": {
-	//       "description": "For mutating operation requests only. An optional identifier\nspecified by the client. Must be unique for operation resources in the\nOperations collection.",
+	//       "description": "For mutating operation requests only. An optional identifier specified by the client. Must be unique for operation resources in the Operations collection.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -5437,32 +5264,31 @@ func (r *ResourceRecordSetsService) List(project string, managedZone string) *Re
 }
 
 // MaxResults sets the optional parameter "maxResults": Maximum number
-// of results to be returned. If unspecified, the
-// server will decide how many results to return.
+// of results to be returned. If unspecified, the server will decide how
+// many results to return.
 func (c *ResourceRecordSetsListCall) MaxResults(maxResults int64) *ResourceRecordSetsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // Name sets the optional parameter "name": Restricts the list to return
-// only records with this fully qualified domain
-// name.
+// only records with this fully qualified domain name.
 func (c *ResourceRecordSetsListCall) Name(name string) *ResourceRecordSetsListCall {
 	c.urlParams_.Set("name", name)
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": A tag returned by
-// a previous list request that was truncated.
-// Use this parameter to continue a previous list request.
+// a previous list request that was truncated. Use this parameter to
+// continue a previous list request.
 func (c *ResourceRecordSetsListCall) PageToken(pageToken string) *ResourceRecordSetsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
 	return c
 }
 
 // Type sets the optional parameter "type": Restricts the list to return
-// only records of this type. If present, the
-// "name" parameter must also be present.
+// only records of this type. If present, the "name" parameter must also
+// be present.
 func (c *ResourceRecordSetsListCall) Type(type_ string) *ResourceRecordSetsListCall {
 	c.urlParams_.Set("type", type_)
 	return c
@@ -5505,7 +5331,7 @@ func (c *ResourceRecordSetsListCall) Header() http.Header {
 
 func (c *ResourceRecordSetsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200728")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20200827")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5578,24 +5404,24 @@ func (c *ResourceRecordSetsListCall) Do(opts ...googleapi.CallOption) (*Resource
 	//   ],
 	//   "parameters": {
 	//     "managedZone": {
-	//       "description": "Identifies the managed zone addressed by this request. Can be the managed\nzone name or id.",
+	//       "description": "Identifies the managed zone addressed by this request. Can be the managed zone name or id.",
 	//       "location": "path",
 	//       "required": true,
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
-	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the\nserver will decide how many results to return.",
+	//       "description": "Optional. Maximum number of results to be returned. If unspecified, the server will decide how many results to return.",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
 	//     },
 	//     "name": {
-	//       "description": "Restricts the list to return only records with this fully qualified domain\nname.",
+	//       "description": "Restricts the list to return only records with this fully qualified domain name.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "pageToken": {
-	//       "description": "Optional. A tag returned by a previous list request that was truncated.\nUse this parameter to continue a previous list request.",
+	//       "description": "Optional. A tag returned by a previous list request that was truncated. Use this parameter to continue a previous list request.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -5606,7 +5432,7 @@ func (c *ResourceRecordSetsListCall) Do(opts ...googleapi.CallOption) (*Resource
 	//       "type": "string"
 	//     },
 	//     "type": {
-	//       "description": "Restricts the list to return only records of this type. If present, the\n\"name\" parameter must also be present.",
+	//       "description": "Restricts the list to return only records of this type. If present, the \"name\" parameter must also be present.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
