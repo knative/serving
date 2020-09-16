@@ -490,7 +490,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 
 // Run starts the throttler and blocks until the context is done.
 func (t *Throttler) Run(ctx context.Context) {
-	rbm := newRevisionBackendsManager(ctx, network.AutoTransport)
+	rbm := newRevisionBackendsManager(ctx, network.NewProberTransport())
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())
 }

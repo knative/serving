@@ -383,12 +383,13 @@ type revisionBackendsManager struct {
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
-// probe time out.
+// probe time out. The passed transport backs the probing done by the backend manager.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
 	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
+// The passed transport backs the probing done by the backend manager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
 	probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
