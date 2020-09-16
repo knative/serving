@@ -45,61 +45,77 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
 	// Only define and set flags here. Flag values cannot be read at package init time.
-	if flag.Lookup("resolvabledomain") == nil {
+	if fl := flag.Lookup("resolvabledomain"); fl == nil {
 		// Only define and set flags here. Flag values cannot be read at package init time.
 		flag.BoolVar(&f.ResolvableDomain,
 			"resolvabledomain",
 			false,
 			"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	} else {
+		f.ResolvableDomain = fl.Value.(flag.Getter).Get().(bool)
 	}
 
-	if flag.Lookup("https") == nil {
+	if fl := flag.Lookup("https"); fl == nil {
 		flag.BoolVar(&f.Https,
 			"https",
 			false,
 			"Set this flag to true to run all tests with https.")
+	} else {
+		f.Https = fl.Value.(flag.Getter).Get().(bool)
 	}
 
-	if flag.Lookup("ingressClass") == nil {
+	if fl := flag.Lookup("ingressClass"); fl == nil {
 		flag.StringVar(&f.IngressClass,
 			"ingressClass",
 			network.IstioIngressClassName,
 			"Set this flag to the ingress class to test against.")
+	} else {
+		f.IngressClass = fl.Value.String()
 	}
 
-	if flag.Lookup("certificateClass") == nil {
+	if fl := flag.Lookup("certificateClass"); fl == nil {
 		flag.StringVar(&f.CertificateClass,
 			"certificateClass",
 			network.CertManagerCertificateClassName,
 			"Set this flag to the certificate class to test against.")
+	} else {
+		f.IngressClass = fl.Value.String()
 	}
 
-	if flag.Lookup("buckets") == nil {
+	if fl := flag.Lookup("buckets"); fl == nil {
 		flag.IntVar(&f.Buckets,
 			"buckets",
 			1,
 			"Set this flag to the number of reconciler buckets configured.")
+	} else {
+		f.Buckets = fl.Value.(flag.Getter).Get().(int)
 	}
 
-	if flag.Lookup("replicas") == nil {
+	if fl := flag.Lookup("replicas"); fl == nil {
 		flag.IntVar(&f.Replicas,
 			"replicas",
 			1,
 			"Set this flag to the number of controlplane replicas being run.")
+	} else {
+		f.Replicas = fl.Value.(flag.Getter).Get().(int)
 	}
 
-	if flag.Lookup("enable-alpha") == nil {
+	if fl := flag.Lookup("enable-alpha"); fl == nil {
 		flag.BoolVar(&f.EnableAlphaFeatures,
 			"enable-alpha",
 			false,
 			"Set this flag to run tests against alpha features")
+	} else {
+		f.EnableAlphaFeatures = fl.Value.(flag.Getter).Get().(bool)
 	}
 
-	if flag.Lookup("enable-beta") == nil {
+	if fl := flag.Lookup("enable-beta"); fl == nil {
 		flag.BoolVar(&f.EnableBetaFeatures,
 			"enable-beta",
 			false,
 			"Set this flag to run tests against beta features")
+	} else {
+		f.EnableBetaFeatures = fl.Value.(flag.Getter).Get().(bool)
 	}
 
 	return &f
