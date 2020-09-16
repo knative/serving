@@ -188,7 +188,7 @@ func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
 	return route.Status.IsReady(), nil
 }
 
-func routeUrlHTTP(route *servingv1.Route) (bool, error) {
+func routeURLHTTP(route *servingv1.Route) (bool, error) {
 	return route.Status.URL.URL().Scheme == "http", nil
 }
 
