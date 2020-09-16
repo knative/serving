@@ -192,6 +192,8 @@ func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.Namespace
 // in the resolveResult. If this completes the work for the revision, the
 // completionCallback is called.
 func (r *backgroundResolver) processWorkItem(item *workItem) {
+	defer r.queue.Done(item)
+
 	ctx, cancel := context.WithTimeout(context.Background(), item.timeout)
 	defer cancel()
 
