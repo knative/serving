@@ -55,7 +55,7 @@ const (
 
 	MultiContainerResponse = "Yay!! multi-container works"
 
-	ConcurrentRequests = 200
+	NumRequests = 200
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	MinDirectPercentage = 1

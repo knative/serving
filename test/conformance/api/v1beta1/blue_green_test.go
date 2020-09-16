@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"testing"
 
-	"golang.org/x/sync/errgroup"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
@@ -146,21 +144,25 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
+	// expectedTraffic holds traffic objectives for all domains.
+	expectedTraffic := []shared.TrafficObjectives{
+		{
+			URL:               tealURL,
+			MinSuccesses:      int(math.Floor(test.NumRequests * test.MinSplitPercentage)),
+			ExpectedResponses: []string{expectedBlue, expectedGreen}},
+		{
+			URL:               blueURL,
+			MinSuccesses:      int(math.Floor(test.NumRequests * test.MinDirectPercentage)),
+			ExpectedResponses: []string{expectedBlue}},
+		{
+			URL:               greenURL,
+			MinSuccesses:      int(math.Floor(test.NumRequests * test.MinDirectPercentage)),
+			ExpectedResponses: []string{expectedGreen},
+		},
+	}
+
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
-	g, _ := errgroup.WithContext(context.Background())
-	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return shared.CheckDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
-	})
-	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return shared.CheckDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
-	})
-	g.Go(func() error {
-		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return shared.CheckDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
-	})
-	if err := g.Wait(); err != nil {
-		t.Fatal("Error sending requests:", err)
+	if err := shared.CheckDistribution(t, clients, expectedTraffic); err != nil {
+		t.Fatal("Error sending requests")
 	}
 }

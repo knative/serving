@@ -75,25 +75,33 @@ func validateDomains(t pkgTest.TLegacy, clients *test.Clients, baseDomain *url.U
 		return fmt.Errorf("error with initial domain probing: %w", err)
 	}
 
-	g.Go(func() error {
-		minBasePercentage := test.MinSplitPercentage
-		if len(baseExpected) == 1 {
-			minBasePercentage = test.MinDirectPercentage
-		}
-		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
-		return shared.CheckDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
-	})
+	// Holds expected response objectives for all domains.
+	expectedTraffic := make([]shared.TrafficObjectives, 0, len(trafficTargets)+1 /* one for the base domain*/)
+
+	minBasePercentage := test.MinSplitPercentage
+	if len(baseExpected) == 1 {
+		minBasePercentage = test.MinDirectPercentage
+	}
+	expectedTraffic = append(expectedTraffic,
+		shared.TrafficObjectives{
+			URL:               baseDomain,
+			MinSuccesses:      int(math.Floor(test.NumRequests * minBasePercentage)),
+			ExpectedResponses: baseExpected,
+		},
+	)
+
 	for i, subdomain := range subdomains {
 		i, subdomain := i, subdomain
-		g.Go(func() error {
-			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return shared.CheckDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
-		})
+		expectedTraffic = append(expectedTraffic,
+			shared.TrafficObjectives{
+				URL:               subdomain,
+				MinSuccesses:      int(math.Floor(test.NumRequests * test.MinDirectPercentage)),
+				ExpectedResponses: []string{targetsExpected[i]},
+			},
+		)
 	}
-	if err := g.Wait(); err != nil {
-		return fmt.Errorf("error checking routing distribution: %w", err)
-	}
-	return nil
+
+	return shared.CheckDistribution(t, clients, expectedTraffic)
 }
 
 // Validates service health and vended content match for a runLatest Service.

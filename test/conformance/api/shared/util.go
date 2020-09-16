@@ -45,6 +45,28 @@ const scaleToZeroGracePeriod = 30 * time.Second
 // `docker load` or `kind load`.
 var DigestResolutionExceptions = sets.NewString("kind.local", "ko.local", "dev.local")
 
+// TrafficObjectives defines the minimum number of successes for the given URL and
+// the list of possible responses.
+type TrafficObjectives struct {
+	URL               *url.URL
+	MinSuccesses      int
+	ExpectedResponses []string
+}
+
+type request struct {
+	client *spoof.SpoofingClient
+	url    *url.URL
+}
+
+// indexedResponse holds the index and body of the response for the given requested url.
+type indexedResponse struct {
+	index int
+	url   *url.URL
+	body  string
+}
+
+type indexedResponses []indexedResponse
+
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the scaleToZeroGracePeriod (30 seconds) before failing.
 func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.Clients) error {
@@ -89,33 +111,6 @@ func ValidateImageDigest(t *testing.T, imageName string, imageDigest string) (bo
 	return ref.Context().String() == digest.Context().String(), nil
 }
 
-// sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
-func sendRequests(client *spoof.SpoofingClient, url *url.URL, num int) ([]string, error) {
-	responses := make([]string, num)
-
-	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := pool.NewWithContext(context.Background(), 5, num)
-	for i := 0; i < num; i++ {
-		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
-		result := &responses[i]
-		g.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-			if err != nil {
-				return err
-			}
-
-			resp, err := client.Do(req)
-			if err != nil {
-				return err
-			}
-
-			*result = string(resp.Body)
-			return nil
-		})
-	}
-	return responses, g.Wait()
-}
-
 func substrInList(key string, targets []string) string {
 	for _, t := range targets {
 		if strings.Contains(key, t) {
@@ -126,7 +121,7 @@ func substrInList(key string, targets []string) string {
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResponses, actualResponses []string) error {
+func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResponses []string, actualResponses indexedResponses) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int, len(expectedResponses))
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -138,12 +133,12 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 	//   WHERE body IN $expectedResponses
 	//   GROUP BY body
 	// )
-	for i, ar := range actualResponses {
-		if er := substrInList(ar, expectedResponses); er != "" {
+	for _, ar := range actualResponses {
+		if er := substrInList(ar.body, expectedResponses); er != "" {
 			counts[er]++
 		} else {
-			badCounts[ar]++
-			t.Logf("For domain %s: got unexpected response for request %d", domain, i)
+			badCounts[ar.body]++
+			t.Logf("For domain %s: got unexpected response for request %d", domain, ar.index)
 		}
 	}
 
@@ -179,20 +174,70 @@ func checkResponses(t pkgTest.TLegacy, num, min int, domain string, expectedResp
 	return errors.New(strings.Join(errMsg, ","))
 }
 
-// CheckDistribution sends "num" requests to "domain", then validates that
-// we see each body in "expectedResponses" at least "min" times.
-func CheckDistribution(t pkgTest.TLegacy, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
+// CheckDistribution sends requests and validates them against the given traffic objectives.
+func CheckDistribution(t pkgTest.TLegacy, clients *test.Clients, expectedTraffic []TrafficObjectives) error {
 	ctx := context.Background()
-	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https))
-	if err != nil {
-		return err
+	// requestPool holds all requests that will be performed via thread pool.
+	var requestPool []*request
+	for _, traffic := range expectedTraffic {
+		client, err := pkgTest.NewSpoofingClient(ctx,
+			clients.KubeClient,
+			t.Logf,
+			traffic.URL.Hostname(),
+			test.ServingFlags.ResolvableDomain,
+			test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.Https),
+		)
+		if err != nil {
+			return err
+		}
+		request := request{
+			client: client,
+			url:    traffic.URL,
+		}
+		// Produce the target requests for this url.
+		for i := 0; i < test.NumRequests; i++ {
+			requestPool = append(requestPool, &request)
+		}
 	}
 
-	t.Logf("Performing %d concurrent requests to %s", num, url)
-	actualResponses, err := sendRequests(client, url, num)
-	if err != nil {
-		return err
+	wg := pool.New(8)
+	resultCh := make(chan indexedResponse, len(requestPool))
+
+	for i, request := range requestPool {
+		i, request := i, request
+		wg.Go(func() error {
+			req, err := http.NewRequest(http.MethodGet, request.url.String(), nil)
+			if err != nil {
+				return err
+			}
+			resp, err := request.client.Do(req)
+			if err != nil {
+				return err
+			}
+			resultCh <- indexedResponse{
+				index: i,
+				url:   request.url,
+				body:  string(resp.Body),
+			}
+			return nil
+		})
 	}
 
-	return checkResponses(t, num, min, url.Hostname(), expectedResponses, actualResponses)
+	if err := wg.Wait(); err != nil {
+		return fmt.Errorf("error checking routing distribution: %w", err)
+	}
+	close(resultCh)
+
+	responses := make(map[*url.URL]indexedResponses)
+
+	// Register responses for each url separately.
+	for r := range resultCh {
+		responses[r.url] = append(responses[r.url], r)
+	}
+
+	// Validate responses for each url.
+	for _, traffic := range expectedTraffic {
+		checkResponses(t, test.NumRequests, traffic.MinSuccesses, traffic.URL.Hostname(), traffic.ExpectedResponses, responses[traffic.URL])
+	}
+	return nil
 }
