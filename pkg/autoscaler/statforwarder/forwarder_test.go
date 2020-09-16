@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -107,11 +107,10 @@ func TestForwarderReconcile(t *testing.T) {
 	var lastErr error
 	// Wait for the resources to be created.
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		_, err := service.Lister().Services(testNs).Get(bucket1)
-		lastErr = err
-		return err == nil, nil
+		_, lastErr = service.Lister().Services(testNs).Get(bucket1)
+		return lastErr == nil, nil
 	}); err != nil {
-		t.Fatalf("Timeout to get the Service: %v", lastErr)
+		t.Fatal("Timeout to get the Service:", lastErr)
 	}
 
 	wantSubsets := []v1.EndpointSubset{{
@@ -126,21 +125,21 @@ func TestForwarderReconcile(t *testing.T) {
 	}
 
 	// Check the endpoints got updated.
+	el := endpoints.Lister().Endpoints(testNs)
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
+		got, err := el.Get(bucket1)
 		if err != nil {
 			lastErr = err
 			return false, nil
 		}
 
-		if equality.Semantic.DeepEqual(wantSubsets, got.Subsets) {
-			return true, nil
+		if !cmp.Equal(wantSubsets, got.Subsets) {
+			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
+			return false, nil
 		}
-
-		lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
-		return false, nil
+		return true, nil
 	}); err != nil {
-		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
+		t.Fatal("Timeout to get the Endpoints:", lastErr)
 	}
 
 	// Lease holder gets changed.
@@ -149,24 +148,23 @@ func TestForwarderReconcile(t *testing.T) {
 	kubeClient.CoordinationV1().Leases(testNs).Update(ctx, l, metav1.UpdateOptions{})
 	lease.Informer().GetIndexer().Add(l)
 
-	// Check the endpoints got updated.
+	// Check that the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		// Check the endpoints get updated.
-		got, err := endpoints.Lister().Endpoints(testNs).Get(bucket1)
+		got, err := el.Get(bucket1)
 		if err != nil {
 			lastErr = err
 			return false, nil
 		}
 
-		if equality.Semantic.DeepEqual(wantSubsets, got.Subsets) {
-			return true, nil
+		if !cmp.Equal(wantSubsets, got.Subsets) {
+			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
+			return false, nil
 		}
-
-		lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
-		return false, nil
+		return true, nil
 	}); err != nil {
-		t.Fatalf("Timeout to get the Endpoints: %v", lastErr)
+		t.Fatal("Timeout to get the Endpoints:", lastErr)
 	}
 }
 
