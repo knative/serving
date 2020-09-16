@@ -79,7 +79,7 @@ func TestTlsDisabledWithAnnotation(t *testing.T) {
 		t.Fatalf("Traffic for route: %s does not have TLS disabled: %v", names.Route, err)
 	}
 
-	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeUrlHTTP, "RouteURLIsHTTP"); err != nil {
+	if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeURLHTTP, "RouteURLIsHTTP"); err != nil {
 		t.Fatalf("Traffic for route: %s is not HTTP: %v", names.Route, err)
 	}
 
