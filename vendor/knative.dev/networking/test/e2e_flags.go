@@ -45,62 +45,45 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
 	// Only define and set flags here. Flag values cannot be read at package init time.
-	if flag.Lookup("resolvabledomain") == nil {
-		// Only define and set flags here. Flag values cannot be read at package init time.
-		flag.BoolVar(&f.ResolvableDomain,
-			"resolvabledomain",
-			false,
-			"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
-	}
+	flag.BoolVar(&f.ResolvableDomain,
+		"resolvabledomain",
+		false,
+		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
-	if flag.Lookup("https") == nil {
-		flag.BoolVar(&f.Https,
-			"https",
-			false,
-			"Set this flag to true to run all tests with https.")
-	}
+	flag.BoolVar(&f.Https,
+		"https",
+		false,
+		"Set this flag to true to run all tests with https.")
 
-	if flag.Lookup("ingressClass") == nil {
-		flag.StringVar(&f.IngressClass,
-			"ingressClass",
-			network.IstioIngressClassName,
-			"Set this flag to the ingress class to test against.")
-	}
+	flag.StringVar(&f.IngressClass,
+		"ingressClass",
+		network.IstioIngressClassName,
+		"Set this flag to the ingress class to test against.")
 
-	if flag.Lookup("certificateClass") == nil {
-		flag.StringVar(&f.CertificateClass,
-			"certificateClass",
-			network.CertManagerCertificateClassName,
-			"Set this flag to the certificate class to test against.")
-	}
+	flag.StringVar(&f.CertificateClass,
+		"certificateClass",
+		network.CertManagerCertificateClassName,
+		"Set this flag to the certificate class to test against.")
 
-	if flag.Lookup("buckets") == nil {
-		flag.IntVar(&f.Buckets,
-			"buckets",
-			1,
-			"Set this flag to the number of reconciler buckets configured.")
-	}
+	flag.IntVar(&f.Buckets,
+		"buckets",
+		1,
+		"Set this flag to the number of reconciler buckets configured.")
 
-	if flag.Lookup("replicas") == nil {
-		flag.IntVar(&f.Replicas,
-			"replicas",
-			1,
-			"Set this flag to the number of controlplane replicas being run.")
-	}
+	flag.IntVar(&f.Replicas,
+		"replicas",
+		1,
+		"Set this flag to the number of controlplane replicas being run.")
 
-	if flag.Lookup("enable-alpha") == nil {
-		flag.BoolVar(&f.EnableAlphaFeatures,
-			"enable-alpha",
-			false,
-			"Set this flag to run tests against alpha features")
-	}
+	flag.BoolVar(&f.EnableAlphaFeatures,
+		"enable-alpha",
+		false,
+		"Set this flag to run tests against alpha features")
 
-	if flag.Lookup("enable-beta") == nil {
-		flag.BoolVar(&f.EnableBetaFeatures,
-			"enable-beta",
-			false,
-			"Set this flag to run tests against beta features")
-	}
+	flag.BoolVar(&f.EnableBetaFeatures,
+		"enable-beta",
+		false,
+		"Set this flag to run tests against beta features")
 
 	return &f
 }
