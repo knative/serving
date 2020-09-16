@@ -249,7 +249,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 
 func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) *http.Client {
 	t.Helper()
-	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
