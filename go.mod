@@ -10,7 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.1.2
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -22,23 +22,23 @@ require (
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	google.golang.org/api v0.30.0
-	google.golang.org/grpc v1.31.1
+	google.golang.org/api v0.31.0
+	google.golang.org/grpc v1.32.0
 	istio.io/api v0.0.0-20200512234804-e5412c253ffe
 	istio.io/client-go v0.0.0-20200513000250-b1d6e9886b7b
 	istio.io/gogo-genproto v0.0.0-20191029161641-f7d19ec0141d // indirect
 	k8s.io/api v0.18.7-rc.0
-	k8s.io/apimachinery v0.19.0
+	k8s.io/apimachinery v0.19.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.6
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200824162048-b1979a3a7550
-	knative.dev/networking v0.0.0-20200817055406-2b6d120d60b8
-	knative.dev/pkg v0.0.0-20200824160247-5343c1d19369
-	knative.dev/test-infra v0.0.0-20200828171708-f68cb78c80a9
+	knative.dev/caching v0.0.0-20200831163411-f6154e7455e2
+	knative.dev/networking v0.0.0-20200831172815-5f2e0ad6215f
+	knative.dev/pkg v0.0.0-20200831162708-14fb2347fb77
+	knative.dev/test-infra v0.0.0-20200915193842-f4d4232c1f04
 )
 
 replace (
