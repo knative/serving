@@ -83,7 +83,6 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 
 	if p.podsAddressable {
 		if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
-			// In this case, there's no mesh.
 			if p.svcConn != nil {
 				if err := p.svcConn.Shutdown(); err != nil {
 					p.svcConn = nil
@@ -100,8 +99,11 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 
 	err = p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b)
 	if err == nil {
-		// In this case, there's mesh.
-		p.podsAddressable = false
+		if p.podsAddressable {
+			p.logger.Info("Autoscaler pods can't be accessed by IP address")
+			p.podsAddressable = false
+		}
+
 		if p.podConn != nil {
 			if err := p.podConn.Shutdown(); err != nil {
 				p.podConn = nil
