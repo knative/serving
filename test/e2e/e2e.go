@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -33,11 +34,16 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/test"
+	v1test "knative.dev/serving/test/v1"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -166,4 +172,42 @@ func waitForActivatorEndpoints(ctx *testContext) error {
 		return rerr
 	}
 	return nil
+}
+
+func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
+	t.Log("Creating a new Configuration.", "configuration", names.Config)
+	_, err := v1test.CreateConfiguration(t, clients, names, func(configuration *v1.Configuration) {
+		configuration.Spec.Template.Annotations = kmeta.UnionMaps(
+			configuration.Spec.Template.Annotations, map[string]string{
+				autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
+			})
+	})
+	if err != nil {
+		t.Fatal("Failed creating initial configuration:", err)
+	}
+
+	t.Logf("Waiting for Configuration %q to transition to Ready with %d number of pods.", names.Config, wantPods)
+	selector := fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, names.Config)
+	if err := v1test.WaitForConfigurationState(clients.ServingClient, names.Config, func(s *v1.Configuration) (b bool, e error) {
+		pods := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace)
+		podList, err := pods.List(context.Background(), metav1.ListOptions{
+			LabelSelector: selector,
+			// Include both running and terminating pods, because we will scale down from
+			// initial scale immediately if there's no traffic coming in.
+			FieldSelector: "status.phase!=Pending",
+		})
+		if err != nil {
+			return false, err
+		}
+		gotPods := len(podList.Items)
+		if gotPods == wantPods {
+			return s.IsReady(), nil
+		}
+		if gotPods > wantPods {
+			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)
+		}
+		return false, nil
+	}, "ConfigurationIsReadyWithWantPods"); err != nil {
+		t.Fatal("Configuration does not have the desired number of pods running:", err)
+	}
 }
