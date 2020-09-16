@@ -32,11 +32,30 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
-        # this is a work around so we don't need to flush out the
-        # schema for each version at this time
-        #
-        # see issue: https://github.com/knative/serving/issues/912
         x-kubernetes-preserve-unknown-fields: true
+        properties:
+          spec:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+            properties:
+              template:
+                x-kubernetes-preserve-unknown-fields: true
+                description: |
+                  A template for the current desired application state.
+                  Changes to `template` will cause a new Revision to be created as
+                  defined in the lifecycle section. The contents of the Service's
+                  RevisionTemplateSpec is used to create a corresponding Configuration.
+              traffic:
+                x-kubernetes-preserve-unknown-fields: true
+                description: |
+                  Traffic specifies how to distribute traffic over a
+                  collection of Revisions belonging to the Service. If traffic is
+                  empty or not provided, defaults to 100% traffic to the latest
+                  `Ready` Revision. The contents of the Service's TrafficTarget is
+                  used to create a corresponding Route.
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
     additionalPrinterColumns:
     - name: URL
       type: string
