@@ -37,7 +37,6 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -1105,13 +1104,13 @@ func TestMakeDeployment(t *testing.T) {
 				ReadinessProbe: withTCPReadinessProbe(12345),
 			}}),
 			func(revision *v1.Revision) {
-				revision.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+				revision.Annotations = map[string]string{asconfig.InitialScaleAnnotationKey: "20"}
 			},
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
-			deploy.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Spec.Template.Annotations = map[string]string{asconfig.InitialScaleAnnotationKey: "20"}
+			deploy.Annotations = map[string]string{asconfig.InitialScaleAnnotationKey: "20"}
 		}),
 	}}
 

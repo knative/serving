@@ -30,8 +30,8 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -40,7 +40,7 @@ import (
 func TestAutoscaleUpDownUp(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	ctx := setup(t, asconfig.KPA, asconfig.Concurrency, containerConcurrency, targetUtilization)
 
 	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
 	assertScaleDown(ctx)
@@ -50,13 +50,13 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
+	RunAutoscaleUpCountPods(t, asconfig.KPA, asconfig.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
+	RunAutoscaleUpCountPods(t, asconfig.KPA, asconfig.RPS)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
@@ -65,7 +65,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// normal and panic.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+	ctx := setup(t, asconfig.KPA, asconfig.Concurrency, containerConcurrency, targetUtilization)
 	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
 
@@ -77,10 +77,10 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := setup(t, asconfig.KPA, asconfig.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey:                "7",
-			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
+			asconfig.TargetBurstCapacityKey:                "7",
+			asconfig.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
 		}))
 
 	cfg, err := autoscalerCM(ctx.clients)
@@ -142,9 +142,9 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := setup(t, asconfig.KPA, asconfig.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey: "-1",
+			asconfig.TargetBurstCapacityKey: "-1",
 		}))
 
 	_, err := autoscalerCM(ctx.clients)
@@ -167,10 +167,10 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+	ctx := setup(t, asconfig.KPA, asconfig.Concurrency, containerConcurrency, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey: "-1",
-			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
+			asconfig.TargetBurstCapacityKey: "-1",
+			asconfig.WindowAnnotationKey:    asconfig.WindowMin.String(),
 		}))
 
 	cfg, err := autoscalerCM(ctx.clients)

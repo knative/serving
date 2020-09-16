@@ -27,7 +27,6 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
@@ -226,7 +225,7 @@ func MakeDeployment(rev *v1.Revision,
 	}
 
 	replicaCount := int(autoscalerConfig.InitialScale)
-	ann, found := rev.Annotations[autoscaling.InitialScaleAnnotationKey]
+	ann, found := rev.Annotations[asconfig.InitialScaleAnnotationKey]
 	if found {
 		// Ignore errors and no error checking because already validated in webhook.
 		replicaCount, _ = strconv.Atoi(ann)

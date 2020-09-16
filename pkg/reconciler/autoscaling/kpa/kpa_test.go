@@ -71,11 +71,10 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -110,8 +109,8 @@ func defaultConfigMapData() map[string]string {
 	}
 }
 
-func initialScaleZeroASConfig() *autoscalerconfig.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+func initialScaleZeroASConfig() *asconfig.Config {
+	autoscalerConfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	autoscalerConfig.AllowZeroInitialScale = true
 	autoscalerConfig.InitialScale = 0
 	autoscalerConfig.EnableScaleToZero = true
@@ -119,7 +118,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
+	autoscalerConfig, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
 		deployment.QueueSidecarImageKey: "bob",
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
@@ -134,7 +133,7 @@ func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 		},
 		Data: defaultConfigMapData(),
 	}, &corev1.ConfigMap{
@@ -1179,7 +1178,7 @@ func TestReconcile(t *testing.T) {
 
 		testConfigs := defaultConfig()
 		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
-			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
+			testConfigs.Autoscaler = asConfig.(*asconfig.Config)
 		}
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
@@ -1197,7 +1196,7 @@ func TestReconcile(t *testing.T) {
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetPodAutoscalerLister(),
-			controller.GetEventRecorder(ctx), r, autoscaling.KPA,
+			controller.GetEventRecorder(ctx), r, asconfig.KPA,
 			controller.Options{
 				ConfigStore: &testConfigStore{config: testConfigs},
 			})
@@ -1239,7 +1238,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: defaultConfigMapData(),
@@ -1299,7 +1298,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	data["container-concurrency-target-default"] = fmt.Sprint(concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalerconfig.ConfigName,
+			Name:      asconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: data,
@@ -1730,7 +1729,7 @@ func newTestRevision(namespace, name string) *v1.Revision {
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				asconfig.ClassAnnotationKey: asconfig.KPA,
 			},
 			Labels: map[string]string{
 				serving.ServiceLabelKey:       "test-service",
@@ -1767,7 +1766,7 @@ func withMinScale(minScale int) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
-			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
+			map[string]string{asconfig.MinScaleAnnotationKey: strconv.Itoa(minScale)},
 		)
 	}
 }
@@ -1778,7 +1777,7 @@ func decider(ns, name string, desiredScale, ebc, nact int32) *scaling.Decider {
 			Namespace: ns,
 			Name:      name,
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				asconfig.ClassAnnotationKey: asconfig.KPA,
 			},
 		},
 		Spec: scaling.DeciderSpec{
@@ -1875,7 +1874,7 @@ func withInitialScale(initScale int) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
-			map[string]string{autoscaling.InitialScaleAnnotationKey: strconv.Itoa(initScale)},
+			map[string]string{asconfig.InitialScaleAnnotationKey: strconv.Itoa(initScale)},
 		)
 	}
 }

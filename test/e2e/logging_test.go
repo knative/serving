@@ -37,7 +37,7 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/autoscaling"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -69,8 +69,8 @@ func TestRequestLogs(t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names, []rtesting.ServiceOption{
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1",
-			autoscaling.MaxScaleAnnotationKey: "1",
+			asconfig.MinScaleAnnotationKey: "1",
+			asconfig.MaxScaleAnnotationKey: "1",
 		})}...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)

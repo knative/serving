@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 )
 
@@ -33,7 +33,7 @@ func MakeSKS(pa *pav1alpha1.PodAutoscaler, mode nv1a1.ServerlessServiceOperation
 			Namespace: pa.Namespace,
 			Labels:    kmeta.CopyMap(pa.GetLabels()),
 			Annotations: kmeta.FilterMap(pa.GetAnnotations(), func(s string) bool {
-				return s == autoscaling.MetricAnnotationKey
+				return s == asconfig.MetricAnnotationKey
 			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},

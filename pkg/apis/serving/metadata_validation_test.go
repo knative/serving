@@ -29,9 +29,8 @@ import (
 	network "knative.dev/networking/pkg"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -161,31 +160,31 @@ func TestValidateObjectMetadata(t *testing.T) {
 		},
 	}, {
 		name: "revision initial scale not parseable",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &asconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "invalid",
+				asconfig.InitialScaleAnnotationKey: "invalid",
 			},
 		},
-		expectErr: apis.ErrInvalidValue("invalid", "annotations."+autoscaling.InitialScaleAnnotationKey),
+		expectErr: apis.ErrInvalidValue("invalid", "annotations."+asconfig.InitialScaleAnnotationKey),
 	}, {
 		name: "negative revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &asconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "-2",
+				asconfig.InitialScaleAnnotationKey: "-2",
 			},
 		},
-		expectErr: apis.ErrInvalidValue("-2", "annotations."+autoscaling.InitialScaleAnnotationKey),
+		expectErr: apis.ErrInvalidValue("-2", "annotations."+asconfig.InitialScaleAnnotationKey),
 	}, {
 		name: "cluster allows zero revision initial scale",
-		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: true}}),
+		ctx:  config.ToContext(context.Background(), &config.Config{Autoscaler: &asconfig.Config{AllowZeroInitialScale: true}}),
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "0",
+				asconfig.InitialScaleAnnotationKey: "0",
 			},
 		},
 	}, {
@@ -193,16 +192,16 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "0",
+				asconfig.InitialScaleAnnotationKey: "0",
 			},
 		},
-		expectErr: apis.ErrInvalidValue("0", "annotations."+autoscaling.InitialScaleAnnotationKey),
+		expectErr: apis.ErrInvalidValue("0", "annotations."+asconfig.InitialScaleAnnotationKey),
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.ctx == nil {
-				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: false}})
+				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &asconfig.Config{AllowZeroInitialScale: false}})
 			}
 			err := ValidateObjectMetadata(c.ctx, c.objectMeta)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {

@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -156,7 +156,7 @@ func withMinScale(minScale int) func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
 			cfg.Spec.Template.Annotations = make(map[string]string, 1)
 		}
-		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+		cfg.Spec.Template.Annotations[asconfig.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
 }
 

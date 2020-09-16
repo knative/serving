@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgnet "knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/autoscaling"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -75,8 +75,8 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	// Create first service that we will continually probe during activator restart.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
-			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
+			asconfig.MinScaleAnnotationKey:  "1",  // Make sure we don't scale to zero during the test.
+			asconfig.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
 	test.EnsureTearDown(t, clients, &names)
@@ -85,8 +85,8 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	// ensure it can be scaled back from zero.
 	namesScaleToZero, resourcesScaleToZero := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(), // Make sure we scale to zero quickly.
-			autoscaling.TargetBurstCapacityKey: "-1",                           // Make sure all requests go through the activator.
+			asconfig.WindowAnnotationKey:    asconfig.WindowMin.String(), // Make sure we scale to zero quickly.
+			asconfig.TargetBurstCapacityKey: "-1",                        // Make sure all requests go through the activator.
 		}),
 	)
 	test.EnsureTearDown(t, clients, &namesScaleToZero)

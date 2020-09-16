@@ -31,10 +31,9 @@ import (
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -243,7 +242,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: asconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -427,8 +426,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "covid-19",
+					asconfig.MinScaleAnnotationKey: "5",
+					asconfig.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: RevisionSpec{
@@ -437,7 +436,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
+		want: apis.ErrInvalidValue("covid-19", asconfig.MaxScaleAnnotationKey).
 			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
@@ -445,7 +444,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					autoscaling.InitialScaleAnnotationKey: "0",
+					asconfig.InitialScaleAnnotationKey: "0",
 				},
 			},
 			Spec: RevisionSpec{
@@ -456,7 +455,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 0",
-			Paths:   []string{autoscaling.InitialScaleAnnotationKey},
+			Paths:   []string{asconfig.InitialScaleAnnotationKey},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Valid initial scale when cluster allows zero",
@@ -464,7 +463,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					autoscaling.InitialScaleAnnotationKey: "0",
+					asconfig.InitialScaleAnnotationKey: "0",
 				},
 			},
 			Spec: RevisionSpec{
@@ -556,8 +555,8 @@ func TestRevisionValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "scale-bounds",
 				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "5",
-					autoscaling.MaxScaleAnnotationKey: "2",
+					asconfig.MinScaleAnnotationKey: "5",
+					asconfig.MaxScaleAnnotationKey: "2",
 				},
 			},
 			Spec: RevisionSpec{
@@ -568,7 +567,7 @@ func TestRevisionValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "maxScale=2 is less than minScale=5",
-			Paths:   []string{autoscaling.MaxScaleAnnotationKey, autoscaling.MinScaleAnnotationKey},
+			Paths:   []string{asconfig.MaxScaleAnnotationKey, asconfig.MinScaleAnnotationKey},
 		}).ViaField("annotations").ViaField("metadata"),
 	}}
 
@@ -645,7 +644,7 @@ func TestImmutableFields(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: asconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -841,7 +840,7 @@ func TestRevisionProtocolType(t *testing.T) {
 
 func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.Context {
 	testConfigs := &config.Config{}
-	testConfigs.Autoscaler, _ = autoscalerconfig.NewConfigFromMap(map[string]string{
+	testConfigs.Autoscaler, _ = asconfig.NewConfigFromMap(map[string]string{
 		"allow-zero-initial-scale": strconv.FormatBool(allowInitialScaleZero),
 		"initial-scale":            strconv.Itoa(initialScale),
 	})

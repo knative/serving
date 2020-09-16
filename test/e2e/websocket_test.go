@@ -31,8 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -160,7 +160,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.TargetBurstCapacityKey: "-1",
+			asconfig.TargetBurstCapacityKey: "-1",
 		}),
 	)
 	if err != nil {

@@ -23,9 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -45,7 +44,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
 		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
-			withStableWindow(10*time.Second), withPanicWindow(autoscalerconfig.BucketSize),
+			withStableWindow(10*time.Second), withPanicWindow(asconfig.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
@@ -111,13 +110,13 @@ func withPanicWindow(window time.Duration) MetricOption {
 
 func withWindowAnnotation(window string) MetricOption {
 	return func(metric *v1alpha1.Metric) {
-		metric.Annotations[autoscaling.WindowAnnotationKey] = window
+		metric.Annotations[asconfig.WindowAnnotationKey] = window
 	}
 }
 
 func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
 	return func(metric *v1alpha1.Metric) {
-		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
+		metric.Annotations[asconfig.PanicWindowPercentageAnnotationKey] = percentage
 	}
 }
 
@@ -133,7 +132,7 @@ func metric(options ...MetricOption) *v1alpha1.Metric {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				asconfig.ClassAnnotationKey: asconfig.KPA,
 			},
 			Labels:          map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa())},
@@ -155,7 +154,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				asconfig.ClassAnnotationKey: asconfig.KPA,
 			},
 		},
 		Spec: v1alpha1.PodAutoscalerSpec{
@@ -169,7 +168,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-var config = &autoscalerconfig.Config{
+var config = &asconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,

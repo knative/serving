@@ -34,9 +34,8 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -56,7 +55,7 @@ func NewController(
 	hpaInformer := hpainformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
-	onlyHPAClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+	onlyHPAClass := pkgreconciler.AnnotationFilterFunc(asconfig.ClassAnnotationKey, asconfig.HPA, false)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -69,10 +68,10 @@ func NewController(
 		kubeClient: kubeclient.Get(ctx),
 		hpaLister:  hpaInformer.Lister(),
 	}
-	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *controller.Impl) controller.Options {
+	impl := pareconciler.NewImpl(ctx, c, asconfig.HPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
-			&autoscalerconfig.Config{},
+			&asconfig.Config{},
 			&deployment.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

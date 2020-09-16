@@ -25,15 +25,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func MakeHPA(pa *v1alpha1.PodAutoscaler, config *asconfig.Config) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds(config)
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
@@ -60,7 +59,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 	}
 
 	switch pa.Metric() {
-	case autoscaling.CPU:
+	case asconfig.CPU:
 		if target, ok := pa.Target(); ok {
 			hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
@@ -70,7 +69,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autos
 				},
 			}}
 		}
-	case autoscaling.Concurrency, autoscaling.RPS:
+	case asconfig.Concurrency, asconfig.RPS:
 		t, _ := aresources.ResolveMetricTarget(pa, config)
 		target := int64(math.Ceil(t))
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{

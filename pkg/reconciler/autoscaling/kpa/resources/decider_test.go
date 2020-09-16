@@ -25,9 +25,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -37,7 +36,7 @@ func TestMakeDecider(t *testing.T) {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
 		want   *scaling.Decider
-		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
+		cfgOpt func(asconfig.Config) *asconfig.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
@@ -60,7 +59,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
 		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
@@ -69,7 +68,7 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			withScaleUpDownRates(19.84, 19.88)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.MaxScaleUpRate = 19.84
 			c.MaxScaleDownRate = 19.88
 			return &c
@@ -86,7 +85,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
 		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
@@ -94,7 +93,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with burst capacity set",
 		pa:   pa(WithPAContainerConcurrency(120)),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -103,7 +102,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with activator capacity override",
 		pa:   pa(),
 		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.ActivatorCapacity = 420
 			return &c
 		},
@@ -112,7 +111,7 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
-		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+		cfgOpt: func(c asconfig.Config) *asconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -138,12 +137,12 @@ func TestMakeDecider(t *testing.T) {
 	}, {
 		name: "with initial scale",
 		pa: pa(func(pa *v1alpha1.PodAutoscaler) {
-			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			pa.Annotations[asconfig.InitialScaleAnnotationKey] = "2"
 		}),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			func(d *scaling.Decider) {
 				d.Spec.InitialScale = 2
-				d.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+				d.Annotations[asconfig.InitialScaleAnnotationKey] = "2"
 			}),
 	}}
 
@@ -165,7 +164,7 @@ func TestGetInitialScale(t *testing.T) {
 	tests := []struct {
 		name          string
 		paMutation    func(*v1alpha1.PodAutoscaler)
-		configMutator func(*autoscalerconfig.Config)
+		configMutator func(*asconfig.Config)
 		want          int
 	}{{
 		name: "revision initial scale not set",
@@ -173,31 +172,31 @@ func TestGetInitialScale(t *testing.T) {
 	}, {
 		name: "revision initial scale overrides cluster initial scale",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			pa.Annotations[asconfig.InitialScaleAnnotationKey] = "2"
 		},
 		want: 2,
 	}, {
 		name: "cluster allows initial scale zero",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			pa.Annotations[asconfig.InitialScaleAnnotationKey] = "0"
 		},
-		configMutator: func(c *autoscalerconfig.Config) {
+		configMutator: func(c *asconfig.Config) {
 			c.AllowZeroInitialScale = true
 		},
 		want: 0,
 	}, {
 		name: "cluster does not allows initial scale zero",
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
-			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			pa.Annotations[asconfig.InitialScaleAnnotationKey] = "0"
 		},
-		configMutator: func(c *autoscalerconfig.Config) {
+		configMutator: func(c *asconfig.Config) {
 			c.AllowZeroInitialScale = false
 		},
 		want: 1,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(map[string]string{})
+			autoscalerConfig, _ := asconfig.NewConfigFromMap(map[string]string{})
 			if test.configMutator != nil {
 				test.configMutator(autoscalerConfig)
 			}
@@ -219,8 +218,8 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey:  autoscaling.KPA,
-				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				asconfig.ClassAnnotationKey:  asconfig.KPA,
+				asconfig.MetricAnnotationKey: asconfig.Concurrency,
 			},
 		},
 		Spec: v1alpha1.PodAutoscalerSpec{
@@ -236,13 +235,13 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 
 func withTBCAnnotation(tbc string) PodAutoscalerOption {
 	return func(pa *v1alpha1.PodAutoscaler) {
-		pa.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
+		pa.Annotations[asconfig.TargetBurstCapacityKey] = tbc
 	}
 }
 
 func withDeciderTBCAnnotation(tbc string) deciderOption {
 	return func(d *scaling.Decider) {
-		d.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
+		d.Annotations[asconfig.TargetBurstCapacityKey] = tbc
 	}
 }
 
@@ -254,8 +253,8 @@ func decider(options ...deciderOption) *scaling.Decider {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey:  autoscaling.KPA,
-				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				asconfig.ClassAnnotationKey:  asconfig.KPA,
+				asconfig.MetricAnnotationKey: asconfig.Concurrency,
 			},
 		},
 		Spec: scaling.DeciderSpec{
@@ -322,23 +321,23 @@ func withPanicThreshold(threshold float64) deciderOption {
 
 func withTargetAnnotation(target string) deciderOption {
 	return func(decider *scaling.Decider) {
-		decider.Annotations[autoscaling.TargetAnnotationKey] = target
+		decider.Annotations[asconfig.TargetAnnotationKey] = target
 	}
 }
 
 func withMetricAnnotation(metric string) deciderOption {
 	return func(decider *scaling.Decider) {
-		decider.Annotations[autoscaling.MetricAnnotationKey] = metric
+		decider.Annotations[asconfig.MetricAnnotationKey] = metric
 	}
 }
 
 func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 	return func(decider *scaling.Decider) {
-		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
+		decider.Annotations[asconfig.PanicThresholdPercentageAnnotationKey] = percentage
 	}
 }
 
-var config = &autoscalerconfig.Config{
+var config = &asconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,

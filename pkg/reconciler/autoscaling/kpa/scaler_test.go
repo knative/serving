@@ -37,10 +37,10 @@ import (
 	"knative.dev/pkg/network"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
@@ -159,7 +159,7 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = "0"
+			k.Annotations[asconfig.ScaleToZeroPodRetentionPeriodKey] = "0"
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
@@ -184,7 +184,7 @@ func TestScaler(t *testing.T) {
 		scaleTo:       0,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			k.Annotations[autoscaling.ScaleToZeroPodRetentionPeriodKey] = (2 * gracePeriod).String()
+			k.Annotations[asconfig.ScaleToZeroPodRetentionPeriodKey] = (2 * gracePeriod).String()
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 0 // Disabled in CM.
@@ -271,7 +271,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
-			k.Annotations[autoscaling.TargetBurstCapacityKey] = "-1"
+			k.Annotations[asconfig.TargetBurstCapacityKey] = "-1"
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
 		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
@@ -427,7 +427,7 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now().Add(-2*time.Minute))
 			k.Status.MarkScaleTargetInitialized()
-			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			k.Annotations[asconfig.InitialScaleAnnotationKey] = "2"
 		},
 	}, {
 		label:         "haven't scaled to initial scale, override desired scale with initial scale",
@@ -437,7 +437,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			k.Annotations[asconfig.InitialScaleAnnotationKey] = "2"
 		},
 	}, {
 		label:         "initial scale reached for the first time",
@@ -447,7 +447,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActivating(k, time.Now())
-			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+			k.Annotations[asconfig.InitialScaleAnnotationKey] = "5"
 		},
 	}, {
 		label:         "reaching initial scale zero",
@@ -458,7 +458,7 @@ func TestScaler(t *testing.T) {
 		wantCBCount:   1,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			k.ObjectMeta.Annotations[asconfig.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.AllowZeroInitialScale = true
@@ -631,10 +631,10 @@ func newRevision(ctx context.Context, t *testing.T, servingClient clientset.Inte
 	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
-		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
+		annotations[asconfig.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
 	}
 	if maxScale > 0 {
-		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
+		annotations[asconfig.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
 	}
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{

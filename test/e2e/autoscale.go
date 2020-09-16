@@ -36,7 +36,7 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
-	"knative.dev/serving/pkg/apis/autoscaling"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -194,13 +194,13 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		append([]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
-				autoscaling.ClassAnnotationKey:             class,
-				autoscaling.MetricAnnotationKey:            metric,
-				autoscaling.TargetAnnotationKey:            strconv.Itoa(target),
-				autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+				asconfig.ClassAnnotationKey:             class,
+				asconfig.MetricAnnotationKey:            metric,
+				asconfig.TargetAnnotationKey:            strconv.Itoa(target),
+				asconfig.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
 				// We run the test for 60s, so make window a bit shorter,
 				// so that we're operating in sustained mode and the pod actions stopped happening.
-				autoscaling.WindowAnnotationKey: "50s",
+				asconfig.WindowAnnotationKey: "50s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
@@ -353,7 +353,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	var grp errgroup.Group
 	grp.Go(func() error {
 		switch ctx.metric {
-		case autoscaling.RPS:
+		case asconfig.RPS:
 			return generateTrafficAtFixedRPS(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
 		default:
 			return generateTrafficAtFixedConcurrency(ctx, int(targetPods*float64(ctx.targetValue)), duration, stopChan)
@@ -374,7 +374,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 // metric tracks the given target.
 func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	target := containerConcurrency
-	if metric == autoscaling.RPS {
+	if metric == asconfig.RPS {
 		target = 10
 	}
 
