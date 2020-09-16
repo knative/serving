@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -100,9 +101,21 @@ func ExpandedHosts(hosts sets.String) sets.String {
 	for _, h := range hosts.List() {
 		for _, suffix := range allowedSuffixes {
 			if strings.HasSuffix(h, suffix) {
-				expanded.Insert(strings.TrimSuffix(h, suffix))
+				trimmedHost := strings.TrimSuffix(h, suffix)
+				if isValidTopLevelDomain(trimmedHost) {
+					expanded.Insert(trimmedHost)
+				}
 			}
 		}
 	}
 	return expanded
+}
+
+// Validate that the Top Level Domain of a given hostname is not fully numeric.
+// Example: '1234' is an invalid TLD
+func isValidTopLevelDomain(domain string) bool {
+	parts := strings.Split(domain, ".")
+	topLevelDomain := parts[len(parts)-1]
+	_, err := strconv.Atoi(topLevelDomain)
+	return (err != nil)
 }

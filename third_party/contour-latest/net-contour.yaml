@@ -35,7 +35,7 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: contour
-    serving.knative.dev/release: "v20200913-d3eeddf8"
+    serving.knative.dev/release: "v20200915-d3eeddf8"
 data:
   _example: |
     ################################
