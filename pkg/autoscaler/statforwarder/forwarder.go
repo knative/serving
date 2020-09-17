@@ -146,9 +146,13 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
-	f.shutdown(f.getProcessor(n))
+	// We kill off the previous processor after we created the new one,
+	// since there's a narrow race when the old one is done (shutdown is async)
+	// and new once is created (WaitGroup might wait for 0) and then `Cancel` is called.
+	p := f.getProcessor(n)
 	holder := *l.Spec.HolderIdentity
 	f.setProcessor(n, f.createProcessor(n, holder))
+	f.shutdown(p)
 
 	if holder != f.selfIP {
 		// Skip creating/updating Service and Endpoints if not the leader.
@@ -312,7 +316,7 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 
 	p := f.getProcessor(bkt)
 	if p == nil {
-		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
+		l.Warn("Can't find the owner for Revision. Dropping its stat.")
 		return
 	}
 
@@ -321,10 +325,8 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
 	if p != nil && p.conn != nil {
-		go func() {
-			defer f.processingWg.Done()
-			p.conn.Shutdown()
-		}()
+		defer f.processingWg.Done()
+		p.conn.Shutdown()
 	}
 }
 
