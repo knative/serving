@@ -200,13 +200,14 @@ func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Client
 			return false, err
 		}
 		gotPods := len(podList.Items)
-		if gotPods == wantPods {
+		switch {
+		case gotPods == wantPods:
 			return s.IsReady(), nil
-		}
-		if gotPods > wantPods {
+		case gotPods > wantPods:
 			return false, fmt.Errorf("expected %d pods created, got %d", wantPods, gotPods)
+		default:
+			return false, nil
 		}
-		return false, nil
 	}, "ConfigurationIsReadyWithWantPods"); err != nil {
 		t.Fatal("Configuration does not have the desired number of pods running:", err)
 	}
