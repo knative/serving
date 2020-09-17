@@ -1,0 +1,201 @@
+name: KinD e2e tests
+
+on:
+  pull_request:
+    branches: [ 'master' ]
+
+jobs:
+
+  ko-resolve:
+    name: e2e tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Keep running if one leg fails.
+      matrix:
+        k8s-version:
+        - v1.17.11
+        - v1.18.8
+        - v1.19.1
+
+        test-suite:
+        - ./test/conformance/runtime
+        - ./test/conformance/api/v1alpha1
+        - ./test/conformance/api/v1beta1
+        - ./test/conformance/api/v1
+        - ./test/e2e
+
+        # Map between K8s and KinD versions.
+        # This is attempting to make it a bit clearer what's being tested.
+        # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
+        include:
+        - k8s-version: v1.17.11
+          kind-version: v0.9.0
+          kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
+          # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Make this Istio
+          kingress: contour # istio
+        - k8s-version: v1.18.8
+          kind-version: v0.9.0
+          kind-image-sha: sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb
+          kingress: kourier
+        - k8s-version: v1.19.1
+          kind-version: v0.9.0
+          kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
+          kingress: contour
+
+    env:
+      GOPATH: ${{ github.workspace }}
+      GO111MODULE: off
+      KO_DOCKER_REPO: kind.local
+
+    steps:
+    - name: Set up Go 1.14.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.14.x
+
+    - name: Install Dependencies
+      run: |
+        GO111MODULE=on go get github.com/google/ko/cmd/ko@master
+
+    - name: Check out code onto GOPATH
+      uses: actions/checkout@v2
+      with:
+        path: ./src/knative.dev/serving
+
+    - name: Install KinD
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
+        # Disable swap otherwise memory enforcement doesn't work
+        # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600009955324200
+        sudo swapoff -a
+        sudo rm -f /swapfile
+
+        curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/${{ matrix.kind-version }}/kind-$(uname)-amd64
+        chmod +x ./kind
+        sudo mv kind /usr/local/bin
+
+    - name: Create KinD Cluster
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
+        # KinD configuration.
+        cat > kind.yaml <<EOF
+        apiVersion: kind.x-k8s.io/v1alpha4
+        kind: Cluster
+        nodes:
+        - role: control-plane
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+        - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
+
+        # This is needed in order to support projected volumes with service account tokens.
+        # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
+        kubeadmConfigPatches:
+          - |
+            apiVersion: kubeadm.k8s.io/v1beta2
+            kind: ClusterConfiguration
+            metadata:
+              name: config
+            apiServer:
+              extraArgs:
+                "service-account-issuer": "kubernetes.default.svc"
+                "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+        EOF
+
+        # Create a cluster!
+        kind create cluster --config kind.yaml
+
+    - name: Install Knative Serving
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -o pipefail
+
+        kubectl create namespace knative-serving
+        kubectl apply -f config/core/300-imagecache.yaml
+
+        # Build and Publish our containers to the docker daemon (including test assets)
+        export GO111MODULE=on
+        export GOFLAGS=-mod=vendor
+        ko apply -Pf test/config/
+        ko apply -PRf config/core
+
+        # Have Serving use the kingress option.
+        kubectl patch configmap/config-network \
+          --namespace knative-serving \
+          --type merge \
+          --patch '{"data":{"ingress.class":"${{ matrix.kingress }}.ingress.networking.knative.dev"}}'
+
+        # Be KinD to these tests.
+        kubectl scale -nknative-serving deployment/chaosduck --replicas=0
+
+    - name: Wait for Webhook to be up
+      working-directory: ./src/knative.dev/serving
+      run: |
+        # We need the webhook to be up
+        kubectl wait pod --for=condition=Ready -n knative-serving  -l app=webhook
+
+    - name: Install kingress provider (Contour)
+      working-directory: ./src/knative.dev/serving
+      if: matrix.kingress == 'contour'
+      run: |
+        set -o pipefail
+
+        # Apply a kingress option.
+        ko resolve -f third_party/contour-latest | \
+          sed 's/LoadBalancer/NodePort/g' | \
+          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
+          kubectl apply -f -
+
+        # This tells the tests what namespace to look in for our kingress LB.
+        echo "::set-env name=GATEWAY_OVERRIDE::envoy"
+        echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::contour-external"
+
+    - name: Install kingress provider (Kourier)
+      working-directory: ./src/knative.dev/serving
+      if: matrix.kingress == 'kourier'
+      run: |
+        set -o pipefail
+
+        # Apply a kingress option.
+        ko resolve -f third_party/kourier-latest | \
+          sed 's/LoadBalancer/NodePort/g' | \
+          sed 's/imagePullPolicy:/# DISABLED: imagePullPolicy:/g' | \
+          kubectl apply -f -
+
+        # This tells the tests what namespace to look in for our kingress LB.
+        echo "::set-env name=GATEWAY_OVERRIDE::kourier"
+        echo "::set-env name=GATEWAY_NAMESPACE_OVERRIDE::kourier-system"
+
+    - name: Install kingress provider (Istio)
+      working-directory: ./src/knative.dev/serving
+      if: matrix.kingress == 'istio'
+      run: |
+        # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Istio + NodePort
+        exit 1
+
+    - name: Upload Test Images
+      working-directory: ./src/knative.dev/serving
+      run: |
+        # Build and Publish our test images to the docker daemon.
+        ./test/upload-test-images.sh
+
+    - name: Wait for Serving and KIngress to be up
+      working-directory: ./src/knative.dev/serving
+      run: |
+        kubectl wait pod --for=condition=Ready -n knative-serving -l '!job-name'
+        kubectl wait pod --for=condition=Ready -n "${GATEWAY_NAMESPACE_OVERRIDE}" -l '!job-name'
+
+    - name: Run e2e Tests
+      working-directory: ./src/knative.dev/serving
+      run: |
+        set -x
+
+        # Exclude the control-plane node, which doesn't seem to expose the nodeport service.
+        IPS=( $(kubectl get nodes -lkubernetes.io/hostname!=kind-control-plane -ojsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}') )
+
+        # Run the tests tagged as e2e on the KinD cluster.
+        go test -race -count=1 -timeout=20m -tags=e2e ${{ matrix.test-suite }} \
+           --ingressendpoint="${IPS[0]}"
