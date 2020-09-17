@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	target            = 6
+	target            = 1
 	targetUtilization = 0.7
 
 	autoscalingPipe    = "/tmp/autoscaling-signal"
@@ -44,7 +44,10 @@ func TestAutoscaleSustaining(t *testing.T) {
 	// to signal that we should stop testing.
 	createPipe(autoscalingPipe, t)
 
-	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization)
+	ctx := e2e.SetupSvc(t, autoscaling.KPA, autoscaling.RPS, target, targetUtilization,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0", // Not let Activator in the path.
+		}))
 
 	stopCh := make(chan time.Time)
 	go func() {
@@ -54,7 +57,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 10, stopCh)
+	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 5, stopCh)
 }
 
 func TestAutoscaleSustainingWithTBC(t *testing.T) {
@@ -76,5 +79,5 @@ func TestAutoscaleSustainingWithTBC(t *testing.T) {
 		close(stopCh)
 	}()
 
-	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 10, stopCh)
+	e2e.AssertAutoscaleUpToNumPodsWithDone(ctx, 1, 5, stopCh)
 }
