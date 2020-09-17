@@ -41,8 +41,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
-const digestResolutionTimeout = 60 * time.Second
-
 type resolver interface {
 	Resolve(*v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
 	Clear(types.NamespacedName)
@@ -98,7 +96,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 		ImagePullSecrets:   imagePullSecrets,
 	}
 
-	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, digestResolutionTimeout)
+	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
 	if err != nil {
 		// Clear the resolver so we can retry the digest resolution rather than
 		// being stuck with this error.
