@@ -112,6 +112,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		stopCh:          make(chan struct{}),
 	}
 
+	f.processingWg.Add(1)
 	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -332,7 +333,6 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
-	f.processingWg.Add(1)
 	defer f.processingWg.Done()
 
 	stop := false
