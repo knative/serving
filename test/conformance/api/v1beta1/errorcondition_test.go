@@ -21,10 +21,10 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
@@ -68,7 +68,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Route = serviceresourcenames.Route(svc)
 
-	manifestUnknown := string(transport.ManifestUnknownErrorCode)
+	manifestUnknown := fmt.Sprint(http.StatusNotFound)
 	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Wait for ServiceState becomes NotReady. It also waits for the creation of Configuration.

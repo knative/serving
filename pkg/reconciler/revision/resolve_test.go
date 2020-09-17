@@ -55,14 +55,6 @@ func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	return h
 }
 
-func mustRawManifest(t *testing.T, img v1.Image) []byte {
-	m, err := img.RawManifest()
-	if err != nil {
-		t.Fatal("RawManifest() =", err)
-	}
-	return m
-}
-
 func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", repo)
 	const basicAuth = "Basic "
@@ -81,10 +73,24 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *
 			if want := base64.StdEncoding.EncodeToString([]byte(username + ":" + password)); !strings.HasSuffix(hdr, want) {
 				t.Errorf("Header.Get(Authorization) = %q, want suffix %q", hdr, want)
 			}
-			if r.Method != http.MethodGet {
-				t.Errorf("Method = %v, want %v", r.Method, http.MethodGet)
+			if r.Method != http.MethodHead {
+				t.Errorf("Method = %v, want %v", r.Method, http.MethodHead)
 			}
-			w.Write(mustRawManifest(t, img))
+			mt, err := img.MediaType()
+			if err != nil {
+				t.Error("MediaType() =", err)
+			}
+			sz, err := img.Size()
+			if err != nil {
+				t.Error("Size() =", err)
+			}
+			digest, err := img.Digest()
+			if err != nil {
+				t.Error("Digest() =", err)
+			}
+			w.Header().Set("Content-Type", string(mt))
+			w.Header().Set("Content-Length", fmt.Sprint(sz))
+			w.Header().Set("Docker-Content-Digest", digest.String())
 		default:
 			t.Error("Unexpected path:", r.URL.Path)
 		}
