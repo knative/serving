@@ -100,6 +100,9 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 
 	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, digestResolutionTimeout)
 	if err != nil {
+		// Clear the resolver so we can retry the digest resolution rather than
+		// being stuck with this error.
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
 		return true, err
 	}
