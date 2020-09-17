@@ -1,3 +1,4 @@
+// +build e2e
 /*
 Copyright 2018 The Knative Authors
 
