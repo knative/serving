@@ -89,6 +89,7 @@ type Forwarder struct {
 	processingWg sync.WaitGroup
 
 	statCh chan stat
+	stopCh chan struct{}
 }
 
 // New creates a new Forwarder.
@@ -105,8 +106,10 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
 		statCh:          make(chan stat, 1000),
+		stopCh:          make(chan struct{}),
 	}
 
+	// 	f.processingWg.Add(1)
 	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -310,7 +313,6 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	f.processingWg.Add(1)
 	return &bucketProcessor{
 		bkt:    bkt,
 		logger: f.logger.With(zap.String("bucket", bkt)),
@@ -328,21 +330,26 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
-	for s := range f.statCh {
-		rev := s.sm.Key.String()
-		l := f.logger.With(zap.String("revision", rev))
-		bkt := f.bs.Owner(rev)
+	for {
+		select {
+		case <-f.stopCh:
+			break
+		case s := <-f.statCh:
+			rev := s.sm.Key.String()
+			l := f.logger.With(zap.String("revision", rev))
+			bkt := f.bs.Owner(rev)
 
-		p := f.getProcessor(bkt)
-		if p == nil {
-			l.Warn("Can't find the owner for Rev ", rev)
-			f.maybeRetry(l, s, rev)
-			continue
-		}
+			p := f.getProcessor(bkt)
+			if p == nil {
+				l.Warn("Can't find the owner for Rev ", rev)
+				f.maybeRetry(l, s, rev)
+				continue
+			}
 
-		if err := p.process(s.sm); err != nil {
-			l.Errorw("Error while processing stat", zap.Error(err))
-			f.maybeRetry(l, s, rev)
+			if err := p.process(s.sm); err != nil {
+				l.Errorw("Error while processing stat", zap.Error(err))
+				f.maybeRetry(l, s, rev)
+			}
 		}
 	}
 }
@@ -354,7 +361,9 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	}
 
 	s.retry = s.retry + 1
+	f.processingWg.Add(1)
 	go func() {
+		defer f.processingWg.Done()
 		time.Sleep(retryProcessingInterval)
 		logger.Debugf("Enqueuing stat of Rev %s for retry", rev)
 		f.statCh <- s
@@ -363,20 +372,20 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
 	if p != nil && p.accept == nil {
-		go func() {
-			defer f.processingWg.Done()
-			p.shutdown()
-		}()
+		p.shutdown()
 	}
 }
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	// Tell process go-runtine to stop.
+	close(f.stopCh)
+
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
-
 	for _, p := range f.processors {
 		f.shutdown(p)
 	}
+
 	f.processingWg.Wait()
 }

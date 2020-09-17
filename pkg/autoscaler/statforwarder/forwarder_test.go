@@ -415,9 +415,7 @@ func TestProcess(t *testing.T) {
 	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
 
 	// A Forward without any leadership information should process with retry.
-	// Stat1 should be accepted and stat2 should be forwarded.
 	f.Process(stat1)
-	f.Process(stat2)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
