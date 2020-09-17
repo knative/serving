@@ -50,7 +50,7 @@ const (
 	retryInterval      = 100 * time.Millisecond
 
 	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
-	// cause high delay and inaccurate scaling decision so we use
+	// cause high delay and inaccurate scaling decision because we use
 	// the timestamp on receiving.
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
@@ -84,7 +84,10 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
-	// Used to capture asynchronous processes for retrying to be waited
+	// Used to capture asynchronous processes for re-enqueuing to be waited
+	// on when shutting down.
+	retryWg sync.WaitGroup
+	// Used to capture asynchronous processe for stats to be waited
 	// on when shutting down.
 	processingWg sync.WaitGroup
 
@@ -109,6 +112,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		stopCh:          make(chan struct{}),
 	}
 
+	f.processingWg.Add(1)
 	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
@@ -322,10 +326,15 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
+	defer func() {
+		f.retryWg.Wait()
+		f.processingWg.Done()
+	}()
+
 	for {
 		select {
 		case <-f.stopCh:
-			break
+			return
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
 			l := f.logger.With(zap.String("revision", rev))
@@ -333,7 +342,7 @@ func (f *Forwarder) process() {
 
 			p := f.getProcessor(bkt)
 			if p == nil {
-				l.Warn("Can't find the owner for Rev ", rev)
+				l.Warn("Can't find the owner for Revision.")
 				f.maybeRetry(l, s, rev)
 				continue
 			}
@@ -348,15 +357,15 @@ func (f *Forwarder) process() {
 
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	if s.retry > maxProcessingRetry {
-		logger.Warn("Exceeding max retry times. Dropping stat for Rev ", rev)
+		logger.Warn("Exceeding max retries. Dropping the stat.")
 	}
 
-	s.retry = s.retry + 1
-	f.processingWg.Add(1)
+	s.retry++
+	f.retryWg.Add(1)
 	go func() {
-		defer f.processingWg.Done()
+		defer f.retryWg.Done()
 		time.Sleep(retryProcessingInterval)
-		logger.Debugf("Enqueuing stat of Rev %s for retry", rev)
+		logger.Debug("Enqueuing stat for retry.")
 		f.statCh <- s
 	}()
 }
@@ -379,4 +388,5 @@ func (f *Forwarder) Cancel() {
 	}
 
 	f.processingWg.Wait()
+	close(f.statCh)
 }
