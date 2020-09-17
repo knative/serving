@@ -23,6 +23,7 @@ import (
 	"flag"
 
 	network "knative.dev/networking/pkg"
+	_ "knative.dev/pkg/test"
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
