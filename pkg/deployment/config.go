@@ -46,7 +46,7 @@ const (
 	digestResolutionTimeoutKey = "digestResolutionTimeout"
 
 	// digestResolutionTimeoutDefault is the default digest resolution timeout.
-	digestResolutionTimeoutDefault = 2 * time.Second
+	digestResolutionTimeoutDefault = 10 * time.Second
 
 	// registriesSkippingTagResolvingKey is the config map key for the set of registries
 	// (e.g. ko.local) where tags should not be resolved to digests.
