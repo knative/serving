@@ -84,9 +84,12 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
-	// Used to capture asynchronous processes for retrying to be waited
+	// Used to capture asynchronous processes for re-enqueuing to be waited
 	// on when shutting down.
 	retryWg sync.WaitGroup
+	// Used to capture asynchronous processe for stats to be waited
+	// on when shutting down.
+	processingWg sync.WaitGroup
 
 	statCh chan stat
 	stopCh chan struct{}
@@ -329,6 +332,9 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
+	f.processingWg.Add(1)
+	defer f.processingWg.Done()
+
 	stop := false
 	for {
 		select {
@@ -356,6 +362,8 @@ func (f *Forwarder) process() {
 			break
 		}
 	}
+
+	f.retryWg.Wait()
 }
 
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
@@ -390,6 +398,6 @@ func (f *Forwarder) Cancel() {
 		f.shutdown(p)
 	}
 
-	f.retryWg.Wait()
+	f.processingWg.Wait()
 	close(f.statCh)
 }
