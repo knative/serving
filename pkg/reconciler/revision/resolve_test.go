@@ -78,20 +78,19 @@ func fakeRegistry(t *testing.T, repo, username, password string, img v1.Image) *
 			}
 			mt, err := img.MediaType()
 			if err != nil {
-				t.Errorf("MediaType() = %v", err)
+				t.Error("MediaType() =", err)
 			}
 			sz, err := img.Size()
 			if err != nil {
-				t.Errorf("Size() = %v", err)
+				t.Error("Size() =", err)
 			}
 			digest, err := img.Digest()
 			if err != nil {
-				t.Errorf("Digest() = %v", err)
+				t.Error("Digest() =", err)
 			}
 			w.Header().Set("Content-Type", string(mt))
 			w.Header().Set("Content-Length", fmt.Sprint(sz))
 			w.Header().Set("Docker-Content-Digest", digest.String())
-			w.WriteHeader(http.StatusOK)
 		default:
 			t.Error("Unexpected path:", r.URL.Path)
 		}
