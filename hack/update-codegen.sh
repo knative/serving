@@ -92,6 +92,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/activator/config \
   -i knative.dev/serving/pkg/autoscaler \
   -i knative.dev/serving/pkg/autoscaler/config \
+  -i knative.dev/serving/pkg/autoscaler/config/sharedconfig \
   -i knative.dev/serving/pkg/deployment \
   -i knative.dev/serving/pkg/gc \
   -i knative.dev/serving/pkg/logging \

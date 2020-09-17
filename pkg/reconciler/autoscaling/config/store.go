@@ -21,6 +21,7 @@ import (
 
 	"knative.dev/pkg/configmap"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	"knative.dev/serving/pkg/deployment"
 )
 
@@ -29,7 +30,7 @@ type cfgKey struct{}
 // Config of the Autoscaler.
 // +k8s:deepcopy-gen=false
 type Config struct {
-	Autoscaler *autoscalerconfig.Config
+	Autoscaler *sharedconfig.Config
 	Deployment *deployment.Config
 }
 
@@ -81,7 +82,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load fetches config from Store.
 func (s *Store) Load() *Config {
 	return &Config{
-		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
+		Autoscaler: s.UntypedLoad(autoscalerconfig.ConfigName).(*sharedconfig.Config).DeepCopy(),
 		Deployment: s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 	}
 }

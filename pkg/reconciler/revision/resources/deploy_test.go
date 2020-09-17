@@ -40,7 +40,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/queue"
 
@@ -1000,7 +1000,7 @@ func TestMakeDeployment(t *testing.T) {
 		rev       *v1.Revision
 		want      *appsv1.Deployment
 		dc        deployment.Config
-		acMutator func(*asconfig.Config)
+		acMutator func(*sharedconfig.Config)
 	}{{
 		name: "with concurrency=1",
 		rev: revision("bar", "foo",
@@ -1078,7 +1078,7 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale",
-		acMutator: func(ac *asconfig.Config) {
+		acMutator: func(ac *sharedconfig.Config) {
 			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
@@ -1094,7 +1094,7 @@ func TestMakeDeployment(t *testing.T) {
 		}),
 	}, {
 		name: "cluster initial scale override by revision initial scale",
-		acMutator: func(ac *asconfig.Config) {
+		acMutator: func(ac *sharedconfig.Config) {
 			ac.InitialScale = 10
 		},
 		rev: revision("bar", "foo",
@@ -1117,7 +1117,7 @@ func TestMakeDeployment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ac := &asconfig.Config{
+			ac := &sharedconfig.Config{
 				InitialScale:          1,
 				AllowZeroInitialScale: false,
 			}

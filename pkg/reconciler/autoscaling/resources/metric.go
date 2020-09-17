@@ -23,11 +23,12 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 )
 
 // StableWindow returns the stable window for the revision from PA, if set, or
 // systemwide default.
-func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) time.Duration {
+func StableWindow(pa *v1alpha1.PodAutoscaler, config *sharedconfig.Config) time.Duration {
 	sw, ok := pa.Window()
 	if !ok {
 		sw = config.StableWindow
@@ -36,7 +37,7 @@ func StableWindow(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) t
 }
 
 // MakeMetric constructs a Metric resource from a PodAutoscaler
-func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string, config *autoscalerconfig.Config) *v1alpha1.Metric {
+func MakeMetric(pa *v1alpha1.PodAutoscaler, metricSvc string, config *sharedconfig.Config) *v1alpha1.Metric {
 	stableWindow := StableWindow(pa, config)
 
 	// Look for a panic window percentage annotation.

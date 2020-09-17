@@ -28,12 +28,12 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func MakeHPA(pa *v1alpha1.PodAutoscaler, config *sharedconfig.Config) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds(config)
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
