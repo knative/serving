@@ -204,10 +204,12 @@ func SetupSvc(t *testing.T, class, metric string, target int, targetUtilization 
 				autoscaling.WindowAnnotationKey: "50s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("512Mi"),
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300Mi"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
 			}),
 		}, fopts...)...)
