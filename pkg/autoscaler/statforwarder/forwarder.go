@@ -86,7 +86,7 @@ type Forwarder struct {
 	processors     map[string]*bucketProcessor
 	// Used to capture asynchronous processes for retrying to be waited
 	// on when shutting down.
-	processingWg sync.WaitGroup
+	retryWg sync.WaitGroup
 
 	statCh chan stat
 	stopCh chan struct{}
@@ -329,10 +329,11 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
+	stop := false
 	for {
 		select {
 		case <-f.stopCh:
-			break
+			stop = true
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
 			l := f.logger.With(zap.String("revision", rev))
@@ -350,6 +351,10 @@ func (f *Forwarder) process() {
 				f.maybeRetry(l, s, rev)
 			}
 		}
+
+		if stop {
+			break
+		}
 	}
 }
 
@@ -359,9 +364,9 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	}
 
 	s.retry = s.retry + 1
-	f.processingWg.Add(1)
+	f.retryWg.Add(1)
 	go func() {
-		defer f.processingWg.Done()
+		defer f.retryWg.Done()
 		time.Sleep(retryProcessingInterval)
 		logger.Debugf("Enqueuing stat of Rev %s for retry", rev)
 		f.statCh <- s
@@ -385,5 +390,6 @@ func (f *Forwarder) Cancel() {
 		f.shutdown(p)
 	}
 
-	f.processingWg.Wait()
+	f.retryWg.Wait()
+	close(f.statCh)
 }
