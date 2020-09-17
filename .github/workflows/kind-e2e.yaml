@@ -13,9 +13,9 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - 1.17.x
-        - 1.18.x
-        - 1.19.x
+        - v1.17.11
+        - v1.18.8
+        - v1.19.1
 
         test-suite:
         - ./test/conformance/runtime
@@ -26,16 +26,20 @@ jobs:
 
         # Map between K8s and KinD versions.
         # This is attempting to make it a bit clearer what's being tested.
+        # See: https://github.com/kubernetes-sigs/kind/releases/tag/v0.9.0
         include:
-        - k8s-version: 1.17.x
-          kind-version: v0.7.0
+        - k8s-version: v1.17.11
+          kind-version: v0.9.0
+          kind-image-sha: sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555
           # TODO(https://github.com/knative-sandbox/net-istio/issues/285): Make this Istio
           kingress: contour # istio
-        - k8s-version: 1.18.x
-          kind-version: v0.8.1
-          kingress: kourier
-        - k8s-version: 1.19.x
+        - k8s-version: v1.18.8
           kind-version: v0.9.0
+          kind-image-sha: sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb
+          kingress: kourier
+        - k8s-version: v1.19.1
+          kind-version: v0.9.0
+          kind-image-sha: sha256:98cf5288864662e37115e362b23e4369c8c4a408f99cbc06e58ac30ddc721600
           kingress: contour
 
     env:
@@ -83,7 +87,9 @@ jobs:
         kind: Cluster
         nodes:
         - role: control-plane
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
         - role: worker
+          image: kindest/node:${{ matrix.k8s-version }}@${{ matrix.kind-image-sha }}
 
         # This is needed in order to support projected volumes with service account tokens.
         # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
