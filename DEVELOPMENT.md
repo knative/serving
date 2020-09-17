@@ -136,12 +136,11 @@ Kubernetes cluster in your designated environment, if necessary.
 ### Deploy Istio
 
 ```shell
-STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml"
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-crds.yaml"
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml"
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-minimal.yaml"
 kubectl apply -f ./third_party/net-istio.yaml
 ```
 
@@ -157,8 +156,7 @@ installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
-STABLE_VERSION=$(curl https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable)
-kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-knative-extras.yaml"
+kubectl apply -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-knative-extras.yaml"
 ```
 
 > If you want to customize the `istio*.yaml` files you can refer to the
@@ -310,8 +308,8 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -Rf config/core/ \
   -f ./third_party/net-istio.yaml \
-  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-minimal.yaml" \
-  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/${STABLE_VERSION}/istio-crds.yaml" \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-minimal.yaml" \
+  -f "https://raw.githubusercontent.com/knative-sandbox/net-istio/master/third_party/istio-stable/istio-crds.yaml" \
   -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```
