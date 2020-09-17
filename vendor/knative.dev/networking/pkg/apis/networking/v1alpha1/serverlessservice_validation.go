@@ -36,7 +36,7 @@ func (spec *ServerlessServiceSpec) Validate(ctx context.Context) *apis.FieldErro
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	var all *apis.FieldError
-	// Spec mode must be from the enum and
+	// Spec mode must be from the enum
 	switch spec.Mode {
 	case SKSOperationModeProxy, SKSOperationModeServe:
 		break

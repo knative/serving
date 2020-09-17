@@ -53,12 +53,26 @@ func TestProcessorForwarding(t *testing.T) {
 	defer s.Close()
 
 	logger := TestLogger(t)
+<<<<<<< HEAD
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws"+strings.TrimPrefix(s.URL, "http"), "ws"+strings.TrimPrefix(s.URL, "http"))
 
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
 		return p.podConn.Status() == nil, nil
 	}); err != nil {
 		t.Fatal("Timeout waiting for connection established")
+=======
+	conn := websocket.NewDurableSendingConnection("ws"+strings.TrimPrefix(s.URL, "http"), logger)
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return conn.Status() == nil, nil
+	}); err != nil {
+		t.Fatal("Timeout waiting for WebSocket connection got established")
+	}
+
+	p := bucketProcessor{
+		logger: logger,
+		bkt:    bucket1,
+		conn:   conn,
+>>>>>>> retry_process
 	}
 
 	p.process(stat1)

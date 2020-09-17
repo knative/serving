@@ -23,18 +23,27 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/pool"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 )
 
 const scaleToZeroGracePeriod = 30 * time.Second
+
+// DigestResolutionExceptions holds the set of "registry" domains for which
+// digest resolution is not required.  These "registry" domains are generally
+// associated with images that aren't actually published to a registry, but
+// side-loaded into the cluster's container daemon via an operation like
+// `docker load` or `kind load`.
+var DigestResolutionExceptions = sets.NewString("kind.local", "ko.local", "dev.local")
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the scaleToZeroGracePeriod (30 seconds) before failing.
@@ -56,12 +65,22 @@ func WaitForScaleToZero(t pkgTest.TLegacy, deploymentName string, clients *test.
 }
 
 // ValidateImageDigest validates the image digest.
-func ValidateImageDigest(imageName string, imageDigest string) (bool, error) {
+func ValidateImageDigest(t *testing.T, imageName string, imageDigest string) (bool, error) {
 	ref, err := name.ParseReference(pkgTest.ImagePath(imageName))
 	if err != nil {
 		return false, err
 	}
+	if DigestResolutionExceptions.Has(ref.Context().RegistryStr()) {
+		t.Run("digest validation", func(t *testing.T) {
+			t.Skipf("Skipping digest verification due to use of registry domain %s (one of %v)",
+				ref.Context().RegistryStr(), DigestResolutionExceptions)
+		})
+		return true, nil
+	}
 
+	if imageDigest == "" {
+		return false, errors.New("imageDigest not present")
+	}
 	digest, err := name.NewDigest(imageDigest)
 	if err != nil {
 		return false, err
@@ -71,11 +90,11 @@ func ValidateImageDigest(imageName string, imageDigest string) (bool, error) {
 }
 
 // sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, error) {
+func sendRequests(client *spoof.SpoofingClient, url *url.URL, num int) ([]string, error) {
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := errgroup.WithContext(context.Background())
+	g := pool.NewWithCapacity(8, num)
 	for i := 0; i < num; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]

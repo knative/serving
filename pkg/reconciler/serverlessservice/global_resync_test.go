@@ -125,7 +125,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 
 	// Actively wait for the endpoints to change their value.
 	eps := fakeendpointsinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+	if err := wait.PollImmediate(25*time.Millisecond, 5*time.Second, func() (bool, error) {
 		ep, err := eps.Endpoints(ns1).Get(sks1)
 		if err != nil {
 			return false, err

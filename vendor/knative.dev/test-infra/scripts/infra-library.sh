@@ -124,8 +124,10 @@ function create_test_cluster() {
 # Parameters: $1 - extra cluster creation flags
 #             $2 - test command to run by the kubetest2 tester
 function create_kind_test_cluster() {
-  # TODO(chizhg): implement with kubetest2
-  return 0
+  local -n _custom_flags=$1
+  local -n _test_command=$2
+
+  kubetest2 kind "${_custom_flags[@]}" --up --down --test=exec -- "${_test_command[@]}"
 }
 
 # Create a GKE test cluster with kubetest2 and run the test command.

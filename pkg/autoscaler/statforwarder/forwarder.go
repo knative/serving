@@ -49,7 +49,7 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
-	// Retry as most 15 seconds to process a stat. NOTE: Retrying could
+	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
 	// cause high delay and inaccurate scaling decision so we use
 	// the timestamp on receiving.
 	maxProcessingRetry      = 30
@@ -84,11 +84,12 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
-	// Used to capture asynchronous processes to be waited
-	// on when shutting the WebSocket connection down.
+	// Used to capture asynchronous processes for retrying to be waited
+	// on when shutting down.
 	processingWg sync.WaitGroup
 
 	statCh chan stat
+	stopCh chan struct{}
 }
 
 // New creates a new Forwarder.
@@ -105,6 +106,7 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
 		statCh:          make(chan stat, 1000),
+		stopCh:          make(chan struct{}),
 	}
 
 	go f.process()
@@ -306,8 +308,6 @@ func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
 		}
 	}
 
-	// A processor with WebSocket connections which needs to be waited for shutdown.
-	f.processingWg.Add(1)
 	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
 		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
 		fmt.Sprintf("ws://%s.%s.svc.%s:%d", bkt, ns, network.GetClusterDomainName(), autoscalerPort))
@@ -322,21 +322,26 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
-	for s := range f.statCh {
-		rev := s.sm.Key.String()
-		l := f.logger.With(zap.String("revision", rev))
-		bkt := f.bs.Owner(rev)
+	for {
+		select {
+		case <-f.stopCh:
+			break
+		case s := <-f.statCh:
+			rev := s.sm.Key.String()
+			l := f.logger.With(zap.String("revision", rev))
+			bkt := f.bs.Owner(rev)
 
-		p := f.getProcessor(bkt)
-		if p == nil {
-			l.Warn("Can't find the owner for Rev ", rev)
-			f.maybeRetry(l, s, rev)
-			continue
-		}
+			p := f.getProcessor(bkt)
+			if p == nil {
+				l.Warn("Can't find the owner for Rev ", rev)
+				f.maybeRetry(l, s, rev)
+				continue
+			}
 
-		if err := p.process(s.sm); err != nil {
-			l.Errorw("Error while processing stat", zap.Error(err))
-			f.maybeRetry(l, s, rev)
+			if err := p.process(s.sm); err != nil {
+				l.Errorw("Error while processing stat", zap.Error(err))
+				f.maybeRetry(l, s, rev)
+			}
 		}
 	}
 }
@@ -344,11 +349,12 @@ func (f *Forwarder) process() {
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	if s.retry > maxProcessingRetry {
 		logger.Warn("Exceeding max retry times. Dropping stat for Rev ", rev)
-		return
 	}
 
 	s.retry = s.retry + 1
+	f.processingWg.Add(1)
 	go func() {
+		defer f.processingWg.Done()
 		time.Sleep(retryProcessingInterval)
 		logger.Debugf("Enqueuing stat of Rev %s for retry", rev)
 		f.statCh <- s
@@ -357,20 +363,20 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
 	if p != nil && p.accept == nil {
-		go func() {
-			defer f.processingWg.Done()
-			p.shutdown()
-		}()
+		p.shutdown()
 	}
 }
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	// Tell process go-runtine to stop.
+	close(f.stopCh)
+
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
-
 	for _, p := range f.processors {
 		f.shutdown(p)
 	}
+
 	f.processingWg.Wait()
 }

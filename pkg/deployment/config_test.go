@@ -30,9 +30,22 @@ import (
 	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/test/conformance/api/shared"
 )
 
 const defaultSidecarImage = "defaultImage"
+
+func TestMatchingExceptions(t *testing.T) {
+	cfg := defaultConfig()
+
+	if delta := cfg.RegistriesSkippingTagResolving.Difference(shared.DigestResolutionExceptions); delta.Len() > 0 {
+		t.Errorf("Got extra: %v", delta.List())
+	}
+
+	if delta := shared.DigestResolutionExceptions.Difference(cfg.RegistriesSkippingTagResolving); delta.Len() > 0 {
+		t.Errorf("Didn't get: %v", delta.List())
+	}
+}
 
 func TestControllerConfigurationFromFile(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, ConfigName, QueueSidecarImageKey)

@@ -167,10 +167,12 @@ function initialize() {
 
   (( IS_PROW )) && [[ -z "${GCP_PROJECT_ID:-}" ]] && IS_BOSKOS=1
 
-  if (( SKIP_ISTIO_ADDON )); then
-    custom_flags+=("--addons=NodeLocalDNS")
-  else
-    custom_flags+=("--addons=Istio,NodeLocalDNS")
+  if [[ "${CLOUD_PROVIDER}" == "gke" ]]; then
+    if (( SKIP_ISTIO_ADDON )); then
+      custom_flags+=("--addons=NodeLocalDNS")
+    else
+      custom_flags+=("--addons=Istio,NodeLocalDNS")
+    fi
   fi
 
   readonly IS_BOSKOS

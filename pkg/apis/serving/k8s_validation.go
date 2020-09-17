@@ -152,8 +152,12 @@ func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError 
 		specified = append(specified, "configMap")
 		errs = errs.Also(validateConfigMapProjection(vp.ConfigMap).ViaField("configMap"))
 	}
+	if vp.ServiceAccountToken != nil {
+		specified = append(specified, "serviceAccountToken")
+		errs = errs.Also(validateServiceAccountTokenProjection(vp.ServiceAccountToken).ViaField("serviceAccountToken"))
+	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap"))
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken"))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
@@ -182,6 +186,15 @@ func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
 	}
 	for i, item := range sp.Items {
 		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
+	}
+	return errs
+}
+
+func validateServiceAccountTokenProjection(sp *corev1.ServiceAccountTokenProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*sp, *ServiceAccountTokenProjectionMask(sp))
+	// Audience & ExpirationSeconds are optional
+	if sp.Path == "" {
+		errs = errs.Also(apis.ErrMissingField("path"))
 	}
 	return errs
 }

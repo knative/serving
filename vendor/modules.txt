@@ -106,6 +106,7 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
+## explicit
 github.com/dgrijalva/jwt-go
 # github.com/docker/cli v0.0.0-20200210162036-a4bedce16568
 github.com/docker/cli/cli/config
@@ -1016,7 +1017,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20200911153201-58627457dc58
+# knative.dev/caching v0.0.0-20200915210741-1070879d7425
 ## explicit
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1037,7 +1038,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/networking v0.0.0-20200914051501-42045bd09118
+# knative.dev/networking v0.0.0-20200916103341-fbb56e96d123
 ## explicit
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1064,7 +1065,12 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/server
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/ingress
-# knative.dev/pkg v0.0.0-20200914134901-948ac9f2ce99
+knative.dev/networking/test
+knative.dev/networking/test/conformance/ingress
+knative.dev/networking/test/defaultsystem
+knative.dev/networking/test/test_images/grpc-ping/proto
+knative.dev/networking/test/types
+# knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
 ## explicit
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1187,7 +1193,7 @@ knative.dev/pkg/webhook/resourcesemantics/conversion
 knative.dev/pkg/webhook/resourcesemantics/defaulting
 knative.dev/pkg/webhook/resourcesemantics/validation
 knative.dev/pkg/websocket
-# knative.dev/test-infra v0.0.0-20200911201000-3f90e7c8f2fa
+# knative.dev/test-infra v0.0.0-20200916204642-2bd19214161b
 ## explicit
 knative.dev/test-infra/scripts
 # sigs.k8s.io/structured-merge-diff/v3 v3.0.1-0.20200706213357-43c19bbb7fba
