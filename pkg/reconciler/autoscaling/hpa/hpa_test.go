@@ -53,9 +53,10 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -79,7 +80,7 @@ func TestControllerCanReconcile(t *testing.T) {
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      asconfig.ConfigName,
+				Name:      autoscalerconfig.ConfigName,
 			},
 			Data: map[string]string{},
 		},
@@ -413,7 +414,7 @@ func TestReconcile(t *testing.T) {
 			hpaLister:  listers.GetHorizontalPodAutoscalerLister(),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, asconfig.HPA,
+			listers.GetPodAutoscalerLister(), controller.GetEventRecorder(ctx), r, autoscaling.HPA,
 			controller.Options{
 				ConfigStore: &testConfigStore{config: defaultConfig()},
 			})
@@ -506,7 +507,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := asconfig.NewConfigFromMap(nil)
+	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(nil)
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
 	}

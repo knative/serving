@@ -38,9 +38,10 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -82,13 +83,13 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
-func autoscalerCM(clients *test.Clients) (*asconfig.Config, error) {
+func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get(
-		context.Background(), asconfig.ConfigName, metav1.GetOptions{})
+		context.Background(), autoscalerconfig.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return asconfig.NewConfigFromMap(autoscalerCM.Data)
+	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
@@ -178,7 +179,7 @@ func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Client
 	_, err := v1test.CreateConfiguration(t, clients, names, func(configuration *v1.Configuration) {
 		configuration.Spec.Template.Annotations = kmeta.UnionMaps(
 			configuration.Spec.Template.Annotations, map[string]string{
-				asconfig.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
+				autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
 			})
 	})
 	if err != nil {

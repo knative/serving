@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"knative.dev/pkg/apis"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func getIntGE0(m map[string]string, k string) (int64, *apis.FieldError) {
@@ -57,9 +56,9 @@ func ValidateAnnotations(allowInitScaleZero bool, anns map[string]string) *apis.
 }
 
 func validateClass(annotations map[string]string) *apis.FieldError {
-	if c, ok := annotations[asconfig.ClassAnnotationKey]; ok {
-		if strings.HasSuffix(c, domain) && c != asconfig.KPA && c != asconfig.HPA {
-			return apis.ErrInvalidValue(c, asconfig.ClassAnnotationKey)
+	if c, ok := annotations[ClassAnnotationKey]; ok {
+		if strings.HasSuffix(c, domain) && c != KPA && c != HPA {
+			return apis.ErrInvalidValue(c, ClassAnnotationKey)
 		}
 	}
 	return nil
@@ -67,41 +66,40 @@ func validateClass(annotations map[string]string) *apis.FieldError {
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if v, ok := annotations[asconfig.PanicWindowPercentageAnnotationKey]; ok {
+	if v, ok := annotations[PanicWindowPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, asconfig.PanicWindowPercentageAnnotationKey))
-		} else if fv < asconfig.PanicWindowPercentageMin || fv > asconfig.PanicWindowPercentageMax {
-			errs = apis.ErrOutOfBoundsValue(v, asconfig.PanicWindowPercentageMin,
-				asconfig.PanicWindowPercentageMax, asconfig.PanicWindowPercentageAnnotationKey)
+			errs = errs.Also(apis.ErrInvalidValue(v, PanicWindowPercentageAnnotationKey))
+		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
+			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
+				PanicWindowPercentageMax, PanicWindowPercentageAnnotationKey)
 		}
 	}
-	if v, ok := annotations[asconfig.PanicThresholdPercentageAnnotationKey]; ok {
+	if v, ok := annotations[PanicThresholdPercentageAnnotationKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, asconfig.PanicThresholdPercentageAnnotationKey))
-		} else if fv < asconfig.PanicThresholdPercentageMin || fv > asconfig.PanicThresholdPercentageMax {
-			errs = errs.Also(apis.ErrOutOfBoundsValue(v, asconfig.PanicThresholdPercentageMin,
-				asconfig.PanicThresholdPercentageMax, asconfig.PanicThresholdPercentageAnnotationKey))
-		}
-	}
-
-	if v, ok := annotations[asconfig.TargetAnnotationKey]; ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < asconfig.TargetMin {
-			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, asconfig.TargetMin),
-				asconfig.TargetAnnotationKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, PanicThresholdPercentageAnnotationKey))
+		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin,
+				PanicThresholdPercentageMax, PanicThresholdPercentageAnnotationKey))
 		}
 	}
 
-	if v, ok := annotations[asconfig.TargetUtilizationPercentageKey]; ok {
+	if v, ok := annotations[TargetAnnotationKey]; ok {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), TargetAnnotationKey))
+		}
+	}
+
+	if v, ok := annotations[TargetUtilizationPercentageKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(v, asconfig.TargetUtilizationPercentageKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, TargetUtilizationPercentageKey))
 		} else if fv < 1 || fv > 100 {
-			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, asconfig.TargetUtilizationPercentageKey))
+			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, TargetUtilizationPercentageKey))
 		}
 	}
 
-	if v, ok := annotations[asconfig.TargetBurstCapacityKey]; ok {
+	if v, ok := annotations[TargetBurstCapacityKey]; ok {
 		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < 0 && fv != -1 {
-			errs = errs.Also(apis.ErrInvalidValue(v, asconfig.TargetBurstCapacityKey))
+			errs = errs.Also(apis.ErrInvalidValue(v, TargetBurstCapacityKey))
 		}
 	}
 	return errs
@@ -109,13 +107,13 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 
 func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if w, ok := annotations[asconfig.ScaleToZeroPodRetentionPeriodKey]; ok {
+	if w, ok := annotations[ScaleToZeroPodRetentionPeriodKey]; ok {
 		if d, err := time.ParseDuration(w); err != nil {
-			errs = apis.ErrInvalidValue(w, asconfig.ScaleToZeroPodRetentionPeriodKey)
-		} else if d < 0 || d > asconfig.WindowMax {
+			errs = apis.ErrInvalidValue(w, ScaleToZeroPodRetentionPeriodKey)
+		} else if d < 0 || d > WindowMax {
 			// Since we disallow windows longer than WindowMax, so we should limit this
 			// as well.
-			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, asconfig.WindowMax, asconfig.ScaleToZeroPodRetentionPeriodKey)
+			errs = apis.ErrOutOfBoundsValue(w, 0*time.Second, WindowMax, ScaleToZeroPodRetentionPeriodKey)
 		}
 	}
 	return errs
@@ -123,65 +121,64 @@ func validateLastPodRetention(annotations map[string]string) *apis.FieldError {
 
 func validateWindow(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
-	if w, ok := annotations[asconfig.WindowAnnotationKey]; ok {
-		if annotations[asconfig.ClassAnnotationKey] == asconfig.HPA && annotations[asconfig.MetricAnnotationKey] == asconfig.CPU {
-			return apis.ErrInvalidKeyName(asconfig.WindowAnnotationKey, apis.CurrentField,
-				fmt.Sprintf("%s for %s %s", asconfig.HPA, asconfig.MetricAnnotationKey, asconfig.CPU))
+	if w, ok := annotations[WindowAnnotationKey]; ok {
+		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, apis.CurrentField, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
 		}
 		if d, err := time.ParseDuration(w); err != nil {
-			errs = apis.ErrInvalidValue(w, asconfig.WindowAnnotationKey)
-		} else if d < asconfig.WindowMin || d > asconfig.WindowMax {
-			errs = apis.ErrOutOfBoundsValue(w, asconfig.WindowMin, asconfig.WindowMax, asconfig.WindowAnnotationKey)
+			errs = apis.ErrInvalidValue(w, WindowAnnotationKey)
+		} else if d < WindowMin || d > WindowMax {
+			errs = apis.ErrOutOfBoundsValue(w, WindowMin, WindowMax, WindowAnnotationKey)
 		}
 	}
 	return errs
 }
 
 func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
-	min, errs := getIntGE0(annotations, asconfig.MinScaleAnnotationKey)
-	max, err := getIntGE0(annotations, asconfig.MaxScaleAnnotationKey)
+	min, errs := getIntGE0(annotations, MinScaleAnnotationKey)
+	max, err := getIntGE0(annotations, MaxScaleAnnotationKey)
 	errs = errs.Also(err)
 
 	if max != 0 && max < min {
 		errs = errs.Also(&apis.FieldError{
 			Message: fmt.Sprintf("maxScale=%d is less than minScale=%d", max, min),
-			Paths:   []string{asconfig.MaxScaleAnnotationKey, asconfig.MinScaleAnnotationKey},
+			Paths:   []string{MaxScaleAnnotationKey, MinScaleAnnotationKey},
 		})
 	}
 	return errs
 }
 
 func validateMetric(annotations map[string]string) *apis.FieldError {
-	if metric, ok := annotations[asconfig.MetricAnnotationKey]; ok {
-		classValue := asconfig.KPA
-		if c, ok := annotations[asconfig.ClassAnnotationKey]; ok {
+	if metric, ok := annotations[MetricAnnotationKey]; ok {
+		classValue := KPA
+		if c, ok := annotations[ClassAnnotationKey]; ok {
 			classValue = c
 		}
 		switch classValue {
-		case asconfig.KPA:
+		case KPA:
 			switch metric {
-			case asconfig.Concurrency, asconfig.RPS:
+			case Concurrency, RPS:
 				return nil
 			}
-		case asconfig.HPA:
+		case HPA:
 			switch metric {
-			case asconfig.CPU:
+			case CPU:
 				return nil
 			}
 		default:
 			// Leave other classes of PodAutoscaler alone.
 			return nil
 		}
-		return apis.ErrInvalidValue(metric, asconfig.MetricAnnotationKey)
+		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
 	}
 	return nil
 }
 
 func validateInitialScale(allowInitScaleZero bool, annotations map[string]string) *apis.FieldError {
-	if initialScale, ok := annotations[asconfig.InitialScaleAnnotationKey]; ok {
+	if initialScale, ok := annotations[InitialScaleAnnotationKey]; ok {
 		initScaleInt, err := strconv.Atoi(initialScale)
 		if err != nil || initScaleInt < 0 || (!allowInitScaleZero && initScaleInt == 0) {
-			return apis.ErrInvalidValue(initialScale, asconfig.InitialScaleAnnotationKey)
+			return apis.ErrInvalidValue(initialScale, InitialScaleAnnotationKey)
 		}
 	}
 	return nil

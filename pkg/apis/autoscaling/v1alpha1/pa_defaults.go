@@ -20,16 +20,16 @@ import (
 	"context"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func defaultMetric(class string) string {
 	switch class {
-	case asconfig.KPA:
-		return asconfig.Concurrency
-	case asconfig.HPA:
-		return asconfig.CPU
+	case autoscaling.KPA:
+		return autoscaling.Concurrency
+	case autoscaling.HPA:
+		return autoscaling.CPU
 	default:
 		return ""
 	}
@@ -42,13 +42,13 @@ func (r *PodAutoscaler) SetDefaults(ctx context.Context) {
 	if r.Annotations == nil {
 		r.Annotations = make(map[string]string, 2)
 	}
-	if _, ok := r.Annotations[asconfig.ClassAnnotationKey]; !ok {
+	if _, ok := r.Annotations[autoscaling.ClassAnnotationKey]; !ok {
 		// Default class based on configmap setting (KPA if none specified).
-		r.Annotations[asconfig.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
+		r.Annotations[autoscaling.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
 	}
 	// Default metric per class.
-	if _, ok := r.Annotations[asconfig.MetricAnnotationKey]; !ok {
-		r.Annotations[asconfig.MetricAnnotationKey] = defaultMetric(r.Class())
+	if _, ok := r.Annotations[autoscaling.MetricAnnotationKey]; !ok {
+		r.Annotations[autoscaling.MetricAnnotationKey] = defaultMetric(r.Class())
 	}
 }
 

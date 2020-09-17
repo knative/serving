@@ -24,9 +24,10 @@ import (
 	"knative.dev/pkg/kmp"
 
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,17 +54,17 @@ func TestMakeHPA(t *testing.T) {
 	}, {
 		name: "with lower bound",
 		pa:   pa(WithLowerScaleBound(5)),
-		want: hpa(withMinReplicas(5), withAnnotationValue(asconfig.MinScaleAnnotationKey, "5")),
+		want: hpa(withMinReplicas(5), withAnnotationValue(autoscaling.MinScaleAnnotationKey, "5")),
 	}, {
 		name: "with upper bound",
 		pa:   pa(WithUpperScaleBound(5)),
-		want: hpa(withMaxReplicas(5), withAnnotationValue(asconfig.MaxScaleAnnotationKey, "5")),
+		want: hpa(withMaxReplicas(5), withAnnotationValue(autoscaling.MaxScaleAnnotationKey, "5")),
 	}, {
 		name: "with an actual target",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(asconfig.CPU)),
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.CPU)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.CPU),
-			withAnnotationValue(asconfig.TargetAnnotationKey, "50"),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
@@ -73,10 +74,10 @@ func TestMakeHPA(t *testing.T) {
 			})),
 	}, {
 		name: "with an actual fractional target",
-		pa:   pa(WithTargetAnnotation("1982.4"), WithMetricAnnotation(asconfig.CPU)),
+		pa:   pa(WithTargetAnnotation("1982.4"), WithMetricAnnotation(autoscaling.CPU)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.CPU),
-			withAnnotationValue(asconfig.TargetAnnotationKey, "1982.4"),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.CPU),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "1982.4"),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ResourceMetricSourceType,
 				Resource: &autoscalingv2beta1.ResourceMetricSource{
@@ -86,9 +87,9 @@ func TestMakeHPA(t *testing.T) {
 			})),
 	}, {
 		name: "with metric=concurrency",
-		pa:   pa(WithMetricAnnotation(asconfig.Concurrency)),
+		pa:   pa(WithMetricAnnotation(autoscaling.Concurrency)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.Concurrency),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ObjectMetricSourceType,
 				Object: &autoscalingv2beta1.ObjectMetricSource{
@@ -97,17 +98,17 @@ func TestMakeHPA(t *testing.T) {
 						Kind:       "revision",
 						Name:       testName,
 					},
-					MetricName:   asconfig.Concurrency,
+					MetricName:   autoscaling.Concurrency,
 					AverageValue: resource.NewQuantity(100, resource.DecimalSI),
 					TargetValue:  *resource.NewQuantity(100, resource.DecimalSI),
 				},
 			})),
 	}, {
 		name: "with metric=concurrency and target=50",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(asconfig.Concurrency)),
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.Concurrency)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.Concurrency),
-			withAnnotationValue(asconfig.TargetAnnotationKey, "50"),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ObjectMetricSourceType,
 				Object: &autoscalingv2beta1.ObjectMetricSource{
@@ -116,16 +117,16 @@ func TestMakeHPA(t *testing.T) {
 						Kind:       "revision",
 						Name:       testName,
 					},
-					MetricName:   asconfig.Concurrency,
+					MetricName:   autoscaling.Concurrency,
 					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
 					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
 				},
 			})),
 	}, {
 		name: "with metric=RPS",
-		pa:   pa(WithMetricAnnotation(asconfig.RPS)),
+		pa:   pa(WithMetricAnnotation(autoscaling.RPS)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.RPS),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ObjectMetricSourceType,
 				Object: &autoscalingv2beta1.ObjectMetricSource{
@@ -134,17 +135,17 @@ func TestMakeHPA(t *testing.T) {
 						Kind:       "revision",
 						Name:       testName,
 					},
-					MetricName:   asconfig.RPS,
+					MetricName:   autoscaling.RPS,
 					AverageValue: resource.NewQuantity(200, resource.DecimalSI),
 					TargetValue:  *resource.NewQuantity(200, resource.DecimalSI),
 				},
 			})),
 	}, {
 		name: "with metric=RPS and target=50",
-		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(asconfig.RPS)),
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.RPS)),
 		want: hpa(
-			withAnnotationValue(asconfig.MetricAnnotationKey, asconfig.RPS),
-			withAnnotationValue(asconfig.TargetAnnotationKey, "50"),
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
 			withMetric(autoscalingv2beta1.MetricSpec{
 				Type: autoscalingv2beta1.ObjectMetricSourceType,
 				Object: &autoscalingv2beta1.ObjectMetricSource{
@@ -153,7 +154,7 @@ func TestMakeHPA(t *testing.T) {
 						Kind:       "revision",
 						Name:       testName,
 					},
-					MetricName:   asconfig.RPS,
+					MetricName:   autoscaling.RPS,
 					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
 					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
 				},
@@ -183,7 +184,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 			Name:      testName,
 			UID:       "2006",
 			Annotations: map[string]string{
-				asconfig.ClassAnnotationKey: asconfig.HPA,
+				autoscaling.ClassAnnotationKey: autoscaling.HPA,
 			},
 		},
 		Spec: v1alpha1.PodAutoscalerSpec{
@@ -206,7 +207,7 @@ func hpa(options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 			Name:      testName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				asconfig.ClassAnnotationKey: asconfig.HPA,
+				autoscaling.ClassAnnotationKey: autoscaling.HPA,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1alpha1.SchemeGroupVersion.String(),
@@ -262,7 +263,7 @@ func withMetric(m autoscalingv2beta1.MetricSpec) hpaOption {
 	}
 }
 
-var config = &asconfig.Config{
+var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,

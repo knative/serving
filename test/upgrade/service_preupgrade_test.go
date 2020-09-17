@@ -21,7 +21,7 @@ package upgrade
 import (
 	"testing"
 
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -40,7 +40,7 @@ func TestServicePreUpgrade(t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
+			autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
 		}),
 	)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestServicePreUpgradeAndScaleToZero(t *testing.T) {
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.WindowAnnotationKey: asconfig.WindowMin.String(), //make sure we scale to zero quickly
+			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
 		}),
 	)
 	if err != nil {

@@ -29,7 +29,7 @@ import (
 	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDuckTypes(t *testing.T) {
@@ -492,21 +492,21 @@ func TestTargetAnnotation(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.TargetAnnotationKey: "1",
+			autoscaling.TargetAnnotationKey: "1",
 		}),
 		wantTarget: 1,
 		wantOK:     true,
 	}, {
 		name: "present float",
 		pa: pa(map[string]string{
-			asconfig.TargetAnnotationKey: "19.82",
+			autoscaling.TargetAnnotationKey: "19.82",
 		}),
 		wantTarget: 19.82,
 		wantOK:     true,
 	}, {
 		name: "invalid format",
 		pa: pa(map[string]string{
-			asconfig.TargetAnnotationKey: "sandwich",
+			autoscaling.TargetAnnotationKey: "sandwich",
 		}),
 		wantTarget: 0,
 		wantOK:     false,
@@ -530,7 +530,7 @@ func TestScaleBounds(t *testing.T) {
 		name         string
 		min          string
 		max          string
-		config       asconfig.Config
+		config       autoscalerconfig.Config
 		reachability ReachabilityType
 		wantMin      int32
 		wantMax      int32
@@ -554,14 +554,14 @@ func TestScaleBounds(t *testing.T) {
 		min:     "1",
 		wantMin: 1,
 		wantMax: 10,
-		config: asconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {
 		name:    "max and config",
 		max:     "5",
 		wantMax: 5,
-		config: asconfig.Config{
+		config: autoscalerconfig.Config{
 			MaxScale: 10,
 		},
 	}, {
@@ -595,10 +595,10 @@ func TestScaleBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pa := pa(map[string]string{})
 			if tc.min != "" {
-				pa.Annotations[asconfig.MinScaleAnnotationKey] = tc.min
+				pa.Annotations[autoscaling.MinScaleAnnotationKey] = tc.min
 			}
 			if tc.max != "" {
-				pa.Annotations[asconfig.MaxScaleAnnotationKey] = tc.max
+				pa.Annotations[autoscaling.MaxScaleAnnotationKey] = tc.max
 			}
 			pa.Spec.Reachability = tc.reachability
 
@@ -648,23 +648,23 @@ func TestClass(t *testing.T) {
 	}{{
 		name: "kpa class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: asconfig.KPA,
+			autoscaling.ClassAnnotationKey: autoscaling.KPA,
 		}),
-		want: asconfig.KPA,
+		want: autoscaling.KPA,
 	}, {
 		name: "hpa class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: asconfig.HPA,
+			autoscaling.ClassAnnotationKey: autoscaling.HPA,
 		}),
-		want: asconfig.HPA,
+		want: autoscaling.HPA,
 	}, {
 		name: "default class",
 		pa:   pa(map[string]string{}),
-		want: asconfig.KPA,
+		want: autoscaling.KPA,
 	}, {
 		name: "custom class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: "yolo.sandwich.com",
+			autoscaling.ClassAnnotationKey: "yolo.sandwich.com",
 		}),
 		want: "yolo.sandwich.com",
 	}}
@@ -687,25 +687,25 @@ func TestMetric(t *testing.T) {
 	}{{
 		name: "default class, annotation set",
 		pa: pa(map[string]string{
-			asconfig.MetricAnnotationKey: asconfig.Concurrency,
+			autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 		}),
-		want: asconfig.Concurrency,
+		want: autoscaling.Concurrency,
 	}, {
 		name: "hpa class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: asconfig.HPA,
+			autoscaling.ClassAnnotationKey: autoscaling.HPA,
 		}),
-		want: asconfig.CPU,
+		want: autoscaling.CPU,
 	}, {
 		name: "kpa class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: asconfig.KPA,
+			autoscaling.ClassAnnotationKey: autoscaling.KPA,
 		}),
-		want: asconfig.Concurrency,
+		want: autoscaling.Concurrency,
 	}, {
 		name: "custom class",
 		pa: pa(map[string]string{
-			asconfig.ClassAnnotationKey: "yolo.sandwich.com",
+			autoscaling.ClassAnnotationKey: "yolo.sandwich.com",
 		}),
 		want: "",
 	}}
@@ -734,21 +734,21 @@ func TestWindowAnnotation(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.WindowAnnotationKey: "120s",
+			autoscaling.WindowAnnotationKey: "120s",
 		}),
 		wantWindow: 120 * time.Second,
 		wantOK:     true,
 	}, {
 		name: "complex",
 		pa: pa(map[string]string{
-			asconfig.WindowAnnotationKey: "2m33s",
+			autoscaling.WindowAnnotationKey: "2m33s",
 		}),
 		wantWindow: 153 * time.Second,
 		wantOK:     true,
 	}, {
 		name: "invalid",
 		pa: pa(map[string]string{
-			asconfig.WindowAnnotationKey: "365d",
+			autoscaling.WindowAnnotationKey: "365d",
 		}),
 		wantWindow: 0,
 		wantOK:     false,
@@ -781,14 +781,14 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.PanicWindowPercentageAnnotationKey: "10.0",
+			autoscaling.PanicWindowPercentageAnnotationKey: "10.0",
 		}),
 		wantPercentage: 10.0,
 		wantOK:         true,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
-			asconfig.PanicWindowPercentageAnnotationKey: "sandwich",
+			autoscaling.PanicWindowPercentageAnnotationKey: "sandwich",
 		}),
 		wantPercentage: 0.0,
 		wantOK:         false,
@@ -821,14 +821,14 @@ func TestTargetUtilization(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.TargetUtilizationPercentageKey: "10.0",
+			autoscaling.TargetUtilizationPercentageKey: "10.0",
 		}),
 		want:   .1,
 		wantOK: true,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
-			asconfig.TargetUtilizationPercentageKey: "NPH",
+			autoscaling.TargetUtilizationPercentageKey: "NPH",
 		}),
 		want:   0.0,
 		wantOK: false,
@@ -861,7 +861,7 @@ func TestPanicThresholdPercentage(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.PanicThresholdPercentageAnnotationKey: "300.0",
+			autoscaling.PanicThresholdPercentageAnnotationKey: "300.0",
 		}),
 		wantPercentage: 300.0,
 		wantOK:         true,
@@ -974,28 +974,28 @@ func TestTargetBC(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.TargetBurstCapacityKey: "101.0",
+			autoscaling.TargetBurstCapacityKey: "101.0",
 		}),
 		want:   101,
 		wantOK: true,
 	}, {
 		name: "present 0",
 		pa: pa(map[string]string{
-			asconfig.TargetBurstCapacityKey: "0",
+			autoscaling.TargetBurstCapacityKey: "0",
 		}),
 		want:   0,
 		wantOK: true,
 	}, {
 		name: "present -1",
 		pa: pa(map[string]string{
-			asconfig.TargetBurstCapacityKey: "-1",
+			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
 		want:   -1,
 		wantOK: true,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
-			asconfig.TargetBurstCapacityKey: "NPH",
+			autoscaling.TargetBurstCapacityKey: "NPH",
 		}),
 	}}
 
@@ -1058,21 +1058,21 @@ func TestScaleToZeroPodRetention(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.ScaleToZeroPodRetentionPeriodKey: "311s",
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "311s",
 		}),
 		want:   311 * time.Second,
 		wantOK: true,
 	}, {
 		name: "complex",
 		pa: pa(map[string]string{
-			asconfig.ScaleToZeroPodRetentionPeriodKey: "4m21s",
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "4m21s",
 		}),
 		want:   261 * time.Second,
 		wantOK: true,
 	}, {
 		name: "invalid",
 		pa: pa(map[string]string{
-			asconfig.ScaleToZeroPodRetentionPeriodKey: "365d",
+			autoscaling.ScaleToZeroPodRetentionPeriodKey: "365d",
 		}),
 	}}
 
@@ -1104,7 +1104,7 @@ func TestInitialScale(t *testing.T) {
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
-			asconfig.InitialScaleAnnotationKey: "2",
+			autoscaling.InitialScaleAnnotationKey: "2",
 		}),
 		want:   2,
 		wantOK: true,

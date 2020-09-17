@@ -40,7 +40,7 @@ import (
 
 	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	ktest "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -103,7 +103,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 			},
 		}),
 		ktest.WithConfigAnnotations(map[string]string{
-			asconfig.WindowAnnotationKey: "7s",
+			autoscaling.WindowAnnotationKey: "7s",
 		}),
 	}
 	g := errgroup.Group{}

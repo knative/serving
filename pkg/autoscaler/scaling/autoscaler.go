@@ -27,7 +27,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 
@@ -150,12 +150,12 @@ func (a *autoscaler) Scale(ctx context.Context, now time.Time) ScaleResult {
 	metricName := spec.ScalingMetric
 	var observedStableValue, observedPanicValue float64
 	switch spec.ScalingMetric {
-	case asconfig.RPS:
+	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
 		pkgmetrics.RecordBatch(a.reporterCtx, stableRPSM.M(observedStableValue), panicRPSM.M(observedStableValue),
 			targetRPSM.M(spec.TargetValue))
 	default:
-		metricName = asconfig.Concurrency // concurrency is used by default
+		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
 		pkgmetrics.RecordBatch(a.reporterCtx, stableRequestConcurrencyM.M(observedStableValue),
 			panicRequestConcurrencyM.M(observedPanicValue), targetRequestConcurrencyM.M(spec.TargetValue))

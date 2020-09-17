@@ -36,9 +36,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -64,7 +65,7 @@ func NewController(
 	psInformerFactory := podscalable.Get(ctx)
 
 	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
-		asconfig.ClassAnnotationKey, asconfig.KPA, false /*allowUnset*/)
+		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -76,10 +77,10 @@ func NewController(
 		podsLister: podsInformer.Lister(),
 		deciders:   deciders,
 	}
-	impl := pareconciler.NewImpl(ctx, c, asconfig.KPA, func(impl *controller.Impl) controller.Options {
+	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
-			&asconfig.Config{},
+			&autoscalerconfig.Config{},
 			&deployment.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

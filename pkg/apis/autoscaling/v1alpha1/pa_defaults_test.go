@@ -24,8 +24,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDefaulting(t *testing.T) {
@@ -40,8 +41,8 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		want: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey:  asconfig.KPA,
-					asconfig.MetricAnnotationKey: asconfig.Concurrency,
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -67,7 +68,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 			})
 			s.OnConfigChanged(&v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: asconfig.ConfigName,
+					Name: autoscalerconfig.ConfigName,
 				},
 				Data: map[string]string{
 					"pod-autoscaler-class": "some.other.class",
@@ -79,8 +80,8 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		want: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey:  "some.other.class",
-					asconfig.MetricAnnotationKey: "",
+					autoscaling.ClassAnnotationKey:  "some.other.class",
+					autoscaling.MetricAnnotationKey: "",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -97,8 +98,8 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		want: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey:  asconfig.KPA,
-					asconfig.MetricAnnotationKey: asconfig.Concurrency,
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -113,8 +114,8 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		want: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey:  asconfig.KPA,
-					asconfig.MetricAnnotationKey: asconfig.Concurrency,
+					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -126,15 +127,15 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		in: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey: asconfig.HPA,
+					autoscaling.ClassAnnotationKey: autoscaling.HPA,
 				},
 			},
 		},
 		want: &PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.ClassAnnotationKey:  asconfig.HPA,
-					asconfig.MetricAnnotationKey: asconfig.CPU,
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+					autoscaling.MetricAnnotationKey: autoscaling.CPU,
 				},
 			},
 			Spec: PodAutoscalerSpec{

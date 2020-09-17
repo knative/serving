@@ -37,7 +37,7 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
@@ -383,7 +383,7 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 			unaryTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.TargetBurstCapacityKey: "-1",
+			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
 	)
 }
@@ -397,7 +397,7 @@ func TestGRPCStreamingPingViaActivator(t *testing.T) {
 			streamTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.TargetBurstCapacityKey: "-1",
+			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
 	)
 }
@@ -409,10 +409,10 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
-			asconfig.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
-			asconfig.TargetBurstCapacityKey:         "-1",
-			asconfig.WindowAnnotationKey:            "10s",
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.TargetBurstCapacityKey:         "-1",
+			autoscaling.WindowAnnotationKey:            "10s",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "DELAY",
@@ -427,10 +427,10 @@ func TestGRPCLoadBalancing(t *testing.T) {
 			loadBalancingTest(ctx, host, domain)
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
-			asconfig.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
-			asconfig.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
-			asconfig.TargetBurstCapacityKey:         "-1",
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(targetUtilization),
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(grpcContainerConcurrency),
+			autoscaling.MinScaleAnnotationKey:          strconv.Itoa(grpcMinScale),
+			autoscaling.TargetBurstCapacityKey:         "-1",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "HOSTNAME",

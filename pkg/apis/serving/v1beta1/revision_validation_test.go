@@ -26,9 +26,10 @@ import (
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -385,7 +386,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: asconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -423,7 +424,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: asconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -532,7 +533,7 @@ func TestImmutableFields(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: asconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -802,8 +803,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					asconfig.MinScaleAnnotationKey: "5",
-					asconfig.MaxScaleAnnotationKey: "covid-19",
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "covid-19",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -814,7 +815,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("covid-19", asconfig.MaxScaleAnnotationKey).
+		want: apis.ErrInvalidValue("covid-19", autoscaling.MaxScaleAnnotationKey).
 			ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",

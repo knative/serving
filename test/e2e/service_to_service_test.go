@@ -32,8 +32,8 @@ import (
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -230,8 +230,8 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 
 	resources, err := v1test.CreateServiceReady(t, clients, &testNames,
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.TargetBurstCapacityKey: "-1",
-			"sidecar.istio.io/inject":       strconv.FormatBool(injectB),
+			autoscaling.TargetBurstCapacityKey: "-1",
+			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
 	if err != nil {
 		t.Fatal("Failed to create a service:", err)

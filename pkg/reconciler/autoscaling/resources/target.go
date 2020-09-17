@@ -19,6 +19,7 @@ package resources
 import (
 	"math"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
@@ -31,7 +32,7 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *asconfig.Config) (t
 	tu := 0.
 
 	switch pa.Metric() {
-	case asconfig.RPS:
+	case autoscaling.RPS:
 		total = config.RPSTargetDefault
 		tu = config.TargetUtilization
 	default:
@@ -47,7 +48,7 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *asconfig.Config) (t
 	// Use the target provided via annotation, if applicable.
 	if annotationTarget, ok := pa.Target(); ok {
 		total = annotationTarget
-		if pa.Metric() == asconfig.Concurrency && pa.Spec.ContainerConcurrency != 0 {
+		if pa.Metric() == autoscaling.Concurrency && pa.Spec.ContainerConcurrency != 0 {
 			// We pick the smaller value between container concurrency and the annotationTarget
 			// to make sure the autoscaler does not aim for a higher concurrency than the application
 			// can handle per containerConcurrency.
@@ -58,7 +59,7 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *asconfig.Config) (t
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}
-	target = math.Max(asconfig.TargetMin, total*tu)
+	target = math.Max(autoscaling.TargetMin, total*tu)
 
 	return target, total
 }

@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	pkgHa "knative.dev/pkg/test/ha"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -54,9 +54,9 @@ func TestAutoscalerHPAHANewRevision(t *testing.T) {
 
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			asconfig.ClassAnnotationKey:  asconfig.HPA,
-			asconfig.MetricAnnotationKey: asconfig.CPU,
-			asconfig.TargetAnnotationKey: "70",
+			autoscaling.ClassAnnotationKey:  autoscaling.HPA,
+			autoscaling.MetricAnnotationKey: autoscaling.CPU,
+			autoscaling.TargetAnnotationKey: "70",
 		}))
 
 	test.EnsureTearDown(t, clients, &names)

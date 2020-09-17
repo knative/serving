@@ -26,8 +26,8 @@ import (
 
 	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -176,7 +176,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					asconfig.MinScaleAnnotationKey: "2",
+					autoscaling.MinScaleAnnotationKey: "2",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -195,7 +195,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					asconfig.MinScaleAnnotationKey: "FOO",
+					autoscaling.MinScaleAnnotationKey: "FOO",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -207,7 +207,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
-		want: apis.ErrInvalidValue("FOO", asconfig.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
+		want: apis.ErrInvalidValue("FOO", autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
