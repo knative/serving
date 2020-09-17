@@ -84,8 +84,8 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
-	// Used to capture asynchronous processes to be waited
-	// on when shutting the WebSocket connection down.
+	// Used to capture asynchronous processes for retrying to be waited
+	// on when shutting down.
 	processingWg sync.WaitGroup
 
 	statCh chan stat
@@ -109,7 +109,6 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		stopCh:          make(chan struct{}),
 	}
 
-	// 	f.processingWg.Add(1)
 	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
