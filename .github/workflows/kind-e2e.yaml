@@ -1,8 +1,6 @@
 name: KinD e2e tests
 
 on:
-  push:
-    branches: [ 'master' ]
   pull_request:
     branches: [ 'master' ]
 
