@@ -50,7 +50,7 @@ const (
 	retryInterval      = 100 * time.Millisecond
 
 	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
-	// cause high delay and inaccurate scaling decision so we use
+	// cause high delay and inaccurate scaling decision because we use
 	// the timestamp on receiving.
 	maxProcessingRetry      = 30
 	retryProcessingInterval = 500 * time.Millisecond
@@ -333,13 +333,15 @@ func (f *Forwarder) Process(sm asmetrics.StatMessage) {
 }
 
 func (f *Forwarder) process() {
-	defer f.processingWg.Done()
+	defer func() {
+		f.retryWg.Wait()
+		f.processingWg.Done()
+	}()
 
-	stop := false
 	for {
 		select {
 		case <-f.stopCh:
-			stop = true
+			return
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
 			l := f.logger.With(zap.String("revision", rev))
@@ -347,7 +349,7 @@ func (f *Forwarder) process() {
 
 			p := f.getProcessor(bkt)
 			if p == nil {
-				l.Warn("Can't find the owner for Rev ", rev)
+				l.Warn("Can't find the owner for Revision.")
 				f.maybeRetry(l, s, rev)
 				continue
 			}
@@ -357,26 +359,20 @@ func (f *Forwarder) process() {
 				f.maybeRetry(l, s, rev)
 			}
 		}
-
-		if stop {
-			break
-		}
 	}
-
-	f.retryWg.Wait()
 }
 
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	if s.retry > maxProcessingRetry {
-		logger.Warn("Exceeding max retry times. Dropping stat for Rev ", rev)
+		logger.Warn("Exceeding max retries. Dropping the stat.")
 	}
 
-	s.retry = s.retry + 1
+	s.retry++
 	f.retryWg.Add(1)
 	go func() {
 		defer f.retryWg.Done()
 		time.Sleep(retryProcessingInterval)
-		logger.Debugf("Enqueuing stat of Rev %s for retry", rev)
+		logger.Debug("Enqueuing stat for retry.")
 		f.statCh <- s
 	}()
 }
