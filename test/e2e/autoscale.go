@@ -340,7 +340,8 @@ func checkPodScaleWithDone(ctx *TestContext, targetPods, minPods, maxPods float6
 	}
 }
 
-// assertAutoscaleUpToNumPods supports two test modes: quick, and not quick.
+// assertAutoscaleUpToNumPods asserts the number of pods gets scaled to targetPods.
+// It supports two test modes: quick, and not quick.
 // 1) Quick mode: succeeds when the number of pods meets targetPods.
 // 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
 //    sustains there for the `duration`.
@@ -355,7 +356,13 @@ func AssertAutoscaleUpToNumPodsWithDone(ctx *TestContext, curPods, targetPods fl
 	assertAutoscaleUpToNumPodsWithDurationAndDone(ctx, curPods, targetPods, 10*time.Hour, done, false /* quick */)
 }
 
-// DO NOT USE this one directly. Use assertAutoscaleUpToNumPods or AssertAutoscaleUpToNumPodsWithDone instead.
+// assertAutoscaleUpToNumPodsWithDurationAndDone asserts the number of pods gets scaled to targetPods.
+// It supports two test modes: quick, and not quick.
+// 1) Quick mode: succeeds when the number of pods meets targetPods.
+// 2) Not Quick (sustaining) mode: succeeds when the number of pods gets scaled to targetPods and
+//    sustains there until the `done` channel sends a signal.
+// The given `duration` is how long the traffic will be generated. You must make sure that the signal
+// from the given `done` channel will be sent within the `duration`.
 func assertAutoscaleUpToNumPodsWithDurationAndDone(ctx *TestContext, curPods, targetPods float64, duration time.Duration, done <-chan time.Time, quick bool) {
 	ctx.t.Helper()
 
