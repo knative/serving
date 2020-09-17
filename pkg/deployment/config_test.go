@@ -83,6 +83,7 @@ func TestControllerConfiguration(t *testing.T) {
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
@@ -95,6 +96,7 @@ func TestControllerConfiguration(t *testing.T) {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               444 * time.Second,
@@ -104,9 +106,23 @@ func TestControllerConfiguration(t *testing.T) {
 			ProgressDeadlineKey:  "444s",
 		},
 	}, {
+		name: "controller configuration good digest resolution timeout",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        60 * time.Second,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:       defaultSidecarImage,
+			digestResolutionTimeoutKey: "60s",
+		},
+	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			ProgressDeadline:               ProgressDeadlineDefault,
@@ -119,6 +135,7 @@ func TestControllerConfiguration(t *testing.T) {
 		name: "controller configuration with custom queue sidecar resource request/limits",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
 			QueueSidecarImage:                   defaultSidecarImage,
 			ProgressDeadline:                    ProgressDeadlineDefault,
 			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
@@ -141,6 +158,13 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller with no side car image",
 		wantErr: true,
 		data:    map[string]string{},
+	}, {
+		name:    "controller configuration invalid digest resolution timeout",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey:       defaultSidecarImage,
+			digestResolutionTimeoutKey: "-1s",
+		},
 	}, {
 		name:    "controller configuration invalid progress deadline",
 		wantErr: true,

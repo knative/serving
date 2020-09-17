@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "b4ce3a17"
+    knative.dev/example-checksum: "d57841a3"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -43,6 +43,10 @@ data:
 
     # List of repositories for which tag to digest resolving should be skipped
     registriesSkippingTagResolving: "kind.local,ko.local,dev.local"
+
+    # digestResolutionTimeout is the maximum time allowed for an image's
+    # digests to be resolved.
+    digestResolutionTimeout: "2s"
 
     # ProgressDeadline is the duration we wait for the deployment to
     # be ready before considering it failed.
