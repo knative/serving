@@ -87,7 +87,8 @@ jobs:
         - role: control-plane
         - role: worker
 
-        # This is from: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
+        # This is needed in order to support projected volumes with service account tokens.
+        # See: https://kubernetes.slack.com/archives/CEKK1KTN2/p1600268272383600
         kubeadmConfigPatches:
           - |
             apiVersion: kubeadm.k8s.io/v1beta2
