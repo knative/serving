@@ -329,6 +329,31 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScale = 10
 			return c
 		}(),
+	}, {
+		name: "max scale exceeding max max scale",
+		input: map[string]string{
+			"max-scale":     "10",
+			"max-max-scale": "9",
+		},
+		wantErr: true,
+	}, {
+		name: "with negative max max scale",
+		input: map[string]string{
+			"max-max-scale": "-9",
+		},
+		wantErr: true,
+	}, {
+		name: "with valid default max scale and max max scale",
+		input: map[string]string{
+			"max-scale":     "10",
+			"max-max-scale": "11",
+		},
+		want: func() *Config {
+			c := defaultConfig()
+			c.MaxScale = 10
+			c.MaxMaxScale = 11
+			return c
+		}(),
 	}}
 
 	for _, test := range tests {

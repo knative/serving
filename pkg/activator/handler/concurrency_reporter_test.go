@@ -622,7 +622,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 				fake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 				revisions.Informer().GetIndexer().Add(rev)
 
-				// Send a dummy request for each revision to make sure it's reported.
+				// Send a sample request for each revision to make sure it's reported.
 				cr.handleEvent(network.ReqEvent{
 					Time: time.Now(),
 					Type: network.ReqIn,

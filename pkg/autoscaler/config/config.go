@@ -75,6 +75,10 @@ type Config struct {
 	// autoscaling.knative.dev/maxScale annotation
 	MaxScale int32
 
+	// MaxMaxScale is the maximum allowed MaxScale and `autoscaling.knative.dev/maxScale`
+	// annotation value for a revision.
+	MaxMaxScale int32
+
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
 	MaxScaleDownRate         float64
@@ -125,6 +129,7 @@ func defaultConfig() *Config {
 		AllowZeroInitialScale:         false,
 		InitialScale:                  1,
 		MaxScale:                      0,
+		MaxMaxScale:                   0,
 	}
 }
 
@@ -150,6 +155,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 
 		cm.AsInt32("initial-scale", &lc.InitialScale),
 		cm.AsInt32("max-scale", &lc.MaxScale),
+		cm.AsInt32("max-max-scale", &lc.MaxMaxScale),
 
 		cm.AsDuration("stable-window", &lc.StableWindow),
 		cm.AsDuration("scale-down-delay", &lc.ScaleDownDelay),
@@ -238,8 +244,12 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("initial-scale = %v, must be at least 0 (or at least 1 when allow-zero-initial-scale is false)", lc.InitialScale)
 	}
 
-	if lc.MaxScale < 0 {
-		return nil, fmt.Errorf("max-scale = %v, must be at least 0", lc.MaxScale)
+	if lc.MaxScale < 0 || (lc.MaxMaxScale > 0 && lc.MaxScale > lc.MaxMaxScale) {
+		return nil, fmt.Errorf("max-scale = %v, must be in [0, max-max-scale] range", lc.MaxScale)
+	}
+
+	if lc.MaxMaxScale < 0 {
+		return nil, fmt.Errorf("max-max-scale = %v, must be at least 0", lc.MaxMaxScale)
 	}
 	return lc, nil
 }

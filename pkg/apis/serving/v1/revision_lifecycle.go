@@ -34,6 +34,10 @@ const (
 	// as false if the a container image for the revision is missing.
 	ReasonContainerMissing = "ContainerMissing"
 
+	// ReasonResolvingDigests defines the reason for marking container healthiness status
+	// as unknown if the digests for the container images are being resolved.
+	ReasonResolvingDigests = "ResolvingDigests"
+
 	// ReasonDeploying defines the reason for marking revision availability status as
 	// unknown if the revision is still deploying.
 	ReasonDeploying = "Deploying"
