@@ -28,6 +28,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ntest "knative.dev/networking/test"
+	"knative.dev/networking/test/conformance/ingress"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/spoof"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -190,7 +192,9 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := CreateDialContext(t, ing, clients)
+	dialer := ingress.CreateDialContext(context.Background(), t, ing, &ntest.Clients{
+		KubeClient: clients.KubeClient,
+	})
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}

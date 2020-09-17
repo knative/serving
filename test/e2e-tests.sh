@@ -63,9 +63,6 @@ if (( HTTPS )); then
   add_trap "kubectl delete -f ${TMP_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
-# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-kubectl -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || fail_test
-
 # Keep the bucket count in sync with test/ha/ha.go
 kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
   --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || fail_test
@@ -111,6 +108,11 @@ toggle_feature tag-header-based-routing Disabled
 toggle_feature multi-container Enabled
 go_test_e2e -timeout=2m ./test/e2e/multicontainer || failed=1
 toggle_feature multi-container Disabled
+
+# Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+go_test_e2e -timeout=2m ./test/e2e/initscale || failed=1
+toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 toggle_feature responsive-revision-gc Enabled
 GC_CONFIG=$(kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml)

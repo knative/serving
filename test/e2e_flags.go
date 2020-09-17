@@ -23,6 +23,7 @@ import (
 	"flag"
 
 	network "knative.dev/networking/pkg"
+	_ "knative.dev/pkg/test"
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
@@ -45,45 +46,78 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
 	// Only define and set flags here. Flag values cannot be read at package init time.
-	flag.BoolVar(&f.ResolvableDomain,
-		"resolvabledomain",
-		false,
-		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	if fl := flag.Lookup("resolvabledomain"); fl == nil {
+		// Only define and set flags here. Flag values cannot be read at package init time.
+		flag.BoolVar(&f.ResolvableDomain,
+			"resolvabledomain",
+			false,
+			"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	} else {
+		f.ResolvableDomain = fl.Value.(flag.Getter).Get().(bool)
+	}
 
-	flag.BoolVar(&f.Https,
-		"https",
-		false,
-		"Set this flag to true to run all tests with https.")
+	if fl := flag.Lookup("https"); fl == nil {
+		flag.BoolVar(&f.Https,
+			"https",
+			false,
+			"Set this flag to true to run all tests with https.")
+	} else {
+		f.Https = fl.Value.(flag.Getter).Get().(bool)
+	}
 
-	flag.StringVar(&f.IngressClass,
-		"ingressClass",
-		network.IstioIngressClassName,
-		"Set this flag to the ingress class to test against.")
+	if fl := flag.Lookup("ingressClass"); fl == nil {
+		flag.StringVar(&f.IngressClass,
+			"ingressClass",
+			network.IstioIngressClassName,
+			"Set this flag to the ingress class to test against.")
+	} else {
+		f.IngressClass = fl.Value.String()
+	}
 
-	flag.StringVar(&f.CertificateClass,
-		"certificateClass",
-		network.CertManagerCertificateClassName,
-		"Set this flag to the certificate class to test against.")
+	if fl := flag.Lookup("certificateClass"); fl == nil {
+		flag.StringVar(&f.CertificateClass,
+			"certificateClass",
+			network.CertManagerCertificateClassName,
+			"Set this flag to the certificate class to test against.")
+	} else {
+		f.IngressClass = fl.Value.String()
+	}
 
-	flag.IntVar(&f.Buckets,
-		"buckets",
-		1,
-		"Set this flag to the number of reconciler buckets configured.")
+	if fl := flag.Lookup("buckets"); fl == nil {
+		flag.IntVar(&f.Buckets,
+			"buckets",
+			1,
+			"Set this flag to the number of reconciler buckets configured.")
+	} else {
+		f.Buckets = fl.Value.(flag.Getter).Get().(int)
+	}
 
-	flag.IntVar(&f.Replicas,
-		"replicas",
-		1,
-		"Set this flag to the number of controlplane replicas being run.")
+	if fl := flag.Lookup("replicas"); fl == nil {
+		flag.IntVar(&f.Replicas,
+			"replicas",
+			1,
+			"Set this flag to the number of controlplane replicas being run.")
+	} else {
+		f.Replicas = fl.Value.(flag.Getter).Get().(int)
+	}
 
-	flag.BoolVar(&f.EnableAlphaFeatures,
-		"enable-alpha",
-		false,
-		"Set this flag to run tests against alpha features")
+	if fl := flag.Lookup("enable-alpha"); fl == nil {
+		flag.BoolVar(&f.EnableAlphaFeatures,
+			"enable-alpha",
+			false,
+			"Set this flag to run tests against alpha features")
+	} else {
+		f.EnableAlphaFeatures = fl.Value.(flag.Getter).Get().(bool)
+	}
 
-	flag.BoolVar(&f.EnableBetaFeatures,
-		"enable-beta",
-		false,
-		"Set this flag to run tests against beta features")
+	if fl := flag.Lookup("enable-beta"); fl == nil {
+		flag.BoolVar(&f.EnableBetaFeatures,
+			"enable-beta",
+			false,
+			"Set this flag to run tests against beta features")
+	} else {
+		f.EnableBetaFeatures = fl.Value.(flag.Getter).Get().(bool)
+	}
 
 	return &f
 }
