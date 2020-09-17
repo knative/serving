@@ -64,7 +64,7 @@ var (
 		estat     string
 		analyzers []*tpb.ThresholdAnalyzerInput
 	}{
-		"queue": {
+		"queue-proxy": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
 				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
@@ -73,7 +73,7 @@ var (
 			estat:     "qe",
 			analyzers: []*tpb.ThresholdAnalyzerInput{newQueue95PercentileLatency("q")},
 		},
-		"queue-with-cc": {
+		"queue-proxy-with-cc": {
 			target: vegeta.Target{
 				Method: http.MethodGet,
 				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
