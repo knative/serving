@@ -42,7 +42,7 @@ function update_knative() {
   # and services from istio before reintalling it, to get them freshly recreated
   kubectl delete deployments --all -n istio-system
   kubectl delete services --all -n istio-system
-  install_istio || abort "Failed to install Istio"
+  install_istio "./third_party/net-istio.yaml" || abort "Failed to install Istio"
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
