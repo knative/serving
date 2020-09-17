@@ -74,4 +74,3 @@ data:
     loglevel.certcontroller: "info"
     loglevel.istiocontroller: "info"
     loglevel.nscontroller: "info"
-  loglevel.autoscaler: "debug"
