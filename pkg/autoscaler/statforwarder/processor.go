@@ -17,6 +17,7 @@ limitations under the License.
 package statforwarder
 
 import (
+	"log"
 	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -62,6 +63,7 @@ func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS 
 		holder:          holder,
 		podsAddressable: true,
 		podConn:         websocket.NewDurableSendingConnection(podDNS, logger),
+		svcConn:         websocket.NewDurableSendingConnection(svcDNS, logger),
 		svcDNS:          svcDNS,
 	}
 }
@@ -84,8 +86,10 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	if p.podsAddressable {
 		if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
 			if p.svcConn != nil {
-				if err := p.svcConn.Shutdown(); err != nil {
+				if err := p.svcConn.Shutdown(); err == nil {
 					p.svcConn = nil
+				} else {
+					p.logger.Warnw("Failed to close connection", zap.Error(err))
 				}
 			}
 			return nil
@@ -105,8 +109,11 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		}
 
 		if p.podConn != nil {
-			if err := p.podConn.Shutdown(); err != nil {
+			if err := p.podConn.Shutdown(); err == nil {
 				p.podConn = nil
+			} else {
+				log.Println("failed to close")
+				p.logger.Warnw("Failed to close connection", zap.Error(err))
 			}
 		}
 		return nil

@@ -29,8 +29,91 @@ import (
 	. "knative.dev/pkg/logging/testing"
 )
 
-func TestProcessorForwarding(t *testing.T) {
+func TestProcessorForwardingViaPodIP(t *testing.T) {
 	received := make(chan struct{})
+
+	s := testService(t, received)
+	defer s.Close()
+
+	logger := TestLogger(t)
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws"+strings.TrimPrefix(s.URL, "http"), "ws"+strings.TrimPrefix(s.URL, "http"))
+
+	// Wait connection via IP to be established.
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return p.podConn != nil && p.podConn.Status() == nil, nil
+	}); err != nil {
+		t.Fatal("Timeout waiting for connection established")
+	}
+
+	p.process(stat1)
+
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for receiving stat")
+	}
+
+	if got, wanted := p.podsAddressable, true; got != wanted {
+		t.Errorf("podsAddressable = %v, want = %v", got, wanted)
+	}
+	if p.svcConn != nil {
+		t.Error("Expected connection via SVC to be closed but not")
+	}
+}
+
+func TestProcessorForwardingViaSvc(t *testing.T) {
+	received := make(chan struct{})
+
+	s := testService(t, received)
+	defer s.Close()
+
+	logger := TestLogger(t)
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+
+	// Wait connection via SVC to be established.
+	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+		return p.svcConn != nil && p.svcConn.Status() == nil, nil
+	}); err != nil {
+		t.Fatal("Timeout waiting for connection established")
+	}
+
+	p.process(stat1)
+
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Error("Timeout waiting for receiving stat")
+	}
+
+	if got, wanted := p.podsAddressable, false; got != wanted {
+		t.Errorf("podsAddressable = %v, want = %v", got, wanted)
+	}
+	if p.podConn != nil {
+		t.Error("Expected connection via Pod IP to be closed but not")
+	}
+}
+
+func TestProcessoReconnect(t *testing.T) {
+	received := make(chan struct{})
+
+	s := testService(t, received)
+	defer s.Close()
+
+	logger := TestLogger(t)
+	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+
+	// Simulate that we have succseefully sent via Pod IP and closed the connection via SVC.
+	p.svcConn.Shutdown()
+	p.svcConn = nil
+
+	p.process(stat1)
+
+	if p.svcConn == nil {
+		t.Error("Expected connection via SVC to be created but not")
+	}
+}
+
+func testService(t *testing.T, received chan struct{}) *httptest.Server {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		var upgrader gorillawebsocket.Upgrader
 
@@ -49,37 +132,5 @@ func TestProcessorForwarding(t *testing.T) {
 		}
 	}
 
-	s := httptest.NewServer(httpHandler)
-	defer s.Close()
-
-	logger := TestLogger(t)
-<<<<<<< HEAD
-	p := newForwardProcessor(logger, bucket1, testIP1, "ws"+strings.TrimPrefix(s.URL, "http"), "ws"+strings.TrimPrefix(s.URL, "http"))
-
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return p.podConn.Status() == nil, nil
-	}); err != nil {
-		t.Fatal("Timeout waiting for connection established")
-=======
-	conn := websocket.NewDurableSendingConnection("ws"+strings.TrimPrefix(s.URL, "http"), logger)
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		return conn.Status() == nil, nil
-	}); err != nil {
-		t.Fatal("Timeout waiting for WebSocket connection got established")
-	}
-
-	p := bucketProcessor{
-		logger: logger,
-		bkt:    bucket1,
-		conn:   conn,
->>>>>>> retry_process
-	}
-
-	p.process(stat1)
-
-	select {
-	case <-received:
-	case <-time.After(time.Second):
-		t.Error("Timeout waiting for receiving stat")
-	}
+	return httptest.NewServer(httpHandler)
 }
