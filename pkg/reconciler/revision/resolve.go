@@ -108,7 +108,7 @@ func (r *digestResolver) Resolve(
 		return "", nil
 	}
 
-	desc, err := remote.Get(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
+	desc, err := remote.Head(tag, remote.WithContext(ctx), remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
 	if err != nil {
 		return "", err
 	}
