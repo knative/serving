@@ -16,6 +16,7 @@
 # repo by knobots: https://github.com/mattmoor/knobots and will be overwritten.
 
 name: 'Close stale'
+
 on:
   schedule:
   - cron: '0 1 * * *'
