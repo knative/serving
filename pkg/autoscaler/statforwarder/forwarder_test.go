@@ -404,14 +404,18 @@ func TestProcess(t *testing.T) {
 		waitInformers()
 	}()
 
+	acceptCh := make(chan int)
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
 		acceptCount++
+		acceptCh <- acceptCount
 	}
 	f := New(ctx, logger, kubeClient, testIP1, hash.NewBucketSet(sets.NewString(bucket1, bucket2)), accept)
 
-	// A Forward without any leadership information should process without error.
+	// A Forward without any leadership information should process with retry.
+	// Stat1 should be accepted and stat2 should be forwarded.
 	f.Process(stat1)
+	f.Process(stat2)
 
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
@@ -437,18 +441,18 @@ func TestProcess(t *testing.T) {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
 
-	// Stat1 should be accepted and stat2 should be forwarded.
-	f.Process(stat1)
-	f.Process(stat2)
-
-	if got, want := acceptCount, 1; got != want {
-		t.Errorf("acceptCount = %d, want = %d", got, want)
+	// Wait for the stat enqueued previously to be retried.
+	got := <-acceptCh
+	if got != 1 {
+		t.Fatalf("Got = %v, want: 1", got)
 	}
 
-	// One more accept.
+	// Accept once more.
 	f.Process(stat1)
-	if got, want := acceptCount, 2; got != want {
-		t.Errorf("acceptCount = %d, want = %d", got, want)
+
+	got = <-acceptCh
+	if got != 2 {
+		t.Fatalf("Got = %v, want: 2", got)
 	}
 
 	// Make sure Cancel can be called without crash.
