@@ -75,7 +75,6 @@ jobs:
         uses: andstor/file-existence-action@v1
         with:
           files: .golangci.yaml
-
       - name: Go Lint
         if: steps.golangci_configuration.outputs.files_exists == 'true'
         uses: golangci/golangci-lint-action@v2
@@ -112,6 +111,38 @@ jobs:
           xargs misspell -error |
           reviewdog -efm="%f:%l:%c: %m" \
                 -name="github.com/client9/misspell" \
+                -reporter="github-pr-check" \
+                -filter-mode="added" \
+                -fail-on-error="true" \
+                -level="error"
+
+          echo '::endgroup::'
+
+      - name: trailing whitespace
+        shell: bash
+        if: ${{ always() }}
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd "${GITHUB_WORKSPACE}" || exit 1
+
+          TEMP_PATH="$(mktemp -d)"
+          PATH="${TEMP_PATH}:$PATH"
+
+          echo '::group::🐶 Installing reviewdog ... https://github.com/reviewdog/reviewdog'
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b "${TEMP_PATH}" 2>&1
+          echo '::endgroup::'
+
+          echo '::group:: Flagging trailing whitespace with reviewdog 🐶 ...'
+          # Don't fail because of grep
+          set +o pipefail
+          find . -path './vendor' -prune \
+                 -o -path './third_party' -prune \
+                 -o -type f |
+          xargs grep -nE " +$" |
+          reviewdog -efm="%f:%l:%m" \
+                -name="trailing whitespace" \
                 -reporter="github-pr-check" \
                 -filter-mode="added" \
                 -fail-on-error="true" \
