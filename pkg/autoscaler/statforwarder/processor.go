@@ -17,18 +17,11 @@ limitations under the License.
 package statforwarder
 
 import (
-	"time"
-
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-)
-
-const (
-	forwardRetryTimeout  = 10 * time.Second
-	forwardRetryInterval = 100 * time.Millisecond
 )
 
 // bucketProcessor includes the information about how to process
