@@ -18,12 +18,43 @@
 name: Code Style
 
 on:
-  push:
-    branches: [ 'master', 'release-*' ]
   pull_request:
     branches: [ 'master', 'release-*' ]
 
 jobs:
+
+  autoformat:
+    name: Auto-format and Check
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Set up Go 1.14.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14.x
+        id: go
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      # Run this last because it alters the workspace.
+      # TODO: add prettier step
+      # TODO: add goimports step
+      - name: Go Format
+        shell: bash
+        run: |
+          gofmt -s -w $(find -path './vendor' -prune -o -path './third_party' -prune -o -type f -name '*.go' -print)
+      - name: Verify
+        shell: bash
+        run: |
+          if [[ $(git diff-index --name-only HEAD --) ]]; then
+              echo "Found diffs in:"
+              git diff-index --name-only HEAD --
+              echo "${{ github.repository }} is out of style. Please run go fmt."
+              exit 1
+          fi
+          echo "${{ github.repository }} is formatted correctly."
 
   lint:
     name: Lint
@@ -39,27 +70,6 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-
-      # TODO: add prettier step
-      # TODO: add goimports step
-
-      - name: Go Format
-        shell: bash
-        run: |
-          gofmt -s -w $(find -path './vendor' -prune -o -path './third_party' -prune -o -type f -name '*.go' -print)
-
-      - name: Verify
-        shell: bash
-        run: |
-          if [[ $(git diff-index --name-only HEAD --) ]]; then
-              echo "Found diffs in:"
-              git diff-index --name-only HEAD --
-              echo "${{ github.repository }} is out of style. Please run go fmt."
-              exit 1
-          fi
-          echo "${{ github.repository }} is formatted correctly."
 
       - id: golangci_configuration
         uses: andstor/file-existence-action@v1
@@ -73,9 +83,46 @@ jobs:
           version: v1.30
           only-new-issues: true # for initial defensiveness
 
+      - name: misspell
+        shell: bash
+        if: ${{ always() }}
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd "${GITHUB_WORKSPACE}" || exit 1
+
+          TEMP_PATH="$(mktemp -d)"
+          PATH="${TEMP_PATH}:$PATH"
+
+          echo '::group:: Installing misspell ... https://github.com/client9/misspell'
+          go get github.com/client9/misspell/cmd/misspell
+          echo '::endgroup::'
+
+          echo '::group::🐶 Installing reviewdog ... https://github.com/reviewdog/reviewdog'
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b "${TEMP_PATH}" 2>&1
+          echo '::endgroup::'
+
+          echo '::group:: Running github.com/client9/misspell with reviewdog 🐶 ...'
+          # Don't fail because of misspell
+          set +o pipefail
+          find . -path './vendor' -prune \
+                 -o -path './third_party' -prune \
+                 -o -type f |
+          xargs misspell -error |
+          reviewdog -efm="%f:%l:%c: %m" \
+                -name="github.com/client9/misspell" \
+                -reporter="github-pr-check" \
+                -filter-mode="added" \
+                -fail-on-error="true" \
+                -level="error"
+
+          echo '::endgroup::'
+
       # This is mostly copied from https://github.com/get-woke/woke-action-reviewdog/blob/main/entrypoint.sh
       # since their action is not yet released under a stable version.
       - name: Language
+        if: ${{ always() && github.event_name == 'pull_request' }}
         shell: bash
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ github.token }}
@@ -107,5 +154,5 @@ jobs:
                 -reporter="github-pr-check" \
                 -filter-mode="added" \
                 -fail-on-error="true" \
-                -level="error" \
+                -level="error"
           echo '::endgroup::'
