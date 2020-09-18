@@ -178,15 +178,14 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	// TODO(yanweiguo): Better handling these errors instead of just logging.
 	if err := f.createService(ctx, ns, n); err != nil {
-		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
+		f.logger.Fatalf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
 	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
-		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
+		f.logger.Fatalf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
