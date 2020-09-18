@@ -1,0 +1,72 @@
+# Copyright 2020 The Knative Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file is automagically synced here from github.com/knative-sandbox/.github
+# repo by knobots: https://github.com/mattmoor/knobots and will be overwritten.
+
+name: Client9 Misspell
+
+on:
+  pull_request:
+    branches: [ 'master', 'release-*' ]
+
+jobs:
+
+  misspell:
+    name: Misspell
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Go 1.14.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14.x
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      # This is mostly copied from https://github.com/get-woke/woke-action-reviewdog/blob/main/entrypoint.sh
+      # since their action is not yet released under a stable version.
+      - name: misspell
+        shell: bash
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd "${GITHUB_WORKSPACE}" || exit 1
+
+          TEMP_PATH="$(mktemp -d)"
+          PATH="${TEMP_PATH}:$PATH"
+
+          echo '::group:: Installing misspell ... https://github.com/client9/misspell'
+          go get github.com/client9/misspell/cmd/misspell
+          echo '::endgroup::'
+
+          echo '::group::🐶 Installing reviewdog ... https://github.com/reviewdog/reviewdog'
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b "${TEMP_PATH}" 2>&1
+          echo '::endgroup::'
+
+          echo '::group:: Running github.com/client9/misspell with reviewdog 🐶 ...'
+          find . -type f \
+                 -o -path './vendor' -prune \
+                 -o -path './third_party' -prune |
+          xargs misspell -error |
+          reviewdog -efm="%f:%l:%c: %m" \
+                -name="github.com/client9/misspell" \
+                -reporter="github-pr-check" \
+                -filter-mode="added" \
+                -fail-on-error="true" \
+                -level="error"
+
+          echo '::endgroup::'
