@@ -89,6 +89,7 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return nil
 	}
 
+	// Recreate SVC connection if somehow the Pod is no longer accessible via IP address.
 	if p.svcConn == nil {
 		p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
 		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
@@ -99,11 +100,11 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
+	// Pod is accessible via SVC only, mark podAddressable false and close the connection via Pod IP.
 	if p.podAddressable {
 		p.logger.Info("Autoscaler pods can't be accessed by IP address")
 		p.podAddressable = false
 	}
-
 	if p.podConn != nil {
 		if err := p.podConn.Shutdown(); err != nil {
 			p.logger.Warnw("Failed to close connection", zap.Error(err))
