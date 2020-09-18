@@ -55,7 +55,9 @@ type bucketProcessor struct {
 
 func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
 	logger.Info("Connecting to Autoscaler bucket at %s and %s.", podDNS, svcDNS)
-	// Initial with `podAddressable` true and a connection via IP address only.
+	// Initial with `podAddressable` true and a connection via IP address and a connection with SVC URL.
+	// If we create the connection when the stat arrives, the first request after the creation always
+	// fails because it takes some time to establish the connection.
 	return &bucketProcessor{
 		logger:         logger,
 		bkt:            bkt,
