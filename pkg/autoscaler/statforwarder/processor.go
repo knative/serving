@@ -17,7 +17,6 @@ limitations under the License.
 package statforwarder
 
 import (
-	"log"
 	"time"
 
 	gorillawebsocket "github.com/gorilla/websocket"
@@ -55,7 +54,7 @@ type bucketProcessor struct {
 }
 
 func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
-	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
+	logger.Info("Connecting to Autoscaler bucket at %s and %s.", podDNS, svcDNS)
 	// Initial with `podAddressable` true and a connection via IP address only.
 	return &bucketProcessor{
 		logger:         logger,
@@ -83,17 +82,16 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
-	if p.podAddressable {
-		if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
-			if p.svcConn != nil {
-				if err := p.svcConn.Shutdown(); err == nil {
-					p.svcConn = nil
-				} else {
-					p.logger.Warnw("Failed to close connection", zap.Error(err))
-				}
+	if p.podAddressable && p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b) == nil {
+		// Pod is accessible via IP address, close the connection via SVC.
+		if p.svcConn != nil {
+			if err := p.svcConn.Shutdown(); err != nil {
+				p.logger.Warnw("Failed to close connection", zap.Error(err))
+			} else {
+				p.svcConn = nil
 			}
-			return nil
 		}
+		return nil
 	}
 
 	if p.svcConn == nil {
@@ -101,26 +99,25 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
 	}
 
-	err = p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b)
-	if err == nil {
-		if p.podAddressable {
-			p.logger.Info("Autoscaler pods can't be accessed by IP address")
-			p.podAddressable = false
-		}
-
-		if p.podConn != nil {
-			if err := p.podConn.Shutdown(); err == nil {
-				p.podConn = nil
-			} else {
-				log.Println("failed to close")
-				p.logger.Warnw("Failed to close connection", zap.Error(err))
-			}
-		}
-		return nil
+	if err := p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b); err != nil {
+		// Sending via IP address and SVC both fail, return the error.
+		return err
 	}
 
-	// Sending via IP address and SVC both fail, return error for retrying.
-	return err
+	if p.podAddressable {
+		p.logger.Info("Autoscaler pods can't be accessed by IP address")
+		p.podAddressable = false
+	}
+
+	if p.podConn != nil {
+		if err := p.podConn.Shutdown(); err != nil {
+			p.logger.Warnw("Failed to close connection", zap.Error(err))
+		} else {
+			p.podConn = nil
+		}
+	}
+
+	return nil
 }
 
 func (p *bucketProcessor) shutdown() {

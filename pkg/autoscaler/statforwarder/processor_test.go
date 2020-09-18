@@ -36,7 +36,9 @@ func TestProcessorForwardingViaPodIP(t *testing.T) {
 	defer s.Close()
 
 	logger := TestLogger(t)
-	p := newForwardProcessor(logger, bucket1, testIP1, "ws"+strings.TrimPrefix(s.URL, "http"), "ws"+strings.TrimPrefix(s.URL, "http"))
+	url := "ws" + strings.TrimPrefix(s.URL, "http")
+	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
+	defer p.shutdown()
 
 	// Wait connection via IP to be established.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
@@ -69,6 +71,7 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 
 	logger := TestLogger(t)
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+	defer p.shutdown()
 
 	// Wait connection via SVC to be established.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
@@ -100,7 +103,9 @@ func TestProcessoReconnect(t *testing.T) {
 	defer s.Close()
 
 	logger := TestLogger(t)
-	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
+	url := "ws" + strings.TrimPrefix(s.URL, "http")
+	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
+	defer p.shutdown()
 
 	// Simulate that we have succseefully sent via Pod IP and closed the connection via SVC.
 	p.svcConn.Shutdown()
@@ -126,7 +131,8 @@ func testService(t *testing.T, received chan struct{}) *httptest.Server {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				t.Fatalf("error reading message: %v", err)
+				// This is probably caused by connection closed by client side.
+				return
 			}
 			received <- struct{}{}
 		}
