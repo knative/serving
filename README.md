@@ -25,5 +25,7 @@ For documentation on the Knative Serving specification, see the
 [docs](https://github.com/knative/serving/tree/master/docs) folder of this
 repository.
 
+DO NOT SUBMIT
+
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 and [DEVELOPMENT.md](./DEVELOPMENT.md).

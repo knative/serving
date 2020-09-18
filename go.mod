@@ -38,6 +38,7 @@ require (
 	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
 )
 
+// TODO(mattmoor): DO NOT SUBMIT
 replace (
 	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v38.2.0+incompatible
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.4.0+incompatible

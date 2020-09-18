@@ -107,5 +107,5 @@ jobs:
                 -reporter="github-pr-check" \
                 -filter-mode="added" \
                 -fail-on-error="true" \
-                -level="error" \
+                -level="error"
           echo '::endgroup::'

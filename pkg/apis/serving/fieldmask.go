@@ -23,6 +23,8 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 )
 
+// TODO(mattmoor): DO NOT SUBMIT
+
 // VolumeMask performs a _shallow_ copy of the Kubernetes Volume object to a new
 // Kubernetes Volume object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
