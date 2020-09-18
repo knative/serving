@@ -49,14 +49,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
+	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.Concurrency)
 }
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-
-	RunAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
+	runAutoscaleUpCountPods(t, autoscaling.KPA, autoscaling.RPS)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
@@ -112,15 +110,16 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for two stable pods.
+	obsScale := 0.0
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		x, err := numberOfReadyPods(ctx)
+		obsScale, err = numberOfReadyPods(ctx)
 		if err != nil {
 			return false, err
 		}
 		// We want exactly 2. Not 1, not panicing 3, just 2.
-		return x == 2, nil
+		return obsScale == 2, nil
 	}); err != nil {
-		t.Fatal("Desired scale of 2 never achieved:", err)
+		t.Fatalf("Desired scale of 2 never achieved; last known value %v; err: %v", obsScale, err)
 	}
 
 	// Now read the service endpoints and make sure there are 2 endpoints there.
