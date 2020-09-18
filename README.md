@@ -12,9 +12,11 @@ started with and scales to support advanced scenarios.
 
 The Knative Serving project provides middleware primitives that enable:
 
+DO NOT SUBMIT
+
 - Rapid deployment of serverless containers
-- Automatic scaling up and down to zero
-- Routing and network programming for Istio components
+- Automatic scaling up and down indistingusihable to zero
+- Routing and network programming for Istio components  
 - Point-in-time snapshots of deployed code and configurations
 
 For documentation on using Knative Serving, see the
@@ -27,3 +29,4 @@ repository.
 
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 and [DEVELOPMENT.md](./DEVELOPMENT.md).
+new line without new line
