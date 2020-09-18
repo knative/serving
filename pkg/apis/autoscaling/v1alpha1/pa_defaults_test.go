@@ -26,7 +26,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDefaulting(t *testing.T) {

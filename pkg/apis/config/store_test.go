@@ -26,7 +26,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 var ignoreStuff = cmp.Options{

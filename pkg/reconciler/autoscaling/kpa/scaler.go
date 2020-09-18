@@ -33,7 +33,7 @@ import (
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -131,7 +131,7 @@ func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (
 	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
-func lastPodRetention(pa *pav1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
+func lastPodRetention(pa *pav1alpha1.PodAutoscaler, cfg *sharedconfig.Config) time.Duration {
 	d, ok := pa.ScaleToZeroPodRetention()
 	if ok {
 		return d

@@ -28,7 +28,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 var defaultProbe = &corev1.Probe{

@@ -20,7 +20,8 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
 )
 
 type cfgKey struct{}
@@ -30,7 +31,7 @@ type cfgKey struct{}
 type Config struct {
 	Defaults   *Defaults
 	Features   *Features
-	Autoscaler *autoscalerconfig.Config
+	Autoscaler *sharedconfig.Config
 }
 
 // FromContext extracts a Config from the provided context.
@@ -108,7 +109,7 @@ func (s *Store) Load() *Config {
 	if feat, ok := s.UntypedLoad(FeaturesConfigName).(*Features); ok {
 		cfg.Features = feat.DeepCopy()
 	}
-	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config); ok {
+	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*sharedconfig.Config); ok {
 		cfg.Autoscaler = as.DeepCopy()
 	}
 	return cfg

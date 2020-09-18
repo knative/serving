@@ -34,7 +34,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )

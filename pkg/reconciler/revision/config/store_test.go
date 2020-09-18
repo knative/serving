@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 
 	. "knative.dev/pkg/configmap/testing"
