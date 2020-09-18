@@ -17,11 +17,19 @@ limitations under the License.
 package statforwarder
 
 import (
+	"log"
+	"time"
+
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+)
+
+const (
+	forwardRetryTimeout  = 10 * time.Second
+	forwardRetryInterval = 100 * time.Millisecond
 )
 
 // bucketProcessor includes the information about how to process
@@ -32,11 +40,32 @@ type bucketProcessor struct {
 	bkt string
 	// holder is the HolderIdentity for a bucket from the Lease.
 	holder string
-	// conn is the WebSocket connection to the holder pod.
-	conn *websocket.ManagedConnection
+
+	// podAddressable indicates whether pod is accessible with IP address.
+	podAddressable bool
+	svcDNS         string
+	// podConn is the WebSocket connection to the holder pod with pod IP.
+	podConn *websocket.ManagedConnection
+	// svcConn is the WebSocket connection to the holder pod with bucket Service.
+	svcConn *websocket.ManagedConnection
+
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
+}
+
+func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
+	logger.Info("Connecting to Autoscaler bucket at ", podDNS)
+	// Initial with `podAddressable` true and a connection via IP address only.
+	return &bucketProcessor{
+		logger:         logger,
+		bkt:            bkt,
+		holder:         holder,
+		podAddressable: true,
+		podConn:        websocket.NewDurableSendingConnection(podDNS, logger),
+		svcConn:        websocket.NewDurableSendingConnection(svcDNS, logger),
+		svcDNS:         svcDNS,
+	}
 }
 
 func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
@@ -54,11 +83,51 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return err
 	}
 
-	return p.conn.SendRaw(gorillawebsocket.BinaryMessage, b)
+	if p.podAddressable {
+		if err := p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b); err == nil {
+			if p.svcConn != nil {
+				if err := p.svcConn.Shutdown(); err == nil {
+					p.svcConn = nil
+				} else {
+					p.logger.Warnw("Failed to close connection", zap.Error(err))
+				}
+			}
+			return nil
+		}
+	}
+
+	if p.svcConn == nil {
+		p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
+		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
+	}
+
+	err = p.svcConn.SendRaw(gorillawebsocket.BinaryMessage, b)
+	if err == nil {
+		if p.podAddressable {
+			p.logger.Info("Autoscaler pods can't be accessed by IP address")
+			p.podAddressable = false
+		}
+
+		if p.podConn != nil {
+			if err := p.podConn.Shutdown(); err == nil {
+				p.podConn = nil
+			} else {
+				log.Println("failed to close")
+				p.logger.Warnw("Failed to close connection", zap.Error(err))
+			}
+		}
+		return nil
+	}
+
+	// Sending via IP address and SVC both fail, return error for retrying.
+	return err
 }
 
 func (p *bucketProcessor) shutdown() {
-	if p.conn != nil {
-		p.conn.Shutdown()
+	if p.svcConn != nil {
+		p.svcConn.Shutdown()
+	}
+	if p.podConn != nil {
+		p.podConn.Shutdown()
 	}
 }

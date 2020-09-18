@@ -436,7 +436,8 @@ func TestProcess(t *testing.T) {
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		p1 := f.getProcessor(bucket1)
 		p2 := f.getProcessor(bucket2)
-		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 && p1.conn == nil && p2.conn != nil, nil
+		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 &&
+			p1.podConn == nil && p2.podConn != nil && p1.svcConn == nil && p2.svcConn != nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}
