@@ -249,7 +249,7 @@ func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.Resou
 	if err != nil {
 		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	dialer := CreateDialContext(t, ing, clients)
+	dialer := ingress.CreateDialContext(t, ing, clients)
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext:     dialer,
