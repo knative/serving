@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
   annotations:
-    knative.dev/example-checksum: "2653766a"
+    knative.dev/example-checksum: "5e3df87d"
 data:
   _example: |
     ################################
@@ -104,8 +104,3 @@ data:
     # 3. Redirected: The Knative ingress will send a 302 redirect for all
     # http connections, asking the clients to use HTTPS.
     httpProtocol: "Enabled"
-
-    # Controls whether tag header based routing feature are enabled or not.
-    # 1. Enabled: enabling tag header based routing
-    # 2. Disabled: disabling tag header based routing.
-    tagHeaderBasedRouting: "Disabled"
