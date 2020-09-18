@@ -49,11 +49,13 @@ const (
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
 
-	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
+	// Retry at most 16 seconds to process a stat. NOTE: Retrying could
 	// cause high delay and inaccurate scaling decision because we use
 	// the timestamp on receiving.
-	maxProcessingRetry      = 30
-	retryProcessingInterval = 500 * time.Millisecond
+	maxProcessingRetry          = 40
+	fastMaxProcessRetry         = 10
+	fastRetryProcessingInterval = 100 * time.Microsecond
+	slowRetryProcessingInterval = 500 * time.Millisecond
 )
 
 // statProcessor is a function to process a single StatMessage.
@@ -363,7 +365,12 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
 	f.retryWg.Add(1)
 	go func() {
 		defer f.retryWg.Done()
-		time.Sleep(retryProcessingInterval)
+		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
+		interval := fastRetryProcessingInterval
+		if s.retry > fastMaxProcessRetry {
+			interval = slowRetryProcessingInterval
+		}
+		time.Sleep(interval)
 		logger.Debug("Enqueuing stat for retry.")
 		f.statCh <- s
 	}()

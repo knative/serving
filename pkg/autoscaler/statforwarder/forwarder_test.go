@@ -404,7 +404,8 @@ func TestProcess(t *testing.T) {
 		waitInformers()
 	}()
 
-	acceptCh := make(chan int)
+	// Make a cached channel so it won't block the fowarder process.
+	acceptCh := make(chan int, 2)
 	acceptCount := 0
 	accept := func(sm asmetrics.StatMessage) {
 		acceptCount++
@@ -437,7 +438,7 @@ func TestProcess(t *testing.T) {
 		p1 := f.getProcessor(bucket1)
 		p2 := f.getProcessor(bucket2)
 		return p1 != nil && p2 != nil && p1.holder == testIP1 && p2.holder == testIP2 &&
-			p1.podConn == nil && p2.podConn != nil && p1.svcConn == nil && p2.svcConn != nil, nil
+			p1.podConn == nil && p2.podConn != nil && p1.svcConn == nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout waiting f.processors got updated")
 	}

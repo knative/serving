@@ -47,17 +47,14 @@ type bucketProcessor struct {
 }
 
 func newForwardProcessor(logger *zap.SugaredLogger, bkt, holder, podDNS, svcDNS string) *bucketProcessor {
-	logger.Info("Connecting to Autoscaler bucket at %s and %s.", podDNS, svcDNS)
-	// Initial with `podAddressable` true and a connection via IP address and a connection with SVC URL.
-	// If we create the connection when the stat arrives, the first request after the creation always
-	// fails because it takes some time to establish the connection.
+	logger.Infof("Connecting to Autoscaler bucket at %s and %s.", podDNS, svcDNS)
+	// Initial with `podAddressable` true and a connection via IP address only.
 	return &bucketProcessor{
 		logger:         logger,
 		bkt:            bkt,
 		holder:         holder,
 		podAddressable: true,
 		podConn:        websocket.NewDurableSendingConnection(podDNS, logger),
-		svcConn:        websocket.NewDurableSendingConnection(svcDNS, logger),
 		svcDNS:         svcDNS,
 	}
 }
@@ -89,7 +86,6 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 		return nil
 	}
 
-	// Recreate SVC connection if somehow the Pod is no longer accessible via IP address.
 	if p.svcConn == nil {
 		p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
 		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)

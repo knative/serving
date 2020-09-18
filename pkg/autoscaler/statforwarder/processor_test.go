@@ -59,7 +59,7 @@ func TestProcessorForwardingViaPodIP(t *testing.T) {
 		t.Errorf("podsAddressable = %v, want = %v", got, wanted)
 	}
 	if p.svcConn != nil {
-		t.Error("Expected connection via SVC to be closed but not")
+		t.Error("Unexpected connection via SVC")
 	}
 }
 
@@ -72,6 +72,18 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 	logger := TestLogger(t)
 	p := newForwardProcessor(logger, bucket1, testIP1, "ws://something.not.working", "ws"+strings.TrimPrefix(s.URL, "http"))
 	defer p.shutdown()
+
+	// Send a request to trigger the SVC connection creation.
+	if err := p.process(stat1); err == nil {
+		// In most case the error will not be nil because the WS connection was just created
+		// and it needs some time to be establish. The request should be failed.
+		// Add this check to reduce flakiness.
+		select {
+		case <-received:
+		case <-time.After(time.Second):
+			t.Error("Timeout waiting for receiving stat")
+		}
+	}
 
 	// Wait connection via SVC to be established.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
@@ -93,28 +105,6 @@ func TestProcessorForwardingViaSvc(t *testing.T) {
 	}
 	if p.podConn != nil {
 		t.Error("Expected connection via Pod IP to be closed but not")
-	}
-}
-
-func TestProcessoReconnect(t *testing.T) {
-	received := make(chan struct{})
-
-	s := testService(t, received)
-	defer s.Close()
-
-	logger := TestLogger(t)
-	url := "ws" + strings.TrimPrefix(s.URL, "http")
-	p := newForwardProcessor(logger, bucket1, testIP1, url, url)
-	defer p.shutdown()
-
-	// Simulate that we have succseefully sent via Pod IP and closed the connection via SVC.
-	p.svcConn.Shutdown()
-	p.svcConn = nil
-
-	p.process(stat1)
-
-	if p.svcConn == nil {
-		t.Error("Expected connection via SVC to be created but not")
 	}
 }
 
