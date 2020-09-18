@@ -29,7 +29,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -218,7 +218,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 func MakeDeployment(rev *v1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config,
 	observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config,
-	autoscalerConfig *sharedconfig.Config) (*appsv1.Deployment, error) {
+	autoscalerConfig *autoscalerconfig.Config) (*appsv1.Deployment, error) {
 
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {

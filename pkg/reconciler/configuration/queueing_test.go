@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/system"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 
@@ -106,7 +106,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		Data: map[string]string{},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalercfg.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},

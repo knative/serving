@@ -27,8 +27,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
@@ -38,7 +37,7 @@ func TestMakeDecider(t *testing.T) {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
 		want   *scaling.Decider
-		cfgOpt func(sharedconfig.Config) *sharedconfig.Config
+		cfgOpt func(autoscalerconfig.Config) *autoscalerconfig.Config
 	}{{
 		name: "defaults",
 		pa:   pa(),
@@ -61,7 +60,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "tu < 1", // See #4449 why Target=100
 		pa:   pa(),
 		want: decider(withTarget(80), withPanicThreshold(2.0), withTotal(100)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
@@ -70,7 +69,7 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100),
 			withScaleUpDownRates(19.84, 19.88)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.MaxScaleUpRate = 19.84
 			c.MaxScaleDownRate = 19.88
 			return &c
@@ -87,7 +86,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with container concurrency and tu < 1",
 		pa:   pa(WithPAContainerConcurrency(100)),
 		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
@@ -95,7 +94,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with burst capacity set",
 		pa:   pa(WithPAContainerConcurrency(120)),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -104,7 +103,7 @@ func TestMakeDecider(t *testing.T) {
 		name: "with activator capacity override",
 		pa:   pa(),
 		want: decider(withActivatorCapacity(420), withTarget(100.0), withPanicThreshold(2.0), withTotal(100)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ActivatorCapacity = 420
 			return &c
 		},
@@ -113,7 +112,7 @@ func TestMakeDecider(t *testing.T) {
 		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
-		cfgOpt: func(c sharedconfig.Config) *sharedconfig.Config {
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -166,7 +165,7 @@ func TestGetInitialScale(t *testing.T) {
 	tests := []struct {
 		name          string
 		paMutation    func(*v1alpha1.PodAutoscaler)
-		configMutator func(*sharedconfig.Config)
+		configMutator func(*autoscalerconfig.Config)
 		want          int
 	}{{
 		name: "revision initial scale not set",
@@ -182,7 +181,7 @@ func TestGetInitialScale(t *testing.T) {
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
-		configMutator: func(c *sharedconfig.Config) {
+		configMutator: func(c *autoscalerconfig.Config) {
 			c.AllowZeroInitialScale = true
 		},
 		want: 0,
@@ -191,7 +190,7 @@ func TestGetInitialScale(t *testing.T) {
 		paMutation: func(pa *v1alpha1.PodAutoscaler) {
 			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
-		configMutator: func(c *sharedconfig.Config) {
+		configMutator: func(c *autoscalerconfig.Config) {
 			c.AllowZeroInitialScale = false
 		},
 		want: 1,
@@ -339,7 +338,7 @@ func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 	}
 }
 
-var config = &sharedconfig.Config{
+var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,

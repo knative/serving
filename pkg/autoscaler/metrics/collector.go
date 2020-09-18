@@ -27,7 +27,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
-	"knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 const (
@@ -252,13 +252,13 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, clock clock.C
 	c := &collection{
 		metric: metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.StableWindow, config.BucketSize),
+			metric.Spec.StableWindow, autoscalerconfig.BucketSize),
 		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.PanicWindow, config.BucketSize),
+			metric.Spec.PanicWindow, autoscalerconfig.BucketSize),
 		rpsBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.StableWindow, config.BucketSize),
+			metric.Spec.StableWindow, autoscalerconfig.BucketSize),
 		rpsPanicBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.PanicWindow, config.BucketSize),
+			metric.Spec.PanicWindow, autoscalerconfig.BucketSize),
 		scraper: scraper,
 
 		stopCh: make(chan struct{}),

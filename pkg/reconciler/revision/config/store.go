@@ -25,8 +25,7 @@ import (
 	"knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/autoscaler/config/sharedconfig"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
 )
 
@@ -41,7 +40,7 @@ type Config struct {
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
 	Tracing       *pkgtracing.Config
-	Autoscaler    *sharedconfig.Config
+	Autoscaler    *autoscalerconfig.Config
 }
 
 // FromContext loads the configuration from the context.
@@ -114,7 +113,7 @@ func (s *Store) Load() *Config {
 	if tr, ok := s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config); ok {
 		cfg.Tracing = tr.DeepCopy()
 	}
-	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*sharedconfig.Config); ok {
+	if as, ok := s.UntypedLoad(autoscalerconfig.ConfigName).(*autoscalerconfig.Config); ok {
 		cfg.Autoscaler = as.DeepCopy()
 	}
 

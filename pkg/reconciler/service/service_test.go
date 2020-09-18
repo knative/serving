@@ -38,7 +38,7 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
@@ -807,7 +807,7 @@ func TestNew(t *testing.T) {
 		Data: map[string]string{},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscalercfg.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},

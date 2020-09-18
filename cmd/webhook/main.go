@@ -48,7 +48,7 @@ import (
 	network "knative.dev/networking/pkg"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
