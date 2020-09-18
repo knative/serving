@@ -436,7 +436,7 @@ func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	annotationValue := r.Annotations[networking.DisableAutoTLSAnnotationKey]
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
-	if err != nil {
+	if annotationValue != "" && err != nil {
 		// validation should've caught an invalid value here.
 		// if we have one anyways, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",
