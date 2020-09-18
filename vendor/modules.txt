@@ -1040,6 +1040,7 @@ knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/networking v0.0.0-20200917035342-994d214cdf82
 ## explicit
+knative.dev/networking/config
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
 knative.dev/networking/pkg/apis/networking/v1alpha1
