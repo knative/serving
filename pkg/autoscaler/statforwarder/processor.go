@@ -77,17 +77,14 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	if p.podAddressable && p.podConn.SendRaw(gorillawebsocket.BinaryMessage, b) == nil {
 		// Pod is accessible via IP address, close the connection via SVC.
 		if p.svcConn != nil {
-			if err := p.svcConn.Shutdown(); err != nil {
-				p.logger.Warnw("Failed to close connection", zap.Error(err))
-			} else {
-				p.svcConn = nil
-			}
+			p.svcConn.Shutdown()
+			p.svcConn = nil
 		}
 		return nil
 	}
 
 	if p.svcConn == nil {
-		p.logger.Info("Connecting to Autoscaler bucket at ", p.svcDNS)
+		p.logger.Info("Connecting to Autoscaler bucket via service ", p.svcDNS)
 		p.svcConn = websocket.NewDurableSendingConnection(p.svcDNS, p.logger)
 	}
 
@@ -100,11 +97,8 @@ func (p *bucketProcessor) process(sm asmetrics.StatMessage) error {
 	if p.podAddressable {
 		p.logger.Info("Autoscaler pods can't be accessed by IP address")
 		p.podAddressable = false
-	}
-	if p.podConn != nil {
-		if err := p.podConn.Shutdown(); err != nil {
-			p.logger.Warnw("Failed to close connection", zap.Error(err))
-		} else {
+		if p.podConn != nil {
+			p.podConn.Shutdown()
 			p.podConn = nil
 		}
 	}

@@ -58,6 +58,8 @@ const (
 	slowRetryProcessingInterval = 500 * time.Millisecond
 )
 
+var svcURLPostfix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
+
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
 
@@ -315,7 +317,7 @@ func (f *Forwarder) createProcessor(ns, bkt, holder string) *bucketProcessor {
 
 	return newForwardProcessor(f.logger.With(zap.String("bucket", bkt)), bkt, holder,
 		fmt.Sprintf("ws://%s:%d", holder, autoscalerPort),
-		fmt.Sprintf("ws://%s.%s.svc.%s:%d", bkt, ns, network.GetClusterDomainName(), autoscalerPort))
+		fmt.Sprintf("ws://%s.%s.%s", bkt, ns, svcURLPostfix))
 }
 
 // Process enqueues the given Stat for processing asynchronously.
