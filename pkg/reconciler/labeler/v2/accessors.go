@@ -81,7 +81,7 @@ func makeMetadataPatch(
 	updateRouteAnnotation(ctx, acc, routeName, annotations, remove)
 
 	if addRoutingState {
-		markRoutingState(ctx, acc, clock, labels, annotations)
+		markRoutingState(ctx, acc, clock, routeName, labels, annotations)
 	}
 
 	meta := map[string]interface{}{}
@@ -99,12 +99,18 @@ func makeMetadataPatch(
 
 // markRoutingState updates the RoutingStateLabel and bumps the modified time annotation.
 func markRoutingState(
-	ctx context.Context,
-	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
+	ctx context.Context, acc kmeta.Accessor, clock clock.Clock,
+	routeName string, diffLabels, diffAnn map[string]interface{}) {
 
-	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
+	hasRoute := false
 	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
-		hasRoute = val != nil
+		if val == nil {
+			hasRoute = false
+		} else {
+			hasRoute = sets.NewString(strings.Split(val.(string), ",")...).Has(routeName)
+		}
+	} else {
+		hasRoute = GetListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey).Has(routeName)
 	}
 
 	wantState := string(v1.RoutingStateReserve)

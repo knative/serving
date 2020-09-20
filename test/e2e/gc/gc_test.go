@@ -66,19 +66,12 @@ func TestRevisionGC(t *testing.T) {
 	if _, err := v1test.PatchService(t, clients, resources.Service, rtesting.WithServiceImage(image2)); err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, image2, err)
 	}
+
 	t.Log("Service should reflect new revision created and ready in status.")
 	names.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
 		t.Fatal("New image not reflected in Service:", err)
 	}
-
-	t.Log("Waiting for new revision to become ready")
-	if err := v1test.WaitForRevisionState(
-		clients.ServingClient, names.Revision, v1test.IsRevisionReady, "RevisionIsReady",
-	); err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", names.Revision, err)
-	}
-
 	t.Log("Waiting for Service to transition to Ready.")
 	if err := v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatal("Error waiting for the service to become ready for the latest revision:", err)
