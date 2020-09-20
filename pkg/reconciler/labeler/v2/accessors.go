@@ -102,19 +102,13 @@ func markRoutingState(
 	ctx context.Context, acc kmeta.Accessor, clock clock.Clock,
 	routeName string, diffLabels, diffAnn map[string]interface{}) {
 
-	hasRoute := false
+	hasAnyRoutes := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
 	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
-		if val == nil {
-			hasRoute = false
-		} else {
-			hasRoute = sets.NewString(strings.Split(val.(string), ",")...).Has(routeName)
-		}
-	} else {
-		hasRoute = GetListAnnValue(acc.GetAnnotations(), serving.RoutesAnnotationKey).Has(routeName)
+		hasAnyRoutes = val != nil
 	}
 
 	wantState := string(v1.RoutingStateReserve)
-	if hasRoute {
+	if hasAnyRoutes {
 		wantState = string(v1.RoutingStateActive)
 	}
 
