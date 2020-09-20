@@ -4,10 +4,11 @@ go 1.14
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/go-cmp v0.5.1
-	github.com/google/go-containerregistry v0.1.3-0.20200910230023-d42b6a2ddfd1
+	github.com/google/go-containerregistry v0.1.3
 	github.com/google/gofuzz v1.1.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/google/uuid v1.1.1
@@ -31,10 +32,10 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.8
 	k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29
-	knative.dev/caching v0.0.0-20200914162003-11799af7d86b
-	knative.dev/networking v0.0.0-20200915161842-348082e83e8a
-	knative.dev/pkg v0.0.0-20200915092441-a5e2edc217c0
-	knative.dev/test-infra v0.0.0-20200914203402-489e9e80675b
+	knative.dev/caching v0.0.0-20200915210741-1070879d7425
+	knative.dev/networking v0.0.0-20200917035342-994d214cdf82
+	knative.dev/pkg v0.0.0-20200916171541-6e0430fd94db
+	knative.dev/test-infra v0.0.0-20200916223841-d362984af929
 )
 
 replace (

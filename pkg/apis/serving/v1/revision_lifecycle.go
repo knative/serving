@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,10 @@ const (
 	// ReasonContainerMissing defines the reason for marking container healthiness status
 	// as false if the a container image for the revision is missing.
 	ReasonContainerMissing = "ContainerMissing"
+
+	// ReasonResolvingDigests defines the reason for marking container healthiness status
+	// as unknown if the digests for the container images are being resolved.
+	ReasonResolvingDigests = "ResolvingDigests"
 
 	// ReasonDeploying defines the reason for marking revision availability status as
 	// unknown if the revision is still deploying.

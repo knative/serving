@@ -1,4 +1,6 @@
-# Copyright 2020 The Knative Authors.
+#!/bin/bash
+
+# Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Lint
+source $(dirname $0)/e2e-common.sh
 
-on:
-  push:
-    branches: [ 'master', 'release-*' ]
-  pull_request:
-    branches: [ 'master', 'release-*' ]
 
-jobs:
-  golangci:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.30
+# Script entry point.
+initialize $@  --skip-istio-addon
+
+success

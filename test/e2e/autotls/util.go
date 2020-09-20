@@ -17,94 +17,19 @@ limitations under the License.
 package autotls
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"testing"
-	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	pkgTest "knative.dev/pkg/test"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/network"
-	"knative.dev/serving/test"
+
 	"knative.dev/serving/test/types"
 )
-
-var dialBackoff = wait.Backoff{
-	Duration: 50 * time.Millisecond,
-	Factor:   1.4,
-	Jitter:   0.1, // At most 10% jitter.
-	Steps:    100,
-	Cap:      10 * time.Second,
-}
-
-// CreateDialContext looks up the endpoint information to create a "dialer" for
-// the provided Ingress' public ingress loas balancer.  It can be used to
-// contact external-visibility services with an HTTP client via:
-//
-//	client := &http.Client{
-//		Transport: &http.Transport{
-//			DialContext: CreateDialContext(t, ing, clients),
-//		},
-//	}
-func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Clients) func(context.Context, string, string) (net.Conn, error) {
-	t.Helper()
-	if ing.Status.PublicLoadBalancer == nil || len(ing.Status.PublicLoadBalancer.Ingress) < 1 {
-		t.Fatal("Ingress does not have a public load balancer assigned.")
-	}
-
-	// TODO(mattmoor): I'm open to tricks that would let us cleanly test multiple
-	// public load balancers or LBs with multiple ingresses (below), but want to
-	// keep our simple tests simple, thus the [0]s...
-
-	// We expect an ingress LB with the form foo.bar.svc.cluster.local (though
-	// we aren't strictly sensitive to the suffix, this is just illustrative.
-	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
-	parts := strings.SplitN(internalDomain, ".", 3)
-	if len(parts) < 3 {
-		t.Fatal("Too few parts in internal domain:", internalDomain)
-	}
-	name, namespace := parts[0], parts[1]
-
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Unable to retrieve Kubernetes service %s/%s: %v", namespace, name, err)
-	}
-	if len(svc.Status.LoadBalancer.Ingress) < 1 {
-		t.Fatal("Service does not have any ingresses (not type LoadBalancer?).")
-	}
-	ingress := svc.Status.LoadBalancer.Ingress[0]
-	dial := network.NewBackoffDialer(dialBackoff)
-	return func(ctx context.Context, _ string, address string) (net.Conn, error) {
-		_, port, err := net.SplitHostPort(address)
-		if err != nil {
-			return nil, err
-		}
-		// Allow "ingressendpoint" flag to override the discovered ingress IP/hostname,
-		// this is required in minikube-like environments.
-		if pkgTest.Flags.IngressEndpoint != "" {
-			return dial(ctx, "tcp", pkgTest.Flags.IngressEndpoint)
-		}
-		if ingress.IP != "" {
-			return dial(ctx, "tcp", ingress.IP+":"+port)
-		}
-		if ingress.Hostname != "" {
-			return dial(ctx, "tcp", ingress.Hostname+":"+port)
-		}
-		return nil, errors.New("service ingress does not contain dialing information")
-	}
-}
 
 type requestOption func(*http.Request)
 type responseExpectation func(response *http.Response) error

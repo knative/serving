@@ -18,8 +18,6 @@
 name: Build
 
 on:
-  push:
-    branches: [ 'master', 'release-*' ]
   pull_request:
     branches: [ 'master', 'release-*' ]
 
@@ -44,8 +42,6 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
 
       - name: Build
         run: |

@@ -48,10 +48,21 @@ const (
 	autoscalerPortName = "http"
 	retryTimeout       = 3 * time.Second
 	retryInterval      = 100 * time.Millisecond
+
+	// Retry at most 15 seconds to process a stat. NOTE: Retrying could
+	// cause high delay and inaccurate scaling decision because we use
+	// the timestamp on receiving.
+	maxProcessingRetry      = 30
+	retryProcessingInterval = 500 * time.Millisecond
 )
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
+
+type stat struct {
+	sm    asmetrics.StatMessage
+	retry int
+}
 
 // Forwarder does the following things:
 // 1. Watches the change of Leases for Autoscaler buckets. Stores the
@@ -64,6 +75,7 @@ type Forwarder struct {
 	logger          *zap.SugaredLogger
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
+
 	// `accept` is the function to process a StatMessage which doesn't need
 	// to be forwarded.
 	accept statProcessor
@@ -72,9 +84,15 @@ type Forwarder struct {
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
 	processors     map[string]*bucketProcessor
-	// Used to capture asynchronous processes to be waited
-	// on when shutting the WebSocket connection down.
+	// Used to capture asynchronous processes for re-enqueuing to be waited
+	// on when shutting down.
+	retryWg sync.WaitGroup
+	// Used to capture asynchronous processe for stats to be waited
+	// on when shutting down.
 	processingWg sync.WaitGroup
+
+	statCh chan stat
+	stopCh chan struct{}
 }
 
 // New creates a new Forwarder.
@@ -90,7 +108,12 @@ func New(ctx context.Context, logger *zap.SugaredLogger, kc kubernetes.Interface
 		bs:              bs,
 		processors:      make(map[string]*bucketProcessor, len(bkts)),
 		accept:          accept,
+		statCh:          make(chan stat, 1000),
+		stopCh:          make(chan struct{}),
 	}
+
+	f.processingWg.Add(1)
+	go f.process()
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -155,15 +178,14 @@ func (f *Forwarder) leaseUpdated(obj interface{}) {
 		return
 	}
 
-	// TODO(yanweiguo): Better handling these errors instead of just logging.
 	if err := f.createService(ctx, ns, n); err != nil {
-		f.logger.Errorf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
+		f.logger.Fatalf("Failed to create Service for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
 	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
-		f.logger.Errorf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
+		f.logger.Fatalf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
 	f.logger.Infof("Created Endpoints for Lease %s/%s", ns, n)
@@ -293,7 +315,6 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	// is mesh. Need to fall back to connection via Service.
 	dns := fmt.Sprintf("ws://%s:%d", holder, autoscalerPort)
 	f.logger.Info("Connecting to Autoscaler bucket at ", dns)
-	f.processingWg.Add(1)
 	return &bucketProcessor{
 		bkt:    bkt,
 		logger: f.logger.With(zap.String("bucket", bkt)),
@@ -302,39 +323,76 @@ func (f *Forwarder) createProcessor(bkt, holder string) *bucketProcessor {
 	}
 }
 
-// Process calls Forwarder.accept if the pod where this Forwarder is running is the owner
+// Process enqueues the given Stat for processing asynchronously.
+// It calls Forwarder.accept if the pod where this Forwarder is running is the owner
 // of the given StatMessage. Otherwise it forwards the given StatMessage to the right
-// owner pod. If it can't find the owner, it drops the StatMessage.
+// owner pod. It will retry if any error happens during the processing.
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
-	rev := sm.Key.String()
-	l := f.logger.With(zap.String("revision", rev))
-	bkt := f.bs.Owner(rev)
+	f.statCh <- stat{sm: sm, retry: 0}
+}
 
-	p := f.getProcessor(bkt)
-	if p == nil {
-		l.Warnf("Can't find the owner for Rev %s. Dropping its stat.", rev)
-		return
+func (f *Forwarder) process() {
+	defer func() {
+		f.retryWg.Wait()
+		f.processingWg.Done()
+	}()
+
+	for {
+		select {
+		case <-f.stopCh:
+			return
+		case s := <-f.statCh:
+			rev := s.sm.Key.String()
+			l := f.logger.With(zap.String("revision", rev))
+			bkt := f.bs.Owner(rev)
+
+			p := f.getProcessor(bkt)
+			if p == nil {
+				l.Warn("Can't find the owner for Revision.")
+				f.maybeRetry(l, s, rev)
+				continue
+			}
+
+			if err := p.process(s.sm); err != nil {
+				l.Errorw("Error while processing stat", zap.Error(err))
+				f.maybeRetry(l, s, rev)
+			}
+		}
+	}
+}
+
+func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat, rev string) {
+	if s.retry > maxProcessingRetry {
+		logger.Warn("Exceeding max retries. Dropping the stat.")
 	}
 
-	p.process(sm)
+	s.retry++
+	f.retryWg.Add(1)
+	go func() {
+		defer f.retryWg.Done()
+		time.Sleep(retryProcessingInterval)
+		logger.Debug("Enqueuing stat for retry.")
+		f.statCh <- s
+	}()
 }
 
 func (f *Forwarder) shutdown(p *bucketProcessor) {
-	if p != nil && p.conn != nil {
-		go func() {
-			defer f.processingWg.Done()
-			p.conn.Shutdown()
-		}()
+	if p != nil && p.accept == nil {
+		p.shutdown()
 	}
 }
 
 // Cancel is the function to call when terminating a Forwarder.
 func (f *Forwarder) Cancel() {
+	// Tell process go-runtine to stop.
+	close(f.stopCh)
+
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
-
 	for _, p := range f.processors {
 		f.shutdown(p)
 	}
+
 	f.processingWg.Wait()
+	close(f.statCh)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,15 +18,13 @@ package revision
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
@@ -43,10 +41,9 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
-const digestResolutionTimeout = 60 * time.Second
-
 type resolver interface {
-	Resolve(context.Context, string, k8schain.Options, sets.String) (string, error)
+	Resolve(*v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, error)
+	Clear(types.NamespacedName)
 }
 
 // Reconciler implements controller.Reconciler for Revision resources.
@@ -66,7 +63,7 @@ type Reconciler struct {
 // Check that our Reconciler implements revisionreconciler.Interface
 var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
-func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
 	if rev.Status.ContainerStatuses == nil {
 		rev.Status.ContainerStatuses = make([]v1.ContainerStatus, 0, len(rev.Spec.Containers))
 	}
@@ -84,7 +81,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 
 	// The image digest has already been resolved.
 	if len(rev.Status.ContainerStatuses) == len(rev.Spec.Containers) {
-		return nil
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
+		return true, nil
 	}
 
 	imagePullSecrets := make([]string, 0, len(rev.Spec.ImagePullSecrets))
@@ -98,47 +96,49 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		ImagePullSecrets:   imagePullSecrets,
 	}
 
-	var digestGrp errgroup.Group
-	containerStatuses := make([]v1.ContainerStatus, len(rev.Spec.Containers))
-	for i, container := range rev.Spec.Containers {
-		container := container // Standard Go concurrency pattern.
-		i := i
-		digestGrp.Go(func() error {
-			ctx, cancel := context.WithTimeout(ctx, digestResolutionTimeout)
-			defer cancel()
-
-			digest, err := c.resolver.Resolve(ctx, container.Image,
-				opt, cfgs.Deployment.RegistriesSkippingTagResolving)
-			if err != nil {
-				return errors.New(v1.RevisionContainerMissingMessage(container.Image, fmt.Sprintf("failed to resolve image to digest: %v", err)))
-			}
-
-			if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
-				rev.Status.DeprecatedImageDigest = digest
-			}
-
-			containerStatuses[i] = v1.ContainerStatus{
-				Name:        container.Name,
-				ImageDigest: digest,
-			}
-			return nil
-		})
-	}
-	if err := digestGrp.Wait(); err != nil {
+	statuses, err := c.resolver.Resolve(rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	if err != nil {
+		// Clear the resolver so we can retry the digest resolution rather than
+		// being stuck with this error.
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
 		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
-		return err
+		return true, err
 	}
-	rev.Status.ContainerStatuses = containerStatuses
-	return nil
+	if len(statuses) > 0 {
+		rev.Status.ContainerStatuses = statuses
+
+		// For backwards-compatibility we need to continue to set the DeprecatedImageDigest field.
+		for i := range rev.Spec.Containers {
+			if len(rev.Spec.Containers) == 1 || len(rev.Spec.Containers[i].Ports) != 0 {
+				rev.Status.DeprecatedImageDigest = statuses[i].ImageDigest
+			}
+		}
+
+		return true, nil
+	}
+
+	// No digest yet, wait for re-enqueue when resolution is done.
+	return false, nil
 }
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
+	reconciled, err := c.reconcileDigest(ctx, rev)
+	if err != nil {
+		return err
+	}
+	if !reconciled {
+		// Digest not resolved yet, wait for background resolution to re-enqueue the revision.
+		rev.Status.MarkResourcesAvailableUnknown(v1.ReasonResolvingDigests, "")
+		return nil
+	}
+
 	for _, phase := range []func(context.Context, *v1.Revision) error{
-		c.reconcileDigest, c.reconcileDeployment,
-		c.reconcileImageCache, c.reconcilePA,
+		c.reconcileDeployment,
+		c.reconcileImageCache,
+		c.reconcilePA,
 	} {
 		if err := phase(ctx, rev); err != nil {
 			return err

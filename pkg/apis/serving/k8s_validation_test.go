@@ -1605,7 +1605,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMissingOneOf("projected[0].configMap", "projected[0].secret"),
+		want: apis.ErrMissingOneOf("projected[0].configMap", "projected[0].secret", "projected[0].serviceAccountToken"),
 	}, {
 		name: "no name",
 		v: corev1.Volume{
@@ -1680,6 +1680,39 @@ func TestVolumeValidation(t *testing.T) {
 			apis.ErrMissingField("projected[0].secret.items[0].path")).Also(
 			apis.ErrMissingField("projected[1].configMap.items[0].key")).Also(
 			apis.ErrMissingField("projected[1].configMap.items[0].path")),
+	}, {
+		name: "serviceaccounttoken",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          "api",
+							ExpirationSeconds: ptr.Int64(3600),
+							Path:              "token",
+						},
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "projection missing serviceaccounttoken values",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          "api",
+							ExpirationSeconds: ptr.Int64(3600),
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMissingField("projected[0].serviceAccountToken.path"),
 	}}
 
 	for _, test := range tests {

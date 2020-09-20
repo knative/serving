@@ -18,15 +18,17 @@
 name: Test
 
 on:
+
   push:
-    branches: [ 'master', 'release-*' ]
+    branches: [ 'master' ]
+
   pull_request:
     branches: [ 'master', 'release-*' ]
 
 jobs:
 
   test:
-    name: Test
+    name: Unit Tests
     strategy:
       matrix:
         go-version: [1.14.x]
@@ -44,8 +46,20 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v2
+
+      - name: Check for .codecov.yaml
+        id: codecov-enabled
+        uses: andstor/file-existence-action@v1
         with:
-          fetch-depth: 1
+          files: .codecov.yaml
+
+      - if: steps.codecov-enabled.outputs.files_exists == 'true'
+        name: Produce Go Coverage
+        run: echo '::set-env name=COVER_OPTS::-coverprofile=coverage.txt -covermode=atomic'
 
       - name: Test
-        run: go test -race ./...
+        run: go test -race $COVER_OPTS ./...
+
+      - if: steps.codecov-enabled.outputs.files_exists == 'true'
+        name: Codecov
+        uses: codecov/codecov-action@v1

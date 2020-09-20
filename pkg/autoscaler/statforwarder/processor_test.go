@@ -55,10 +55,10 @@ func TestProcessorForwarding(t *testing.T) {
 
 	logger := TestLogger(t)
 	conn := websocket.NewDurableSendingConnection("ws"+strings.TrimPrefix(s.URL, "http"), logger)
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return conn.IsEstablished(), nil
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		return conn.Status() == nil, nil
 	}); err != nil {
-		t.Fatal("Timeout waiting f.processors got updated")
+		t.Fatal("Timeout waiting for WebSocket connection got established")
 	}
 
 	p := bucketProcessor{

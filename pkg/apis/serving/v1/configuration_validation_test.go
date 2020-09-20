@@ -233,6 +233,28 @@ func TestConfigurationValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "invalid autoscaling.knative.dev annotation",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "autoscaling-annotation",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/foo": "bar",
+				},
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidKeyName("autoscaling.knative.dev/foo", "metadata.annotations", `autoscaling annotations must be put under "spec.template.metadata.annotations" to work`),
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.

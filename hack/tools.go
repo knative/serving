@@ -43,6 +43,9 @@ import (
 	// caching resource
 	_ "knative.dev/caching/config"
 
+	// networking resource
+	_ "knative.dev/networking/config"
+
 	// For load testing
 	_ "github.com/tsenart/vegeta"
 	_ "knative.dev/pkg/testutils/clustermanager/perf-tests"

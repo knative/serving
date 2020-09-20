@@ -203,10 +203,12 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 				autoscaling.WindowAnnotationKey: "50s",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("512Mi"),
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300Mi"),
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
 			}),
 		}, fopts...)...)
@@ -368,9 +370,9 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	}
 }
 
-// RunAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
+// runAutoscaleUpCountPods is a test kernel to test the chosen autoscaler using the given
 // metric tracks the given target.
-func RunAutoscaleUpCountPods(t *testing.T, class, metric string) {
+func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 	target := containerConcurrency
 	if metric == autoscaling.RPS {
 		target = 10

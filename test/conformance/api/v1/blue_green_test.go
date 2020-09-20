@@ -51,16 +51,13 @@ func TestBlueGreenRoute(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	imagePaths := []string{
-		pkgTest.ImagePath(test.PizzaPlanet1),
-		pkgTest.ImagePath(test.PizzaPlanet2),
-	}
-
 	// Set Service and Image for names to create the initial service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   test.PizzaPlanet1,
 	}
+
+	greenImagePath := pkgTest.ImagePath(test.PizzaPlanet2)
 
 	test.EnsureTearDown(t, clients, &names)
 
@@ -78,16 +75,16 @@ func TestBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	t.Log("Updating the Service to use a different image")
-	service, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(imagePaths[1]))
+	service, err := v1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(greenImagePath))
 	if err != nil {
-		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
+		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, greenImagePath, err)
 	}
 	objects.Service = service
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	green.Revision, err = v1test.WaitForServiceLatestRevision(clients, names)
 	if err != nil {
-		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, imagePaths[1], err)
+		t.Fatalf("Service %s was not updated with the Revision for image %s: %v", names.Service, greenImagePath, err)
 	}
 
 	t.Log("Updating RouteSpec")

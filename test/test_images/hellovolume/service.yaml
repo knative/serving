@@ -35,6 +35,10 @@ spec:
               name: bar
           - configMap:
               name: baz
+          - serviceAccountToken:
+              audience: api
+              expirationSeconds: 3600
+              path: token
 ---
 apiVersion: v1
 kind: Secret

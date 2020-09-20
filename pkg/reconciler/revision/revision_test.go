@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -229,9 +229,13 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 
 type nopResolver struct{}
 
-func (r *nopResolver) Resolve(context.Context, string, k8schain.Options, sets.String) (string, error) {
-	return "", nil
+func (r *nopResolver) Resolve(rev *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+	return []v1.ContainerStatus{{
+		Name: rev.Spec.Containers[0].Name,
+	}}, nil
 }
+
+func (r *nopResolver) Clear(types.NamespacedName) {}
 
 func testPodSpec() corev1.PodSpec {
 	return corev1.PodSpec{
@@ -320,23 +324,36 @@ func testDefaultsCM() *corev1.ConfigMap {
 	}
 }
 
-type errorResolver struct {
-	err error
+type notResolvedYetResolver struct{}
+
+func (r *notResolvedYetResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+	return nil, nil
 }
 
-func (r *errorResolver) Resolve(_ context.Context, _ string, _ k8schain.Options, _ sets.String) (string, error) {
-	return "", r.err
+func (r *notResolvedYetResolver) Clear(types.NamespacedName) {}
+
+type errorResolver struct {
+	err     error
+	cleared bool
+}
+
+func (r *errorResolver) Resolve(_ *v1.Revision, _ k8schain.Options, _ sets.String, _ time.Duration) ([]v1.ContainerStatus, error) {
+	return nil, r.err
+}
+
+func (r *errorResolver) Clear(types.NamespacedName) {
+	r.cleared = true
 }
 
 func TestResolutionFailed(t *testing.T) {
 	// Unconditionally return this error during resolution.
 	innerError := errors.New("i am the expected error message, hear me ROAR!")
+	resolver := &errorResolver{cleared: false, err: innerError}
 	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/, func(r *Reconciler) {
-		r.resolver = &errorResolver{innerError}
+		r.resolver = resolver
 	})
 
 	rev := testRevision(testPodSpec())
-
 	createRevision(t, ctx, controller, rev)
 
 	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Get(ctx, rev.Name, metav1.GetOptions{})
@@ -348,17 +365,20 @@ func TestResolutionFailed(t *testing.T) {
 	for _, ct := range []apis.ConditionType{"ContainerHealthy", "Ready"} {
 		got := rev.Status.GetCondition(ct)
 		want := &apis.Condition{
-			Type:   ct,
-			Status: corev1.ConditionFalse,
-			Reason: "ContainerMissing",
-			Message: v1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, "failed to resolve image to digest: "+innerError.Error()),
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "ContainerMissing",
+			Message:            innerError.Error(),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got):\n%s", diff)
 		}
+	}
+
+	if !resolver.cleared {
+		t.Fatal("Expected resolver.Clear() to have been called")
 	}
 }
 
@@ -403,47 +423,38 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	}
 }
 
-func TestRevWithImageDigests(t *testing.T) {
-	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/)
-	rev := testRevision(corev1.PodSpec{
-		Containers: []corev1.Container{{
-			Name:  "first",
-			Image: "gcr.io/repo/image",
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8888,
-			}},
-		}, {
-			Name:  "second",
-			Image: "docker.io/repo/image",
-		}, {
-			Name:  "third",
-			Image: "docker.io/anotherrepo/image",
-		}},
+func TestStatusUnknownWhenDigestsNotResolvedYet(t *testing.T) {
+	ctx, _, _, controller, _ := newTestController(t, nil /*additional CMs*/, func(r *Reconciler) {
+		r.resolver = &notResolvedYetResolver{}
 	})
-	createRevision(t, ctx, controller, rev)
-	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
-	rev, err := revClient.Get(ctx, rev.Name, metav1.GetOptions{})
+
+	rev := testRevision(testPodSpec())
+
+	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
+	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
+		t.Fatal("Reconcile failed:", err)
+	}
+
+	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Get(ctx, rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Couldn't get revision:", err)
 	}
-	if len(rev.Status.ContainerStatuses) < 2 {
-		t.Error("Revision status does not have imageDigests")
-	}
 
-	rev.Status.DeprecatedImageDigest = "gcr.io/repo/image"
-	updateRevision(t, ctx, controller, rev)
-	if len(rev.Spec.Containers) != len(rev.Status.ContainerStatuses) {
-		t.Fatal("Image digests do not match the provided containers")
-	}
-	for i, c := range rev.Spec.Containers {
-		if c.Name != rev.Status.ContainerStatuses[i].Name {
-			t.Error("Container statuses do not match the order of containers in spec")
+	// Status should be Unknown until the digest resolution completes.
+	for _, ct := range []apis.ConditionType{"ResourcesAvailable", "Ready"} {
+		got := rev.Status.GetCondition(ct)
+		want := &apis.Condition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "ResolvingDigests",
+			Message:            "",
+			LastTransitionTime: got.LastTransitionTime,
+			Severity:           apis.ConditionSeverityError,
 		}
-	}
-	rev.Status.ContainerStatuses = []v1.ContainerStatus{}
-	updateRevision(t, ctx, controller, rev)
-	if len(rev.Status.ContainerStatuses) != 0 {
-		t.Error("Failed to update revision")
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff for condition %q (-want +got):\n%s", ct, diff)
+		}
 	}
 }
 

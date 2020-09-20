@@ -94,7 +94,7 @@ func sendRequests(client *spoof.SpoofingClient, url *url.URL, num int) ([]string
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
-	g, _ := pool.NewWithContext(context.Background(), 5, num)
+	g := pool.NewWithCapacity(8, num)
 	for i := 0; i < num; i++ {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
