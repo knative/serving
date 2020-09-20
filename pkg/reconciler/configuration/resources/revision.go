@@ -88,10 +88,11 @@ func updateRevisionAnnotations(rev *v1.Revision, config metav1.Object) {
 		annotations[serving.CreatorAnnotation] = c
 	}
 
-	if v, ok := cans[serving.RoutesAnnotationKey]; ok {
+	// DO NOT SUBMIT
+	/*if v, ok := cans[serving.RoutesAnnotationKey]; ok {
 		annotations[serving.RoutesAnnotationKey] = v
 		rev.SetRoutingState(v1.RoutingStateActive, clock.RealClock{})
-	}
+	}*/
 
 	rev.SetAnnotations(annotations)
 }
