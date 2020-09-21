@@ -18,8 +18,10 @@ run:
 
 linters:
   enable:
+    - asciicheck
     - gosec
     - prealloc
+    - stylecheck
     - unconvert
   disable:
     - errcheck
