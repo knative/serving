@@ -55,12 +55,16 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 	return nil
 }
 
+var transport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = true
+	// nolint:gosec // We explicitly don't need to check certs here.
+	t.TLSClientConfig.InsecureSkipVerify = true
+	return t
+}()
+
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	// nolint:gosec // We explicitly don't need to check certs here.
-	transport.TLSClientConfig.InsecureSkipVerify = true
-	transport.DisableKeepAlives = true
 	httpClient := &http.Client{
 		Transport: transport,
 		Timeout:   config.Timeout,
