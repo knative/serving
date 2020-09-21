@@ -102,14 +102,30 @@ type scrapeClient interface {
 	Scrape(url string) (Stat, error)
 }
 
+// noKeepAliveTransport is a http.Transport with the default settings, but with
+// KeepAlive disabled. This is used in the mesh case, where we want to avoid
+// getting the same host on each connection.
+var noKeepAliveTransport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = true
+	return t
+}()
+
+// keepAliveTransport is a http.Transport with the default settings, but with
+// keepAlive upped to allow 1000 connections.
+var keepAliveTransport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DisableKeepAlives = false // default, but for clarity.
+	t.MaxIdleConns = 1000
+	return t
+}()
+
 // noKeepaliveClient is a http client with HTTP Keep-Alive disabled.
 // This client is used in the mesh case since we want to get a new connection -
 // and therefore, hopefully, host - on every scrape of the service.
 var noKeepaliveClient = &http.Client{
-	Transport: &http.Transport{
-		DisableKeepAlives: true,
-	},
-	Timeout: httpClientTimeout,
+	Transport: noKeepAliveTransport,
+	Timeout:   httpClientTimeout,
 }
 
 // client is a normal http client with HTTP Keep-Alive enabled.
@@ -117,11 +133,8 @@ var noKeepaliveClient = &http.Client{
 // to take advantage of HTTP Keep-Alive to avoid connection creation overhead
 // between scrapes of the same pod.
 var client = &http.Client{
-	Timeout: httpClientTimeout,
-	Transport: &http.Transport{
-		MaxIdleConns:    1000,
-		IdleConnTimeout: 90 * time.Second,
-	},
+	Timeout:   httpClientTimeout,
+	Transport: keepAliveTransport,
 }
 
 // serviceScraper scrapes Revision metrics via a K8S service by sampling. Which
