@@ -102,13 +102,13 @@ func markRoutingState(
 	ctx context.Context,
 	acc kmeta.Accessor, clock clock.Clock, diffLabels, diffAnn map[string]interface{}) {
 
-	hasAnyRoutes := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
+	hasRoute := acc.GetAnnotations()[serving.RoutesAnnotationKey] != ""
 	if val, has := diffAnn[serving.RoutesAnnotationKey]; has {
-		hasAnyRoutes = val != nil
+		hasRoute = val != nil
 	}
 
 	wantState := string(v1.RoutingStateReserve)
-	if hasAnyRoutes {
+	if hasRoute {
 		wantState = string(v1.RoutingStateActive)
 	}
 
