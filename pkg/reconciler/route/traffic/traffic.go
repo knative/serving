@@ -165,8 +165,8 @@ func newBuilder(
 }
 
 func (cb *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
-	for _, tt := range traffic {
-		if err := cb.addTrafficTarget(&tt); err != nil {
+	for i := range traffic {
+		if err := cb.addTrafficTarget(&traffic[i]); err != nil {
 			// Other non-traffic target errors shouldn't be ignored.
 			return err
 		}

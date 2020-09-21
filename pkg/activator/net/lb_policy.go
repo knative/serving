@@ -54,6 +54,7 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// Two trackers - we know both contestants,
 	// otherwise pick 2 random unequal integers.
 	if l > 2 {
+		// nolint:gosec // We don't need cryptographic randomness here.
 		r1, r2 = rand.Intn(l), rand.Intn(l-1)
 		// shift second half of second rand.Intn down so we're picking
 		// from range of numbers other than r1.

@@ -62,6 +62,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig: &tls.Config{
+				// nolint:gosec // We explicitly don't need to check certs here.
 				InsecureSkipVerify: true,
 			},
 		},

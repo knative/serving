@@ -78,7 +78,8 @@ func newResolverTransport(path string) (*http.Transport, error) {
 		ExpectContinueTimeout: 1 * time.Second,
 		// Use the cert pool with k8s cert bundle appended.
 		TLSClientConfig: &tls.Config{
-			RootCAs: pool,
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    pool,
 		},
 	}, nil
 }

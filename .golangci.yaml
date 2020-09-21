@@ -18,7 +18,14 @@ run:
 
 linters:
   enable:
-    - unconvert
+    - gosec
     - prealloc
+    - unconvert
   disable:
     - errcheck
+
+issues:
+  exclude-rules:
+    - path: test # Excludes /test, *_test.go etc.
+      linters:
+        - gosec
